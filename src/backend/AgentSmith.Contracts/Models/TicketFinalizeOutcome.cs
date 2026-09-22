@@ -17,5 +17,14 @@ public enum TicketFinalizeOutcome
     NoTransitionToTheStatus,
 
     /// <summary>The provider cannot express the requested status at all; nothing was sent.</summary>
-    StatusNotExpressible
+    StatusNotExpressible,
+
+    /// <summary>
+    /// 2026-09-22-7c41b: no status was asked for, so none was attempted — the answer of a
+    /// caller that posted a comment and nothing else. Not a provider outcome: a finalize
+    /// always carries a status. It exists because <see cref="Moved"/> is the zero value, so a
+    /// caller that moved nothing cannot answer with a default without claiming it moved the
+    /// ticket — and a claimed move CLEARS a standing record nothing had earned.
+    /// </summary>
+    NoStatusRequested
 }

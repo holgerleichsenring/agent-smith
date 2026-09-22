@@ -63,9 +63,9 @@ public sealed class EpicFilingOrderTests
     }
 
     /// <summary>
-    /// 2026-09-17-0e79d: the stamps are gone from the filing shape. A record carries the record
-    /// label and nothing a machine reads; a stamp on the work ticket would cut its branch from
-    /// another ticket's rung instead of from its own base.
+    /// 2026-09-17-0e79d: the position stamps are gone from the filing shape. A parent stamp on
+    /// the work ticket would cut its branch from another ticket's rung instead of from its own
+    /// base.
     /// </summary>
     [Fact]
     public async Task FileEpic_NothingItFiles_CarriesAStamp()
@@ -74,9 +74,7 @@ public sealed class EpicFilingOrderTests
 
         await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
 
-        provider.Created.Should().OnlyContain(
-            c => FiledTicketLabels.ParentId(c.Labels) == null
-                && FiledTicketLabels.PredecessorIds(c.Labels).Count == 0);
+        provider.Created.Should().OnlyContain(c => FiledTicketLabels.ParentId(c.Labels) == null);
     }
 
     /// <summary>

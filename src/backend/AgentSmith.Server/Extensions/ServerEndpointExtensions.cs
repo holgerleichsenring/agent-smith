@@ -43,6 +43,7 @@ internal static class ServerEndpointExtensions
         app.MapSpecDialogEndpoints(); // 2026-09-15-9033: the dashboard's spec-dialog channel
         app.MapSpecDialogViewEndpoints(); // 2026-09-15-cb3e: what is on the dialog page
         app.MapSpecDialogDeletionEndpoints(); // 2026-09-18-7a05: a conversation the operator owns, gone
+        app.MapSpecDialogResumeEndpoints(); // 2026-09-22-2a86: continued in the tab, by id rather than by a typed command
         app.MapSpecDialogImageEndpoints(); // 2026-09-20-3af8: what the operator is looking at
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface

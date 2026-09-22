@@ -33,8 +33,8 @@ public sealed class ProjectResolver(
     {
         // 2026-09-13-a3f1: refused before every other rule — each of those ends in something,
         // and on a project with no pipeline_from_label that something is DefaultPipeline.
-        // 2026-09-22-b3d7: the framework files nothing carrying this label any more; the refusal
-        // stays for the two generations that do and are still on a board (see EpicLabel).
+        // 2026-09-22-b3d7: nothing files this label any more; the refusal stays, permanently, for
+        // the two generations that carry it and are still on a board (see EpicLabel).
         if (FiledTicketLabels.IsEpicRecord(envelope))
         {
             logger?.LogInformation("ProjectResolver: '{Label}' marks a record, not work",
@@ -60,11 +60,13 @@ public sealed class ProjectResolver(
                     continue;
                 }
 
-                // p0315d: a `phase`-labelled ticket (the p0315c filing artifact) routes
-                // hard-bound to the phase-execution preset on every project it matches —
-                // BEFORE pipeline_from_label, which would otherwise drop it (no operator
-                // maps the framework-owned label). Everything else keeps today's routing.
-                var pipeline = FiledTicketLabels.IsPhaseTicket(envelope)
+                // p0315d: a ticket that BINDS routes hard-bound to phase execution on every
+                // project it matches — BEFORE pipeline_from_label, which would otherwise drop it:
+                // no operator's label map holds the framework's own stamp.
+                // 2026-09-22-766b: a FILING binds on the APPROVAL rather than on a word it wrote
+                // for itself; a PERSON still binds by typing the phase word. Load-bearing on the
+                // WEBHOOK, which resolves a repository and an area path a poll cannot.
+                var pipeline = FiledTicketLabels.BindsPhaseExecution(envelope)
                     ? PipelinePresets.PhaseExecutionName
                     : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);

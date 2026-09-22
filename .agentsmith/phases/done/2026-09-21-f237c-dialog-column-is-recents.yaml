@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-f237c
+
+requires:
+  - 2026-09-21-f237a
+  - 2026-09-21-f237b
+
+goal: "The conversations panel becomes one Recents list of at most twenty readable rows, instead of four uneven day groups of fifty rows truncated after three words."
+
+applies_to: "the dashboard (the Work it out surface's conversations panel, its grid share and the module that dated its rows)"
+
+scope:
+  in: >
+    The panel groups its rows under up to four day headings — Today, Yesterday, Last week, Earlier
+    — below a card heading that already says Conversations, inside the narrowest track of a
+    three-column grid, with each row one line truncated by an ellipsis and all fifty drawn.
+    Four things are wrong at once. The day headings cost a line each and carry only what a per-row
+    timestamp carries, and they are uneven by construction: a working day puts everything under
+    Today and leaves three unused, a Monday puts everything under Last week. Fifty rows in a panel
+    is not a list anyone scans. 220px of one truncated line shows three words of a subject. And a
+    card heading plus a day heading is two headings over one list.
+    So: ONE heading, reading Recents, on the card head where Conversations is today. At most twenty
+    rows drawn, ALWAYS INCLUDING the conversation open here. Each row carrying when it was last
+    active, relatively, which is what the day headings were carrying for it. A wider track, and the
+    subject clamped to two lines before it truncates.
+    "Always including the open one" means: whenever the list holds it. A conversation outside the
+    backend's fifty is in no array to append from, and f237b bounds what that costs rather than
+    putting the row there — so the panel can be without it, and the pane it heads is headed by the
+    conversation's own subject either way.
+    The module that dated the rows is renamed with what it now does, because it stops being about
+    days.
+  out: >
+    CAPPING THE STATE. The twenty is a slice taken where the rows are drawn. The hook finds the
+    conversation open here in the same array to decide whether the list is behind, and the surface
+    reads that conversation's fallback heading from it; capping the array would make a conversation
+    below the twentieth unfindable in both, and the predicate would answer "behind" forever. This
+    is the one change in the phase that would break something invisible.
+    LOSING THE DELETE FOR THE ROWS NO LONGER DRAWN. It is not lost: f237b put the same control and
+    the same confirmation on the page, which is why this phase may bound the panel at all. A panel
+    that capped before that page existed would have made rows twenty-one and up undeletable
+    anywhere.
+    A CONVERSATION OUTSIDE THE PANEL'S FIFTY. f237b answered it — the read is spent once rather
+    than per reply — and nothing here changes that.
+    A COLUMN THE READER DRAGS. "Not sizeable" is answered with a bigger share of the grid, not a
+    splitter: a dragged width is per-viewer state this page has nowhere durable to keep, and a
+    panel that forgets its width on every reload is worse than one that never offered.
+    THE BACKEND CAP AND THE PANEL'S READ. Both stay as f237b leaves them. Fifty is how far back the
+    page can still recognise what it has open; twenty is how many a person scans. They are two
+    numbers because they answer two questions.
+    THE ROW'S CONTENT. What a row SAYS is f237a. This phase changes how much of it is legible.
+
+decisions:
+  - key: |
+      ONE HEADING, AND IT REPLACES THE CARD'S OWN. Adding a Recents heading under the existing
+      Conversations heading would put two names on one list. The card head becomes Recents, which
+      is the truer name: the card holds the recent ones, the picker, the way to start a new one and
+      the link to all of them. Nothing is added above the rows.
+  - key: |
+      THE DAY GROUPING GOES ENTIRELY RATHER THAN BECOMING CONDITIONAL. "Group only when there is
+      more than one day" gives a panel whose shape changes under a reader between two reloads and
+      keeps a module alive for a case nobody looks at. The relative timestamp it stood in for moves
+      onto the row, next to what it dates.
+  - key: |
+      THE OPEN CONVERSATION IS ALWAYS DRAWN, WHICH IS WHY THE RULE IS NOT SIMPLY "THE FIRST
+      TWENTY". Today all fifty are drawn, so the row marked aria-current is always on screen. With
+      a flat slice, a conversation ranked twenty-first — very reachable now that f237b's page can
+      open one — would have its mark on no row at all, and the reader would see a panel that does
+      not contain what they are reading. The first twenty, plus the open one if it is not among
+      them.
+  - key: |
+      THE SECOND LINE IS A CLAMP, NOT A WRAP. A subject is minted short but nothing guarantees it,
+      and a row growing to four lines for one verbose subject makes a ragged column. Two lines then
+      the ellipsis — the same truncation, one line later. line-clamp-2 is already this tree's idiom
+      and Tailwind ships it here; the block display the row's title carries has to come off, because
+      line-clamp sets its own.
+  - key: |
+      WIDENING THE PANEL IS PAID FOR BY THE EXCHANGE, AND THAT IS THE RIGHT PAYER. At the widest
+      breakpoint the tracks are a fixed panel, a flexible exchange and a fixed scope pane. The scope
+      pane holds given names — repositories, templates — that cannot be shortened without lying, so
+      it keeps its width; the exchange is prose that reflows. The mid and phone breakpoints, where
+      the panel is already full width, do not change.
+
+steps:
+  - id: one-heading-and-no-day-groups
+    action: "The card head reads Recents; DialogConversations renders its rows without the per-day wrapper, keeping the spacing that wrapper gave them. conversationDays loses groupByDay, dayLabel and ConversationDay and is renamed for what it still does; timeOfDay becomes a relative last-active label that answers for every row, under a name that says so. outcomeLabel is unchanged."
+  - id: twenty-rows-plus-the-one-being-read
+    action: "The rows are sliced to twenty where they are drawn, with the conversation open here appended when the slice does not contain it. The conversations array the hook and the surface read is untouched."
+  - id: a-row-worth-reading
+    action: "The grid gives the panel a larger share at the widest breakpoint, taken from the exchange; the row's subject is clamped to two lines instead of truncated at one."
+  - id: the-tests-that-pinned-the-grouping-are-rewritten
+    action: "SpecDialog_TheConversations_GroupByDayAndMarkTheCurrentOne is replaced rather than deleted: it holds the tree's only assertion that a row which is NOT open carries no aria-current, and that assertion moves to the test that replaces it."
+
+tests:
+  - "SpecDialog_ConversationsFromAnyNumberOfDays_AreOneListUnderOneHeading"
+  - "SpecDialog_TheConversations_MarkTheCurrentOne"
+  - "SpecDialog_MoreThanTwentyConversations_DrawsTwenty"
+  - "SpecDialog_AnOpenConversationBelowTheTwentieth_IsDrawnAsWell"
+  - "SpecDialog_AnOpenConversationBelowTheTwentieth_StillHeadsThePane"
+  - "SpecDialog_AnOpenConversationBelowTheTwentieth_TriggersNoFurtherListRead"
+  - "SpecDialog_ARow_SaysWhenItWasLastActive"
+  - "SpecDialog_ARowFromToday_SaysSoRelativelyToo"
+  - "SpecDialog_ALongSubject_IsClampedRatherThanTruncatedAtOneLine"
+  - "SpecDialog_TheWideBreakpoint_GivesThePanelItsLargerShare"
+
+done:
+  - "the panel reads as one Recents list under one heading, not four uneven day groups under two"
+  - "at most twenty rows are drawn, the open one among them whenever the list holds it, and the array behind them is whole"
+  - "a conversation open below the twentieth row still heads its pane and triggers no extra list read"
+  - "every row says when it was last active, not only today's"
+  - "a subject gets two lines in a track wide enough to read them, and the scope pane keeps its width"
+  - "no module or function is left named after the days it no longer groups by"
+  - "the aria-current coverage that lived in the grouping test still exists"
+  - "dashboard tests green, pnpm build green, full suite green"
+
+facts:
+  - claim: "The panel groups its rows by calendar day under Today, Yesterday, Last week and Earlier."
+    evidence: "src/dashboard/src/components/dialog/conversationDays.ts:12-32, src/dashboard/src/components/dialog/DialogConversations.tsx:86-99"
+  - claim: "The card already carries a heading reading Conversations above the picker, the button and the rows."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:52-54"
+  - claim: "groupByDay has one caller and no unit test, but one rendering test pins all four labels and their row membership exactly."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:5, :86, src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:686-712"
+  - claim: "That test asserts both halves of the mark; the NEGATIVE half — that a row which is not open carries no aria-current — exists nowhere else in the tree, while the positive half is also asserted by the clicking-the-open-one test."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:710-711, :823"
+  - claim: "A row's timestamp is rendered only for a conversation from today; an older row is dated by its group heading alone."
+    evidence: "src/dashboard/src/components/dialog/conversationDays.ts:50-54, src/dashboard/src/components/dialog/DialogConversations.tsx:136"
+  - claim: "The row's title is one line truncated by a Tailwind utility, not by the stylesheet."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:130"
+  - claim: "The panel is a 220px track between a flexible exchange and a 360px scope pane only at the widest breakpoint; at the mid breakpoint it spans the full width above the exchange, and on a phone it is the single column."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:107, src/dashboard/src/components/dialog/DialogConversations.tsx:48-51"
+  - claim: "The per-day wrapper carries the row spacing, which a flat list would otherwise inherit from the looser container."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:85, :87"
+  - claim: "The hook finds the conversation open here in the conversations array to decide whether the list is behind, and the surface reads that conversation's fallback heading from the same array."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:317-321, :327-330, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:91-94"
+  - claim: "A conversation with no row leaves the predicate answering behind, and leaves the pane headed 'New conversation' unless the session itself carries a subject — which is why the array may not be sliced."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:328-329, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:94, :127"
+  - claim: "The delete control exists on the panel row alone, which is why bounding the panel requires f237b's page to carry one."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:144-153"
+  - claim: "The rows arrive ordered by last activity within a set capped by id, so a render-time slice takes the most recently active of the most recently created."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:52-59"
+  - claim: "line-clamp-2 is already used in this dashboard and asserted by a test, and the row's title carries a block display that line-clamp would have to replace."
+    evidence: "src/dashboard/src/components/execution/RailRow.tsx:66, src/dashboard/src/components/execution/__tests__/NavRail.test.tsx:264, src/dashboard/src/components/dialog/DialogConversations.tsx:130"
+  - claim: "The scope pane renders given names — repositories and templates — that the surface did not choose and cannot shorten."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1093-1094"
+  - claim: "Conversation-row assertions live in SpecDialogSurface.test.tsx under a SpecDialog_ prefix, rendered through the whole surface rather than the component alone."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:686, :881, :904"

@@ -13,7 +13,7 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
   return {
     sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z",
-    title: "a widget that reads the ledger", outcome: null, openDialogId: null,
+    title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null,
     ...overrides,
   };
 }
@@ -63,9 +63,28 @@ describe("The deletion warning", () => {
       + " resolving.");
     expect(noKind).toBe(filedNothing);
 
-    // A conversation nobody titled is named by its session id rather than by an empty quote.
-    expect(deletionWarning(conversation({ title: null })))
+    // A conversation nobody titled and nothing named is named by its session id rather than by
+    // an empty quote.
+    expect(deletionWarning(conversation({ title: null, subject: null })))
       .toContain("Delete “untitled s-9”?");
+  });
+
+  // 2026-09-21-f237a: the warning quotes what the PERSON wrote wherever there is one, because
+  // that is what they are being asked to destroy.
+  it("TheDeletionWarning_ARowWithBoth_QuotesTheFirstLine", () => {
+    expect(deletionWarning(conversation({
+      title: "Ich brauche alle libraries aktualisiert",
+      subject: "Aktualisierung aller Projektbibliotheken",
+    }))).toContain("Delete “Ich brauche alle libraries aktualisiert”?");
+  });
+
+  // But a conversation opened with nothing but a pasted block has no first line at all, and the
+  // row beside this warning is showing its subject. "untitled s-9" would name a different thing
+  // from the one on screen.
+  it("TheDeletionWarning_ARowWithASubjectAndNoTitle_QuotesTheSubject", () => {
+    expect(deletionWarning(conversation({
+      title: null, subject: "Aktualisierung aller Projektbibliotheken",
+    }))).toContain("Delete “Aktualisierung aller Projektbibliotheken”?");
   });
 
   // Nothing was said in it and nothing could have been filed from it.

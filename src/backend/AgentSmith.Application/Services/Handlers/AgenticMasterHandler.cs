@@ -48,13 +48,7 @@ public sealed class AgenticMasterHandler(
     IOutcomeProposalResolver outcomeResolver,
     SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
     SpecDialogProposalReview proposalReview, // 2026-09-17-042ed: the turn reviews what it proposes
-    ISubAgentRunner subAgentRunner,
-    SubAgentBudget subAgentBudget,
-    SubAgentNameValidator subAgentNameValidator,
-    IChildAnswerStore childAnswerStore,
-    LoopLimitsConfig loopLimits,
     ITicketDocumentMaterializer documentMaterializer,
-    EnsureRepoSandboxToolFactory ensureRepoSandboxFactory, // p0331
     MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this phase is built after
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
@@ -64,7 +58,7 @@ public sealed class AgenticMasterHandler(
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
     IDialogueTransport? dialogueTransport,
-    AgenticToolSurface toolSurface,
+    MasterToolComposition composition, // which tool surface this master gets
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
     TurnActivityTools reportingTools, // 2026-09-17-042ee: the surface those steps come from
     ILogger<AgenticMasterHandler> logger)
@@ -273,6 +267,14 @@ public sealed class AgenticMasterHandler(
         IToolHost human = ticketClarifications is not null
             ? ticketClarifications
             : new HumanToolHost(dialogueTransport, dialogueJobId);
+        // 2026-09-22-9519: the withdrawal door, built on the SAME gate ask_human is built on — a
+        // dialogue identity. The port is seeded by the turn runner that has one, so a run with no
+        // conversation behind it never constructs it and never carries the tool.
+        var withdraw = dialogueJobId is not null
+            && context.Pipeline.TryGet<IFiledTicketWithdrawal>(
+                ContextKeys.SpecDialogWithdrawal, out var withdrawal) && withdrawal is not null
+            ? new WithdrawFiledTicketToolHost(withdrawal, dialogueJobId)
+            : null;
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
@@ -350,14 +352,19 @@ public sealed class AgenticMasterHandler(
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
 
+        // 2026-09-17-042ee/2026-09-22-5891: ONLY the design surface reports, wrapped where it
+        // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
+        var composed = composition.Compose(
+            isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
+            progress, recall, remember, withdraw, context);
+        var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
+
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(
-                isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-                progress, recall, remember, context),
+            Tools: masterTools,
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
@@ -670,53 +677,6 @@ public sealed class AgenticMasterHandler(
         return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
     }
 
-    // p0280: the master surface = its base surface (read-only Review for a scan master,
-    // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
-    // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
-    // the master's read-set + changes) and get the same base surface — never spawn_agents.
-    // p0315b: the spec-dialog surface is content-reads + ask_human only, no sub-agents —
-    // a conversation turn neither writes nor delegates.
-    private IList<AITool> ComposeMasterTools(
-        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
-        GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
-        WebToolHost? web, ProgressLedgerToolHost progress,
-        MemoryRecallToolHost recall, MemoryWriteToolHost remember, AgenticMasterContext context)
-    {
-        // p0380: recall (read) + remember (memory-only proposal) join EVERY
-        // master surface, including the read-only Review/scan surface.
-        // 2026-09-17-042ee: only this surface reports; AgenticToolSurface itself is untouched.
-        if (isSpecDialog) return reportingTools.Reporting(
-            toolSurface.SpecDialog(fs, human, web, recall, remember));
-        IList<AITool> BaseSurface() => isScanMaster
-            ? toolSurface.Review(fs, log, web, recall, remember)
-            : toolSurface.ReadWriteWithHuman(
-                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
-                recall: recall, remember: remember);
-
-        var master = BaseSurface();
-        // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
-        // counterpart to ScopeRepos' conservative narrowing. Scan masters read
-        // everything anyway (full scope, no narrowing) and must not spawn.
-        // p0341: coding masters also get update_progress (the durable ledger); scan /
-        // spec-dialog surfaces never do — a read-only review keeps no checklist.
-        if (!isScanMaster)
-            master = master
-                .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
-                .Concat(progress.GetTools(null, null))
-                .ToList();
-        if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
-
-        var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";
-        var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
-        var subCtx = new SubAgentContext(
-            context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget,
-            AgentConfig: context.AgentConfig);
-        var spawn = new SpawnAgentToolHost(subAgentRunner, subAgentBudget, subAgentNameValidator, decisionLogger, subCtx);
-        var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
-        return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
-    }
-
     // An absolute anti-hang net on re-engagement passes for the fail-open case (no cost
     // cap configured). It is NOT the control — money + forward progress are.
     private const int ReengageHardSafetyCap = 50;
@@ -746,6 +706,12 @@ public sealed class AgenticMasterHandler(
                     pipelineName, progress.GetLedger(), verification,
                     costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1, verdictOwed.Demanded))
             {
+                // 2026-09-22-7c41a: when MONEY is what ended the re-engagement, say which cap
+                // and what was spent — a resumed run carries the segment before it, so this
+                // stop can arrive far earlier than the run's own record would suggest.
+                if (costTracker.IsBudgetExhausted)
+                    logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}",
+                        context.MasterSkillName, CostCapStop.Describe(costTracker));
                 LogVerdictlessStop(
                     context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count, verdictOwed.Demanded);
                 break;
@@ -789,11 +755,14 @@ public sealed class AgenticMasterHandler(
                 blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
                 toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
             }
-            catch (MasterBudgetExhaustedException)
+            catch (MasterBudgetExhaustedException budgetEx)
             {
+                // 2026-09-22-7c41a: the fence's own sentence, which names the cap and the
+                // spend. This arm only LOGS and breaks, so without it the run's loudest
+                // money stop left nothing but "hit the cost budget".
                 logger.LogWarning(
-                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved)",
-                    context.MasterSkillName);
+                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
+                    context.MasterSkillName, budgetEx.Message);
                 break;
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)

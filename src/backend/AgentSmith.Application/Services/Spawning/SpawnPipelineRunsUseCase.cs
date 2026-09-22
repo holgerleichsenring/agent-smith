@@ -22,10 +22,12 @@ namespace AgentSmith.Application.Services.Spawning;
 /// Run row and returns Queued without claiming. The reservation is freed on terminal status
 /// (RunEventApplier) or if the claim fails.
 ///
-/// 2026-09-13-a72a: an epic child whose predecessor has not left the working set is
-/// declined BEFORE any of that — it stays in the tracker, holds no run row and no
-/// reservation, and is offered again on the next poll. The capacity queue is strict
-/// FIFO across all projects, so a dependency waiting at its head would stall the estate.
+/// 2026-09-22-766b: the funnel no longer asks whether a ticket's predecessors have left the
+/// working set. Nothing the framework files has carried a predecessor stamp since
+/// 2026-09-17-0e79d — the order inside an approved cut is the sequence's, phase by phase, a
+/// successor held until its predecessor VERIFIED — and the gate could only ever HOLD a spawn,
+/// never refuse one. What that costs is stated rather than hidden: two legacy children of the
+/// withdrawn N-children shape may now run CONCURRENTLY and cut from the same parent rung.
 ///
 /// 2026-09-21-77d6: the decision is three ways, not two — start, REFUSE, defer. A ticket the
 /// claim would refuse outright is refused instead of queued; queuing it mints a waiting run the
@@ -38,7 +40,6 @@ public sealed class SpawnPipelineRunsUseCase(
     ICapacityQueue capacityQueue,
     ISandboxCorpseReaper corpseReaper,
     ISandboxCapacityProbe capacityProbe,
-    IPredecessorGate predecessorGate,
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
     IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
@@ -56,13 +57,6 @@ public sealed class SpawnPipelineRunsUseCase(
         CancellationToken ct,
         Dictionary<string, string>? planAnswers = null)
     {
-        // 2026-09-13-a72a: FIRST — before validation, before the footprint, before any
-        // enqueue. A ticket arriving behind a non-empty queue is deferred with a queued Run
-        // row and a budget record, and the pump then claims it DIRECTLY; a gate placed after
-        // that branch would leave state behind and be bypassed by a second, ungated door.
-        var predecessors = await predecessorGate.CheckAsync(project, envelope, ct);
-        if (predecessors.Blocked) return new SpawnResult([ClaimResult.Queued(predecessors.Reason!)]);
-
         ValidateForSpawn(project, envelope);
         var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
 

@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Server.Services.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using Docker.DotNet;
 using Docker.DotNet.Models;
 using FluentAssertions;
@@ -58,16 +59,18 @@ public sealed class SandboxLivenessWatcherTests
     }
 
     [Fact]
-    public async Task SandboxLivenessWatcher_HeartbeatMissing_ContainerProbeGone_SignalsCancelWithReasonSandboxVanished()
+    public async Task SandboxLiveness_AVanishedSandbox_IsNoticedWithoutADeadline()
     {
         var fixture = new WatcherFixture();
         fixture.HeartbeatPresent = false;
         fixture.ProbeThrowsNotFound = true;
 
-        // Poll-until-signal, not a fixed delay: the watcher's detect→cancel cadence is
-        // real-time, so a fixed wait flaked under CI load. Complete as soon as both the
-        // cancel and the vanish-event fire; fail only if neither happens within the window.
-        await fixture.RunUntilAsync(fixture.CancelAndVanishObserved);
+        // 2026-09-22-3f7c: the signal was already the right thing to wait for; the window
+        // behind it was still a number, and on a slow runner the number is what failed.
+        // A cancel that never comes is a defect, so nothing but the suite's hang ceiling
+        // bounds this wait.
+        await fixture.RunUntilAsync(
+            fixture.CancelAndVanishObserved, "the vanished sandbox is cancelled and announced");
 
         // p0396: a Gone container yields no inspect evidence — the detail stays
         // null so the summary falls back to a neutral sentence, not an OOM guess.
@@ -88,7 +91,7 @@ public sealed class SandboxLivenessWatcherTests
         fixture.HeartbeatPresent = false;
         fixture.ContainerState = new ContainerState { Running = false, ExitCode = 137 };
 
-        await fixture.RunUntilAsync(fixture.VanishObserved);
+        await fixture.RunUntilAsync(fixture.VanishObserved, "the exited container is announced");
 
         fixture.Publisher.Verify(p => p.PublishAsync(
             It.Is<SandboxVanishedEvent>(e => e.ContainerState.Contains("137")),
@@ -119,13 +122,24 @@ public sealed class SandboxLivenessWatcherTests
         public Task VanishObserved => _vanishObserved.Task;
         public Task CancelAndVanishObserved => Task.WhenAll(_cancelObserved.Task, _vanishObserved.Task);
 
+        // 2026-09-22-3f7c: one heartbeat probe is one watcher tick, so a "never cancels" test
+        // can wait for the TICKS to have happened instead of for a stretch of clock in which
+        // they might have. On a host that gives the loop no scheduling the old fixed window
+        // asserted over a watcher that had barely run, and said nothing at all.
+        private int _probes;
+        public int Probes => Volatile.Read(ref _probes);
+
         public WatcherFixture()
         {
             Multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(Database.Object);
             Database.Setup(d => d.KeyExistsAsync(
                     It.Is<RedisKey>(k => (string)k! == RedisKeys.HeartbeatKey(JobId)),
                     It.IsAny<CommandFlags>()))
-                .ReturnsAsync(() => HeartbeatPresent);
+                .ReturnsAsync(() =>
+                {
+                    Interlocked.Increment(ref _probes);
+                    return HeartbeatPresent;
+                });
             Docker.Setup(d => d.Containers).Returns(Containers.Object);
             Containers.Setup(c => c.InspectContainerAsync(ContainerId, It.IsAny<CancellationToken>()))
                 .Returns(() =>
@@ -141,27 +155,28 @@ public sealed class SandboxLivenessWatcherTests
                 .Returns(Task.CompletedTask);
         }
 
-        // "never cancels" tests: wait a bounded real-time window, then assert nothing fired.
+        // "never cancels" tests: let the watcher tick a counted number of times, then assert
+        // nothing fired. The count comes from the watcher's own probes, so the assertion holds
+        // over the same number of decisions on every machine.
         public async Task RunForAsync(int ticks)
         {
             var watcher = NewWatcher();
             watcher.Start();
-            var wait = SandboxLivenessWatcher.PollInterval.TotalMilliseconds * ticks + 500;
-            await Task.Delay(TimeSpan.FromMilliseconds(wait));
-            await watcher.DisposeAsync();
+            try
+            {
+                await TestWaits.UntilAsync(() => Probes >= ticks, $"the watcher probes {ticks} times");
+            }
+            finally { await watcher.DisposeAsync(); }
         }
 
-        // "signals" tests: run until the outcome fires (fast) or a generous timeout elapses
-        // (only reached on a genuine failure — never on scheduling jitter).
-        public async Task RunUntilAsync(Task signal)
+        // "signals" tests: run until the outcome fires. There is no second outcome to wait for
+        // and no latency being claimed, so the only bound is the suite's hang ceiling.
+        public async Task RunUntilAsync(Task signal, string awaited)
         {
-            var timeout = TimeSpan.FromMilliseconds(
-                SandboxLivenessWatcher.PollInterval.TotalMilliseconds
-                    * (SandboxLivenessWatcher.MissThreshold + 2) * 6 + 5000);
             var watcher = NewWatcher();
             watcher.Start();
-            await Task.WhenAny(signal, Task.Delay(timeout));
-            await watcher.DisposeAsync();
+            try { await signal.OrHang(awaited); }
+            finally { await watcher.DisposeAsync(); }
         }
 
         private SandboxLivenessWatcher NewWatcher() => new(

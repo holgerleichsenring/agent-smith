@@ -3,12 +3,15 @@ using AgentSmith.Server.Models;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// Executes the /spec commands: open a scoped session, list open sessions,
-/// resume a session into the current thread, and fork ("/spec new").
+/// Opens a scoped spec-dialog session on a thread — the one act that creates a conversation.
+/// <para>
+/// 2026-09-22-2a86: the list, the resume and the fork left with the spellings that were their
+/// only callers. What remains is reached by a typed "/spec" on chat and CONSTRUCTED by
+/// <see cref="SpecDialogConversationResolver"/> for a page that already knows its project.
+/// </para>
 /// </summary>
 public sealed class SpecDialogCommandHandler(
     SpecDialogSessionManager sessions,
-    SpecDialogResumer resumer,
     SpecDialogScopeResolver scopeResolver,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger)
@@ -17,52 +20,22 @@ public sealed class SpecDialogCommandHandler(
         SpecCommand command, string userId, string channelId, string threadId,
         string platform, CancellationToken ct) => command switch
     {
-        SpecListCommand => HandleListAsync(userId, channelId, threadId, platform, ct),
-        SpecResumeCommand resume => HandleResumeAsync(resume, userId, channelId, threadId, platform, ct),
-        SpecOpenCommand open => HandleOpenAsync(open.Project, forceNew: false, userId, channelId, threadId, platform, ct),
-        SpecNewCommand fork => HandleOpenAsync(fork.Project, forceNew: true, userId, channelId, threadId, platform, ct),
+        SpecOpenCommand open => HandleOpenAsync(open.Project, userId, channelId, threadId, platform, ct),
         _ => throw new InvalidOperationException($"Unhandled spec command {command.GetType().Name}"),
     };
 
-    private async Task HandleListAsync(
-        string userId, string channelId, string threadId, string platform, CancellationToken ct)
-    {
-        var open = await sessions.ListOpenAsync(userId, platform, ct);
-        await messenger.SendAsync(platform, channelId, threadId, composer.ComposeList(open), ct);
-    }
-
-    private async Task HandleResumeAsync(
-        SpecResumeCommand resume, string userId, string channelId, string threadId,
+    private async Task HandleOpenAsync(
+        string? project, string userId, string channelId, string threadId,
         string platform, CancellationToken ct)
     {
-        if (resume.SessionId.Length == 0)
-        {
-            await messenger.SendAsync(platform, channelId, threadId, composer.ComposeResumeUsage(), ct);
-            return;
-        }
-
-        var reply = await resumer.ResumeAsync(
-                resume.SessionId, userId, platform, channelId, threadId, ct) switch
-        {
-            SpecDialogResumed resumed => composer.ComposeResumed(resumed.State),
-            SpecDialogResumeRefused refused => composer.ComposeResumeRefused(refused),
-            _ => composer.ComposeSessionNotFound(resume.SessionId),
-        };
-        await messenger.SendAsync(platform, channelId, threadId, reply, ct);
-    }
-
-    private async Task HandleOpenAsync(
-        string? project, bool forceNew, string userId, string channelId,
-        string threadId, string platform, CancellationToken ct)
-    {
         var existing = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
-        if (existing is not null && !forceNew)
+        if (existing is not null)
         {
             await messenger.SendAsync(platform, channelId, threadId, composer.ComposeAlreadyOpen(existing), ct);
             return;
         }
 
-        var reply = ResolveScope(project, existing) switch
+        var reply = scopeResolver.Resolve(project) switch
         {
             ScopeResolved resolved => composer.ComposeOpened(
                 await sessions.OpenAsync(platform, channelId, threadId, userId, resolved.Scope, ct)),
@@ -72,10 +45,4 @@ public sealed class SpecDialogCommandHandler(
         };
         await messenger.SendAsync(platform, channelId, threadId, reply, ct);
     }
-
-    // A fork without an explicit pick keeps the current session's scope.
-    private ScopeResolution ResolveScope(string? project, ConversationState? existing) =>
-        project is null && existing?.Scope is { } scope
-            ? new ScopeResolved(scope)
-            : scopeResolver.Resolve(project);
 }

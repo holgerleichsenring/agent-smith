@@ -41,6 +41,24 @@ public sealed class MasterLoopGovernorChatClientTests
         new ChatMessage(ChatRole.User, "task"),
     };
 
+    // 2026-09-22-7c41a: the fence throws where neither the cap nor the spend is in scope,
+    // so the hook renders the sentence and the exception carries it. A resumed run meets
+    // this stop earlier than its own record suggests; "exhausted" alone explains nothing.
+    [Fact]
+    public async Task Budget_WhenTheFenceCanNameTheCap_TheStopMessageCarriesIt()
+    {
+        var hooks = new MasterLoopHooks(
+            IsBudgetExhausted: () => true,
+            RenderBudgetStop: () => "the run's cost cap ($30.00 / 15,000,000 tokens) is exhausted",
+            RenderReminder: () => null);
+        var sut = new MasterLoopGovernorChatClient(new RecordingInner(), hooks);
+
+        var act = async () => await sut.GetResponseAsync(Convo());
+
+        (await act.Should().ThrowAsync<MasterBudgetExhaustedException>())
+            .Which.Message.Should().Contain("$30.00 / 15,000,000 tokens").And.Contain("mid-pass");
+    }
+
     [Fact]
     public async Task Budget_ToolIterationMiddleware_CancelsRunawaySinglePass()
     {

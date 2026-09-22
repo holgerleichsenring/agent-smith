@@ -25,7 +25,12 @@ namespace AgentSmith.Tests.SpecDialog;
 /// </summary>
 public sealed class FiledWorkStartTests
 {
-    private const string ByTag = "phase";
+    /// <summary>
+    /// 2026-09-22-766b: the one label a filing writes, so it is the tag a project can resolve by
+    /// that the ticket ALREADY carries — which is what these cases are about. It used to be the
+    /// phase word; no filing writes that any more.
+    /// </summary>
+    private const string ByTag = FiledTicketLabels.ApprovedSetStamp;
 
     [Fact]
     public async Task WorkTicket_ProjectResolvingByATagTheTicketCarries_ReportsStarted()
@@ -334,7 +339,7 @@ public sealed class FiledWorkStartTests
 
         var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
-        provider.Labels.Should().BeEmpty("the phase label IS the tag this project resolves by");
+        provider.Labels.Should().BeEmpty("the approval stamp IS the tag this project resolves by");
         Work(report).Start!.State.Should().Be(FiledStartState.Started);
     }
 

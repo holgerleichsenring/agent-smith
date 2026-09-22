@@ -46,6 +46,28 @@ public sealed class LoopLimitsConfig
     public int MaxSubAgentsPerRun { get; set; } = 20;
 
     /// <summary>
+    /// 2026-09-22-5891: how many sub-agents ONE design turn may fan out into. A design turn
+    /// is a run of its own, so the run-wide number above would let a single conversation
+    /// turn open twenty children; this is the number the design surface gates on and the
+    /// capacity of the budget it constructs for itself. Defaults to 4 — one wave at
+    /// <see cref="MaxConcurrentSubAgents"/>. Set to 0 to take the spawn tool off the design
+    /// surface entirely.
+    /// </summary>
+    public int MaxSubAgentsPerDialogTurn { get; set; } = 4;
+
+    /// <summary>
+    /// 2026-09-22-5891: the per-pass tool-iteration ceiling for a child spawned by a DESIGN
+    /// turn. A child gets no governor hooks and reports its spend only when it has finished,
+    /// so how far it may go IS the bound on a fan-out — the turn's cost cap is consulted once,
+    /// before the wave, and refuses only a LATER one. Deliberately far below
+    /// <c>agent.max_sub_agent_loop_iterations</c> (100): a dialog child reads and reports, it
+    /// does not carry a bulk cross-repo slice. It sits here rather than beside its sibling in
+    /// AgentConfig because that file stands at the 120-line limit, and the fan-out numbers a
+    /// design turn is bounded by then read as one block.
+    /// </summary>
+    public int MaxDialogSubAgentLoopIterations { get; set; } = 20;
+
+    /// <summary>
     /// Returns the per-call tool-call cap for the active investigator mode.
     /// <c>verify_diff</c> → MaxToolCallsPerVerifier; <c>verify_hint</c> / <c>survey</c>
     /// → MaxToolCallsPerInvestigator; null/unknown → MaxToolCallsPerSkill.

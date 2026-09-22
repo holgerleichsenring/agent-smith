@@ -1,0 +1,160 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-21-f237a
+
+goal: "A conversation's row in the column says what the conversation is about, from the subject already minted for it, instead of repeating the opening sentence the reader cannot finish reading anyway."
+
+applies_to: "backend (the conversation list summary and the prose that said it would never carry one); the dashboard's conversation row and the predicate that re-reads the list"
+
+scope:
+  in: >
+    2026-09-20-4b0af mints a subject per conversation and serves it on the SESSION view, where the
+    heading over the open conversation reads it. The conversations column was left out of that
+    phase on the argument that a person recognises the row they wrote. The argument does not
+    survive the column: the row is one line truncated inside a 220px track, so what a reader gets
+    is the opening words of their own first sentence, which is the part every conversation of a
+    working session has in common.
+    The subject is already in the row's own hand — SpecDialogConversationList.Summary holds the
+    session entity and titles the row from its transcript instead. So the summary gains the
+    subject beside the title, and the row prefers it.
+    The list-read predicate is IN, and it is the reason the phase is more than three lines. It
+    currently fires while the row has no title. A title is null whenever the opening message is
+    nothing but a fenced block — SpecDialogConversationTitle returns null for it — while the
+    minter requires no title at all, so such a conversation gets a subject, shows it in the row,
+    and goes on paying the expensive list read on every reply for the rest of its life. The
+    predicate learns about the subject as a SECOND way to be satisfied, never as a second
+    requirement: title null AND subject null. The clause is pointwise weaker than today's, so it
+    can never cost a read more — it is identical for every titled row and for a titleless one
+    older than the mint, and fewer exactly where the polling happens. It is what makes the row's
+    own promise — "once the row identifies the conversation
+    it stops being read" — true again.
+    The prose that says the subject will never be on the list, and the test whose comment says the
+    row still shows the first line, are retired with it.
+  out: >
+    MINTING, RE-MINTING AND BACKFILL. All three stay as 4b0af left them. This phase serves a string
+    that is already stored and mints nothing, so a conversation older than the mint keeps its first
+    line in the row forever.
+    THE HEADING OVER THE OPEN CONVERSATION. It already prefers the subject and is untouched.
+    THE TITLE PRODUCER. SpecDialogConversationTitle keeps its single producer and its 120-character
+    cut: the row still needs the first line for the fallback and for the delete control.
+    THE TURN-COUNT HALF OF THE PREDICATE. Only the titleless clause changes; a row behind the
+    page's turn count still triggers a read.
+    THE COLUMN'S SHAPE. Its width, its headings and how many rows it draws are 2026-09-21-f237c.
+
+decisions:
+  - key: |
+      THE SUBJECT IS ADDED TO THE SUMMARY, NOT SUBSTITUTED FOR THE TITLE. Two readers want two
+      different strings off one row: the row's heading wants what the conversation is about, the
+      delete confirmation wants the sentence the person typed. One field that already resolved the
+      preference would make the confirmation quote a string the person never wrote. Two nullable
+      fields, each with one meaning, and the preference resolved where it is read.
+  - key: |
+      THE DELETE CONTROL PREFERS THE FIRST LINE AND FALLS BACK TO THE SUBJECT — the opposite
+      preference to the row above it, on purpose. A person confirms the destruction of the thing
+      they wrote, in the words they wrote it in, so the first line wins wherever there is one. But
+      a conversation opened with a pasted block has no first line, and today's fallback there is
+      "untitled s-9": a row that reads "Aktualisierung aller Projektbibliotheken" beside a
+      confirmation that asks about "untitled s-9" is worse than one that names the subject. First
+      line, then subject, then the id — which is also exactly what the row does, with the first two
+      swapped.
+  - key: |
+      THE PREDICATE GAINS A WAY TO BE SATISFIED, NOT A REQUIREMENT. 4b0af kept the subject off the
+      list because "a field that can legitimately stay null forever would turn the predicate into a
+      poll that never stops". That is true of `subject === null` as an added disjunct and false of
+      it as an added conjunct: with `title === null && subject === null`, a pre-mint conversation
+      has a title so the clause never fires, and a titleless one stops polling the moment a subject
+      lands. Today's tree already polls forever on a fence-opened conversation; this phase is where
+      that stops, and it is safe here precisely because the row now shows the subject — the read
+      exists to make the row recognisable, and the row has become recognisable.
+      The clause is written against a field that may be ABSENT rather than null: the server
+      serialises nulls today, but a dashboard ahead of its backend would make a strict `=== null`
+      false for a missing field and silently turn the fix off, with no test able to see it. The
+      comparison is the loose one, or the field is normalised where it is read.
+  - key: |
+      THIS REVERSES A `done:` LINE OF 4b0af ONE DAY LATER, AND SAYS SO. "The conversations column
+      still shows the first line the person wrote" was a scope boundary, not a finding; the first
+      sight of the shipped column is what decided against it. The boundary is not being re-argued
+      in the abstract — the reason it fell is that the column truncates, which the phase that drew
+      the boundary did not weigh.
+  - key: |
+      THE TYPESCRIPT FIELD IS REQUIRED, NOT OPTIONAL, WHICH IS A STEP AND NOT AN ACCIDENT. Two test
+      fixtures build a full SpecDialogSessionSummary literal, so a required field stops the
+      dashboard typecheck — and `pnpm build` is the gate's first .NET-free step, while `pnpm test`
+      would stay green and hide it. 4b0af had the same cost on the session fixture and paid it.
+      Parity beats a `?` that makes every reader wonder which rows have one.
+
+steps:
+  - id: the-summary-carries-the-subject
+    action: "SpecDialogSessionSummary gains a nullable Subject beside Title, documented as what the conversation is about and null until 4b0af's mint has run; SpecDialogConversationList.Summary passes session.Subject. The dashboard's SpecDialogSessionSummary gains the same required field, and the two test fixtures that build the literal gain `subject: null`."
+  - id: the-row-prefers-it-and-the-delete-does-not
+    action: "DialogConversations resolves two names rather than one: the row's heading as subject ?? title ?? untitled, and the delete control's accessible name as title ?? subject ?? untitled. conversationDelete's warning follows the delete control's preference."
+  - id: the-predicate-stops-polling-a-titleless-conversation
+    action: "listIsBehind's titleless clause becomes title AND subject both null. The turn-count clause is untouched."
+  - id: the-prose-that-says-otherwise-is-retired
+    action: "Four pieces of committed prose say the opposite of what ships and are retired with it: SpecDialogSessionView's Subject doc loses the paragraph explaining why the list may not carry one; SpecDialogConversationList's summary stops calling a row 'titled by what the person said' and stops describing the predicate as 'is listed untitled'; SpecDialogSurface's heading comment loses 'and what the row beside it still says'; and the comment over SpecDialog_ASubjectlessConversation_DoesNotTriggerAFurtherListRead — 'a subject that may legitimately stay null forever must never join that predicate' — is replaced by the disjunct-not-conjunct reasoning, the test itself still holding. SpecDialog_AConversationWithASubject_HeadsWithIt is rewritten so its row fixture carries a subject and asserts the row shows it."
+
+tests:
+  - "List_ASessionWithASubject_ServesItOnTheRow"
+  - "List_ASessionWithoutASubject_ServesNoneAndKeepsTheTitle"
+  - "SpecDialog_ARowWithASubject_ShowsItInTheColumn"
+  - "SpecDialog_ARowWithoutASubject_ShowsTheFirstLineAsBefore"
+  - "SpecDialog_ARowWithBoth_NamesTheFirstLineOnItsDeleteControl"
+  - "SpecDialog_ARowWithASubjectAndNoTitle_NamesTheSubjectOnItsDeleteControl"
+  - "TheDeletionWarning_ARowWithASubjectAndNoTitle_QuotesTheSubject"
+  - "SpecDialog_AfterAReply_TheRowSaysWhatTheConversationIsAbout"
+  - "SpecDialog_ATitlelessRowThatGainedASubject_TriggersNoFurtherListRead"
+  - "SpecDialog_ATitlelessRowWithNoSubject_StillTriggersAListRead"
+  - "SpecDialog_ARowBehindThePagesTurnCount_StillTriggersAListRead"
+
+done:
+  - "the column's rows say what each conversation is about, on the read that follows the first reply"
+  - "a conversation older than the mint keeps the first line in its row, exactly as today"
+  - "a delete names the sentence the person wrote wherever there is one, and never says 'untitled' about a row that shows a subject"
+  - "a fence-opened conversation stops re-reading the conversation list once it has a subject"
+  - "no committed comment or test still says the row shows the first line"
+  - "pnpm build green (the fixtures typecheck), dashboard tests green, backend build green, full suite green"
+
+facts:
+  - claim: "The row's title comes from the transcript's first prose line, produced in the same method that holds the session entity the subject is stored on."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:36-44"
+  - claim: "The summary record carries Title, Outcome and OpenDialogId and no subject."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogSessionSummary.cs:13-15"
+  - claim: "The dashboard's summary type mirrors it, documenting title as the first line the operator wrote."
+    evidence: "src/dashboard/src/types/spec-dialog.ts:72-83"
+  - claim: "Two test fixtures build the full summary literal by hand, so a required new field stops the typecheck."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:647-653, src/dashboard/src/components/dialog/__tests__/conversationDelete.test.ts:13-19"
+  - claim: "4b0af paid the same cost on the session fixture when it added subject there."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:111"
+  - claim: "The session entity and the conversation state both carry Subject, added by 4b0af."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:51, src/backend/AgentSmith.Server/Models/ConversationState.cs:52"
+  - claim: "The session view serves the subject, and the heading over the open conversation prefers it over the listed title."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:78, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:94"
+  - claim: "The row renders its title with Tailwind's truncate and reuses the same already-fallback-resolved string as the delete control's accessible name."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:120, :130, :147"
+  - claim: "The confirmation resolves the same preference a SECOND time, in its own helper, and falls back to the literal untitled-plus-id there too."
+    evidence: "src/dashboard/src/components/dialog/conversationDelete.ts:24-31, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:82-85"
+  - claim: "The column is a 220px track only at the widest breakpoint; at the mid breakpoint the panel spans the full width above the exchange, and on a phone it is the single column."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:107, src/dashboard/src/components/dialog/DialogConversations.tsx:48-51"
+  - claim: "The predicate fires while the row is absent, titleless, or behind the page's turn count, and its own comment promises it stops once the row identifies the conversation."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:323-330"
+  - claim: "The predicate is evaluated on the reply push BEFORE the dialog read that would move the turn count on, and a true answer issues the list read after it."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:351-353"
+  - claim: "That read parses every listed transcript and reads two further JSON documents per row, capped at fifty."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:8-28"
+  - claim: "The title is null when the opening message is nothing but a fenced block, because the producer skips the fence and finds no other prose line."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationTitle.cs:22-32"
+  - claim: "The minter requires no title — only no subject, no assistant turn, a user turn and a turn that did not fail — so a titleless conversation does get a subject."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:53-58"
+  - claim: "The row's fallback for a null title today is the literal string 'untitled' followed by the session id."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:120"
+  - claim: "The session view's own documentation states that the subject is served there RATHER than on the conversation list, and gives the poll as the reason."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:21-28"
+  - claim: "The surface's heading comment and 4b0af's own row test both assert that the row beside the heading still says the first line; the row half of that test passes only because its fixture carries no subject."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:87-90, src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:901-918"
+  - claim: "A committed comment states as a rule that the subject must never join the predicate, and the list's own summary describes the predicate as firing while a row is listed untitled."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:932-934, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:15-17"
+  - claim: "4b0af rules out backfill and re-minting, so a subject can legitimately stay null forever."
+    evidence: ".agentsmith/phases/done/2026-09-20-4b0af-dialog-title-is-the-intention.yaml:23-25, :35-36"
+  - claim: "Backend list tests live in DialogConversationListTests, prefixed by what they exercise — List_, ListRoute_, Title_, Outcome_ — and set a session's fields by poking the entity, because the session manager's open takes none."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/DialogConversationListTests.cs:61, :210-213"
+  - claim: "Dashboard conversation-row assertions live in SpecDialogSurface.test.tsx under a SpecDialog_ prefix, including 4b0af's own."
+    evidence: "src/dashboard/src/components/dialog/__tests__/SpecDialogSurface.test.tsx:686, :881, :904, :935"

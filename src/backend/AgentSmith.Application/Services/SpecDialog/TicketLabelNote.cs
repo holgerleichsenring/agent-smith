@@ -45,19 +45,19 @@ public static class TicketLabelNote
     public const string Heading = "## What these labels bind";
 
     /// <summary>
-    /// The mechanism, never an outcome: with pipeline-from-label the resolver hard-binds on the
-    /// label; without it this project's own map may match, or a declared default pipeline
-    /// answers, or nothing does and the ticket is dropped. This sentence is true on all of them.
+    /// 2026-09-22-766b: ONE SENTENCE, because one label now does both jobs — it records that an
+    /// approved specification exists and it is what routes the ticket. What removal COSTS is
+    /// named, never that it is harmless: the guard fails open, and the routing half is the
+    /// MECHANISM rather than an outcome — with pipeline-from-label the resolver hard-binds on
+    /// the stamp; without it this project's own map may match, or a declared default pipeline
+    /// answers, or nothing does and the ticket is dropped. The sentence is true on all of them.
     /// </summary>
-    private const string PhaseSentence =
-        "The `" + PhaseTicketRenderer.PhaseLabel + "` label binds this ticket to phase execution. "
-        + "Without it, this ticket is routed by this project's own rules, or dropped.";
-
-    /// <summary>What removal COSTS, never that it is harmless — the guard fails open.</summary>
     private const string StampSentence =
         "The `" + FiledTicketLabels.ApprovedSetStamp + "` label says that an approved "
-        + "specification exists for this ticket. Removing it costs the ticket its one guard "
-        + "against a lost hand-off being re-derived from a description anyone can edit.";
+        + "specification exists for this ticket, and it is what binds this ticket to phase "
+        + "execution. Removing it costs the ticket its one guard against a lost hand-off being "
+        + "re-derived from a description anyone can edit, and leaves it routed by this project's "
+        + "own rules, or dropped.";
 
     /// <summary>
     /// The note for the labels a ticket is actually filed with, or null when it carries none the
@@ -68,7 +68,6 @@ public static class TicketLabelNote
     {
         ArgumentNullException.ThrowIfNull(labels);
         List<string> sentences = [];
-        if (Carries(labels, PhaseTicketRenderer.PhaseLabel)) sentences.Add(PhaseSentence);
         if (Carries(labels, FiledTicketLabels.ApprovedSetStamp)) sentences.Add(StampSentence);
         return sentences.Count == 0
             ? null

@@ -187,12 +187,10 @@ public sealed class FiledWorkPermissionTests : IDisposable
     /// path that started consulting it would be exercised instead of throwing.</summary>
     private SpecDialogConversationResolver Conversations() =>
         new(_sessions,
-            new SpecDialogOwnership(_repository, new SpecCommandParser()),
+            new SpecDialogOwnership(_repository),
             new SpecDialogCommandHandler(
-                _sessions,
-                new SpecDialogResumer(_repository, _turnGate, _pending, TimeProvider.System,
-                    NullLogger<SpecDialogResumer>.Instance),
-                new SpecDialogScopeResolver(Loader()), new SpecDialogReplyComposer(), Messenger()));
+                _sessions, new SpecDialogScopeResolver(Loader()),
+                new SpecDialogReplyComposer(), Messenger()));
 
     private static SpecDialogMessenger Messenger() =>
         new([], NullLogger<SpecDialogMessenger>.Instance);
@@ -232,10 +230,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(
-                _sessions,
-                new SpecDialogResumer(repository, turnGate, pending, TimeProvider.System,
-                    NullLogger<SpecDialogResumer>.Instance),
-                new SpecDialogScopeResolver(Loader()), new SpecDialogReplyComposer(), messenger),
+                _sessions, new SpecDialogScopeResolver(Loader()),
+                new SpecDialogReplyComposer(), messenger),
             turnRunner.Object, flow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pending, transport.Object),
             SilentSubjectMinter.Over(repository, "proj"),

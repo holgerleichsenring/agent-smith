@@ -1,0 +1,225 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-46ef
+
+goal: "A read-only source scope serves the processes the server itself builds and refuses a shell, so a design conversation stops being crippled by a rule that was guarding capability instead of damage."
+
+applies_to: "backend (the source scope's refusal, the three tools it crippled, and the write policy that replaces the kind rule)"
+
+scope:
+  in: >
+    A design conversation reads source through a scope that refuses every step which is not one of
+    four reads. The rule is about the KIND of step, not about what the step would do, and it costs
+    the conversation three things.
+    It cost find_files, removed from the surface with a comment claiming grep and a directory tree
+    cover discovery. It costs the dependency audit, which answers on this surface that no audit
+    was taken and that this proves nothing. And it costs http_request, which is ON the surface and
+    does not work: the tool builds a curl invocation and sends it as a process step the scope
+    refuses. A tool offered and broken is worse than a tool withheld.
+    The rule is also not the containment it reads as. A process already runs in that scope —
+    the clone, the checkout and the revision probe are process steps sent to the very same
+    container a moment before the guard wraps it, and every grep spawns a search engine there.
+    The clone writes the whole tree. What the kind rule actually refuses is the model's OWN
+    process, and it refuses it by forbidding a category rather than a consequence.
+    The distinction the code already makes is the one worth keeping. A step the SERVER builds
+    names its program and carries its arguments as a list — the clone is git with its arguments,
+    the search probe is the engine with its own. A step the MODEL authors is a shell with a
+    command string. So the scope serves a process whose program is not a shell and refuses one
+    whose program is, and the hole an earlier draft had to apologise for — a served process
+    writing through a redirection — does not exist, because a redirection needs the shell that is
+    refused.
+    Refusing the shell is necessary and NOT sufficient, and an earlier draft of this phase said
+    otherwise. The program name is not the only thing that decides what a process does: two of
+    these tools take an operand FROM THE MODEL, and the path guard that would have checked it is
+    not wired on this surface at all. A file search whose root is model-authored will accept a
+    root that begins with a dash, and the search program reads that as the start of its
+    expression — so a deletion primary arrives as the first operand and the read-only checkout is
+    destroyed by a served process with no shell anywhere. The same shape lets a model-chosen URL
+    be read as an option, and lets a header line beginning with an at-sign make the transfer
+    program read a file off disk and send it to a host the model picked.
+    So the rule has two halves. The program must be one of the few the server itself sends to a
+    scope — written down as an allowance, never as a list of forbidden shells, because the
+    repository already carries such a list and its own comment admits the binary that matters
+    sits in an argument. And every operand must be either a server constant or a value the server
+    has shaped so that it cannot be read as an option.
+    What the kind rule was doing for writes is then done by a write rule: a write is refused
+    unless its path lies under a declared prefix, the set is empty so nothing is writable today,
+    and the path is canonicalised first so a traversal cannot walk out of the checkout.
+  out: >
+    A GENERAL SHELL ON THE DESIGN SURFACE. Neither write_file nor run_command is on it and neither
+    is added. This phase does not widen what the conversation may ask for; it stops refusing what
+    it already asks for.
+    FILLING THE WRITE PREFIX SET. Empty here. The phase that publishes a specification to a ticket
+    branch is what passes the specs prefix, and it is named in prose as that phase.
+    THE SIBLING THAT KEEPS THE CLONE BETWEEN TURNS. It makes a conversation's tree outlive the
+    container, so the two interact: a tree that survives carries what the previous turn left in
+    it. That phase owns the reset and says so. If it lands first, this phase's containment leg is
+    its reset rather than the teardown; if this lands first, nothing changes, because with the
+    shell refused nothing in a turn can write the tree at all.
+    THE DEPENDENCY AUDIT. It was a step here and is withdrawn: the audit runs ecosystem programs
+    the scope's default image does not carry, so serving its step would trade one honest sentence
+    for a less honest one. It becomes worth doing when a scope can be given a toolchain image, and
+    that is named as its own phase.
+    THE CHOICE-BRANCH DEFECT ON ONE CHAT SURFACE, and every other thing the design surface cannot
+    do. Not this phase.
+notes: >
+  THE TEMPLATE SCOPES ARE THE SAME TYPE, AND THE CODING MASTER ADDRESSES THEM BY NAME. Its
+  surface carries the file search. Today the kind rule refuses that against a template; after
+  this phase only the operand rule stands between it and a foreign read-only checkout — which is
+  why the operand rule is not an optional half.
+  Two things this phase does not change and does not hide. The container has unrestricted
+  outbound network and the tree on its disk is the operator's source — but that is the class the
+  scan surface already accepts, where a process step and the same HTTP tool are served together;
+  this phase does not widen it. And the pod carries whatever secret bindings the operator
+  declared for sandboxes, which a served process could read — also unchanged, and also already
+  true of the surface that has a shell.
+
+decisions:
+  - key: |
+      REFUSE THE SHELL, NOT THE PROCESS. The damage a read-only checkout can suffer comes from an
+      arbitrary command, not from running a program. The server's own steps name a program and
+      carry an argument list; the model's go through a shell with a string. That line already
+      exists in the code and needs no new concept to enforce — and drawing it there closes the
+      write hole by construction rather than by policy.
+  - key: |
+      A TOOL THAT IS OFFERED MUST WORK. The HTTP tool is on this surface today and is refused at
+      the sandbox every time it is used. That is not a conservative default; it is a broken
+      promise that costs a model a turn to discover.
+  - key: |
+      THE PROGRAM IS HALF THE RULE; THE OPERANDS ARE THE OTHER HALF. A served process does exactly
+      what its arguments tell it to, and two of these tools hand the model an argument. Bounding
+      only the program name is the mistake the first draft of this phase made in the opposite
+      direction — it bounded the step KIND and called that containment.
+  - key: |
+      AN ALLOWANCE, NOT A REFUSAL. This repository already has a list of shell-ish program names
+      and its own comment says the binary that matters sits in an argument. A refusal list is a
+      guess about what an attacker will name; the set of programs the server sends to a scope is
+      finite and knowable, so that set is the rule.
+  - key: |
+      A TOOL THAT CANNOT RUN MUST SAY SO, NOT ANSWER EMPTILY. The file search reads only the
+      output section and never the exit code, so a program missing from the image returns an empty
+      string that reads as "no matches" — a fabricated absence on a surface whose whole purpose is
+      grounding.
+  - key: |
+      THE PIPE IS THE ONLY REASON A TOOL NEEDED A SHELL, AND THE SERVER CAN DO IT INSTEAD. The
+      file search bounds its own output by piping into a head. Sending the search as a program
+      with its arguments and bounding the RESULT where the tool already shapes it needs no shell,
+      no new step kind and no protocol change.
+  - key: |
+      THE WRITE RULE MUST CANONICALISE BEFORE IT MATCHES. The seam that resolves a step's path
+      joins it onto the work root without collapsing anything, so a prefix match over a raw path
+      accepts a traversal out of the checkout. Harmless while the set is empty, and exactly the
+      bug the phase that fills the set would inherit.
+  - key: |
+      THE TYPE'S OWN PROSE IS PART OF THE RULE. Three files state the kind refusal as a promise —
+      the scope's interface, the look a tool reports through, and the note that attaches a
+      template to a master. A rule that changes while its documentation keeps the old promise is
+      how the next reader is misled.
+
+steps:
+  - id: the-scope-refuses-a-shell-not-a-process
+    action: "The source scope serves a process step whose program is not a shell and refuses one whose program is, with the refusal naming what it refused; the four reads are unchanged."
+  - id: the-http-tool-sends-its-arguments
+    action: "The HTTP tool sends the argument list it already builds instead of joining and quoting it into a shell string, so it works on a source scope."
+  - id: the-file-search-bounds-its-result-and-its-root
+    action: "The file search sends its program and arguments without a pipe, applies its limit to the result, and passes its root as a rooted path that cannot be read as an expression, so it needs no shell and no operand of it is model-shaped."
+  - id: a-served-process-carries-only-shaped-operands
+    action: "Every operand a served step carries is a server constant or a value the server has shaped so it cannot be read as an option: a rooted path for the search, an absolute http or https address for the transfer, and a header line that cannot ask the program to read a file."
+  - id: an-absent-program-is-reported-not-answered-empty
+    action: "A served process whose program is missing from the image is reported as that, rather than returning an empty result that reads as an absence."
+  - id: a-write-is-refused-by-path-not-by-kind
+    action: "A write is refused unless its canonicalised path lies under one of the scope's declared prefixes, the set is empty by default, and a path that escapes the work root is refused whatever the set says."
+  - id: the-prose-matches-the-rule
+    action: "The three places that state the kind refusal as a promise, and the test that pins it, are rewritten to state the shell refusal and the write rule."
+
+tests:
+  - "SourceScope_AProcessStepNamingAProgram_IsServed"
+  - "SourceScope_AProcessStepInvokingAShell_IsRefusedAndSaysSo"
+  - "SourceScope_TheCloneAndTheCheckout_StillMaterialiseTheTree"
+  - "SourceScope_AGrep_StillSpawnsItsEngine"
+  - "SourceScope_AWriteOutsideEveryPrefix_IsRefused"
+  - "SourceScope_AWriteUnderADeclaredPrefix_IsServed"
+  - "SourceScope_AWriteEscapingThePolicyByTraversal_IsRefused"
+  - "FindFiles_ARootThatWouldReadAsAnExpression_CannotReachTheProgram"
+  - "FindFiles_AProgramMissingFromTheImage_IsReportedNotAnsweredEmpty"
+  - "HttpRequest_AUrlThatWouldReadAsAnOption_IsRefused"
+  - "HttpRequest_AHeaderAskingTheProgramToReadAFile_IsRefused"
+  - "SourceScope_AProgramOutsideTheAllowance_IsRefused"
+  - "SourceScope_AnAbsoluteWriteOutsideTheWorkRoot_IsRefused"
+  - "SourceScope_NoPrefixDeclared_RefusesEveryWrite"
+  - "HttpRequest_OnASourceScope_ReachesItsTarget"
+  - "HttpRequest_OnAnOrdinarySandbox_IsUnchanged"
+  - "FindFiles_OnASourceScope_ReturnsMatchesBoundedByItsLimit"
+  - "FindFiles_IsOnTheDesignSurfaceAgain"
+
+done:
+  - "a design conversation can search for files and reach an HTTP endpoint"
+  - "no operand a served process carries is shaped by the model"
+  - "the model cannot run a command of its own in a source scope"
+  - "no write is served anywhere in a source scope until a prefix is declared"
+  - "a traversal spelled in a path cannot escape the checkout once a prefix is declared"
+  - "a run's own sandboxes and the scan surface are unchanged"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The scope refuses every step that is not one of four reads, as a failed step result rather than an exception."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:11-22"
+  - claim: "The refusal is applied before materialisation and a served step is delegated to the inner sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:34-51"
+  - claim: "A test pins that a process step and a write are refused and that nothing is spawned."
+    evidence: "tests/AgentSmith.Tests/Sandbox/SourceScopeSandboxTests.cs:24-38"
+  - claim: "The clone is a process step naming git with an argument list, sent to the same sandbox, and it writes the work path."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/CheckoutStepFactory.cs:29-39"
+  - claim: "The materialiser sends the clone, the checkout and the revision probe as process steps."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeMaterialiser.cs:40-77"
+  - claim: "A grep spawns its search engine as a process step naming the program with its own arguments."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs:50-51,66-67"
+  - claim: "A model-authored command is sent as a shell with the command as its argument."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:81-85"
+  - claim: "A step carries a program and an argument list beside its command, so a process step can be sent without a shell."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/Step.cs:8-32"
+  - claim: "The HTTP tool builds its arguments as a list and only then joins and quotes them into a shell string."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:466-478"
+  - claim: "The file search builds a search program piped into a head limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:300-315"
+  - claim: "The file search is filtered off the design surface by name, with a comment saying it shells out."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:69-83"
+  - claim: "The design surface carries no write and no run tool."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:599-607"
+  - claim: "The dependency audit refuses itself on a source scope and records that no audit was taken."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DependencyAuditTool.cs:46-54"
+  - claim: "Two further tools branch on the scope type: the repository search and the file read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:45"
+  - claim: "The seam that resolves a step's path joins it onto the work root without collapsing a traversal, and uses an absolute path verbatim."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:21-26"
+  - claim: "The path guards are left null where the design and coding tool hosts are constructed, and a null guard answers allow, so no path check runs on either surface today."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:241-244"
+  - claim: "The file search takes its root from the model and checks it only through that guard."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:302,307"
+  - claim: "The repository already carries a list of shell-ish program names whose own comment says the binary that matters sits in an argument."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ShellReservedWords.cs:11-25"
+  - claim: "The file search reads only the output section and never the exit code."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:325-340"
+  - claim: "A rooted path helper already exists that yields an absolute path under the work root."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContainedPath.cs:43-46"
+  - claim: "The scope's default image is a general-purpose one with git and transfer tools and no ecosystem toolchains."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:43"
+  - claim: "The specifications root is already a named two-segment path prefix elsewhere."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSetKey.cs:10-22"
+  - claim: "Three files state the kind refusal as a promise: the scope's interface, the look a tool reports through, and the template attachment."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SourceScopeLook.cs:8-32"
+  - claim: "The scan surface already carries the same HTTP tool over sandboxes that serve process steps."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:57-67"
+  - claim: "The design preset has no commit and no pull-request step."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:9-26"
+  - claim: "The clone's credential is passed per invocation rather than written into the checkout, and the token rides one step's environment."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:18-39"
+
+assumptions:
+  - claim: "Refusing by the step's program name cannot be evaded by naming a different shell or an interpreter."
+    check: "Decide whether the rule is a refusal of known shells or an allowance of known programs, and write the set down."
+  - claim: "The generic image carries the search program the file search names."
+    check: "Establish what the file search does when its program is absent, and make that answer a refusal that says so rather than an empty result."
+  - claim: "An operator whose repository URL embeds a credential does not put it into the checkout's configuration."
+    check: "Read what the clone writes into the checkout's configuration when the URL carries userinfo."
+  - claim: "Sending an argument list rather than a shell string changes no behaviour for the tools on an ordinary sandbox."
+    check: "Read how the agent executes a process step with a program and arguments versus a shell and a string."

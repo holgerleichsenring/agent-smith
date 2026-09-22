@@ -50,6 +50,11 @@ public sealed class DialogueCheckpointWriter(
         pipeline.TryGet<string>(ContextKeys.TrackerPlatform, out var platform);
         pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName);
 
+        // 2026-09-22-7c41a: the spend this run has made, beside the checkpoint that carries
+        // it. A SET, never an accumulate — on a second park the tracker was already seeded
+        // from the first, so what it reports is the whole run and adding would double it.
+        pipeline.Set(ContextKeys.PriorSpend, PipelineCostTracker.GetOrCreate(pipeline).CaptureSpend());
+
         var now = DateTimeOffset.UtcNow;
         await eventPublisher.PublishAsync(new RunCheckpointedEvent(
             runId, project ?? string.Empty, ticketId.Value, platform, pipelineName ?? string.Empty,
