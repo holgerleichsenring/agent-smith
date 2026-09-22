@@ -1,0 +1,94 @@
+phase: 2026-09-22-46ef
+decisions:
+  - id: the-allowance-is-the-rule-not-a-refusal-list
+    chose: >
+      A read-only source scope serves a process step whose program is one of three — git,
+      find, curl — written down in SourceScopeProgramAllowance, and refuses every other
+      program by naming it.
+    alternative: >
+      Refuse the shells: reuse ShellReservedWords, or grow it, and serve everything else.
+    why: >
+      A refusal list is a guess about what an attacker will name, and this repository's own
+      list says so in its comment — the binary that matters sits in an argument. The set of
+      programs the SERVER sends to a scope is finite and knowable, and the model authors no
+      step that names one: a model command travels as /bin/sh with a command string. git is
+      in the set because the materialiser's clone, checkout, fetch and rev-parse are the
+      server's own processes in that container, even though they reach it before this guard
+      wraps it.
+  - id: the-program-is-half-the-rule-and-the-operands-are-the-other-half
+    chose: >
+      Every operand a served step carries is a server constant or a value the server shaped:
+      the file search's root goes through ContainedPath and reaches find as /work/<relative>;
+      the transfer's URL must parse as an absolute http or https address; a header line may
+      not begin with '@' and must read as 'Name: value'.
+    alternative: >
+      Bound the program name and rely on the path guards that the tool hosts already accept.
+    why: >
+      Those guards are left null where the design and the coding tool hosts are constructed,
+      and a null guard answers allow — no path check runs on either surface. With only the
+      program bounded, a model-authored root of '-delete' arrives as find's first primary and
+      the read-only checkout is destroyed by a served process with no shell anywhere; the
+      same shape lets a URL be read as an option and a header make curl read a file off disk
+      and send it to a host the model picked. This is the half the first draft of the phase
+      missed, and the template scopes are the same type, so the coding master's file search
+      is one operand away from a foreign checkout.
+  - id: a-write-is-refused-by-its-canonical-path-not-by-its-kind
+    chose: >
+      SourceScopeWritePolicy refuses a write unless its canonicalised path lies under one of
+      the prefixes the scope declares; the declared set is empty by default, and a path that
+      leaves the work root is refused whatever the set says.
+    alternative: >
+      Keep refusing WriteFile by kind, since nothing writes today anyway.
+    why: >
+      The kind rule was what this phase removed, and leaving one kind behind would be the
+      same rule under another name. The canonicalisation is not optional: the seam that
+      resolves a step's path joins it onto the work root without collapsing anything, so a
+      prefix match over a raw path accepts specs/../../etc. Harmless while the set is empty,
+      and exactly the bug the phase that fills the set would inherit. The collapse is written
+      out rather than taken from Path.GetFullPath because the target is a POSIX container
+      path and must resolve identically on whatever host the server runs on.
+  - id: the-pipe-was-the-only-reason-the-search-needed-a-shell
+    chose: >
+      The file search sends find with its argument list and bounds the RESULT where the tool
+      already shapes it, instead of piping into head.
+    alternative: >
+      Keep the pipe and add a step kind that carries one.
+    why: >
+      No shell, no new step kind, no protocol change. The head limit was always applied a
+      second time on the result anyway. Output lines come back rooted, so they are trimmed to
+      repo-relative — the form the model addresses files in, and the form the old './x' lines
+      were closest to.
+  - id: an-absent-program-is-reported-not-answered-empty
+    chose: >
+      The file search reads the exit code beside the output: a bad exit with no matches is
+      reported as a search that did not run, and a bad exit with matches is still matches.
+    alternative: >
+      Return the empty stdout, as the tool did before.
+    why: >
+      A program missing from the image returns an empty string that reads as 'no matches' — a
+      fabricated absence on a surface whose whole purpose is grounding. The split on whether
+      there were matches is there because find reports an unreadable directory with a bad
+      exit and a full result.
+  - id: the-dependency-audit-stays-withdrawn
+    chose: >
+      AuditDependencies still refuses itself on a source scope; only the comment changed, to
+      name the image rather than the step kind.
+    alternative: >
+      Serve it now that a process runs, since it was a step of this phase.
+    why: >
+      The scope's default image is a general-purpose one with git and transfer tools and no
+      ecosystem toolchains, so the audit command would fail to start and the tool's own
+      convention reads a bad exit as 'this proves nothing'. Serving it would trade one honest
+      sentence for a less honest one. It becomes worth doing when a scope can be given a
+      toolchain image, which is its own phase.
+  - id: the-types-own-prose-is-part-of-the-rule
+    chose: >
+      ISourceScopeSandbox, SourceScopeLook, MasterTemplateAttachment, SourceScopeSandbox, the
+      spec-dialog surface and DependencyAuditTool's comment were all rewritten with the new
+      rule, and the test that pinned the kind refusal was rewritten too.
+    alternative: >
+      Change the behaviour and leave the documentation to a later reader.
+    why: >
+      All six stated the kind refusal as a promise. A rule that changes while its
+      documentation keeps the old promise is how the next reader is misled — and one of those
+      promises is what a master is handed a template under.

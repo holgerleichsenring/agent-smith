@@ -39,7 +39,6 @@
 130	AgentSmith.Server/Services/Events/RunSnapshot.cs
 218	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs
 217	AgentSmith.Server/Services/KubernetesJobSpawner.cs
-139	AgentSmith.Application/Services/Tools/SandboxStepRunner.cs
 213	AgentSmith.Infrastructure/Services/Output/SarifOutputStrategy.cs
 187	AgentSmith.Application/Services/PipelineExecutor.cs
 210	AgentSmith.Application/Services/Polling/TrackerPoller.cs

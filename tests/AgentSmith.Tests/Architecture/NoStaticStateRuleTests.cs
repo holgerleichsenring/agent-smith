@@ -73,6 +73,10 @@ public sealed class NoStaticStateRuleTests
         // literals, so what a probe can and cannot name is one fact in one place.
         typeof(AgentSmith.Application.Services.Sandbox.BareCommandBinary),
         typeof(AgentSmith.Application.Services.Sandbox.ShellReservedWords),
+        // 2026-09-22-46ef: the programs a read-only source scope serves — a fixed list of
+        // literals, and an ALLOWANCE rather than the refusal list above it, because the set
+        // of programs the server itself sends to a scope is finite and knowable.
+        typeof(AgentSmith.Application.Services.Sandbox.SourceScopeProgramAllowance),
         typeof(AgentSmith.Application.Services.Sandbox.ToolchainProbeCommand),
     ];
 
