@@ -8,14 +8,19 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-09-17-042ed: what a look may conclude from a READ-ONLY source scope.
 /// <para>
-/// A source scope serves file reads and refuses everything else with exit 1
-/// (<see cref="Sandbox.SourceScopeRefusal"/>), and a scope that could not clone answers every
-/// step the same way. Read as a command's exit, that refusal says "grep found nothing" and
-/// "the audit found nothing" — a look that never ran, standing as proof of absence. So: the
-/// scope is opened FIRST (the typed failure escapes <see cref="ISourceScopeSandbox.MaterializeAsync"/>
-/// instead of becoming an exit code), no Run step is ever sent to one, and a search is a Grep
-/// step, whose exits mean the opposite of a Run grep's — 0 with an empty array is "no match",
-/// anything else is a step that could not run.
+/// A source scope refuses what it will not serve with exit 1 (<see cref="Sandbox.SourceScopeRefusal"/>),
+/// and a scope that could not clone answers every step the same way. Read as a command's exit,
+/// that refusal says "grep found nothing" and "the audit found nothing" — a look that never
+/// ran, standing as proof of absence. So: the scope is opened FIRST (the typed failure escapes
+/// <see cref="ISourceScopeSandbox.MaterializeAsync"/> instead of becoming an exit code), and a
+/// search is a Grep step, whose exits mean the opposite of a Run grep's — 0 with an empty array
+/// is "no match", anything else is a step that could not run.
+/// </para>
+/// <para>
+/// 2026-09-22-46ef: the scope now serves a process whose program is one the server itself
+/// builds, so "no Run step is ever sent to one" is no longer the rule it was. It stays the rule
+/// for THIS look: everything here is a Grep or a ReadFile, because a look states absences and an
+/// absence must come from a step whose exit convention it can read.
 /// </para>
 /// <para>
 /// A sealed class over ONE scope rather than a static helper: the scope is a collaborator, and a

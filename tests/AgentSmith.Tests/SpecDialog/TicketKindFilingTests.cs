@@ -34,14 +34,36 @@ public sealed class TicketKindFilingTests
         var logger = new CapturingLogger<TicketKindResolver>();
         var project = Project(new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["reccord"] = "Task",
+            ["phaze"] = "Task",
         });
 
-        var kind = new TicketKindResolver(logger).For(project, TicketFilingRole.Record);
+        var kind = new TicketKindResolver(logger).For(project, TicketFilingRole.Phase);
 
         kind.Should().BeNull("an unmapped role sends no kind, so the provider sends its literal");
         logger.Warnings.Should().ContainSingle()
-            .Which.Should().Contain("reccord").And.Contain("work_item_kinds").And.Contain("record");
+            .Which.Should().Contain("phaze").And.Contain("work_item_kinds").And.Contain("phase");
+    }
+
+    /// <summary>
+    /// 2026-09-22-b3d7: `record` went with the slice records it filed. A live configuration that
+    /// still maps it keeps validating — the map's keys are free text — and is warned about as the
+    /// unknown role it now is, rather than silently filing something at a level nothing files at.
+    /// </summary>
+    [Fact]
+    public void Resolve_AStaleRecordRoleKey_IsWarnedAboutAsUnknown()
+    {
+        var logger = new CapturingLogger<TicketKindResolver>();
+        var project = Project(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["work"] = "Feature",
+            ["record"] = "Task",
+        });
+
+        new TicketKindResolver(logger).For(project, TicketFilingRole.Work)
+            .Should().Be("Feature", "the roles that survive still resolve beside a stale key");
+        logger.Warnings.Should().ContainSingle().Which.Should()
+            .Contain("record").And.Contain("work_item_kinds")
+            .And.NotContain("record,", "the known-role list it prints no longer offers it");
     }
 
     [Fact]

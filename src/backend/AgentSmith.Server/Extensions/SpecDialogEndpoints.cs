@@ -35,7 +35,7 @@ internal static class SpecDialogEndpoints
 
         var ownership = ctx.RequestServices.GetRequiredService<SpecDialogOwnership>();
         var owner = ownership.OwnerOf(ctx.User);
-        if (!await ownership.MayPostAsync(body.DialogId, body.Text, owner, ctx.RequestAborted))
+        if (!await ownership.MayWatchAsync(body.DialogId, owner, ctx.RequestAborted))
         {
             await EmitChatAsync(ctx, body.DialogId, actioned: false, skipReason: "not-the-owner");
             return Results.StatusCode(StatusCodes.Status403Forbidden);

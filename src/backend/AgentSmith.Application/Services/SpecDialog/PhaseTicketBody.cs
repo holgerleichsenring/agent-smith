@@ -21,8 +21,12 @@ internal static class PhaseTicketBody
     /// would let the deriver anchor on it and reproduce the cut it was supposed to redo.
     /// <para>
     /// 2026-09-17-042eb: the done list travels as acceptance criteria — an outcome, not a cut —
-    /// one line per criterion. A SIBLING's phase id stays out (the order lives in the labels and
-    /// the parent's slice list); any other precondition, an outside phase id included, stays.
+    /// one line per criterion, and every requires: edge is a precondition.
+    /// </para>
+    /// <para>
+    /// 2026-09-22-b3d7: no sibling filter any more. It existed for the slice records, which were
+    /// the one rendering that had siblings to subtract; the two renderings that survive both
+    /// passed an empty set, so the filter could only ever remove nothing.
     /// </para>
     /// <para>
     /// 2026-09-18-d518: the label note, when the filer passes one, is LAST in the body — after
@@ -30,12 +34,11 @@ internal static class PhaseTicketBody
     /// </para>
     /// </summary>
     public static string Requirement(
-        PhaseDraft draft, IReadOnlySet<string> siblingIds, Action<StringBuilder> extraSections,
-        string? labelNote = null) =>
+        PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null) =>
         Done(Shared(draft, ScopeLines, (body, map) =>
         {
             AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
-            AppendLines(body, "## Preconditions", draft.Requires.Where(r => !siblingIds.Contains(r)));
+            AppendLines(body, "## Preconditions", draft.Requires);
         }, sb => { extraSections(sb); sb.Append(labelNote); }));
 
     private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>

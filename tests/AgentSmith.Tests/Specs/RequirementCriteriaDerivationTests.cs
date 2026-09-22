@@ -27,7 +27,7 @@ public sealed class RequirementCriteriaDerivationTests
         """;
 
     private static readonly string Body = new PhaseTicketRenderer()
-        .RenderChildRequirement(new PhaseDraft("p9000a", "Widget storage layer", Yaml, []), new HashSet<string>()).Body;
+        .RenderPhase(new PhaseDraft("p9000a", "Widget storage layer", Yaml, [])).Body;
 
     [Fact]
     public void SpecPrompt_TicketWithoutAcceptanceField_ReadsTheBodySection()

@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-3f7c
+
+goal: "A test that waits on a deadline stops failing because the machine was slow, so a red build means somebody broke something rather than that the runner was busy."
+
+applies_to: "backend tests (the suites whose assertions are bounded by wall-clock time)"
+
+scope:
+  in: >
+    Three pull requests in two days were failed by a single test out of roughly seven thousand,
+    and each time a DIFFERENT one: a concurrency limit expected to release within a deadline, a
+    sandbox liveness watcher, a restart during a wait. Every one of them timed out after about a
+    minute; every one of them passes locally in milliseconds.
+    The runner is the reason and it is measurable on the same build: a test that copies ONE FILE
+    into a workspace took one minute and eighteen seconds there and passed. So the machine runs
+    roughly two orders of magnitude slower than the one these deadlines were written on, and a
+    test whose assertion is "this happened within N" is measuring the machine rather than the
+    behaviour.
+    The cost is not the minutes. It is that a red build stops meaning anything: three times now
+    somebody has had to read a failure, recognise it, and re-run — and the third time the
+    diagnosis was "not your change" rather than a fix, which is the point at which a flaky suite
+    starts hiding a real regression.
+    This phase finds every assertion bounded by wall-clock time in the suites and makes it wait on
+    the EVENT rather than on the clock, or gives it a budget that scales with the machine it is
+    on. What it must not do is widen the timeouts until they pass: a longer deadline on a slower
+    runner is the same defect with a bigger number, and it makes the suite slower for everybody.
+  out: >
+    THE PRODUCTION TIMEOUTS. A run's own deadlines, the dialogue hot wait, the lease freshness
+    window and the reaper thresholds are behaviour the operator configures. Only the tests change.
+    MAKING THE RUNNER FASTER. Whether the suite should run its three assemblies concurrently, and
+    what that does to a host already at its limits, is an infrastructure question with its own
+    measurements. Named as the phase that decides how the suite is run.
+    THE HARNESS PRESETS. They are the slowest assembly and they are deliberately end-to-end; they
+    have not been the failing ones.
+
+decisions:
+  - key: |
+      WAIT FOR THE EVENT, NOT FOR THE CLOCK. Almost every one of these tests is really asserting
+      that something HAPPENED — a slot was released, a watcher noticed, a run resumed. A deadline
+      is a proxy for that, and it is a proxy that fails on a slow machine and passes on a fast one
+      whether or not the behaviour is right. Where the code publishes the event, the test waits on
+      it; where it does not, the test polls the state with a generous ceiling that only ever fires
+      as a genuine hang.
+  - key: |
+      A BIGGER NUMBER IS NOT A FIX. Raising a one-minute deadline to five makes the same test fail
+      on a worse day and costs four more minutes every time it passes. It also hides the thing
+      worth knowing, which is that the assertion was never about time.
+  - key: |
+      THE THREE THAT FAILED ARE THE SYMPTOM, NOT THE POPULATION. Fixing only the ones that have
+      been caught leaves the rest to fail on the next busy afternoon. The phase's first step is to
+      find them all, by their shape rather than by their history.
+  - key: |
+      A TEST THAT MUST MEASURE TIME SAYS SO AND IS EXCLUDED FROM THE GATE. If an assertion is
+      genuinely about a duration, it belongs behind the same category filter the live-model tests
+      already sit behind, so a pull request is not failed by a stopwatch.
+
+steps:
+  - id: the-time-bounded-assertions-are-found
+    action: "Every assertion in the suites whose outcome depends on wall-clock time is enumerated by its shape — a bounded wait, a delay followed by a check, a deadline compared against a stopwatch — rather than by which ones have failed so far."
+  - id: a-bounded-wait-becomes-an-awaited-event
+    action: "Where the code under test publishes or signals the thing being awaited, the test waits on that signal instead of on a deadline."
+  - id: a-poll-replaces-a-delay
+    action: "Where there is nothing to await, the test polls the state until it holds, under a ceiling large enough that it can only fire on a genuine hang."
+  - id: a-genuine-duration-test-is-labelled
+    action: "An assertion that is really about a duration is given the category the gate and the pull-request workflow already exclude, so it runs where a stopwatch is meaningful and nowhere else."
+
+tests:
+  - "Suite_NoAssertionOutsideTheLabelledCategory_DependsOnWallClockTime"
+  - "SkillCallRuntime_AConcurrencyLimit_ReleasesItsSlotWithoutADeadline"
+  - "SandboxLiveness_AVanishedSandbox_IsNoticedWithoutADeadline"
+  - "WaitingRun_ARestartDuringAWait_ResumesWithoutADeadline"
+
+done:
+  - "no assertion outside the labelled category depends on how fast the machine is"
+  - "the three tests that failed on the runner pass without a deadline"
+  - "no timeout was raised to make a test pass"
+  - "the suite is no slower than it is today"
+  - "build green, full suite green"
+
+facts:
+  - claim: "One test of roughly seven thousand failed a pull request with a timeout after about one minute, and a different one failed the previous pull request the same way."
+    evidence: "the repository's own workflow runs for the two pull requests, read 2026-09-21 and 2026-09-22"
+  - claim: "On the same run, a test that copies one file into a workspace passed after one minute and eighteen seconds."
+    evidence: "the same workflow run's test output"
+  - claim: "The two classes involved pass locally in a fraction of a second."
+    evidence: "a local run of both classes, 10 tests in 143 milliseconds"
+  - claim: "The gate and the pull-request workflow already exclude a category of test by filter."
+    evidence: ".claude/hooks/phase-gate.sh"
+
+assumptions:
+  - claim: "Every failing assertion of this kind is in the backend suite rather than in the harness or the agent suite."
+    check: "Enumerate the bounded waits per assembly and say where they are."
+  - claim: "The code under test publishes something a test could await for each of the three known cases."
+    check: "Open each of the three and establish what it signals when the awaited thing happens."
+  - claim: "Nothing in the suite depends on a test taking a measurable amount of time."
+    check: "Find every test that asserts a duration rather than an outcome."

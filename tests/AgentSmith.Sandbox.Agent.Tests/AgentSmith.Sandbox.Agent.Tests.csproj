@@ -26,6 +26,14 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- 2026-09-22-3f7c: the suite's wall-clock vocabulary and its thread-pool floor are
+       shared source, not a shared assembly — this project must not take a reference on the
+       backend test project to borrow two files. -->
+  <ItemGroup>
+    <Compile Include="..\AgentSmith.Tests\TestHelpers\TestWaits.cs" Link="TestHelpers\TestWaits.cs" />
+    <Compile Include="..\AgentSmith.Tests\Architecture\TestHostThreadPool.cs" Link="TestHelpers\TestHostThreadPool.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\AgentSmith.Sandbox.Agent\AgentSmith.Sandbox.Agent.csproj" />
     <ProjectReference Include="..\..\src\backend\AgentSmith.Sandbox.Wire\AgentSmith.Sandbox.Wire.csproj" />

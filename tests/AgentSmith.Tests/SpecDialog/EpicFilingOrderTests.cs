@@ -18,15 +18,20 @@ namespace AgentSmith.Tests.SpecDialog;
 /// <summary>
 /// 2026-09-13-a72a: an epic is filed in DEPENDENCY order.
 /// <para>
-/// 2026-09-17-0e79d: the order is now the SET's — one run works the slices in it, phase by
-/// phase — and the records are filed in the same order so the tracker reads as the run runs.
+/// 2026-09-17-0e79d: the order is the SET's — one run works the slices in it, phase by phase.
 /// The label stamps that used to carry the order are gone with the N-children shape.
+/// </para>
+/// <para>
+/// 2026-09-22-b3d7: and the tickets that used to carry it are gone too. The order is now read on
+/// the one ticket a cut files: its "## Slices" section, and the set stored under its spec key.
+/// The ORDERING ITSELF is untouched — a cut whose edges cannot be ordered is still refused before
+/// anything is created.
 /// </para>
 /// </summary>
 public sealed class EpicFilingOrderTests
 {
     [Fact]
-    public async Task FileEpic_ForwardEdge_FilesInDependencyOrder()
+    public async Task FileEpic_ForwardEdge_ListsTheSlicesInDependencyOrder()
     {
         var provider = new RecordingProvider();
 
@@ -35,13 +40,15 @@ public sealed class EpicFilingOrderTests
             Child("p9000b")));
 
         report.Error.Should().BeNull();
-        provider.Created.Select(c => c.Title).Should().Equal(
-            ["p9000: Widget platform", "p9000b: slice p9000b", "p9000a: slice p9000a"],
-            "the cut listed the slices in the wrong order; the stored set and its records follow the edges");
+        provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9000: Widget platform");
+        var body = provider.Created[0].Body;
+        body.IndexOf("p9000b", StringComparison.Ordinal).Should()
+            .BeLessThan(body.IndexOf("p9000a", StringComparison.Ordinal),
+                "the cut listed the slices in the wrong order; the stored set and the slice list follow the edges");
     }
 
     [Fact]
-    public async Task FileEpic_UnorderableEpic_IsRefused()
+    public async Task Filing_ACutWhoseEdgesCannotBeOrdered_IsStillRefusedBeforeAnyTicketExists()
     {
         var provider = new RecordingProvider();
 
@@ -56,9 +63,9 @@ public sealed class EpicFilingOrderTests
     }
 
     /// <summary>
-    /// 2026-09-17-0e79d: the stamps are gone from the filing shape. A record carries the record
-    /// label and nothing a machine reads; a stamp on the work ticket would cut its branch from
-    /// another ticket's rung instead of from its own base.
+    /// 2026-09-17-0e79d: the position stamps are gone from the filing shape. A parent stamp on
+    /// the work ticket would cut its branch from another ticket's rung instead of from its own
+    /// base.
     /// </summary>
     [Fact]
     public async Task FileEpic_NothingItFiles_CarriesAStamp()
@@ -67,71 +74,23 @@ public sealed class EpicFilingOrderTests
 
         await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
 
-        provider.Created.Should().OnlyContain(
-            c => FiledTicketLabels.ParentId(c.Labels) == null
-                && FiledTicketLabels.PredecessorIds(c.Labels).Count == 0);
+        provider.Created.Should().OnlyContain(c => FiledTicketLabels.ParentId(c.Labels) == null);
     }
 
-    /// <summary>2026-09-17-042ea: the tracker shows each child under its parent.</summary>
+    /// <summary>
+    /// 2026-09-22-b3d7: a cut files ONE ticket, so the parent link its records were tied to the
+    /// work ticket with has no call site left, and the filing report has no note to carry.
+    /// </summary>
     [Fact]
-    public async Task EpicFiling_EachChild_IsLinkedToItsParent()
+    public async Task EpicFiling_NothingIsLinkedToAnything_AndNoNoteIsRaised()
     {
         var provider = new RecordingProvider();
 
         var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
 
-        provider.Links.Should().Equal(("2", "1"), ("3", "1"));
+        provider.Links.Should().BeEmpty();
         report.Notes.Should().BeEmpty();
-    }
-
-    /// <summary>
-    /// 2026-09-17-042ea: the tickets exist and the work ticket already carries the approved set.
-    /// Were a refused link the filing's error, the notice would offer a retry — and the retry
-    /// files a SECOND work ticket with a second stored set, which is two runs and two pull
-    /// requests per repository. (2026-09-17-0e79d: the label stamps that used to order the
-    /// children are gone; the order is the set's, inside one run.)
-    /// </summary>
-    [Fact]
-    public async Task EpicFiling_ALinkThatFails_FilesTheRemainingChildrenAndNotesIt_WithoutAnError()
-    {
-        var provider = new RecordingProvider { RefuseLinkOf = "2" };
-
-        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
-
-        report.Error.Should().BeNull("a link is for people; nothing was unfiled");
-        provider.Created.Should().HaveCount(3, "the child after the refused link is still filed");
-        report.Filed.Should().HaveCount(3);
-        report.Notes.Should().ContainSingle().Which.Should()
-            .Contain("https://tracker.test/2").And.Contain("https://tracker.test/1").And.Contain("link type is disabled");
-    }
-
-    /// <summary>
-    /// An HttpClient timeout throws TaskCanceledException with nobody having cancelled. Escaping
-    /// the filer, it stopped the sink after the confirmed outcome was stored, and asking again
-    /// filed every ticket a second time.
-    /// </summary>
-    [Fact]
-    public async Task EpicFiling_ALinkThatTimesOut_FilesTheRemainingChildrenAndNotesIt()
-    {
-        var provider = new RecordingProvider { ThrowOnLinkOf = ("2", new TaskCanceledException("the link timed out")) };
-
-        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
-
-        report.Error.Should().BeNull();
-        provider.Created.Should().HaveCount(3);
-        report.Notes.Should().ContainSingle().Which.Should().Contain("the link timed out");
-    }
-
-    [Fact]
-    public async Task EpicFiling_ALinkThatThrows_IsANoteNotAnError()
-    {
-        var provider = new RecordingProvider { ThrowOnLinkOf = ("2", new InvalidOperationException("tracker exploded")) };
-
-        var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
-
-        report.Error.Should().BeNull();
-        report.Filed.Should().HaveCount(3);
-        report.Notes.Should().ContainSingle().Which.Should().Contain("https://tracker.test/2").And.Contain("tracker exploded");
+        report.Filed.Should().ContainSingle();
     }
 
     [Fact]
@@ -202,8 +161,7 @@ public sealed class EpicFilingOrderTests
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            TestSupport.ApprovedSetDoubles.EpicFiler(),
-            TestSupport.ApprovedSetDoubles.Recorder(),
+            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
@@ -233,10 +191,6 @@ public sealed class EpicFilingOrderTests
 
         public List<(string Child, string Parent)> Links { get; } = [];
 
-        public string? RefuseLinkOf { get; init; }
-
-        public (string Child, Exception Error)? ThrowOnLinkOf { get; init; }
-
         public Exception? ThrowOnCreate { get; init; }
 
         public string ProviderType => "recording";
@@ -260,9 +214,6 @@ public sealed class EpicFilingOrderTests
         public Task<ParentLinkResult> LinkToParentAsync(
             CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
         {
-            if (ThrowOnLinkOf is { } thrown && child.Id.Value == thrown.Child) throw thrown.Error;
-            if (child.Id.Value == RefuseLinkOf)
-                return Task.FromResult(ParentLinkResult.Failed("the link type is disabled"));
             Links.Add((child.Id.Value, parent.Value));
             return Task.FromResult(ParentLinkResult.Linked);
         }

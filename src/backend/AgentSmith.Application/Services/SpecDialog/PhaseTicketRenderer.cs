@@ -6,8 +6,9 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// p0315c: composes a phase ticket from a schema-valid PhaseDraft. The body leads with a
-/// human-first markdown summary (goal / why / scope, read from the draft's own yaml); the ticket
-/// carries the `phase` label.
+/// human-first markdown summary (goal / why / scope, read from the draft's own yaml).
+/// 2026-09-22-766b: the ticket carries ONE framework label, the approved-set stamp, and it is
+/// that stamp which binds a FILED ticket to phase execution.
 /// <para>
 /// 2026-09-17-0e79a: a filed phase carries NO fenced spec. The approved set is stored under the
 /// ticket's spec key and carried to the run, and a fence in the body would be a second truth —
@@ -17,6 +18,13 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class PhaseTicketRenderer
 {
+    /// <summary>
+    /// 2026-09-22-766b: THE WORD A PERSON TYPES. No filing writes it — a filed ticket carries the
+    /// approved-set stamp alone, so no board gains a framework word nobody chose — and it is READ
+    /// all the same: it is a documented trigger an operator puts on a ticket deliberately, and
+    /// dropping it would take away a way of starting a run that nobody asked to lose. The
+    /// objection this phase answers is about words this framework WRITES; this is the opposite.
+    /// </summary>
     public const string PhaseLabel = "phase";
 
     /// <summary>
@@ -25,9 +33,20 @@ public sealed class PhaseTicketRenderer
     /// and deliberately not "epic": an operator's own epic label must keep meaning what it means
     /// to them.
     /// <para>
-    /// 2026-09-17-0e79d: the VALUE stays; its meaning widens from "the record of a cut" to "a
-    /// record, not work" — an approved epic files one work ticket and one record per slice, and the
-    /// records carry this. Renaming it would make every parent already filed routable overnight.
+    /// 2026-09-22-b3d7: NOTHING THE FRAMEWORK FILES CARRIES THIS ANY MORE — an approved cut is one
+    /// work ticket and no records at all. The constant and its reader stay for the tickets that
+    /// ALREADY carry it, and there are two generations of them: the epic PARENT SUMMARIES filed
+    /// before 2026-09-17-0e79d widened the label's meaning, and the SLICE RECORDS filed from then
+    /// until this phase. Neither is deleted by this phase, both sit on a live board, and each is
+    /// refused by the incoming path on this label alone — so dropping the constant, renaming its
+    /// value or removing the reader would make every one of them an ordinary ticket overnight,
+    /// routable by tag, by area path or by repository, and then run.
+    /// </para>
+    /// <para>
+    /// 2026-09-22-766b: SO THIS READER IS PERMANENT. It has no writer and will get none back, and
+    /// it is not waiting on a later phase to tidy it away — it refuses two populations that are
+    /// already on a live board and that nothing deletes: the epic PARENT SUMMARIES and the SLICE
+    /// RECORDS. Both carry this label and nothing else, so the reader must outlive every writer.
     /// </para>
     /// </summary>
     public const string EpicLabel = "phase-epic";
@@ -41,15 +60,14 @@ public sealed class PhaseTicketRenderer
     public PhaseTicketContent RenderPhase(
         PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
         new(Title(draft), PhaseTicketBody.Requirement(
-            draft, new HashSet<string>(), sb => AppendSpecification(sb, conversation), labelNote));
+            draft, sb => AppendSpecification(sb, conversation), labelNote));
 
     /// <summary>The heading the specification pointer is filed under.</summary>
     public const string SpecificationHeading = "## Specification";
 
     /// <summary>
     /// The pointer every WORK ticket carries: the body is not the spec, the approved record is,
-    /// and this is where the run reads it from and where a change to it is made. A slice record
-    /// gets none — no run works one, so nothing is ever published to a branch of its own.
+    /// and this is where the run reads it from.
     /// </summary>
     private static void AppendSpecification(StringBuilder sb, string? conversation)
     {
@@ -59,27 +77,9 @@ public sealed class PhaseTicketRenderer
             + "the ticket branch under `" + Contracts.Specs.SpecSetKey.Root + "/`."
             + (string.IsNullOrWhiteSpace(conversation)
                 ? string.Empty
-                : $" Approved in design conversation `{conversation}`, which is where a change to it is made."));
+                : $" Approved in design conversation `{conversation}`."));
         sb.AppendLine();
     }
-
-    /// <summary>
-    /// 2026-09-13-b7ba: an epic CHILD is a requirement, not a work order. It is filed today
-    /// and worked in three weeks, after its siblings have moved the code — and an embedded
-    /// spec would win over the repository it claims to plan against, because SpecSourceResolver
-    /// takes a spec in the description and never calls the deriver at all.
-    /// <para>
-    /// 2026-09-17-042ea: no Parent line. The tracker links the child to its parent and the label
-    /// stamps it; a line in the body was a segment the deriver had to carry or discard.
-    /// </para>
-    /// <para>
-    /// 2026-09-17-0e79d: this is the SLICE RECORD's body — the record label, no stamps, no spec,
-    /// read by a person and not by a deriver: the run works the set stored under the work ticket.
-    /// </para>
-    /// </summary>
-    /// <param name="siblingIds">The phase ids of the epic's slices; only these leave the body.</param>
-    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft, IReadOnlySet<string> siblingIds) =>
-        new(Title(draft), PhaseTicketBody.Requirement(draft, siblingIds, _ => { }));
 
     /// <summary>
     /// The epic's WORK ticket (2026-09-17-0e79d): the requirement the whole cut answers, listing
@@ -101,7 +101,7 @@ public sealed class PhaseTicketRenderer
         PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
         IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
         string? labelNote = null) =>
-        new(Title(parent), PhaseTicketBody.Requirement(parent, new HashSet<string>(), sb =>
+        new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)

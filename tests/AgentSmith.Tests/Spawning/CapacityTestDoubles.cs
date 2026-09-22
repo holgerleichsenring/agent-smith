@@ -65,19 +65,6 @@ internal static class CapacityTestDoubles
         return calc.Object;
     }
 
-    // 2026-09-13-a72a: a gate that holds nothing back — the pre-existing spawn tests
-    // exercise admission, not ordering (covered by PredecessorGateFunnelTests).
-    public static AgentSmith.Contracts.Services.IPredecessorGate NoPredecessors()
-    {
-        var gate = new Mock<AgentSmith.Contracts.Services.IPredecessorGate>();
-        gate.Setup(g => g.CheckAsync(
-                It.IsAny<ResolvedProject>(),
-                It.IsAny<AgentSmith.Contracts.Models.Triggers.IncomingTicketEnvelope>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AgentSmith.Contracts.Models.PredecessorVerdict.Ready());
-        return gate.Object;
-    }
-
     // 2026-09-20-9f00: the run-list nudge a capacity deferral fires. The pre-existing
     // spawn tests exercise admission, not the announcement — that has its own tests.
     public static AgentSmith.Contracts.Services.IRunListNudge NoNudge() =>

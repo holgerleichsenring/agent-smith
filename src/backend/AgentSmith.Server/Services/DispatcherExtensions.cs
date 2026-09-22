@@ -75,10 +75,6 @@ internal static class DispatcherExtensions
         // Server-only: the webhook/poller fan-out at enqueue. Depends on
         // ITicketClaimService above, so it lives here, not in the shared
         // AddPipelineExecution (where it could not be constructed for the CLI).
-        // 2026-09-13-a72a: the funnel's first question — has the slice this ticket follows
-        // left the working set? Registered before the use case that resolves it.
-        services.AddTransient<IPredecessorGate,
-            AgentSmith.Application.Services.Spawning.PredecessorGate>();
         // 2026-09-20-9f00: the run-list nudge the spawn use case fires when it defers a run to
         // the capacity queue. The NO-OP is the binding here, in the shared composition, because
         // AddDashboardApi — which adds the hub the real one needs — is conditional and runs

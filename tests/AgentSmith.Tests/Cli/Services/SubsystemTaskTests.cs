@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Health;
 using AgentSmith.Server.Services;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -35,18 +36,23 @@ public sealed class SubsystemTaskTests
     [Fact]
     public async Task RunRedisGatedAsync_ServiceRegisteredAndConnected_SetsUpAndRunsWork()
     {
+        // The work says when it has been entered, and the test cancels then — so the claim is
+        // that a connected subsystem runs its work, not that two hundred milliseconds were
+        // enough for it to get there.
         var health = new SubsystemHealth("queue_consumer");
-        var workInvoked = false;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var provider = BuildProviderWith<IFakeService>(new FakeService(), connected: true);
+        using var cts = new CancellationTokenSource();
 
         var run = SubsystemTask.RunRedisGatedAsync<IFakeService>(
             provider, health, retryIntervalSeconds: 1,
-            (_, ct) => { workInvoked = true; return Task.Delay(50, ct); },
-            NullLogger.Instance, CancelAfter(200));
+            (_, ct) => { entered.TrySetResult(); return Task.Delay(Timeout.Infinite, ct); },
+            NullLogger.Instance, cts.Token);
 
-        await run;
+        await entered.Task.OrHang("the gated work is entered");
+        await cts.CancelAsync();
+        await run.OrHang("the gated loop returns once cancelled");
 
-        workInvoked.Should().BeTrue();
         health.State.Should().Be(SubsystemState.Up);
     }
 
@@ -55,11 +61,16 @@ public sealed class SubsystemTaskTests
     {
         var health = new SubsystemHealth("queue_consumer");
         var provider = BuildProviderWith<IFakeService>(new FakeService(), connected: false);
+        using var cts = new CancellationTokenSource();
 
-        await SubsystemTask.RunRedisGatedAsync<IFakeService>(
+        var run = SubsystemTask.RunRedisGatedAsync<IFakeService>(
             provider, health, retryIntervalSeconds: 1,
             (_, _) => Task.CompletedTask,
-            NullLogger.Instance, CancelAfter(50));
+            NullLogger.Instance, cts.Token);
+        await TestWaits.UntilAsync(
+            () => health.State == SubsystemState.Degraded, "the subsystem reports it is waiting");
+        await cts.CancelAsync();
+        await run.OrHang("the retry loop returns once cancelled");
 
         health.State.Should().Be(SubsystemState.Degraded);
         health.Reason.Should().Be("waiting for Redis");
@@ -74,12 +85,6 @@ public sealed class SubsystemTaskTests
         services.AddSingleton(impl);
         services.AddSingleton(mux.Object);
         return services.BuildServiceProvider();
-    }
-
-    private static CancellationToken CancelAfter(int ms)
-    {
-        var cts = new CancellationTokenSource(ms);
-        return cts.Token;
     }
 
     public interface IFakeService { }

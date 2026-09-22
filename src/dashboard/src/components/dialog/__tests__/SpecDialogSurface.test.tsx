@@ -87,6 +87,10 @@ const postSpecDialogMessage =
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
+// 2026-09-22-2a86: opening a past conversation is a ROUTE — the conversation by its session id,
+// onto the dialog id this tab holds — and no longer a "/spec resume" posted as message text.
+const resumeSpecDialogConversation =
+  vi.fn<(sessionId: string, dialogId: string) => Promise<void>>(async () => {});
 // 2026-09-20-3af8: the upload and the address the transcript reads an image back from.
 const uploadSpecDialogImage =
   vi.fn<(dialogId: string, project: string, file: File) => Promise<unknown>>(
@@ -98,6 +102,8 @@ vi.mock("@/lib/specDialogApi", () => ({
   postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
     postSpecDialogMessage(dialogId, text, project),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
+  resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
+    resumeSpecDialogConversation(sessionId, dialogId),
   uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
     uploadSpecDialogImage(dialogId, project, file),
   specDialogImageUrl: (imageId: number) => `/api/spec-dialog/images/${imageId}`,
@@ -393,6 +399,8 @@ beforeEach(() => {
   watchFiledWork.mockClear();
   deleteSpecDialogConversation.mockReset();
   deleteSpecDialogConversation.mockResolvedValue(undefined);
+  resumeSpecDialogConversation.mockReset();
+  resumeSpecDialogConversation.mockResolvedValue(undefined);
 });
 
 afterEach(() => cleanup());
@@ -647,7 +655,10 @@ describe("SpecDialogSurface", () => {
     expect(scope).toHaveTextContent("v1.2");
   });
 
-  it("SpecDialog_NewConversation_OpensOnThePickedProjectUnderAFreshDialogId", async () => {
+  // 2026-09-22-2a86: the control used to post "/spec other" as message text, which the server
+  // parsed back into an opening command. It mints a tab now, and the FIRST message opens the
+  // conversation on the picked project — one route, carrying what the page holds.
+  it("Page_TheNewConversationControl_CallsTheRouteAndPostsNoCommandText", async () => {
     const other = { name: "other", repos: [], templates: [] };
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, other] }));
     await renderSurface();
@@ -659,9 +670,17 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-new"));
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(heldDialogId(), "/spec other", undefined));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        heldDialogId(), "a widget that reads the ledger", "other"));
+    expect(postSpecDialogMessage.mock.calls.map((call) => call[1]))
+      .not.toContainEqual(expect.stringMatching(/^\/spec/));
   });
 
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
@@ -864,17 +883,18 @@ describe("SpecDialogSurface", () => {
 
   // The spec said every opening resumes onto a fresh dialog id; since 2026-09-17-c7aeb's review
   // only a CLOSED conversation does — an open one is returned to (the test below this one).
-  it("SpecDialog_OpeningAClosedConversation_ResumesOntoAFreshDialogIdAndClosesNothing", async () => {
+  it("Page_OpeningAConversationFromTheList_CallsTheRouteAndPostsNoCommandText", async () => {
     fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ openDialogId: null })]));
     await renderSurface();
     const first = heldDialogId();
 
     fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
 
-    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    await waitFor(() => expect(resumeSpecDialogConversation).toHaveBeenCalled());
     const fresh = heldDialogId();
     expect(fresh).not.toBe(first);
-    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9", undefined]]);
+    expect(resumeSpecDialogConversation.mock.calls).toEqual([["s-9", fresh]]);
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
@@ -890,8 +910,8 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
 
     await waitFor(() => expect(heldDialogId()).toBe("d-where-it-lives"));
-    expect(postSpecDialogMessage.mock.calls.map((call) => call[1]))
-      .not.toContainEqual(expect.stringMatching(/^\/spec resume/));
+    expect(resumeSpecDialogConversation).not.toHaveBeenCalled();
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // The list stands beside the conversation. A failed read of it used to put the page-wide
@@ -910,8 +930,8 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_OpeningAPastConversation_ShowsItsTranscriptAfterTheResume", async () => {
     let resumed = false;
-    postSpecDialogMessage.mockImplementation(async (...[, text]) => {
-      if (text.startsWith("/spec resume")) resumed = true;
+    resumeSpecDialogConversation.mockImplementation(async () => {
+      resumed = true;
     });
     fetchSpecDialogConversations.mockResolvedValue(listing([conversation()]));
     await renderSurface();
@@ -933,19 +953,14 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     const fresh = heldDialogId();
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(fresh, "/spec resume s-9", undefined));
-    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalledWith(fresh));
-    act(() => messages.emit({
-      dialogId: fresh, title: "Spec dialog",
-      text: "Spec dialog `s-9` resumed — scope **sample**, 1 turn(s) so far.",
-      at: "2026-09-15T10:06:00Z",
-    }));
+      expect(resumeSpecDialogConversation).toHaveBeenCalledWith("s-9", fresh));
 
+    // 2026-09-22-2a86: the route answers when the move is DONE, so the read that follows it is
+    // what seeds the transcript. There is no framework reply to wait for any more.
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent(
       "a widget that reads the ledger",
     );
-    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(first, expect.anything());
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   it("SpecDialog_ClickingTheConversationAlreadyOpen_DoesNothing", async () => {
@@ -1446,9 +1461,12 @@ describe("SpecDialogSurface", () => {
 
     await renderSurface();
 
-    await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(
-        expect.any(String), "/spec resume s-42", undefined));
+    // 2026-09-22-2a86: the resume is a ROUTE, not a command the page types into the thread —
+    // which is the whole point of retiring `/spec`, and is what the two tests above already
+    // assert for an opening that comes from the list rather than from an address.
+    await waitFor(() => expect(resumeSpecDialogConversation).toHaveBeenCalled());
+    expect(resumeSpecDialogConversation.mock.calls).toEqual([["s-42", heldDialogId()]]);
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // With the dialog id the row carried, it GOES there instead — which is the only reason the
@@ -1554,10 +1572,14 @@ describe("SpecDialogSurface", () => {
       target: { value: "other" },
     });
     fireEvent.click(screen.getByTestId("dialog-new"));
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(expect.any(String), "/spec other", undefined));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.any(String), "a widget that reads the ledger", "other"));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer
@@ -2217,6 +2239,38 @@ describe("SpecDialogSurface", () => {
     );
   });
 
+  // 2026-09-22-9519: THE PANE LEARNS WITHOUT A RELOAD. The filing push is what filing said at
+  // filing time and is never sent again, so the start state the panel shows has to come from the
+  // READ — the one thing the withdrawal's ticket-keyed nudge refetches. Nothing is pushed here
+  // after the filing, which is exactly the live shape: the withdrawal has a ticket and no run.
+  it("FiledPanel_AWithdrawnTicket_SaysSoAfterTheNudgedRefetch", async () => {
+    await renderSurface();
+    const filed = {
+      reference: "https://tracker/7",
+      title: "p9001: the phase",
+      ticketId: "7",
+      project: "sample",
+      key: "SAMPLE-412",
+      start: { state: "NotStarted" as const, reason: "nothing would route it" },
+    };
+    fetchFiledWork.mockResolvedValue(filedWork({ start: filed.start }));
+
+    act(() => filings.emit(filing({ filed: [filed] })));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-start-https://tracker/7"))
+        .toHaveTextContent("not started — nothing would route it"));
+
+    fetchFiledWork.mockResolvedValue(filedWork({
+      start: { state: "Withdrawn", reason: "closed from the conversation that filed it" },
+    }));
+    act(() => filedWorkChanged.emit(undefined));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-start-https://tracker/7"))
+        .toHaveTextContent("withdrawn — closed from the conversation that filed it"));
+  });
+
   // A filing written before that phase carries no start state; the panel says nothing about it
   // rather than guessing, which is the claim the state exists to stop.
   it("SpecDialog_AFilingWithoutStartStates_RendersAsBefore", async () => {
@@ -2379,6 +2433,23 @@ describe("SpecDialogSurface", () => {
     expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
   });
 
+  // 2026-09-22-b3d7: this line is the one place the card counts what the button files, and the
+  // button now files ONE ticket whatever the slice count. Counting linked slice records beside it
+  // described the shape the filer stopped producing.
+  it("ApprovalCard_ACutProposal_SaysOneTicketAndCountsNoRecords", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "epic", phase: null, parent: phase("p9000"),
+      children: [phase("p9000a"), phase("p9000b"), phase("p9000c")],
+    })));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
+
+    const summary = await screen.findByTestId("dialog-approval-summary");
+    expect(summary).toHaveTextContent(/^File this epic\? One work ticket carrying 3 slices\.$/);
+    expect(summary.textContent ?? "").not.toMatch(/record/i);
+  });
+
   it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
@@ -2390,7 +2461,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
     expect(surface).toHaveTextContent("Proposed outcome: epic p9000");
     expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
 
@@ -2398,6 +2469,79 @@ describe("SpecDialogSurface", () => {
 
     expect(await screen.findByTestId("dialog-answer-yes")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+  });
+
+  // 2026-09-22-355b: the server names the other SHAPES a proposal of this kind could take and
+  // sends them as the approval's choices. They ride BESIDE the pair — the card used to return
+  // the choices INSTEAD of it, which on an approval would have left no way to approve at all.
+  it("DialogCard_AnApprovalWithShapes_RendersThemBesideApproveAndReject", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({
+      text: "",
+      choices: [{ label: "Cut into several phases", description: "too big for one phase" }],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
+    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    const shape = within(surface).getByTestId("dialog-answer-Cut into several phases");
+    expect(shape).toHaveTextContent("Cut into several phases");
+    // The picked shape goes back as its own label, which the server reads as an edit note.
+    fireEvent.click(shape);
+    await waitFor(() =>
+      expect(postSpecDialogMessage.mock.calls.at(-1)![1]).toBe("Cut into several phases"));
+    // A button beside "Approve & file" that quietly spends a master loop is a surprise.
+    expect(surface).toHaveTextContent("Picking a shape files nothing — it starts a new turn");
+  });
+
+  it("DialogCard_AnApprovalWithNoShapes_IsUnchanged", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({ text: "File these two tickets?", choices: [] })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByRole("button")).toHaveLength(2);
+    expect(within(surface).getByTestId("dialog-answer-approve")).toBeInTheDocument();
+    expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
+    expect(surface).not.toHaveTextContent("Picking a shape");
+  });
+
+  // The wire has carried each choice's description all along and the card dropped it. A shape
+  // is a redirection the operator has to be able to judge, so it says why it is offered.
+  it("DialogCard_AShape_ShowsItsExplanation", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+
+    act(() => questions.emit(question({
+      text: "",
+      choices: [
+        { label: "Cut into several phases", description: "too big for one phase" },
+        { label: "Make it a bug ticket", description: "smaller than a phase" },
+      ],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByTestId("dialog-shape-why").map((why) => why.textContent))
+      .toEqual(["too big for one phase", "smaller than a phase"]);
+  });
+
+  // A CHOICE question is a different question: it has no approve/reject pair to ride beside,
+  // and its own branch is untouched by this phase.
+  it("DialogCard_AChoiceQuestion_IsUnchanged", async () => {
+    await renderSurface();
+
+    act(() => questions.emit(question({
+      kind: "choice", text: "Which reader?",
+      choices: [{ label: "the reader" }, { label: "the writer" }],
+    })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    expect(within(surface).getAllByRole("button").map((b) => b.textContent))
+      .toEqual(["the reader", "the writer"]);
+    expect(within(surface).queryByTestId("dialog-answer-approve")).toBeNull();
   });
 
   // 2026-09-17-042ed: the review of the proposal is read where the approval is given, with the
@@ -2472,7 +2616,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
     expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
     expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
@@ -2624,7 +2768,7 @@ describe("SpecDialogSurface", () => {
     expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
   });
 
   // The read that raced the push may still have caught the draft stored, stamped with a moment

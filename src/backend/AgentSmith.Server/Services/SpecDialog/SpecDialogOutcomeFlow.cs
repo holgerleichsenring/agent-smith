@@ -40,6 +40,19 @@ public sealed class SpecDialogOutcomeFlow(
             "Outcome {Kind} for spec-dialog session {SessionId}: {Confirmation}",
             proposal.GetType().Name, state.JobId, confirmation.GetType().Name);
 
+        return await ApplyAsync(state, proposal, confirmation, mayStartRuns, cancellationToken);
+    }
+
+    /// <summary>
+    /// What a confirmation does. 2026-09-22-355b: the timeout is its OWN case and the default
+    /// throws. It used to fall through to the timeout, so a result added later would have
+    /// cleared the stored proposal and told the thread nothing would be filed — silently
+    /// destroying it instead of failing to compile.
+    /// </summary>
+    internal async Task<OutcomeFlowResult> ApplyAsync(
+        ConversationState state, OutcomeProposal proposal, ConfirmationResult confirmation,
+        bool mayStartRuns, CancellationToken cancellationToken)
+    {
         switch (confirmation)
         {
             case OutcomeConfirmed:
@@ -52,12 +65,16 @@ public sealed class SpecDialogOutcomeFlow(
                 await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
                 await SendAsync(state, composer.ComposeRejected(), cancellationToken);
                 return new OutcomeFlowCompleted();
-            default:
+            case OutcomeConfirmationTimedOut:
                 // A timed-out approval is over as surely as a rejected one; the pane must not
                 // offer it after a reload. An edit note keeps it, because it is being revised.
                 await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
                 await SendAsync(state, composer.ComposeTimeout(), cancellationToken);
                 return new OutcomeFlowCompleted();
+            default:
+                throw new InvalidOperationException(
+                    $"Confirmation result '{confirmation.GetType().Name}' has no outcome flow — "
+                    + "a new result must say what it does with the stored proposal.");
         }
     }
 

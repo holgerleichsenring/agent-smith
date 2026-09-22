@@ -7,6 +7,7 @@ using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services.Events;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestHelpers;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,6 @@ namespace AgentSmith.Tests.Server;
 public sealed class WaitingRunHarness : IDisposable
 {
     public const string RunId = "2026-08-24T19-46-27-ca23";
-    public static readonly TimeSpan CiSafeWait = TimeSpan.FromSeconds(60);
 
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(), $"ca23-waiting-{Guid.NewGuid():N}.db");
@@ -91,17 +91,50 @@ public sealed class WaitingRunHarness : IDisposable
     public async Task<bool> StartAndAwaitDiscoveryAsync(string? project = null)
     {
         await PublishStartAsync(project);
-        return await WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId), CiSafeWait);
+        return await WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId));
     }
 
     /// <summary>The trail is written in batches of this many events, or on a RunFinished.</summary>
     public const int TrailFlushThreshold = 25;
 
-    /// <summary>Relaunch, and stay in the active set long enough for the drain to poll.</summary>
-    public async Task RelaunchAsync()
+    /// <summary>
+    /// Relaunch, and hand back only once the drain has DISCOVERED the run again. That
+    /// discovery is the moment the test exists for — it is where a fresh position would be
+    /// minted and the whole history replayed — and the run leaves the active set again at
+    /// the next park, so a relaunch the drain never saw takes the rest of the leg with it.
+    /// <para>
+    /// 2026-09-22-3f7c: this used to be six hundred milliseconds, three of the drain's
+    /// 200ms polls. On a runner where copying one file took seventy-eight seconds it bought
+    /// no poll at all, the leg was never read, and the wait behind it failed the pull request
+    /// a minute later — pointing at the trail, which was not the thing that had gone wrong.
+    /// </para>
+    /// </summary>
+    public async Task<bool> RelaunchAsync(JobsBroadcaster drain)
     {
+        // A park that has not finished leaving the active set would satisfy the discovery
+        // check below on its way out, so wait for it to be gone before asking for it back.
+        if (!await TestWaits.ReachedAsync(() => !drain.Active.ContainsKey(RunId))) return false;
         await PublishStartAsync();
-        await Task.Delay(600);
+        return await TestWaits.ReachedAsync(() => drain.Active.ContainsKey(RunId));
+    }
+
+    /// <summary>
+    /// Let the drain make <paramref name="passes"/> further loop passes, counted rather than
+    /// waited out: each pass discovers the runs in the active set, so a run published here and
+    /// seen in <see cref="JobsBroadcaster.Active"/> proves one pass happened. A negative claim
+    /// — "and nothing was re-read" — is only worth the number of passes it watched, and a
+    /// stretch of clock buys a different number of them on every machine.
+    /// </summary>
+    public async Task<bool> AwaitDrainPassesAsync(JobsBroadcaster drain, int passes)
+    {
+        for (var pass = 0; pass < passes; pass++)
+        {
+            var tracer = $"{RunId}-pass-{pass}";
+            await _publisher.PublishAsync(new RunStartedEvent(
+                tracer, "ticket", "add-feature", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+            if (!await TestWaits.ReachedAsync(() => drain.Active.ContainsKey(tracer))) return false;
+        }
+        return true;
     }
 
     public async Task PublishGatesAsync(int count)
@@ -125,7 +158,7 @@ public sealed class WaitingRunHarness : IDisposable
         Redis.SetRemove(EventStreamKeys.ActiveRunsSet, RunId);
 
     public Task<bool> AwaitFinishedAsync() =>
-        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null), CiSafeWait);
+        WaitUntilAsync(ctx => ctx.Runs.Any(r => r.Id == RunId && r.FinishedAt != null));
 
     public string RunStatus()
     {
@@ -150,7 +183,7 @@ public sealed class WaitingRunHarness : IDisposable
         "Waiting for an operator answer — checkpointed; compute released.", DateTimeOffset.UtcNow));
 
     public Task<bool> AwaitTrailRowsAsync(int count) =>
-        WaitUntilAsync(ctx => CountTrailRows(ctx) == count, CiSafeWait);
+        WaitUntilAsync(ctx => CountTrailRows(ctx) == count);
 
     public int TrailRows()
     {
@@ -192,15 +225,10 @@ public sealed class WaitingRunHarness : IDisposable
         new DbContextOptionsBuilder<AgentSmithDbContext>()
             .UseSqlite($"Data Source={_dbPath}").Options;
 
-    private async Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition, TimeSpan timeout)
-    {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+    private Task<bool> WaitUntilAsync(Func<AgentSmithDbContext, bool> condition) =>
+        TestWaits.ReachedAsync(() =>
         {
-            using (var ctx = new AgentSmithDbContext(Options()))
-                if (condition(ctx)) return true;
-            await Task.Delay(50);
-        }
-        return false;
-    }
+            using var ctx = new AgentSmithDbContext(Options());
+            return condition(ctx);
+        });
 }

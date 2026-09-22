@@ -326,7 +326,6 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 budget.Object,
                 BuildDbQueue(connection),
                 reaper.Object, counted.Object,
-                CapacityTestDoubles.NoPredecessors(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),

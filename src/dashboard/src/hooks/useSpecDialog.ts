@@ -9,6 +9,7 @@ import {
   fetchSpecDialog,
   fetchSpecDialogConversations,
   postSpecDialogMessage,
+  resumeSpecDialogConversation,
   uploadSpecDialogImage,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
@@ -106,7 +107,9 @@ export interface SpecDialogState {
   activity: SpecDialogActivityPush[];
   /** A decision is posted as its word and shown as a decision entry rather than echoed. */
   send: (text: string, project?: string, decision?: SpecDialogDecision) => Promise<void>;
-  startNew: (project?: string) => Promise<void>;
+  /** 2026-09-22-2a86: a fresh tab. The conversation itself is opened by the first message,
+   *  which carries the picked project. */
+  startNew: () => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
   open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
   /** 2026-09-18-7a05: deletes a conversation the caller owns, after saying what that does not
@@ -153,8 +156,9 @@ export function useSpecDialog(): SpecDialogState {
   // session": opening a past conversation reads its fresh dialog id before the resume has
   // moved anything there, and a plain flag would be spent on that empty read.
   const reseed = useRef<boolean | string>(true);
-  // A command for a dialog id nobody is subscribed to yet would have its answer pushed
-  // into a group this page has not joined, so it waits for the subscription.
+  // The conversation to resume onto the dialog id this page is switching to. A resume for a
+  // dialog id nobody is subscribed to yet would move the conversation into a group this page
+  // has not joined, so it waits for the subscription.
   const pending = useRef<string | null>(null);
   const counter = useRef(0);
   // The reply a proposal follows added no entry when it was only the draft, so its card needs
@@ -241,9 +245,9 @@ export function useSpecDialog(): SpecDialogState {
     }
   }, []);
 
-  // A command a CONTROL sent is not echoed: the operator clicked "new conversation", they
-  // did not say "/spec". What they typed themselves is echoed, because the channel
-  // delivers replies and never a copy of the message just sent.
+  // What the operator typed is echoed, because the channel delivers replies and never a copy
+  // of the message just sent. 2026-09-22-2a86: nothing else posts here any more — the two
+  // controls that used to send command text call routes of their own.
   const post = useCallback(async (
     id: string,
     text: string,
@@ -273,6 +277,20 @@ export function useSpecDialog(): SpecDialogState {
       setFailure(asError(thrown));
     }
   }, [append]);
+
+  // 2026-09-22-2a86: a past conversation, continued on the dialog id this tab now holds. The
+  // route answers when the move is done — there is no reply to wait for and nothing to echo —
+  // so the read that follows it is what puts the conversation's transcript on the page. A
+  // refusal (a turn running there, a dialog that is not the caller's) is shown as one.
+  const resume = useCallback(async (id: string, sessionId: string) => {
+    try {
+      await resumeSpecDialogConversation(sessionId, id);
+    } catch (thrown) {
+      setFailure(asError(thrown));
+      return;
+    }
+    await load(id);
+  }, [load]);
 
   useEffect(() => {
     if (dialogId) void load(dialogId);
@@ -441,7 +459,7 @@ export function useSpecDialog(): SpecDialogState {
         stop = cancel;
         const queued = pending.current;
         pending.current = null;
-        if (queued) void post(dialogId, queued, false);
+        if (queued) void resume(dialogId, queued);
       })
       .catch((thrown) => setFailure(asError(thrown)));
     return () => {
@@ -455,7 +473,7 @@ export function useSpecDialog(): SpecDialogState {
       offConnection();
       void stop?.();
     };
-  }, [dialogId, append, load, post, loadConversations, listIsBehind]);
+  }, [dialogId, append, load, resume, loadConversations, listIsBehind]);
 
   /// 2026-09-20-4b0aa: ONE post, carrying the project. This used to be two — an opening command
   /// and then the message — and awaiting the first proved only that its background task had been
@@ -496,9 +514,9 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, load],
   );
 
-  // A fresh dialog id with a command queued for it: the command waits for the subscription,
-  // so its answer lands in a group this page has joined.
-  const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
+  // A fresh dialog id with a resume queued for it: the resume waits for the subscription, so
+  // anything the conversation pushes after the move lands in a group this page has joined.
+  const switchTo = useCallback((resuming: string | null, awaited: boolean | string, to?: string) => {
     reseed.current = awaited;
     replyWasDraftOnly.current = false;
     known.current = null;
@@ -513,14 +531,16 @@ export function useSpecDialog(): SpecDialogState {
     setWorkingSince(null);
     setReadings([]);
     setActivity([]);
-    pending.current = command;
+    pending.current = resuming;
     setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
 
-  // The router parses the same commands a chat channel types; the page is what spares the
-  // operator from typing them.
-  const startNew = useCallback(async (project?: string) => {
-    switchTo(project ? `/spec ${project}` : "/spec", true);
+  // 2026-09-22-2a86: a fresh tab, and nothing said at the server yet. The control used to post
+  // the opening spelling as message text; the conversation is opened by the FIRST message
+  // instead, which carries the project the page holds — one ordered act on the server rather
+  // than a grammar the page types at it.
+  const startNew = useCallback(async () => {
+    switchTo(null, true);
   }, [switchTo]);
 
   // A dialog id is a tab, not a conversation. Resuming onto the id this tab holds would
@@ -539,7 +559,7 @@ export function useSpecDialog(): SpecDialogState {
         switchTo(null, sessionId, openDialogId);
         return;
       }
-      switchTo(`/spec resume ${sessionId}`, sessionId);
+      switchTo(sessionId, sessionId);
     },
     [view, switchTo],
   );
