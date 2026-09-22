@@ -27,6 +27,7 @@ import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { deriveRunRepoNames } from "@/lib/runRepoNames";
 import { isRunLive } from "@/lib/runLiveness";
 import { formatRunSummary } from "@/lib/formatRunSummary";
+import { isRelaunching, relaunchPlace } from "@/components/jobs/runStatus";
 import { stepIndexOf, toRailNodes } from "@/lib/runStepRail";
 import { usePersistedPaneWidth } from "@/hooks/usePersistedPaneWidth";
 import { useViewportWidth } from "@/hooks/useViewportWidth";
@@ -151,7 +152,11 @@ function RunDetail({ runId }: { runId: string }) {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const spill = statusSpill(snapshot?.status ?? null);
+  // 2026-09-22-7c41c: read ONCE for the whole page — the header spill (which also themes
+  // the wrapper), the phrase beside it, the banner, the side rail and the story spine all
+  // have to agree about whether this run is still asking the operator for something.
+  const relaunching = isRelaunching(snapshot);
+  const spill = statusSpill(snapshot?.status ?? null, relaunching);
   const phrase = spillPhrase(snapshot);
 
   return (
@@ -167,6 +172,7 @@ function RunDetail({ runId }: { runId: string }) {
           repoNames={repoNames}
           connectionState={connectionState}
           status={snapshot?.status ?? null}
+          relaunching={relaunching}
           cancelRequested={snapshot?.cancelRequested ?? false}
           costUsd={snapshot?.costUsd ?? null}
           reservedGiMinutes={snapshot?.reservedGiMinutes ?? null}
@@ -321,7 +327,10 @@ function RunBanner({
 }) {
   if (!snapshot) return null;
 
-  if (snapshot.status === "waiting_for_input") {
+  // 2026-09-22-7c41c: the loudest of the page's five needs-you claims, and it renders whether
+  // or not a question is attached — so a parked run whose relaunch is under way (its answer
+  // in, its place in line held) must not raise it.
+  if (snapshot.status === "waiting_for_input" && !isRelaunching(snapshot)) {
     const q = snapshot.pendingQuestion ?? null;
     return (
       <div className="banner wait" data-testid="run-banner" data-kind="wait">
@@ -383,6 +392,12 @@ function RunBanner({
 function spillPhrase(snapshot: RunSnapshot | null): string | null {
   if (!snapshot) return null;
   if (snapshot.status === "running" && snapshot.stepName) return `on ${snapshot.stepName}`;
+  // 2026-09-22-7c41c: before the park phrase — the answer is in, and what the run waits for
+  // now is a slot. A place in line is reported when it still holds one.
+  if (isRelaunching(snapshot)) {
+    const place = relaunchPlace(snapshot);
+    return place != null ? `resuming — place ${place} in line` : "resuming";
+  }
   if (snapshot.status === "waiting_for_input") return "paused on an open question";
   if (snapshot.status === "queued") return "waiting for capacity";
   return null;

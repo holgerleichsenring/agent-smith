@@ -59,6 +59,7 @@ internal static class RunQueryEndpoints
     private static async Task<IResult> GetRunsAsync(
         RunRepository runs, ICapacityQueue capacityQueue, IRunCheckpointStore checkpoints,
         IOptions<JobSpawnerOptions> spawner, ICapacityBudget capacityBudget,
+        IActiveRunLease activeRunLease, TimeProvider clock,
         string? before, int? limit,
         CancellationToken cancellationToken)
     {
@@ -78,18 +79,23 @@ internal static class RunQueryEndpoints
 
         var (active, recent) = await RunListComposer.BuildOverviewAsync(
             runs, capacityQueue, cancellationToken, spawner.Value.Resources.MemoryRequest,
-            checkpoints, capacityBudget);
+            checkpoints, capacityBudget, activeRunLease, clock);
         return Results.Ok(new { active, recent });
     }
 
     private static async Task<IResult> GetRunAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
         IRunCheckpointStore checkpoints, IOptions<JobSpawnerOptions> spawner,
-        ICapacityBudget capacityBudget, CancellationToken cancellationToken)
+        ICapacityBudget capacityBudget, IActiveRunLease activeRunLease, TimeProvider clock,
+        CancellationToken cancellationToken)
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is null) return Results.NotFound();
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
+        // 2026-09-22-7c41c: the detail must not disagree with the overview — one parked run
+        // cannot be "queued to resume" on the list and "needs you" on its own page.
+        var relaunching = await RunQueuePlace.RelaunchingAsync(
+            activeRunLease, clock, positions, [run], cancellationToken);
         // p0327: the parked run's pending question rides the detail snapshot so
         // the dashboard renders it with the answer affordance.
         var pendingQuestion = run.Status == "waiting_for_input"
@@ -101,7 +107,7 @@ internal static class RunQueryEndpoints
         // p0344b: the detail additionally serves the persisted run story
         // (progress ledger + acceptance); beats ride list and detail alike.
         return Results.Ok(RunSnapshotMapper.ToSnapshot(
-            run, RunListComposer.PositionOf(run, positions), spawner.Value.Resources.MemoryRequest,
-            pendingQuestion, capacity, includeStory: true));
+            run, RunQueuePlace.Of(run, positions, relaunching),
+            spawner.Value.Resources.MemoryRequest, pendingQuestion, capacity, includeStory: true));
     }
 }

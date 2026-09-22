@@ -1,0 +1,204 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-7c41c
+
+goal: "A parked run whose relaunch is waiting for a slot shows its place in the queue instead of demanding an answer nobody owes, using the position the surface already renders."
+
+applies_to: "backend and dashboard (the queue position a waiting run may carry, and the four places that call a run 'needs you')"
+
+scope:
+  in: >
+    A parked run carries the status that says it is waiting for an operator, and the surface calls
+    it NEEDS YOU from that status alone — in the overview's attention bucket, on the run's side
+    rail, in its detail header, in the full-width banner across its page, and in its story spine.
+    When the answer arrives the relaunch is enqueued and the checkpoint marked resumed, but the
+    status is untouched, so a run whose answer is in and whose relaunch is merely waiting for a
+    slot keeps asking to be answered.
+    It is worse than a stale label. The pending-question projection returns nothing once the
+    checkpoint is marked resumed, so what the operator gets is a card demanding attention with no
+    question on it and no control to act with.
+    The status cannot be repainted to say so: it is the relaunch launcher's launch condition, and
+    a run repainted as queued is never launched and is skipped silently on every pump tick. Nor
+    can the ABSENCE of an outstanding question say so: a park can leave no checkpoint, a
+    checkpoint can be marked resumed for a relaunch that will never happen, and an unreadable
+    question reads as no question — in each of those the operator is still owed something, and an
+    absence-derived flag would remove the only surface that reports it.
+    What is positively true in exactly the window that matters is that the run's relaunch IS
+    UNDER WAY — it has a place in the capacity queue, or the launcher has already claimed its
+    lease. The queue holds one entry per waiting relaunch keyed by the reserved run id,
+    which for a relaunch is the parked run's own id. Both read paths already fetch the positions
+    and already map them onto the snapshot; the position is simply discarded for any run whose
+    status is not already queued, and the client already renders it.
+    This phase stops discarding it for a waiting run and reads it where the surface speaks of
+    attention. A waiting run with no place in the queue is unchanged, which is the safe direction
+    and the reason for the polarity.
+    A parked run publishes nothing, so nothing would tell the surface to re-read; the relaunch
+    gains the same nudge the capacity deferral already makes, for the reason stated there.
+  out: >
+    A NEW FIELD ON THE SNAPSHOT. An earlier draft added one and was corrected: the position
+    already exists on both sides, is already rendered, and is already safe in both skew
+    directions. Reusing it removes the contract widening, the seven call sites of a widened queue
+    lookup, and a mirror the generated-mirror check is blind to.
+    CHANGING Run.Status ON THE RELAUNCH PATH. It is the launcher's gate.
+    NOTHING. The window between the entry's removal and the run starting is closed HERE rather
+    than deferred. An earlier draft deferred it and a review measured what that would produce:
+    with free capacity the queue entry is gone within one fifteen-second pump tick while the
+    launch, the pod start and the start projection take longer, so the operator would have seen
+    needs-you, then queued, then needs-you again — a flip they would read as a SECOND question,
+    which is worse than the single wrong stretch they see today. The launcher claims the lease
+    before it hands the job over and before it removes the entry, so the two carriers overlap with
+    no gap, and the assertion is simply their union.
+    THE STATUS-KEYED GLYPH, TONE AND FILTER. A filter on the waiting status is about the status
+    and is correct; the icon and the amber tone say waiting, not needs-you.
+    THE CAPACITY QUEUE'S ORDER AND ADMISSION. Untouched.
+    A CHECKPOINT MARKED RESUMED FOR A RELAUNCH THAT NEVER HAPPENS. Two reachable routes produce
+    it: a checkpoint carrying no project or ticket, and a duplicate trigger whose queue entry
+    already occupies the ticket so the relaunch's payload is discarded on upsert. Both strand a
+    parked run forever, and this phase's polarity is chosen so that they stay visible rather than
+    being hidden. Named as the phase that stops a checkpoint being consumed by a relaunch that
+    cannot happen.
+
+decisions:
+  - key: |
+      ASSERT THE POSITIVE FACT, NEVER THE ABSENCE. "This run has a place in the queue" is a row
+      that exists. "No question is outstanding" is four different states wearing one face, three
+      of which still owe the operator something. Deriving from the absence silences three real
+      problems to fix one cosmetic one.
+  - key: |
+      THE POSITION IS ALREADY THE ANSWER AND IS ALREADY DRAWN. Both read paths fetch it, the
+      mapper takes it, the client renders it as a place in line. Only one gate keeps it from a
+      waiting run, and that gate is the whole change on the server side. A new boolean would have
+      cost a contract widening and a mirror nothing checks, to say less than the number says.
+  - key: |
+      AN ENTRY KEYED TO A PARKED RUN'S ID IS A RELAUNCH, and no reachable path produces otherwise:
+      the queue writes its reserved id and its kind exactly once on insert and a later upsert
+      refreshes only the reason. A duplicate trigger for the same ticket either mints its own run
+      id, or — when it takes the parked run's id from the queue head — starts a run on it and
+      deletes the entry, which makes the assertion false and the run loud again. So the kind flag
+      is not needed to tell them apart.
+  - key: |
+      THE RUN MOVES TO THE QUEUED BUCKET, NOT OUT OF ALL OF THEM. The overview's bucketing is a
+      switch whose default arm is RUNNING, so removing a waiting run from the attention arm
+      without naming its destination paints it as running — which is precisely what an earlier
+      draft was refused for. It belongs where every other run waiting for a slot sits.
+  - key: |
+      ONE PAGE MUST NOT DISAGREE WITH ITSELF. The run's own page says needs-you in four places,
+      each from the status alone, and the loudest of them is a full-width banner that already
+      renders with no question attached. Fixing the rail and leaving the banner would put two
+      contradictory claims about one run on one screen.
+  - key: |
+      WITHOUT THE NUDGE THIS PHASE DELIVERS NOTHING. A parked run is outside the set the
+      broadcaster drains, so no event reaches the surface and nothing triggers a re-read; the card
+      would correct itself only when the run relaunches, which is when the status already clears
+      it. The capacity deferral makes exactly this nudge for exactly this reason.
+
+steps:
+  - id: a-waiting-run-may-carry-its-place
+    action: "The one shared gate that discards a queue position for any run not already queued admits a waiting run, so a parked run whose relaunch is enqueued carries its real place in line on both read paths that use it."
+  - id: a-relaunch-under-way-is-visible-without-a-place
+    action: "A waiting run whose relaunch already holds its lease is reported as relaunching even though its queue entry is gone, so the two carriers overlap and the run never flips back to asking for an answer."
+  - id: the-overview-moves-it-to-queued
+    action: "A waiting run whose relaunch is under way is bucketed as queued rather than as needing attention, and the queued row recognises it in all four places it reads a derived status: the layout gate, the state dot's class, the activity-line gate and the wait-reason column."
+  - id: the-run-page-agrees-with-the-overview
+    action: "All five places the run's own page says it needs an answer — the side rail label, the header's status spill, the phrase beside it, the full-width banner and the story spine — require the waiting status AND no relaunch under way."
+  - id: the-story-spine-gains-a-third-state
+    action: "The spine distinguishes needs-you from relaunching from running, rather than negating its paused flag, so a run whose relaunch is under way is never described as in progress."
+  - id: the-relaunch-nudges-the-surface
+    action: "The sweeper nudges the run list after a relaunch is enqueued, the way a capacity deferral already does and best-effort, so the change reaches an open surface; it is placed at that sole caller rather than inside the resumer, because the resumer is composed by a build that has no nudge registered and validates its whole graph at startup."
+
+tests:
+  - "RunSnapshot_AWaitingRunWithAQueueEntry_CarriesItsPosition"
+  - "RunSnapshot_AWaitingRunWithNoQueueEntry_CarriesNoPosition"
+  - "RunSnapshot_AParkWithNoCheckpointAtAll_CarriesNoPosition"
+  - "RunSnapshot_AFinishedRun_CarriesNoPosition"
+  - "RunDetail_AWaitingRunWithAQueueEntry_CarriesItsPosition"
+  - "MissionBuckets_AWaitingRunWithAQueuePlace_IsInTheQueuedBucket"
+  - "MissionBuckets_AWaitingRunWithAQueuePlace_IsNotInRunning"
+  - "MissionBuckets_AWaitingRunWithNoQueuePlace_IsStillInNeedsYou"
+  - "RunRow_AWaitingRunWithAQueuePlace_DrawsTheQueuedLayout"
+  - "RunRow_AWaitingRunWithAQueuePlace_DoesNotCarryTheNeedsYouDot"
+  - "RunRow_AWaitingRunWithAQueuePlace_CarriesNoActivityLine"
+  - "RunStory_AWaitingRunWithAQueuePlace_SaysNeitherNeedsYouNorInProgress"
+  - "RunSnapshot_AWaitingRunWhoseRelaunchHoldsItsLease_ReportsItRelaunching"
+  - "RunSnapshot_AWaitingRunWithNeitherPlaceNorLease_ReportsNeither"
+  - "CliComposition_ResumeServices_ResolveWithoutTheDashboardApi"
+  - "RunPage_AWaitingRunWithAQueuePlace_SaysNeedsYouInNoneOfTheFivePlaces"
+  - "RunPage_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou"
+  - "Resume_AnEnqueuedRelaunch_NudgesTheRunList"
+  - "Resume_ANudgeThatThrows_DoesNotFailTheRelaunch"
+  - "ResumeLauncher_ARunWhoseRelaunchIsQueued_StillLaunchesFromWaitingForInput"
+
+done:
+  - "a parked run whose relaunch is queued is shown as queued, with its place, on the overview and on its own page"
+  - "a parked run with no place in the queue is unchanged, including every park the queue cannot see"
+  - "no page says a run needs an answer while another part of the same page says it is queued"
+  - "the run status is not written on the relaunch path and the launcher still launches"
+  - "an open surface learns without waiting for the relaunch"
+  - "build green, dashboard tests green, full suite green"
+
+facts:
+  - claim: "The relaunch launcher launches only a run whose status reads waiting-for-input."
+    evidence: "src/backend/AgentSmith.Server/Services/ResumeRunLauncher.cs:56-64"
+  - claim: "The relaunch is enqueued under the parked run's own reserved run id."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/RunResumer.cs:62-72"
+  - claim: "A checkpoint carrying no project or ticket is marked resumed and enqueues nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/RunResumer.cs:28-36"
+  - claim: "The sweeper enqueues the relaunch and moves the ticket, writing no run status and publishing nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:66-79"
+  - claim: "The queue writes its reserved run id and its kind once on insert; a later upsert for the same project and ticket refreshes only the reason."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:23-35,85-101"
+  - claim: "The per-run lookup returns positions keyed by reserved run id, computed from the live order."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:66-76"
+  - claim: "The overview fetches those positions and the gate discards them for any run whose status is not queued."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:60,76-79"
+  - claim: "The detail endpoint makes the same lookup and composes its snapshot itself rather than through the overview builder."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:92,103-105"
+  - claim: "The finished-runs page path fetches no positions and passes none."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:37-47"
+  - claim: "The mapper takes the position and gates the pending question on the waiting status."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:75,77"
+  - claim: "The launcher removes the queue entry when it hands the job to the worker, and also on the drop gate."
+    evidence: "src/backend/AgentSmith.Server/Services/ResumeRunLauncher.cs:29,46-47"
+  - claim: "The capacity deferral nudges the run list after its write because a deferred run is outside the set the broadcaster drains, best-effort and logged."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/CapacityDeferral.cs:38-43"
+  - claim: "The nudge is data-free."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRunListNudge.cs:21-25"
+  - claim: "It broadcasts to the whole overview group regardless of the run, and the client discards the id and refetches the list."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:117"
+  - claim: "The pending-question projection returns nothing once the checkpoint carries a resumed timestamp."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/PendingQuestionInfo.cs:31"
+  - claim: "A park that leaves no checkpoint at all is a known, reported class."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/UnanswerableParkReporter.cs:11-16"
+  - claim: "The overview buckets on a DERIVED node status in a switch whose default arm is running."
+    evidence: "src/dashboard/src/components/jobs/mission/missionBuckets.ts:19-38"
+  - claim: "The waiting status derives to the input node status, which is what the attention arm matches."
+    evidence: "src/dashboard/src/lib/runStatus.ts:33-58"
+  - claim: "The attention section renders a different component from the queued section, one that states a question count unconditionally."
+    evidence: "src/dashboard/src/components/jobs/mission/NeedsYouCard.tsx:108"
+  - claim: "The queued row layout is chosen by the DERIVED status, and the same derived status also picks the state dot's class and gates the activity line."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:53,57,63,130"
+  - claim: "The waiting dot's class is painted in the run colour with a pulse, not the idle colour the queued dot uses."
+    evidence: "src/dashboard/src/styles/mock-parity.css:176-177"
+  - claim: "The queued row's wait-reason column renders the run's summary, and the queue entry's reason is written onto a run row only while that row already reads queued."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:85-93"
+  - claim: "The run's own page says it needs an answer in five places, each from the status alone: the side rail label, the header's status spill, the phrase beside it, a full-width banner that renders whether or not a question is attached, and the story spine."
+    evidence: "src/dashboard/src/components/jobs/RunSideRail.tsx:20"
+  - claim: "The spine derives one paused flag that drives four separate renderings, so negating it would describe a relaunching run as in progress."
+    evidence: "src/dashboard/src/components/jobs/story/RunStory.tsx:85,239-241,338-339"
+  - claim: "The launcher claims the lease before it hands the job to the worker and before it removes the queue entry, so the two carriers overlap."
+    evidence: "src/backend/AgentSmith.Server/Services/ResumeRunLauncher.cs:37,46-47"
+  - claim: "The only caller of the relaunch enqueue is the sweeper, which is composed server-side."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:74"
+  - claim: "The command-line composition builds the same resume services and validates every constructor graph at build time."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:60,88-93"
+  - claim: "The nudge's no-op default is registered only in the server composition."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DispatcherExtensions.cs:87-88"
+  - claim: "The client already renders a queue position as a place in line."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:90"
+
+assumptions:
+  - claim: "Admitting a waiting run to the position gate breaks nothing that pins the current gate."
+    check: "Find every test that asserts a position is null for a non-queued run and decide what each should now say."
+  - claim: "The relaunch's nudge can be injected where the resumer is composed, in every composition that builds it."
+    check: "Read where the resumer is registered and where the nudge's default is bound; a composition with no dispatcher must still resolve."
+  - claim: "The story spine and the detail header derive their label in one place each, so the rule can be applied without duplicating it four times."
+    check: "Open each of the four and establish whether a shared helper already decides the label."
