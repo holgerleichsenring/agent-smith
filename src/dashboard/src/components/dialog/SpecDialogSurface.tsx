@@ -140,7 +140,12 @@ export function SpecDialogSurface() {
             may not hold spec dialogs is told that rather than shown a stack. */}
         {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
         <div className="@container">
-          <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-[minmax(0,1fr)_300px] @6xl:grid-cols-[220px_minmax(0,1fr)_360px]">
+          {/* 2026-09-21-f237c: the panel's track goes 220px -> 300px, and the EXCHANGE pays. The
+              scope pane renders given names — repositories, templates, revisions — that this page
+              did not choose and cannot shorten without lying, so it keeps its width; the exchange
+              is prose and reflows. The mid and phone breakpoints, where the panel is already full
+              width, are unchanged. */}
+          <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-[minmax(0,1fr)_300px] @6xl:grid-cols-[300px_minmax(0,1fr)_360px]">
             <DialogConversations
               dialogId={dialog.dialogId}
               sessionHere={session?.sessionId ?? null}

@@ -14,7 +14,7 @@ import { PageHead } from "@/components/system/PageHead";
 import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
 import { conversationHref } from "./conversationHref";
 import { deletionWarning } from "./conversationDelete";
-import { lastActive, outcomeLabel } from "./conversationDays";
+import { lastActive, outcomeLabel } from "./conversationRows";
 
 // 2026-09-21-f237b: every conversation the caller holds, with room to read one.
 //
