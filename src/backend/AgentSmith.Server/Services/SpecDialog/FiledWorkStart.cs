@@ -19,8 +19,17 @@ public enum FiledStartState
     /// not hold, a status the tracker would not move it out of.</summary>
     NotStarted,
 
-    /// <summary>A slice record. It is not work at all, so it is never resolved and never
-    /// moved — the state is read off the label the filer used, not asked of the resolver.</summary>
+    /// <summary>
+    /// A slice record: not work at all, so it was never resolved and never moved.
+    /// <para>
+    /// 2026-09-22-b3d7: NOTHING WRITES THIS ANY MORE — an approved cut files one ticket and no
+    /// records. The member stays because the enum is serialized BY NAME onto the session row and
+    /// every filing stored before this phase carries it: an unreadable filing row is shown as
+    /// ABSENT rather than as an error, so deleting the member would not surface as a missing word
+    /// but as the whole stored filing silently vanishing from the pane. The filed-work reader also
+    /// still skips the run lookup for a row carrying it, which is the right answer for those rows.
+    /// </para>
+    /// </summary>
     Record,
 }
 

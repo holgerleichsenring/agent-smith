@@ -87,8 +87,14 @@ public sealed class FiledWorkReadTests : IDisposable
             .Equal("done", "done", "in_progress", "not_started", "not_started");
     }
 
+    /// <summary>
+    /// 2026-09-22-b3d7: nothing writes this state any more, and every filing stored before this
+    /// phase still carries it. The enum is serialized BY NAME and an unreadable filing row is
+    /// shown as ABSENT, so a member that went missing would not surface as a missing word but as
+    /// the whole stored filing silently vanishing from the pane.
+    /// </summary>
     [Fact]
-    public async Task FiledWork_SliceRecord_IsListedAsARecordWithNoRun()
+    public async Task FiledWork_AStoredFilingCarryingARecordState_StillReadsBack()
     {
         await FilingAsync(
             Filed(Work, "alpha"),
