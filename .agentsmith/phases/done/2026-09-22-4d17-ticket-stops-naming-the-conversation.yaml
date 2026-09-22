@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-4d17
+
+goal: "A filed ticket stops telling its reader that a change to the approved specification is made in the design conversation, because it is not and there is no route in from one."
+
+applies_to: "backend (the filed ticket's specification pointer, and the two other places that repeat the same claim)"
+
+scope:
+  in: >
+    Every work ticket the design dialog files carries a specification section. When the ticket was
+    filed from a conversation it adds a second sentence naming that conversation as WHERE A CHANGE
+    TO IT IS MADE.
+    That is false, and the file that owns the true answer says so in as many words: a change is
+    not made in the design conversation, because nothing re-opens an approved record from one —
+    and it names a wording that sends an operator there as exactly the promise that was deleted,
+    pointing somewhere else. The method that would load an approved record back into a
+    conversation exists and has no caller at all.
+    So the artefact an operator meets first tells them to go somewhere that cannot help them. The
+    claim is repeated in two further places: a comment beside the specification's markdown, and
+    the reason string of a test that asserts the conversation id survives.
+    This phase deletes the claim. It keeps the conversation id, which is provenance and worth
+    having, and removes only the half that is untrue.
+  out: >
+    A HEADER SAYING THE TICKET DOES NOT STEER THE RUN. It was specified here and withdrawn,
+    because the sentence it would have added is itself false: an edit to the ticket does not
+    change the SPECIFICATION, but the ticket's text still reaches the repository-scoping
+    classifier, which runs BEFORE the derivation even for an approved set and can change the
+    run's size estimate and its cost cap or refuse the run outright; the title reaches the coding
+    master's prompt on every phase; and the description becomes the head of the pull request. The
+    true sentence is narrower — that an edit does not change the specification the run works — and
+    it belongs with whichever phase can state it without inheriting the same trap. Named as the
+    phase that tells a filed ticket's reader what their edit does and does not reach.
+    NAMING THE BRANCH AS THE PLACE INSTEAD. Tempting and premature: the specification is written
+    to a ticket branch by a RUN, so a ticket that has never been started has no branch and no
+    specs directory, and the two constants that state the branch answer were both written for a
+    hand-back during a run — one of them names a pull request that does not exist yet. Sending an
+    operator there would repeat this phase's own defect with a different destination. The phase
+    that writes the branch at filing time is what makes that answer true; named in prose.
+    THE RESERVED-PHRASE DEMAND. A sibling phase makes a comment carrying a reserved phrase re-cut
+    an approved set — which changes the true answer again. Whatever sentence eventually replaces
+    the deleted one must be owned in ONE place so that phase edits it once.
+
+decisions:
+  - key: |
+      DELETE THE FALSE HALF, KEEP THE TRUE ONE. The sentence does two things: it records which
+      conversation approved the cut, and it tells the reader to go there to change it. The first
+      is provenance and costs nothing. The second is the defect. Removing a clause is the whole
+      change.
+  - key: |
+      DO NOT REPLACE IT WITH ANOTHER DESTINATION YET. Every candidate answer is either false today
+      or about to change. The branch does not exist for an unstarted ticket; the constants that
+      name it were written for a run in progress and one of them names a pull request; and a
+      sibling phase is about to make a ticket comment a legitimate way to demand a re-cut. A
+      pointer that has to be rewritten twice is worse than no pointer beside a fact that is true.
+  - key: |
+      THE CLAIM LIVES IN MORE PLACES THAN THE TICKET. A code comment repeats it and a test carries
+      it as its stated reason. Deleting only the rendered sentence would leave the belief in the
+      repository for the next reader to act on.
+  - key: |
+      NOTHING PARSES THE SECTION, SO THE EDIT IS SAFE. The acceptance-criteria reader stops at the
+      next heading and this section is emitted after it; the extractor looks for a fence, which
+      this body never carries. And nothing re-renders an already filed ticket, so no ticket on a
+      board changes and no text fingerprint moves.
+
+steps:
+  - id: the-ticket-stops-naming-the-conversation-as-the-place
+    action: "The specification pointer records which conversation approved the cut and no longer tells the reader that a change to it is made there."
+  - id: the-same-claim-goes-where-it-is-repeated
+    action: "The code comment beside the specification's markdown and the test that carries the claim as its stated reason are corrected with it."
+
+tests:
+  - "FiledTicket_AnApprovedCut_StillRecordsTheConversationItWasApprovedIn"
+  - "FiledTicket_ASpecificationSection_DoesNotSayAChangeIsMadeInTheConversation"
+  - "FiledTicket_ATicketFiledWithNoConversation_IsUnchanged"
+  - "FiledTicket_TheSpecificationSection_IsStillAfterTheAcceptanceCriteria"
+
+done:
+  - "no filed ticket tells its reader to change the specification in the design conversation"
+  - "the conversation that approved the cut is still recorded"
+  - "the claim is gone from the comment and the test reason that repeat it"
+  - "a ticket already on a board is untouched"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The specification pointer states the approved specification is published to the ticket branch and, when a conversation is known, that the conversation is where a change to it is made."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:54-64"
+  - claim: "The constant that owns the true answer documents that a change is NOT made in the design conversation, that nothing re-opens an approved record from one, and that such a wording is the deleted promise pointing somewhere else."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:42-46"
+  - claim: "The recorder says the same a second time and states that approving the same ticket again has no route in from a conversation."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:29-36"
+  - claim: "The method that would load an approved record back has no caller."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:77-92"
+  - claim: "A code comment beside the specification's markdown repeats the claim."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecMarkdown.cs:110-111"
+  - claim: "A test carries the claim as its stated reason while asserting only that the conversation id survives."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/EpicWorkTicketTests.cs:192-201"
+  - claim: "The specification is written to a ticket branch inside a run's sandbox and refuses when the run has no ticket branch, so an unstarted ticket has neither."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetWriter.cs:28-36"
+  - claim: "The two constants that name the branch were written for a hand-back during a run, and one of them names the pull request the run linked."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:45-51"
+  - claim: "The acceptance-criteria reader stops at the next heading, and the specification section is emitted after it."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs:32-39"
+  - claim: "The renderers are called only at filing, so no ticket already on a board is re-rendered."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-119"
+  - claim: "A ticket's text still reaches the repository-scoping classifier, which runs before the derivation."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs:96-100"
+  - claim: "For an approved set only the narrowing is skipped; the estimate, the refusal and the per-repo gate still run."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:27-29"
+
+assumptions:
+  - claim: "No test asserts the deleted clause's text."
+    check: "Search the test projects for the clause and for the heading it sits under."
+  - claim: "A sibling phase editing the same renderer does not collide with this change."
+    check: "Read which method each phase edits and whether their ranges overlap."
