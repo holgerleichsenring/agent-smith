@@ -265,7 +265,7 @@ public sealed class FiledWorkWatchTests : IDisposable
         new(Ownership(), new FiledWorkFiling(Store()), _registry);
 
     private SpecDialogOwnership Ownership() =>
-        new(new SpecDialogSessionRepository(_context), new SpecCommandParser());
+        new(new SpecDialogSessionRepository(_context));
 
     private SpecDialogLatestOutcomeStore Store() =>
         new(new SpecDialogSessionRepository(_context),

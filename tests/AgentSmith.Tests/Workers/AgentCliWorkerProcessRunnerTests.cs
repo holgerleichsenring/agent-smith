@@ -50,11 +50,17 @@ public sealed class AgentCliWorkerProcessRunnerTests
     {
         if (OperatingSystem.IsWindows()) return;
 
+        // 2026-09-22-3f7c: both sides of the duration comparison are real time on the same
+        // clock — the child's own sleep, and how long the runner waited for it — so a slower
+        // host scales neither. Twenty seconds was a third number, belonging to neither.
+        var childSleep = TimeSpan.FromSeconds(30);
         var result = await NewRunner().RunAsync(
-            "ignored", Shell("sleep 30", timeoutSeconds: 1), CancellationToken.None);
+            "ignored", Shell($"sleep {childSleep.TotalSeconds:F0}", timeoutSeconds: 1),
+            CancellationToken.None);
 
         result.TimedOut.Should().BeTrue();
-        result.Duration.Should().BeLessThan(TimeSpan.FromSeconds(20), "the wait is bounded");
+        result.Duration.Should().BeLessThan(childSleep,
+            "the runner stops at its own timeout rather than at the child's end");
     }
 
     [Fact]

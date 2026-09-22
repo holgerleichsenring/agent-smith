@@ -15,10 +15,10 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// sharing a page.
 /// </para>
 /// <para>
-/// The ladder is: clone, then (when a revision is named) check it out; a checkout that
-/// fails asks the host for that one ref and tries again, because a full clone carries
-/// every branch and every tag but NOT a sha that lives only in a pull-request ref or on a
-/// deleted branch. The refusals are told apart so an operator reads an action, not git.
+/// The ladder is: clone one branch at one commit (2026-09-22-b41d), then (when a revision
+/// is named) check it out; a checkout that fails asks the host for that one ref and tries
+/// again, and a fetch that lands nothing asks once more WITH depth and takes what came
+/// back. The refusals are told apart so an operator reads an action, not git.
 /// </para>
 /// </summary>
 public sealed class SourceScopeMaterialiser
@@ -43,7 +43,8 @@ public sealed class SourceScopeMaterialiser
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(repo);
 
-        var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(repo), null, ct);
+        var clone = await sandbox.RunStepAsync(
+            CheckoutStepFactory.BuildScopeCloneStep(repo), null, ct);
         if (clone.ExitCode != 0)
             throw Fail(CloneKind(clone), repo, revision, $"git clone failed: {Text(clone)}");
 
@@ -65,15 +66,31 @@ public sealed class SourceScopeMaterialiser
 
         var fetch = await sandbox.RunStepAsync(
             CheckoutStepFactory.BuildFetchRevisionStep(repo, revision), null, ct);
-        if (fetch.ExitCode != 0)
-            throw Fail(SourceScopeFailureKind.RevisionNotFetched, repo, revision,
-                "the clone does not carry this revision and the host would not hand it over — "
-                + $"a sha reachable from no branch and no tag looks like this: {Text(fetch)}");
+        if (fetch.ExitCode == 0)
+        {
+            var second = await sandbox.RunStepAsync(
+                CheckoutStepFactory.BuildCheckoutStep(revision), null, ct);
+            if (second.ExitCode == 0) return;
+        }
 
-        var second = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(revision), null, ct);
-        if (second.ExitCode != 0)
+        // 2026-09-22-b41d: the clone is one branch at one commit, so a revision it does not
+        // carry is the ordinary case, and what the fetch above brought is reachable only as
+        // FETCH_HEAD — a single-branch clone tracks no other remote ref. Asking WITH depth is
+        // the last rung before any refusal, and the two stay apart: a host that hands the
+        // revision over neither way is a revision not fetched, never an unreachable host.
+        var deepened = await sandbox.RunStepAsync(
+            CheckoutStepFactory.BuildFetchRevisionAtDepthStep(repo, revision), null, ct);
+        if (deepened.ExitCode != 0)
+            throw Fail(SourceScopeFailureKind.RevisionNotFetched, repo, revision,
+                "the clone does not carry this revision and the host would not hand it over, "
+                + "with depth or without — a sha reachable from no branch and no tag looks "
+                + $"like this: {Text(deepened)}");
+
+        var landed = await sandbox.RunStepAsync(
+            CheckoutStepFactory.BuildCheckoutStep("FETCH_HEAD"), null, ct);
+        if (landed.ExitCode != 0)
             throw Fail(SourceScopeFailureKind.NoSuchRevision, repo, revision,
-                $"the revision does not resolve, even after asking the host for it: {Text(second)}");
+                $"the revision does not resolve, even after asking the host for it: {Text(landed)}");
     }
 
     /// <summary>

@@ -98,8 +98,14 @@ export function AppRail() {
   // lands — the item then renders without a count rather than a fake 0.
   const openPrCount = useOpenPrCount();
 
+  // 2026-09-21-f237b: a surface with a second view is still that surface. Exact equality left
+  // "Work it out" unmarked on /spec-dialog/conversations while the header named the page, so an
+  // entry with a subtree matches its subtree; "/" keeps its exact match, because every path
+  // starts with it.
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname === href;
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
   // A bucket is the current view only on the home screen — from anywhere else
   // no monitor item may claim to be what is on screen.
   const isChosen = (bucket: RunBucketFilter) => pathname === "/" && filter === bucket;

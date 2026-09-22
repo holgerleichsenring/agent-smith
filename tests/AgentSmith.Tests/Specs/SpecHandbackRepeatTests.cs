@@ -116,7 +116,12 @@ public sealed class SpecHandbackRepeatTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
         return new SpecHandbackHandler(
-            factory.Object,
+            new SpecHandbackPark(
+                factory.Object,
+                new Application.Services.Lifecycle.UnmovedTicketReport(
+                    new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
+                    NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
+                NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),

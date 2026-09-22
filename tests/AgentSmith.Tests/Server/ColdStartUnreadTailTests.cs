@@ -149,12 +149,14 @@ public sealed class ColdStartUnreadTailTests : IDisposable
             .Should().BeTrue("the first process writes its own trail before it dies");
     }
 
-    // Several drain cycles inside the window, so a wrongly-placed anchor has time to replay.
+    // Several drain passes after the cold start, so a wrongly-placed anchor has the chance
+    // to replay. Counted from the drain's own discoveries: a stretch of clock buys a
+    // different number of passes on every machine, so it says a different thing each time.
     private async Task ColdStartAsync()
     {
         var processB = _harness.NewServerProcess(_repairs.Wrapping);
         await processB.StartAsync(CancellationToken.None);
-        await Task.Delay(1000);
+        (await _harness.AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
     }
 

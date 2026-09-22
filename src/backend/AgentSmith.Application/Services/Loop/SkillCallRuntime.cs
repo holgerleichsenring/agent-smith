@@ -91,20 +91,19 @@ public sealed class SkillCallRuntime : ISkillCallRuntime
         SkillCallRequest request, SkillCallScope scope, LoopTraceCollector trace,
         LimitEnforcer enforcer, PipelineCostTracker costTracker)
     {
-        var totalTokens = (long)costTracker.TotalInputTokens + costTracker.TotalOutputTokens
-            + costTracker.TotalCacheCreateTokens + costTracker.TotalCacheReadTokens;
-        var observation = _runtimeObservationFactory.BuildCostCapExhausted(
-            request.SkillName, costTracker.EstimateCostUsd(), totalTokens);
-        _logger.LogWarning(
-            "Skill {Skill} skipped — pipeline cost cap exhausted ({Usd:F4} USD / {Tokens} tokens).",
-            request.SkillName, costTracker.EstimateCostUsd(), totalTokens);
+        // 2026-09-22-7c41a: the sentence names the CAP and the CACHE-WEIGHTED spend — the
+        // number the token arm actually compared. The raw four-bucket sum this used to
+        // report named a figure the cap never read.
+        var stop = CostCapStop.Describe(costTracker);
+        var observation = _runtimeObservationFactory.BuildCostCapExhausted(request.SkillName, stop);
+        _logger.LogWarning("Skill {Skill} skipped — {Stop}.", request.SkillName, stop);
         return new SkillCallResult
         {
             Outcome = SkillCallOutcome.Incomplete,
             Output = null,
             Cost = scope.BuildRecord(enforcer),
             Trace = trace.Build(),
-            FailureReason = "cost cap exhausted",
+            FailureReason = stop,
             RuntimeObservations = new[] { observation },
             ReadPaths = Array.Empty<string>(),
         };

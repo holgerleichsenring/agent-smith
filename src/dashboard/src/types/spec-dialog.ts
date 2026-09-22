@@ -75,11 +75,26 @@ export interface SpecDialogSessionSummary {
   project: string;
   turns: number;
   lastActivityAt: string;
-  /** The first line the operator wrote; null before they wrote one. */
+  /** The first line the operator wrote; null before they wrote one, and null for good when the
+   *  conversation was opened with nothing but a pasted block. */
   title: string | null;
+  /** 2026-09-21-f237a: what the conversation is ABOUT, minted once by 2026-09-20-4b0af. Null
+   *  until that mint has run and for every conversation older than it. The row prefers it; a
+   *  deletion prefers the title, because a person confirms the words they wrote. */
+  subject: string | null;
   outcome: SpecDialogConversationOutcome | null;
   /** The dialog id an open conversation lives on; null once it is closed. */
   openDialogId: string | null;
+}
+
+/**
+ * 2026-09-21-f237b: one page of the caller's conversations, and how many they hold in all.
+ * The count is carried rather than inferred from the row count, which would be wrong for exactly
+ * the caller who holds the limit exactly.
+ */
+export interface SpecDialogConversationPage {
+  conversations: SpecDialogSessionSummary[];
+  total: number;
 }
 
 /** What the surface needs for one dialog id, re-read after every message. The caller's
@@ -238,9 +253,12 @@ export interface SpecDialogProposalPush {
  * poller's own envelope resolves it to the filing project and it sits in a trigger status.
  * `NotStarted` says why nothing will, and `Record` is a slice record, which is not work at all —
  * nothing has been filed as one since 2026-09-22-b3d7, and filings stored before it still carry it.
+ * 2026-09-22-9519: `Withdrawn` is a ticket the conversation that filed it closed again, and the
+ * tracker confirmed the close. `null` is a state this build cannot name — a server newer than the
+ * page — which the panel says is unknown rather than picking one of the words above.
  */
 export interface SpecDialogFiledStart {
-  state: "Started" | "NotStarted" | "Record";
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | null;
   reason: string;
 }
 

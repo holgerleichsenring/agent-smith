@@ -5,6 +5,7 @@ using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.AspNetCore.SignalR;
 using FluentAssertions;
+using AgentSmith.Tests.TestHelpers;
 using Moq;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -131,15 +132,11 @@ public sealed class RunEventRouterTests
         // WaitAsync throws if the bounded send never returns (a generous guard so a
         // busy CI thread pool cannot flake it). The stall Task is never completed.
         var slow = guarded.ToRunAsync("slow", step, CancellationToken.None);
-        // p0423b: a hang-detector, not a timing claim. The send bound under test is 50ms;
-        // this only has to outlast a busy scheduler.
-        // 2026-09-09-1113: back to 120s. p0432 narrowed it to 30s on the premise that the
-        // migration burst was what starved the pool; two runs on 2026-09-09 then tripped
-        // 30s on a tree that was green — 34338495135 at 48s and 34345964136 at 36s. Neither
-        // was a deadlock: the same logs show string-only assertions taking 42s and a
-        // console-transport timeout test taking 41s, so what the wait measured was the
-        // runner's scheduling. A hang detector is bounded by deadlock, not by impatience.
-        await slow.WaitAsync(TimeSpan.FromSeconds(120));
+        // p0423b: a hang-detector, not a timing claim. One second, then thirty, then a
+        // hundred and twenty — each raise chased the same runner, and each left a latency
+        // number in a test that was never about latency. 2026-09-22-3f7c: the number is gone
+        // and the suite's one hang ceiling is what a deadlock runs into.
+        await slow.OrHang("the stalled client's bounded send is abandoned");
 
         // … and a healthy client still gets its event.
         await guarded.ToRunAsync("fast", step, CancellationToken.None);

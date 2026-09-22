@@ -31,7 +31,10 @@ public sealed class WaitingRunDrainTests : IDisposable
         (await _harness.AwaitTrailRowsAsync(7))
             .Should().BeTrue("start + 5 gates + the park event are seven rows");
 
-        await Task.Delay(1500); // several drain cycles in which a stuck position would re-read
+        // Several drain passes in which a stuck position would re-read, counted from the
+        // drain's own discoveries rather than waited out on a clock that buys a different
+        // number of them on every machine.
+        (await _harness.AwaitDrainPassesAsync(process, 5)).Should().BeTrue();
         await process.StopAsync(CancellationToken.None);
 
         _harness.TrailRows().Should().Be(7, "the park event must be projected exactly once");
@@ -48,11 +51,11 @@ public sealed class WaitingRunDrainTests : IDisposable
         await _harness.PublishParkAsync();
         (await _harness.AwaitTrailRowsAsync(22)).Should().BeTrue("the first leg reaches the trail");
 
-        await _harness.RelaunchAsync();
+        (await _harness.RelaunchAsync(process)).Should().BeTrue("the drain rediscovers the run");
         await _harness.PublishGatesAsync(3);
         await _harness.PublishParkAsync();
         var resumed = await _harness.AwaitTrailRowsAsync(27);
-        await Task.Delay(1000);
+        (await _harness.AwaitDrainPassesAsync(process, 3)).Should().BeTrue();
         await process.StopAsync(CancellationToken.None);
 
         resumed.Should().BeTrue("the resumed leg's own events must reach the trail");
@@ -61,7 +64,7 @@ public sealed class WaitingRunDrainTests : IDisposable
     }
 
     [Fact]
-    public async Task Restart_DuringAWait_ThenResume_TheDrainResumesAtTheStoredPositionAndReplaysNothing()
+    public async Task WaitingRun_ARestartDuringAWait_ResumesWithoutADeadline()
     {
         var processA = _harness.NewServerProcess();
         await processA.StartAsync(CancellationToken.None);
@@ -74,11 +77,11 @@ public sealed class WaitingRunDrainTests : IDisposable
         // A new process holds no position in memory — only the stored one can save it.
         var processB = _harness.NewServerProcess();
         await processB.StartAsync(CancellationToken.None);
-        await _harness.RelaunchAsync();
+        (await _harness.RelaunchAsync(processB)).Should().BeTrue("the new process discovers the run");
         await _harness.PublishGatesAsync(2);
         await _harness.PublishParkAsync();
         var resumed = await _harness.AwaitTrailRowsAsync(16);
-        await Task.Delay(1000);
+        (await _harness.AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
 
         resumed.Should().BeTrue("the resumed leg's events must reach the trail");
@@ -100,7 +103,7 @@ public sealed class WaitingRunDrainTests : IDisposable
 
         var processB = _harness.NewServerProcess();
         await processB.StartAsync(CancellationToken.None);
-        await Task.Delay(1000);
+        (await _harness.AwaitDrainPassesAsync(processB, 3)).Should().BeTrue();
         await processB.StopAsync(CancellationToken.None);
 
         _harness.RunIsFinished().Should().BeFalse();
@@ -115,7 +118,7 @@ public sealed class WaitingRunDrainTests : IDisposable
         await _harness.PublishGatesAsync(6);
         await _harness.PublishParkAsync();
         (await _harness.AwaitTrailRowsAsync(8)).Should().BeTrue();
-        await _harness.RelaunchAsync();
+        (await _harness.RelaunchAsync(process)).Should().BeTrue("the drain rediscovers the run");
         await _harness.PublishGatesAsync(6);
         await _harness.PublishParkAsync();
         var second = await _harness.AwaitTrailRowsAsync(16);

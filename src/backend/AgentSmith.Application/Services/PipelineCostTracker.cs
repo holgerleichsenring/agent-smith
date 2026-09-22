@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services;
 /// <see cref="IsBudgetExhausted"/> so the runtime can short-circuit
 /// further LLM-driven commands once the per-pipeline cap is reached.
 /// </summary>
-public sealed class PipelineCostTracker
+public sealed partial class PipelineCostTracker
 {
     private readonly object _gate = new();
     private int _totalInputTokens;
@@ -356,19 +356,4 @@ public sealed class PipelineCostTracker
     // model. (The per-phase breakdown in BuildSummary still approximates with
     // _lastModel; only this headline total feeds the budget fence and result.md.)
     private decimal EstimateCostUsdLocked() => _accruedUsd;
-
-    public static PipelineCostTracker GetOrCreate(PipelineContext pipeline)
-    {
-        const string Key = "PipelineCostTracker";
-        if (pipeline.TryGet<PipelineCostTracker>(Key, out var existing)
-            && existing is not null)
-            return existing;
-
-        pipeline.TryGet<IModelPricingResolver>("ModelPricingResolver", out var resolver);
-        pipeline.TryGet<PricingConfig>("ProjectPricing", out var pricingConfig);
-        pipeline.TryGet<CostCapValues>("PipelineCostCap", out var costCap);
-        var tracker = new PipelineCostTracker(resolver, pricingConfig, costCap);
-        pipeline.Set(Key, tracker);
-        return tracker;
-    }
 }

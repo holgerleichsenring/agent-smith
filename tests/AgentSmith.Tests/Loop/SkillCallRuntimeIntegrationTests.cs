@@ -87,7 +87,9 @@ public sealed class SkillCallRuntimeIntegrationTests
         var second = await runtime.ExecuteAsync(RuntimeBuilder.MakeRequest(), tracker, CancellationToken.None);
 
         second.Outcome.Should().Be(SkillCallOutcome.Incomplete);
-        second.FailureReason.Should().Be("cost cap exhausted");
+        // 2026-09-22-7c41a: the reason NAMES the cap and the cache-weighted spend, so an
+        // operator can tell a run that outspent its leash from one resumed onto a wrong cap.
+        second.FailureReason.Should().Contain("cost cap").And.Contain("exhausted");
         second.RuntimeObservations.Should().HaveCount(1);
         second.RuntimeObservations[0].Category.Should().Be(ExecutionLimitCategories.CostCapExhausted);
         chat.CallCount.Should().Be(1, "the second call must short-circuit before invoking the chat client");

@@ -1,0 +1,47 @@
+phase: 2026-09-22-deda
+decisions:
+  - id: the-clause-rides-the-turn-contract
+    chose: >
+      SpecDialogPromptFactory composes one TurnContract per turn: the proposal line it already
+      carried, plus a filing clause when the conversation has filed. The model reads it before it
+      writes anything.
+    alternative: >
+      A framework line appended to the reply after the turn, naming the standing tickets.
+    why: >
+      An appended line annotates a claim already made and already read, costs a message, grows the
+      transcript the model reads back, and was refused in review. The contract is the same shape the
+      prompt already uses for what a turn may propose, and it costs one method.
+  - id: a-capability-not-a-state
+    chose: >
+      "You cannot change, close or re-cut what was filed, and you must never report having done so."
+      No ticket reference, no claim about what any tracker now holds.
+    alternative: >
+      Naming the filed tickets and saying the filing stands, read from the session's latest-filing
+      column.
+    why: >
+      That column holds only the LATEST filing, so a conversation that filed twice would have named
+      one set while more existed — corroborating the very claim the clause exists to contradict —
+      and a ticket somebody has since closed would make the sentence false. A capability is true
+      whatever the tracker holds. The transcript already names what was filed, turn by turn.
+  - id: the-trigger-is-the-kept-filing-turn
+    chose: >
+      transcript.Any(turn => turn.Kind == SpecDialogTurnKind.Filing), read where the prompt is
+      composed from the transcript the turn was seeded with.
+    alternative: >
+      Keying on the outcome type, or reading the session's latest-filing column on the hot path.
+    why: >
+      The answer outcome is what a failed turn, a twice-invalid proposal and a refused proposal all
+      become, so anything gated on it fires under a failure note and misses a proposal turn. The
+      filing turn is already in the transcript the factory holds — the filing sink appends it for a
+      partial filing too, which is correct: such a conversation has tickets it cannot change — so
+      the trigger needs no new read and no new plumbing.
+  - id: appended-to-the-proposal-line-not-rendered-beside-it
+    chose: >
+      The clause is concatenated onto the proposal contract's string and is the empty string when
+      the conversation never filed.
+    alternative: >
+      Its own interpolation line in the raw-string prompt template.
+    why: >
+      An interpolation on its own line leaves a blank line behind when it renders empty, so a
+      conversation that never filed would no longer get byte-for-byte the prompt it gets today.
+      Concatenation makes the unchanged case provable: the filed prompt starts with the unfiled one.

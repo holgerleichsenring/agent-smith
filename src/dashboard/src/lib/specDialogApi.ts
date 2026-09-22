@@ -1,13 +1,15 @@
 // 2026-09-15-cb3e: the dialog surface's calls — what is on this dialog id, one message into
-// it, and the caller's conversations. The first two carry the dialog id the BROWSER minted;
+// it, and the caller's conversations.
+// 2026-09-22-2a86: and continuing one of those conversations here, which is a route of its own
+// rather than a command the page types at its own server. The first two carry the dialog id the BROWSER minted;
 // the server decides whether this caller owns the conversation behind it. The list carries
 // no id at all: it answers for the signed-in principal.
 
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import type {
   FiledWork,
+  SpecDialogConversationPage,
   SpecDialogImage,
-  SpecDialogSessionSummary,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -35,11 +37,19 @@ export async function fetchFiledWork(
   );
 }
 
-/** The caller's conversations, open and closed, most recently active first. */
+/**
+ * The caller's conversations, open and closed, most recently active first, with how many they
+ * hold in all. 2026-09-21-f237b: the limit is the caller's — the panel reads the server's own
+ * default, the conversations page asks for the ceiling — and the server clamps it either way.
+ */
 export async function fetchSpecDialogConversations(
+  limit?: number,
   signal?: AbortSignal,
-): Promise<SpecDialogSessionSummary[]> {
-  return getJson<SpecDialogSessionSummary[]>("/api/spec-dialog/conversations", signal);
+): Promise<SpecDialogConversationPage> {
+  const path = limit === undefined
+    ? "/api/spec-dialog/conversations"
+    : `/api/spec-dialog/conversations?limit=${encodeURIComponent(String(limit))}`;
+  return getJson<SpecDialogConversationPage>(path, signal);
 }
 
 /**
@@ -51,6 +61,26 @@ export async function fetchSpecDialogConversations(
 export async function deleteSpecDialogConversation(sessionId: string): Promise<void> {
   const path = `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}`;
   const res = await apiFetch(path, { method: "DELETE" });
+  if (!res.ok) throw await refused(res, path);
+}
+
+/**
+ * 2026-09-22-2a86: a conversation the caller owns, continued on the dialog id this tab holds.
+ * The page used to post "/spec resume <id>" as message text and let the server parse it back;
+ * this is the same act as a route. Addressed by the conversation's SESSION id, because a
+ * dialog id is only the tab it was last on. The server checks BOTH owners — the conversation
+ * being moved and the dialog it is moved onto, which the move closes whatever is open on.
+ */
+export async function resumeSpecDialogConversation(
+  sessionId: string,
+  dialogId: string,
+): Promise<void> {
+  const path = `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}/resume`;
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dialogId }),
+  });
   if (!res.ok) throw await refused(res, path);
 }
 

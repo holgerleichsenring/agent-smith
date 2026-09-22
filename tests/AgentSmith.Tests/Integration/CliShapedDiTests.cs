@@ -131,6 +131,28 @@ public sealed class CliShapedDiTests : IDisposable
             "the real CLI DI tree must resolve everything ApiScanCommand / SecurityScanCommand pull");
     }
 
+    /// <summary>
+    /// 2026-09-22-7c41c: the relaunch's run-list nudge is composed at the SWEEPER, which is
+    /// server-only, and never on <see cref="IRunResumer"/> — the command line builds the same
+    /// resume services and validates every constructor graph at build time, while the nudge's
+    /// no-op default is registered only in the server composition. A nudge parameter on the
+    /// resumer would therefore fail the CLI provider build outright, before any verb ran.
+    /// </summary>
+    [Fact]
+    public void CliComposition_ResumeServices_ResolveWithoutTheDashboardApi()
+    {
+        using var provider = AgentSmith.Cli.ServiceProviderFactory.Build(
+            configPath: string.Empty, verbose: false, headless: true,
+            jobId: "", redisUrl: "");
+
+        var act = () => provider.GetRequiredService<IRunResumer>();
+
+        act.Should().NotThrow(
+            "the CLI has no hub to nudge, so nothing on the resume path may demand one");
+        provider.GetService<IRunListNudge>().Should().BeNull(
+            "the nudge's only binding is the server composition — the CLI composes no surface");
+    }
+
     private static ServiceProvider BuildCliLikeProvider()
     {
         var services = new ServiceCollection();

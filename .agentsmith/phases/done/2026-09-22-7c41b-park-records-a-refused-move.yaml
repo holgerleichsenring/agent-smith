@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-7c41b
+
+goal: "A park whose ticket the tracker refused to move records that fact for the claim gate, so the next poll refuses the ticket instead of starting a second run against a question nobody has answered yet."
+
+applies_to: "backend (the two parks of the coding preset and the fact they owe the next poll cycle)"
+
+scope:
+  in: >
+    A run that parks on a question posts the question and moves the ticket to the configured
+    clarification status in one provider call. The status move is what makes the park persistent:
+    the poster's own comment says that without it the ticket stays claimable.
+    The provider answers whether the move landed — a typed result carrying the requested status
+    and the outcome. Both parks in the coding preset discard it. The master park awaits the
+    poster and the poster awaits the provider, neither keeps the value, and the poster then logs
+    the park with the status it intended, unconditionally; the handler logs it a second time and
+    returns success. The hand-back park calls the provider directly and drops the same answer.
+    So a refused park is recorded three times as a park that happened. The ticket stays in a
+    trigger status with a question on it, the run's exit releases the single-run lease, and the
+    next poll claims the ticket and starts a second run.
+    Measured on the deployment, to the second: the tracker refused the configured status because
+    it is not a state that work item type supports; the two park lines were written anyway; the
+    lease was released thirty-two seconds later; the next poll found the ticket still in its
+    original state and claimed it; a second run began forty-one seconds after the park.
+    The machinery for exactly this already exists and is used at run end: a finalize result that
+    did not move the ticket is recorded as a standing fact, and the claim gate refuses the ticket
+    until the configuration that caused it changes — naming the status that was refused. Its own
+    description is a description of this case: the ticket is still in a status the poller claims
+    and it will fail the same way until an operator changes the configured value, so the fact,
+    not another attempt, is what the run owes the next poll cycle.
+    This phase reads the answer both parks already receive and records it.
+  out: >
+    FAILING THE RUN ON A REFUSED PARK. An adversarial review proved this worse than the defect:
+    the checkpoint that makes a question answerable in the dashboard is written AFTER the post, so
+    a failing post destroys the only way to answer the question it just asked; and the failure
+    path then moves the ticket to the configured failed status, which on this very deployment is
+    also refused, locking the ticket behind a refusal that names the wrong configuration field.
+    RECORDING A STATUS A TRACKER CANNOT EXPRESS AT ALL. On two of the four trackers an issue's
+    status is its open/closed state, so any clarification status is inexpressible by construction
+    and every park would record a standing fact. Only a genuine refusal by the tracker is recorded.
+    KEEPING THE LEASE ACROSS THE PARK. Proven to deadlock every resume.
+    THE RUN-END FAILURE FINALIZE. It already records through this same mechanism; that is where
+    the mechanism comes from.
+    THE RUN-END SUCCESS FINALIZE. It is a THIRD site with the identical defect and a worse one: it
+    discards the same typed answer and logs the ticket as finalized unconditionally, so a
+    completed run whose done status the tracker refuses leaves the ticket in a trigger status and
+    the next poll re-runs the whole ticket. Named here as the phase that makes a finished run
+    report what the tracker did with its ticket.
+    A SURFACE FOR THE HOLD. Nothing in the dashboard shows that a ticket is held or why. Today a
+    hold arises once per failed run; after this phase it arises on every refused park, so a
+    silently stopped ticket becomes the common case. Named as the phase that shows a held ticket
+    and its reason.
+    VALIDATING A PARKING STATUS BEFORE IT IS USED. Azure DevOps cannot be asked in advance — the
+    work item's type owns its state list and the rule engine answers only when the write arrives.
+    Named as the phase that verifies a parking status the first time a project parks with it.
+
+decisions:
+  - key: |
+      RECORD THE FACT, DO NOT FAIL THE RUN. The three options are: report the park and continue
+      (today, which starts a second run), fail the run (which destroys the checkpoint the question
+      needs and locks the ticket behind the wrong field), or record the fact and continue. Only
+      the third prevents the second run while leaving the question answerable, and it is the one
+      the repository already built for the identical situation at run end.
+  - key: |
+      THE CHECKPOINT MUST SURVIVE, AND IT IS WHY THE RUN KEEPS GOING. Without it the dashboard has
+      no question to render and nowhere to send a reply, and the only way back into the run is a
+      manual status move on a board whose status never moved. A refused park is exactly the case
+      where that fallback does not exist.
+      It is written AFTER the post, so anything that stops the post stops the checkpoint. Nothing
+      in this phase may sit between them.
+      The two parks differ here: the hand-back park writes no checkpoint of its own, so recording
+      the fact is all it can do and all it needs to do.
+  - key: |
+      THE RULE IS AN OUTCOME SET, NOT A CATEGORY. The finalize result has four outcomes and three
+      of them mean the ticket did not move. Two of those must be recorded: the tracker looked at
+      the value and refused it, AND the tracker's workflow offers no transition to it — the second
+      is one tracker's ORDINARY answer for a status its workflow cannot reach, and it will answer
+      the same way next time. Only the fourth is skipped: a tracker whose issue status is its
+      open-or-closed state cannot express any clarification status at all, so recording that would
+      put a standing hold on every park on those trackers. Written as a category rather than a set,
+      this fix would have covered one tracker and left the other broken.
+  - key: |
+      THE BRANCHES THAT MOVE NOTHING MUST NOT CLEAR ANYTHING. The poster returns early when there
+      are no questions and takes a comment-only path when no park status is configured. The
+      "moved" outcome is the zero value of its enum, so a default result from either branch would
+      be read as a successful move and would CLEAR a standing hold that nothing had earned. Both
+      branches answer with something that is neither moved nor a refusal.
+  - key: |
+      THE OPERATOR IS TOLD THE FIELD THAT IS WRONG. The existing record names the status that was
+      requested, so the refusal reads "could not move this ticket to 'the parking status'" —
+      which is the configuration that is actually wrong. This is the whole reason the run-end
+      mechanism was built, and the reason failing the run would have been a regression: its
+      refusal would have named the failed status instead.
+  - key: |
+      A PARK THAT LANDED CLEARS A STANDING FACT, for free: the existing report clears when the
+      status moved, so a ticket whose configuration was corrected stops being refused the first
+      time a park succeeds.
+  - key: |
+      BOTH PARKS OF THE PRESET, OR THE FIX IS HALF A FIX. They are different code with no shared
+      helper, but they are in the same preset and carry the same defect on the same deployment.
+      Fixing one would leave the other reporting a park that did not happen.
+
+steps:
+  - id: the-report-asks-for-what-it-uses
+    action: "The standing-fact report takes the project and tracker names it actually reads instead of a resolved project, so a caller that holds only those two can record, and its existing caller is migrated with it."
+  - id: the-poster-returns-what-the-tracker-did
+    action: "The open-questions poster's port returns the finalize result instead of a bare task, and stops logging a park with the status it merely intended."
+  - id: the-master-park-records-a-refusal
+    action: "The master park records a move the tracker did not make as the standing fact the claim gate reads, and still sets its flag, writes its checkpoint and returns success; neither its log line nor the step result it returns states a park that did not happen."
+  - id: the-handback-park-records-a-refusal
+    action: "The hand-back park keeps the finalize result it already receives, records it the same way, and stops stating a park its tracker refused."
+  - id: a-park-that-landed-clears-the-fact
+    action: "A park whose move landed clears any standing fact for that ticket, so a corrected configuration stops refusing it."
+
+tests:
+  - "Park_AStatusMoveTheTrackerRefuses_RecordsTheFactNamingTheParkingStatus"
+  - "Park_AStatusWithNoTransitionToIt_RecordsTheFact"
+  - "Park_APostWithNoQuestions_RecordsNothingAndClearsNothing"
+  - "Park_AProjectWithNoParkStatus_RecordsNothingAndClearsNothing"
+  - "Park_AStatusMoveTheTrackerRefuses_StillWritesTheCheckpoint"
+  - "Park_AStatusMoveTheTrackerRefuses_StillReturnsSuccess"
+  - "Park_AStatusMoveThatLands_ClearsAnyStandingFact"
+  - "Park_AStatusATrackerCannotExpress_RecordsNothing"
+  - "Park_ARefusedMove_DoesNotLogThatTheTicketWasParked"
+  - "Handback_AStatusMoveTheTrackerRefuses_RecordsTheFact"
+  - "ClaimGate_ATicketWhoseParkWasRefused_IsNotClaimedAgain"
+
+done:
+  - "a refused park leaves a standing fact naming the parking status that was refused"
+  - "the next poll does not start a second run for that ticket, on every tracker that can express a parking status at all"
+  - "the question is still answerable: the checkpoint is written and the run still parks"
+  - "a park that landed clears any standing fact"
+  - "a status a tracker cannot express records nothing"
+  - "no log line states a park that did not happen"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The poster posts the comment and the park status in one provider call, and its own comment states that without the status move the ticket stays claimable."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs:56-62"
+  - claim: "It awaits the finalize result, discards it, and logs the park with the intended status unconditionally."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/PlanOpenQuestionsPoster.cs:62-68"
+  - claim: "The poster's own port returns a bare task, so the typed answer is erased one level above the provider."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/IPlanOpenQuestionsPoster.cs:28"
+  - claim: "The provider's port does return the typed result."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:105"
+  - claim: "The Azure DevOps finalizer catches the tracker's own refusal type and returns a rejected result carrying the requested status and the outcome."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketFinalizer.cs:30-35"
+  - claim: "One tracker answers not-expressible for any status outside its issue states, after attempting the write."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:33-36"
+  - claim: "Another answers not-expressible without attempting the write at all."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketFinalizer.cs:33-34"
+  - claim: "A third answers that its workflow offers no transition to the status, which is an ordinary answer and not an error."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketFinalizer.cs:45-46"
+  - claim: "The finalize outcome has four values and the moved one is the zero value."
+    evidence: "src/backend/AgentSmith.Contracts/Models/TicketFinalizeOutcome.cs:8-21"
+  - claim: "The resume is handed to its launcher before the claim service is consulted, so a standing fact cannot strand a parked run."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:97-103"
+  - claim: "The master park posts, sets the waiting flag, writes the checkpoint, logs the park and returns success, in that order."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:57-70"
+  - claim: "The checkpoint is what makes a mid-run question answerable in the dashboard; without it the only way back is a manual status move on the board."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:62-65"
+  - claim: "The hand-back park calls the provider's finalize directly and discards the same answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:91-92"
+  - claim: "The existing report records a finalize that did not move the ticket as a standing fact and clears one when it did, naming the requested status."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:19-37"
+  - claim: "Its own description is that the ticket is still in a status the poller claims and will fail the same way until an operator changes the configured value, so the fact is what the run owes the next poll cycle."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:9-15"
+  - claim: "The claim gate refuses a ticket carrying a standing fact and names the status that could not be set."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:14-30"
+  - claim: "The resume takes the lease directly rather than through the claim service, so a standing fact does not block a parked run's own resume."
+    evidence: "src/backend/AgentSmith.Server/Services/ResumeRunLauncher.cs:37-44"
+  - claim: "The run's exit releases the single-run lease on the park path."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:245-253"
+  - claim: "Discovery filters on native status and then skips only while a lease exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:138-162"
+  - claim: "The lifecycle tag is a marker and is not a claim guard, by an explicit earlier decision."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:26-30"
+  - claim: "Measured: the tracker refused the configured park status at 21:55:07.913, both park lines were written at 21:55:07.918 and .991, the lease was released at 21:55:39.718, the poll found the ticket still in its trigger state at 21:55:46.210, and a second run was claimed at 21:55:48.919."
+    evidence: "the deployment's own server log for ticket 19378, read 2026-09-22"
+
+assumptions:
+  - claim: "The two park sites can reach the resolved project the report needs, not only a tracker connection."
+    check: "Read what each park handler's context carries and what the report's first parameter requires."
+  - claim: "Recording a fact at park time does not refuse the ticket for anything the parked run itself still needs."
+    check: "Read every caller of the claim gate and establish which of them a parked run passes through."
+  - claim: "The outcome values distinguish a tracker that refused a value from one that cannot express it."
+    check: "Open the finalize result type and enumerate its outcomes."
+  - claim: "The poster's port has only the one production implementation plus test doubles, so widening its return type is contained."
+    check: "Find every implementation of the port."

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Dialogue;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
@@ -35,7 +36,7 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
         _logger = logger;
     }
 
-    public async Task PostAsync(
+    public async Task<TicketFinalizeResult> PostAsync(
         PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken)
     {
@@ -44,7 +45,7 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
         if (questions.Count == 0)
         {
             _logger.LogDebug("No open questions to post for ticket {Ticket}", ticketId);
-            return;
+            return TicketFinalizeResult.NoStatusRequested();
         }
 
         var template = ResolveTemplate(ticketConfig.Type.ToString());
@@ -56,15 +57,25 @@ public sealed class PlanOpenQuestionsPoster : IPlanOpenQuestionsPoster
         // p0318: with a park status, post the comment AND move the native status in ONE
         // provider call (atomic on AzDO — avoids the TF26071 rev race). Without it, only
         // the comment is posted so the ticket stays claimable (no persistent park).
+        // 2026-09-22-7c41b: the park status the caller INTENDED is not the park that happened.
+        // A tracker that refuses the value leaves the ticket claimable, so what goes back — and
+        // into the log — is what the tracker answered, never what was asked of it.
+        TicketFinalizeResult finalize;
         if (string.IsNullOrWhiteSpace(parkStatus))
+        {
             await provider.UpdateStatusAsync(ticketId, body, cancellationToken);
+            finalize = TicketFinalizeResult.NoStatusRequested();
+        }
         else
-            await provider.FinalizeAsync(ticketId, body, parkStatus, cancellationToken);
+        {
+            finalize = await provider.FinalizeAsync(ticketId, body, parkStatus, cancellationToken);
+        }
 
         _logger.LogInformation(
             "Posted {Count} open question(s) on ticket {Ticket} via {Platform}{Parked}",
             questions.Count, ticketId, ticketConfig.Type,
-            string.IsNullOrWhiteSpace(parkStatus) ? "" : $" (parked -> {parkStatus})");
+            finalize.StatusMoved ? $" (parked -> {parkStatus})" : "");
+        return finalize;
     }
 
     private ITicketCommentTemplate ResolveTemplate(string platform)

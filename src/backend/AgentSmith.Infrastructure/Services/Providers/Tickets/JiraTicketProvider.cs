@@ -56,7 +56,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
-        _finalizer = new JiraTicketFinalizer(_doneStatus, UpdateStatusAsync, CloseAndReportAsync,
+        _finalizer = new JiraTicketFinalizer(_doneStatus, UpdateStatusAsync, CloseTicketAsync,
             (ticket, status, ct) => _transitioner.TransitionAsync(ticket, status, null, ct));
         _creator = new JiraTicketCreator(_http, _baseUrl, _endpoints.Create, _projectKey, logger);
     }
@@ -176,14 +176,13 @@ public sealed class  JiraTicketProvider : ITicketProvider
             $"{_baseUrl}{_endpoints.CommentFor(ticketId.Value)}",
             JiraAdfRenderer.CommentBody(comment), cancellationToken);
 
-    public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
-        => CloseAndReportAsync(ticketId, resolution, cancellationToken);
-
-    // Answers whether the close actually transitioned the issue — what finalize reports.
-    private async Task<bool> CloseAndReportAsync(TicketId ticket, string resolution, CancellationToken ct)
+    // 2026-09-22-9519: the answer the transitioner has always held reaches the CALLER now. The
+    // comment lands either way — it is the one word a human reads — and a workflow that offers no
+    // transition to the done status leaves the issue open and says so.
+    public async Task<bool> CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
-        await UpdateStatusAsync(ticket, resolution, ct);
-        return await _transitioner.TransitionAsync(ticket, _doneStatus, _closeTransitionName, ct);
+        await UpdateStatusAsync(ticketId, resolution, cancellationToken);
+        return await _transitioner.TransitionAsync(ticketId, _doneStatus, _closeTransitionName, cancellationToken);
     }
 
     // 2026-09-21-1fa0: the transitioner has always answered whether a workflow transition

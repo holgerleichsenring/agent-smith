@@ -67,19 +67,18 @@ public sealed class AgenticToolSurface
             .ToList();
 
     /// <summary>
-    /// p0315b: spec-dialog design-partner surface — content reads only
-    /// (read_file, grep_in_*, list_directory, directory_tree) + ask_human +
-    /// (optional) web_fetch (research public docs while drafting). find_files is
-    /// dropped from the BootstrapDiscover set because it shells out via a Run step,
-    /// which the read-only source sandbox refuses; grep + directory_tree cover
-    /// discovery. No write, no run, no log_decision (a conversation records no run
-    /// decisions).
+    /// p0315b: spec-dialog design-partner surface — content reads (read_file,
+    /// grep_in_*, find_files, list_directory, directory_tree) + ask_human +
+    /// (optional) web_fetch (research public docs while drafting). No write, no
+    /// run_command, no log_decision (a conversation records no run decisions).
+    /// 2026-09-22-46ef: find_files is BACK — it was filtered out by name while the source
+    /// scope refused every Run step, and the scope now serves the processes the server
+    /// builds. What the surface may ASK for is unchanged: no write_file, no run_command.
     /// </summary>
     public IList<AITool> SpecDialog(
         FilesystemToolHost fs, IToolHost human, WebToolHost? web = null,
         MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>
         fs.GetTools(Models.SkillExecutionPhase.BootstrapDiscover, investigatorMode: null)
-            .Where(t => !string.Equals(t.Name, "find_files", StringComparison.Ordinal))
             .Append(fs.HttpRequestTool()) // p0353: reach external endpoints while drafting; still no run/write
             .Concat(human.GetTools(phase: null, investigatorMode: null))
             .Concat(web?.GetTools(phase: null, investigatorMode: null) ?? [])

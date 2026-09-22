@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-9519
+
+goal: "A design conversation can close a ticket it filed that nothing ever claimed, and is told by the tracker whether it closed, so a misfiled ticket stops being unrecoverable."
+
+applies_to: "backend and dashboard (a withdrawal tool for a design turn, the close the port reports, and the filing record it changes)"
+
+scope:
+  in: >
+    Filing is a one-way door and the design surface carries no act on any tracker at all. A
+    conversation that files into the wrong project, or files a ticket that routes nowhere, has no
+    way back: the ticket sits on the board forever and the operator closes it by hand.
+    The honest size of this is smaller than it first looks, and the spec says so rather than
+    selling a range. Filing STARTS a work ticket by moving it into a trigger status, and the
+    poll interval is a minute, so a ticket that routes is claimed before a conversation could
+    reach a tool; and a run that ever existed refuses a withdrawal permanently, because the runs
+    reader applies no status filter. What is reliably withdrawable is therefore the filing that
+    never routed — no trigger, no permission, a target status the tracker does not have, a status
+    that could not be read. That is a real, currently unrecoverable state, and it is what this
+    phase addresses.
+    Two things must be true or the phase manufactures the false report it exists to abolish.
+    THE CLOSE MUST ANSWER. The port's close member returns a bare task. One tracker's
+    implementation wraps a call whose own comment says it answers whether the issue transitioned
+    and discards it; another returns quietly when a ticket id will not parse. Routing the call
+    through the finalize member instead does NOT fix this — with no target status, two of the four
+    providers answer that the ticket moved UNCONDITIONALLY, so the swallow simply moves one frame.
+    The member itself has to report, in all four.
+    THE PANE MUST LEARN. The filed panel renders the start state from the push it received at
+    filing time, and the refetch that would carry the new state is triggered by a nudge keyed on
+    a RUN — which, for a population defined as the tickets no run ever touched, is a dead channel
+    by construction. The withdrawal must announce itself by the one key the watch registry is
+    actually keyed on, which is the ticket.
+    A withdrawal is refused while anything holds a claim: a lease, which exists before a run row
+    does, or any run row at all.
+  out: >
+    AMENDING A FILED TICKET. No port member rewrites a title or a description. Named as the phase
+    that lets a filing be rewritten.
+    RE-POINTING AN APPROVED SET AT ANOTHER TICKET. It changes what a run executes and belongs to
+    the approval gate. Named as the phase that re-approves onto an existing ticket.
+    CANCELLING A RUN. A ticket something is working is refused and the operator is pointed at the
+    run controls, which already stop a run.
+    THE SLICE RECORDS. A sibling phase stops filing them, which removes half of what was
+    withdrawable. This phase does not depend on it and does not fight it.
+    THE SKILL THAT OFFERS THIS. It lives in the pinned catalog, a separate repository, so until
+    that releases the capability exists and may go unused. Said plainly.
+
+decisions:
+  - key: |
+      THE CLOSE REPORTS, OR NOTHING ELSE IN THIS PHASE IS TRUE. Two rewrites of this spec tried to
+      avoid widening the port by routing through a member that already reports — and the second
+      review proved that member reports nothing on the close path for half the providers. There is
+      no member that answers this question today. One member, four implementations, and three of
+      them already hold the answer internally.
+  - key: |
+      THE LEASE IS THE AUTHORITY, THE ROW IS THE CORROBORATION. A claim takes the lease and then
+      enqueues; the run row appears when a worker dequeues. Asking only for rows would close a
+      ticket a worker is about to pick up, and that run would write its own status over the closed
+      one at the end — a record saying withdrawn about delivered work. Both are asked; either
+      refuses. A held lease never means "finished", because the terminal ticket write precedes the
+      release.
+  - key: |
+      THE ANNOUNCEMENT MUST USE THE KEY THE WATCH IS KEYED ON. The existing nudge takes a run
+      snapshot and finds its listeners by the ticket on it. The registry itself is keyed by ticket.
+      A withdrawal has a ticket and no snapshot, so the nudge needs to be reachable by the key it
+      already uses internally — not a fabricated snapshot, and not a re-push of a filing that did
+      not change.
+  - key: |
+      A NEW STATE MUST BE TOTAL EVERYWHERE IT IS RENDERED. The start state's own label method is a
+      catch-all that falls through to "record", so a withdrawn ticket would be announced as a
+      record on every channel. The dashboard's map is exhaustive and would fail the build; the
+      backend's is not and would lie.
+  - key: |
+      THE STORE NEEDS A WRITE IT DOES NOT HAVE. Every write funnels through one path keyed by
+      platform and thread and by the session being open. A tool holds a session id. That write
+      path has to be added; saying the state "can be written" was an assumption about work, not a
+      property of the store.
+  - key: |
+      THE ROLLBACK COST IS AVOIDABLE AND SHOULD BE AVOIDED. The state is stored by name and an
+      unreadable filing row is shown as absent, so an older server reading a new state loses the
+      WHOLE filing rather than one word. A tolerant converter for exactly this shape already
+      exists in the same folder and is already used for two neighbouring enums.
+
+steps:
+  - id: the-close-reports-whether-it-closed
+    action: "The port's close member answers whether the ticket actually closed, and each of the four providers reports what its tracker did instead of discarding it or returning quietly."
+  - id: a-port-for-withdrawing-a-filed-ticket
+    action: "A port in the contracts assembly withdraws one filed ticket of one conversation, implemented where the filing services live and built only for a turn that carries a dialogue identity, following the precedent of the human-question host."
+  - id: the-withdrawal-refuses-what-anything-has-claimed
+    action: "A withdrawal is refused when the ticket holds an active-run lease or has any run row, so a claim that has not yet minted its row cannot be closed underneath."
+  - id: the-record-follows-the-tracker
+    action: "The filing record is stamped withdrawn only when the close landed, through a store write keyed by the conversation's session row, with a tolerant reader so an older server loses one word rather than the whole filing."
+  - id: the-withdrawal-announces-itself-by-ticket
+    action: "The withdrawal nudges the filed work through the key the watch registry already uses, so an open pane refetches and stops saying the ticket was started."
+  - id: the-new-state-is-total-where-it-is-rendered
+    action: "The start state's label is total rather than falling through, so a withdrawn ticket is never announced as a record."
+
+tests:
+  - "Withdraw_ATicketNothingHasClaimed_IsClosedAndRecorded"
+  - "Withdraw_ATicketWhoseClaimHoldsALeaseWithNoRunRowYet_IsRefused"
+  - "Withdraw_ATicketWithARunRow_IsRefused"
+  - "Withdraw_ACloseTheTrackerDidNotPerform_LeavesTheRecordAsItWas"
+  - "Withdraw_AKeyThisConversationDidNotFile_ClosesNothing"
+  - "Withdraw_AFilingWithNoKeys_IsRefusedWithTheReason"
+  - "Withdraw_AConversationOnAChatSurface_ResolvesItsOwnFiling"
+  - "Close_AnUnparseableTicketId_IsReportedNotSwallowed"
+  - "Close_AWorkflowWithNoTransition_IsReportedAsNotClosed"
+  - "Close_EachProvider_AnswersWhetherItClosed"
+  - "FiledWork_AWithdrawal_NudgesTheWatchersOfThatTicket"
+  - "FiledPanel_AWithdrawnTicket_SaysSoAfterTheNudgedRefetch"
+  - "FilingNotice_AWithdrawnTicket_IsNotAnnouncedAsARecord"
+  - "FilingRecord_AnOlderReaderMeetingTheNewState_KeepsTheRestOfTheFiling"
+
+done:
+  - "a conversation can close a ticket it filed that nothing has claimed"
+  - "every tracker reports whether the close landed, and a close that did not land changes no record"
+  - "a ticket any claim holds is refused, including one whose run row does not exist yet"
+  - "an open pane shows the withdrawal without a reload"
+  - "a withdrawn ticket is never described as a record"
+  - "an older server reading the new state keeps the rest of the filing"
+  - "build green, dashboard tests green, full suite green"
+
+facts:
+  - claim: "Filing records each created ticket with its ticket id, project and display key on the conversation's latest filing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-119"
+  - claim: "Every write of that filing funnels through one path keyed by platform and thread and by the session being open."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:43-50,83-97"
+  - claim: "The filing watch reads through a hardcoded dashboard platform and passes the dialog id as a thread id, so it is not the path a session-id tool may reuse."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkFiling.cs:15"
+  - claim: "The port's close member returns a bare task."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:60-73"
+  - claim: "One provider's close wraps a call whose own comment says it answers whether the issue transitioned, and discards it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:179-187"
+  - claim: "Another returns quietly when the ticket id will not parse."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:143-148"
+  - claim: "The finalize member with no target status answers that the ticket moved unconditionally on that provider, so routing the close through it would relocate the swallow rather than remove it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-30"
+  - claim: "The same is true of the fourth provider."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketFinalizer.cs:26-30"
+  - claim: "The claim takes the lease and then enqueues, so the run row does not exist yet at that point."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:36-64"
+  - claim: "The lease is read by project and ticket only, so it answers even when no run has attached."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:151-159"
+  - claim: "The terminal ticket write precedes the lease release, so a held lease never means the run has finished."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:245-253"
+  - claim: "A filed ticket's runs are read by project and ticket id with no status filter."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:29-49"
+  - claim: "Filing moves a work ticket into a trigger status, and the four reasons it may not are a missing route, a withheld permission, an absent target status and an unreadable one."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:65-104"
+  - claim: "The default poll interval is sixty seconds."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PollingConfig.cs:10"
+  - claim: "The filed-work nudge takes a run snapshot and finds its listeners by the ticket on it."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/FiledWorkNudge.cs:23-29"
+  - claim: "The watch registry is itself keyed by ticket id."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkWatchRegistry.cs:37-42"
+  - claim: "The panel renders the start state from the filing push, and the refetch is triggered by that nudge, by a change in the pushed filing, or by a reconnect."
+    evidence: "src/dashboard/src/hooks/useFiledWork.ts:47-89"
+  - claim: "The start state's label falls through to the record wording for anything it does not name."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStart.cs:44-49"
+  - claim: "The state is stored by name and an unreadable filing row is shown as absent rather than as an error."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:64-81"
+  - claim: "A tolerant converter for exactly this shape sits in the same folder and is already used for two neighbouring enums."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TolerantNullableEnumConverter.cs:16-27"
+  - claim: "The dashboard's label map is exhaustive over a hand-written union, while its tone falls through silently."
+    evidence: "src/dashboard/src/components/dialog/DialogFiledPanel.tsx:94-108"
+  - claim: "A session row is uniquely identified by its session id, and the platform is a surface guard beside it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:27-30,60-70"
+  - claim: "A design turn is seeded with its session id as the dialogue identity."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:50"
+  - claim: "Only a caller who may post into a conversation reaches a turn at all."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:36-46"
+  - claim: "The application assembly references only contracts and domain, so a filing service cannot be reached from it directly."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5"
+  - claim: "A host built from a contracts port plus the seeded dialogue identity is the existing precedent, built only for a turn that has one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:270-275"
+  - claim: "A display key is null for filings written before it existed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:49"
+
+assumptions:
+  - claim: "A store write keyed by the session row must be added; no such path exists today."
+    check: "Read every write path of the latest-outcome store and confirm each is keyed by platform and thread."
+  - claim: "Widening the close member breaks no caller that ignores its answer."
+    check: "Find every caller of the close member and establish what each does with a returned value."
+  - claim: "A nudge reachable by ticket id can find the same listeners the snapshot-keyed one finds."
+    check: "Read how the nudge resolves listeners and whether the ticket is the only key it uses."
+  - claim: "A project renamed or removed from the catalog since filing resolves to no provider, and the tool refuses rather than throwing."
+    check: "Read how the filing's stored project name is turned into a tracker connection."

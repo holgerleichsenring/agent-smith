@@ -9,6 +9,7 @@ import {
   fetchSpecDialog,
   fetchSpecDialogConversations,
   postSpecDialogMessage,
+  resumeSpecDialogConversation,
   uploadSpecDialogImage,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
@@ -106,7 +107,9 @@ export interface SpecDialogState {
   activity: SpecDialogActivityPush[];
   /** A decision is posted as its word and shown as a decision entry rather than echoed. */
   send: (text: string, project?: string, decision?: SpecDialogDecision) => Promise<void>;
-  startNew: (project?: string) => Promise<void>;
+  /** 2026-09-22-2a86: a fresh tab. The conversation itself is opened by the first message,
+   *  which carries the picked project. */
+  startNew: () => Promise<void>;
   /** Continues a past conversation in this tab, on a dialog id of its own. */
   open: (sessionId: string, openDialogId?: string | null) => Promise<void>;
   /** 2026-09-18-7a05: deletes a conversation the caller owns, after saying what that does not
@@ -153,8 +156,9 @@ export function useSpecDialog(): SpecDialogState {
   // session": opening a past conversation reads its fresh dialog id before the resume has
   // moved anything there, and a plain flag would be spent on that empty read.
   const reseed = useRef<boolean | string>(true);
-  // A command for a dialog id nobody is subscribed to yet would have its answer pushed
-  // into a group this page has not joined, so it waits for the subscription.
+  // The conversation to resume onto the dialog id this page is switching to. A resume for a
+  // dialog id nobody is subscribed to yet would move the conversation into a group this page
+  // has not joined, so it waits for the subscription.
   const pending = useRef<string | null>(null);
   const counter = useRef(0);
   // The reply a proposal follows added no entry when it was only the draft, so its card needs
@@ -241,9 +245,9 @@ export function useSpecDialog(): SpecDialogState {
     }
   }, []);
 
-  // A command a CONTROL sent is not echoed: the operator clicked "new conversation", they
-  // did not say "/spec". What they typed themselves is echoed, because the channel
-  // delivers replies and never a copy of the message just sent.
+  // What the operator typed is echoed, because the channel delivers replies and never a copy
+  // of the message just sent. 2026-09-22-2a86: nothing else posts here any more — the two
+  // controls that used to send command text call routes of their own.
   const post = useCallback(async (
     id: string,
     text: string,
@@ -274,6 +278,20 @@ export function useSpecDialog(): SpecDialogState {
     }
   }, [append]);
 
+  // 2026-09-22-2a86: a past conversation, continued on the dialog id this tab now holds. The
+  // route answers when the move is done — there is no reply to wait for and nothing to echo —
+  // so the read that follows it is what puts the conversation's transcript on the page. A
+  // refusal (a turn running there, a dialog that is not the caller's) is shown as one.
+  const resume = useCallback(async (id: string, sessionId: string) => {
+    try {
+      await resumeSpecDialogConversation(sessionId, id);
+    } catch (thrown) {
+      setFailure(asError(thrown));
+      return;
+    }
+    await load(id);
+  }, [load]);
+
   useEffect(() => {
     if (dialogId) void load(dialogId);
   }, [dialogId, load]);
@@ -286,9 +304,24 @@ export function useSpecDialog(): SpecDialogState {
   const loadConversations = useCallback(async () => {
     const issued = (listReads.current += 1);
     try {
-      const next = await fetchSpecDialogConversations();
+      const page = await fetchSpecDialogConversations();
       if (issued !== listReads.current) return;
-      setConversations(next);
+      setConversations(page.conversations);
+      // 2026-09-21-f237b: a read that LANDED, was CAPPED, and still did not list the conversation
+      // open here spends its allowance — see listIsBehind. A read that threw or was superseded
+      // above never reaches this line, so it leaves the allowance for the next one to spend.
+      //
+      // Capped is the whole condition, and the counted total is what tells it. A page that served
+      // everything the owner has is authoritative: a row missing from it is a conversation the
+      // server does not hold YET — the read that races a conversation's own creation — and the
+      // next read will list it, so nothing may be spent on that. A page that served fewer than
+      // the owner holds may simply not reach far enough back, which is the case this allowance
+      // exists for and the only one in which reading again would say the same thing.
+      const known = sessionHere.current;
+      const capped = page.conversations.length < page.total;
+      if (known !== null && capped && !page.conversations.some((row) => row.sessionId === known)) {
+        unlisted.current.add(known);
+      }
     } catch (thrown) {
       // The list is beside the conversation, not the conversation: a failed read of it must not
       // put the page-wide failure over a dialog that is working.
@@ -306,27 +339,58 @@ export function useSpecDialog(): SpecDialogState {
   // read — every listed transcript parsed, two further JSON documents per row, up to fifty rows —
   // and the price is still real, so the read is issued only while it would say something new.
   // The filing's own read goes with it: the filing notice is a framework message like any other.
-  const sessionHere = view?.session?.sessionId ?? null;
+  const here = view?.session?.sessionId ?? null;
   useEffect(() => {
     void loadConversations();
-  }, [sessionHere, loadConversations]);
+  }, [here, loadConversations]);
 
   // What the list last said about the conversation open HERE. Held in a ref because the hub
   // subscription asks it: putting the list in that effect's dependencies would tear the
   // subscription down and rebuild it every time the list changed.
   const listedHere = useRef<SpecDialogSessionSummary | null>(null);
+  // 2026-09-21-f237b: and WHICH conversation that is, told apart from "the page has not learned
+  // its session id yet". listedHere is null for both, and only one of them is worth a read.
+  const sessionHere = useRef<string | null>(null);
+  // The conversations an absent-row read has already been spent on. See listIsBehind.
+  const unlisted = useRef(new Set<string>());
   useEffect(() => {
-    listedHere.current =
-      conversations.find((held) => held.sessionId === sessionHere) ?? null;
-  }, [conversations, sessionHere]);
+    sessionHere.current = here;
+    listedHere.current = conversations.find((held) => held.sessionId === here) ?? null;
+  }, [conversations, here]);
 
   /** Whether a list read would tell this page anything it does not already know: the conversation
-   *  open here is not listed at all, is listed with no title, or is listed with fewer turns than
-   *  the page last read the transcript to be. Once the row identifies the conversation it stops
-   *  being read on every reply, and it comes back the moment the count falls behind again. */
+   *  open here is not listed at all, is listed under NO NAME AT ALL, or is listed with fewer turns
+   *  than the page last read the transcript to be. Once the row identifies the conversation it
+   *  stops being read on every reply, and it comes back the moment the count falls behind again.
+   *
+   *  2026-09-21-f237a: the subject joins the name clause as a second way to be SATISFIED, never
+   *  as a second requirement. 2026-09-20-4b0af kept it out on the argument that a field which may
+   *  stay null forever would make this a poll that never stops — true of an added disjunct, false
+   *  of an added conjunct. A conversation opened with nothing but a pasted block has no title for
+   *  good (SpecDialogConversationTitle finds no prose line outside the fence) and did get a
+   *  subject (the minter never asks for a title), so before this the row named it in the column
+   *  while the page went on paying for the list on every reply, for the life of the conversation.
+   *  For every titled row the count is unchanged.
+   *
+   *  Compared loosely, not with ===: the field may be ABSENT rather than null on a page running
+   *  ahead of its server, and a strict comparison would silently switch the clause off. */
   const listIsBehind = useCallback(() => {
     const row = listedHere.current;
-    return row === null || row.title === null || row.turns < turnsRead.current;
+    // 2026-09-21-f237b: an ABSENT row is worth exactly one CAPPED read per conversation, not one
+    // per reply. Until this phase a missing row answered "behind" for ever, which was harmless
+    // while the only way to open a conversation was to click a row that was by definition listed.
+    // The conversations page can open one the panel's read does not contain — the cap is taken by
+    // id while the order is by activity, so a conversation resumed after a long silence falls
+    // outside it — and that conversation would otherwise poll the expensive read on every reply
+    // for as long as it stayed open. The allowance is keyed to a KNOWN session id, because the
+    // ref is also null in the moment before the page has learned which conversation it holds,
+    // and an allowance spent there would be spent on nothing.
+    if (row === null) {
+      const known = sessionHere.current;
+      return known !== null && !unlisted.current.has(known);
+    }
+    return (row.title == null && row.subject == null)
+      || row.turns < turnsRead.current;
   }, []);
 
   useEffect(() => {
@@ -395,7 +459,7 @@ export function useSpecDialog(): SpecDialogState {
         stop = cancel;
         const queued = pending.current;
         pending.current = null;
-        if (queued) void post(dialogId, queued, false);
+        if (queued) void resume(dialogId, queued);
       })
       .catch((thrown) => setFailure(asError(thrown)));
     return () => {
@@ -409,7 +473,7 @@ export function useSpecDialog(): SpecDialogState {
       offConnection();
       void stop?.();
     };
-  }, [dialogId, append, load, post, loadConversations, listIsBehind]);
+  }, [dialogId, append, load, resume, loadConversations, listIsBehind]);
 
   /// 2026-09-20-4b0aa: ONE post, carrying the project. This used to be two — an opening command
   /// and then the message — and awaiting the first proved only that its background task had been
@@ -450,9 +514,9 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, load],
   );
 
-  // A fresh dialog id with a command queued for it: the command waits for the subscription,
-  // so its answer lands in a group this page has joined.
-  const switchTo = useCallback((command: string | null, awaited: boolean | string, to?: string) => {
+  // A fresh dialog id with a resume queued for it: the resume waits for the subscription, so
+  // anything the conversation pushes after the move lands in a group this page has joined.
+  const switchTo = useCallback((resuming: string | null, awaited: boolean | string, to?: string) => {
     reseed.current = awaited;
     replyWasDraftOnly.current = false;
     known.current = null;
@@ -467,14 +531,16 @@ export function useSpecDialog(): SpecDialogState {
     setWorkingSince(null);
     setReadings([]);
     setActivity([]);
-    pending.current = command;
+    pending.current = resuming;
     setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
 
-  // The router parses the same commands a chat channel types; the page is what spares the
-  // operator from typing them.
-  const startNew = useCallback(async (project?: string) => {
-    switchTo(project ? `/spec ${project}` : "/spec", true);
+  // 2026-09-22-2a86: a fresh tab, and nothing said at the server yet. The control used to post
+  // the opening spelling as message text; the conversation is opened by the FIRST message
+  // instead, which carries the project the page holds — one ordered act on the server rather
+  // than a grammar the page types at it.
+  const startNew = useCallback(async () => {
+    switchTo(null, true);
   }, [switchTo]);
 
   // A dialog id is a tab, not a conversation. Resuming onto the id this tab holds would
@@ -493,7 +559,7 @@ export function useSpecDialog(): SpecDialogState {
         switchTo(null, sessionId, openDialogId);
         return;
       }
-      switchTo(`/spec resume ${sessionId}`, sessionId);
+      switchTo(sessionId, sessionId);
     },
     [view, switchTo],
   );
