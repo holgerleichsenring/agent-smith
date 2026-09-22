@@ -242,7 +242,6 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         CapacityTestDoubles.AlwaysReserve(),
         Queue(),
         CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
-        CapacityTestDoubles.NoPredecessors(),
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,

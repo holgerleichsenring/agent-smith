@@ -28,7 +28,7 @@ public sealed class TicketLabelNoteFetchTests
     private const string Requirement = "## Goal\nMake the widget storable.\n";
 
     private static readonly string Note =
-        TicketLabelNote.For([PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp])!;
+        TicketLabelNote.For([FiledTicketLabels.ApprovedSetStamp])!;
 
     [Fact]
     public async Task Fetch_ATicketCarryingTheNote_PublishesADescriptionWithoutIt()

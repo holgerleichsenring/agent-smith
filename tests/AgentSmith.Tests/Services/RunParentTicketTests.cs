@@ -34,8 +34,8 @@ public sealed class RunParentTicketTests
     [Fact]
     public void RunParentTicket_ATicketThatIsNotASlice_NamesNoParent()
     {
-        RunParentTicket.Of(WithTicket(FiledTicketLabels.PredecessorStamp("4712"))).Should()
-            .BeNull("a predecessor is a sibling, not an ancestor — cutting from it would be wrong");
+        RunParentTicket.Of(WithTicket(FiledTicketLabels.ApprovedSetStamp)).Should()
+            .BeNull("only the parent prefix names an ancestor — cutting from anything else would be wrong");
         RunParentTicket.Of(new PipelineContext()).Should()
             .BeNull("a run with no ticket at all has no place in a cut");
     }

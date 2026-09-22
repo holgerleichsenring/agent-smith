@@ -237,7 +237,6 @@ public sealed class SingleRepoRegressionTests
             CapacityTestDoubles.AlwaysReserve(),
             CapacityTestDoubles.EmptyQueue(),
             CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.AlwaysAdmit(),
-            CapacityTestDoubles.NoPredecessors(),
             TestSupport.ApprovedSetDoubles.Carrier(),
             CapacityTestDoubles.NoNudge(),
             CapacityTestDoubles.NoStandingRefusal(),
