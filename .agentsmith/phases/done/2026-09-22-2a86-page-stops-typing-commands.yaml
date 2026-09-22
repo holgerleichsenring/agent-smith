@@ -1,0 +1,145 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-2a86
+
+goal: "The page stops typing commands at its own server: opening and resuming a conversation become routes, so the design surface is controls rather than a grammar."
+
+applies_to: "backend and dashboard (the conversation routes and the page that used to spell them)"
+
+scope:
+  in: >
+    The design surface is entered and steered by a typed grammar. The operator's objection is that
+    nobody knows it and nobody should: a specification is not something a person asks for, it
+    happens, and the ticket is the result.
+    On the page the grammar is already meant to be gone — a phase replaced it with a project
+    picker, a button and a list of the caller's conversations — but only in appearance. The page
+    still SPELLS the commands on the wire: the new-conversation control posts the opening
+    spelling, and clicking a conversation in the list posts the resume spelling. The header of
+    that list says so itself. So the parser is not vestigial on the page; it is the page's API.
+    This phase gives the page real routes. Opening is already reachable without a command, because
+    a typed first message carries the picked project; what is missing is the resume, which has no
+    route at all — the one caller of the resumer is the command handler. The three parser
+    spellings the page and a person type — the list, the resume and the fork — go with it. The
+    opening command type stays, because the conversation resolver constructs it internally and it
+    is not a spelling anybody types.
+    One guard must be carried forward rather than deleted with the text it lived in. The ownership
+    check parses a posted resume spelling and, having found one, asks whether the caller may watch
+    the TARGET dialog id. The resumer's own guards are all about the source session; the target
+    thread is unguarded, and moving a conversation onto it closes whatever is open there. A route
+    addressed by ids must carry that check explicitly, the way the deletion route already does.
+  out: >
+    THE CHAT GRAMMAR. On chat the typed command is the only door there is: a message on a thread
+    with no open session is declined by the router and falls to the intent engine, whose intents
+    open no design conversation. Removing it there is NOT "letting the fall-through open a
+    conversation" — the fall-through is reached only after a small model has declined the message,
+    and that model's own vocabulary is the vocabulary of a design opening: asking to add
+    something files a ticket, asking to show something answers with a project error, asking for
+    help answers with help. Making the complement of a non-deterministic classifier into the
+    entrance would also open a conversation for every stray sentence in a channel, and on one
+    platform every message of a chat shares one thread, so the first unclaimed sentence would
+    swallow the rest of that chat forever. That phase's real subject is how a thread tells a
+    design opening from a ticket action — a sixth intent, a mention in a reply, or a control —
+    and it is named here as the phase that gives chat a door of its own.
+    THE WORDING THAT NAMES THE GRAMMAR. The project-choice reply and the surface prose still spell
+    the commands to a chat reader, and on chat they remain correct. They are revisited by the
+    phase above.
+notes: >
+  The documentation already promises the entrance this phase does not yet deliver on chat: it
+  tells a reader to start a thread and discuss what they want to build, and never mentions the
+  grammar. That is a lie the chat phase closes, not this one.
+
+decisions:
+  - key: |
+      A PAGE THAT TYPES COMMANDS AT ITS OWN SERVER HAS NO API, IT HAS A REPL. Every control on the
+      surface is really a string the server re-parses, so the picker, the button and the list
+      depend on a grammar the operator was told had been replaced. Giving them routes is what
+      makes the replacement true.
+  - key: |
+      THE RESUME IS THE ONLY MISSING ROUTE, AND THE ONLY ONE WITH A GUARD TO CARRY. Opening
+      already works without a spelling, because a first typed message carries the project. The
+      resume has no route, and the check that protects the thread it moves onto lives inside the
+      text parsing that is being deleted. Deleting the text without the check would let a caller
+      resume their own conversation onto somebody else's live dialog and close it.
+      The precedent is one file away: the deletion route checks ownership explicitly before acting.
+  - key: |
+      THE OPENING COMMAND TYPE SURVIVES BECAUSE IT IS NOT A SPELLING. The conversation resolver
+      constructs it internally for a page that already knows its project. Only the three types
+      nothing but the parser ever builds are removed.
+  - key: |
+      CHAT KEEPS ITS DOOR UNTIL IT HAS ANOTHER ONE. Taking the grammar away there without building
+      an entrance would leave the platform with none, and the obvious replacement — everything the
+      intent engine does not claim — hands the decision to a small model whose recognised
+      vocabulary is exactly what a design opening sounds like.
+
+steps:
+  - id: a-route-resumes-a-conversation
+    action: "A route resumes a conversation by its id onto a dialog id, checking that the caller may watch the target dialog before anything is closed or rebound, the way the deletion route already checks."
+  - id: the-page-calls-routes-instead-of-spelling-commands
+    action: "The new-conversation control and the conversation list call routes rather than posting command text."
+  - id: the-spellings-nothing-else-builds-are-removed
+    action: "The list, resume and fork spellings and their command types are removed from the parser, while the opening type stays because the conversation resolver constructs it."
+  - id: the-ownership-check-moves-rather-than-going
+    action: "The check that a caller may watch the dialog they are resuming onto stops being reached by parsing posted text and is carried by the route."
+
+tests:
+  - "ResumeRoute_AConversationTheCallerOwns_IsResumedOntoTheTargetDialog"
+  - "ResumeRoute_AConversationTheCallerDoesNotOwn_IsNotFound"
+  - "ResumeRoute_ATargetDialogTheCallerMayNotWatch_IsRefusedAndClosesNothing"
+  - "ResumeRoute_ALiveQuestionOrTurn_IsStillRefused"
+  - "Page_TheNewConversationControl_CallsTheRouteAndPostsNoCommandText"
+  - "Page_OpeningAConversationFromTheList_CallsTheRouteAndPostsNoCommandText"
+  - "Parser_TheListResumeAndForkSpellings_AreNoLongerParsed"
+  - "Parser_TheOpeningSpelling_IsUnchangedForChat"
+  - "ConversationResolver_StillOpensThroughTheOpeningCommandType"
+
+done:
+  - "the page posts no command text at its own server"
+  - "a conversation is resumed by a route that refuses a target dialog the caller may not watch"
+  - "the three spellings only the parser built are gone"
+  - "chat is unchanged and still has its door"
+  - "build green, dashboard tests green, full suite green"
+
+facts:
+  - claim: "One regular expression parses four command types and answers null for anything else."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecCommandParser.cs:11-31"
+  - claim: "The router hands a parsed command to the handler and otherwise treats the message as a continuation."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:36-48"
+  - claim: "A continuation is declined when no session is open on that platform and thread."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:32-33"
+  - claim: "A declined chat message falls to the intent engine, whose recognised intents open no design conversation."
+    evidence: "src/backend/AgentSmith.Server/Services/Dispatchers/SlackMessageDispatcher.cs:36-97"
+  - claim: "The intent engine's second stage is a model call whose prompt maps adding, showing and asking for help onto ticket intents."
+    evidence: "src/backend/AgentSmith.Application/Services/Intents/LlmIntentParser.cs:28-56"
+  - claim: "One chat platform passes the conversation id as both channel and thread, so a whole chat shares one thread id."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TeamsEndpoints.cs:102-112"
+  - claim: "The dashboard dispatcher opens a conversation from the page's project before routing, constructing the opening command internally."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationResolver.cs:42-55"
+  - claim: "The new-conversation control posts the opening spelling as message text."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:474-478"
+  - claim: "Opening a conversation from the list posts the resume spelling as message text."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:489-499"
+  - claim: "A typed message already carries the page's picked project, and is refused only when there is neither a session nor a project."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:422-430"
+  - claim: "The list's own header records that the controls replaced the grammar and that the strings still travel."
+    evidence: "src/dashboard/src/components/dialog/DialogConversations.tsx:7-9"
+  - claim: "The resumer's guards are about the source session: a foreign owner is not found, and a live question or turn refuses."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:32-42"
+  - claim: "The move closes whatever is open on the target thread before rebinding."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:63"
+  - claim: "The ownership check parses a posted resume spelling and then asks whether the caller may watch the target dialog."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:78-86"
+  - claim: "The deletion route checks ownership explicitly before acting, which is the precedent an id-addressed route follows."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:49-58"
+  - claim: "The resumer has exactly one caller, the command handler."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogCommandHandler.cs:44"
+  - claim: "The conversation routes are reads only."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:21-27"
+  - claim: "The documentation already tells a reader to start a thread and discuss what they want to build, and never mentions the grammar."
+    evidence: "docs/how-it-works/spec-dialogue.md:7"
+
+assumptions:
+  - claim: "The page has a caller identity on the resume route the same way the deletion route does."
+    check: "Read how the deletion route establishes its caller and whether the same is available where the page would call resume."
+  - claim: "Removing the three command types breaks no construction site outside the parser."
+    check: "Find every construction of each of the three types."
+  - claim: "The dashboard tests that post the spellings can be rewritten to the routes without losing what they cover."
+    check: "Read each test that posts a spelling and establish what it asserts."

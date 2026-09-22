@@ -11,6 +11,11 @@ namespace AgentSmith.Tests.SpecDialog;
 /// conversation list — so a line telling it to "reply in this thread" or to type "/spec new"
 /// names two affordances it does not have, and the operator is left looking for them.
 /// <para>
+/// 2026-09-22-2a86: the lines that ANSWERED a typed list, resume or fork went with those
+/// spellings, and so did the tests over them. What is left is what a page or a thread can
+/// still be sent.
+/// </para>
+/// <para>
 /// The chat assertions are here for the same reason: the selector is one expression per
 /// sentence, so a wording moved to the wrong side of it is invisible unless both sides are read.
 /// </para>
@@ -41,7 +46,9 @@ public sealed class SpecDialogDashboardWordingTests
 
         opened.Should().Be(
             "Spec dialog `s-1` opened — scope *sample* (repo-a). Describe what you want to "
-            + "build; `/spec new` forks this thread onto a fresh session.");
+            + "build; a new thread starts a separate spec dialog.",
+            "2026-09-22-2a86: the fork is gone, so the sentence offers a thread rather than a "
+            + "command the parser no longer reads");
     }
 
     [Fact]
@@ -57,22 +64,6 @@ public sealed class SpecDialogDashboardWordingTests
             "the control that picks one is labelled Project, not 'project picker'");
 
         choice.In(SpecDialogMarkup.ChatMrkdwn).Should().Contain("`/spec alpha`");
-    }
-
-    // Found by review: "listed beside this one" named a conversation that is not there. Opening
-    // one mints a fresh dialog id and clears the view first (useSpecDialog switchTo), so the
-    // page this reply lands on holds nothing — only the list does.
-    [Fact]
-    public void SpecDialogReply_SessionNotFound_OnTheDashboard_PointsAtTheConversationList()
-    {
-        var notFound = _replies.ComposeSessionNotFound("s-9");
-
-        var page = notFound.In(SpecDialogMarkup.CommonMark);
-        page.Should().NotContain(Command).And.Contain("on the left");
-        page.Should().NotContain("this one",
-            "the conversation this reply lands on was cleared before it was sent");
-
-        notFound.In(SpecDialogMarkup.ChatMrkdwn).Should().Contain("`/spec list`");
     }
 
     [Fact]
@@ -103,24 +94,6 @@ public sealed class SpecDialogDashboardWordingTests
             text.Should().NotContainEquivalentOf(
                 Thread, $"{name} is reachable from a page with no threads");
         }
-    }
-
-    // 2026-09-17-042ek, found by review: the page posts what the operator typed, so these two
-    // are reachable from it — and answering "what is /spec resume?" with "/spec list" on a
-    // surface that has neither is the one thing this phase exists to stop.
-    [Fact]
-    public void SpecDialogReply_TypedCommandReplies_OnTheDashboard_NameNoCommand()
-    {
-        var usage = _replies.ComposeResumeUsage();
-        var empty = _replies.ComposeList([]);
-
-        usage.In(SpecDialogMarkup.CommonMark).Should().NotContain(Command)
-            .And.Contain("on the left", "the conversation list is where one is opened");
-        empty.In(SpecDialogMarkup.CommonMark).Should().NotContain(Command)
-            .And.Contain("New conversation");
-
-        usage.In(SpecDialogMarkup.ChatMrkdwn).Should().Contain("`/spec resume <id>`");
-        empty.In(SpecDialogMarkup.ChatMrkdwn).Should().Contain("`/spec`");
     }
 
     [Fact]
@@ -171,26 +144,16 @@ public sealed class SpecDialogDashboardWordingTests
     }
 
     /// <summary>
-    /// Every framework line the dialog page can be sent — the two that answer a TYPED command
-    /// included. The page posts the operator's text verbatim (useSpecDialog send → the ingest
-    /// endpoint → SpecDialogRouter → SpecCommandParser), so typing "/spec list" into the box
-    /// reaches the session list and "/spec resume" with no id reaches the resume usage. An
-    /// earlier draft of this phase carved those two out as unreachable, which was read off what
-    /// the page posts on the operator's BEHALF rather than off what it posts.
+    /// Every framework line the dialog page can be sent. The page posts the operator's text
+    /// verbatim (useSpecDialog send → the ingest endpoint → SpecDialogRouter →
+    /// SpecCommandParser), so a sentence is reachable from it whenever some text reaches the
+    /// reply that composes it — which is why the two replies that answered a typed command
+    /// were listed here while those commands existed.
     /// </summary>
     private IEnumerable<(string Name, ComposedReply Reply)> PageReachable() =>
     [
         ("opened", _replies.ComposeOpened(State())),
-        ("resumed", _replies.ComposeResumed(State())),
         ("already open", _replies.ComposeAlreadyOpen(State())),
-        ("resume refused, question pending",
-            _replies.ComposeResumeRefused(new SpecDialogResumeRefused("s-1", QuestionPending: true))),
-        ("resume refused, turn running",
-            _replies.ComposeResumeRefused(new SpecDialogResumeRefused("s-1", QuestionPending: false))),
-        ("session not found", _replies.ComposeSessionNotFound("s-9")),
-        ("resume usage", _replies.ComposeResumeUsage()),
-        ("no open sessions", _replies.ComposeList([])),
-        ("open sessions", _replies.ComposeList([State()])),
         ("choice required", _replies.ComposeChoiceRequired(["alpha", "beta"])),
         ("unknown project", _replies.ComposeUnknownProject("gamma", ["alpha"])),
         ("turn in progress", _replies.ComposeTurnInProgress(State())),

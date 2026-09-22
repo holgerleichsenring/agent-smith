@@ -62,7 +62,7 @@ public sealed class DialogImageUploadTests : IDisposable
         _attachments = new SpecDialogAttachmentRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-        _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _ownership = new SpecDialogOwnership(_repository);
     }
 
     [Fact]
@@ -274,10 +274,6 @@ public sealed class DialogImageUploadTests : IDisposable
     /// returns WITHOUT opening when a session is already open on the thread.</summary>
     private SpecDialogCommandHandler Commands() =>
         new(_sessions,
-            new SpecDialogResumer(
-                _repository, new SpecDialogTurnGate(TimeProvider.System),
-                new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                TimeProvider.System, NullLogger<SpecDialogResumer>.Instance),
             new SpecDialogScopeResolver(Loader()),
             new SpecDialogReplyComposer(),
             new SpecDialogMessenger(

@@ -11,8 +11,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// otherwise post into someone else's design conversation and approve its filing, on the
 /// one surface that files real tickets.
 /// </summary>
-public sealed class SpecDialogOwnership(
-    SpecDialogSessionRepository sessions, SpecCommandParser parser)
+public sealed class SpecDialogOwnership(SpecDialogSessionRepository sessions)
 {
     /// <summary>
     /// The owner an unauthenticated caller is recorded as. An installation that has not
@@ -30,9 +29,18 @@ public sealed class SpecDialogOwnership(
         caller?.FindFirst("sub")?.Value ?? caller?.Identity?.Name ?? AnonymousOwner;
 
     /// <summary>
-    /// Whether this principal may see what is delivered into the dialog. An id with no
-    /// open session is free to take: it is the id a page mints for the dialog it is about
-    /// to open, and nothing is delivered into it until somebody opens one.
+    /// Whether this principal may see what is delivered into the dialog — and, because
+    /// speaking into a dialog is delivered into it, whether they may POST there too.
+    /// An id with no open session is free to take: it is the id a page mints for the dialog
+    /// it is about to open, and nothing is delivered into it until somebody opens one.
+    /// <para>
+    /// 2026-09-22-2a86: the RESUME route asks this about the dialog it is moving a
+    /// conversation ONTO. It used to be reached by parsing a posted "/spec resume &lt;id&gt;",
+    /// and the resumer's own guards are all about the source session — so the check that the
+    /// target thread is the caller's had to be carried by the route when the spelling went,
+    /// or a caller could resume their own conversation onto another principal's live dialog
+    /// and close whatever was open there.
+    /// </para>
     /// </summary>
     public async Task<bool> MayWatchAsync(string dialogId, string owner, CancellationToken ct)
     {
@@ -67,21 +75,5 @@ public sealed class SpecDialogOwnership(
         var session = await sessions.GetBySessionOnPlatformAsync(
             DispatcherDefaults.PlatformDashboard, sessionId, ct);
         return session is not null && session.UserId == owner;
-    }
-
-    /// <summary>
-    /// Whether this principal may send this text into this dialog. "/spec resume &lt;id&gt;"
-    /// re-binds an EXISTING session onto this dialog id, so the resumed session's owner is
-    /// checked as well — an unguarded resume is the same takeover as posting into the
-    /// other principal's dialog directly.
-    /// </summary>
-    public async Task<bool> MayPostAsync(
-        string dialogId, string text, string owner, CancellationToken ct)
-    {
-        if (!await MayWatchAsync(dialogId, owner, ct)) return false;
-        if (parser.Parse(text) is not SpecResumeCommand resume) return true;
-
-        var resumed = await sessions.GetBySessionIdAsync(resume.SessionId, ct);
-        return resumed is null || resumed.UserId == owner;
     }
 }
