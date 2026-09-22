@@ -55,4 +55,13 @@ public static partial class ContextKeys
     /// unconfigured instead of blocking.
     /// </summary>
     public const string DialogueJobId = "DialogueJobId";
+
+    /// <summary>
+    /// <c>IFiledTicketWithdrawal</c> — 2026-09-22-9519: the door back out of a filing, seeded by
+    /// the turn runner that has one. Seeded rather than injected into the master handler: the
+    /// implementation reaches the session store and the tracker catalog, and a coding run on a
+    /// server or a CLI composition that never opened a conversation must not have to construct it
+    /// to run at all. Absent → the withdrawal tool is not on the turn's surface.
+    /// </summary>
+    public const string SpecDialogWithdrawal = "SpecDialogWithdrawal";
 }

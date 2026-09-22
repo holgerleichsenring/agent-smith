@@ -1,0 +1,115 @@
+phase: 2026-09-22-9519
+decisions:
+  - id: the-close-member-reports-in-all-four
+    chose: >
+      Widened ITicketProvider.CloseTicketAsync from Task to Task<bool> and made every one of the
+      four providers answer: Jira returns the transitioner's own answer (it already had it and
+      dropped it), GitHub reports false for an id that is not an issue number instead of returning
+      quietly, GitLab returns the state write's answer, Azure DevOps returns true on a landed PATCH
+      and false on the rule engine's own RuleValidationException. The port's default is false.
+    alternatives: >
+      Route the withdrawal's close through FinalizeAsync, which already reports. Two rewrites of
+      the spec tried this; with a null target status GitHubTicketFinalizer and GitLabTicketFinalizer
+      both answer Moved() unconditionally, so it relocates the swallow one frame instead of
+      removing it. There is no member that answers this question today.
+    why: >
+      A record stamped withdrawn on a close that never landed is the one failure the whole phase
+      exists to abolish, so the answer has to come from the member that performs the close.
+  - id: finalize-is-left-as-it-is
+    chose: >
+      The two finalizers that take the close as a delegate keep their Func<..., Task> parameter —
+      delegate return covariance accepts the widened method unchanged — so finalize's own
+      classification is untouched by this phase.
+    alternatives: >
+      Widen the delegate too and answer Moved/NoTransition from the close's report.
+    why: >
+      That is a second claim about the post-PR finalize path, with its own callers acting on
+      StatusMoved, and it is not what this phase promises. A successor that makes finalize's close
+      path answer from the close member is a phase of its own; nothing here depends on it.
+  - id: the-claim-is-asked-twice
+    chose: >
+      A withdrawal is refused when an active-run LEASE exists for the ticket in any project sharing
+      the filing project's tracker, and again when any run ROW names it — either refuses.
+    alternatives: >
+      Ask only for run rows, which is what a reader of the filed-work view has.
+    why: >
+      A claim takes the lease and THEN enqueues; the run row appears when a worker dequeues. Between
+      those moments the ticket is irrevocably claimed and invisible to a row reader, and closing it
+      there lets that run write its own terminal status over the closed one — a record saying
+      withdrawn about delivered work. A held lease never means finished either: the terminal ticket
+      write precedes the release.
+  - id: the-nudge-is-addressed-by-ticket
+    chose: >
+      FiledWorkNudge gained OfTicketAsync(ticketId); the run-snapshot entry point now delegates to
+      it, and the withdrawal calls it directly.
+    alternatives: >
+      Fabricate a RunSnapshot carrying the ticket; re-push the filing.
+    why: >
+      The watch registry is keyed by TICKET and the snapshot path is reduced to that key anyway. The
+      population this phase serves is the tickets no run ever touched, so a run-keyed announcement
+      is a dead channel by construction — and a run that does not exist must not travel an event bus.
+  - id: the-panel-renders-the-read-not-the-push
+    chose: >
+      DialogFiledPanel takes each ticket's start state from the filed-work READ when it has one and
+      falls back to the filing push only until the first read answers.
+    alternatives: >
+      Push the changed filing again from the withdrawal.
+    why: >
+      The push is what filing said at filing time and is never sent again; the read is the thing the
+      nudge refetches. Without this the pane goes on saying "not started" until somebody reloads.
+  - id: the-label-names-every-state
+    chose: >
+      FiledWorkStart.Label names Started, NotStarted, Record and Withdrawn explicitly; the remaining
+      arm answers "unknown" for a state this build cannot name. The dashboard's map is keyed on
+      NonNullable<state>, so a state added to the server and not to the map fails the build.
+    alternatives: >
+      Leave the catch-all at "record".
+    why: >
+      The catch-all fell through to the RECORD wording, so a withdrawn ticket would have been
+      announced as a slice record — which is not work at all — on every channel the notice reaches.
+  - id: a-store-write-keyed-by-the-session-row
+    chose: >
+      SpecDialogLatestOutcomeStore gained ReadBySessionAsync and SetFilingBySessionAsync over
+      SpecDialogSessionRepository.GetBySessionIdAsync; both existing write paths now share one
+      private update.
+    alternatives: >
+      Reuse SetFilingAsync with the dashboard platform and the dialog id as the thread.
+    why: >
+      Every existing write is keyed by platform and thread and by the session being open, and a tool
+      holds a session id. A design conversation runs on chat as well as on the page, and the filing
+      is written on the turn's own platform — a platform named here is a surface guessed rather than
+      resolved, and every chat withdrawal would answer "this conversation has filed nothing".
+  - id: the-stored-state-is-read-tolerantly
+    chose: >
+      FiledWorkStart.State is nullable and the store's own JsonSerializerOptions carry
+      TolerantNullableEnumConverter<FiledStartState>.
+    alternatives: >
+      A property-level [JsonConverter] attribute; no tolerance at all.
+    why: >
+      An unreadable filing row is shown as ABSENT, so a build meeting a state name it cannot place
+      would lose the tickets, the error and the notes over one word. The converter is registered in
+      the OPTIONS rather than on the property because a property attribute outranks the enum's own
+      and would change what every other reader — the page included — receives on the wire.
+  - id: the-port-is-seeded-not-injected
+    chose: >
+      IFiledTicketWithdrawal lives in the contracts assembly, is implemented in the server beside the
+      filing services, and reaches the master through ContextKeys.SpecDialogWithdrawal, seeded by the
+      turn runner beside the dialogue job id. The tool is built only when both are present.
+    alternatives: >
+      Constructor-inject it into AgenticMasterHandler, as the dialogue transport is, with a no-op
+      binding in the shared composition for the compositions that have no conversation.
+    why: >
+      The implementation reaches the session store, the tracker catalog and the run store. A
+      constructor parameter makes EVERY resolution of the master handler construct it — including a
+      coding run and the CLI, neither of which has a conversation — so the surface that cannot use
+      it would have to carry a second implementation to run at all. The seed is the same gate
+      ask_human is built behind, expressed once.
+  - id: its-own-unit-of-work
+    chose: >
+      FiledTicketWithdrawal opens its own scope through IServiceScopeFactory for the read, the claim
+      questions and the write.
+    alternatives: >
+      Take the scoped store and repositories as constructor dependencies.
+    why: >
+      The tool runs mid-turn, inside the scope that is serving the operator's message and alongside
+      the question pump. FiledWorkRunsReader already reads this way for the same reason.

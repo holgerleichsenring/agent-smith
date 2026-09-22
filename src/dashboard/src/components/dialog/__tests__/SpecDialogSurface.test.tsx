@@ -2236,6 +2236,38 @@ describe("SpecDialogSurface", () => {
     );
   });
 
+  // 2026-09-22-9519: THE PANE LEARNS WITHOUT A RELOAD. The filing push is what filing said at
+  // filing time and is never sent again, so the start state the panel shows has to come from the
+  // READ — the one thing the withdrawal's ticket-keyed nudge refetches. Nothing is pushed here
+  // after the filing, which is exactly the live shape: the withdrawal has a ticket and no run.
+  it("FiledPanel_AWithdrawnTicket_SaysSoAfterTheNudgedRefetch", async () => {
+    await renderSurface();
+    const filed = {
+      reference: "https://tracker/7",
+      title: "p9001: the phase",
+      ticketId: "7",
+      project: "sample",
+      key: "SAMPLE-412",
+      start: { state: "NotStarted" as const, reason: "nothing would route it" },
+    };
+    fetchFiledWork.mockResolvedValue(filedWork({ start: filed.start }));
+
+    act(() => filings.emit(filing({ filed: [filed] })));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-start-https://tracker/7"))
+        .toHaveTextContent("not started — nothing would route it"));
+
+    fetchFiledWork.mockResolvedValue(filedWork({
+      start: { state: "Withdrawn", reason: "closed from the conversation that filed it" },
+    }));
+    act(() => filedWorkChanged.emit(undefined));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-filed-start-https://tracker/7"))
+        .toHaveTextContent("withdrawn — closed from the conversation that filed it"));
+  });
+
   // A filing written before that phase carries no start state; the panel says nothing about it
   // rather than guessing, which is the claim the state exists to stop.
   it("SpecDialog_AFilingWithoutStartStates_RendersAsBefore", async () => {

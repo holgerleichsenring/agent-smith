@@ -273,6 +273,14 @@ public sealed class AgenticMasterHandler(
         IToolHost human = ticketClarifications is not null
             ? ticketClarifications
             : new HumanToolHost(dialogueTransport, dialogueJobId);
+        // 2026-09-22-9519: the withdrawal door, built on the SAME gate ask_human is built on — a
+        // dialogue identity. The port is seeded by the turn runner that has one, so a run with no
+        // conversation behind it never constructs it and never carries the tool.
+        var withdraw = dialogueJobId is not null
+            && context.Pipeline.TryGet<IFiledTicketWithdrawal>(
+                ContextKeys.SpecDialogWithdrawal, out var withdrawal) && withdrawal is not null
+            ? new WithdrawFiledTicketToolHost(withdrawal, dialogueJobId)
+            : null;
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
@@ -354,7 +362,7 @@ public sealed class AgenticMasterHandler(
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
         var composed = ComposeMasterTools(
             isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-            progress, recall, remember, context);
+            progress, recall, remember, withdraw, context);
         var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
 
         var request = new AgenticLoopRequest(
@@ -687,12 +695,17 @@ public sealed class AgenticMasterHandler(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         WebToolHost? web, ProgressLedgerToolHost progress,
-        MemoryRecallToolHost recall, MemoryWriteToolHost remember, AgenticMasterContext context)
+        MemoryRecallToolHost recall, MemoryWriteToolHost remember,
+        WithdrawFiledTicketToolHost? withdraw, AgenticMasterContext context)
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
+        // 2026-09-22-9519: the withdrawal joins the design surface HERE rather than inside
+        // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
+        // what this method decides.
         IList<AITool> BaseSurface() => isSpecDialog
-            ? toolSurface.SpecDialog(fs, human, web, recall, remember)
+            ? [.. toolSurface.SpecDialog(fs, human, web, recall, remember),
+               .. withdraw?.GetTools(null, null) ?? []]
             : isScanMaster
                 ? toolSurface.Review(fs, log, web, recall, remember)
                 : toolSurface.ReadWriteWithHuman(

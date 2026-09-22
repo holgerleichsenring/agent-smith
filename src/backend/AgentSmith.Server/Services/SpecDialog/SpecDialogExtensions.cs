@@ -1,5 +1,9 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -92,6 +96,12 @@ internal static class SpecDialogExtensions
         services.AddScoped<FiledWorkReader>();
         services.AddSingleton<FiledWorkWatchRegistry>();
         services.AddScoped<FiledWorkWatch>();
+        // 2026-09-22-9519: the way back out of a filing. The NUDGE is optional — the hub it needs
+        // is added conditionally, and a server with the UI API off still runs conversations on chat.
+        services.AddTransient<IFiledTicketWithdrawal>(sp => new FiledTicketWithdrawal(
+            sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<AgentSmithConfig>(),
+            sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
+            sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
         // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
         // what filing it actually created.
         services.AddTransient<SpecDialogProposalComposer>();
