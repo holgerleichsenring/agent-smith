@@ -76,6 +76,10 @@ const postSpecDialogMessage =
 const fetchSpecDialogConversations = vi.fn();
 const fetchFiledWork = vi.fn();
 const deleteSpecDialogConversation = vi.fn<(sessionId: string) => Promise<void>>(async () => {});
+// 2026-09-22-2a86: opening a past conversation is a ROUTE — the conversation by its session id,
+// onto the dialog id this tab holds — and no longer a "/spec resume" posted as message text.
+const resumeSpecDialogConversation =
+  vi.fn<(sessionId: string, dialogId: string) => Promise<void>>(async () => {});
 // 2026-09-20-3af8: the upload and the address the transcript reads an image back from.
 const uploadSpecDialogImage =
   vi.fn<(dialogId: string, project: string, file: File) => Promise<unknown>>(
@@ -87,6 +91,8 @@ vi.mock("@/lib/specDialogApi", () => ({
   postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
     postSpecDialogMessage(dialogId, text, project),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
+  resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
+    resumeSpecDialogConversation(sessionId, dialogId),
   uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
     uploadSpecDialogImage(dialogId, project, file),
   specDialogImageUrl: (imageId: number) => `/api/spec-dialog/images/${imageId}`,
@@ -380,6 +386,8 @@ beforeEach(() => {
   watchFiledWork.mockClear();
   deleteSpecDialogConversation.mockReset();
   deleteSpecDialogConversation.mockResolvedValue(undefined);
+  resumeSpecDialogConversation.mockReset();
+  resumeSpecDialogConversation.mockResolvedValue(undefined);
 });
 
 afterEach(() => cleanup());
@@ -627,7 +635,10 @@ describe("SpecDialogSurface", () => {
     expect(scope).toHaveTextContent("v1.2");
   });
 
-  it("SpecDialog_NewConversation_OpensOnThePickedProjectUnderAFreshDialogId", async () => {
+  // 2026-09-22-2a86: the control used to post "/spec other" as message text, which the server
+  // parsed back into an opening command. It mints a tab now, and the FIRST message opens the
+  // conversation on the picked project — one route, carrying what the page holds.
+  it("Page_TheNewConversationControl_CallsTheRouteAndPostsNoCommandText", async () => {
     const other = { name: "other", repos: [], templates: [] };
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, other] }));
     await renderSurface();
@@ -639,9 +650,17 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(screen.getByTestId("dialog-new"));
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(heldDialogId(), "/spec other", undefined));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        heldDialogId(), "a widget that reads the ledger", "other"));
+    expect(postSpecDialogMessage.mock.calls.map((call) => call[1]))
+      .not.toContainEqual(expect.stringMatching(/^\/spec/));
   });
 
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
@@ -726,17 +745,18 @@ describe("SpecDialogSurface", () => {
 
   // The spec said every opening resumes onto a fresh dialog id; since 2026-09-17-c7aeb's review
   // only a CLOSED conversation does — an open one is returned to (the test below this one).
-  it("SpecDialog_OpeningAClosedConversation_ResumesOntoAFreshDialogIdAndClosesNothing", async () => {
+  it("Page_OpeningAConversationFromTheList_CallsTheRouteAndPostsNoCommandText", async () => {
     fetchSpecDialogConversations.mockResolvedValue([conversation({ openDialogId: null })]);
     await renderSurface();
     const first = heldDialogId();
 
     fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
 
-    await waitFor(() => expect(postSpecDialogMessage).toHaveBeenCalled());
+    await waitFor(() => expect(resumeSpecDialogConversation).toHaveBeenCalled());
     const fresh = heldDialogId();
     expect(fresh).not.toBe(first);
-    expect(postSpecDialogMessage.mock.calls).toEqual([[fresh, "/spec resume s-9", undefined]]);
+    expect(resumeSpecDialogConversation.mock.calls).toEqual([["s-9", fresh]]);
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // 2026-09-17-c7aeb: a dialog id is a tab, not a conversation. Opening a past one mints a
@@ -752,8 +772,8 @@ describe("SpecDialogSurface", () => {
     fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
 
     await waitFor(() => expect(heldDialogId()).toBe("d-where-it-lives"));
-    expect(postSpecDialogMessage.mock.calls.map((call) => call[1]))
-      .not.toContainEqual(expect.stringMatching(/^\/spec resume/));
+    expect(resumeSpecDialogConversation).not.toHaveBeenCalled();
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // The list stands beside the conversation. A failed read of it used to put the page-wide
@@ -772,8 +792,8 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_OpeningAPastConversation_ShowsItsTranscriptAfterTheResume", async () => {
     let resumed = false;
-    postSpecDialogMessage.mockImplementation(async (...[, text]) => {
-      if (text.startsWith("/spec resume")) resumed = true;
+    resumeSpecDialogConversation.mockImplementation(async () => {
+      resumed = true;
     });
     fetchSpecDialogConversations.mockResolvedValue([conversation()]);
     await renderSurface();
@@ -795,19 +815,14 @@ describe("SpecDialogSurface", () => {
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     const fresh = heldDialogId();
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(fresh, "/spec resume s-9", undefined));
-    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalledWith(fresh));
-    act(() => messages.emit({
-      dialogId: fresh, title: "Spec dialog",
-      text: "Spec dialog `s-9` resumed — scope **sample**, 1 turn(s) so far.",
-      at: "2026-09-15T10:06:00Z",
-    }));
+      expect(resumeSpecDialogConversation).toHaveBeenCalledWith("s-9", fresh));
 
+    // 2026-09-22-2a86: the route answers when the move is DONE, so the read that follows it is
+    // what seeds the transcript. There is no framework reply to wait for any more.
     expect(await screen.findByTestId("dialog-turn-user")).toHaveTextContent(
       "a widget that reads the ledger",
     );
-    expect(postSpecDialogMessage).not.toHaveBeenCalledWith(first, expect.anything());
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   it("SpecDialog_ClickingTheConversationAlreadyOpen_DoesNothing", async () => {
@@ -1193,10 +1208,14 @@ describe("SpecDialogSurface", () => {
       target: { value: "other" },
     });
     fireEvent.click(screen.getByTestId("dialog-new"));
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
 
     await waitFor(() =>
-      expect(postSpecDialogMessage)
-        .toHaveBeenCalledWith(expect.any(String), "/spec other", undefined));
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.any(String), "a widget that reads the ledger", "other"));
   });
 
   // 2026-09-15-cb3e, found by review: nothing is pushed when a wait expires — the confirmer

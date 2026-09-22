@@ -59,8 +59,6 @@ public sealed class SpecDialogRoutingTests : IDisposable
         var pendingQuestions = _pendingQuestions;
         var commandHandler = new SpecDialogCommandHandler(
             _sessions,
-            new SpecDialogResumer(repository, turnGate, pendingQuestions, TimeProvider.System,
-                NullLogger<SpecDialogResumer>.Instance),
             new SpecDialogScopeResolver(SingleProjectLoader()),
             new SpecDialogReplyComposer(), messenger);
         // p0315b: follow-up turns now run the design-partner master; the stub
@@ -130,26 +128,6 @@ new DashboardOutcomeChannel(
         stateA.Transcript.Where(t => t.Role == TranscriptRole.Assistant).Select(t => t.Text)
             .Should().Equal(CannedReply, CannedReply);
         stateA.JobId.Should().NotBe(stateB.JobId, "each thread has its own session");
-    }
-
-    [Fact]
-    public async Task Router_ResumeThread_ContinuesWhereLeftOff()
-    {
-        await _router.TryRouteAsync("/spec", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("first thought", "U1", Channel, "th-old", Platform, false, CancellationToken.None);
-        var opened = await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None);
-
-        var handled = await _router.TryRouteAsync(
-            $"/spec resume {opened!.JobId}", "U1", Channel, "th-new", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("second thought", "U1", Channel, "th-new", Platform, false, CancellationToken.None);
-
-        handled.Should().BeTrue();
-        var resumed = await _sessions.GetOpenByThreadAsync(Platform, "th-new", CancellationToken.None);
-        resumed!.JobId.Should().Be(opened.JobId, "resume continues the same session");
-        resumed.Transcript.Where(t => t.Role == TranscriptRole.User).Select(t => t.Text)
-            .Should().Equal("first thought", "second thought");
-        (await _sessions.GetOpenByThreadAsync(Platform, "th-old", CancellationToken.None))
-            .Should().BeNull("the session moved to the new thread");
     }
 
     // p0315c "edit iterates": a non-approval confirmation reply is an edit

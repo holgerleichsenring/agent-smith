@@ -93,17 +93,6 @@ public sealed class SpecDialogSessionManager(
         return SpecDialogSessionMapper.ToState(session);
     }
 
-    /// <summary>
-    /// The caller's own open sessions. Listing another person's serves nothing now that only
-    /// its owner can resume it, and it disclosed the ids, projects and activity times of every
-    /// conversation on the platform to anyone who asked.
-    /// </summary>
-    public async Task<IReadOnlyList<ConversationState>> ListOpenAsync(
-        string userId, string platform, CancellationToken ct) =>
-        [.. (await repository.ListOpenAsync(platform, ct))
-            .Where(session => string.Equals(session.UserId, userId, StringComparison.Ordinal))
-            .Select(SpecDialogSessionMapper.ToState)];
-
     public Task CloseAsync(string platform, string threadId, CancellationToken ct) =>
         repository.CloseOpenForThreadAsync(platform, threadId, ct);
 }

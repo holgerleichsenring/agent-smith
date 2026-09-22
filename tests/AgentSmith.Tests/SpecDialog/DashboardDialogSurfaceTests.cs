@@ -48,7 +48,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-        _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _ownership = new SpecDialogOwnership(_repository);
         _turns = new SpecDialogTurnGate(_clock);
         // The same gate: setting and taking a question is what stops and starts the turn's clock.
         _pending = new SpecDialogPendingQuestions(_turns);

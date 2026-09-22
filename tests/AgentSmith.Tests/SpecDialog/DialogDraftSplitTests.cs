@@ -244,8 +244,6 @@ public sealed class DialogDraftSplitTests : IDisposable
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(_sessions,
-                new SpecDialogResumer(repository, gate, pending, TimeProvider.System,
-                    NullLogger<SpecDialogResumer>.Instance),
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
                 new SpecDialogReplyComposer(), _messenger),
             _turnRunner.Object, flow, gate,
