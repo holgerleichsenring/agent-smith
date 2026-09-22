@@ -59,6 +59,15 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
             .OrderByDescending(s => s.LastActivityAt)];
 
     /// <summary>
+    /// 2026-09-21-f237b: how many conversations one owner holds on one platform, whatever the
+    /// capped list served. A COUNT over the two columns the list already filters on — it opens no
+    /// transcript, which is what makes it affordable beside a read that parses every one of them.
+    /// </summary>
+    public Task<int> CountByOwnerAsync(string platform, string userId, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>()
+            .CountAsync(s => s.Platform == platform && s.UserId == userId, ct);
+
+    /// <summary>
     /// 2026-09-18-7a05: one session by its id, on one platform. The session id carries a unique
     /// index, so the platform cannot change WHICH row is found — it stops a route serving one
     /// surface from reaching a conversation that lives on another.

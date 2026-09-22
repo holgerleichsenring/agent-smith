@@ -84,6 +84,75 @@ public sealed class DialogConversationListTests : IDisposable
         listed[0].SessionId.Should().Be(created[3], "the list is sorted by last activity");
     }
 
+    /// <summary>
+    /// 2026-09-21-f237b: the caller names how many. The panel reads the default; the
+    /// conversations page asks for the ceiling, because the rows the panel does not show are the
+    /// whole point of it.
+    /// </summary>
+    [Fact]
+    public async Task List_ALimitWithinTheCeiling_ReadsThatMany()
+    {
+        for (var index = 0; index < 5; index++) await OpenAsync($"d-{index}");
+
+        (await ListAsync(3)).Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task List_NoLimit_ReadsTheDefault()
+    {
+        SpecDialogConversationList.ClampLimit(null).Should().Be(SpecDialogConversationList.Cap);
+    }
+
+    /// <summary>
+    /// Clamped, not refused — which is what the two other limit-taking routes in this tree do.
+    /// Proven on the clamp itself rather than by opening two hundred and one conversations.
+    /// </summary>
+    [Fact]
+    public void List_ALimitAboveTheCeiling_IsClampedToIt()
+    {
+        SpecDialogConversationList.ClampLimit(10_000)
+            .Should().Be(SpecDialogConversationList.MaxPageLimit);
+    }
+
+    [Fact]
+    public void List_ALimitOfZeroOrLess_IsClampedToOne()
+    {
+        SpecDialogConversationList.ClampLimit(0).Should().Be(1);
+        SpecDialogConversationList.ClampLimit(-4).Should().Be(1);
+    }
+
+    /// <summary>
+    /// The count is served rather than inferred: "I received exactly the number I asked for" is
+    /// wrong for exactly the caller who holds that many, and the missing field IS the fix.
+    /// </summary>
+    [Fact]
+    public async Task List_MoreConversationsThanTheLimit_StillAnswersTheOwnersTotal()
+    {
+        for (var index = 0; index < 5; index++) await OpenAsync($"d-{index}");
+
+        var page = await PageAsync(2);
+
+        page.Conversations.Should().HaveCount(2);
+        page.Total.Should().Be(5);
+    }
+
+    /// <summary>
+    /// A limit reaches how MANY rows are served and never which: the owner comes from the
+    /// signed-in principal, so another principal's conversations are outside both numbers.
+    /// </summary>
+    [Fact]
+    public async Task List_AnotherPrincipalsConversations_AreCountedForNeitherRowsNorTotal()
+    {
+        await OpenAsync("d-1");
+        await OpenAsync("d-2", Intruder);
+        await OpenAsync("d-3", Intruder);
+
+        var page = await PageAsync(SpecDialogConversationList.MaxPageLimit);
+
+        page.Conversations.Should().ContainSingle();
+        page.Total.Should().Be(1);
+    }
+
     [Fact]
     public async Task ListRoute_AnswersForTheSignedInPrincipalOnly()
     {
@@ -91,12 +160,13 @@ public sealed class DialogConversationListTests : IDisposable
         await OpenAsync("d-2", Intruder);
 
         var result = await SpecDialogViewEndpoints.ListAsync(
+            null,
             new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Owner)], "test")),
             new SpecDialogOwnership(_repository, new SpecCommandParser()),
             new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)), CancellationToken.None);
 
-        result.Should().BeOfType<Ok<IReadOnlyList<SpecDialogSessionSummary>>>()
-            .Which.Value!.Select(summary => summary.SessionId).Should().Equal(mine);
+        result.Should().BeOfType<Ok<SpecDialogConversationPage>>()
+            .Which.Value!.Conversations.Select(summary => summary.SessionId).Should().Equal(mine);
     }
 
     [Fact]
@@ -219,6 +289,45 @@ public sealed class DialogConversationListTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-09-21-f237a: the row says what the conversation is ABOUT. The subject is stored on
+    /// the session by 2026-09-20-4b0af and was served on the session view alone, while the column
+    /// truncates a row to a few words of the opening sentence.
+    /// </summary>
+    [Fact]
+    public async Task List_ASessionWithASubject_ServesItOnTheRow()
+    {
+        await OpenAsync("d-1");
+        await SayAsync("d-1", "Ich brauche alle libraries aktualisiert");
+        var row = await _context.Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession>()
+            .SingleAsync(session => session.ThreadId == "d-1");
+        row.Subject = "Aktualisierung aller Projektbibliotheken";
+        await _context.SaveChangesAsync();
+
+        var listed = (await ListAsync()).Single();
+
+        listed.Subject.Should().Be("Aktualisierung aller Projektbibliotheken");
+        listed.Title.Should().Be("Ich brauche alle libraries aktualisiert",
+            "the sentence the person wrote is carried beside it, for the deletion to quote");
+    }
+
+    /// <summary>
+    /// Nothing is backfilled, so a conversation older than the mint carries none — and keeps the
+    /// title the row falls back to. The two are carried BESIDE each other rather than resolved
+    /// into one, because a deletion asks about the sentence the person wrote.
+    /// </summary>
+    [Fact]
+    public async Task List_ASessionWithoutASubject_ServesNoneAndKeepsTheTitle()
+    {
+        await OpenAsync("d-1");
+        await SayAsync("d-1", "A widget that reads the ledger");
+
+        var row = (await ListAsync()).Single();
+
+        row.Subject.Should().BeNull();
+        row.Title.Should().Be("A widget that reads the ledger");
+    }
+
+    /// <summary>
     /// An open conversation is already somewhere, and the page goes there rather than resuming it:
     /// a resume is refused while its turn runs. So the list says where an open one lives, and says
     /// nothing for a closed one, which has nowhere to go back to.
@@ -269,8 +378,13 @@ public sealed class DialogConversationListTests : IDisposable
     private Task SayAsync(string dialogId, string text) =>
         _sessions.AppendTurnAsync(Platform, dialogId, TranscriptRole.User, text, null, null, CancellationToken.None);
 
-    private Task<IReadOnlyList<SpecDialogSessionSummary>> ListAsync() =>
-        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)).ListAsync(Owner, CancellationToken.None);
+    private async Task<IReadOnlyList<SpecDialogSessionSummary>> ListAsync(int? limit = null) =>
+        (await PageAsync(limit)).Conversations;
+
+    /// <summary>2026-09-21-f237b: the rows AND the owner's whole count, which is what the
+    /// conversations page says "the 20 most recent of 63" from.</summary>
+    private Task<SpecDialogConversationPage> PageAsync(int? limit = null) =>
+        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)).ListAsync(Owner, limit, CancellationToken.None);
 
     public void Dispose()
     {

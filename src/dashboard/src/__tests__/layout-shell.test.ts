@@ -23,6 +23,8 @@ const MOCK_SURFACES = [
   "components/overview/OverviewView.tsx",
   // 2026-09-17-042ef: Work it out is the sixth, on a .mock-dialog shell of its own.
   "components/dialog/SpecDialogSurface.tsx",
+  // 2026-09-21-f237b: and its second view, on the same shell.
+  "components/dialog/ConversationsView.tsx",
 ];
 
 const CONTENT_SHELL_AREAS = [
