@@ -206,7 +206,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         foreach (var (key, value) in SpecDialogTurnSeeds.Build(
                      state, [new RepoConnection { Name = "repo-a" }],
                      new Dictionary<string, ISandbox>(), new SpecDialogReplySlot(),
-                     DialogImageSet.None))
+                     DialogImageSet.None, Mock.Of<IFiledTicketWithdrawal>()))
             context.Set(key, value);
         return new SpecDialogPromptFactory().Build(context, 0, 0);
     }

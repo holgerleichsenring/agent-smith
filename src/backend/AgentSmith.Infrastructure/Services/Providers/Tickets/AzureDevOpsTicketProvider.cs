@@ -177,8 +177,8 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => PatchAsync(ticketId, [Op("/fields/System.History", ToHtml(comment))], cancellationToken);
 
-    public Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
-        => WriteFinalizeAsync(ticketId, resolution, _doneStatus, cancellationToken);
+    public async Task<bool> CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken ct)
+        => (await _finalizer.FinalizeAsync(ticketId, resolution, _doneStatus, ct)).StatusMoved;
 
     public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {

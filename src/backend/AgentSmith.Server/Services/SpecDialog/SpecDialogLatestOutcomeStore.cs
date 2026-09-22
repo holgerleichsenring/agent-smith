@@ -28,7 +28,10 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogLatestOutcomeStore(
     SpecDialogSessionRepository repository, ILogger<SpecDialogLatestOutcomeStore> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    // 2026-09-22-9519: a start state this build cannot place costs one word, not the whole filing.
+    // In the OPTIONS, never on the property: there it outranks the enum's own and changes the page.
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+        { Converters = { new TolerantNullableEnumConverter<FiledStartState>() } };
 
     public Task SetProposalAsync(
         string platform, string threadId, OutcomeProposal proposal, CancellationToken ct) =>
@@ -56,6 +59,21 @@ public sealed class SpecDialogLatestOutcomeStore(
         return session is null ? SpecDialogLatestOutcome.None : Of(session);
     }
 
+    /// <summary>2026-09-22-9519: the same read, addressed by the SESSION row. Every other path here
+    /// is keyed by platform and thread and by the session being open, which a tool cannot use — it
+    /// holds a session id, and its conversation runs on the page or on chat.</summary>
+    public async Task<SpecDialogLatestOutcome> ReadBySessionAsync(string sessionId, CancellationToken ct)
+    {
+        var session = await repository.GetBySessionIdAsync(sessionId, ct);
+        return session is null ? SpecDialogLatestOutcome.None : Of(session);
+    }
+
+    /// <summary>Replaces the filing record on one session row — the WHOLE record, because the caller
+    /// changed one ticket's state and the rest of that filing must survive unchanged.</summary>
+    public Task SetFilingBySessionAsync(string sessionId, SpecDialogFiling filing, CancellationToken ct) =>
+        UpdateAsync(() => repository.GetBySessionIdAsync(sessionId, ct),
+            session => session.LatestFilingJson = JsonSerializer.Serialize(filing, JsonOptions), sessionId, ct);
+
     /// <summary>
     /// What a session holds, open or closed — the one reading of the two columns, used by the
     /// view and by the conversation list alike. Forgiving for both: one unreadable row shows as
@@ -80,19 +98,23 @@ public sealed class SpecDialogLatestOutcomeStore(
         }
     }
 
-    private async Task UpdateOpenAsync(
-        string platform, string threadId, Action<SpecDialogSession> change, CancellationToken ct)
+    private Task UpdateOpenAsync(
+        string platform, string threadId, Action<SpecDialogSession> change, CancellationToken ct) =>
+        UpdateAsync(() => repository.GetOpenByThreadAsync(platform, threadId, ct), change, threadId, ct);
+
+    private async Task UpdateAsync(
+        Func<Task<SpecDialogSession?>> find, Action<SpecDialogSession> change, string named, CancellationToken ct)
     {
         try
         {
-            var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
+            var session = await find();
             if (session is null) return;
             change(session);
             await repository.SaveAsync(ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Spec-dialog pane record on thread {ThreadId} was not saved", threadId);
+            logger.LogWarning(ex, "Spec-dialog pane record on thread {ThreadId} was not saved", named);
         }
     }
 }

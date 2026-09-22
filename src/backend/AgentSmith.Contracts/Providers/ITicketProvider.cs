@@ -68,9 +68,9 @@ public interface ITicketProvider : ITypedProvider
     Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
-    /// <summary>Closes the ticket with a resolution comment.</summary>
-    Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    /// <summary>Closes the ticket with a resolution comment and answers whether it CLOSED (9519).</summary>
+    Task<bool> CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
+        => Task.FromResult(false);
 
     /// <summary>Moves the ticket to the named status and answers whether it moved. Default: false.</summary>
     Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
