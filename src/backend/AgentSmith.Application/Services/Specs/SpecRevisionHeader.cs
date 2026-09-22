@@ -23,9 +23,13 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecRevisionHeader
 {
     /// <param name="reported">Whether the kept input was actually reported to the ticket.</param>
+    /// <param name="approval">2026-09-22-8b25: the approval a DEMAND records, or null. A re-cut
+    /// set carries none of its own — the model's reply is a fresh set — so without this the one
+    /// re-cut an approved set allows would publish an UNAPPROVED set, and the next ordinary
+    /// comment would re-cut it again.</param>
     public static SpecSet Finalize(
         SpecSet set, SpecSetReadResult? previous, string cause, Ticket ticket, bool modelRan,
-        bool reported = false)
+        bool reported = false, SpecApproval? approval = null)
     {
         ArgumentNullException.ThrowIfNull(set);
         var history = previous?.Set.Revisions ?? [];
@@ -35,6 +39,7 @@ public static class SpecRevisionHeader
         {
             Revisions = [.. history, next],
             TicketFingerprint = Fingerprint(set, previous, cause, ticket, modelRan, reported),
+            Approval = approval ?? set.Approval,
         };
     }
 

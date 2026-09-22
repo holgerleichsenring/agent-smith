@@ -28,6 +28,8 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly GitLabMergeRequestTarget _mrTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch;
+    // 2026-09-22-b6ad: putting files on a branch without a checkout, through this same client.
+    private readonly GitLabBranchWrite _branchWrite;
 
     public string ProviderType => "GitLab";
 
@@ -48,6 +50,18 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
             _baseUrl, _projectPath, _privateToken, httpClient, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, connection.ProjectPath, logger);
+        _branchWrite = new GitLabBranchWrite(
+            _baseUrl, _projectPath, _privateToken, httpClient, logger);
+    }
+
+    public async Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return await _branchWrite.WriteAsync(
+            branch.Value, await GetDefaultBranchAsync(cancellationToken), files, message,
+            cancellationToken);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)

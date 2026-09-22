@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
@@ -37,31 +38,40 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// status before its set exists can be claimed by the poller, and the run would then derive its
 /// own spec — the one outcome this set of phases exists to prevent.
 /// </para>
+/// <para>
+/// 2026-09-22-b6ad: and the set is WRITTEN TO THE TICKET BRANCH in the gap between the two, for
+/// the same reason the order exists. Before the ticket there is no branch name to compose; after
+/// the start there is a run racing the write.
+/// </para>
 /// </summary>
 public sealed class ApprovedSetTicketFiler(
     ApprovedPhaseSetRecorder approvals,
+    FiledSpecBranchWrite branches,
     FiledWorkStarter starter,
     TicketKindResolver kinds,
     ILogger<ApprovedSetTicketFiler> logger)
 {
     /// <param name="render">The body, given the note that explains the labels it is filed with.</param>
     /// <param name="set">The approved phases, in the order the one run will work them.</param>
+    /// <param name="notes">What a step that failed AFTER the ticket existed left behind.</param>
     public async Task FileAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         TicketFilingRole role, Func<string, PhaseTicketContent> render,
-        IReadOnlyList<PhaseDraft> set, List<FiledTicket> filed, bool mayStartRuns,
-        CancellationToken ct)
+        IReadOnlyList<PhaseDraft> set, List<FiledTicket> filed, List<string> notes,
+        bool mayStartRuns, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(render);
         ArgumentNullException.ThrowIfNull(filed);
+        ArgumentNullException.ThrowIfNull(notes);
         // 2026-09-18-d518: the note explains the labels this ticket is actually filed with.
         string[] labels = [FiledTicketLabels.ApprovedSetStamp];
         var content = render(TicketLabelNote.For(labels));
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));
-        await StoreAsync(state, project, created, set, ct);
+        var record = await StoreAsync(state, project, created, set, ct);
+        await branches.WriteAsync(provider, project, created, record, notes, ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
 
@@ -73,13 +83,13 @@ public sealed class ApprovedSetTicketFiler(
     /// which is a second run and a second pull request per repository, so the operator is told
     /// which ticket must not be triggered rather than handed a complete-looking filing.
     /// </summary>
-    private async Task StoreAsync(
+    private async Task<SpecApprovalRecord> StoreAsync(
         ConversationState state, ResolvedProject project, CreatedTicket created,
         IReadOnlyList<PhaseDraft> set, CancellationToken ct)
     {
         try
         {
-            await approvals.RecordAsync(state, project, created.Id.Value, set, ct);
+            return await approvals.RecordAsync(state, project, created.Id.Value, set, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

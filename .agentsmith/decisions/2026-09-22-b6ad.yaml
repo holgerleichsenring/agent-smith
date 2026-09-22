@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-b6ad
+
+decisions:
+  - category: Architecture
+    chose: "The branch write is a SOURCE-PROVIDER operation — one new contract member that puts repo-relative files on a branch without a checkout"
+    over: "Reusing the publish chain (SpecSetWriter/SpecSetPublisher), or standing up a sandbox and a clone at filing time"
+    reason: |
+      Every part of the publish chain is sandbox-shaped: the writer asks SandboxTargets for the
+      sandboxes of the carrying repo and fails outright when there are none, takes the branch it
+      commits on off the run's checked-out Repository on the pipeline context, and writes its files
+      through a reader built for that sandbox; the publisher's entry point takes a PipelineContext.
+      Filing holds none of it — a conversation, a resolved project and a tracker provider. Standing
+      up a container and a full clone to commit four small text files is the whole run's machinery
+      borrowed for a commit, and it would make filing wait on a sandbox pool. The contract's only
+      checkout-free members were READS, so the one thing it was missing is exactly what this phase
+      adds, and all four providers already hold the authenticated client that can do it.
+
+  - category: Architecture
+    chose: "ONE renderer — SpecSetFiles — serves both writers, and it renders all four file kinds"
+    over: "Filing rendering its own subset (index and phase yamls only) beside the publish's renderer"
+    reason: |
+      The claim that the first run's publish is a no-op is a claim about the CONTENT being
+      identical. A filing that wrote a subset would leave that run staging the rest and committing
+      a second revision over a set nobody changed — the branch would carry two revisions of one
+      approval and the pointer would name the wrong one, which the revision cause then reads as a
+      reviewer's edit. Two renderers is how two contents come to differ, so SpecSetWriter now
+      renders through the same class filing writes with, and the equality is by construction rather
+      than by two lists somebody has to keep in step.
+
+  - category: Architecture
+    chose: "Filing reads its own new ticket back through the provider that created it and fingerprints THAT; a read-back that fails writes no branch at all"
+    over: "Fingerprinting the body we rendered, or writing the branch with a null fingerprint"
+    reason: |
+      A null fingerprint is a FIXED POINT. SpecRevisionHeader refreshes it only when the model ran,
+      when there was no previous set, or when a kept edit was reported — and seeing an edit needs a
+      fingerprint to compare against. Writing the branch at filing makes "no previous set" false
+      from the first run onward, so a set that starts with none never acquires one, the edit cause
+      never fires, and the notice telling an operator their edit was kept goes silent for that
+      ticket for good, without a failure anywhere. The comparison is taken over a FETCHED ticket's
+      text, so a fingerprint over the body we sent would differ from the very next read on any
+      tracker that round-trips markup and report a spurious edit on the first run. Where the
+      read-back fails there is no honest fingerprint to write, and a branch is worse than none: the
+      run's own publish still refreshes it because it finds no previous set.
+
+  - category: Architecture
+    chose: "The provider with no remote makes a real commit through git plumbing against a scratch index"
+    over: "A bare file write into the bind-mounted directory"
+    reason: |
+      A bare write can answer no commit sha, and without a sha there is no pointer — which
+      SpecRevisionCause reads as a reviewer's edit, the exact outcome recording a pointer exists to
+      prevent. hash-object, a scratch GIT_INDEX_FILE, write-tree, commit-tree and update-ref make
+      the commit on a branch the operator is not on without touching their working tree or their
+      staged changes. It is the shape LocalBranchFastForward already chose in that provider and for
+      the same reason: the branch that must move is not the checked-out one. update-ref is given
+      the value it expects the ref to hold, so a ref that moved is refused rather than rewound.
+
+  - category: Architecture
+    chose: "A branch that already exists is committed ONTO — never re-cut, never forced"
+    over: "Replacing the ref, or refusing an existing branch outright"
+    reason: |
+      The branch name is composed from the ticket id, so at first filing it cannot exist; it CAN
+      exist on a second approval of the same ticket or where a run already cut it. The run's own
+      remote-branch push already refuses an existing ref rather than overwriting it, and its
+      checkout already takes an existing branch as it stands. This write must not be the one place
+      that clobbers. Each provider expresses it natively: GitHub updates the ref with force off,
+      GitLab sends start_branch only when the branch is absent, Azure Repos sets the ref update's
+      OldObjectId to the branch's current head, and the local one hands update-ref the old value.
+
+  - category: Architecture
+    chose: "A branch write that fails after the ticket exists is a NOTE on the filing report"
+    over: "An error that fails the filing"
+    reason: |
+      By the time the write runs the ticket exists and carries the approved set. An error would tell
+      the operator to retry, and the retry files a SECOND ticket with a SECOND stored record — two
+      runs and two pull requests per repository. The note names the ticket and says the run will
+      publish the set from the record, which is exactly what happens today. FilingReport.Notes had
+      lost its only writer in 2026-09-22-b3d7 and has one again; the notes list is created in the
+      dispatcher and threaded into the filing arm, which is where the write happens.
+
+  - category: Architecture
+    chose: "The carrying repository is chosen ONCE, in the recorder, and stored on the approval record AFTER the tracker name"
+    over: "Choosing it at write time, or inserting the field earlier in the record"
+    reason: |
+      A run resolves its carrying repo as the first of the SCOPED repositories; a glob-configured
+      repository list is expanded in the discovery snapshot's order, so "the first one" can move
+      between the approval and the first run and the branch would then be looked for in a repository
+      that never carried it. Pinning it at approval settles that, and SpecCarryingRepoResolver now
+      spells both halves — ChooseCarrier for the filing and a third precedence rung for the run, so
+      the two agree by construction rather than by coincidence. The field sits after Tracker because
+      the record's sole construction site is positional and both are strings: inserted earlier it
+      would compile in silence and write the tracker name as the carrier.
+
+  - category: Scope
+    chose: "BOTH filing arms get the branch, because 2026-09-22-b3d7 made them one path"
+    over: "Carving the cut out, as the spec's scope section asked, and naming a successor for it"
+    reason: |
+      The spec's carve-out was written against a tree where an epic had a filer of its own and
+      filed one parent-stamped record ticket per slice. That shape is gone: a cut files ONE work
+      ticket through ApprovedSetTicketFiler, the same class a lone phase files through, and
+      EpicApproval_WorkTicket_CarriesNoParentStamp pins that the ticket carries no parent stamp and
+      no predecessor ids. So the hazard the carve-out protected against — a pre-created branch
+      rerouting a run's checkout to its existing-branch path, which merges a parent rung in and
+      stops the run on a conflict — cannot arise for it: there is no rung to merge. Excluding the
+      cut would have meant a role check in the one place the two arms were deliberately joined, and
+      it would have left every cut parking the moment the branch becomes the only source a run
+      reads.
+      The base a branch is cut at becomes a live question again for any future filing that DOES
+      stamp a parent. The phase that retires the carried record — making the branch the sole source
+      of an approved set — is still ahead; it is named in prose because a random suffix cannot be
+      reserved in advance.

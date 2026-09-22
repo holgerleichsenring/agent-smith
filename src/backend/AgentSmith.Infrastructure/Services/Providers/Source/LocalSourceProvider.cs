@@ -16,6 +16,7 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     private const string FallbackDefaultBranch = "main";
 
     private readonly LocalBranchFastForward _fastForward = new();
+    private readonly LocalBranchCommit _branchCommit = new();
 
     public string ProviderType => "Local";
 
@@ -102,6 +103,16 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _fastForward.RunAsync(basePath, sourceBranch.Value, DefaultBranch, cancellationToken);
+
+    // 2026-09-22-b6ad: the same trust in the bind-mounted tree the checkout already places — git
+    // plumbing against a scratch index, so the operator's working tree and their staged changes
+    // are untouched by a commit made on a branch they are not on. It answers a real commit sha,
+    // because the pointer the caller records needs one and a bare file write can name none.
+    public Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken) =>
+        _branchCommit.WriteAsync(
+            basePath, branch.Value, DefaultBranch, files, message, cancellationToken);
 
     private string DefaultBranch => defaultBranch ?? FallbackDefaultBranch;
 }

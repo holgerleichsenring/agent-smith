@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.PipelineHarness.Composition;
@@ -70,6 +71,14 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     public Task<bool> UpdatePullRequestBodyAsync(string prUrl, string newBody, CancellationToken cancellationToken) =>
         Task.FromResult(true);
+
+    // 2026-09-22-b6ad: the fake remote IS a bare repository, so a checkout-free write is a real
+    // commit in it — the same plumbing the local provider uses, against the bare repo itself.
+    public Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken) =>
+        new LocalBranchCommit().WriteAsync(
+            session.BareRepoPath, branch.Value, "main", files, message, cancellationToken);
 
     // p0393a: the harness records the promotion so a test can assert that a stopped
     // sequence never leaves draft, and a complete one does.

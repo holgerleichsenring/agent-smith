@@ -14,9 +14,13 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-17-0e79a: DeriveSpec end to end over an approved record — the first run publishes the
-/// approved set to the ticket branch with a pointer and a draft pull request, set.yaml records the
-/// approval it was published from, and a filed ticket that arrives with no set from any route
-/// fails instead of deriving a guess.
+/// approved set to the ticket branch with a pointer and a draft pull request, and set.yaml records
+/// the approval it was published from.
+/// <para>
+/// 2026-09-22-6ad7: that publish is now the HAND-OFF, and it fires only where the branch carries
+/// nothing at the path. A filed ticket whose branch carries no readable set PARKS — it does not
+/// derive a guess, and it is not finalized into a failure status either.
+/// </para>
 /// </summary>
 public sealed class ApprovedSetDeriveSpecTests
 {
@@ -99,35 +103,98 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     [Fact]
-    public async Task ApprovedSet_FiledTicketWithNoRecord_FailsLoudly()
+    public async Task DeriveSpec_AFiledTicketWithNoSetOnTheBranch_DerivesNothing()
     {
         var harness = Harness();
 
-        var result = await harness.Handler().ExecuteAsync(harness.Context(Filed()), default);
+        await harness.Handler().ExecuteAsync(harness.Context(Filed()), default);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain(FiledTicketLabels.ApprovedSetStamp).And.Contain("approved");
         harness.Deriver.Calls.Should().Be(0,
             "deriving here would silently replace a ratified spec with a guess");
+        harness.Writer.Written.Should().BeNull("there is nothing to publish");
+    }
+
+    /// <summary>
+    /// 2026-09-22-6ad7: a failed step finalizes the ticket into the failure status, taking it out
+    /// of the open set because a file is not on a branch yet. The park leaves it where a person
+    /// can put the specs there.
+    /// </summary>
+    [Fact]
+    public async Task DeriveSpec_AFiledTicketWithNoSetOnTheBranch_HandsBackInsteadOfFailingTheStep()
+    {
+        var harness = Harness();
+        var context = harness.Context(Filed());
+
+        var result = await harness.Handler().ExecuteAsync(context, default);
+
+        result.IsSuccess.Should().BeTrue("a failed step would close the ticket as failed");
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Case
+            .Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
+    }
+
+    /// <summary>
+    /// The branch holds something this run cannot read. The record is NOT stood in front of it —
+    /// that is how an operator's broken edit disappears — and the park says an approval exists.
+    /// </summary>
+    [Fact]
+    public async Task DeriveSpec_AFiledTicketWhoseApprovalExists_SaysItsSpecsNeverReachedTheBranch()
+    {
+        var harness = Harness();
+        harness.Branch.Seed($".agentsmith/specs/{Key}/set.yaml", "key: [this is not\n  a document");
+        await harness.Approvals.SaveAsync(
+            ApprovedSets.Record(Key, ApprovedSets.Noon, conversation: "session-77"), default);
+        var context = harness.Context(Filed());
+
+        await harness.Handler().ExecuteAsync(context, default);
+
+        harness.Writer.Written.Should().BeNull("a copy does not stand in for an unreadable set");
+        var reason = context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason;
+        reason.Should().Contain("An approval for this ticket exists").And.Contain("session-77");
+    }
+
+    [Fact]
+    public async Task DeriveSpec_AFiledTicketNobodyApproved_SaysThatInstead()
+    {
+        var harness = Harness();
+        var context = harness.Context(Filed());
+
+        await harness.Handler().ExecuteAsync(context, default);
+
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
+            .Should().Contain("nobody approved it")
+            .And.NotContain("An approval for this ticket exists");
+    }
+
+    [Fact]
+    public async Task DeriveSpec_TheHandbackReason_NamesTheBranchPathTheSpecsBelongAt()
+    {
+        var harness = Harness();
+        var context = harness.Context(Filed());
+
+        await harness.Handler().ExecuteAsync(context, default);
+
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
+            .Should().Contain($"`{SpecSetKey.Root}/{Key}/`")
+            .And.Contain(SpecSetKey.Root, "the operator is told where to put them");
     }
 
     /// <summary>
     /// 2026-09-17-0e79a review: the fence this phase removed must not come back as a PASTE.
     /// Anyone with tracker write access can put a ```yaml block in a filed ticket's description;
-    /// on a stamped ticket the description is not a source, and the run says the set is missing.
+    /// on a stamped ticket the description is not a source, and the run parks.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_FiledTicketWhoseDescriptionWasPastedInto_StillFailsLoudly()
+    public async Task ApprovedSet_FiledTicketWhoseDescriptionWasPastedInto_StillParks()
     {
         var harness = Harness();
+        var context = harness.Context(Filed(EmbeddedSpec));
 
-        var result = await harness.Handler().ExecuteAsync(
-            harness.Context(Filed(EmbeddedSpec)), default);
+        await harness.Handler().ExecuteAsync(context, default);
 
-        result.IsSuccess.Should().BeFalse(
-            "a spec anyone can edit is exactly the second truth this phase removed");
         harness.Writer.Written.Should().BeNull("nothing is published from a pasted spec");
         harness.Deriver.Calls.Should().Be(0);
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Case
+            .Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
     }
 
     /// <summary>
@@ -195,18 +262,20 @@ public sealed class ApprovedSetDeriveSpecTests
 
     /// <summary>
     /// 2026-09-17-0e79a review: the carried record belongs to another ticket, so the run has no
-    /// set — and a FILED ticket says so instead of working to someone else's specification.
+    /// record — and a FILED ticket parks instead of working to someone else's specification.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_CarriedRecordForAnotherTicket_FailsLoudly()
+    public async Task ApprovedSet_CarriedRecordForAnotherTicket_Parks()
     {
         var harness = Harness();
         var foreign = SpecApprovalJson.Write(ApprovedSets.Record("azdo-999", ApprovedSets.Noon));
+        var context = harness.Context(Filed(), foreign);
 
-        var result = await harness.Handler().ExecuteAsync(harness.Context(Filed(), foreign), default);
+        await harness.Handler().ExecuteAsync(context, default);
 
-        result.IsSuccess.Should().BeFalse();
         harness.Deriver.Calls.Should().Be(0);
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
+            .Should().Contain("nobody approved it");
     }
 
     [Fact]
@@ -251,11 +320,11 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     /// <summary>
-    /// The branch's own approval is read back out of set.yaml, which is what the precedence
-    /// compares a fresh record against — so an older record does not re-publish over it.
+    /// 2026-09-22-6ad7: the branch ANSWERED, so it is the set — whatever instant the record in
+    /// the store carries. There is no comparison left to make.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_OlderThanTheBranchApproval_LosesToTheBranchArtifact()
+    public async Task ApprovedSet_ARecordInTheStore_NeverDisplacesASetTheBranchAnswered()
     {
         var harness = Harness();
         harness.PointerSha = "branch-sha";
@@ -264,12 +333,12 @@ public sealed class ApprovedSetDeriveSpecTests
             ["p19106a-onthebranch"] = "phase: p19106a\ngoal: \"As it stands on the branch\"\ndone:\n  - \"Done.\"",
         });
         await harness.Approvals.SaveAsync(
-            ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(-1), ["p19106z"]), default);
+            ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(1), ["p19106z"]), default);
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         harness.Writer.Written!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a",
-            "the branch was published from a newer approval than the record carries");
+            "the branch answered, so the record is not consulted at all");
     }
 
     private const string BranchSetYaml = """

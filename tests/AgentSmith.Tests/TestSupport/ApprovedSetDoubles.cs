@@ -39,9 +39,23 @@ internal static class ApprovedSetDoubles
     /// store, start. A test that reads the stored set, or that watches the starter, passes its own.
     /// </summary>
     internal static ApprovedSetTicketFiler SetFiler(
-        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null) =>
-        new(Recorder(store), starter ?? FiledWorkDoubles.Starter(), Kinds(),
+        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null,
+        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null) =>
+        new(Recorder(store),
+            new FiledSpecBranchWrite(
+                Branch(sources, pointers), NullLogger<FiledSpecBranchWrite>.Instance),
+            starter ?? FiledWorkDoubles.Starter(), Kinds(),
             NullLogger<ApprovedSetTicketFiler>.Instance);
+
+    /// <summary>2026-09-22-b6ad: the real branch write over a remote that records what it was
+    /// handed — what filing does between storing the record and starting the ticket.</summary>
+    internal static FiledSpecBranch Branch(
+        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null) =>
+        new(sources ?? new RecordingBranchSources(), new SpecSetFiles(new SpecSetIndex()),
+            new SpecSetPointerRecorder(
+                pointers ?? new InMemorySpecSetPointerStore(),
+                NullLogger<SpecSetPointerRecorder>.Instance),
+            NullLogger<FiledSpecBranch>.Instance);
 
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);

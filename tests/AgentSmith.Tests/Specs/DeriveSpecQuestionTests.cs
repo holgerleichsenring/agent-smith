@@ -129,7 +129,7 @@ public sealed class DeriveSpecQuestionTests
         reader.Setup(r => r.ReadAsync(
                 It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new SpecSetReadResult(PreviousQuestion(), "sha-1"));
+            .ReturnsAsync(SpecSetOnBranch.Answered(new SpecSetReadResult(PreviousQuestion(), "sha-1")));
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty,
             new SpecSetPointer("azdo-19106", "primary", "sha-1", 1, SpecHandbackCase.Question, 1),
@@ -140,7 +140,7 @@ public sealed class DeriveSpecQuestionTests
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new PhaseSpecFromTicket(validator, draftReader),
-                new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),

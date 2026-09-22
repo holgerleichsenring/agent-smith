@@ -17,10 +17,9 @@ namespace AgentSmith.Tests.Specs;
 /// first run the ticket carries the derived spec as a comment, so a rule reading "a
 /// ticket carrying a spec skips derivation" would feed the run its own echo.
 /// <para>
-/// 2026-09-17-0e79a: the APPROVED record joins above the description, and beats the branch
-/// artifact only when its approval is newer than the one the branch was published from. The
-/// resolver also computes the revision cause now, so each case builds the pointer and the
-/// pipeline the cause is read from.
+/// 2026-09-22-6ad7: the branch is the only SET, and the reader says WHY it found none — nothing
+/// at the path, or something it could not read. The resolver also computes the revision cause,
+/// so each case builds the pointer and the pipeline the cause is read from.
 /// </para>
 /// </summary>
 public sealed class SpecSourceTests
@@ -42,14 +41,14 @@ public sealed class SpecSourceTests
     private readonly SpecSourceResolver _sut = new(
         new PhaseSpecFromTicket(
             new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader()),
-        new ApprovedSetSource(NullLogger<ApprovedSetSource>.Instance),
+        new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
         new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
         NullLogger<SpecSourceResolver>.Instance);
 
     [Fact]
     public void SpecSource_BranchArtifactPresent_WinsOverTheTicketDescription()
     {
-        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+        var branch = Read(SetOnBranch());
 
         var decision = _sut.Decide(branch, Ticket(EmbeddedSpec), Pointer(), Resuming(), "azdo-1");
 
@@ -65,7 +64,7 @@ public sealed class SpecSourceTests
         // The ticket's DESCRIPTION is ordinary prose; the spec yaml sits in a COMMENT,
         // which the resolver never reads — the run's own echo is not an input.
         var ticket = Ticket("The endpoint returns 500 on empty payloads.");
-        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+        var branch = Read(SetOnBranch());
 
         var decision = _sut.Decide(branch, ticket, Pointer(), new PipelineContext(), "azdo-1");
 
@@ -78,8 +77,7 @@ public sealed class SpecSourceTests
     [Fact]
     public void SpecSource_ATicketEdit_AmendsTheSetWithTheModel()
     {
-        var branch = new SpecSetReadResult(
-            SetOnBranch() with { TicketFingerprint = "cut-from-other-text" }, "sha-1");
+        var branch = Read(SetOnBranch() with { TicketFingerprint = "cut-from-other-text" });
 
         var decision = _sut.Decide(
             branch, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
@@ -93,7 +91,7 @@ public sealed class SpecSourceTests
     [Fact]
     public void SpecSource_AComment_AmendsTheSetWithTheModel()
     {
-        var branch = new SpecSetReadResult(SetOnBranch(), "sha-1");
+        var branch = Read(SetOnBranch());
 
         var decision = _sut.Decide(
             branch, Ticket("The endpoint returns 500."), Pointer(), Commented(), "azdo-1");
@@ -108,7 +106,7 @@ public sealed class SpecSourceTests
     public void SpecSource_ARetriggerOfASetInFlight_ContinuesWithoutTheModel()
     {
         var cut = SetOnBranch();
-        var inFlight = new SpecSetReadResult(cut with { Executed = [cut.Phases[0].PhaseId] }, "sha-1");
+        var inFlight = Read(cut with { Executed = [cut.Phases[0].PhaseId] });
 
         var decision = _sut.Decide(
             inFlight, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
@@ -122,7 +120,7 @@ public sealed class SpecSourceTests
     public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
     {
         var decision = _sut.Decide(
-            branchArtifact: null, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1");
+            SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.TicketDescription);
         decision.Cause.Should().Be(SpecRevisionCause.Initial);
@@ -134,7 +132,7 @@ public sealed class SpecSourceTests
     public void SpecSource_OrdinaryTicket_Derives()
     {
         var decision = _sut.Decide(
-            branchArtifact: null, Ticket("Fix the boundary check."), null, new PipelineContext(), "azdo-1");
+            SpecSetOnBranch.Nothing, Ticket("Fix the boundary check."), null, new PipelineContext(), "azdo-1");
 
         decision.Source.Should().Be(SpecSource.Derived);
         decision.NeedsModel.Should().BeTrue();
@@ -145,13 +143,16 @@ public sealed class SpecSourceTests
     public void SpecSource_MalformedEmbeddedSpec_FailsInsteadOfSilentlyDeriving()
     {
         var decision = _sut.Decide(
-            branchArtifact: null,
+            SpecSetOnBranch.Nothing,
             Ticket("```yaml\nphase: nope\ngoal: 3\n```"),
             null, new PipelineContext(), "azdo-1");
 
         decision.Error.Should().NotBeNull(
             "shipping a spec and getting it wrong must not degrade into 'no spec, derive one'");
     }
+
+    private static SpecSetOnBranch Read(SpecSet set) =>
+        SpecSetOnBranch.Answered(new SpecSetReadResult(set, "sha-1"));
 
     private static SpecSet SetOnBranch() => new(
         "azdo-1",

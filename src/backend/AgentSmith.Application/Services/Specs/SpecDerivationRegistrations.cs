@@ -22,12 +22,17 @@ public static class SpecDerivationRegistrations
         services.AddTransient<PremiseHandbackNotice>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     services.AddTransient<ISpecSetReader, SpecSetReader>();
+    services.AddTransient<SpecSetPhaseFileReader>(); // 2026-09-22-6ad7: one phase off the branch
     services.AddTransient<ISpecSetWriter, SpecSetWriter>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedPhaseYamlRenderer>();
     services.AddTransient<SpecSetIndex>();
+    // 2026-09-22-b6ad: the files a spec-set directory holds, for the run's publish and for the
+    // checkout-free write filing makes onto the ticket branch.
+    services.AddTransient<SpecSetFiles>();
+    services.AddTransient<FiledSpecBranch>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
     // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
@@ -56,12 +61,13 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecParkStatusResolver>();
     services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();
-    // 2026-09-17-0e79a: what a person approved in the design conversation — its store, the one
-    // resolver both ScopeRepos and DeriveSpec ask, and the pieces that decide and merge it.
+    // 2026-09-17-0e79a: what a person approved in the design conversation — its store and the one
+    // resolver both ScopeRepos and DeriveSpec ask. 2026-09-22-6ad7: the record no longer competes
+    // with the branch for the SET; it hands one over only when the branch carries nothing.
     services.TryAddSingleton<ISpecApprovalStore, Persistence.InMemorySpecApprovalStore>();
     services.AddTransient<ApprovedSpecSetResolver>();
     services.AddTransient<ApprovedSpecSetCarrier>();
-    services.AddTransient<ApprovedSetSource>();
+    services.AddTransient<ApprovedSetHandoff>();
     services.AddTransient<FiledTicketSpecGate>();
     services.AddTransient<SpecCoverageRefusal>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.

@@ -11,13 +11,13 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-0e79b: a change to an approved set is made by approving it AGAIN. The conversation
-/// re-opens the record of the ticket it already filed, by the same spec key the run resolves, and
-/// approving writes a record with a newer approval over it — which is what beats the branch.
+/// 2026-09-17-0e79b: the record of a filed ticket is re-openable by the same spec key the run
+/// resolves, and approving again upserts it in place rather than duplicating it.
 /// <para>
-/// Which phases already ran lives on the branch and the dialog has no clone of it, so the
-/// constraint is enforced by the RUN: the positional merge keeps the executed head exactly as it
-/// ran and names what a re-approval would have changed or dropped.
+/// 2026-09-22-6ad7: the load still has no caller — nothing in the design conversation re-opens a
+/// record — and the run-side merge that policed a re-approval against the branch is gone with the
+/// record as a source. The append-only rule it encoded belongs to whoever publishes a
+/// re-approval onto a branch that already carries an executed head.
 /// </para>
 /// </summary>
 public sealed class ApprovedSetAmendmentTests
@@ -61,74 +61,9 @@ public sealed class ApprovedSetAmendmentTests
         again.Set.Phases.Should().HaveCount(2, "the record is upserted in place, never duplicated");
     }
 
-    /// <summary>
-    /// The merge is POSITIONAL, so a re-approval that reordered an early phase would silently
-    /// change which spec an executed position claims to hold. The reorder does NOT take effect:
-    /// the head is kept exactly as it ran and the run names what it discarded. This is the case
-    /// that still has work AFTER the head — the edit-only case is refused outright above.
-    /// </summary>
-    [Fact]
-    public void AmendmentEntry_ReorderingAPositionBeforeTheHead_KeepsTheHeadAndNamesTheDiscard()
-    {
-        var branch = Branch(["p19106a", "p19106b", "p19106c"], executed: ["p19106a", "p19106b"]);
-        var reordered = ApprovedSets.Set(
-            "azdo-19106",
-            [ApprovedSets.Phase("p19106b"), ApprovedSets.Phase("p19106a"), ApprovedSets.Phase("p19106c")],
-            ApprovedSets.Approval(ApprovedSets.Noon.AddHours(1)));
-
-        var merged = ApprovedSetMerge.Over(reordered, branch);
-
-        merged.Set!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b", "p19106c");
-        merged.Note.Should().Contain("p19106a").And.Contain("p19106b")
-            .And.Contain("already ran", "the run says which positions it would not let move");
-    }
-
-    /// <summary>
-    /// The edit-only case is REFUSED outright, not kept-and-named: a re-approval that changes an
-    /// executed phase and adds nothing after it would publish, find nothing left to run and
-    /// report success having discarded every change the operator made.
-    /// </summary>
-    [Fact]
-    public void AmendmentEntry_EditingAnExecutedPhaseAndAddingNothing_IsRefused()
-    {
-        var branch = Branch(["p19106a", "p19106b"], executed: ["p19106a", "p19106b"]);
-        var editedOnly = ApprovedSets.Set(
-            "azdo-19106",
-            [ApprovedSets.Phase("p19106a", "Rewritten after it ran"), ApprovedSets.Phase("p19106b")],
-            ApprovedSets.Approval(ApprovedSets.Noon.AddHours(1)));
-
-        var merged = ApprovedSetMerge.Over(editedOnly, branch);
-
-        merged.Set.Should().BeNull("publishing it would report success with nothing to do");
-        merged.Error.Should().Contain("p19106a").And.Contain("NEW phase");
-    }
-
-    [Fact]
-    public void AmendmentEntry_ShorterThanTheExecutedHead_NamesWhatItWouldDrop()
-    {
-        var branch = Branch(["p19106a", "p19106b"], executed: ["p19106a", "p19106b"]);
-        var shorter = ApprovedSets.Set(
-            "azdo-19106", [ApprovedSets.Phase("p19106a")],
-            ApprovedSets.Approval(ApprovedSets.Noon.AddHours(1)));
-
-        var merged = ApprovedSetMerge.Over(shorter, branch);
-
-        merged.Set.Should().BeNull();
-        merged.Error.Should().Contain("p19106b");
-    }
-
     private static ApprovedPhaseSetRecorder Recorder(
         ISpecApprovalStore store, TimeProvider? time = null) =>
         new(store, time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
-
-    private static SpecSet Branch(IReadOnlyList<string> phases, IReadOnlyList<string> executed) =>
-        new("azdo-19106",
-            [.. phases.Select(id => ApprovedSets.Phase(id))],
-            SpecAccounting.Empty,
-            [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
-            SpecSource.BranchArtifact,
-            ExecutedPhaseIds: executed,
-            Approval: ApprovedSets.Approval(ApprovedSets.Noon));
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"Do {id}", $"phase: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };

@@ -23,6 +23,15 @@ public static class SpecSetComment
     /// </summary>
     public const string CutMarker = "this is how I understood the ticket";
 
+    /// <summary>
+    /// 2026-09-22-8b25: the reserved phrase a person writes to ask for an approved set to be cut
+    /// again — the one deliberate door for somebody who cannot reach the ticket branch. It lives
+    /// beside the phrases this system writes here, so one place defines what it is; whether a
+    /// comment carries it is <see cref="SpecRecutDemand"/>, which reads it as a WHOLE LINE at the
+    /// start of the body rather than anywhere in it.
+    /// </summary>
+    public const string RecutDemand = "cut this specification again";
+
     public static string Render(SpecSet set, string? pullRequestUrl)
     {
         ArgumentNullException.ThrowIfNull(set);
