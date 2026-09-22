@@ -15,6 +15,11 @@ namespace AgentSmith.Application.Services;
 /// 2026-09-17-042ec: the contract says whether this turn may propose. The gate refuses a
 /// proposal from a turn that may not, so saying it first spares the turn a second model call.
 /// </para>
+/// <para>
+/// 2026-09-22-deda: the contract also says what a conversation that has already filed work
+/// cannot do to it. A capability, not a state: it names no ticket and claims nothing about a
+/// tracker, so it cannot go stale between the filing and the turn that reads it.
+/// </para>
 /// </summary>
 public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 {
@@ -47,9 +52,27 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             Answer from the code map above when it suffices; read source files through
             your tools only when the question needs real file content.
             {DialogImageNote.Render(imagesExisting, imagesCarried)}
-            {ProposalContract(SpecDialogProposalRule.MayPropose(transcript))}
+            {TurnContract(transcript)}
             """;
     }
+
+    // 2026-09-22-deda: one contract, composed per turn from the transcript the turn began
+    // with — what it may propose, and what it may not claim about work already filed. The
+    // filing clause is appended to the proposal line rather than rendered on its own, so a
+    // conversation that never filed gets byte-for-byte the prompt it gets today.
+    private static string TurnContract(IReadOnlyList<SpecDialogTurn> transcript) =>
+        ProposalContract(SpecDialogProposalRule.MayPropose(transcript)) + FiledWorkContract(transcript);
+
+    // The trigger is the conversation's own filing record — a kept filing turn — not the
+    // outcome type, which a failed turn, a twice-invalid proposal and a refused proposal all
+    // share. So the clause reaches every turn kind, a proposal turn included.
+    private static string FiledWorkContract(IReadOnlyList<SpecDialogTurn> transcript) =>
+        transcript.Any(turn => turn.Kind == SpecDialogTurnKind.Filing)
+            ? "\nThis conversation has already filed work. You cannot change, close or re-cut "
+              + "what was filed, and you must never report having done so: a reply that "
+              + "describes filed work as merged, split, closed or otherwise altered is false. "
+              + "Work you have not filed is what you PROPOSE, never what you have done."
+            : string.Empty;
 
     private static string ProposalContract(bool mayPropose) => mayPropose
         ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced "
