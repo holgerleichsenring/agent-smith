@@ -165,11 +165,21 @@ internal sealed class ApprovedSetHarness
 
         internal SpecDerivation? Result { get; set; }
 
+        /// <summary>2026-09-22-8b25: the set the model was put in front of — which carries the
+        /// executed head the parser re-uses verbatim, so a caller can pin what a re-cut may
+        /// reach.</summary>
+        internal SpecSet? PreviousSeen { get; private set; }
+
+        /// <summary>2026-09-22-8b25: the cause the model was told, which decides how it amends.</summary>
+        internal string? CauseSeen { get; private set; }
+
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
             Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
             AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             Calls++;
+            PreviousSeen = previous;
+            CauseSeen = cause;
             return Task.FromResult<(SpecDerivation?, string?)>((Result, Result is null ? "no cut" : null));
         }
     }

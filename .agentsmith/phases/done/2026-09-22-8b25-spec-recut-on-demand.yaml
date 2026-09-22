@@ -1,0 +1,150 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-8b25
+
+goal: "A comment carrying a reserved phrase asks for an approved specification to be cut again, so someone who cannot reach the branch has a deliberate door and every other comment stays a comment."
+
+applies_to: "backend (the revision cause that decides whether an approved set is kept)"
+
+scope:
+  in: >
+    An approved specification is deliberately immune to the tracker. A ticket edit or a comment
+    would re-cut a set nobody approved; for an approved one the run keeps the set and posts a
+    notice naming where a change is actually made — the ticket branch. That immunity is right: a
+    person approved a cut and a passing remark must not silently replace it.
+    It leaves no deliberate door. Someone who cannot reach the branch has no way to say "no, cut
+    this again" — and the two inputs they can produce are exactly the two the run now ignores. The
+    notice tells them where to go; it does not help them if they cannot go there.
+    The machinery to read the one door is already in place. The run carries the ticket thread and
+    already asks a mechanical question of it: whether anybody but this system commented after this
+    system's last comment carrying a given phrase. That is how the cut comment invites an
+    objection today. A reserved phrase in such a comment is therefore readable with the mechanism
+    that already reads the thread, and needs no new state, no new field and no tracker feature.
+    This phase gives the phrase a meaning: a comment that carries it, written by somebody else
+    after the last cut comment, is a demand to cut the approved set again. Everything else about
+    an approved set stays exactly as it is.
+  out: >
+    RE-OPENING THE DESIGN CONVERSATION. The demand re-derives from the ticket; it does not reopen
+    the dialog that produced the approval. That is a much larger piece of work and this phase must
+    not be read as a step towards it.
+    CHANGING WHAT A PLAIN EDIT OR A PLAIN COMMENT DOES. They stay ignored for an approved set, and
+    the notice still names the branch. Only the reserved phrase is new.
+    RE-CUTTING A PHASE THAT ALREADY RAN. The existing rule stands: a phase that ran is never
+    edited, and a correction to one becomes a new phase. The demand can only reach the tail.
+    THE WORDING OF THE PHRASE. It is a constant and the operator may want a different one; the
+    phase ships one and makes it a constant rather than a literal.
+    A BUTTON ON THE SURFACE. The dashboard could offer this without anybody typing a phrase.
+    Named as the phase that draws the demand where the specification is shown.
+
+decisions:
+  - key: |
+      A DEMAND IS A RE-APPROVAL, NOT AN UNAPPROVED RE-CUT. An earlier draft had the demand produce
+      an ORDINARY derived set, and a review proved that set survives exactly one run: a derived set
+      carries no approval, nothing deletes the stored record, and a stored approval beats a null
+      one — so the next run re-imposes the very phases the operator demanded be changed, silently.
+      The codebase's own mechanism for replacing an approved set is a NEWER APPROVAL: the approval
+      instant is the version marker, the existing precedence already merges a newer approval over
+      the executed head, and a test proves that path end to end. A demand therefore records a new
+      approval, attributed to the person who wrote the comment and timestamped when they wrote it.
+      It wins by the precedence as it stands, it clears itself by its own timestamp rather than by
+      anchor arithmetic, and the set stays approved — which is what it is.
+  - key: |
+      THE READER MUST BE NEW, AND THE EARLIER DRAFT SAID OTHERWISE THREE TIMES. The existing reader
+      uses the phrase only to find OUR anchor comment; it never inspects the foreign comment's
+      body. Called with a phrase our comments never carry, it finds no anchor, treats the WHOLE
+      thread as "after", and reads every ordinary comment that ever existed as a demand — which an
+      existing test already pins as its documented behaviour. The predicate is: anchor on the cut
+      phrase as today, AND require the foreign comment to carry the demand phrase.
+  - key: |
+      THE PHRASE IS MATCHED AS A WHOLE LINE, AND THE NOTICE MUST NOT QUOTE IT. Whether a comment is
+      ours is decided by a heading fragment matched anywhere in the body — and the list carries
+      that heading in TWO dash encodings, which is direct evidence that trackers re-encode it. So
+      an operator who quotes the notice to reuse the phrase is classified as us and silently
+      dropped, while the same quote on a tracker that renders the dash differently is not us and
+      fires a re-cut nobody demanded. The phrase fires when it should not and fails when it should,
+      decided by punctuation. It is matched as a whole line at the start of the comment, and the
+      notice names the door without reproducing the words that open it.
+  - key: |
+      A RESERVED PHRASE, NOT A NEW CHANNEL. The tracker gives a person exactly two inputs and both
+      already reach the run. Inventing a third carrier — a label, a field, a webhook — would ask
+      the operator to configure something before they can disagree with a cut.
+  - key: |
+      IT MUST BE DELIBERATE, WHICH MEANS IT MUST BE UNLIKELY. The whole point of the immunity is
+      that a remark does not re-cut a specification. A phrase somebody could write by accident
+      would give back the problem the immunity solved, so the phrase is explicit and is quoted in
+      the notice that tells people the set was kept.
+  - key: |
+      THE READER ALREADY EXISTS AND IS MECHANICAL. "Somebody other than us commented after our
+      last comment carrying this phrase" is how the cut comment already invites an objection. The
+      demand asks the same question with a different phrase, which keeps one mechanism rather than
+      two that can disagree about what a thread says.
+  - key: |
+      A DEMAND OUTRANKS THE APPROVAL AND MUST SAY SO IN THE RECORD. The revision names its cause,
+      and a set replaced on a person's explicit demand is a different event from one re-cut
+      because nobody had approved it. The cause distinguishes them, or the history cannot explain
+      why an approved set changed.
+  - key: |
+      THE DEMAND MUST CLEAR ITSELF. The comment stays in the thread forever. Whatever marks it as
+      acted upon must move with the run, or every later run re-reads the same demand and re-cuts
+      the set on every trigger — which is the failure mode the kept-set notice already documents
+      for its own cause.
+
+steps:
+  - id: a-demand-records-a-new-approval
+    action: "A demand records a new approval for the ticket, attributed to the person who wrote it and timestamped when they wrote it, so the re-cut set stays approved and the stored record cannot put the old phases back on the next run."
+  - id: the-demand-is-read-by-its-own-predicate
+    action: "A new predicate anchors on the cut phrase as today AND requires the foreign comment to carry the demand phrase as a whole line at its start, rather than reusing a reader that inspects only our own comments."
+  - id: the-phrase-is-a-constant
+    action: "The phrase that asks for a re-cut is a constant beside the phrases this system already writes into ticket comments, so one place defines what it is."
+  - id: the-thread-is-read-for-the-demand
+    action: "The revision cause asks the thread whether somebody other than this system demanded a re-cut after the last cut comment, using the mechanism that already answers that shape of question."
+  - id: a-demand-re-cuts-an-approved-set
+    action: "An approved set meeting a demand is cut again rather than kept, and the revision names that cause so the history says why an approved set changed."
+  - id: a-demand-that-hands-back-still-clears
+    action: "A re-cut that ends in a hand-back still clears its demand, because the comment that would have moved the anchor is not posted in that case and the demand would otherwise fire on every later run of that ticket."
+  - id: the-demand-outranks-the-plain-causes-and-not-a-resume
+    action: "A demand is decided before the plain edit and comment causes and is ignored while a run is resuming, as both of those already are."
+  - id: the-notice-names-the-door
+    action: "The notice that tells an operator their input was not acted on quotes the phrase, so the one deliberate door is visible exactly where a person learns they were ignored."
+
+tests:
+  - "RevisionCause_AnApprovedSetAndADemandComment_IsRecut"
+  - "RevisionCause_AnApprovedSetAndAnOrdinaryComment_IsStillKept"
+  - "RevisionCause_AnApprovedSetAndAnEdit_IsStillKept"
+  - "RevisionCause_ADemandBeforeTheLastCutComment_IsNotADemand"
+  - "RevisionCause_ADemandInOurOwnComment_IsNotADemand"
+  - "RevisionCause_ADemandAlreadyActedOn_DoesNotFireAgainOnTheNextRun"
+  - "KeptNotice_AnIgnoredInput_QuotesThePhraseThatWouldNotBeIgnored"
+
+done:
+  - "a comment carrying the phrase cuts an approved set again"
+  - "every other comment and every edit still leaves an approved set standing"
+  - "the revision history says a person demanded the re-cut"
+  - "a demand is acted on once and does not re-fire on later runs"
+  - "the kept-set notice tells the reader what would not have been ignored"
+  - "build green, full suite green"
+
+facts:
+  - claim: "An approved set is kept for a ticket edit and for a comment, and the notice names where a change is made instead."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:30-46"
+  - claim: "The revision cause decides between an edit, a comment, a reviewer edit, a resume and a re-trigger, and it names the cause the revision records."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:47-58"
+  - claim: "Whether anybody commented is answered mechanically as 'somebody other than us commented after our last comment carrying this phrase'."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:47-56"
+  - claim: "The phrase the comment rule measures from is a heading phrase rather than an HTML marker, because a tracker may strip a comment but never a heading."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:17-24"
+  - claim: "The cut comment is posted on every run and carries that heading phrase, which is what moves the anchor a comment rule measures from."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:26-33"
+  - claim: "The kept notice deliberately does NOT carry the cut phrase, so that a second comment cannot move the anchor past an operator's own."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:32-38"
+  - claim: "A kept edit must clear its cause or it fires forever, and the comment cause clears itself because the cut comment moves the anchor on every run."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:22-28"
+  - claim: "Which comments are ours is decided by a fixed list of markers this system writes."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:25-31"
+
+assumptions:
+  - claim: "The run's carried thread is complete enough at the moment the cause is decided that a demand written minutes earlier is visible."
+    check: "Read where the ticket comments are fetched relative to where the cause is decided."
+  - claim: "A re-cut of an approved set does not strand the approval record or the stored set under the ticket."
+    check: "Read what happens to the stored approved set when a revision is written for the same ticket."
+  - claim: "Nothing else keys off an approved set never being re-cut."
+    check: "Read every reader of the approval on the run path."

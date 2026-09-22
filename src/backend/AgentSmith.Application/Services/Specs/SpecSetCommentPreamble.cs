@@ -20,6 +20,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// yet (the store side exists, the dialog command does not), and pointing at an unreachable
 /// place would be the promise this phase deleted, moved somewhere else.
 /// </para>
+/// <para>
+/// 2026-09-22-8b25: it no longer says NO run re-cuts an approved set, because one now does. The
+/// absolute was posted on every run and would have been a falsehood on the ticket the moment the
+/// door opened; what stays true is that a passing remark does not, which is what the immunity was
+/// ever for. The door is named beside it, from the one constant that defines it.
+/// </para>
 /// </summary>
 public static class SpecSetCommentPreamble
 {
@@ -37,10 +43,11 @@ public static class SpecSetCommentPreamble
 
     private const string Approved =
         "This set was approved in a design conversation and I started working. This is NOT a "
-        + "question and the run is not waiting — and a comment here will NOT change the "
-        + "specification: no run re-cuts a set somebody approved. To change it, edit the phase "
-        + "specs on the ticket branch (they are open in the pull request linked below) and "
-        + "re-trigger: the next run works them as they stand. A phase that already ran is never "
-        + "edited — a correction to it becomes a new phase. Comment anyway if something is wrong; "
-        + "the run records it and says so, it just will not act on it.";
+        + "question and the run is not waiting — and an ordinary comment here will NOT change the "
+        + "specification: no passing remark re-cuts a set somebody approved. To change it, edit "
+        + "the phase specs on the ticket branch (they are open in the pull request linked below) "
+        + "and re-trigger: the next run works them as they stand. A phase that already ran is "
+        + "never edited — a correction to it becomes a new phase. Comment anyway if something is "
+        + "wrong; the run records it and says so, it just will not act on it. "
+        + ApprovedSetKept.TheDoor;
 }
