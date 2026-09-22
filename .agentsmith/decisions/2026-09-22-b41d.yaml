@@ -1,0 +1,71 @@
+phase: 2026-09-22-b41d
+decisions:
+  - id: the-narrowing-is-a-second-factory-method-the-caller-picks
+    chose: >
+      CheckoutStepFactory gained BuildScopeCloneStep (`clone --depth 1 --single-branch`)
+      beside BuildCloneStep, both built by one private Clone(config, narrowing); the
+      materialiser — which only ever serves a read-only scope — calls the new one.
+    alternative: >
+      A `bool shallow` parameter on BuildCloneStep, or narrowing inside the one method and
+      widening it again for the run.
+    why: >
+      One factory serves the run's checkout and the scope, and the run must come out of this
+      phase byte for byte: it diffs against a base, reads its own log and can be handed a
+      revision reachable from nothing. A parameter puts the decision at a call site that has
+      to be read to know which clone it is; two named methods put it in the name, and
+      BuildCloneStep's argument list is provably unchanged (RunCheckout_IsUnchanged…).
+  - id: a-fetch-that-cannot-land-it-asks-again-with-depth
+    chose: >
+      The ladder keeps its shape — checkout, fetch by name, checkout — and gains a last rung:
+      `fetch --depth 1 origin <revision>` followed by `checkout FETCH_HEAD`. It runs when the
+      fetch by name failed OR when the checkout after it did not land.
+    alternative: >
+      Refuse as soon as the fetch by name fails, as before; or replace the fetch-by-name rung
+      with the depth-bounded one.
+    why: >
+      A single-branch clone configures a refspec for one branch only, so a fetch by name
+      leaves what it brought reachable as FETCH_HEAD alone — `checkout <branch>` still finds
+      no remote-tracking ref, and a perfectly valid branch would have been refused as a
+      revision that does not resolve. Replacing the existing rung instead of following it
+      would change when the run-shared step runs and lose the case a host answers plainly but
+      not with a shallow want.
+  - id: the-refusals-stay-five-and-a-dead-host-is-not-a-revision-hunt
+    chose: >
+      A depth fetch the host will not answer is RevisionNotFetched; a fetch that landed
+      something HEAD will not resolve is NoSuchRevision. Unreachable and Unauthorised stay
+      where they were — read off the CLONE's own failure, before any revision is chased.
+    alternative: >
+      A sixth kind for "the narrow clone lacks it", or folding the new rung's failure into
+      the transport bucket.
+    why: >
+      The five kinds exist so an operator reads an action, not git. A narrow clone makes the
+      "the tree does not carry it" case ORDINARY rather than rare, which is a change of
+      frequency, not of kind — and reporting it as a transport failure would send an operator
+      to look at a host that answered perfectly.
+  - id: nothing-that-addresses-a-scope-needs-history
+    chose: >
+      Established mechanically rather than by survey: SourceScopeRefusal serves ReadFile,
+      ListFiles, Grep and DirectoryTree and refuses every other StepKind, and a log, a blame,
+      a diff and a merge base are all Run steps. The check is pinned over the whole StepKind
+      enum, so a kind invented later cannot quietly start depending on history.
+    alternative: >
+      List today's four tools in a comment and trust the list.
+    why: >
+      A list goes stale silently. VerifyStageRunTool can already be handed a scope by the
+      look's gate and is refused by the vocabulary, not by anyone remembering to check; that
+      is the property worth pinning. The run's own git readers (PhaseDiffs, PhaseStartHeads,
+      VerifiedHeads, PhaseReviewRevert) take the pipeline's sandboxes and never a scope.
+  - id: the-lifecycle-is-untouched
+    chose: >
+      Only the transfer narrows. Every scope still spawns its own container, ensures its
+      image, and is disposed at the end of the turn.
+    alternative: >
+      The two designs refused before this one — holding the container, or holding the volume,
+      between turns.
+    why: >
+      Recorded so the next reader does not re-derive them: the container needed an invented
+      liveness protocol and let one conversation exhaust a sandbox bound that defaults to
+      two; the volume is removed by name in the ordinary disposal, so a conversation-named
+      one would have been deleted every turn, and the materialiser's ladder cannot reuse an
+      existing tree — the clone runs first and unconditionally, and against a non-empty tree
+      it fails and is reported as an unreachable host.

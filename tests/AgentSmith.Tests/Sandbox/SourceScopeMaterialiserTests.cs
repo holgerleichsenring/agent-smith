@@ -136,6 +136,126 @@ public sealed class SourceScopeMaterialiserTests
             "a failed revision must never become a new branch at the default HEAD");
     }
 
+
+    // ---- 2026-09-22-b41d: the scope's clone is one branch at one commit ----
+
+    [Fact]
+    public async Task SourceScope_AScopeWithNoNamedRevision_ClonesOneBranchAtOneCommit()
+    {
+        var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "abc123");
+
+        await new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, revision: null, CancellationToken.None);
+
+        var clone = sandbox.AllArgs.Single(args => args.Contains("clone"));
+        clone.Should().ContainInOrder("--depth", "1")
+            .And.Contain("--single-branch",
+                "a read-only scope reads files at one commit and never asks for history");
+    }
+
+    [Fact]
+    public async Task SourceScope_AScopeNamingAReachableRevision_LandsOnIt()
+    {
+        var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "deadbeef");
+
+        var sha = await new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
+
+        sha.Should().Be("deadbeef");
+        sandbox.Commands.Should().Equal("clone", "checkout", "rev-parse");
+    }
+
+    [Fact]
+    public async Task SourceScope_AScopeNamingARevisionTheNarrowCloneLacks_FetchesItByName()
+    {
+        var sandbox = new ScriptedSandbox()
+            .ReturningOnce("checkout", 1, "fatal: reference is not a tree")
+            .Returning("fetch", 0, string.Empty)
+            .Returning("rev-parse", 0, "9f1c2d");
+
+        var sha = await new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
+
+        sha.Should().Be("9f1c2d");
+        sandbox.Commands.Should().Equal("clone", "checkout", "fetch", "checkout", "rev-parse");
+        sandbox.AllArgs.Should().NotContain(
+            args => args.Contains("fetch") && args.Contains("--depth"),
+            "the rung that already existed lands it, so the depth rung is never reached");
+    }
+
+    [Fact]
+    public async Task SourceScope_ADepthFetchLandsTheRevision_ChecksOutWhatCameBack()
+    {
+        var sandbox = new ScriptedSandbox()
+            .Returning("FETCH_HEAD", 0, string.Empty)
+            .Returning("checkout", 1, "error: pathspec 'release/7' did not match")
+            .Returning("fetch", 0, string.Empty)
+            .Returning("rev-parse", 0, "77c0de");
+
+        var sha = await new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, "release/7", CancellationToken.None);
+
+        sha.Should().Be("77c0de");
+        sandbox.AllArgs.Should().Contain(
+            args => args.Contains("fetch") && args.Contains("--depth"),
+            "a single-branch clone tracks no other remote ref, so the revision is asked "
+            + "for with depth and the tree lands on what came back");
+        sandbox.AllArgs.Should().Contain(args => args.Contains("FETCH_HEAD"));
+    }
+
+    [Fact]
+    public async Task SourceScope_AScopeNamingARevisionNoFetchCanLand_IsRefusedAsAMissingRevision()
+    {
+        var sandbox = new ScriptedSandbox()
+            .Returning("checkout", 1, "fatal: reference is not a tree")
+            .Returning("fetch", 1, "error: couldn't find remote ref 9f1c2d");
+
+        var act = () => new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
+
+        var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
+        failure.Which.Kind.Should().Be(SourceScopeFailureKind.RevisionNotFetched);
+        sandbox.AllArgs.Should().Contain(
+            args => args.Contains("fetch") && args.Contains("--depth"),
+            "the revision is asked for with depth BEFORE anything is refused");
+    }
+
+    [Fact]
+    public async Task SourceScope_AnUnreachableHost_IsStillRefusedAsUnreachable()
+    {
+        var sandbox = new ScriptedSandbox()
+            .Returning("clone", 128, "fatal: unable to access: Could not resolve host: stub.test");
+
+        var act = () => new SourceScopeMaterialiser()
+            .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
+
+        (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
+            .Which.Kind.Should().Be(SourceScopeFailureKind.Unreachable);
+        // A dead host is not a revision hunt: the narrow clone must not turn an unreachable
+        // host into a missing revision, so nothing runs after the clone that failed.
+        sandbox.Commands.Should().Equal(["clone"]);
+    }
+
+    /// <summary>
+    /// The scope's vocabulary is the proof that a shallow clone is enough: a log, a blame, a
+    /// diff and a merge base are all Run steps, and a scope refuses every kind but the four
+    /// reads — so nothing that addresses one can ask the clone for history.
+    /// </summary>
+    [Fact]
+    public void SourceScope_TheFourReads_AreUnchangedAgainstANarrowClone()
+    {
+        var served = Enum.GetValues<StepKind>()
+            .Where(kind => SourceScopeRefusal.UnlessRead(Step(kind)) is null)
+            .ToList();
+
+        served.Should().BeEquivalentTo(
+            [StepKind.ReadFile, StepKind.ListFiles, StepKind.Grep, StepKind.DirectoryTree],
+            "a scope serves four reads and refuses everything else, StepKind.Run included");
+    }
+
+    private static Step Step(StepKind kind) =>
+        new(AgentSmith.Sandbox.Wire.Step.CurrentSchemaVersion, Guid.NewGuid(), kind);
+
     /// <summary>An ISandbox whose git results are scripted per command word.</summary>
     private sealed class ScriptedSandbox : ISandbox
     {
@@ -165,7 +285,10 @@ public sealed class SourceScopeMaterialiserTests
                 a is "clone" or "checkout" or "fetch" or "rev-parse") ?? "?";
             Commands.Add(word);
 
-            var index = _script.FindIndex(entry => entry.Command == word);
+            // Matched on any arg, so a rung can be scripted by the token that tells it apart
+            // from its siblings (FETCH_HEAD, --depth) as well as by its git keyword. First
+            // entry wins, so the narrower one is added first.
+            var index = _script.FindIndex(entry => args.Contains(entry.Command));
             var (_, exit, text, once) = index >= 0 ? _script[index] : (word, 0, string.Empty, false);
             if (index >= 0 && once) _script.RemoveAt(index);
 
