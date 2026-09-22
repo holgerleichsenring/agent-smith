@@ -1,0 +1,94 @@
+phase: 2026-09-22-355b
+
+decisions:
+  - id: shapes-derived-from-the-kind
+    chose: >
+      Derive the offered shapes in code from the typed proposal's kind. The three kinds that
+      reach a confirmation form a ladder by size — a fix-bug ticket, one phase, an epic of
+      linked slices — and each offers its NEIGHBOURS: a bug offers "Make it a phase", a phase
+      offers "Cut into several phases" and "Make it a bug ticket", an epic offers "Make it one
+      phase". The middle kind has two neighbours, the ends one.
+    alternatives: >
+      Ask the master for its own alternatives in a third fenced block; offer every other kind
+      from every kind (a symmetric two per kind).
+    why: >
+      Asking the model was refused twice already: half the master prompt lives in a separate
+      repository, so the phase would ship dormant; it splits a regex that answers three
+      different questions; and a model-authored label can carry a colon, which one chat surface
+      cannot survive. The neighbour rule is a property of the kind and needs no model call. The
+      symmetric variant would have offered "make this epic a bug ticket", which is not a
+      redirection anyone would take, and buys a full master loop when clicked.
+  - id: the-question-stays-an-approval
+    chose: >
+      Keep QuestionType.Approval and put the shapes in the question's existing Choices field,
+      beside the approve/reject pair rather than instead of it.
+    alternatives: "Switch the confirmation to QuestionType.Choice and list approve and reject among the choices."
+    why: >
+      Three things are keyed off the approval kind — the approve/reject pair every surface
+      builds from the kind alone, the decision the answer admission records on the transcript,
+      and the pane's counted summary. The dashboard card returned the choices INSTEAD of the
+      pair, so on an approval with choices it would have rendered no way to approve at all;
+      that is the real surface work this phase did.
+  - id: the-label-is-the-answer-key
+    chose: >
+      One table of framework-authored labels (OutcomeShapes), colon-free, at most forty
+      characters, and never an approval or rejection word. The constraint is enforced in a
+      static constructor beside the table and pinned by two tests that read OutcomeShapes.All
+      through SpecDialogAnswerWords.DecisionIn.
+    alternatives: "Pin the constraint in the tests alone, against a list retyped in the test."
+    why: >
+      One chat surface does not send a button's value — it sends the tail of the action id
+      after the LAST colon — so a colon splits the id in the wrong place, the question id stops
+      matching, and the click vanishes silently while the proposal dies of timeout fifteen
+      minutes later. The reader trims and lowercases, so a raw-list check would let a
+      differently-cased or padded approval word through; testing through the reader closes it.
+      The ceiling is arithmetic (a thirty-two character question id plus a colon plus forty is
+      seventy-three) pinned as a constant, not a published limit read from the network.
+  - id: a-picked-shape-uses-the-edit-door
+    chose: >
+      A reply matching an offered label is left to the existing fall-through: an approval word
+      first, a rejection word next, everything else an edit note carrying that text. Nothing
+      files a shape and nothing new is stored.
+    alternatives: "A second branch in the confirmer that recognises a label and returns a new result kind."
+    why: >
+      Matching a label is ALREADY what happens, so a second branch would restate it; what the
+      phase adds is the guarantee that a label can never be a decision word. The shapes are
+      derived every time the confirmation is built, so the stored proposal's hand-written DTO —
+      whose explicit member list silently drops anything not named in it — is untouched.
+  - id: the-note-travels-as-a-value
+    chose: >
+      Carry the edit note from the router into SpecDialogEditReload and append it as the latest
+      user turn when the refreshed transcript does not already end with it.
+    alternatives: >
+      Make every chat adapter route its button answer through the answer admission; rely on the
+      existing precondition that the note is already on the transcript.
+    why: >
+      A typed answer is appended on its way in; a chat surface's button completes the pending
+      question inside its own adapter and publishes straight onto the transport, so it never
+      passes the one place that appends. The re-run then reads a byte-identical transcript,
+      spends a full master loop plus a proposal review — up to three model calls — and returns
+      the same cut under an acknowledgement saying the proposal is being revised. The router
+      already held the note as a value on the edit result and discarded it. Routing every
+      adapter through the admission would be a far wider change across three surfaces.
+  - id: the-fall-through-stops-meaning-timeout
+    chose: >
+      Give OutcomeConfirmationTimedOut its own case and let the default throw. The switch moved
+      into an internal ApplyAsync so a test can hand it a result the flow does not know.
+    alternatives: "Leave the default as the timeout and add a comment; make the confirmer virtual for the test."
+    why: >
+      A fifth result added later would have fallen into the default, cleared the stored proposal
+      and told the thread nothing would be filed — destroying a proposal in silence instead of
+      failing to compile. The seam is a named method with its own responsibility rather than an
+      unsealed class, and the confirmer is the only producer of the type.
+  - id: the-card-says-what-a-pick-costs
+    chose: >
+      The dashboard card's footer gains "Picking a shape files nothing — it starts a new turn."
+      only when shapes are offered, and each shape button carries its explanation. The Slack
+      approval footer says the same.
+    alternatives: "Leave the footer as it is; put the explanation in a tooltip."
+    why: >
+      Feeding a pick into the edit door means a fresh master call over the whole transcript plus
+      the proposal review — minutes and money. A button beside "Approve & file" that quietly
+      buys that is a surprise the operator did not agree to. The wire has carried each choice's
+      description all along and the card dropped it; a tooltip is invisible to a reader deciding
+      whether the redirection is the one they want.
