@@ -12,7 +12,18 @@ public sealed record ConfigInheritedSandbox(
     ConfigResolvedValue<int> StepTimeoutSeconds,
     ConfigResolvedValue<int> RunCommandTimeoutSeconds,
     ConfigResolvedValue<string> AgentRegistry,
-    ConfigResolvedValue<string> AgentVersion);
+    ConfigResolvedValue<string> AgentVersion,
+    ConfigInheritedResources Resources,
+    IReadOnlyDictionary<string, ConfigResolvedValue<string>> Images);
+
+/// <summary>
+/// 2026-09-22-6c46: the cpu/memory a project inherits and the NAME of the layer that
+/// answers. The layer is on the wire because the value alone cannot say it — the light
+/// profile a non-code-changing pipeline is held to and a configured global default can hold
+/// the same numbers, and the repository's context document can pre-empt the global default
+/// per run.
+/// </summary>
+public sealed record ConfigInheritedResources(ConfigResourceSummary Values, string Layer);
 
 /// <summary>
 /// The per-project rows plus the process-wide row a project with no row of its own falls

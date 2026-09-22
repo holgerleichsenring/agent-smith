@@ -99,6 +99,14 @@ vi.mock("@/lib/configApi", () => {
         runCommandTimeoutSeconds: { value: 300, source: "global-default" },
         agentRegistry: { value: "ghcr.io/example", source: "global-default" },
         agentVersion: { value: "0.50.0", source: "global-default" },
+        resources: {
+          values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
+          layer: "global-default",
+        },
+        images: {
+          dotnet: { value: "mcr.microsoft.com/dotnet/sdk:9.0", source: "code-default" },
+          node: { value: "node:20-bookworm", source: "code-default" },
+        },
       },
       projects: {},
     }),

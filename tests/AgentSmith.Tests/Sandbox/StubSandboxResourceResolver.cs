@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Tests.Sandbox;
@@ -16,4 +17,11 @@ internal sealed class StubSandboxResourceResolver(ResourceLimits? fixedResult = 
     public ResourceLimits Resolve(
         ResolvedProject projectConfig, string? pipelineName,
         ContextYamlStackResources? contextResources = null) => _result;
+
+    /// <summary>The fixed result stands for the global default, so that is the layer it
+    /// reports — a stub that named a layer its value did not come from would be the one
+    /// thing the layer accessor exists to prevent.</summary>
+    public SandboxResourceLayer ResolveLayer(
+        ResolvedProject projectConfig, string? pipelineName,
+        ContextYamlStackResources? contextResources = null) => SandboxResourceLayer.GlobalDefault;
 }

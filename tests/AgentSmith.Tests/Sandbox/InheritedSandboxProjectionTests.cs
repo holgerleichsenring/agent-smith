@@ -43,12 +43,15 @@ public sealed class InheritedSandboxProjectionTests
                 p => p.Name,
                 p => new ResolvedProject { Name = p.Name, Sandbox = p.Sandbox }),
         };
+        // 2026-09-22-6c46: the REAL resource resolver, because the projection now reports
+        // which of its four layers would answer and a stub could only report a fixed one.
+        var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, new StubSandboxResourceResolver(), new StubAgentImageResolver(),
+            options, resources, new StubAgentImageResolver(),
             new StubOrchestratorImageResolver(), config);
         var projection = new InheritedSandboxProjection(
-            pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), options, config,
-            NullLogger<InheritedSandboxProjection>.Instance);
+            pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,
+            config, NullLogger<InheritedSandboxProjection>.Instance);
         return (pass, projection);
     }
 
@@ -119,12 +122,13 @@ public sealed class InheritedSandboxProjectionTests
     {
         var options = Options.Create(new SandboxGlobalConfig { AgentVersion = string.Empty });
         var config = new AgentSmithConfig();
+        var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, new StubSandboxResourceResolver(), new StubAgentImageResolver(),
+            options, resources, new StubAgentImageResolver(),
             new StubOrchestratorImageResolver(), config);
         var projection = new InheritedSandboxProjection(
-            pass, new AgentVersionResolver(options, new BuildIdentity(null, null)), options, config,
-            NullLogger<InheritedSandboxProjection>.Instance);
+            pass, new AgentVersionResolver(options, new BuildIdentity(null, null)), resources, options,
+            config, NullLogger<InheritedSandboxProjection>.Instance);
 
         var act = () => projection.ProcessWide();
 

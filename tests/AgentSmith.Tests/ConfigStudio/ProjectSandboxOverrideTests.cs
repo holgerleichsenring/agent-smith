@@ -41,7 +41,9 @@ public sealed class ProjectSandboxOverrideTests
     {
         var projected = ProjectEntityMapping.ToProject("proj", Stored());
 
-        projected.Sandbox.Should().Be(new ProjectSandbox(
+        // 2026-09-22-6c46: the scalar half, read without the structured block that now
+        // hangs under it — that half has its own tests.
+        (projected.Sandbox! with { Structured = null }).Should().Be(new ProjectSandbox(
             "mirror.example/dotnet/sdk:9.0", 1800, 600, "mirror.example", "0.1.0-canary"));
     }
 
@@ -67,7 +69,7 @@ public sealed class ProjectSandboxOverrideTests
 
         var projected = ProjectEntityMapping.ToProject("proj", raw);
 
-        projected.Sandbox.Should().Be(new ProjectSandbox());
+        (projected.Sandbox! with { Structured = null }).Should().Be(new ProjectSandbox());
     }
 
     [Fact]
@@ -147,6 +149,125 @@ public sealed class ProjectSandboxOverrideTests
         var entity = Deserialize(body);
 
         entity.Sandbox.Should().Be(new ProjectSandbox(StepTimeoutSeconds: 60));
+    }
+
+    // ---------------------------------------------------------------------
+    // 2026-09-22-6c46: the STRUCTURED three. Their discriminator sits one level down —
+    // present means the client renders them, absent means it does not know them at all.
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void ProjectProjection_AProjectWithStructuredOverrides_ProjectsAllThree()
+    {
+        var projected = ProjectEntityMapping.ToProject("proj", Stored());
+
+        var structured = projected.Sandbox!.Structured!;
+        structured.Resources!.CpuLimit.Should().Be("4");
+        structured.Images.Should().ContainKey("dotnet").WhoseValue.Should().Be("mirror.example/dotnet:9.0");
+        structured.Secrets!.Env.Should().ContainKey("SF_ID").WhoseValue.Should().Be("sf-creds:id");
+    }
+
+    [Fact]
+    public void ProjectProjection_TheStructuredBlock_CopiesRatherThanAliasesTheStoredOne()
+    {
+        var stored = Stored();
+
+        var projected = ProjectEntityMapping.ToProject("proj", stored);
+
+        projected.Sandbox!.Structured!.Resources.Should().NotBeSameAs(stored.Sandbox!.Resources);
+        projected.Sandbox.Structured.Images.Should().NotBeSameAs(stored.Sandbox.Images);
+        projected.Sandbox.Structured.Secrets.Should().NotBeSameAs(stored.Sandbox.Secrets);
+    }
+
+    [Fact]
+    public void ProjectPatch_ASentBlockWithoutTheStructuredOverrides_LeavesThemUntouched()
+    {
+        var existing = Stored();
+
+        // A client that renders only the five scalars sends no structured block at all.
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(StepTimeoutSeconds: 1200)), existing);
+
+        patched.Sandbox!.Resources!.CpuLimit.Should().Be("4");
+        patched.Sandbox.Images.Should().ContainKey("dotnet");
+        patched.Sandbox.Secrets!.Env.Should().ContainKey("SF_ID");
+    }
+
+    [Fact]
+    public void ProjectPatch_ASentStructuredBlockWithNullFields_ClearsThemToInherit()
+    {
+        var existing = Stored();
+
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(Structured: new ProjectSandboxStructured())), existing);
+
+        patched.Sandbox!.Resources.Should().BeNull();
+        patched.Sandbox.Images.Should().BeNull();
+        patched.Sandbox.Secrets.Should().BeNull();
+    }
+
+    [Fact]
+    public void ProjectPatch_AStructuredBlockWithAnEmptyMap_StoresInheritNotAnEmptyMap()
+    {
+        var existing = Stored();
+
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(Structured: new ProjectSandboxStructured(
+                Images: new Dictionary<string, string>(),
+                Secrets: new SandboxSecrets()))),
+            existing);
+
+        // An empty map is not a declaration: a project cannot say "inherit nothing".
+        patched.Sandbox!.Images.Should().BeNull();
+        patched.Sandbox.Secrets.Should().BeNull();
+    }
+
+    [Fact]
+    public void ProjectPatch_ASentStructuredBlock_WritesResourcesImagesAndSecretNames()
+    {
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(Structured: new ProjectSandboxStructured(
+                Resources: new ResourceLimits("500m", "2", "1Gi", "4Gi"),
+                Images: new Dictionary<string, string> { ["node"] = "mirror.example/node:20" },
+                Secrets: new SandboxSecrets
+                {
+                    Env = new Dictionary<string, string> { ["SF_ID"] = "sf-creds:id" },
+                    Files = [new SandboxSecretFile { Mount = "/secrets/k", Secret = "sf-creds", Key = "jwt" }],
+                }))),
+            existing: null);
+
+        patched.Sandbox!.Resources!.MemoryLimit.Should().Be("4Gi");
+        patched.Sandbox.Images!["node"].Should().Be("mirror.example/node:20");
+        patched.Sandbox.Secrets!.Files!.Single().Mount.Should().Be("/secrets/k");
+    }
+
+    /// <summary>
+    /// The nesting is the discriminator, so the WIRE has to preserve it: a sent sandbox
+    /// block with no structured key binds a null structured block, which is what keeps a
+    /// scalar-only client from deleting three stored declarations.
+    /// </summary>
+    [Fact]
+    public void ProjectEntity_ASentSandboxBlockWithNoStructuredKey_BindsAnAbsentStructuredBlock()
+    {
+        var body = @"{""id"":""p"",""agent"":""a"",""tracker"":""t"",""repos"":[],""pipelines"":[],"
+            + @"""sandbox"":{""stepTimeoutSeconds"":60}}";
+
+        var entity = Deserialize(body);
+
+        entity.Sandbox!.Structured.Should().BeNull();
+    }
+
+    [Fact]
+    public void ProjectEntity_ASentStructuredBlockNamingOnlyImages_BindsResourcesAndSecretsAsNull()
+    {
+        var body = @"{""id"":""p"",""agent"":""a"",""tracker"":""t"",""repos"":[],""pipelines"":[],"
+            + @"""sandbox"":{""structured"":{""images"":{""dotnet"":""m/dotnet:9.0""}}}}";
+
+        var entity = Deserialize(body);
+
+        entity.Sandbox!.Structured!.Images!["dotnet"].Should().Be("m/dotnet:9.0");
+        entity.Sandbox.Structured.Resources.Should().BeNull();
+        entity.Sandbox.Structured.Secrets.Should().BeNull();
     }
 
     private static ProjectEntity Deserialize(string body) =>

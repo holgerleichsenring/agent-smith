@@ -8,9 +8,11 @@ namespace AgentSmith.Contracts.Models.Configuration.Resolved;
 /// whose placeholder was that would show the operator their own value back, and the one
 /// thing the form has to say is what CLEARING the field restores.
 /// <para>
-/// Only the five SCALAR overrides are carried. The structured three (resources, the
-/// per-language image map, the pod's secrets) each inherit by a different rule and are
-/// 2026-09-22-6c46.
+/// 2026-09-22-6c46 added the two structured answers that CAN be given. The resource group
+/// carries the layer that produced it, because four layers cannot be told apart by a value;
+/// the image map is one answer PER KEY, because the merge is per key. The pod's secrets are
+/// absent on purpose: the global sandbox block has no secrets field, so there is nothing to
+/// inherit and a blank here would read as an inherited empty set.
 /// </para>
 /// </summary>
 public sealed record InheritedSandboxSettings(
@@ -18,4 +20,6 @@ public sealed record InheritedSandboxSettings(
     ResolvedValue<int> StepTimeoutSeconds,
     ResolvedValue<int> RunCommandTimeoutSeconds,
     ResolvedValue<string> AgentRegistry,
-    ResolvedValue<string> AgentVersion);
+    ResolvedValue<string> AgentVersion,
+    InheritedSandboxResources Resources,
+    IReadOnlyDictionary<string, ResolvedValue<string>> Images);

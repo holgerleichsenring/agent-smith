@@ -4,10 +4,13 @@ import type {
   InheritedSandbox,
   InheritedSandboxProjection,
   ProjectSandbox,
+  ProjectSandboxStructured,
   ResolvedValue,
   StudioProject,
 } from "@/lib/configApi";
-import { NumberField, TextField } from "./formFields";
+import { MapField, NumberField, TextField } from "./formFields";
+import { SandboxResourceGroup } from "./SandboxResourceGroup";
+import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
 
 // 2026-09-22-6968: the project form's sixth tab — the five SCALAR per-project sandbox
 // overrides, none of which was editable anywhere in the product before this. Every one is
@@ -15,9 +18,10 @@ import { NumberField, TextField } from "./formFields";
 // placeholder is the counterfactual value the server computes (what this project would get
 // with its sandbox block empty), never its own current value.
 //
-// The structured three (cpu/memory, the per-language image map, the pod's secrets) are
-// deliberately absent — each inherits by a rule this counterfactual cannot give, and they
-// are 2026-09-22-6c46.
+// 2026-09-22-6c46 added the structured three below the scalars, and each answers the
+// inheritance question its own way: the cpu/memory group names the LAYER that would answer
+// (four layers, one of them a document written per run), the image map inherits PER KEY from
+// a code table, and the pod's secrets inherit NOTHING and say so.
 
 // The two halves of the restart story, said per field the way the settings form does. A
 // per-project override is read from the configuration when a run is prepared; the
@@ -65,6 +69,14 @@ export function ProjectSandboxSection({
   const block: ProjectSandbox = project.sandbox ?? {};
   const set = (patch: ProjectSandbox) =>
     onChange({ ...project, sandbox: { ...block, ...patch } });
+
+  // The structured three carry the same rule one level down: this section renders them, so
+  // every save it provokes sends all three, and an undefined field inside the sent block is
+  // a deliberate clear. A client that never draws them sends no structured block at all and
+  // the stored resources, image pins and secret references are left alone.
+  const structured: ProjectSandboxStructured = block.structured ?? {};
+  const setStructured = (patch: ProjectSandboxStructured) =>
+    set({ structured: { ...structured, ...patch } });
 
   return (
     <>
@@ -131,6 +143,46 @@ export function ProjectSandboxSection({
         testId="form-field-sandbox-agentVersion"
         onChange={(v) => set({ agentVersion: text(v) })}
       />
+
+      <SandboxResourceGroup
+        value={structured.resources}
+        inherited={row?.resources}
+        onChange={(resources) => setStructured({ resources: resources ?? null })}
+      />
+
+      <MapField
+        label="per-language images"
+        values={structured.images ?? {}}
+        testId="form-field-sandbox-images"
+        help="one language and the image it is built in — every language you do not name keeps inheriting"
+        rowHint={(key, value) => imageHint(row, key, value)}
+        onChange={(images) => setStructured({ images: images ?? null })}
+      />
+
+      <SandboxSecretsBlock
+        value={structured.secrets}
+        onChange={(secrets) => setStructured({ secrets: secrets ?? null })}
+      />
     </>
   );
+}
+
+/** What a row of the image map inherits, PER KEY: the merge is per key, so pinning one
+ *  language never replaces the table — every other key still answers from the code
+ *  defaults. A key the product does not know inherits nothing nameable; the image is then
+ *  chosen per run from the repository. */
+function imageHint(row: InheritedSandbox | undefined, key: string, value: string) {
+  const inherited = row?.images?.[key.trim().toLowerCase()]?.value ?? undefined;
+  if (key.trim() === "") return {};
+  if (value.trim() !== "")
+    return {
+      placeholder: inherited ?? undefined,
+      note: inherited
+        ? `overrides the code default ${inherited} for ${key} only`
+        : `pins ${key}, which the product has no code default for`,
+    };
+  return {
+    placeholder: inherited ?? undefined,
+    note: inherited ? `inherits ${inherited}` : "no code default for this key",
+  };
 }
