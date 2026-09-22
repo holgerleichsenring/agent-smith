@@ -36,9 +36,16 @@ _resolver_module = None
 
 
 def _environment():
-    """A git environment that ignores the operator's global and system config."""
+    """A git environment that ignores the operator's global and system config.
+
+    2026-09-22-7c41b: and that carries none of the gate's own switches. The gate runs
+    these tests with PHASE_GATE_SELFTEST set, so a copy of the environment handed to the
+    gate they drive made it skip the very step four of them exist to prove — red under
+    the gate, green standalone, and every phase commit blocked by it.
+    """
     environment = dict(os.environ)
     environment.pop("CLAUDE_PROJECT_DIR", None)
+    environment.pop("PHASE_GATE_SELFTEST", None)
     environment["GIT_CONFIG_GLOBAL"] = os.devnull
     environment["GIT_CONFIG_SYSTEM"] = os.devnull
     return environment

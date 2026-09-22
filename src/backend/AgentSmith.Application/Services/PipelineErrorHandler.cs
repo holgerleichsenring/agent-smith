@@ -165,7 +165,8 @@ public sealed class PipelineErrorHandler(
             var ticketProvider = ticketFactory.Create(projectConfig.Tracker);
             var finalize = await ticketProvider.FinalizeAsync(
                 ticketId, message, failedStatus, cancellationToken);
-            await unmovedTickets.RecordAsync(projectConfig, ticketId, finalize, cancellationToken);
+            await unmovedTickets.RecordAsync(
+                projectConfig.Name, projectConfig.Tracker.Name, ticketId, finalize, cancellationToken);
         }
         catch (Exception ex)
         {
