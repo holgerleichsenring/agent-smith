@@ -16,8 +16,14 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </para>
 /// <para>
 /// Read-only is a property of the SANDBOX and not a promise in the prompt:
-/// <c>SourceScopeSandbox</c> refuses Run and WriteFile by step KIND, below the tool host,
-/// so the refusal holds whatever the master was told.
+/// <c>SourceScopeSandbox</c> enforces it below the tool host, so it holds whatever the
+/// master was told. 2026-09-22-46ef: it is no longer enforced by step KIND. A process is
+/// served only when its program is one the server itself builds, so <c>run_command</c> —
+/// which travels as a shell with a command string — is refused against a template; and a
+/// write is served only under a prefix the scope declares, of which a template declares
+/// none. The master's file search IS served against a template, which is why the operand
+/// rule is the other half: its root reaches <c>find</c> as a rooted path and never as the
+/// start of an expression.
 /// </para>
 /// </summary>
 public sealed class MasterTemplateAttachment(

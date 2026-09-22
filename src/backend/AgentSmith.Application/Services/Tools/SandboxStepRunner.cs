@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Application.Services.Sandbox;
@@ -78,51 +77,35 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         return GrepResultRenderer.Render(result.OutputContent ?? "[]", outputMode, effectiveLimit);
     }
 
+    /// <summary>2026-09-22-46ef: a process the SERVER names — program and argument list, no
+    /// shell anywhere. See <see cref="ProgramRun"/> for why the exit rides back with it.</summary>
+    public async Task<ProgramRun> RunProgramAsync(
+        string program, IReadOnlyList<string> args, int? timeoutSeconds, CancellationToken ct)
+    {
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: program, Args: args, TimeoutSeconds: runCommandTimeout.For(timeoutSeconds));
+        return await ExecuteAsync(step, ct);
+    }
+
+    /// <summary>A command the MODEL authored, which needs the shell it is written for.</summary>
     public async Task<string> RunAsync(string command, int? timeoutSeconds, CancellationToken ct)
     {
         var timeout = runCommandTimeout.For(timeoutSeconds);
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "/bin/sh", Args: ["-c", command], TimeoutSeconds: timeout);
+        return (await ExecuteAsync(step, ct)).Rendered;
+    }
+
+    private async Task<ProgramRun> ExecuteAsync(Step step, CancellationToken ct)
+    {
         // p0491: the streamed lines are the live drawer's feed and the FALLBACK stdout;
         // the model reads the result body instead (see RunCommandOutput). stderr has no
         // body to switch to, so it is still collected here.
-        var stdout = new StringBuilder();
-        var stderr = new StringBuilder();
-        var streamTruncated = false;
-        // Synchronous IProgress: Progress<T> dispatches asynchronously via the
-        // captured SynchronizationContext / ThreadPool, which races the await
-        // sandbox.RunStepAsync below — events can arrive after the sandbox
-        // returns and end up missing from the labeled-section output. The
-        // inline sync collector closes the race.
-        var progress = new SyncProgress<StepEvent>(ev =>
-        {
-            switch (ev.Kind)
-            {
-                case StepEventKind.Stdout:
-                    AppendBounded(stdout, ev.Line, ref streamTruncated);
-                    break;
-                case StepEventKind.Stderr:
-                    AppendBounded(stderr, ev.Line, ref streamTruncated);
-                    break;
-            }
-        });
+        var streamed = new StreamedStepOutput();
         var startedAt = DateTimeOffset.UtcNow;
-        var result = await sandbox.RunStepAsync(step, progress, ct);
+        var result = await sandbox.RunStepAsync(step, streamed.Collector, ct);
         var elapsedMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
-        return RunCommandOutput.Render(
-            result, elapsedMs, stdout.ToString(), stderr.ToString(), streamTruncated);
-    }
-
-    private static void AppendBounded(StringBuilder sb, string line, ref bool truncated)
-    {
-        if (truncated) return;
-        var addedBytes = Encoding.UTF8.GetByteCount(line) + 1;
-        if (sb.Length + addedBytes > SizeLimits.RunCommandMaxBufferBytes)
-        {
-            truncated = true;
-            sb.Append("\n... (output truncated at 1 MB)");
-            return;
-        }
-        sb.Append(line).Append('\n');
+        return new ProgramRun(result.ExitCode, RunCommandOutput.Render(
+            result, elapsedMs, streamed.Stdout, streamed.Stderr, streamed.Truncated));
     }
 }
