@@ -23,14 +23,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// is not.
 /// </para>
 /// <para>
-/// 2026-09-17-0e79a: a set a person APPROVED in the design conversation is resolved before the
-/// source is chosen, and a ticket the framework filed that arrives with no set from any route
-/// fails here instead of being derived a second time.
-/// </para>
-/// <para>
-/// 2026-09-17-0e79b: such a set is never re-cut. A comment, a ticket edit or a re-trigger is
-/// recorded in the revision it publishes and reported once — on the ticket and on the run — and
-/// the run continues on the set that was approved.
+/// 2026-09-17-0e79a/b: a set a person APPROVED is never re-cut — a comment, a ticket edit or a
+/// re-trigger is recorded in the revision it publishes and reported once, on the ticket and on
+/// the run. 2026-09-22-6ad7: the SET comes off the ticket branch and from nowhere else; the
+/// record is resolved for the repositories it names and hands the set over once, on a branch
+/// that carries nothing at the path. A filed ticket whose branch carries no readable set PARKS.
 /// </para>
 /// </summary>
 public sealed class DeriveSpecHandler(
@@ -70,9 +67,11 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var previous = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
+        var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
+        var previous = onBranch.Read;
         var decision = sourceResolver.Decide(
-            previous, context.Ticket, pointer, context.Pipeline, key.Value, approval);
+            onBranch, context.Ticket, pointer, context.Pipeline, key.Value, approval);
+        if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
         if (decision.Error is not null)
             return await gate.RefuseSpecAsync(
                 context.Pipeline, context.Ticket.Id.Value, decision.Error, cancellationToken);
@@ -85,7 +84,7 @@ public sealed class DeriveSpecHandler(
         // Reported BEFORE the publish, because the publish is what clears the input: a hand-back
         // must not suppress it, and an unreported input must not be marked as dealt with.
         var reported = await keptNotice.PostAsync(
-            context.Pipeline, context.Tracker, set, decision.Cause!, decision.Note, cancellationToken);
+            context.Pipeline, context.Tracker, set, decision.Cause!, discarded: null, cancellationToken);
         var finalized = SpecRevisionHeader.Finalize(
             set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported);
         var result = await publisher.PublishAsync(

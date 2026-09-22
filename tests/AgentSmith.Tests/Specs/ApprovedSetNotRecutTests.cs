@@ -102,7 +102,7 @@ public sealed class ApprovedSetNotRecutTests
     }
 
     [Fact]
-    public async Task ApprovedSet_Comment_PostsOneTicketNoticeAndOneRunDecision()
+    public async Task DeriveSpec_ACommentOnAnApprovedSet_IsStillReportedAndTheSetKept()
     {
         var harness = Harness(approved: true);
         harness.Tracker = harness.Notices.Tracker;
@@ -258,12 +258,12 @@ public sealed class ApprovedSetNotRecutTests
     }
 
     /// <summary>
-    /// A re-approval that edits a phase which already ran has that edit discarded by the merge.
-    /// The person who made it is TOLD, on the ticket — the log and set.yaml are not where they
-    /// look, and this phase built the notice that reaches them.
+    /// 2026-09-22-6ad7: a record carrying a NEWER approval no longer reaches the set at all. The
+    /// branch answered, so it is the set — an edit to a phase that already ran is not merged, not
+    /// discarded-and-reported, and not compared: the record is never consulted.
     /// </summary>
     [Fact]
-    public async Task Reapproval_EditingAnExecutedPhase_TellsTheTicketItWasDiscarded()
+    public async Task DeriveSpec_AnApprovedSetReadOffTheBranch_IsStillNeverRecut()
     {
         var harness = Harness(approved: true, executed: "p19106a");
         harness.Tracker = harness.Notices.Tracker;
@@ -279,10 +279,10 @@ public sealed class ApprovedSetNotRecutTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Writer.Written!.Phases[0].Draft.Goal.Should().Be("Goal p19106a",
-            "the executed phase is kept exactly as it ran");
-        harness.Notices.Comments.Should().ContainSingle()
-            .Which.Should().Contain("discarded").And.Contain("p19106a");
+        harness.Deriver.Calls.Should().Be(0, "an approved set is read, never generated");
+        harness.Writer.Written!.Source.Should().Be(SpecSource.BranchArtifact);
+        harness.Writer.Written.Phases[0].Draft.Goal.Should().Be("Goal p19106a",
+            "the branch answered, so the record's edit never reached the set");
     }
 
     /// <summary>

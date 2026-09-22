@@ -118,8 +118,45 @@ public sealed class FiledSpecBranchTests
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
         new SpecSetIndex().ApprovalOf(Index(sources))!.At.Should().Be(record.Approval!.At,
-            "the precedence compares those instants and the branch wins a tie, so a record that "
-            + "is not newer than the branch it was written from changes nothing");
+            "the run reads who approved this and when out of the branch, so the store is not "
+            + "needed for the approval fact at all");
+    }
+
+    /// <summary>
+    /// 2026-09-22-6ad7 assumption: a set written at FILING time carries its whole approval,
+    /// because the one writer serializes it through the same index the run's reader parses back.
+    /// The instant alone is not enough — the conversation and the principal are what the branch
+    /// has to carry once the record stops being a source.
+    /// </summary>
+    [Fact]
+    public async Task Filing_TheIndexItWrites_RoundTripsTheWholeApprovalTheRecorderMinted()
+    {
+        var sources = new RecordingBranchSources();
+        var store = ApprovedSetDoubles.Store();
+
+        await FileAsync(sources: sources, store: store);
+
+        var record = (await store.GetAsync("sample-tracker", Key, default))!;
+        new SpecSetIndex().ApprovalOf(Index(sources)).Should().Be(record.Approval,
+            "instant, conversation and principal all survive Serialize and ApprovalOf");
+    }
+
+    /// <summary>
+    /// 2026-09-22-6ad7 assumption: the run checks out the SAME branch the filing wrote to, so the
+    /// specs are in the working tree the reader reads. Both compose it from the ticket id.
+    /// </summary>
+    [Fact]
+    public async Task Filing_TheBranchItWrites_IsTheBranchTheRunChecksOut()
+    {
+        var sources = new RecordingBranchSources();
+
+        await FileAsync(sources: sources);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, new TicketId("1"));
+        sources.Writes[0].Branch.Should().Be(
+            RunBranchResolver.Resolve(pipeline)!.Name.Value,
+            "a run that landed on a different branch would never see what filing wrote");
     }
 
     /// <summary>
@@ -348,10 +385,13 @@ public sealed class FiledSpecBranchTests
             new SandboxGitOperations(
                 new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, readers.Object,
                 new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new PhaseDraftReader(), new SpecSetIndex(), new SandboxTargets(),
+            new SpecSetPhaseFileReader(
+                new PhaseDraftReader(), NullLogger<SpecSetPhaseFileReader>.Instance),
+            new SpecSetIndex(), new SandboxTargets(),
             NullLogger<SpecSetReader>.Instance);
-        return await reader.ReadAsync(
+        var onBranch = await reader.ReadAsync(
             pipeline, new RepoConnection { Name = "sample-api" }, new SpecSetKey(Key), default);
+        return onBranch.Read;
     }
 
     private static SpecSetIndexDocument Index(RecordingBranchSources sources) =>

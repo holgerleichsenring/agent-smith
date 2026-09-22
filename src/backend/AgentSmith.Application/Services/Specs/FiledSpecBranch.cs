@@ -20,7 +20,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// was the run's bookkeeping — but a set's current revision is the last element of that list, so
 /// an empty one throws on read, and an index written with none reads back as revision 1 "initial
 /// derivation", which is the one thing this set is not. The cause names the approval and the
-/// conversation it was given in, spelled by the same <see cref="ApprovedSetSource"/> the run's own
+/// conversation it was given in, spelled by the same <see cref="ApprovedSetHandoff"/> the run's own
 /// approved arm composes it with.
 /// </para>
 /// <para>
@@ -96,7 +96,7 @@ public sealed class FiledSpecBranch(
     private static SpecSet Published(SpecApprovalRecord record, Ticket ticket) =>
         record.Set with
         {
-            Revisions = [new SpecRevision(1, ApprovedSetSource.CauseOf(record, null), DateTimeOffset.UtcNow)],
+            Revisions = [new SpecRevision(1, ApprovedSetHandoff.CauseOf(record), DateTimeOffset.UtcNow)],
             TicketFingerprint = TicketTextFingerprint.Of(ticket),
         };
 

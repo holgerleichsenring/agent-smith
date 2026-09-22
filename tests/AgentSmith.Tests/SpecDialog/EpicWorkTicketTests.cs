@@ -131,7 +131,7 @@ public sealed class EpicWorkTicketTests
 
     /// <summary>
     /// The gate reads a fetched TICKET, so the stamp the filer writes has to be the one it looks
-    /// for: a work ticket with no set reaching DeriveSpec must fail loudly.
+    /// for: a work ticket with no set reaching DeriveSpec must park rather than derive a guess.
     /// </summary>
     [Fact]
     public async Task EpicApproval_WorkTicketWithNoSet_IsTheLoudMiss()
@@ -140,8 +140,12 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
         var gate = new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance);
 
-        gate.MissingSet(Fetched(provider.Created[0].Labels)).Should()
-            .NotBeNull().And.Subject.ToString().Should().Contain(FiledTicketLabels.ApprovedSetStamp);
+        var handback = gate.MissingSet(
+            Fetched(provider.Created[0].Labels), new SpecSetKey("recording-1"), null,
+            SpecSetBranchState.NothingAtThePath);
+
+        handback!.Case.Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
+        handback.Reason.Should().Contain(FiledTicketLabels.ApprovedSetStamp);
     }
 
     private static Ticket Fetched(IReadOnlyList<string> labels) =>

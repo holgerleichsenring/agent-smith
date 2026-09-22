@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-6ad7
+
+decisions:
+  - category: Architecture
+    chose: "The branch reader answers a THREE-state outcome — answered, nothing at the path, unreadable — instead of one null"
+    over: "Keeping SpecSetReadResult? and letting the caller infer the reason, or parking on any null"
+    reason: |
+      The caller has two different answers to "the branch carried no set", and one null cannot
+      carry which. An unwritten branch is a hand-off that has not happened and the record supplies
+      the set once; a branch holding something the run could not read is an operator's edit gone
+      wrong, and standing a copy in front of it is exactly how that edit disappears. Parking on any
+      null was the earlier draft and would have parked every ticket already filed and every branch
+      whose write failed for an ordinary reason. The state is a typed field on SpecSetOnBranch
+      rather than a nullable-plus-flag, so a fourth situation cannot be added without deciding
+      which of the three it behaves like.
+
+  - category: Architecture
+    chose: "NO SANDBOX for the carrying repository is UNREADABLE, not nothing-at-the-path"
+    over: "Treating it as an absent index, which is how it reads today"
+    reason: |
+      "Nothing at the path" is a claim about what is on the branch, and a run with no checkout of
+      the carrying repository has not looked. A branch it cannot see may well carry the set an
+      operator just edited, so the record must not stand in for it — that is the same substitution
+      the phase exists to end, with less evidence than the parse failure has. It is also the
+      honest direction operationally: the publish that would follow the hand-off writes through a
+      sandbox too, so the fall-through would work a set it then could not commit. The park names
+      the repository, which is the fact that leads to the fix (an approved scope that dropped the
+      carrier). This is the one situation the spec left to the implementer; decision 7 of the spec
+      lists it among the three that reach the gate, and that is the reading taken.
+
+  - category: Architecture
+    chose: "The approved arm of the precedence, ApprovedSetMerge and the run-side phase cap are DELETED, and the fall-through that replaced them fires only on nothing-at-the-path"
+    over: "Keeping the instant comparison as a tie-break, or deleting the fall-through with the arm"
+    reason: |
+      The arm is not dead code: with no branch artifact the record FELL THROUGH and became the
+      run's set, so deleting the guard and leaving the fall-through unconditional would have
+      implemented the exact behaviour this phase ends. What has no way to fire is the comparison
+      inside it — a record only beats the branch when a SECOND approval exists, and nothing
+      re-opens a stored record. Keeping the comparison keeps two carriers that must agree, of
+      which one cannot be inspected. Deleting the fall-through entirely parks every ticket already
+      filed. So the arm becomes ApprovedSetHandoff: one branch of the precedence, guarded by the
+      branch STATE rather than by two timestamps. The append-only rule the merge encoded is not
+      lost — it is written down here and belongs to whoever publishes a re-approval onto a branch
+      that already carries an executed head.
+
+  - category: Architecture
+    chose: "The park is keyed on the FILED-TICKET gate, so only a ticket carrying the approved-set stamp parks on an unreadable branch"
+    over: "Parking every run whose branch set did not read back"
+    reason: |
+      A ticket nobody approved has no ratified specification to lose: an unreadable branch set
+      there means the run derives one again, which is what it does today and what the phase's
+      scope explicitly leaves alone. The hazard this phase closes is a COPY substituting for an
+      edit, and the copy only exists for a filed ticket. Routing the unreadable state to the gate
+      rather than to a park of its own also means the record is never consulted in that state,
+      which is the actual guarantee — the ordinary ticket's derivation was never the risk.
+
+  - category: Design
+    chose: "A new hand-back case, SpecificationMissingFromBranch, with its own arm in the comment builder"
+    over: "Reusing NotImplementable, Refused or Question, or letting the builder's default arm render it"
+    reason: |
+      Each existing case would be a lie to the person reading the ticket: "not implementable" is a
+      verdict about the work, "refused" means the ticket demands something that must not be done,
+      and "the ticket reads two ways" is a question for its author. None of them is "the
+      specification a person approved is not on the branch, and putting it there is the fix". The
+      default arm renders every unnamed case as the contradiction comment, which of a filed
+      ticket's own approval would describe a contradiction that does not exist. The case needs no
+      change to the park resolver: everything that is not the verdict parks where a clarification
+      parks, which is where this one belongs — the ticket comes back the moment the specs are
+      pushed and it is moved to a trigger status.
+
+  - category: Design
+    chose: "A failed step becomes a PARK: the hand-back goes on the context and DeriveSpec returns Ok"
+    over: "Keeping SpecCutGate.RefuseSpecAsync, which fails the step"
+    reason: |
+      A failed step finalizes the ticket into failed_status (done_status when none is configured),
+      taking a ticket out of the open set because a file is not on a branch yet — an outcome an
+      operator then has to notice and undo. The hand-back path needs no set to use and SpecHandback
+      runs directly after DeriveSpec in the code preset, so the park needs no splice: the step
+      succeeds, the hand-back parks the ticket and sets the awaiting-answer flag that
+      short-circuits the rest of the run. The malformed-DESCRIPTION spec keeps failing loudly:
+      that is someone shipping a spec and getting it wrong, not a hand-off that did not happen.
+
+  - category: Design
+    chose: "The reason is composed in two independent halves — what the branch holds, and whether an approval exists"
+    over: "One sentence per outcome, or a single sentence covering both"
+    reason: |
+      The two vary independently: an approval may exist over a path holding nothing AND over a path
+      holding something broken, and they have different owners — one is 'nobody approved this
+      ticket', the other is 'the approval exists and its specs never reached the branch'. A single
+      sentence covering both would send the operator to the wrong one. Both halves name the branch
+      path, and the sentence telling an operator where the specs live and which phase may be edited
+      is reused from ApprovedSetKept rather than written a second time.
+
+  - category: Implementation
+    chose: "SpecSourceResolver.Decide KEEPS an approval-record parameter, renamed to `record`"
+    over: "Removing it as the spec's step wording says, and doing the hand-off in DeriveSpecHandler"
+    reason: |
+      The step asks for the approval parameter to go with the removed arm, and the same spec asks
+      for the fall-through to become conditional on the branch state. Only one place knows both the
+      record and the branch state, and that is this method; the alternative moves both the hand-off
+      and the park into DeriveSpecHandler, which is the file the length ratchet pins at 143 lines.
+      What actually went is the versioned SOURCE the parameter used to feed — the comparison, the
+      merge and the cap. The parameter is no longer optional, so a caller cannot forget it.
+
+  - category: Implementation
+    chose: "Decision.Note is removed with its only producer; ApprovedSetKept.Notice keeps its `discarded` slot"
+    over: "Leaving Note in place as a slot nothing sets"
+    reason: |
+      The merge was the only thing that ever produced a discarded-edit note, so the field on the
+      decision had no writer left and would have read as a live path. The notice's own parameter is
+      a different question — it is the notice's API, it is tested, and it is the honest place for a
+      future report of a discarded change — so it stays and DeriveSpec passes null.
+
+  - category: Implementation
+    chose: "SpecSetPhaseFileReader and SpecAmendmentRule are extracted rather than growing their callers"
+    over: "Letting SpecSetReader reach 123 lines and SpecSourceResolver 127"
+    reason: |
+      Both crossed the 120-line hard limit once the branch state was threaded through them, and
+      neither is baselined, so the rule applies in full. The split is by responsibility rather than
+      by size: reading ONE phase file back as a spec is the same question for every entry in the
+      index and is not the reader's new question (which of the ways a branch can hold no set this
+      one is); and whether an input re-cuts a set is not the same question as which source the set
+      came from. ApprovedSetSource.CauseOf moved to ApprovedSetHandoff and lost its note parameter
+      with the merge, so filing's own branch write still spells the cause the same way the run does
+      and the first publish stays a no-op.

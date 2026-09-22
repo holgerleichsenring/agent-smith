@@ -38,8 +38,13 @@ public sealed class ScopeReposApprovedTests
                 return [new RemoteContextDiscovery("default", ".", "csharp", Purpose: $"{repo.Name} service")];
             });
 
+    /// <summary>
+    /// 2026-09-22-6ad7: the record no longer supplies the SET, and this is the fact it keeps —
+    /// the repositories the approval named, published before the inventory is built, four steps
+    /// before any sandbox exists for the branch to be read out of.
+    /// </summary>
     [Fact]
-    public async Task ScopeRepos_WithApprovedRepositories_PublishesThemBeforeTheInventoryIsBuilt()
+    public async Task ScopeRepos_AnApprovedRecord_StillNamesTheRepositoriesTheRunWorks()
     {
         var pipeline = NewPipeline("server", "client", "encrypter");
         var store = await StoreNaming("server", "client");

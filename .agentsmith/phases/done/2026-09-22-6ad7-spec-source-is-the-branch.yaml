@@ -1,0 +1,274 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-6ad7
+
+goal: "A run takes its specification from the ticket branch and from nowhere else, so the copy on its context and the copy in the store can no longer disagree with the one a person can read and edit."
+
+applies_to: "backend (the spec source precedence, the approved-record arm of it, and what a filed ticket does when its branch carries no set)"
+
+scope:
+  in: >
+    An approved specification reaches a run by THREE carriers. The BRANCH — phase yamls and a
+    set.yaml under `.agentsmith/specs/<provider>-<ticketId>`, read out of the run's own sandbox.
+    The CARRY — the whole approval record as one JSON string on the run's initial context, put
+    there by the spawn funnel, the capacity deferral and the reconciler. The STORE — the same
+    record in the server's database, written when the ticket was filed, and an empty in-memory
+    default in every other process.
+    Two of those are read as a SET. The resolver takes the carried record unless the stored one
+    carries a strictly newer approval instant, republishes the winner, and the source precedence
+    then asks that record FIRST: it beats the branch when its approval post-dates the approval
+    set.yaml was published from, and otherwise stands aside. So the set a run works is decided by
+    comparing two timestamps across two carriers before the branch is even consulted — and when
+    the branch artifact cannot be read, the record silently substitutes for it, which is how a
+    reviewer's edit that breaks one phase file disappears without anyone being told.
+    This phase makes the branch the only SET a run reads. The approved arm of the precedence goes,
+    and with it the positional merge that existed to fold a record over the branch. The record is
+    still resolved and still read — for the repositories it names, at a step that runs before any
+    sandbox exists and therefore before any branch can be read at all. That is the one fact it
+    owns, and it keeps it.
+    IT CANNOT LAND FIRST. Until an approved set is written to the ticket branch AT FILING TIME,
+    the branch is empty on a filed ticket's first run and this phase would park every one of them.
+    The prerequisite is 2026-09-22-b6ad, which writes the specification onto the ticket branch as
+    the conversation files it — the phase 2026-09-22-6c1d scopes out by that name and prepares by
+    choosing, at approval time, which repository carries the set.
+  out: >
+    WRITING THE SET TO THE BRANCH AT FILING TIME. That is 2026-09-22-b6ad, the prerequisite named
+    above — this phase changes only what a run READS, and adds no writer of its own.
+    DELETING THE CARRY OR THE STORE. Both stay. They carry the repositories the approval named,
+    which the run publishes as its scope four steps before it has a checkout — the branch cannot
+    answer that question at the moment it is asked, and no rule inferred from the project's
+    configuration would be the approval's answer.
+    AMENDING AN APPROVED SET FROM THE CONVERSATION. There is no route in today: the recorder's
+    load has no caller and says so out loud, so the arm this phase removes is reachable by nothing
+    but a hand-built record. A second approval reaching a run is the business of the phase that
+    publishes to the branch, and the append-only rule it must obey is written down in this
+    phase's decisions rather than left in code nothing calls.
+    THE COMMENT THAT ASKS FOR A RE-CUT. 2026-09-22-8b25 gives someone who cannot reach the branch
+    one deliberate way to change a set; it decides a CAUSE, not a carrier, and is unaffected.
+    THE TICKET DESCRIPTION AND DERIVATION. A hand-written phase ticket keeps its description, and
+    a ticket nobody approved still derives. Only the approved arm is removed.
+    THE POINTER, THE REVISION HISTORY AND THE PUBLISH. Where a set is written, what is committed
+    and what the pointer records — all unchanged.
+
+decisions:
+  - key: |
+      THE NULL MUST BE SPLIT, OR THE PHASE PARKS THE ORDINARY CASE. The branch reader answers null
+      for four different situations and the caller cannot tell them apart: no sandbox, an ABSENT
+      index, an index that does not parse, and a phase file that does not read back. An earlier
+      draft parked on any null — which would have parked every ticket already filed, every epic
+      until its filing path writes a branch too, and every branch whose write failed for an
+      ordinary reason after the ticket existed, which a sibling phase deliberately tolerates as a
+      note. Three live regressions to close one hole.
+      The split is the whole design. A branch that ANSWERED is the set, and the record is never
+      consulted. A branch with NOTHING AT THE PATH is today's hand-off: the record supplies the
+      set and the run publishes it, once. A branch that answered badly — present and unreadable —
+      is the only case where a fallback would hide an operator's edit, and that is what parks.
+      Two copies can only disagree when both exist, and that is exactly the case this removes.
+  - key: |
+      THE ARM BEING REMOVED IS NOT DEAD CODE, AND SAYING SO WAS THE ERROR. The comparison
+      short-circuits only when a branch artifact exists; with none, the record falls through and
+      becomes the run's set. What has no way to fire is the INSTANT COMPARISON inside it and the
+      positional merge's protective arms, which need a second approval nothing produces. The step
+      must name the type that goes rather than the behaviour, or an implementer deletes the guard
+      and leaves the fall-through unconditional — which is the behaviour this phase exists to end.
+  - key: |
+      THE BRANCH IS THE ONLY ONE OF THE THREE A PERSON CAN READ AND CHANGE. The record on the
+      context is a JSON string inside a queue row; the record in the database is a JSON column.
+      Both are invisible to the operator whose specification they claim to carry, and the run
+      already tells that operator, in its own ticket comment, that the specs are on the ticket
+      branch and that editing an unstarted phase there is what the next run works. Three carriers
+      that must agree, of which two cannot be inspected, is not a redundancy — it is two ways for
+      the run to work something other than what the ticket says it works.
+  - key: |
+      THE RECORD KEEPS EXACTLY ONE FACT, AND IT IS NOT THE SET. The approval names REPOSITORIES,
+      and the run publishes them as its scope at ScopeRepos — before checkout, before any sandbox,
+      before the branch exists to be read. That is the whole reason the record is resolved twice.
+      It is also load-bearing in a way the branch could never replace: the set is carried by ONE
+      repository of the scope, so a scope narrowed by a classifier instead of by the approval can
+      scope out the very repository the specs live in. Keeping the carrier for that fact is not a
+      fallback and not a heuristic; it is the only artefact that holds it.
+  - key: |
+      THE APPROVAL RECORD IS ALREADY ON THE BRANCH, AND THAT IS WHAT MAKES THIS PHASE POSSIBLE.
+      set.yaml carries the approval instant, the conversation it was given in and the principal
+      who gave it, written by the same serializer that writes the phases and read back as an
+      approval by the same index. So "who approved this, when, in which conversation" survives the
+      removal of both other carriers — the store is not needed for the approval FACT. What the
+      index does not carry is the repositories, which is precisely the fact the record keeps.
+  - key: |
+      THE ARM BEING REMOVED HAS NO WAY TO FIRE. A record only beats the branch when its approval
+      post-dates the branch's, which needs a SECOND approval of the same ticket; nothing in the
+      design conversation re-opens a stored record, and the recorder says so in its own summary.
+      Every record that exists today was written once, when the ticket was filed, with the same
+      approval the branch will be published from. Removing the comparison removes a branch of the
+      precedence that decides between two copies of one thing.
+  - key: |
+      AN UNREADABLE BRANCH SET MUST NOT FALL BACK TO A COPY. The reader answers "no set" for three
+      different situations — no sandbox for the carrying repository, a set.yaml that does not
+      parse, and a listed phase file that does not read back as a spec — and the last two are an
+      operator's edit gone wrong. Today the record then substitutes, the run works the set as
+      filed, and the edit vanishes with a warning in a log nobody is reading. After this phase the
+      same three situations reach the filed-ticket gate, which is already written to refuse rather
+      than guess.
+  - key: |
+      A MISSING SET PARKS THE TICKET; IT DOES NOT CLOSE IT. The gate's refusal fails the step
+      today, and a failed step finalizes the ticket into failed_status — a ticket moved out of the
+      open set because a file is not on a branch yet, which an operator then has to notice and
+      undo. The hand-back path exists for exactly this shape and needs no set to use: the scope
+      refusal already sets a hand-back on the context with nothing derived, and SpecHandback runs
+      directly after DeriveSpec in the preset, so the park needs no splice. The ticket is
+      commented, parked where a person can answer, and the run short-circuits.
+  - key: |
+      THE HAND-BACK GETS ITS OWN CASE RATHER THAN BORROWING ONE. "Not implementable" is a verdict
+      about the work and would be a lie; "refused" means the ticket demands something that must
+      not be done; "the ticket reads two ways" is a question for its author. None of them is "the
+      specification a person approved is not on the branch, and putting it there is the fix". The
+      new case needs no change to the park resolver — everything that is not the verdict parks
+      where a person can answer, which is also where this one belongs, because the ticket comes
+      back the moment the specs are pushed and the ticket is moved to a trigger status. It DOES
+      need its own arm in the comment builder, whose default renders a contradiction.
+  - key: |
+      THE PARK NAMES WHICH OF THE TWO HAPPENED. The run has already resolved the record for its
+      repository scope, so it can say whether an approval for this ticket exists at all — nothing
+      was ever approved, or it was approved and its specs never reached the branch. Those are
+      different failures with different owners, and one sentence covering both would send the
+      operator to the wrong one. The path the specs belong at is spelled out either way; it is
+      already written down as the sentence the kept-set notice posts.
+  - key: |
+      THE POSITIONAL MERGE AND THE RUN-SIDE PHASE CAP GO WITH THE ARM. Both exist only to police a
+      record's set against the branch: the merge keeps the executed head and refuses a shorter
+      re-approval, the cap refuses a record above MaxPhases. The branch reader has never applied
+      either — a branch set of twenty phases is accepted today — so removing them takes away no
+      guarantee that covered the surviving carrier, and the dialog already refuses a cut above the
+      same cap where the cut is made. The append-only rule the merge encodes is not lost: it is
+      stated here, and belongs to whoever publishes a re-approval onto a branch that already has
+      an executed head.
+  - key: |
+      TICKETS ALREADY FILED ARE THE MIGRATION CASE AND THEY PARK BY NAME. A ticket filed before
+      the branch write exists has a record and an empty branch; on its next run it parks saying
+      the approval exists and its specs never reached the branch. That is the honest outcome and
+      it is recoverable by hand. It is also why the ordering is not a preference: run this phase
+      before the branch write and every filed ticket in flight parks at once.
+
+steps:
+  - id: the-reader-answers-why-it-found-nothing
+    action: "The branch reader distinguishes nothing at the path from something it could not read, so a caller can tell an unwritten branch from a broken one."
+  - id: a-branch-that-answered-is-the-set
+    action: "When the branch answers, it is the run's set and the record is not consulted, merged or compared."
+  - id: a-branch-with-nothing-at-the-path-is-published-once
+    action: "When there is nothing at the path the record supplies the set and the run publishes it, which is what happens today and what keeps every already-filed ticket, every epic and every tolerated write failure working."
+  - id: a-branch-that-answered-badly-hands-back
+    action: "When the path holds something the reader cannot read, the run hands back naming the path and whether an approval exists, rather than replacing it from the record."
+  - id: the-approved-arm-leaves-the-precedence
+    action: "The source precedence stops consulting the approved record: the arm that compares approval instants, the positional merge it called and the run-side phase cap are removed, and the decision's approval parameter goes with them. The branch artifact, the filed-ticket gate, the ticket description and derivation keep their order."
+  - id: the-record-is-resolved-for-its-repositories-only
+    action: "The resolver, the carry and the store stay exactly as they are and keep being read where the repositories the approval named are needed. No caller asks them for a set."
+  - id: a-specification-that-never-reached-the-branch-parks
+    action: "The filed-ticket gate's finding becomes a hand-back with its own case instead of a failed step: the ticket is commented with the branch path the specs belong at and parked where a person can answer, and the comment builder gains the arm its default would otherwise render as a contradiction."
+  - id: the-park-says-whether-an-approval-exists
+    action: "The hand-back's reason distinguishes a ticket nobody approved from one whose approval exists and whose specs never reached the branch, read from the record the run has already resolved for its scope."
+
+tests:
+  - "SpecSource_ABranchSetAndARecordWithANewerApproval_WorksTheBranchSet"
+  - "SpecSource_AnUnstampedTicketWithNoBranchSet_StillDerives"
+  - "SpecSource_AHandWrittenPhaseTicket_StillReadsItsDescription"
+  - "SpecSource_ABranchSetThatDoesNotParse_IsNotReplacedByTheCarriedRecord"
+  - "DeriveSpec_AFiledTicketWithNoSetOnTheBranch_DerivesNothing"
+  - "DeriveSpec_AFiledTicketWithNoSetOnTheBranch_HandsBackInsteadOfFailingTheStep"
+  - "DeriveSpec_AFiledTicketWhoseApprovalExists_SaysItsSpecsNeverReachedTheBranch"
+  - "DeriveSpec_AFiledTicketNobodyApproved_SaysThatInstead"
+  - "DeriveSpec_TheHandbackReason_NamesTheBranchPathTheSpecsBelongAt"
+  - "SpecHandback_ASpecificationMissingFromTheBranch_ParksTheTicketRatherThanClosingIt"
+  - "SpecHandbackComment_ASpecificationMissingFromTheBranch_IsNotRenderedAsAContradiction"
+  - "ScopeRepos_AnApprovedRecord_StillNamesTheRepositoriesTheRunWorks"
+  - "DeriveSpec_AnApprovedSetReadOffTheBranch_IsStillNeverRecut"
+  - "DeriveSpec_ACommentOnAnApprovedSet_IsStillReportedAndTheSetKept"
+
+done:
+  - "a run's phase specifications come from the ticket branch and from no other carrier"
+  - "the record on the run's context and the record in the store still name the repositories the approval scoped"
+  - "a ticket filed from an approved specification never derives one when its branch carries no readable set"
+  - "such a ticket is parked where a person can fix it, not finalized into a failed status"
+  - "the park names the branch path the specs belong at, and whether an approval for the ticket exists at all"
+  - "a branch set carrying an approval is still never re-cut by a comment, a ticket edit or a re-trigger"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The run resolves an approval from two carriers — the record carried on its initial context and the record in a store — and republishes the winner under the same context key."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:32-44"
+  - claim: "A carried record whose spec key or tracker connection is not this run's is ignored, and the run then has no record at all."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:51-63"
+  - claim: "Between the two, the stored record wins only when its approval instant post-dates the carried one's; otherwise the carried copy stands."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:91-100"
+  - claim: "The source precedence consults the approved record FIRST, then the branch artifact, then the filed-ticket gate, then a spec in the ticket description, then derivation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:47-80"
+  - claim: "The record only displaces the branch when its approval is newer than the approval the branch set was published from; otherwise the branch artifact stands and the record decides nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:24-33"
+  - claim: "That comparison is made against the approval the branch set carries."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:64-65"
+  - claim: "When the record wins, a set above the phase cap is refused outright and every other one is merged over the branch set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetSource.cs:35-42"
+  - claim: "The merge keeps the branch's executed head exactly as it ran, refuses a re-approval shorter than that head, and refuses one that edits the head while adding nothing after it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetMerge.cs:29-46"
+  - claim: "The branch set is read out of a sandbox checkout: with no sandbox for the carrying repository there is nothing to read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetReader.cs:29-34"
+  - claim: "A set.yaml that does not parse, and a listed phase file that does not read back as a spec, are both answered as 'no set on the branch' — the second with a warning saying the artifact is ignored and the set derived again."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetReader.cs:38-54"
+  - claim: "The branch index carries the approval instant, the conversation and the principal, written by the same serializer that writes the phase list."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetIndex.cs:55-59"
+  - claim: "The reader turns those three fields back into an approval on the set it returns."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetIndex.cs:62-72"
+  - claim: "The index document has no repositories: key, source, phases, executed phases, revisions, accounting, hand-back, fingerprint and the three approval fields are all of it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetIndexDocument.cs:21-52"
+  - claim: "The approval record carries the repositories the approval named and the tracker connection beside the set, under one key."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:27-35"
+  - claim: "Those repositories are read from the resolved record at ScopeRepos and published as the run's scope before the inventory is built, and the classifier's narrowing is then skipped."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:56-79"
+  - claim: "The spec set is carried by the FIRST repository of the resolved scope, which is why an approved scope has to be published before anything narrows it — a carrying repository scoped out leaves the next run with no artifact."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:13-18"
+  - claim: "In the code preset ScopeRepos runs before checkout, DeriveSpec runs after AnalyzeCode, and SpecHandback runs directly after DeriveSpec."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:41-56"
+  - claim: "Outside the server the approval store is an in-memory default that a process which never filed an approval reads back empty; the relational registration replaces it."
+    evidence: "src/backend/AgentSmith.Application/Services/Persistence/InMemorySpecApprovalStore.cs:6-18"
+  - claim: "The server is where that swap happens, beside the spec-set pointer store."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:123-126"
+  - claim: "The record rides a spawned run's initial context as one JSON string under one key."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:66-72"
+  - claim: "A ticket filed from an approved set carries the approved-set stamp, and its record is stored under the id of the ticket just created."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-113"
+  - claim: "An epic's work ticket stores several phases under one record, and a store that fails is fatal to the filing because the ticket would otherwise stop at the spec gate."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:92-110"
+  - claim: "Nothing re-opens a stored record from a design conversation: the load has no caller, and the recorder states it rather than implying it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:28-37"
+  - claim: "A stamped ticket that reaches derivation with no branch set, no carried record and none in a reachable store is refused by name rather than derived."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:37-56"
+  - claim: "That refusal fails the step and publishes the same sentence on the run's gate trail."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutGate.cs:48-60"
+  - claim: "A failed step finalizes the ticket into failed_status, falling back to done_status when none is configured."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:152-168"
+  - claim: "A hand-back instead comments the ticket, moves it to the park status and sets the awaiting-answer flag that short-circuits the rest of the run; an unresolvable park status is the run's failure rather than a park in the wrong place."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:70-100"
+  - claim: "A hand-back can be raised with no set at all: the scope refusal sets one on the context and lets the hand-back step park it."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:20-31"
+  - claim: "Everything that is not the not-implementable verdict parks where a clarification parks, so a new hand-back case needs no change to the park resolver."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:23-35"
+  - claim: "The hand-back comment builder renders any case it does not name as a contradiction."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:45-51"
+  - claim: "The sentence telling an operator where the specs are and which phase may be edited already exists as a constant."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:42-57"
+  - claim: "Whether an approved set is re-cut is decided from the set's own approval, which a set read off the branch carries — so that rule survives the removal of the record as a source."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:106-119"
+  - claim: "The dialog already refuses a cut above the same phase cap where the cut is made, so the run-side cap in the removed arm is the second reading of one rule."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:33-37"
+
+assumptions:
+  - claim: "A set written to the ticket branch at filing time carries its approval, because the one writer serializes it through the same index that the reader parses back."
+    check: "Read the filing-time writer once that phase exists and confirm it goes through SpecSetIndex.Serialize; then round-trip a record built by ApprovedPhaseSetRecorder through Serialize and ApprovalOf and assert the instant, conversation and principal survive."
+  - claim: "A run checks out the same branch the filing wrote to, so the specs are in the working tree the reader reads."
+    check: "Compare the branch the filing-time write pushes to with the name CheckoutSource lands on — TicketBranchNamer.Compose for the ticket — and assert they are the same string for one ticket in a harness run."
+  - claim: "The positional merge has no production caller besides the approved arm, so removing the arm leaves it dead."
+    check: "grep -rn 'ApprovedSetMerge' src --include '*.cs' and confirm the only non-definition hit is ApprovedSetSource; the tests that exercise it move or go with it."
+  - claim: "A hand-back raised before any publish is never counted as a repeat, so a ticket that parks twice for a missing set is not failed as a loop."
+    check: "Read SpecHandbackRepeat.IsRepeat for its behaviour when the pointer is null — a run that never published has no pointer — and pin it with a test at the new case."
+  - claim: "No dashboard surface renders which source a set came from, so removing one source needs no change to the generated event mirror."
+    check: "grep src/dashboard/src for the spec-source values and for the approved-set payload; a hit means gen:hub-events has to be re-run and the mirror committed."
+  - claim: "Every ticket already filed and not yet run has a stored record and an empty branch, and will park once on its next run."
+    check: "List the approved records in the server's store and, for each, whether the ticket branch carries .agentsmith/specs/<key>/set.yaml; every one that does not is a ticket that parks."
