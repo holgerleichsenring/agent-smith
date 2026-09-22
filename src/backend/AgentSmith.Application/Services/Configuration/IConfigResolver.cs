@@ -26,6 +26,11 @@ public interface IConfigResolver
     /// <summary>Effective default run_command timeout (override ?? global). Cheap, never throws.</summary>
     ResolvedValue<int> ResolveRunCommandTimeout(ResolvedProject project);
 
+    /// <summary>Effective whole-project toolchain image: the project's override, or
+    /// run-resolved with a NULL value when it declares none — the image is then detected
+    /// per run and there is no config-time answer. Cheap, never throws.</summary>
+    ResolvedValue<string> ResolveToolchainImage(ResolvedProject project);
+
     /// <summary>Effective cost cap for a pipeline (per-pipeline override ?? default).</summary>
     ResolvedValue<CostCapValues> ResolveCostCap(string? pipelineName);
 

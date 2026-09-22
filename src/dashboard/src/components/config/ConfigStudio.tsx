@@ -33,7 +33,7 @@ interface DrawerState {
 export function ConfigStudio({ section }: { section: StudioSection }) {
   // p0353: the SHARED catalog instance (provided in the shell layout) — reload()
   // here also refreshes the left rail's count badges, not just this pane.
-  const { catalog, loading, error, reload } = useConfigCatalogContext();
+  const { catalog, inheritedSandbox, loading, error, reload } = useConfigCatalogContext();
   // p0345c: the capabilities descriptor is loaded ONCE (module-cached) and
   // feeds every type/provider/strategy dropdown in the drawer forms.
   const { capabilities } = useCapabilities();
@@ -107,6 +107,7 @@ export function ConfigStudio({ section }: { section: StudioSection }) {
             isNew={drawer.isNew}
             catalog={catalog}
             capabilities={capabilities}
+            inheritedSandbox={inheritedSandbox}
             onClose={() => setDrawer(null)}
             onSaved={onSaved}
           />
