@@ -31,14 +31,27 @@ public enum FiledStartState
     /// </para>
     /// </summary>
     Record,
+
+    /// <summary>2026-09-22-9519: the conversation that filed it closed it again, and the TRACKER
+    /// said the close landed. Written only on that answer: a close a tracker did not perform
+    /// leaves the record exactly as it was, because a record saying withdrawn about a ticket still
+    /// on the board is the failure this state exists to prevent.</summary>
+    Withdrawn,
 }
 
 /// <summary>
 /// The state one filed ticket ended in, with the reason in the words the operator reads. Nullable
 /// on <see cref="FiledTicket"/>: a filing written before this phase deserializes without one and
 /// reads as unknown rather than as a claim nobody made.
+/// <para>
+/// 2026-09-22-9519: the STATE is nullable for the same reason the whole record is. It is stored by
+/// name and a stored filing that cannot be read is shown as ABSENT, so a server meeting a state
+/// name a later build added would lose the WHOLE filing over one word. The store reads it through
+/// <see cref="TolerantNullableEnumConverter{TEnum}"/>, which answers null for a name it cannot
+/// place — one word lost, the tickets, the error and the notes all kept.
+/// </para>
 /// </summary>
-public sealed record FiledWorkStart(FiledStartState State, string Reason)
+public sealed record FiledWorkStart(FiledStartState? State, string Reason)
 {
     /// <summary>
     /// The line a filing notice appends under the ticket it is about, as a NESTED BULLET: a bare
@@ -50,10 +63,19 @@ public sealed record FiledWorkStart(FiledStartState State, string Reason)
     [JsonIgnore]
     public string Note => $"\n  - {Label}: {Reason}";
 
+    /// <summary>
+    /// 2026-09-22-9519: EVERY state names itself. This used to fall through to "record" for
+    /// anything it had not been taught, so the first state added after it would have been
+    /// announced as a slice record on every channel the notice reaches. The catch-all is now the
+    /// unreadable case alone — a state this build cannot name is unknown, never one of the words
+    /// above.
+    /// </summary>
     private string Label => State switch
     {
         FiledStartState.Started => "started",
         FiledStartState.NotStarted => "not started",
-        _ => "record",
+        FiledStartState.Record => "record",
+        FiledStartState.Withdrawn => "withdrawn",
+        _ => "unknown",
     };
 }
