@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-6968
+
+goal: "The project form gains a sandbox tab for the five scalar per-project overrides, each showing what it would inherit if the project said nothing — a value nothing in the product computes today."
+
+applies_to: "dashboard (a sandbox tab in the project form, and the studio's route to a resolved projection) + backend (the studio's project projection, its patch, and a new inherited-value projection)"
+
+scope:
+  in: >
+    The per-project sandbox block carries eight overrides and not one of them is editable anywhere
+    in the product; an operator who needs one edits the catalog behind the UI, which on an
+    installation whose configuration lives in the database means a transfer file or a direct write.
+    This phase opens the project form's sixth tab and puts the FIVE SCALAR ones in it — the
+    whole-project toolchain image, the step wall-time cap, the run_command default, the agent
+    registry and the agent version — beside the hold window 2026-09-22-2d11a adds. The other three
+    are structured values whose inheritance is a different question each time, and they are
+    2026-09-22-6c46.
+    THE INHERITED VALUE HAS TO BE BUILT; IT DOES NOT EXIST. The obvious move is to reuse the
+    resolved-settings projection, and it is wrong: that projection answers "what would a run of
+    this project get", so for a project that HAS an override it returns the override, labelled
+    override. A control whose placeholder is its own current value tells the operator nothing, and
+    the one question this tab exists to answer is what clearing the field restores. So the phase
+    computes a second, explicitly counterfactual value per field — what this project would get if
+    its sandbox block were empty — and puts it on the wire beside the effective one.
+    AND IT HAS TO REACH THE FORM. The resolved projection is fetched by exactly one component,
+    which is not in the studio; the studio loads a catalog of editable entities and nothing else,
+    and hands the project form a catalog and a capabilities object. The phase threads the
+    inherited values from the studio's own load down to the form. A project that does not exist
+    yet has no row in that projection at all, so a new project's draft shows the process-wide
+    values and says so, rather than showing blanks that would read as "inherits nothing".
+    ABSENT AND NULL MUST BE TOLD APART, OR THE TAB IS A DELETION TOOL. The editable project
+    entity is a positional record and the API binds unmapped members by skipping them, so a field
+    an old client never sends and a field an operator deliberately cleared arrive identically. The
+    phase names the discriminator it uses and proves both directions: a client that does not know
+    the block leaves it alone, and a cleared control writes null.
+    THE PATCH IS WHERE THIS CAN DO REAL DAMAGE. The sandbox block survives a studio save today by
+    never being mentioned — the patch mutates the stored entry rather than rebuilding it. The
+    moment the projection carries the block, it becomes something a save can destroy.
+  out: >
+    THE THREE STRUCTURED OVERRIDES. The cpu/memory group, the per-language image map and the pod's
+    secret injection — 2026-09-22-6c46, because each needs an inheritance answer this phase's
+    counterfactual cannot give: the resource group's inherited value is pipeline-dependent and its
+    global default is projected nowhere, the image map inherits from a code table and wins per KEY
+    rather than wholesale, and the secrets block has no process-wide counterpart at all, so it
+    inherits nothing and must say so instead of showing a placeholder.
+    THE HOLD WINDOW ITSELF. 2026-09-22-2d11a owns the field, its resolution and its default; this
+    phase is the section it lands in. Either order works and neither is a dependency.
+    THE GLOBAL SANDBOX SETTINGS. The settings form already carries the process-wide block,
+    unchanged here — including the agent registry and version, which are editable there today at
+    the global level and nowhere at the project level.
+    MAKING THE VALUES APPLY WITHOUT A RESTART. Seven types take the frozen sandbox options, which
+    is why the concurrent-sandbox bound had to be routed around the resolution pass. Named in
+    2026-09-18-0f27 and not this phase; the tab says which values apply to the next run and which
+    need a restart, the way the settings form already does for its own.
+    THE REPO FIELDS THIS ROUND TRIP ALREADY DESTROYS. The patch rebuilds a project's repo refs
+    unconditionally on every save, so a repository's default branch and its consumes list are lost
+    by ANY save — including one this new tab provokes. This phase does not fix that and does not
+    claim the round trip is safe; it is named in prose as the phase that closes the studio's lossy
+    project write, and it is the reason this phase's own tests assert what a save does NOT change
+    only about the sandbox block.
+    THE ORCHESTRATOR BLOCK. It sits beside the sandbox block with the same problem and its own
+    resolution. Named in prose as the phase that gives it the same treatment.
+
+decisions:
+  - key: |
+      A SIXTH TAB, NOT A SIXTH SCROLL. The project form was one scroll of eleven controls until
+      2026-09-16-74a2 cut it into five tabbed sections, for the stated reason that a scroll says
+      nothing about what it decides. Six sandbox controls appended to an existing tab would rebuild
+      the shape that phase removed, and they belong to none of identity, repos, pipeline, templates
+      or routing.
+  - key: |
+      THE COUNTERFACTUAL IS A SECOND VALUE, NOT A SECOND RESOLVER. What the form needs is the
+      existing resolution run against a project whose sandbox block is empty — the same code, one
+      different input. Writing a parallel "inheritance resolver" would be a second answer that can
+      disagree with the first, which is the defect this repository's resolution pass was
+      consolidated to end. For the scalar five that substitution is exact; it is exactly the
+      structured three, where the resolution reads more than the project's own block, that this
+      phase leaves to its sibling.
+  - key: |
+      THE TOOLCHAIN IMAGE INHERITS A PROCESS, NOT A VALUE, AND THE CONTROL SAYS SO. With no
+      override the image is detected per run from a cached project map, a remote context document
+      or a convention table, and the resolution already reports that as run-resolved with a null
+      value. The placeholder is therefore a sentence, not a value — and a blank there would be read
+      as "no image", which is the one thing it never means.
+  - key: |
+      A DRAFT PROJECT HAS NO RESOLVED ROW, AND THAT IS A FEATURE ONLY IF IT IS SAID. The projection
+      is keyed by the name of a project the running configuration holds, so a project being created
+      — and a project being renamed before its save — resolves to nothing. The tab falls back to
+      the process-wide values, which is exactly what such a project will inherit the moment it
+      exists.
+  - key: |
+      THE NULL-VERSUS-ABSENT DISCRIMINATOR IS NAMED HERE BECAUSE C# NULLABLES CANNOT CARRY IT. The
+      templates list solved the same problem at the block level — a null list means "I was not
+      told", and the stored value is left alone. This phase follows that rule at the BLOCK level
+      and makes the field level unambiguous by a different route: a form that shows the block
+      always sends the whole block, so within a sent block a null field means cleared. An entity
+      with no block at all is the only leave-alone unit, and the tests assert both halves.
+  - key: |
+      CLEARING WRITES NULL, AND THE ONE EXISTING PRECEDENT IS THE ONE TO COPY. Four of the five
+      numbers on the settings form restore their previous value when cleared, because they are
+      required; only the concurrent-sandbox bound emits null. Every control on this tab is
+      nullable, so the bound's behaviour is the precedent and the other four are not.
+
+steps:
+  - id: the-projection-carries-the-block-and-its-counterfactual
+    action: "The studio's project projection carries the five scalar sandbox overrides, and a per-project inherited-value projection carries what each would resolve to with the project's sandbox block empty — the existing resolution run against that input, with the toolchain image reported as run-resolved."
+  - id: the-patch-cannot-wipe-what-it-was-not-sent
+    action: "The project patch writes the sandbox block only when the entity carries one, leaving the stored block untouched otherwise, and within a sent block writes each field as given including null."
+  - id: the-studio-can-see-the-inherited-values
+    action: "The studio loads the inherited-value projection alongside its catalog and threads it to the project form; a project with no row falls back to the process-wide values."
+  - id: the-form-gains-a-sandbox-tab
+    action: "The project form gains a sandbox tab with the five scalar controls, each showing its inherited value as a placeholder and its provenance beside it, and saying which values apply to the next run and which need a restart."
+
+tests:
+  - "ProjectProjection_AProjectWithScalarSandboxOverrides_ProjectsThemAll"
+  - "ProjectProjection_AProjectWithNoSandboxBlock_ProjectsAbsenceNotDefaults"
+  - "InheritedProjection_AProjectThatOverridesAValue_StillReportsWhatItWouldInherit"
+  - "InheritedProjection_AProjectThatOverridesNothing_ReportsTheSameValueAsTheEffectiveOne"
+  - "InheritedProjection_AToolchainImageWithNoOverride_IsReportedAsRunResolvedNotAsEmpty"
+  - "ProjectPatch_AnEntityWithNoSandboxBlock_LeavesTheStoredBlockUntouched"
+  - "ProjectPatch_ASentBlockWithANullField_ClearsThatFieldToInherit"
+  - "ProjectPatch_ASentBlock_LeavesTheStructuredOverridesItDoesNotCarryUntouched"
+  - "ProjectForm_TheSandboxTab_RendersTheFiveScalarControlsWithTheirInheritedPlaceholders"
+  - "ProjectForm_ADraftProjectWithNoResolvedRow_ShowsTheProcessWideValues"
+  - "ProjectForm_ARunResolvedToolchainImage_SaysItIsDetectedAtRunTimeRatherThanShowingABlank"
+  - "ProjectForm_ClearingAControl_SendsNullRatherThanZeroOrTheEmptyString"
+
+done:
+  - "the five scalar per-project sandbox overrides are editable in the project form"
+  - "every control says what clearing it would restore, and a draft project says it too"
+  - "no save can clear a sandbox value the form did not show"
+  - "dashboard build + tests green, backend build green, full suite green"
+
+facts:
+  - claim: "The per-project sandbox block carries eight overrides: toolchain image at 22, resources at 31, agent registry at 39, agent version at 46, step timeout at 54, run_command timeout at 62, a per-language image map at 73 and the pod's secrets at 82."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:12-83"
+  - claim: "The raw project entry carries that block, so the catalog can already express every one of them."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawProjectEntry.cs:45"
+  - claim: "The studio's editable project projection carries none of it, on either side of the wire."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs:13-28, src/dashboard/src/lib/configApi.ts:463-477"
+  - claim: "No per-project sandbox override is editable anywhere in the dashboard; the toolchain image, resources, image map and secrets appear only as read-only display, and the agent registry and version are editable ONLY as the process-wide block."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:134,137 (global), src/dashboard/src/components/system/ProjectDetailPanel.tsx:170-176 (read-only)"
+  - claim: "The project form is five tabs and holds no sandbox control, and it was cut into tabs deliberately from one scroll of eleven."
+    evidence: "src/dashboard/src/components/config/ProjectForm.tsx:19-22,28-29"
+  - claim: "The resolution pass returns the project's OWN override as the resolved value when one is set, so it cannot answer what the project would inherit."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs:91-99,106-109"
+  - claim: "With no toolchain override the resolution reports run-resolved with a null value, and a panel already renders that case."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs:106-109, src/dashboard/src/components/system/ProjectDetailPanel.tsx:195"
+  - claim: "The resolved snapshot is fetched by exactly one component, which is not in the config studio; the studio loads seven CRUD lists plus capabilities and hands the project form only a catalog and a capabilities object."
+    evidence: "src/dashboard/src/components/system/ConfigView.tsx:31, src/dashboard/src/components/config/useConfigCatalog.ts:75-83, src/dashboard/src/components/config/EntityDrawer.tsx:36-43, src/dashboard/src/components/config/EntityForm.tsx:151-158"
+  - claim: "The snapshot is keyed by the name of a project the running configuration holds, so a draft has no row."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:72-80"
+  - claim: "The project patch mutates the existing raw entry, so the sandbox block survives a save by never being assigned."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs:115-143"
+  - claim: "The patch already treats the templates list as absent-means-leave-alone for exactly this reason, and its own comments name two repo fields that are lost because the repo list is rebuilt unconditionally."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs:120,125-129,137"
+  - claim: "The API binds unmapped members by skipping them and sets only case-insensitivity, so an unknown field is dropped and a missing one binds null — an old client and a deliberate null are indistinguishable at the object level."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigEntityRoutes.cs:31, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigDocJson.cs:12-16"
+  - claim: "Four of the five numbers on the settings form restore their previous value when cleared; only the concurrent-sandbox bound emits null."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:98-100,145-150,161-162"
+  - claim: "A secrets catalog entry is nothing but its environment name, by design."
+    evidence: "src/dashboard/src/lib/configApi.ts:486-490"
+
+assumptions:
+  - claim: "The existing resolution can be run against a project whose sandbox block is empty without side effects, so the counterfactual is the same code with one different input."
+    check: "Read what ConfigResolutionPass caches and whether Resolve(project) is pure with respect to the project it is handed."
+  - claim: "The five scalar controls need no new field primitive."
+    check: "Open formFields.tsx and establish which of a nullable number, a text field and a provenance line already exists."

@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-6c46
+
+requires:
+  - 2026-09-22-6968
+
+goal: "The three structured per-project sandbox overrides join the project's sandbox tab, each answering the inheritance question its own way — one per key, one per pipeline, and one that inherits nothing."
+
+applies_to: "dashboard (three controls in the project form's sandbox tab) + backend (a per-key image projection, a resource projection that names its layer, and the secrets round trip)"
+
+scope:
+  in: >
+    Three of the eight per-project sandbox overrides are structured values, and each defeats the
+    counterfactual its sibling phase uses for the scalar five.
+    THE CPU AND MEMORY GROUP. Its resolution has four layers, not two: the project's own block, then
+    a light profile forced on every pipeline that does not change code, then resources an LLM wrote
+    into a context document, then the global. The snapshot asks for the project's configured
+    pipeline and passes no context resources, so what it shows already swings on which pipeline the
+    project happens to name and never reflects the third layer at all; and the global default is
+    projected nowhere. So the control cannot say "this is what you inherit" in one value. It shows
+    the layer that would answer and names it, and it is one group that is wholly given or wholly
+    inherited, because the model refuses a partial override.
+    THE PER-LANGUAGE IMAGE MAP. It is merged OVER a code-default table, per key — a project that
+    pins its dotnet image still inherits the node one. Inheritance here is therefore not one value
+    but one per key, including keys the project has not named, and the table it inherits from is
+    code rather than configuration. The projection exports that table with per-key provenance, or
+    the control cannot show a row's placeholder at all.
+    THE POD'S SECRET INJECTION. It has NO process-wide counterpart — the global sandbox block has no
+    secrets field — so it inherits nothing, and a placeholder would be a lie. The control says the
+    project declares these or none, and it edits NAMES only: a Kubernetes Secret and the keys taken
+    from it. Its file mounts are a list of three-field rows for which no field primitive exists, so
+    this phase builds one control rather than bending a map editor into a shape it does not have.
+  out: >
+    THE SCALAR FIVE AND THE TAB ITSELF. 2026-09-22-6968 builds the tab, the round trip, the patch
+    guard and the inherited-value projection; this phase adds three controls to a section that
+    already exists and extends a projection that already exists.
+    FIXING THE RESOURCE RESOLUTION'S HIDDEN LAYER. The snapshot not passing context resources is a
+    defect of the projection, not of this control, and correcting it changes what an existing panel
+    displays. Named in prose as the phase that makes the resolved resources say which of the four
+    layers answered.
+    PUTTING A SECRET VALUE ANYWHERE NEAR THIS PRODUCT. Values live in the cluster. This edits names,
+    and the secrets catalog's own entry — nothing but an environment name — is the line being held.
+    THE CODE-DEFAULT IMAGE TABLE ITSELF. It is exported for display; which images it holds and
+    whether they are right is not this phase's question.
+
+decisions:
+  - key: |
+      THREE FIELDS, THREE DIFFERENT ANSWERS, WHICH IS WHY THEY ARE NOT IN THE SCALAR PHASE. A
+      counterfactual resolution — run the pass against an empty sandbox block — is exact for a
+      value that depends only on that block. It is wrong for the resource group, whose answer
+      depends on the pipeline and on a document the projection never reads; it is the wrong SHAPE
+      for the image map, where inheritance is per key; and it is meaningless for secrets, which
+      inherit nothing. Shipping them beside the five would have meant one obligation the phase
+      could only meet for some of its controls.
+  - key: |
+      THE RESOURCE CONTROL NAMES ITS LAYER RATHER THAN PRETENDING TO ONE NUMBER. Four layers and a
+      forced light profile mean an honest control has to say WHICH would apply, not just what it
+      would be. That is also the cheapest correct thing to build: the resolver already knows which
+      branch it took.
+  - key: |
+      THE IMAGE MAP'S PROVENANCE IS PER KEY BECAUSE THE MERGE IS PER KEY. A wholesale
+      override/inherited flag would tell an operator that pinning one language replaced the table,
+      which is the opposite of what the merge does.
+  - key: |
+      THE SECRETS CONTROL SAYS "NONE INHERITED" AND MEANS IT. Absence of a global counterpart is a
+      fact about the configuration model, not an oversight to paper over with a blank placeholder
+      that reads like an inherited empty set.
+  - key: |
+      THE FILE-MOUNT CONTROL IS NEW AND IS BUDGETED. The existing map editor is a flat
+      string-to-string record and cannot express a list of mount, secret and key. The nearest thing
+      in the tree is the template row, which is a bespoke component for the same reason.
+  - key: |
+      DELETING THE LAST ROW OF A MAP ALREADY MEANS INHERIT, AND THAT IS KEPT. The map editor emits
+      nothing rather than an empty record when its last row goes, so a project cannot declare "an
+      empty map" — which matches null-means-inherit exactly and needs no new rule.
+
+steps:
+  - id: the-resource-group-names-its-layer
+    action: "The resolved projection reports which layer answers a project's resources, and the sandbox tab renders one group that is wholly given or wholly inherited, naming the layer it would inherit from."
+  - id: the-image-map-inherits-per-key
+    action: "The code-default image table is projected with per-key provenance, and the tab's map control shows an unnamed key's inherited image as its placeholder."
+  - id: the-secrets-block-is-edited-by-name
+    action: "The tab carries the secret environment map and a file-mount control of mount, secret and key rows, offering no value field and saying that nothing is inherited."
+  - id: the-round-trip-carries-all-three
+    action: "The projection and the patch carry the three structured overrides under the same block-level absent-means-leave-alone rule the scalar phase established."
+
+tests:
+  - "ResourceProjection_AProjectWithNoOverride_NamesTheLayerThatWouldAnswer"
+  - "ResourceProjection_ANonCodeChangingPipeline_ReportsTheLightProfileAsTheAnswer"
+  - "ProjectForm_TheResourceGroup_IsWhollyInheritedOrWhollyGiven"
+  - "ImageProjection_ACodeDefaultTable_IsProjectedWithPerKeyProvenance"
+  - "ProjectForm_AnImageKeyTheProjectDoesNotName_ShowsTheInheritedImageAsItsPlaceholder"
+  - "ProjectForm_AnImageKeyTheProjectPins_ShowsItAsAnOverrideWithoutClaimingTheTableIsReplaced"
+  - "ProjectForm_TheSecretsBlock_SaysNothingIsInheritedAndOffersNoValueField"
+  - "ProjectForm_TheFileMountControl_EditsMountSecretAndKeyRows"
+  - "ProjectForm_DeletingTheLastMapRow_WritesInheritNotAnEmptyMap"
+  - "ProjectPatch_ASentBlockWithoutTheStructuredOverrides_LeavesThemUntouched"
+
+done:
+  - "all eight per-project sandbox overrides are editable in the project form"
+  - "no control claims an inherited value it cannot compute"
+  - "no secret value is edited, displayed or stored by this product"
+  - "dashboard build + tests green, backend build green, full suite green"
+
+facts:
+  - claim: "The resource resolution has four layers and forces a light profile on a pipeline that does not change code."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs:28-48"
+  - claim: "The resolution pass asks for the project's configured pipeline and passes no context resources, so the third layer never reaches the snapshot."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs:103-104"
+  - claim: "The globals projection carries registry, version and the two timeouts only, so no global resource default is on the wire."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigGlobals.cs:16-20"
+  - claim: "The resource block is all-or-nothing by the model's own statement."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:24-31"
+  - claim: "The per-language image map is merged over a code-default table and wins per key, with null meaning inherit the code defaults."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:64-73"
+  - claim: "The global sandbox block has no secrets field, no resources field and no toolchain image, so the secrets block has no process-wide counterpart to inherit."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs"
+  - claim: "The pod's secrets are an environment map plus a list of three-field file mounts."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxSecrets.cs:19, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxSecretFile.cs:11-21"
+  - claim: "The existing map editor is a flat string-to-string record and emits nothing when its last row is deleted."
+    evidence: "src/dashboard/src/components/config/MapField.tsx:14-26,46"
+  - claim: "A bespoke row component already exists for a multi-field list, for the same reason."
+    evidence: "src/dashboard/src/components/config/TemplateRow.tsx"
+
+assumptions:
+  - claim: "The resource resolver can report which layer it took without changing what it returns."
+    check: "Read the resolver's branches and establish whether the layer is recoverable from the result or needs to be returned alongside it."
+  - claim: "The code-default image table is enumerable rather than computed per lookup."
+    check: "Open the spec builder's default table and establish whether it is a dictionary that can be projected or a switch that cannot."
