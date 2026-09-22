@@ -43,9 +43,13 @@ public sealed class SpecSourceResolver(
     /// <param name="Cause">The cause the next revision names.</param>
     /// <param name="Handback">2026-09-22-6ad7: set when the run PARKS instead of working — the
     /// approved specification is not readable on the branch and there is none to guess from.</param>
+    /// <param name="Approval">2026-09-22-8b25: the approval the revision must record, set only by
+    /// a DEMAND. The set a re-cut produces carries none of its own, and a re-cut published without
+    /// one would read back as unapproved on the next run — losing the immunity after exactly one
+    /// demand.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Error = null, string? Cause = null,
-        SpecHandback? Handback = null);
+        SpecHandback? Handback = null, SpecApproval? Approval = null);
 
     public Decision Decide(
         SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer,
@@ -61,7 +65,9 @@ public sealed class SpecSourceResolver(
                 "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
                 key, artifact.Set.Phases.Count,
                 amend ? "amending it with the new input" : "using it unchanged");
-            return new Decision(SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause);
+            return new Decision(
+                SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause,
+                Approval: SpecRecutDemand.ApprovalFor(cause, artifact.Set, pipeline));
         }
 
         // ONLY when the path holds nothing. A branch this run could not read may carry an edit,

@@ -86,7 +86,7 @@ public sealed class DeriveSpecHandler(
         var reported = await keptNotice.PostAsync(
             context.Pipeline, context.Tracker, set, decision.Cause!, discarded: null, cancellationToken);
         var finalized = SpecRevisionHeader.Finalize(
-            set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported);
+            set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported, decision.Approval);
         var result = await publisher.PublishAsync(
             context.Pipeline, project, repo, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)

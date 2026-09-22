@@ -23,6 +23,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// where the edit sits, for the same reason. The executed-phase record moves the pointer
 /// now, so the sha comparison below reads a marker's commit as this system's own.
 /// </para>
+/// <para>
+/// 2026-09-22-8b25: and so does a DEMAND — a comment opening with the reserved phrase, which is
+/// the one input that re-cuts a set somebody approved. It is decided FIRST, so a person who
+/// demands a re-cut and edits the ticket in the same breath gets the re-cut rather than a notice
+/// saying their edit was kept out; and it yields to a resume like every other input.
+/// </para>
 /// </summary>
 public static class SpecRevisionCause
 {
@@ -32,6 +38,12 @@ public static class SpecRevisionCause
     public const string Retrigger = "re-trigger on the ticket";
     public const string Comment = "comment on the ticket";
     public const string TicketEdit = "ticket text edited since the previous revision";
+
+    /// <summary>2026-09-22-8b25: somebody wrote the reserved phrase in a comment and asked for the
+    /// set to be cut again. It outranks the plain edit and comment causes because it is the one
+    /// input that re-cuts a set a person APPROVED, and naming it is how the history can say why an
+    /// approved set changed.</summary>
+    public const string RecutDemand = "re-cut demanded on the ticket";
 
     /// <summary>2026-09-17-0e79a: the set was approved in the design conversation. The cause names
     /// the conversation it was approved in, so the revision history says which approval this
@@ -49,6 +61,7 @@ public static class SpecRevisionCause
     {
         if (previous is null) return Initial;
         var resuming = pipeline.Has(ContextKeys.ResumeCheckpoint);
+        if (!resuming && Demanded(previous.Set, pipeline) is not null) return RecutDemand;
         if (!resuming && IsEdited(previous.Set, ticket)) return TicketEdit;
         if (!resuming && IsCommented(pipeline)) return Comment;
         if (pointer is null
@@ -61,6 +74,14 @@ public static class SpecRevisionCause
     private static bool IsEdited(SpecSet previous, Ticket ticket) =>
         previous.TicketFingerprint is { } cutFrom
         && !string.Equals(cutFrom, TicketTextFingerprint.Of(ticket), StringComparison.Ordinal);
+
+    /// <summary>
+    /// 2026-09-22-8b25: the demand this run must act on, or null. Public because the run has to
+    /// know WHO demanded it and WHEN — a demand records a new approval, and the cause is only a
+    /// string.
+    /// </summary>
+    public static TicketComment? Demanded(SpecSet? set, PipelineContext pipeline) =>
+        SpecRecutDemand.From(pipeline, set);
 
     /// <summary>
     /// 2026-09-17-0e79b: whether anyone but us commented after our last cut comment — the same
