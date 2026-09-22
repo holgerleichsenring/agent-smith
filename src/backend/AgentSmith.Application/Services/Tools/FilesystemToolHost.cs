@@ -306,38 +306,16 @@ public sealed class FilesystemToolHost : IToolHost
         _logger?.LogInformation("tool_call: FindFiles pattern={Pattern} root={Root}", pattern, root);
         if (_guards.CheckRead(root) is { } error) return error;
         var limit = head_limit ?? SizeLimits.GrepDefaultHeadLimit;
-        var normalized = NormalizeFindPattern(pattern);
         var (runner, bareRoot, routeErr) = Route(root);
         if (routeErr is not null) return routeErr;
-        // head -N+1 so we can detect over-limit and emit the truncation marker.
-        var cmd = $"find {ShellQuote(bareRoot)} -type f -path {ShellQuote(normalized)} 2>/dev/null | head -{limit + 1}";
-        var structured = await runner!.RunAsync(cmd, timeoutSeconds: null, ct);
-        return FormatFindOutput(structured, limit);
-    }
-
-    private static string NormalizeFindPattern(string pattern)
-    {
-        var normalized = pattern.Replace("**", "*");
-        var hasGlob = normalized.Contains('*') || normalized.Contains('?');
-        return hasGlob ? normalized : $"*{normalized}*";
-    }
-
-    private static string FormatFindOutput(string structured, int limit)
-    {
-        // RunAsync returns the labeled-section format; pull stdout out.
-        var stdout = ExtractStdoutSection(structured);
-        var lines = stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length <= limit) return string.Join('\n', lines);
-        return string.Join('\n', lines.Take(limit)) + $"\n(truncated: {limit} matches)";
-    }
-
-    private static string ExtractStdoutSection(string structured)
-    {
-        var idx = structured.IndexOf("stdout:\n", StringComparison.Ordinal);
-        if (idx < 0) return string.Empty;
-        var start = idx + "stdout:\n".Length;
-        var end = structured.IndexOf("\n\nstderr:", start, StringComparison.Ordinal);
-        return end < 0 ? structured[start..] : structured[start..end];
+        // 2026-09-22-46ef: the operands are the server's — see FileSearchStep for why a
+        // model-written root may not reach find as it was written.
+        if (!Specs.ContainedPath.TryRelative(bareRoot, out var relativeRoot))
+            return $"Error: {Specs.ContainedPath.Refusal}";
+        var run = await runner!.RunProgramAsync(
+            FileSearchStep.Program, FileSearchStep.Arguments(relativeRoot, pattern),
+            timeoutSeconds: null, ct);
+        return FileSearchStep.Format(run, limit);
     }
 
     [Description("Replaces an EXACT string occurrence in a file. By default old_string must appear EXACTLY ONCE — provide enough surrounding context to make it unique. With replace_all=true, every occurrence is replaced and the count is reported.")]
@@ -446,39 +424,27 @@ public sealed class FilesystemToolHost : IToolHost
         [property: Description("When true, replace every occurrence in this step. Default false.")] bool replace_all = false);
 
     [Description("Sends an HTTP request from inside the sandbox and returns response status, headers, and body. Use for live API probing (anonymous endpoint behaviour, malformed-payload response codes, header inspection). For reading documentation pages, p0154 ships web_fetch.")]
-    public Task<string> HttpRequest(
+    public async Task<string> HttpRequest(
         [Description("HTTP method: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS.")] string method,
-        [Description("Full URL including scheme.")] string url,
+        [Description("Absolute http:// or https:// URL.")] string url,
         [Description("Optional request body for POST/PUT/PATCH.")] string? body = null,
         [Description("Optional request headers, one per line: 'Authorization: Bearer xyz\\nContent-Type: application/json'.")] string? headers = null,
         [Description("Optional connection timeout in seconds (default 15, max 60).")] int? timeout_seconds = null,
         CancellationToken ct = default)
     {
         _logger?.LogInformation("tool_call: HttpRequest {Method} {Url} body_len={BodyLen}", method, url, body?.Length ?? 0);
-        var allowedMethods = new[] { "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS" };
-        var upperMethod = method?.ToUpperInvariant() ?? "GET";
-        if (!allowedMethods.Contains(upperMethod))
-            return Task.FromResult($"Error: unsupported HTTP method '{method}'. Allowed: {string.Join(", ", allowedMethods)}.");
-        if (string.IsNullOrWhiteSpace(url))
-            return Task.FromResult("Error: url is required.");
-
         var clampedTimeout = Math.Clamp(timeout_seconds ?? 15, 1, 60);
-        var parts = new List<string> { "curl", "-sS", "-i", "--max-time", clampedTimeout.ToString(), "-X", upperMethod };
-        if (!string.IsNullOrEmpty(headers))
-            foreach (var line in headers.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            { parts.Add("-H"); parts.Add(line); }
-        if (!string.IsNullOrEmpty(body))
-        { parts.Add("--data-raw"); parts.Add(body); }
-        parts.Add(url);
-
-        var cmd = string.Join(" ", parts.Select(ShellQuote));
+        // 2026-09-22-46ef: the argument list and the reasons it may not be built live in
+        // HttpRequestStep; it is sent as a program with its arguments, never as a shell string.
+        var (refusal, parts) = HttpRequestStep.Build(method, url, body, headers, clampedTimeout);
+        if (refusal is not null) return refusal;
         // HttpRequest is sandbox-agnostic in semantics; dispatch via default repo
         // (repo=null never errors, so the runner is always present).
         var (httpRunner, _) = Resolve(repo: null);
-        return httpRunner!.RunAsync(cmd, timeoutSeconds: clampedTimeout + 5, ct);
+        var run = await httpRunner!.RunProgramAsync(
+            HttpRequestStep.Program, parts, clampedTimeout + 5, ct);
+        return run.Rendered;
     }
-
-    private static string ShellQuote(string s) => "'" + s.Replace("'", "'\\''") + "'";
 
     [Description("Searches a single file for lines matching a regular expression. Use when you already know the file path. context_before / context_after / context (shorthand) include adjacent lines. output_mode: 'content' (default, with line numbers), 'files_with_matches' (just the path), 'count' (matches per file).")]
     public Task<string> GrepInFile(

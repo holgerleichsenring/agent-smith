@@ -43,8 +43,11 @@ public sealed class DependencyAuditTool(
     {
         if (!look.TryOpen(repository, out var sandbox, out var refusal)) return refusal;
 
-        // 2026-09-17-042ed: a read-only source scope refuses a Run step with exit 1, which this
-        // tool's own convention reads as "findings: none". Nothing is sent to one.
+        // 2026-09-17-042ed: nothing is sent to a read-only source scope. 2026-09-22-46ef: the
+        // reason is no longer the step kind — that scope now serves a server-built process. It is
+        // the IMAGE: the generic checkout image carries no ecosystem toolchain, so an audit step
+        // would fail to start, and this tool's own convention reads a bad exit as "proves
+        // nothing" anyway. Serving it would trade one honest sentence for a less honest one.
         if (sandbox is ISourceScopeSandbox)
         {
             var refused = look.Evidence.Remember(new EvidenceRecord(

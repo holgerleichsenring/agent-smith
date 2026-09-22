@@ -7,9 +7,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
 /// p0315b: lazy READ-ONLY sandbox over one repo of a spec-dialog scope. Nothing spawns
-/// until the first content read; ReadFile / ListFiles / Grep / DirectoryTree are served and
-/// Run / WriteFile come back as failed step results. Owner disposes per turn; the agent's
-/// idle self-exit and the orphan reaper are the backstops.
+/// until the first step is served. Owner disposes per turn; the agent's idle self-exit and
+/// the orphan reaper are the backstops.
+/// <para>2026-09-22-46ef: read-only is a rule about DAMAGE, not about step kinds — the
+/// reads, the program allowance and the write policy live in
+/// <see cref="SourceScopeRefusal"/>.</para>
 /// <para>2026-09-13-9802: a scope may name a revision. The git ladder that lands on it, and
 /// the five refusals it tells apart, live in <see cref="SourceScopeMaterialiser"/> — which
 /// also issues the clone, before this guard applies; <see cref="SourceScopeOpener"/> spawns
@@ -21,9 +23,14 @@ public sealed class SourceScopeSandbox(
     string? revision,
     SourceScopeOpener opener,
     ISourceScopeObserverAccessor observers,
-    ILogger logger) : ISourceScopeSandbox
+    ILogger logger,
+    IReadOnlyCollection<string>? writablePrefixes = null) : ISourceScopeSandbox
 {
     private readonly SemaphoreSlim _materializeGate = new(1, 1);
+
+    /// <summary>2026-09-22-46ef: empty means every write is refused — the default.</summary>
+    private readonly SourceScopeWritePolicy _writes = new(writablePrefixes ?? []);
+
     private ISandbox? _inner;
 
     public string RepoName => repo.Name;
@@ -34,7 +41,7 @@ public sealed class SourceScopeSandbox(
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
-        if (SourceScopeRefusal.UnlessRead(step) is { } notARead) return notARead;
+        if (SourceScopeRefusal.Unless(step, _writes) is { } refused) return refused;
         if (string.IsNullOrEmpty(repo.Url))
             return SourceScopeRefusal.Because(step, NoCloneUrl().Message);
 
