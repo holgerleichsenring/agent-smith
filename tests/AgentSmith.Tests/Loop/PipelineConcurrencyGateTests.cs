@@ -1,22 +1,12 @@
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Loop;
 
 public sealed class PipelineConcurrencyGateTests
 {
-    /// <summary>
-    /// 2026-08-28-3793: a LIVENESS bound, not a latency one. The claim is that a released
-    /// permit reaches the waiter at all; the wait exists so a permit that never arrives
-    /// fails the test instead of hanging the run. It was one second, and one second is a
-    /// promise about the SCHEDULER — under a suite that runs three test projects at once
-    /// an async continuation can wait longer than that with nothing wrong, which is the
-    /// starvation MigratedStoreTemplate documents. Thirty seconds still catches a permit
-    /// that is never released, and stops reporting a busy machine as a defect.
-    /// </summary>
-    private static readonly TimeSpan ReachesTheWaiter = TimeSpan.FromSeconds(30);
-
     [Fact]
     public async Task AcquireAsync_BelowLimit_ReturnsImmediately()
     {
@@ -38,7 +28,11 @@ public sealed class PipelineConcurrencyGateTests
         task.IsCompleted.Should().BeFalse();
         permit1.Dispose();
 
-        var permit2 = await task.WaitAsync(ReachesTheWaiter);
+        // 2026-08-28-3793 wrote a LIVENESS bound here and 2026-09-22-3f7c took the number off
+        // it: one second became thirty because a busy scheduler is not a defect, and thirty is
+        // the same promise about the scheduler with a bigger number in it. What is being
+        // claimed is that the released permit reaches the waiter AT ALL.
+        var permit2 = await task.OrHang("the released permit reaches the waiter");
         permit2.Should().NotBeNull();
         permit2.Dispose();
     }
@@ -51,7 +45,8 @@ public sealed class PipelineConcurrencyGateTests
         var permit = await gate.AcquireAsync(CancellationToken.None);
         permit.Dispose();
 
-        var second = await gate.AcquireAsync(CancellationToken.None).WaitAsync(ReachesTheWaiter);
+        var second = await gate.AcquireAsync(CancellationToken.None)
+            .OrHang("the disposed permit is available again");
         second.Should().NotBeNull();
     }
 
@@ -61,10 +56,14 @@ public sealed class PipelineConcurrencyGateTests
         using var gate = new PipelineConcurrencyGate(new LoopLimitsConfig { MaxConcurrentSkillCalls = 1 });
         await gate.AcquireAsync(CancellationToken.None);
 
+        // The waiter is cancelled by the test rather than by a timer, so what is proven is
+        // that a cancelled wait throws — not that fifty milliseconds were enough for it to
+        // have started waiting.
         using var cts = new CancellationTokenSource();
-        cts.CancelAfter(50);
+        var waiting = gate.AcquireAsync(cts.Token);
+        await cts.CancelAsync();
 
-        Func<Task> act = async () => await gate.AcquireAsync(cts.Token);
+        Func<Task> act = async () => await waiting;
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 }

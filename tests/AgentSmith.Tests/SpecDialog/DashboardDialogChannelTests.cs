@@ -136,7 +136,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         result.Should().BeOfType<Accepted>("the turn runs a master and its approval gate "
             + "waits up to fifteen minutes — the request cannot hold that");
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await entered.Task.OrHang("the dispatched turn enters the runner");
         _hub.Pushes.Should().HaveCount(opened, "the reply has not been composed yet");
         release.SetResult();
         await Settle(opened + 1);
@@ -264,7 +264,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
                 return SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome());
             });
         await Ingest("design the widget", Owner);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await entered.Task.OrHang("the dispatched turn enters the runner");
+
         var before = _hub.Pushes.Count;
 
         var result = await Resume(opened!.JobId, FreshDialog);
@@ -394,7 +395,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             });
         var opened = _hub.Pushes.Count;
         await Ingest("the first thought", Owner);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await entered.Task.OrHang("the dispatched turn enters the runner");
 
         await Ingest("and one more thing", Owner);
         await Settle(opened + 1);
@@ -642,12 +643,8 @@ new DashboardOutcomeChannel(
 
     private Task SettleAnswers() => WaitFor(() => _dialogueTransport.Invocations.Count > 0);
 
-    private static async Task WaitFor(Func<bool> reached)
-    {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (!reached() && DateTimeOffset.UtcNow < deadline) await Task.Delay(10);
-        reached().Should().BeTrue("the dispatched turn never produced what it was waited on for");
-    }
+    private static Task WaitFor(Func<bool> reached) =>
+        TestWaits.UntilAsync(reached, "the dispatched turn produces what it was waited on for");
 
     private string LastText() => TextOf(_hub.Pushes.Last());
 
@@ -661,16 +658,8 @@ new DashboardOutcomeChannel(
     /// immediately — waiting for a push that must not come is what turns "and nothing else was
     /// said" into an assertion rather than a snapshot taken early.
     /// </summary>
-    private async Task<bool> StaysAtAsync(int pushes)
-    {
-        var deadline = DateTimeOffset.UtcNow.AddMilliseconds(500);
-        while (DateTimeOffset.UtcNow < deadline)
-        {
-            if (_hub.Pushes.Count != pushes) return false;
-            await Task.Delay(10);
-        }
-        return _hub.Pushes.Count == pushes;
-    }
+    private Task<bool> StaysAtAsync(int pushes) =>
+        TestWaits.StaysAsync(() => _hub.Pushes.Count == pushes);
 
     private static void Refusal(IResult result) =>
         result.Should().BeOfType<StatusCodeHttpResult>()

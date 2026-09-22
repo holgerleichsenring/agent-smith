@@ -202,8 +202,9 @@ public sealed class ConsoleDialogueTransportTests
     }
 
     /// <summary>
-    /// A TextReader that blocks on ReadLine until disposed/cancelled,
-    /// simulating a console waiting for input that never arrives.
+    /// A TextReader that blocks on ReadLine, simulating a console waiting for input that
+    /// never arrives. The bound is a leak guard on the blocked thread, not a claim: the
+    /// transport's own timeout is what the test is about, and it is much shorter.
     /// </summary>
     private sealed class BlockingTextReader : TextReader
     {
@@ -211,7 +212,7 @@ public sealed class ConsoleDialogueTransportTests
 
         public override string? ReadLine()
         {
-            _semaphore.Wait(TimeSpan.FromSeconds(30));
+            _semaphore.Wait(AgentSmith.Tests.TestHelpers.TestWaits.Hang);
             return null;
         }
     }
