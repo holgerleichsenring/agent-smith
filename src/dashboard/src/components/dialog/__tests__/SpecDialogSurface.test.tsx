@@ -1461,9 +1461,12 @@ describe("SpecDialogSurface", () => {
 
     await renderSurface();
 
-    await waitFor(() =>
-      expect(postSpecDialogMessage).toHaveBeenCalledWith(
-        expect.any(String), "/spec resume s-42", undefined));
+    // 2026-09-22-2a86: the resume is a ROUTE, not a command the page types into the thread —
+    // which is the whole point of retiring `/spec`, and is what the two tests above already
+    // assert for an opening that comes from the list rather than from an address.
+    await waitFor(() => expect(resumeSpecDialogConversation).toHaveBeenCalled());
+    expect(resumeSpecDialogConversation.mock.calls).toEqual([["s-42", heldDialogId()]]);
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
   });
 
   // With the dialog id the row carried, it GOES there instead — which is the only reason the

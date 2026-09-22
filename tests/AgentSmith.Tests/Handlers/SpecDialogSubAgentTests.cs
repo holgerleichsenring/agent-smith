@@ -204,12 +204,17 @@ public sealed class SpecDialogSubAgentTests
     [Fact]
     public async Task SpecDialogTurn_TwoChildrenReadingConcurrently_BothComplete()
     {
-        var childLoop = new CapturingChildLoop(expectedConcurrent: 2);
+        var childLoop = new CapturingChildLoop(holdGate: true);
         var loop = new DesignLoopRunner(Tasks("RepoScout", "ServiceAuditor"));
 
-        await RunAsync(loop, DesignContext(), subAgents: RealRunner(childLoop));
+        var turn = RunAsync(loop, DesignContext(), subAgents: RealRunner(childLoop));
+        // Both children hold at the gate, so the peak IS how many the fan-out had running at
+        // once: a serialised wave never leaves the first child and never reaches two.
+        await TestWaits.UntilAsync(
+            () => childLoop.PeakInFlight >= 2, "the two children read the same scope at once");
+        childLoop.Release();
+        await turn.OrHang("the design turn completes once its children are let go");
 
-        childLoop.BothInFlight.Should().BeTrue("the two children read the same scope at once");
         loop.SpawnResult.Should().NotContain("Failed");
         loop.SpawnResult.Should().Contain("RepoScout").And.Contain("ServiceAuditor");
     }
@@ -300,38 +305,54 @@ public sealed class SpecDialogSubAgentTests
         }
     }
 
-    /// <summary>A child's loop: keeps every child request and, when asked, proves overlap.</summary>
-    private sealed class CapturingChildLoop(int expectedConcurrent = 0) : IAgenticLoopRunner
+    /// <summary>
+    /// A child's loop: keeps every child request and, when gated, holds each child in flight
+    /// until the test lets go, so <see cref="PeakInFlight"/> records how many the fan-out ever
+    /// ran at once. The overlap is a COUNT the test polls, never a deadline the stub outlives.
+    /// </summary>
+    private sealed class CapturingChildLoop(bool holdGate = false) : IAgenticLoopRunner
     {
         private readonly List<AgenticLoopRequest> _seen = [];
-        private readonly TaskCompletionSource _allArrived =
+        private readonly TaskCompletionSource _gate =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly object _lock = new();
         private int _inFlight;
+        private int _peakInFlight;
 
         public IReadOnlyList<AgenticLoopRequest> SeenRequests
         {
-            get { lock (_seen) return [.. _seen]; }
+            get { lock (_lock) return [.. _seen]; }
         }
 
-        public bool BothInFlight { get; private set; }
+        /// <summary>The most children the fan-out ever held in flight at the same moment.</summary>
+        public int PeakInFlight { get { lock (_lock) return _peakInFlight; } }
+
+        /// <summary>Let every held child finish.</summary>
+        public void Release() => _gate.TrySetResult();
 
         public async Task<AgenticLoopResult> RunAsync(
             AgenticLoopRequest request, CancellationToken cancellationToken)
         {
-            lock (_seen) _seen.Add(request);
-            if (expectedConcurrent > 0)
+            lock (_lock)
             {
-                if (Interlocked.Increment(ref _inFlight) >= expectedConcurrent) _allArrived.TrySetResult();
-                // A serialised fan-out never reaches the count, so the flag stays false.
-                var arrived = await Task.WhenAny(_allArrived.Task, Task.Delay(5000, cancellationToken));
-                BothInFlight = arrived == _allArrived.Task;
+                _seen.Add(request);
+                _inFlight++;
+                if (_inFlight > _peakInFlight) _peakInFlight = _inFlight;
             }
-            return new AgenticLoopResult(
-                new ChatResponse(new ChatMessage(ChatRole.Assistant, "what the child read"))
-                {
-                    Usage = new UsageDetails { InputTokenCount = 4, OutputTokenCount = 2 },
-                },
-                TimeSpan.FromMilliseconds(1));
+            try
+            {
+                if (holdGate) await _gate.Task.WaitAsync(cancellationToken);
+                return new AgenticLoopResult(
+                    new ChatResponse(new ChatMessage(ChatRole.Assistant, "what the child read"))
+                    {
+                        Usage = new UsageDetails { InputTokenCount = 4, OutputTokenCount = 2 },
+                    },
+                    TimeSpan.FromMilliseconds(1));
+            }
+            finally
+            {
+                lock (_lock) _inFlight--;
+            }
         }
     }
 }
