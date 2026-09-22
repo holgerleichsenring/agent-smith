@@ -22,6 +22,10 @@ public sealed class TrackerDiscoveryQueryBuilder(
 
     private static readonly DiscoveryBranch BroadBranch = new([], Criterion: null);
 
+    /// <summary>The keys ProjectResolver hard-binds on, which the label guard must let through.</summary>
+    private static readonly string[] PhaseExecutionBindings =
+        [FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel];
+
     public DiscoveryQuery Build(AgentSmithConfig config, TrackerConnection tracker)
     {
         var triggers = config.Projects.Values
@@ -50,15 +54,15 @@ public sealed class TrackerDiscoveryQueryBuilder(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // p0315d: a ticket the framework filed routes hard-bound in ProjectResolver, never via
+        // p0315d: a ticket that hard-binds in ProjectResolver never routes via
         // pipeline_from_label — when the server-side label guard is active it must not filter
-        // those tickets out of discovery, or a filed ticket would never be polled at all.
-        // 2026-09-22-766b: the guard follows the bind. It is the APPROVAL STAMP that hard-binds
-        // now, so that is the key added here — the guard must name exactly what routes, and a
-        // bare phase word no longer does.
-        if (triggerLabels.Count > 0
-            && !triggerLabels.Contains(FiledTicketLabels.ApprovedSetStamp, StringComparer.OrdinalIgnoreCase))
-            triggerLabels.Add(FiledTicketLabels.ApprovedSetStamp);
+        // those tickets out of discovery, or such a ticket would never be polled at all.
+        // 2026-09-22-766b: the guard names EXACTLY what binds, which is two keys — the approval
+        // stamp every filing writes, and the phase word a person types.
+        foreach (var binding in PhaseExecutionBindings)
+            if (triggerLabels.Count > 0
+                && !triggerLabels.Contains(binding, StringComparer.OrdinalIgnoreCase))
+                triggerLabels.Add(binding);
 
         if (branches.Count > MaxBranches)
         {

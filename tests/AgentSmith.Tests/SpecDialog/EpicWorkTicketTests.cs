@@ -49,10 +49,12 @@ public sealed class EpicWorkTicketTests
     }
 
     /// <summary>
-    /// 2026-09-22-766b: the word is gone from the filing. It was written by this framework and
-    /// read by this framework and by nobody else, and the stamp beside it already said the same
-    /// thing — that somebody approved a specification for this ticket, which is exactly what
-    /// "this ticket is phase execution" means.
+    /// 2026-09-22-766b: the word is gone from the FILING, and it is still read — a person types
+    /// it. That is why this pin matters more rather than less: the word binds phase execution, so
+    /// a filing that wrote it would put a framework word on somebody else's board AND hand every
+    /// filed ticket a second binding key. The stamp beside it already says the same thing — that
+    /// somebody approved a specification for this ticket, which is exactly what "this ticket is
+    /// phase execution" means.
     /// </summary>
     [Fact]
     public async Task Filing_AFiledTicket_CarriesNoPhaseWord()
@@ -68,12 +70,13 @@ public sealed class EpicWorkTicketTests
     }
 
     /// <summary>
-    /// And the stamp is still there — it is the one key a filing writes, and dropping it would
-    /// take both jobs with it: the routing bind and the guard against a lost hand-off being
-    /// re-derived from a description anyone can edit.
+    /// And the stamp is still there and is the ONLY thing there — it is the one key a filing
+    /// writes. Dropping it would take both of its jobs with it: the routing bind and the guard
+    /// against a lost hand-off being re-derived from a description anyone can edit. Anything
+    /// beside it would be a word an operator's board gained without choosing it.
     /// </summary>
     [Fact]
-    public async Task Filing_AFiledTicket_StillCarriesTheApprovalStamp()
+    public async Task Filing_AFiledTicket_CarriesOnlyTheApprovalStamp()
     {
         var provider = new RecordingProvider();
 
@@ -81,7 +84,7 @@ public sealed class EpicWorkTicketTests
         await FileRawAsync(provider, new PhaseOutcome(Slice("p9000c")));
 
         provider.Created.Should().HaveCount(2).And.OnlyContain(
-            c => c.Labels.Contains(FiledTicketLabels.ApprovedSetStamp, StringComparer.Ordinal));
+            c => c.Labels.Count == 1 && c.Labels[0] == FiledTicketLabels.ApprovedSetStamp);
     }
 
     [Fact]

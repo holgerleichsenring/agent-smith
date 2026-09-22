@@ -14,9 +14,11 @@ namespace AgentSmith.Tests.Triggers;
 /// phase-execution preset in ProjectResolver — before pipeline_from_label, which would otherwise
 /// drop it. Every other ticket keeps today's label routing (bug -> fix-bug).
 /// <para>
-/// 2026-09-22-766b: the bind reads the APPROVAL, not a word. The word it used to read was written
-/// by this framework and read by this framework and nobody else, while the approval stamp on the
-/// same ticket says the same thing — so one key asserts the fact now.
+/// 2026-09-22-766b: TWO KEYS BIND, FOR TWO DIFFERENT REASONS. A FILING writes the approval stamp
+/// and nothing else — "somebody approved a specification for this ticket" and "this ticket is
+/// phase execution" are one fact, and a word this framework wrote onto somebody else's board only
+/// to read back itself was the redundancy. A PERSON still types the phase word: no filing writes
+/// it, it is a documented trigger an operator chooses, and it binds exactly as it always did.
 /// </para>
 /// <para>
 /// Three of these tests are the reason the obvious move (stop writing the word, read nothing)
@@ -47,14 +49,16 @@ public sealed class PhaseExecutionRoutingTests
     }
 
     [Fact]
-    public void Routing_ATicketCarryingOnlyThePhaseWord_IsRoutedByTheOperatorsOwnRules()
+    public void Routing_AHandTypedPhaseWord_BindsToPhaseExecution()
     {
-        var matches = _sut.Resolve(TagResolved(), Envelope("proj", "phase", "bug"));
+        var matches = _sut.Resolve(
+            TagResolved(), Envelope("proj", PhaseTicketRenderer.PhaseLabel, "bug"));
 
         matches.Should().ContainSingle(
-            m => m.PipelineName == "fix-bug",
-            "the word is nobody's outside this framework and binds nothing any more — this "
-            + "project's own label map decided, exactly as it does for every other ticket");
+            m => m.PipelineName == PipelinePresets.PhaseExecutionName,
+            "no filing writes this word, but a person types it deliberately — it is a documented "
+            + "trigger, it wins over the project's own label map exactly as it always did, and "
+            + "taking it away would remove a way of starting a run that nobody asked to lose");
     }
 
     [Fact]
@@ -107,13 +111,14 @@ public sealed class PhaseExecutionRoutingTests
     }
 
     [Fact]
-    public void Routing_BugTicket_StillSelectsFixBug()
+    public void Routing_ATicketCarryingNeither_IsRoutedByTheOperatorsOwnRules()
     {
         var matches = _sut.Resolve(TagResolved(), Envelope("proj", "bug"));
 
-        matches.Should().ContainSingle(
-            m => m.PipelineName == "fix-bug",
-            "a bug ticket keeps today's pipeline_from_label routing untouched");
+        matches.Should().ContainSingle()
+            .Which.PipelineName.Should().Be("fix-bug",
+                "a ticket carrying neither binding key keeps today's pipeline_from_label routing "
+                + "untouched — the bind is two named keys, not a catch-all");
     }
 
     private static IncomingTicketEnvelope Envelope(params string[] labels) =>
