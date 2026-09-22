@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// provider onto <see cref="CreatedTicket"/>. The spec proposed the provider because "only the
 /// provider knows its tracker's key shape", on the premise that formatting it in the filers would
 /// put a tracker switch in each filer. That premise stopped holding when 042eg gave all three
-/// filers one construction site (<see cref="OutcomeTicketFiler.Entry"/>): there is exactly one
+/// filers one construction site (<see cref="FiledTicket.Of"/>): there is exactly one
 /// switch either way, and the one here is total over <see cref="TrackerType"/> instead of an
 /// optional field a provider can forget, which would degrade to null with nothing to say so.
 /// The hash convention is already the domain's, not the providers' — <see

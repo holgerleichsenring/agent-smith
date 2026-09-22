@@ -21,23 +21,31 @@ using Moq;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-0e79d: an approved epic is ONE piece of work. It files one phase-labelled WORK
-/// ticket carrying the whole approved set under its own spec key, and one RECORD per slice that
-/// nothing routes and no machine reads — the tracker's link is what ties them together.
+/// 2026-09-17-0e79d: an approved cut is ONE piece of work. It files one phase-labelled WORK
+/// ticket carrying the whole approved set under its own spec key.
+/// <para>
+/// 2026-09-22-b3d7: and ONE ticket is all it files. The slice records it used to file beside the
+/// work ticket were a second copy of that ticket's own "## Slices" section, so they are gone with
+/// their filer, their label writer, their parent links and the comment that listed them.
+/// </para>
 /// </summary>
 public sealed class EpicWorkTicketTests
 {
     [Fact]
-    public async Task EpicApproval_FilesOneWorkTicketWithThePhaseLabel()
+    public async Task Filing_AnApprovedCutOfThreeSlices_CreatesExactlyOneTicket()
     {
         var provider = new RecordingProvider();
 
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
+        var report = await FileAsync(
+            provider, Epic(Slice("p9000a"), Slice("p9000b"), Slice("p9000c")));
 
-        provider.Created.Should().HaveCount(3, "one work ticket, then one record per slice");
+        provider.Created.Should().ContainSingle("a cut is one piece of work, whatever the slice count");
         provider.Created[0].Labels.Should().Equal(
             [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp],
-            "the work ticket is what a run picks up; the records are not work");
+            "the work ticket is what a run picks up");
+        provider.Comments.Should().BeEmpty("there are no records to list on it");
+        report.Filed.Should().ContainSingle();
+        report.Notes.Should().BeEmpty();
     }
 
     [Fact]
@@ -53,8 +61,12 @@ public sealed class EpicWorkTicketTests
             .And.NotContain("```", "a requirement body opens no fence");
     }
 
+    /// <summary>
+    /// 2026-09-22-b3d7: this section is what the slice records duplicated, so it is now the ONLY
+    /// place a person reads a slice on its own — every id, every goal and every requires: edge.
+    /// </summary>
     [Fact]
-    public async Task EpicApproval_WorkTicketBody_ListsTheSlicesInOrder()
+    public async Task Filing_AnApprovedCut_ListsEverySliceAndItsRequiresEdgesInTheTicketBody()
     {
         var provider = new RecordingProvider();
 
@@ -62,13 +74,15 @@ public sealed class EpicWorkTicketTests
 
         var body = provider.Created[0].Body;
         body.Should().Contain("## Slices");
+        body.Should().Contain("`p9000a` slice p9000a (requires: p9000b)")
+            .And.Contain("`p9000b` slice p9000b");
         body.IndexOf("p9000b", StringComparison.Ordinal).Should()
             .BeLessThan(body.IndexOf("p9000a", StringComparison.Ordinal),
                 "the listing is the order the one run works them in");
     }
 
     [Fact]
-    public async Task EpicApproval_StoresTheWholeSetUnderTheWorkTicketsKey()
+    public async Task Filing_AnApprovedCut_StoresTheWholeOrderedSetUnderThatTicket()
     {
         var provider = new RecordingProvider();
         var store = ApprovedSetDoubles.Store();
@@ -83,16 +97,18 @@ public sealed class EpicWorkTicketTests
         record.Approval!.Conversation.Should().Be("job-1");
     }
 
+    /// <summary>
+    /// 2026-09-22-b3d7: the label's WRITER is gone. Its reader stays for the two generations that
+    /// already carry it, and this is what says the framework adds no third one.
+    /// </summary>
     [Fact]
-    public async Task EpicApproval_SliceRecords_CarryTheRecordLabelAndNoPhaseLabel()
+    public async Task Filing_AnApprovedCut_WritesNoTicketCarryingTheRecordLabel()
     {
         var provider = new RecordingProvider();
 
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b"), Slice("p9000c")));
 
-        provider.Created.Skip(1).Should().OnlyContain(
-            c => c.Labels.Count == 1 && c.Labels[0] == PhaseTicketRenderer.EpicLabel,
-            "the phase label hard-binds routing, and a bare ticket is routed by the project's own rules");
+        provider.Created.SelectMany(c => c.Labels).Should().NotContain(PhaseTicketRenderer.EpicLabel);
     }
 
     /// <summary>
@@ -101,13 +117,9 @@ public sealed class EpicWorkTicketTests
     /// spec legitimately lives in its description. Without the stamp an epic's work ticket would
     /// be the one filed shape where the gate never fires and a fenced block pasted into the
     /// description by anyone with tracker access becomes the spec again.
-    /// <para>
-    /// A slice record must NOT carry it: it has no set of its own, so the gate would hold it to a
-    /// hand-off that was never made.
-    /// </para>
     /// </summary>
     [Fact]
-    public async Task EpicApproval_WorkTicketCarriesTheApprovedSetStamp_AndNoRecordDoes()
+    public async Task EpicApproval_WorkTicketCarriesTheApprovedSetStamp()
     {
         var provider = new RecordingProvider();
 
@@ -115,18 +127,14 @@ public sealed class EpicWorkTicketTests
 
         FiledTicketLabels.CarriesApprovedSet(provider.Created[0].Labels).Should().BeTrue(
             "the run that picks this ticket up is held to the set that was approved for it");
-        provider.Created.Skip(1).Should().OnlyContain(
-            c => !FiledTicketLabels.CarriesApprovedSet(c.Labels),
-            "a record carries no set of its own, so nothing may hold it to one");
     }
 
     /// <summary>
     /// The gate reads a fetched TICKET, so the stamp the filer writes has to be the one it looks
-    /// for: a work ticket with no set reaching DeriveSpec must fail loudly, and a record must be
-    /// invisible to the rule entirely.
+    /// for: a work ticket with no set reaching DeriveSpec must fail loudly.
     /// </summary>
     [Fact]
-    public async Task EpicApproval_WorkTicketWithNoSet_IsTheLoudMiss_AndARecordIsNot()
+    public async Task EpicApproval_WorkTicketWithNoSet_IsTheLoudMiss()
     {
         var provider = new RecordingProvider();
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
@@ -134,24 +142,10 @@ public sealed class EpicWorkTicketTests
 
         gate.MissingSet(Fetched(provider.Created[0].Labels)).Should()
             .NotBeNull().And.Subject.ToString().Should().Contain(FiledTicketLabels.ApprovedSetStamp);
-        gate.MissingSet(Fetched(provider.Created[1].Labels)).Should().BeNull();
     }
 
     private static Ticket Fetched(IReadOnlyList<string> labels) =>
         new(new TicketId("1"), "t", string.Empty, null, "open", "recording", [.. labels]);
-
-    [Fact]
-    public async Task EpicApproval_SliceRecords_CarryNoParentOrPredecessorStamp()
-    {
-        var provider = new RecordingProvider();
-
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b", requires: ["p9000a"])));
-
-        provider.Created.Skip(1).SelectMany(c => c.Labels).Should().NotContain(
-            l => l.StartsWith(FiledTicketLabels.ParentPrefix, StringComparison.Ordinal)
-                || l.StartsWith(FiledTicketLabels.PredecessorPrefix, StringComparison.Ordinal),
-            "no machine reads a record: it never routes, never runs and is not a rung");
-    }
 
     /// <summary>
     /// A parent stamp would make the run resolve the parent's rung as its base and publish it.
@@ -167,20 +161,6 @@ public sealed class EpicWorkTicketTests
 
         FiledTicketLabels.ParentId(provider.Created[0].Labels).Should().BeNull();
         FiledTicketLabels.PredecessorIds(provider.Created[0].Labels).Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task EpicApproval_SliceRecordBody_CarriesItsDoneListAndNoFence()
-    {
-        var provider = new RecordingProvider();
-
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-
-        var body = provider.Created[1].Body;
-        AcceptanceCriteriaSection.Read(body).Should().Equal("slice p9000a is finished");
-        body.Should().NotContain("```", "a record is read by a person, not extracted by a deriver");
-        body.Should().NotContain(PhaseTicketRenderer.SpecificationHeading,
-            "no run works a record, so nothing is ever published to a branch of its own");
     }
 
     /// <summary>
@@ -201,89 +181,43 @@ public sealed class EpicWorkTicketTests
     }
 
     /// <summary>
-    /// The set is what the run works from and the work ticket is what a poller picks up, so the
-    /// order matters: a ticket that exists before its set is a phase-labelled ticket the spec
-    /// gate fails loudly on, for exactly as long as the window is open.
-    /// </summary>
-    [Fact]
-    public async Task EpicApproval_TheSetIsStored_BeforeAnyRecordIsFiled()
-    {
-        var provider = new RecordingProvider();
-        var store = new ObservingStore(() => provider.Created.Count);
-
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), store);
-
-        store.CreatedWhenSaved.Should().Equal([1],
-            "the work ticket exists and no record does yet when the set is written");
-    }
-
-    /// <summary>
-    /// A work ticket with no stored set is the broken hand-off: it carries the phase label and no
+    /// A ticket with no stored set is the broken hand-off: it carries the phase label and no
     /// specification, so its own run stops at the spec gate. The operator is told which ticket
-    /// that is instead of being handed a complete-looking epic.
+    /// that is instead of being handed a complete-looking filing.
+    /// <para>
+    /// 2026-09-22-b3d7: FOR A PHASE AS WELL AS FOR A CUT. It is one hazard and one filing path,
+    /// and only the cut's path used to name the ticket.
+    /// </para>
     /// </summary>
-    [Fact]
-    public async Task EpicApproval_TheSetCannotBeStored_IsAnErrorNamingTheWorkTicket()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Filing_AStoreThatFails_NamesTheTicketThatMustNotBeTriggered_ForAPhaseAsWellAsACut(
+        bool cut)
     {
         var provider = new RecordingProvider();
+        OutcomeProposal proposal = cut
+            ? Epic(Slice("p9000a"), Slice("p9000b"))
+            : new PhaseOutcome(Slice("p9000a"));
 
         var report = await FileRawAsync(
-            provider, Epic(Slice("p9000a"), Slice("p9000b")),
+            provider, proposal,
             new ThrowingStore(new InvalidOperationException("the approvals table is gone")));
 
         report.Error.Should().Contain("https://tracker.test/1")
             .And.Contain("Do not trigger").And.Contain("the approvals table is gone");
-        provider.Created.Should().ContainSingle(
-            "no record is filed behind a set that was never stored");
+        provider.Created.Should().ContainSingle();
     }
 
     /// <summary>
-    /// 2026-09-17-042ea made a failed LINK a note for this reason and the create path was left
-    /// out. By the time a record is filed the work ticket exists and carries the whole approved
-    /// set, so the epic is complete and runnable: an error would offer a retry, and the retry
-    /// files a SECOND work ticket with a second stored set — two runs, two pull requests per
-    /// repository.
+    /// 2026-09-22-b3d7: the refusal is what keeps the records ALREADY on a board unroutable —
+    /// both generations of them, the epic parent summaries and the slice records, and neither
+    /// carries any other framework label for a rule to key on.
     /// </summary>
     [Fact]
-    public async Task EpicApproval_ARecordThatCannotBeFiled_IsANoteNotTheFilingsError()
-    {
-        var provider = new RecordingProvider
-        {
-            ThrowOnCreateNumber = 2,
-            CreateError = new TaskCanceledException("the record create timed out"),
-        };
-
-        var report = await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-
-        report.Filed.Should().HaveCount(2, "the work ticket and the record that did land");
-        provider.Created.Should().HaveCount(2, "the slice after the failed one is still recorded");
-        report.Notes.Should().ContainSingle().Which.Should()
-            .Contain("p9000a").And.Contain("the record create timed out")
-            .And.Contain("the run works this slice either way");
-    }
-
-    [Fact]
-    public async Task EpicApproval_WorkTicket_GetsOneCommentNamingEachRecord()
-    {
-        var provider = new RecordingProvider();
-
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-
-        provider.Comments.Should().ContainSingle().Which.Should().Match<(string Ticket, string Comment)>(
-            c => c.Ticket == "1"
-                && c.Comment.Contains("https://tracker.test/2", StringComparison.Ordinal)
-                && c.Comment.Contains("https://tracker.test/3", StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task SliceRecord_FromTheFilersOwnOutput_IsRefusedByTheProjectResolver()
-    {
-        var provider = new RecordingProvider();
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-
-        Resolve(provider.Created[1].Labels).Should().BeEmpty(
+    public void ProjectResolver_AnEnvelopeCarryingTheRecordLabel_StillResolvesToNoProject() =>
+        Resolve([PhaseTicketRenderer.EpicLabel]).Should().BeEmpty(
             "a record in a trigger status would otherwise be claimed like any ticket");
-    }
 
     [Fact]
     public async Task WorkTicket_FromTheFilersOwnOutput_RoutesToTheCodePreset()
@@ -296,22 +230,24 @@ public sealed class EpicWorkTicketTests
     }
 
     /// <summary>
-    /// The value is what the refusal reads, and every epic parent already on a tracker carries it.
-    /// Renaming the constant would make each of them routable overnight.
+    /// The value is what the refusal reads, and every record already on a tracker carries it —
+    /// the epic parent summaries filed before 2026-09-17-0e79d and the slice records filed until
+    /// 2026-09-22-b3d7. Renaming the constant would make each of them routable overnight.
     /// </summary>
     [Fact]
-    public void RecordLabel_KeepsItsValue_SoAlreadyFiledParentsStayUnroutable()
+    public void RecordLabel_KeepsItsValue_SoTheRecordsAlreadyFiledStayUnroutable()
     {
         PhaseTicketRenderer.EpicLabel.Should().Be("phase-epic");
         Resolve(["phase-epic"]).Should().BeEmpty();
     }
 
     /// <summary>
-    /// 2026-09-17-0e79d: the filed notice counted the slices as runnable children — the shape the
-    /// filer stopped producing. One work ticket runs; the records beside it are read.
+    /// 2026-09-22-b3d7: the notice counts what the filing actually created — one ticket — and the
+    /// slices as what that one ticket carries. Counting linked records was true of the shape the
+    /// filer stopped producing.
     /// </summary>
     [Fact]
-    public void EpicFiledNotice_NamesOneWorkTicketAndItsSliceRecords()
+    public void FilingNotice_AnApprovedCut_CountsOneTicketAndNoRecords()
     {
         var report = new FilingReport([new FiledTicket("https://tracker.test/1", "p9000")], Error: null);
 
@@ -319,44 +255,26 @@ public sealed class EpicWorkTicketTests
             .ComposeFiled(Epic(Slice("p9000a"), Slice("p9000b")), report)
             .In(SpecDialogMarkup.For("slack"));
 
-        notice.Should().Contain("one work ticket (`p9000`)").And.Contain("2 linked slice record(s)");
-        notice.Should().NotContain("child phases", "no child of an epic is picked up by a run");
+        notice.Should().Contain("one work ticket (`p9000`)").And.Contain("carrying 2 slice(s)");
+        notice.Should().NotContain("record", "nothing beside that ticket was filed");
+        notice.Should().NotContain("child phases", "no slice of a cut is picked up by a run of its own");
     }
 
     /// <summary>
-    /// 2026-09-18-b4f0: ONE create serves three hierarchy levels. The work ticket and the slice
-    /// records that hang UNDER it are filed by the same method, so a single tracker-wide kind
-    /// would make the parent and its children one kind and the link between them a same-level
-    /// link. The role is a property of the CALL SITE, which is why each site can name its own.
+    /// 2026-09-18-b4f0: the ROLE is a property of the CALL SITE, which is why each site names its
+    /// own. 2026-09-22-b3d7: the `record` role went with the records, so a cut's work ticket is
+    /// the only thing a cut's filing creates and `work` is the only kind it can send.
     /// </summary>
     [Fact]
-    public async Task Create_AnEpicFiling_UsesTheWorkKindForTheTicketAndTheRecordKindForItsSlices()
+    public async Task Create_ACutsFiling_UsesTheWorkKindForItsOneTicket()
     {
         var provider = new RecordingProvider();
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), kinds: Kinds(
-            ("work", "Feature"), ("record", "Task")));
+            ("work", "Feature"), ("phase", "User Story")));
 
-        provider.Created[0].Kind.Should().Be("Feature", "the work ticket is the level a run picks up");
-        provider.Created.Skip(1).Should().OnlyContain(c => c.Kind == "Task",
-            "each record hangs under that ticket and must not be raised to its level");
-    }
-
-    /// <summary>
-    /// The half of the incident that is not about states: raising the work ticket must not drag
-    /// the records up with it. An unmapped role creates what it created before — it does not
-    /// inherit the kind chosen for the ticket it is linked to.
-    /// </summary>
-    [Fact]
-    public async Task Create_AConfiguredWorkKind_DoesNotRaiseTheSliceRecords()
-    {
-        var provider = new RecordingProvider();
-
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), kinds: Kinds(("work", "Epic")));
-
-        provider.Created[0].Kind.Should().Be("Epic");
-        provider.Created.Skip(1).Should().OnlyContain(c => c.Kind == null,
-            "an unmapped role sends no kind, and the provider creates what it created before");
+        provider.Created.Should().ContainSingle()
+            .Which.Kind.Should().Be("Feature", "the work ticket is the level a run picks up");
     }
 
     /// <summary>
@@ -420,12 +338,12 @@ public sealed class EpicWorkTicketTests
     };
 
     /// <summary>
-    /// 2026-09-17-0e79d: the single-phase path must not have moved with the epic's. One approved
-    /// phase is still one phase-labelled ticket and one stored set — no record beside it, because
-    /// there is no cut to record.
+    /// 2026-09-17-0e79d: the single-phase path must not have moved with the cut's. One approved
+    /// phase is still one phase-labelled ticket and one stored set — which, since 2026-09-22-b3d7,
+    /// is exactly what a cut files too.
     /// </summary>
     [Fact]
-    public async Task PhaseApproval_SinglePhase_StillFilesOneWorkTicket()
+    public async Task PhaseApproval_SinglePhase_StillFilesOneTicket()
     {
         var provider = new RecordingProvider();
         var store = ApprovedSetDoubles.Store();
@@ -437,7 +355,7 @@ public sealed class EpicWorkTicketTests
             .Which.Labels.Should().Equal(
                 [PhaseTicketRenderer.PhaseLabel, FiledTicketLabels.ApprovedSetStamp],
                 "a single approved phase is stamped exactly as an epic's work ticket is");
-        provider.Comments.Should().BeEmpty("there are no records to name");
+        provider.Comments.Should().BeEmpty("a filing posts no comment of its own");
         var record = await store.GetAsync("sample-tracker", SpecSetKey.For("azuredevops", "1").Value, default);
         record!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9000a");
     }
@@ -459,7 +377,7 @@ public sealed class EpicWorkTicketTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var filer = new OutcomeTicketFiler(
             Config(kinds), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, false, CancellationToken.None);
     }
@@ -506,17 +424,11 @@ public sealed class EpicWorkTicketTests
     private sealed class RecordingProvider : ITicketProvider
     {
         private readonly List<(string Title, string Body, IReadOnlyList<string> Labels, string? Kind)> _created = [];
-        private int _attempts;
 
         /// <summary>2026-09-18-b4f0: the KIND is recorded too — it is what crosses the port.</summary>
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels, string? Kind)> Created => _created;
 
         public List<(string Ticket, string Comment)> Comments { get; } = [];
-
-        /// <summary>Which create call throws — 1 is the work ticket, 2 the first record.</summary>
-        public int? ThrowOnCreateNumber { get; init; }
-
-        public Exception? CreateError { get; init; }
 
         public string ProviderType => "recording";
 
@@ -530,8 +442,6 @@ public sealed class EpicWorkTicketTests
             string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken)
         {
-            if (++_attempts == ThrowOnCreateNumber)
-                throw CreateError ?? new InvalidOperationException("the tracker refused it");
             _created.Add((title, description, labels, kind));
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
@@ -550,22 +460,6 @@ public sealed class EpicWorkTicketTests
         public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
             Task.FromResult(TicketFinalizeResult.Moved());
-    }
-
-    /// <summary>Records how much had been filed at the moment the set was written.</summary>
-    private sealed class ObservingStore(Func<int> createdSoFar) : ISpecApprovalStore
-    {
-        public List<int> CreatedWhenSaved { get; } = [];
-
-        public Task<SpecApprovalRecord?> GetAsync(
-            string tracker, string key, CancellationToken cancellationToken) =>
-            Task.FromResult<SpecApprovalRecord?>(null);
-
-        public Task SaveAsync(SpecApprovalRecord record, CancellationToken cancellationToken)
-        {
-            CreatedWhenSaved.Add(createdSoFar());
-            return Task.CompletedTask;
-        }
     }
 
     private sealed class ThrowingStore(Exception error) : ISpecApprovalStore

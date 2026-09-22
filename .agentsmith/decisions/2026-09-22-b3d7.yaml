@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-b3d7
+
+decisions:
+  - category: Architecture
+    chose: "The slice-record filer is deleted: an approved cut files ONE ticket, whatever the slice count"
+    over: "Keeping one record per slice without its framework label, or making the record count configurable"
+    reason: |
+      The work ticket's own body already prints one bullet per slice — its id, its goal and its
+      requires: edges — under a "## Slices" heading, and the record filer's own doc said nothing
+      routes the records and no machine reads them. One ticket listing three slices and three
+      tickets each stating one is the same information at four times the bookkeeping: a create
+      and a parent-link call per slice, a second comment on the work ticket listing them, a note
+      channel for a link that did not land, and a framework label on every one. The one thing the
+      records offered — a person reading a slice on its own — is what the body they duplicate
+      already does. A configuration switch would have kept every cost and added a question nobody
+      can answer.
+
+  - category: Architecture
+    chose: "The `epic` outcome KIND survives untouched; only the FILING SHAPE changed"
+    over: "Collapsing the kind into the phase outcome now that both file one ticket"
+    reason: |
+      Collapsing it would delete checks, not tickets. A phase outcome carries ONE draft and arrives
+      as a bare ```yaml block that validates exactly one spec, so a set of two or more has no
+      representation on that path at all. Everything that makes a cut a cut lives in the epic
+      parser: at least two children, the phase cap, a done list on every child, and the requires:
+      edges checked for siblings and cycles — none of which a single draft can say. The parent
+      draft is the work ticket's requirement text and has nowhere else to live. The kind is how the
+      MODEL says "this needs several slices"; the filing is how many tickets that costs, and only
+      the second one was wrong. EpicOutcomeParser_ACutOfTwoOrMoreSlices_StillResolvesToAnEpicOutcome
+      pins it.
+
+  - category: Architecture
+    chose: "The `phase-epic` label's WRITER goes and its READER stays, documented as refusing BOTH generations that carry it"
+    over: "Removing the reader with the writer, or renaming the constant"
+    reason: |
+      This is the migration answer. ProjectResolver refuses the label BEFORE every other resolution
+      rule because every other rule ends in something — on a project with no pipeline_from_label
+      that something is DefaultPipeline. The tickets already on the operator's board carry this
+      label and nothing else: no stamps, no phase label. The label is their entire identity. Two
+      generations carry it — the epic PARENT SUMMARIES filed before 2026-09-17-0e79d widened its
+      meaning, and the SLICE RECORDS filed from then until this phase — and neither is deleted
+      here, so dropping the reader would make every one of them an ordinary ticket overnight,
+      routable by tag, by area path or by repository, and then run. Closing the records already
+      filed is a board decision for the operator; the refusal stays either way.
+    alternatives:
+      - "Close the already-filed records as part of this phase — rejected: a tracker-side cleanup the operator decides, not a code change."
+
+  - category: Implementation
+    chose: "FiledStartState.Record, FilingReport.Notes and the dashboard's Record union member all stay, with no writer left"
+    over: "Deleting each member along with the filer that wrote it"
+    reason: |
+      The enum is serialized BY NAME onto the session row, and SpecDialogLatestOutcomeStore swallows
+      a deserialization failure into an ABSENT record. Deleting the member would not surface as one
+      missing word — the whole stored filing would silently vanish from the pane, and the operator
+      would get no error at all. FiledWorkReader also still skips the run and hand-back lookup for a
+      row carrying that state, which stays the right answer for those rows. The dashboard's
+      hand-written union and its exhaustive label map keep it for the same reason.
+      FiledWorkReasons.Record, by contrast, was removed: it is a plain constant with neither a
+      writer nor a reader left, and the stored rows carry its text rather than the constant.
+
+  - category: Architecture
+    chose: "ONE filing path — ApprovedSetTicketFiler renders, creates, stores and starts — with OutcomeTicketFiler left as the dispatcher"
+    over: "Folding everything into OutcomeTicketFiler, or keeping EpicTicketFiler and having it call a shared helper"
+    reason: |
+      With the records gone, filing a phase and filing a cut are the same three acts — create one
+      ticket from a rendered body, store the approved set under its spec key, start it — differing
+      only in the body, the filing role and the length of the set. Two classes for that were two
+      places for the next change to land in one of, which is exactly how only the cut's path came
+      to tell the operator which ticket a failed store leaves behind; now both do. One class was
+      the intent; two FILES are the FileLengthRatchet's 120-line cap, which a single 215-line class
+      would have broken — so the split is dispatch versus the filing act, not old shape versus new.
+      The ROLE stays a parameter decided by the call site, because an installation may map `work`
+      and `phase` to different native work-item types and nothing about the content can tell them
+      apart: the labels are identical. FiledTicket.Of replaced OutcomeTicketFiler.Entry so both
+      call sites reach one construction site without one filer reaching into the other.
+
+  - category: Implementation
+    chose: "TicketFilingRole.Record is removed and the config schema's work_item_kinds sentence lists work | bug | phase | chat"
+    over: "Keeping the role mapped to nothing"
+    reason: |
+      It is an operator-facing wire key that would file nothing. A stale `record:` entry in a live
+      configuration still validates — the map's keys are free text, no capability field can declare
+      them — and TicketKindResolver warns about it as an unknown role, which is exactly what it now
+      is. Resolve_AStaleRecordRoleKey_IsWarnedAboutAsUnknown pins that, so the removal is observable
+      to an operator instead of silent.
+
+  - category: TradeOff
+    chose: "The child-requirement renderer's tests are REPOINTED at the surviving renderers; only the sibling-filter tests go"
+    over: "Deleting the test file with the renderer it named"
+    reason: |
+      The absent fenced block, the scope halves, the omitted steps, a block-scalar criterion read
+      back as one criterion, a free-text precondition and the absent-not-malformed extraction are
+      all assertions about the REQUIREMENT BODY, which RenderPhase and RenderEpicParent both still
+      produce. Deleting them would have dropped that coverage while the build stayed green. The
+      sibling filter is the one behaviour that genuinely left: it existed for the slice records, the
+      only rendering that had siblings to subtract, and the two renderings that survive both passed
+      an empty set — so it could only ever remove nothing.
+
+  - category: Scope
+    chose: "ITicketProvider.LinkToParentAsync and the tracker's parent_link_type key stay, dead, for a follow-up phase"
+    over: "Removing the port member and its config key here"
+    reason: |
+      Removing them reaches four provider implementations, the config schema, the config-studio
+      capability descriptor and the dashboard's tracker form — a port-and-config removal wearing a
+      filing change's clothes. Named here so it is not discovered afterwards: the phase that removes
+      a parent link with no caller.
+
+  - category: Scope
+    chose: "No change to the skills repository and no embedded-pin bump"
+    over: "Bumping the pinned design-partner master as part of this phase"
+    reason: |
+      The PINNED release this product embeds promises nothing about how many tickets a cut becomes —
+      its epic section describes the outcome block's shape and no ticket count — so an unchanged
+      master still produces a working filing. The sentence about one record per slice exists only in
+      the skills repository's UNRELEASED head, which inverts the urgency: the risk is not a lagging
+      pin but an unreleased commit INTRODUCING a promise the product will no longer keep. That is a
+      separate pull request there, to land before that commit releases.
+
+  - category: Tooling
+    chose: "The spec's unterminated double quote was closed while moving the file to active/"
+    over: "Leaving the file as found and working from its prose"
+    reason: |
+      The spec did not parse as YAML at all: the open quote on the
+      `the-harness-preset-asserts-the-new-shape` step swallowed the next step's key, so no reader
+      could list its steps. A syntax repair only — no word of the spec was altered.

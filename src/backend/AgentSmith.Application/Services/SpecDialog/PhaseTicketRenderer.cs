@@ -25,9 +25,14 @@ public sealed class PhaseTicketRenderer
     /// and deliberately not "epic": an operator's own epic label must keep meaning what it means
     /// to them.
     /// <para>
-    /// 2026-09-17-0e79d: the VALUE stays; its meaning widens from "the record of a cut" to "a
-    /// record, not work" — an approved epic files one work ticket and one record per slice, and the
-    /// records carry this. Renaming it would make every parent already filed routable overnight.
+    /// 2026-09-22-b3d7: NOTHING THE FRAMEWORK FILES CARRIES THIS ANY MORE — an approved cut is one
+    /// work ticket and no records at all. The constant and its reader stay for the tickets that
+    /// ALREADY carry it, and there are two generations of them: the epic PARENT SUMMARIES filed
+    /// before 2026-09-17-0e79d widened the label's meaning, and the SLICE RECORDS filed from then
+    /// until this phase. Neither is deleted by this phase, both sit on a live board, and each is
+    /// refused by the incoming path on this label alone — so dropping the constant, renaming its
+    /// value or removing the reader would make every one of them an ordinary ticket overnight,
+    /// routable by tag, by area path or by repository, and then run.
     /// </para>
     /// </summary>
     public const string EpicLabel = "phase-epic";
@@ -41,15 +46,14 @@ public sealed class PhaseTicketRenderer
     public PhaseTicketContent RenderPhase(
         PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
         new(Title(draft), PhaseTicketBody.Requirement(
-            draft, new HashSet<string>(), sb => AppendSpecification(sb, conversation), labelNote));
+            draft, sb => AppendSpecification(sb, conversation), labelNote));
 
     /// <summary>The heading the specification pointer is filed under.</summary>
     public const string SpecificationHeading = "## Specification";
 
     /// <summary>
     /// The pointer every WORK ticket carries: the body is not the spec, the approved record is,
-    /// and this is where the run reads it from and where a change to it is made. A slice record
-    /// gets none — no run works one, so nothing is ever published to a branch of its own.
+    /// and this is where the run reads it from and where a change to it is made.
     /// </summary>
     private static void AppendSpecification(StringBuilder sb, string? conversation)
     {
@@ -62,24 +66,6 @@ public sealed class PhaseTicketRenderer
                 : $" Approved in design conversation `{conversation}`, which is where a change to it is made."));
         sb.AppendLine();
     }
-
-    /// <summary>
-    /// 2026-09-13-b7ba: an epic CHILD is a requirement, not a work order. It is filed today
-    /// and worked in three weeks, after its siblings have moved the code — and an embedded
-    /// spec would win over the repository it claims to plan against, because SpecSourceResolver
-    /// takes a spec in the description and never calls the deriver at all.
-    /// <para>
-    /// 2026-09-17-042ea: no Parent line. The tracker links the child to its parent and the label
-    /// stamps it; a line in the body was a segment the deriver had to carry or discard.
-    /// </para>
-    /// <para>
-    /// 2026-09-17-0e79d: this is the SLICE RECORD's body — the record label, no stamps, no spec,
-    /// read by a person and not by a deriver: the run works the set stored under the work ticket.
-    /// </para>
-    /// </summary>
-    /// <param name="siblingIds">The phase ids of the epic's slices; only these leave the body.</param>
-    public PhaseTicketContent RenderChildRequirement(PhaseDraft draft, IReadOnlySet<string> siblingIds) =>
-        new(Title(draft), PhaseTicketBody.Requirement(draft, siblingIds, _ => { }));
 
     /// <summary>
     /// The epic's WORK ticket (2026-09-17-0e79d): the requirement the whole cut answers, listing
@@ -101,7 +87,7 @@ public sealed class PhaseTicketRenderer
         PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
         IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
         string? labelNote = null) =>
-        new(Title(parent), PhaseTicketBody.Requirement(parent, new HashSet<string>(), sb =>
+        new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)

@@ -27,9 +27,6 @@ internal static class FiledWorkReasons
     internal const string StatusUnreadable =
         "its status could not be read back, so nothing may claim it started. Check it by hand.";
 
-    internal const string Record =
-        "a record of a slice, not work: nothing routes it, so it is never moved and never run.";
-
     internal static bool Triggers(WebhookTriggerConfig trigger, string status) =>
         trigger.TriggerStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
 

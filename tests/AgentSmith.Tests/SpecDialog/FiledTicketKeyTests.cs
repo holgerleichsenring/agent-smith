@@ -24,7 +24,7 @@ public sealed class FiledTicketKeyTests
     {
         var created = new CreatedTicket(new TicketId(id), "https://tracker.test/x");
 
-        var entry = OutcomeTicketFiler.Entry(created, "p9001: the phase", Project(tracker));
+        var entry = FiledTicket.Of(created, "p9001: the phase", Project(tracker));
 
         entry.Key.Should().Be(expected);
         entry.TicketId.Should().Be(id, "the key is formatted FROM the id, which stays on the report");

@@ -361,19 +361,18 @@ public sealed class FiledWorkStartTests
     }
 
     /// <summary>
-    /// By CONSTRUCTION, not by a carve-out: a record's filer stamps the record state itself and
-    /// never calls the starter, and the starter is the only thing that tags. A tagged record would
-    /// be fetched by every poll on all four trackers and refused every time.
+    /// 2026-09-22-b3d7: a cut files ONE ticket, so there is nothing beside the work ticket for a
+    /// tag to reach. The starter is the only thing that tags, and it runs once per filing.
     /// </summary>
     [Fact]
-    public async Task EpicSliceRecord_IsNeverTagged_BecauseItNeverReachesTheStarter()
+    public async Task ApprovedCut_TagsItsOneWorkTicketAndNothingElse()
     {
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
             provider, Epic(), Routing("operator-tag", "To Do"), mayStartRuns: true);
 
-        report.Filed.Skip(1).Should().HaveCount(2).And.OnlyContain(t => t.Start!.State == FiledStartState.Record);
+        report.Filed.Should().ContainSingle().Which.Start!.State.Should().Be(FiledStartState.Started);
         provider.Labels.Should().Equal([("1", "operator-tag")], "only the work ticket is ever tagged");
     }
 
@@ -522,14 +521,15 @@ public sealed class FiledWorkStartTests
         provider.Labels.Should().BeEmpty("no label can satisfy an area-path resolution");
     }
 
+    /// <summary>2026-09-22-b3d7: one ticket is filed and one ticket is moved.</summary>
     [Fact]
-    public async Task SliceRecords_AreNeverResolvedNeverMovedAndReadAsRecords()
+    public async Task ApprovedCut_MovesItsOneWorkTicketAndNothingElse()
     {
         var provider = new StartProvider("New");
 
         var report = await FileAsync(provider, Epic(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
-        report.Filed.Skip(1).Should().OnlyContain(t => t.Start!.State == FiledStartState.Record);
+        report.Filed.Should().ContainSingle();
         provider.Moves.Should().Equal([("1", "To Do")], "only the work ticket is ever moved");
     }
 
@@ -622,7 +622,7 @@ public sealed class FiledWorkStartTests
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            ApprovedSetDoubles.EpicFiler(store, starter), ApprovedSetDoubles.Recorder(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store, starter),
             starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, mayStartRuns, CancellationToken.None);
     }
