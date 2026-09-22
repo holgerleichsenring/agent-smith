@@ -53,7 +53,7 @@ public sealed class PhaseTicketRenderer
 
     /// <summary>
     /// The pointer every WORK ticket carries: the body is not the spec, the approved record is,
-    /// and this is where the run reads it from and where a change to it is made.
+    /// and this is where the run reads it from.
     /// </summary>
     private static void AppendSpecification(StringBuilder sb, string? conversation)
     {
@@ -63,7 +63,7 @@ public sealed class PhaseTicketRenderer
             + "the ticket branch under `" + Contracts.Specs.SpecSetKey.Root + "/`."
             + (string.IsNullOrWhiteSpace(conversation)
                 ? string.Empty
-                : $" Approved in design conversation `{conversation}`, which is where a change to it is made."));
+                : $" Approved in design conversation `{conversation}`."));
         sb.AppendLine();
     }
 

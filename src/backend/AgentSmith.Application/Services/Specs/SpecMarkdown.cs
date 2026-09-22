@@ -108,7 +108,8 @@ public static class SpecMarkdown
         SpecSource.BranchArtifact => "read back from the ticket branch",
         SpecSource.TicketDescription => "embedded in the ticket description",
         // 2026-09-17-0e79a: an approved set is not "derived from the ticket" — it names the
-        // conversation a person approved it in, which is where a change to it is made.
+        // conversation a person approved it in. 2026-09-22-4d17: that is provenance, not a
+        // destination — a change to an approved set is not made in the conversation.
         SpecSource.Approved => "approved in design conversation "
             + (string.IsNullOrWhiteSpace(set.Approval?.Conversation)
                 ? "(unnamed)" : set.Approval!.Conversation),
