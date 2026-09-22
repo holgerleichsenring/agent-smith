@@ -35,9 +35,10 @@ public sealed class EpicParentRoutingTests
     }
 
     [Fact]
-    public void Resolve_PhaseTicket_StillRoutesToPhaseExecution()
+    public void Resolve_AFiledTicket_StillRoutesToPhaseExecution()
     {
-        var matches = Resolve(Config(pipelineFromLabel: null), Envelope(PhaseTicketRenderer.PhaseLabel));
+        var matches = Resolve(
+            Config(pipelineFromLabel: null), Envelope(FiledTicketLabels.ApprovedSetStamp));
 
         matches.Should().ContainSingle().Which.PipelineName
             .Should().Be(PipelinePresets.PhaseExecutionName);

@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-766b
+
+decisions:
+  - category: Architecture
+    chose: "Routing hard-binds on the APPROVAL STAMP; the filing writes that stamp and nothing else"
+    over: "Stopping the writer and reading nothing, or asking every operator to map a framework word in their own pipeline_from_label"
+    reason: |
+      "Somebody approved a specification for this ticket" and "this ticket is phase execution"
+      are the same fact about the same ticket. The stamp already records it, survives lifecycle
+      filtering and reaches the resolver on every path the word reached it on, so two keys were
+      two things to keep in step and one of them was nobody's outside this framework. Binding on
+      the stamp removes the word's writer AND its reader, loses no routing, and asks no estate to
+      change its configuration. The stamp is now the only label a filing writes, which is also
+      the label a tag-resolving project can resolve by without anything being added to the
+      ticket — what FiledWorkStartTests now stands on.
+
+  - category: Architecture
+    chose: "The bind MOVES rather than going, because the tracker's own webhook resolves what a poll cannot"
+    over: "Trusting the filing report's sentence that a non-tag-resolved project cannot be started at all"
+    reason: |
+      That sentence is about a POLLED envelope, which carries labels, ticket id and platform
+      only. A webhook envelope carries a source repository (issues) and an area path (work
+      items), so a repo-resolved or area-path-resolved project DOES match there — and the hard
+      bind is then the only thing that can name a pipeline for it, because no operator's label
+      map holds a key a filing writes. Removing the writer alone would have left the match
+      standing and the pipeline gone: a run that never starts, with nothing reporting it, on both
+      non-Jira projects of the shipped example configuration. PhaseExecutionRoutingTests pins the
+      repo case and the area-path case beside the tag-on-the-poll case.
+
+  - category: Implementation
+    chose: "The server-side discovery label guard names the approved-set stamp, where it named the phase word"
+    over: "Leaving the word in the guard, or guarding on both keys"
+    reason: |
+      The guard exists so a hard-bound ticket is not filtered out of discovery before anything
+      can route it, so it must name exactly what hard-binds. THE COST, STATED: a ticket carrying
+      only the word — one filed before the stamp existed, or one a person typed — is no longer
+      forced past a label guard. A guard is only built when the project declares a
+      pipeline_from_label, which is a strict filter that drops such a ticket anyway, so nothing
+      that would have run stops running.
+
+  - category: Implementation
+    chose: "The filed ticket's label note is ONE sentence, and it states both of the stamp's jobs"
+    over: "Keeping a sentence for a label the filing no longer writes"
+    reason: |
+      The note explains the labels the ticket ACTUALLY carries; a sentence about a label it does
+      not carry would be false. The routing half stays the MECHANISM rather than an outcome — it
+      is true with a label map, with a declared default pipeline and with neither — and the cost
+      of removal is named on both halves, because the guard fails open.
+
+  - category: TradeOff
+    chose: "The predecessor stamp is retired WHOLE — prefix, stamp factory, id reader, gate, contract, verdict, registration and call site"
+    over: "Leaving the gate in place, answering ready for everything it is now asked about"
+    reason: |
+      No production code has written the stamp since 2026-09-17-0e79d, and the gate's verdict can
+      only ever produce a QUEUED claim, never a refusal — it already answered ready
+      unconditionally when a tracker declares no trigger statuses and when the chain runs past
+      its hop limit. So retiring it is a scheduling change, not a safety one. THE HONEST COST,
+      which belongs in the record: two legacy children of the withdrawn N-children shape may now
+      run CONCURRENTLY and cut from the same parent rung. PredecessorRetirementTests pins exactly
+      that rather than hiding it. The gate's test double had six call sites, which were fanned
+      out rather than stubbed.
+
+  - category: Architecture
+    chose: "The record label's reader is documented as PERMANENT and as refusing BOTH generations already on a board"
+    over: "Recording only that the label is no longer written"
+    reason: |
+      The epic parent summaries filed before the label's meaning widened and the slice records
+      filed after it both carry that label and nothing else — no stamp, no word — so the label is
+      their whole identity, the refusal runs before every other rule, and nothing deletes them. A
+      later reader who saw an unwritten label and tidied the reader away would make every one of
+      those tickets an ordinary routable ticket overnight.
+
+  - category: Scope
+    chose: "The parent stamp and its readers are left untouched"
+    over: "Folding them into this phase because the predecessor stamp went"
+    reason: |
+      The filed-ticket spec gate's exemption is the only REFUSING reader of the parent stamp.
+      Removing the other readers leaves it keying on a stamp nothing writes or reads; removing it
+      alone makes every legacy child fail loudly at the spec gate. The set is atomic and belongs
+      in a phase of its own.
+
+  - category: Scope
+    chose: "Only the epic bullet of the spec-dialogue page is corrected; the two lines calling the phase word hard-wired are left alone"
+    over: "Correcting every documentation line the change touches"
+    reason: |
+      The epic-as-N-linked-children description names parent references and sibling requires:
+      edges that have no machinery left, so it is corrected here. The phase spec scopes the other
+      two lines out. OPEN AND VISIBLE: after this phase those two lines
+      (docs/how-it-works/spec-dialogue.md and docs/reference/pipelines/index.md) overstate — a
+      ticket a person labels with the word is routed by the project's own rules, or dropped, and
+      the word is hard-wired to nothing. They need a correction of their own.
