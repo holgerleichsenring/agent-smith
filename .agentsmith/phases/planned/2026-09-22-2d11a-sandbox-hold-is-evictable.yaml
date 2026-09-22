@@ -1,0 +1,212 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-2d11a
+
+goal: "A sandbox labelled with a live conversation is not a corpse, and it is released before any run is denied at the three doors that ask a capacity probe, so holding one cannot starve a run."
+
+applies_to: "backend (a conversation label on a source-scope sandbox, the judgement both reapers share, the release that precedes an admission, and the hold window's resolution)"
+
+scope:
+  in: >
+    Nothing may keep a sandbox past the turn that made it, because two reapers take it away and
+    three admission doors would be starved by it. This phase teaches all five and holds nothing
+    itself, so it changes no observable behaviour and is provable alone.
+    THE JOIN IS A LABEL AND A ROW, NOT PROCESS STATE. A source-scope sandbox is stamped at spawn
+    with the conversation it belongs to, beside the job, run and owner labels it already carries.
+    Both reapers gain a third outcome: a container or pod whose conversation label names a session
+    that is OPEN and whose last activity is inside the hold window is held, not a corpse. Nothing
+    in the judgement consults the holding process — which is the only shape that works here,
+    because the owner label identifies the LIVENESS STORE and not the process, on purpose: two
+    replicas sharing one store are meant to clean up after each other, and on the cluster the
+    corpse sweep is leader-elected, so the replica that judges a held pod is usually not the one
+    holding it. A judgement that asked a local register would silently do nothing on exactly the
+    deployments it exists for. The same shape survives a restart, so a hold does too.
+    A REGISTER, LOCAL, FOR THE EVICTION ONLY. Which holds this process may release is process
+    state, and that is acceptable where the rail is not: reaping something wrongly is a
+    correctness failure, while failing to evict is a capacity miss that degrades to the refusal an
+    operator gets today. A sandbox a turn currently HOLDS OPEN is not in the evictable set at all.
+    RELEASE BEFORE THE PROBE, NOT AFTER THE DENIAL. The established order in this repository is
+    reconcile-then-admit: the spawn funnel already reaps corpses before it asks for capacity,
+    because a Kubernetes quota's used figure is written by the cluster's own controller and does
+    not drop when a pod is deleted. Probing, releasing and re-probing would race that controller
+    and answer wrongly on the backend where capacity is scarcest. So the release runs first, in
+    the same place the corpse reap already runs, and the probe then reads a reconciled world.
+    THE RELEASE IS A FORCE REMOVE, NEVER A DISPOSE. An ordinary disposal pushes a shutdown step
+    and then waits a flat ten seconds, serially — thirty seconds for a three-repository
+    conversation, on a door an operator is waiting at, and that door had slow work deliberately
+    taken out of it once already. The remover that the reaper uses force-removes with no grace and
+    is what a release calls.
+    THE WINDOW IS ONE OPERATOR SETTING, PER PROJECT, resolved project-block, then process-wide
+    block, then environment variable, then ONE HUNDRED AND EIGHTY SECONDS. Zero means hold
+    nothing, which is today's behaviour exactly. It is resolved ONCE PER SCAN and not once per
+    container: the configuration loader assembles the whole catalog from the document store on
+    every call with no cache. A read that fails must not turn a configured zero into the default,
+    so a scan whose resolution failed keeps the last value it resolved and reaps nothing new.
+  out: >
+    ANYTHING THAT ACTUALLY HOLDS. 2026-09-22-2d11b, which this phase must land before. Until it
+    does, no sandbox carries a conversation label, the third rail is never taken, and the
+    evictable set is empty — which is why this phase's tests drive the judgement and the register
+    directly.
+    THE PROJECT FORM. The hold window's per-project CONTROL belongs to the sandbox tab
+    2026-09-22-6968 opens; that phase owns the studio's project projection and the patch guard,
+    without which writing a per-project sandbox field wipes the seven overrides beside it. This
+    phase adds the field to both configuration blocks and to the process-wide settings form only.
+    A NEW LEASE TABLE OR A PHANTOM RUN. The session row carries open/closed and a last-activity
+    stamp, written by every turn. A spec-dialog run holds no DB lease at all — its pipeline
+    request carries no ticket, and the lease attach returns early without one — so the run lease
+    is not available here even if it were wanted; the session row is the more durable of the two.
+    THE FOURTH ADMISSION DOOR. The capacity queue's dequeue admits against the capacity ledger and
+    never asks a probe, so a run admitted there can still spawn past the bound. That is true today
+    and is 2026-09-18-3ba9's subject.
+    A CAP ON SOURCE-SCOPE SPAWNS AT ALL. A scope's opener calls the sandbox factory directly and
+    consults no capacity probe, so N conversations over M repositories already pile containers
+    onto a host with nothing to deny them. Holding makes that pile persist for the window rather
+    than seconds. Named in prose as the phase that puts a design conversation's spawns under the
+    same bound a run's are.
+    RESOURCE-QUOTA ARITHMETIC. The Kubernetes probe reads hard minus used and this phase does not
+    change what it reads, only when.
+
+decisions:
+  - key: |
+      THE OWNER LABEL IS THE STORE, NOT THE PROCESS, AND THAT IS WHY A REGISTER CANNOT BE THE
+      RAIL. The identity a reaper judges under is derived from the liveness store, documented as
+      deliberately not per-process, precisely so two replicas clean up after each other. A rail
+      that asked "do I hold this?" would therefore let replica B delete replica A's holds, and on
+      the cluster the periodic sweep is leader-elected — so B is the usual judge. The rail is a
+      label plus a session row: shared state, readable by whoever is judging.
+  - key: |
+      THE ASYMMETRY BETWEEN THE RAIL AND THE EVICTION IS DELIBERATE AND IS THE PHASE'S CENTRAL
+      TRADE. The rail must be right everywhere, because killing a held sandbox wrongly is a
+      correctness bug. The eviction may be local, because a replica that cannot release another's
+      hold simply denies the run — today's behaviour — and the hold lapses on its own within the
+      window. One mechanism is shared because it must be; the other is local because it may be.
+  - key: |
+      RECONCILE-THEN-ADMIT, BECAUSE A QUOTA DOES NOT FREE WHEN A POD IS DELETED. The spawn funnel
+      already reaps corpses before probing, for exactly this reason: the used figure is the
+      cluster controller's arithmetic and lags a delete. Probe-release-reprobe would read the same
+      stale figure and deny anyway, so the release joins the reconcile that already precedes the
+      probe. A release whose effect the next read cannot see yet is a denial the capacity queue
+      retries, and that is stated rather than engineered around.
+  - key: |
+      THE THREE DOORS ARE THREE, AND THERE IS NO SEAM TO PUT THIS BEHIND. The ticket spawn funnel,
+      the manual project init and the mid-run escalation each consult the probe directly, in two
+      assemblies, with no shared collaborator. A release step is added at each, and the phase says
+      so instead of assuming a seam it would have to invent. The manual init is the door with an
+      operator waiting at it, and it is the reason the release is a force remove rather than a
+      disposal.
+  - key: |
+      A HELD SANDBOX A TURN HAS TAKEN IS NOT EVICTABLE, AND THE FIRST RAIL WILL NOT SAVE IT. A
+      re-taken sandbox still carries the run label of the turn that SPAWNED it, and that run is
+      over — so the live-run rail cannot tell a taken hold from an idle one. The register is what
+      knows, and the evictable set is the released entries only.
+  - key: |
+      THE WINDOW IS RESOLVED ONCE PER SCAN, AND A FAILED READ CHANGES NOTHING. The loader
+      re-assembles the entire catalog from the document store on every call, opening a scope and
+      hitting the database, and it answers an unreachable store with an empty configuration and a
+      blocking startup finding. Per container per thirty seconds that would be a self-inflicted
+      load and a finding every half minute; and an empty configuration would read an operator's
+      deliberate zero as the default and reap every hold. One resolution per scan, and a scan that
+      could not resolve keeps the previous value and reaps nothing new.
+  - key: |
+      THE DEFAULT IS THREE MINUTES BECAUSE THAT IS WHERE THE DIAL STOPS PAYING FOR ITSELF. What a
+      covered turn saves is measured — twenty-seven seconds of spawn and thirty-one of teardown on
+      a three-repository conversation, about forty-five per cent of the turn. What an uncovered
+      hold costs is one container per repository idling for the window plus at most one sweep,
+      once, and then nothing. Sixty seconds covers only the edit loop and a one-line follow-up;
+      three minutes covers reading a paragraph and typing a reply, which is where a design
+      conversation lives; beyond that the newly covered gaps are gaps in which the person has left.
+      A wrong value costs idle resources and never a refused run.
+  - key: |
+      THE EFFECTIVE RETENTION DIFFERS BY BACKEND AND BOTH NUMBERS ARE WRITTEN DOWN. The Docker
+      reaper scans every thirty seconds; the cluster's corpse sweep runs every sixty and is
+      leader-elected. A lapsed hold is therefore collected within thirty seconds on one backend
+      and within sixty on the other, and an operator who sets three minutes gets up to three and a
+      half or up to four.
+  - key: |
+      IT SHIPS EMPTY, AND THAT IS WHAT MAKES IT PROVABLE. The rail is judged against a synthetic
+      labelled container, the eviction against a synthetic denial, and production behaviour is
+      asserted to be what it is today. The DB-unreachable case is specified rather than left to
+      discovery: the held-set read fails OPEN — nothing is newly reaped — because the alternative
+      reaps every hold on a database blip.
+
+steps:
+  - id: the-judgement-moves-out-of-both-reapers
+    action: "The Docker reaper's verdict and the Kubernetes corpse reaper's corpse selection are extracted into their own type before a third rail is added: the first sits four lines under the file-length limit and the second is already over it and may only shrink."
+  - id: a-scope-sandbox-carries-its-conversation
+    action: "A source-scope sandbox is stamped at spawn with a conversation label on the container and the pod, beside the job, run and owner labels; the pod's corpse selection reads it, which today returns only a pod name and a run id."
+  - id: both-reapers-learn-the-third-rail
+    action: "A container or pod whose conversation label names an open session whose last activity is inside the window is held, not a corpse; the outcome is printed on the existing log line; a read that fails spares everything it could not judge."
+  - id: a-release-precedes-an-admission
+    action: "At each of the three doors that consult a capacity probe, released holds are force-removed before the probe is asked, least-recently-used first, and the probe then reads a reconciled world; the release never calls the ten-second disposal."
+  - id: the-window-is-an-operator-setting
+    action: "A nullable hold-seconds field joins the project's and the process-wide sandbox blocks, resolving in that order then the environment variable then one hundred and eighty, resolved once per scan through the configuration loader; zero holds nothing."
+  - id: the-settings-form-carries-the-global-value
+    action: "The sandbox settings form gains the field beside the concurrent-sandbox bound; the per-project control belongs to 2026-09-22-6968."
+
+tests:
+  - "Reaper_AContainerLabelledWithAnOpenActiveConversation_IsNotACorpse"
+  - "Reaper_AContainerLabelledWithAClosedConversation_IsACorpse"
+  - "Reaper_AContainerLabelledWithAConversationQuietPastTheWindow_IsACorpse"
+  - "Reaper_AContainerWithNoConversationLabel_IsJudgedExactlyAsItIsToday"
+  - "Reaper_ASessionReadThatFails_SparesWhatItCouldNotJudge"
+  - "CorpseReaper_APodLabelledWithAnOpenActiveConversation_IsNotACorpse"
+  - "CorpseReaper_TheSelection_CarriesTheConversationLabelItMustJudge"
+  - "Release_ADoorWithReleasableHolds_ForceRemovesTheLeastRecentlyUsedBeforeProbing"
+  - "Release_AHoldATurnHasTaken_IsNeverReleased"
+  - "Release_NoReleasePath_CallsTheTenSecondDisposal"
+  - "Release_AnEmptyRegister_LeavesEveryAdmissionDecisionAsItIsToday"
+  - "HoldWindow_Unconfigured_IsThreeMinutes"
+  - "HoldWindow_AProjectThatSetsItsOwn_OverridesTheProcessWideValue"
+  - "HoldWindow_SetToZero_MakesEveryLabelledSandboxACorpseAtOnce"
+  - "HoldWindow_AConfigurationReadThatFails_KeepsThePreviousValueAndReapsNothingNew"
+  - "HoldWindow_ResolvedOncePerScan_NotOncePerContainer"
+
+done:
+  - "a sandbox labelled with an open, awake conversation survives every reaper, on both backends, whichever replica judges it"
+  - "a hold is released before a capacity probe is asked at all three doors that ask one"
+  - "no release waits out a shutdown grace"
+  - "with nothing labelled and nothing registered, every verdict and every admission is what it is today"
+  - "build green, full suite green, file-length ratchet green"
+
+facts:
+  - claim: "The sandbox owner identity is the liveness STORE's, never the process's, so two replicas sharing a store clean up each other's containers."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOwnerIdentity.cs:3-14, src/backend/AgentSmith.Server/Services/Sandbox/SandboxOwnerIdentityResolver.cs:8-16"
+  - claim: "The Docker reaper judges on two rails — younger than sixty seconds, or owned by a live run — and scans every thirty."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs:27-28,91-93"
+  - claim: "The Kubernetes corpse sweep runs every sixty seconds and is leader-elected, so one replica sweeps for all."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/HousekeepingLeaderHostedService.cs:64-70,76"
+  - claim: "Its pure selection returns a pod name and a run id and never reads the pod's other labels."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs:28,37-43"
+  - claim: "The spawn funnel reaps corpses BEFORE it asks for capacity."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:114-117"
+  - claim: "The Kubernetes probe reads the quota's hard and used figures, which the cluster's own controller writes."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:28,57-58"
+  - claim: "Three decisions consult a capacity probe, in two assemblies, with no shared collaborator between them."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:117, src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:95, src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:41"
+  - claim: "The manual init door had the corpse sweep deliberately removed because running it before answering made the operator wait."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs:14-21"
+  - claim: "An ordinary disposal pushes a shutdown step and then waits a flat ten seconds before removing anything."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:24,49-51"
+  - claim: "The remover the reaper uses force-removes the container with no grace at all."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxRemover.cs:14-27"
+  - claim: "A spec-dialog run carries no ticket and the lease attach returns early without one, so such a run holds no DB lease and is live only in the volatile Redis set."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:55-57, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:385, src/backend/AgentSmith.Server/Services/Sandbox/LiveRunSetReader.cs:26"
+  - claim: "The session row carries IsOpen and LastActivityAt and names exactly one project."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:19-20,54,56"
+  - claim: "The configuration loader assembles the whole catalog from the document store on every call with no cache, and answers an unreachable store with an empty configuration plus a blocking startup finding."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:38-73"
+  - claim: "A bound resolved through that loader at decision time sees a catalog change without a restart."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:85-92"
+  - claim: "The per-project sandbox block carries eight overrides, and null-means-unconfigured while zero carries its own meaning is the established shape."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:22,31,39,46,54,62,73,82, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:55-69"
+  - claim: "The Docker reaper is four lines under the file-length limit and unlisted; the Kubernetes corpse reaper is over it and in the baseline, so it may only shrink."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs (116 lines), src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs (128 lines), tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19,40-43"
+  - claim: "A scope's opener calls the sandbox factory directly and consults no capacity probe."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:28-30"
+  - claim: "The pure judgement is already unit-tested without a Docker mock, which is the precedent the third rail's tests follow."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs:82-99, tests/AgentSmith.Tests/Sandbox/SandboxOrphanReaperOwnershipTests.cs:88"
+
+assumptions:
+  - claim: "A conversation id is a legal Docker label value and a legal Kubernetes label value."
+    check: "Read the owner identity's construction rule — at most 63 characters, alphanumeric at both ends — and compare it with the session id's shape."
+  - claim: "The session rows for a scan's labelled containers can be read in one query rather than one per container."
+    check: "Open the session repository and establish whether a read by a set of session ids exists or must be added."
