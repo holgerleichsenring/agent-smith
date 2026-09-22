@@ -296,15 +296,14 @@ new DashboardOutcomeChannel(
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
             "draft the phase", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
-        for (var waited = 0; !_pendingQuestions.TryPeek(sessionId, out _); waited++)
-        {
-            waited.Should().BeLessThan(1000, "the proposal reaches the approval gate");
-            await Task.Delay(10);
-        }
+        await TestWaits.UntilAsync(
+            () => _pendingQuestions.TryPeek(sessionId, out _),
+            "the proposal reaches the approval gate");
 
         (await _router.TryRouteAsync(shape, "U1", Channel, "th-typed", Platform, false, CancellationToken.None))
             .Should().BeTrue();
-        (await proposing.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeTrue();
+        (await proposing.OrHang("the held proposal turn returns once the shape is answered"))
+            .Should().BeTrue();
 
         var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None);
         stored!.Transcript.Count(t => t.Text == shape).Should().Be(1,
