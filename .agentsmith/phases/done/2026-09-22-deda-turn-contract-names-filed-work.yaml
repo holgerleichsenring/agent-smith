@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-deda
+
+goal: "A design turn in a conversation that has filed work is told, before it writes anything, that it cannot change a filed ticket and must never report having done so."
+
+applies_to: "backend (the per-turn framework contract the design prompt already carries)"
+
+scope:
+  in: >
+    Measured live: after the dialog had filed four tickets the operator asked for one, and the
+    turn answered in the perfect tense — the three areas "are combined into ONE ticket" —
+    describing an act it had no ability to perform and had not performed. Asked directly, it
+    admitted it had changed nothing.
+    The surface carries no act on any tracker, so the claim was not merely unverified; it was
+    impossible. What is missing is that nobody tells the turn so at the moment it matters.
+    An earlier draft answered this AFTER the fact: a framework line appended to the reply, naming
+    the standing tickets and saying this turn filed nothing. A review refused it and the reasons
+    all hold. The outcome type it keyed on is a CATCH-ALL rather than a record of the act — a
+    crashed turn, a twice-invalid proposal and a refused proposal all resolve to it — and the
+    flow is not handed the turn kind, so the line would have appeared under a turn-failed note and
+    under a validation notice. It could not fire on a PROPOSAL turn at all, though a proposal
+    files nothing either and the measured claim may well have been one. It repeated on every
+    answer turn of a filed conversation, forever, in a transcript the model reads back. And it
+    asserted present-tense external state — that the filing STANDS — from a one-column snapshot
+    holding only the LATEST filing, so a conversation that filed twice would have named one ticket
+    while four existed, corroborating the very claim it meant to contradict.
+    The prompt is the cheaper and better place, and it is in this repository. A per-turn framework
+    contract is already composed there and already tells the turn what it may and may not propose.
+    A sibling clause states a CAPABILITY rather than a state: this conversation has filed work;
+    you cannot change, close or re-cut a filed ticket, and you must never report having done so.
+    It arrives before the sentence is written rather than after, it costs no message, it grows no
+    transcript, it cannot go stale because it names no ticket, and it applies to every turn kind.
+  out: >
+    APPENDING A FRAMEWORK LINE TO THE REPLY. Refused, with the mechanisms above.
+    NAMING THE FILED TICKETS IN THE CLAUSE. The transcript already carries the filing notice,
+    ticket by ticket, as an assistant turn the prompt renders back. Repeating them in a framework
+    rule would add nothing and would go stale the moment a sibling phase lets a conversation
+    withdraw one.
+    DETECTING A FALSE CLAIM IN THE PROSE. There is no marker to key on, and a pattern over natural
+    language is forbidden here. This phase makes the claim less likely; it does not police it.
+    THE SKILL SENTENCE. The pinned master already says the partner never files anything itself,
+    and the model claimed a filing anyway — so a second sentence there is worth having and is not
+    the fix. A separate pull request in the skills repository.
+    WHAT A CONVERSATION MAY ACTUALLY DO TO A FILED TICKET. A sibling phase gives it a way to close
+    one. When that lands this clause narrows rather than disappears, and it is named here so the
+    wording is changed once.
+
+decisions:
+  - key: |
+      TELL THE TURN BEFORE IT WRITES, NOT THE OPERATOR AFTERWARDS. A framework line in the chat
+      annotates a claim that has already been made and read. A clause in the turn's own contract
+      is read by the model before it composes anything, costs one method, and is the same shape
+      the contract already uses for what a turn may propose.
+  - key: |
+      A CAPABILITY DOES NOT GO STALE; A STATE DOES. "You cannot change a filed ticket" is true
+      whatever the tracker now holds. "The filing stands" is a claim about the outside world read
+      from a cached column, and it would have been wrong for any conversation that filed twice and
+      for any ticket somebody had since closed.
+  - key: |
+      IT MUST NOT KEY ON THE OUTCOME TYPE. The answer outcome is what a failed turn, a twice-
+      invalid proposal and a refused proposal all become. Anything gated on it fires under a
+      failure note and misses a proposal. The contract is composed per turn from the conversation,
+      which is the right question: has this conversation filed work.
+  - key: |
+      THE TRIGGER IS THE FILING RECORD, READ ONCE WHERE THE PROMPT IS BUILT. A conversation that
+      has never filed gets exactly today's contract, so nothing changes for the common case.
+
+steps:
+  - id: the-contract-knows-whether-the-conversation-filed
+    action: "The per-turn framework contract is told whether this conversation has filed work, read where the prompt is composed."
+  - id: a-filed-conversation-is-told-what-it-cannot-do
+    action: "When it has, the contract carries a clause stating that a filed ticket cannot be changed, closed or re-cut from the conversation and that the turn must never report having done so."
+  - id: a-conversation-that-never-filed-is-unchanged
+    action: "When it has not, the contract is byte-for-byte what it is today."
+
+tests:
+  - "TurnContract_AConversationThatFiled_CarriesTheClause"
+  - "TurnContract_AConversationThatNeverFiled_IsUnchanged"
+  - "TurnContract_AFiledConversation_CarriesTheClauseOnAProposalTurn"
+  - "TurnContract_AFiledConversation_CarriesTheClauseOnAnAnswerTurn"
+  - "TurnContract_TheClause_NamesNoTicketAndAssertsNoTrackerState"
+
+done:
+  - "a turn in a conversation that has filed work is told it cannot change what was filed"
+  - "the clause reaches every turn kind, not only an answer"
+  - "a conversation that never filed sees the contract it sees today"
+  - "no chat message is added and no transcript grows"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The design prompt composes a per-turn framework contract stating what the turn may and may not propose."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogPromptFactory.cs:50,54-59"
+  - claim: "The prompt renders every turn of the transcript back to the model, whatever its kind."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogPromptFactory.cs:76-82"
+  - claim: "The filing notice is both sent and appended to the transcript as a turn naming each ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:50-59"
+  - claim: "The conversation's latest filing is stored as one column and overwritten per filing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:43-50"
+  - claim: "A failed turn resolves to the answer outcome with a failure kind."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:75-80"
+  - claim: "A twice-invalid outcome also resolves to the answer outcome, with a notice kind."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/MasterOutcomes.cs:36-38"
+  - claim: "A refused proposal is rewritten to its stripped prose and resolves to an answer."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:62-68"
+  - claim: "The outcome flow is not handed the turn kind, so it cannot tell those apart."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:24-26"
+  - claim: "The design surface carries no act on any tracker."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:78-90"
+  - claim: "Filing runs only from a confirmed outcome, so a proposal turn files nothing either."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:43-46"
+  - claim: "The pinned master already tells the partner it never files anything itself."
+    evidence: "the design-partner master of the embedded skills release, read 2026-09-22"
+
+assumptions:
+  - claim: "The prompt factory can learn whether the conversation has filed without a new read on the hot path."
+    check: "Read what the prompt factory is already handed about the conversation and whether the filing is among it."
+  - claim: "No test pins the contract's text in a way a conditional clause breaks."
+    check: "Find every test that asserts the contract's wording."
+  - claim: "A conversation whose only filing failed part-way still counts as having filed."
+    check: "Read what is stored when a filing creates some tickets and then fails."
