@@ -24,11 +24,23 @@ namespace AgentSmith.Contracts.Specs;
 /// numbering a ticket alike would otherwise resolve to one record. The key stays as it is
 /// because it is also the git path and the pointer's id; the instance is compared beside it.
 /// </param>
+/// <param name="CarryingRepo">
+/// 2026-09-22-b6ad: which of <paramref name="Repositories"/> carries the set — the repository
+/// FILING wrote the branch into, by its configured name. Empty on a record written before this
+/// phase, and on one whose approval named no configured repository, which reads as "nobody chose"
+/// and leaves the run taking its own first-scoped repository exactly as it did.
+/// <para>
+/// It sits AFTER <paramref name="Tracker"/> because the sole construction site is positional and
+/// both are strings: inserted earlier it would compile in silence and write the tracker name as
+/// the carrier.
+/// </para>
+/// </param>
 public sealed record SpecApprovalRecord(
     string Key,
     SpecSet Set,
     IReadOnlyList<string> Repositories,
-    string Tracker = "")
+    string Tracker = "",
+    string CarryingRepo = "")
 {
     /// <summary>The approval the set carries — null only on a record built without one.</summary>
     public SpecApproval? Approval => Set.Approval;

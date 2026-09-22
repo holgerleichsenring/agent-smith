@@ -27,6 +27,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
     private readonly GitHubPullRequestTarget _prTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch;
+    // 2026-09-22-b6ad: putting files on a branch without a checkout, through this same client.
+    private readonly GitHubBranchWrite _branchWrite;
 
     public string ProviderType => "GitHub";
 
@@ -44,6 +46,17 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         _prTarget = new GitHubPullRequestTarget(_owner, _repo, clientFactory, _token, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
+        _branchWrite = new GitHubBranchWrite(_owner, _repo, clientFactory, _token, logger);
+    }
+
+    public async Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return await _branchWrite.WriteAsync(
+            branch.Value, await GetDefaultBranchAsync(CreateGitHubClient()), files, message,
+            cancellationToken);
     }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)

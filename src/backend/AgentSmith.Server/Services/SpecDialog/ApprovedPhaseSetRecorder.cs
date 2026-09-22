@@ -17,8 +17,17 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// two projects of one tracker is spawned twice and is the same work, so one record serves both.
 /// </para>
 /// <para>
-/// The set is stored with NO revisions: numbering and cause are the RUN's bookkeeping, written
-/// when it publishes the set to the ticket branch.
+/// The set is stored with NO revisions: numbering and cause are the RUN's bookkeeping. Since
+/// 2026-09-22-b6ad filing mints revision 1 on the branch it writes, and the record stays the
+/// unnumbered hand-off it always was — an amendment is compared by its approval instant, never by
+/// a revision number.
+/// </para>
+/// <para>
+/// 2026-09-22-b6ad: it also chooses the CARRYING repository, in ONE spelling — the first of the
+/// project's configured repositories the approval named, which is the first element of the scoped
+/// list a run of that approval resolves. It is pinned here because filing needs a repository
+/// anyway, and because a glob-configured list is expanded in the discovery snapshot's order, so
+/// "the first one" can move between the approval and the first run.
 /// </para>
 /// <para>
 /// 2026-09-17-0e79b: it is also the AMENDMENT ENTRY — the STORE side of it. Loading a filed
@@ -50,7 +59,8 @@ public sealed class ApprovedPhaseSetRecorder(
     TimeProvider time,
     ILogger<ApprovedPhaseSetRecorder> logger)
 {
-    public async Task RecordAsync(
+    /// <summary>The record that was stored — what filing then writes to the ticket branch.</summary>
+    public async Task<SpecApprovalRecord> RecordAsync(
         ConversationState state, ResolvedProject project, string ticketId,
         IReadOnlyList<PhaseDraft> phases, CancellationToken cancellationToken)
     {
@@ -66,12 +76,16 @@ public sealed class ApprovedPhaseSetRecorder(
             [],
             SpecSource.Approved,
             Approval: approval);
-        await store.SaveAsync(
-            new SpecApprovalRecord(key.Value, set, Repositories(state, project), project.Tracker.Name),
-            cancellationToken);
+        var repositories = Repositories(state, project);
+        var record = new SpecApprovalRecord(
+            key.Value, set, repositories, project.Tracker.Name,
+            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories));
+        await store.SaveAsync(record, cancellationToken);
         logger.LogInformation(
-            "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation {Conversation}",
-            key.Value, set.Phases.Count, approval.Principal, approval.Conversation);
+            "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation "
+            + "{Conversation}, carried by {Repo}",
+            key.Value, set.Phases.Count, approval.Principal, approval.Conversation, record.CarryingRepo);
+        return record;
     }
 
     /// <summary>

@@ -89,6 +89,14 @@ internal sealed class StubSourceProvider : ISourceProvider
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         Task.FromResult(PullRequestCompletion.Merged());
+
+    // 2026-09-22-b6ad: the stub's remote accepts the write and names a commit, which is what a
+    // caller recording the pointer needs. What was written is asserted through a double of its
+    // own; this one only has to be a remote that works.
+    public Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken) =>
+        Task.FromResult(BranchWriteResult.Ok("stubsha0000000000000000000000000000000"));
 }
 
 internal sealed class StubSourceProviderFactory : ISourceProviderFactory

@@ -161,7 +161,7 @@ public sealed class SpecArtifactTests
             factory.Object,
             new SandboxGitOperations(new GitBranchPusher(),
                 NullLogger<SandboxGitOperations>.Instance, factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetIndex(),
+            new SpecSetFiles(new SpecSetIndex()),
             new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
     }
 

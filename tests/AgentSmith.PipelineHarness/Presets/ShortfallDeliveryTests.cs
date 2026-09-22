@@ -172,6 +172,11 @@ public sealed class ShortfallDeliveryTests
         public Task<PullRequestCompletion> CompletePullRequestAsync(
             string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
             _inner.CompletePullRequestAsync(prUrl, sourceBranch, cancellationToken);
+
+        public Task<BranchWriteResult> WriteFilesToBranchAsync(
+            BranchName branch, IReadOnlyList<RepoFile> files, string message,
+            CancellationToken cancellationToken) =>
+            _inner.WriteFilesToBranchAsync(branch, files, message, cancellationToken);
     }
 
     private sealed class RecordingSourceProviderFactory(RecordingSourceProvider provider) : ISourceProviderFactory

@@ -57,7 +57,8 @@ public sealed class SpecSetWriterUnchangedTests
             new SandboxGitOperations(
                 new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, factory.Object,
                 new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetIndex(), new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
+            new SpecSetFiles(new SpecSetIndex()), new SandboxTargets(),
+            NullLogger<SpecSetWriter>.Instance);
     }
 
     private static PipelineContext Pipeline(ISandbox sandbox)

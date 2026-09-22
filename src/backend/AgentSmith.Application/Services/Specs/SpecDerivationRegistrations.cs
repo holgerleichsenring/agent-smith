@@ -28,6 +28,10 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedPhaseYamlRenderer>();
     services.AddTransient<SpecSetIndex>();
+    // 2026-09-22-b6ad: the files a spec-set directory holds, for the run's publish and for the
+    // checkout-free write filing makes onto the ticket branch.
+    services.AddTransient<SpecSetFiles>();
+    services.AddTransient<FiledSpecBranch>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
     // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool

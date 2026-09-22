@@ -35,8 +35,22 @@ public sealed class AzureReposSourceProvider(
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
     private readonly DefaultBranchResolver _defaultBranch = new(
         connection.DefaultBranch, $"{connection.Project}/{connection.RepoName}", logger);
+    // 2026-09-22-b6ad: putting files on a branch without a checkout, through this same client.
+    private readonly AzureReposBranchWrite _branchWrite = new(
+        connection.Project, connection.RepoName, clientFactory,
+        connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
 
     public string ProviderType => "AzureRepos";
+
+    public async Task<BranchWriteResult> WriteFilesToBranchAsync(
+        BranchName branch, IReadOnlyList<RepoFile> files, string message,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        return await _branchWrite.WriteAsync(
+            branch.Value, await GetDefaultBranchAsync(cancellationToken), files, message,
+            cancellationToken);
+    }
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
     {

@@ -53,6 +53,8 @@ internal static class SpecDialogExtensions
         // 2026-09-22-b3d7: one path does that for a lone phase and for an approved cut alike.
         services.AddScoped<ApprovedPhaseSetRecorder>();
         services.AddScoped<ApprovedSetTicketFiler>();
+        // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
+        services.AddScoped<FiledSpecBranchWrite>();
         services.AddScoped<OutcomeTicketFiler>();
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
