@@ -28,13 +28,33 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogConversationList(
     SpecDialogSessionRepository repository, SpecDialogLatestOutcomeStore latestOutcome)
 {
+    /// <summary>What a caller that names no limit reads — the panel beside the conversation.</summary>
     internal const int Cap = 50;
+
+    /// <summary>
+    /// 2026-09-21-f237b: the most a caller may ask for. The read parses every listed transcript
+    /// and reads two further JSON documents per row, so an unbounded "all" would grow one page
+    /// load with the operator's whole history and get slower every week with nothing on screen to
+    /// explain it. The same ceiling RunListComposer uses, for the same reason.
+    /// </summary>
+    internal const int MaxPageLimit = 200;
+
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
-    public async Task<IReadOnlyList<SpecDialogSessionSummary>> ListAsync(
-        string owner, CancellationToken cancellationToken) =>
-        [.. (await repository.ListByOwnerAsync(Platform, owner, Cap, cancellationToken))
-            .Select(Summary)];
+    /// <summary>
+    /// A caller's limit, clamped rather than refused — which is what the two other limit-taking
+    /// routes in this tree do. Exposed so a test can prove the clamp without opening 201 sessions.
+    /// </summary>
+    internal static int ClampLimit(int? limit) => Math.Clamp(limit ?? Cap, 1, MaxPageLimit);
+
+    public async Task<SpecDialogConversationPage> ListAsync(
+        string owner, int? limit, CancellationToken cancellationToken)
+    {
+        var rows = await repository.ListByOwnerAsync(
+            Platform, owner, ClampLimit(limit), cancellationToken);
+        var total = await repository.CountByOwnerAsync(Platform, owner, cancellationToken);
+        return new SpecDialogConversationPage([.. rows.Select(Summary)], total);
+    }
 
     private SpecDialogSessionSummary Summary(SpecDialogSession session)
     {

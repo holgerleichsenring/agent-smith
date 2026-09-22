@@ -87,6 +87,16 @@ export interface SpecDialogSessionSummary {
   openDialogId: string | null;
 }
 
+/**
+ * 2026-09-21-f237b: one page of the caller's conversations, and how many they hold in all.
+ * The count is carried rather than inferred from the row count, which would be wrong for exactly
+ * the caller who holds the limit exactly.
+ */
+export interface SpecDialogConversationPage {
+  conversations: SpecDialogSessionSummary[];
+  total: number;
+}
+
 /** What the surface needs for one dialog id, re-read after every message. The caller's
  *  conversation list is a read of its own, because it reads every listed transcript. */
 export interface SpecDialogView {

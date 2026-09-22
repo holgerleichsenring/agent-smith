@@ -53,6 +53,17 @@ const connectionState = makeSubject<HubConnectionState>();
 const watchFiledWork = vi.fn(async () => async () => {});
 
 
+// 2026-09-21-f237b: the surface reads its own address now — ?open= hands it a conversation from
+// the conversations page. The search params are a ref so a case can set them before rendering,
+// and the replace that strikes the parameter afterwards is observable.
+const searchParams = { current: new URLSearchParams() };
+const routerReplace = vi.fn();
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => searchParams.current,
+  useRouter: () => ({ replace: routerReplace }),
+  usePathname: () => "/spec-dialog",
+}));
+
 vi.mock("@/lib/JobsHubClient", () => ({
   getJobsHubClient: () => ({
     specDialogMessages: messages,
@@ -82,7 +93,7 @@ const uploadSpecDialogImage =
     async () => ({ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }));
 vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
-  fetchSpecDialogConversations: () => fetchSpecDialogConversations(),
+  fetchSpecDialogConversations: (limit?: number) => fetchSpecDialogConversations(limit),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
   postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
     postSpecDialogMessage(dialogId, text, project),
@@ -367,12 +378,14 @@ function stubStorage(): void {
 }
 
 beforeEach(() => {
+  searchParams.current = new URLSearchParams();
+  routerReplace.mockReset();
   stubStorage();
   __forgetDialogIdForTests();
   fetchSpecDialog.mockReset();
   fetchSpecDialog.mockResolvedValue(view());
   fetchSpecDialogConversations.mockReset();
-  fetchSpecDialogConversations.mockResolvedValue([]);
+  fetchSpecDialogConversations.mockResolvedValue(listing([]));
   postSpecDialogMessage.mockReset();
   fetchFiledWork.mockReset();
   fetchFiledWork.mockResolvedValue({ dialogId: "d-1", tickets: [] });
@@ -388,6 +401,13 @@ async function renderSurface() {
   render(<SpecDialogSurface />);
   await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
   await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
+}
+
+// 2026-09-21-f237b: the list route answers a PAGE — the rows and the owner's whole count —
+// because a page that shows a limit's worth of rows has to say so, and the row count cannot tell
+// a full page from a caller who holds exactly that many. Every mocked answer is one.
+function listing(conversations: SpecDialogSessionSummary[], total = conversations.length) {
+  return { conversations, total };
 }
 
 describe("SpecDialogSurface", () => {
@@ -661,7 +681,7 @@ describe("SpecDialogSurface", () => {
   // name is the operator's own. The mark carries the same modifier.
   it("SpecDialog_AConversationsProjectMark_AsksToWrap", async () => {
     const projectName = "a-project-name-with-no-space-in-it-at-all";
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ project: projectName })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ project: projectName })]));
     await renderSurface();
 
     const mark = (await screen.findByTestId("dialog-conversation-s-9"))
@@ -671,9 +691,9 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_TheConversationList_NamesEachByTitleAndWhatItFiled", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ outcome: { kind: "epic", tickets: 3, partial: true } }),
-    ]);
+    ]));
     await renderSurface();
 
     const row = await screen.findByTestId("dialog-conversation-s-9");
@@ -687,12 +707,12 @@ describe("SpecDialogSurface", () => {
     const now = new Date();
     const daysAgo = (days: number) =>
       new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 12).toISOString();
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", lastActivityAt: now.toISOString() }),
       conversation({ sessionId: "s-2", lastActivityAt: daysAgo(1) }),
       conversation({ sessionId: "s-3", lastActivityAt: daysAgo(3) }),
       conversation({ sessionId: "s-4", lastActivityAt: daysAgo(30) }),
-    ]);
+    ]));
     await renderSurface();
 
     await screen.findByTestId("dialog-conversation-s-4");
@@ -712,10 +732,10 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_AConversationWithAnOutcome_ShowsIt_OneWithoutShowsNone", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-7", outcome: { kind: "bug", tickets: 1, partial: false } }),
       conversation({ sessionId: "s-8", outcome: null }),
-    ]);
+    ]));
     await renderSurface();
 
     const filed = await screen.findByTestId("dialog-conversation-s-7");
@@ -727,7 +747,7 @@ describe("SpecDialogSurface", () => {
   // The spec said every opening resumes onto a fresh dialog id; since 2026-09-17-c7aeb's review
   // only a CLOSED conversation does — an open one is returned to (the test below this one).
   it("SpecDialog_OpeningAClosedConversation_ResumesOntoAFreshDialogIdAndClosesNothing", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ openDialogId: null })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ openDialogId: null })]));
     await renderSurface();
     const first = heldDialogId();
 
@@ -746,7 +766,7 @@ describe("SpecDialogSurface", () => {
   // a resume is refused while a turn runs, and the page had already left the tab the reply and a
   // waiting approval were going to. An open conversation is somewhere; the page goes there.
   it("SpecDialog_OpeningAnOpenConversation_ReturnsToItsDialogAndResumesNothing", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ openDialogId: "d-where-it-lives" })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ openDialogId: "d-where-it-lives" })]));
     await renderSurface();
 
     fireEvent.click(await screen.findByTestId("dialog-conversation-s-9"));
@@ -775,7 +795,7 @@ describe("SpecDialogSurface", () => {
     postSpecDialogMessage.mockImplementation(async (...[, text]) => {
       if (text.startsWith("/spec resume")) resumed = true;
     });
-    fetchSpecDialogConversations.mockResolvedValue([conversation()]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation()]));
     await renderSurface();
     const first = heldDialogId();
     fetchSpecDialog.mockImplementation(async (dialogId: string) => {
@@ -811,7 +831,7 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_ClickingTheConversationAlreadyOpen_DoesNothing", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-1" })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-1" })]));
     await renderSurface();
     const first = heldDialogId();
 
@@ -828,15 +848,15 @@ describe("SpecDialogSurface", () => {
   // conversation ran. The reply is sent after the turn is appended, so the read it triggers is
   // the first one that can see the turn — and the row it renders is the point, not the call.
   it("SpecDialog_AfterAReply_TheRunningConversationIsListedWithItsTitleAndTurns", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: null, turns: 0 }),
-    ]);
+    ]));
     await renderSurface();
     expect(await screen.findByTestId("dialog-conversation-s-1")).toHaveTextContent("untitled s-1");
 
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
-    ]);
+    ]));
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
@@ -853,23 +873,24 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
 
-    let releaseStale: (rows: SpecDialogSessionSummary[]) => void = () => {};
+    let releaseStale: (page: ReturnType<typeof listing>) => void = () => {};
     fetchSpecDialogConversations.mockReturnValueOnce(
-      new Promise<SpecDialogSessionSummary[]>((resolve) => { releaseStale = resolve; }));
+      new Promise<ReturnType<typeof listing>>((resolve) => { releaseStale = resolve; }));
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "one", at: new Date().toISOString(),
     }));
 
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "the newest title", turns: 4 }),
-    ]);
+    ]));
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "two", at: new Date().toISOString(),
     }));
     await waitFor(() =>
       expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent("the newest title"));
 
-    await act(async () => releaseStale([conversation({ sessionId: "s-1", title: "two replies ago", turns: 1 })]));
+    await act(async () => releaseStale(
+      listing([conversation({ sessionId: "s-1", title: "two replies ago", turns: 1 })])));
 
     expect(screen.getByTestId("dialog-conversation-s-1")).toHaveTextContent("the newest title");
     expect(screen.queryByText("two replies ago")).not.toBeInTheDocument();
@@ -882,9 +903,9 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -906,12 +927,12 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, subject: "Das Widget, das das Hauptbuch liest" },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: "a widget that reads the ledger",
         subject: "Das Widget, das das Hauptbuch liest",
       }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -922,9 +943,9 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_AConversationWithout_HeadsWithTheFirstLineAsBefore", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -936,12 +957,12 @@ describe("SpecDialogSurface", () => {
   // 2026-09-21-f237a: the column is 220px wide and truncates, so the opening sentence is the
   // part every conversation of a working session has in common. The row says what it is about.
   it("SpecDialog_ARowWithASubject_ShowsItInTheColumn", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: "Ich brauche alle libraries aktualisiert",
         subject: "Aktualisierung aller Projektbibliotheken",
       }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -953,9 +974,9 @@ describe("SpecDialogSurface", () => {
 
   // Nothing is backfilled, so every conversation older than the mint keeps the row it had.
   it("SpecDialog_ARowWithoutASubject_ShowsTheFirstLineAsBefore", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", subject: null }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -966,12 +987,12 @@ describe("SpecDialogSurface", () => {
   // The delete asks about the sentence the person WROTE, in the words they wrote it in — the
   // opposite preference to the row above it, over the same two strings.
   it("SpecDialog_ARowWithBoth_NamesTheFirstLineOnItsDeleteControl", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: "Ich brauche alle libraries aktualisiert",
         subject: "Aktualisierung aller Projektbibliotheken",
       }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -982,11 +1003,11 @@ describe("SpecDialogSurface", () => {
   // A conversation opened with nothing but a pasted block has no first line at all. Asking about
   // "untitled s-1" beside a row that is showing its subject is worse than asking about the subject.
   it("SpecDialog_ARowWithASubjectAndNoTitle_NamesTheSubjectOnItsDeleteControl", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
       }),
-    ]);
+    ]));
 
     await renderSurface();
 
@@ -1000,18 +1021,18 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: null, subject: null, turns: 0 }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
 
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
         turns: 2,
       }),
-    ]);
+    ]));
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
@@ -1027,12 +1048,12 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({
         sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
         turns: 2,
       }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -1051,9 +1072,9 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: null, subject: null, turns: 2 }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -1074,9 +1095,9 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, subject: null, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 2 }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -1096,9 +1117,9 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("one"), turn("two")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-1", title: "a widget that reads the ledger", turns: 1 }),
-    ]);
+    ]));
     await renderSurface();
     await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
     const listed = fetchSpecDialogConversations.mock.calls.length;
@@ -1125,7 +1146,7 @@ describe("SpecDialogSurface", () => {
   /** Open the ask for a conversation with this outcome and read what it says, then clear the
    *  page again so the next outcome starts from nothing. */
   async function askedAbout(outcome: SpecDialogSessionSummary["outcome"]): Promise<string> {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", outcome })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-9", outcome })]));
     await renderSurface();
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
     const said = (await screen.findByTestId("confirm-dialog")).textContent ?? "";
@@ -1135,7 +1156,7 @@ describe("SpecDialogSurface", () => {
   }
 
   it("SpecDialog_DeletingAConversationWithTurns_AsksInThePage", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9", turns: 3 })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-9", turns: 3 })]));
     await renderSurface();
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
@@ -1173,7 +1194,7 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_CancellingTheAsk_DeletesNothing", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-9" })]));
     await renderSurface();
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
     await screen.findByTestId("confirm-dialog");
@@ -1187,10 +1208,10 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_ConfirmingTheAsk_DeletesThatConversation", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-9" }),
       conversation({ sessionId: "s-8", title: "another conversation" }),
-    ]);
+    ]));
     await renderSurface();
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
     await screen.findByTestId("confirm-dialog");
@@ -1204,9 +1225,9 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_DeletingAnEmptyConversation_AsksNothing", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-9", title: null, turns: 0 }),
-    ]);
+    ]));
     await renderSurface();
 
     fireEvent.click(await screen.findByTestId("dialog-delete-s-9"));
@@ -1219,13 +1240,13 @@ describe("SpecDialogSurface", () => {
   // drops a read superseded by a NEWER one — not one issued BEFORE the delete and landing after.
   it("SpecDialog_AListReadInFlightWhenTheDeleteLands_DoesNotBringTheRowBack", async () => {
     // The conversation open here is not listed at all, so every reply re-reads the list.
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-9" })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-9" })]));
     await renderSurface();
     await screen.findByTestId("dialog-conversation-s-9");
 
-    let releaseStale: (rows: SpecDialogSessionSummary[]) => void = () => {};
+    let releaseStale: (page: ReturnType<typeof listing>) => void = () => {};
     fetchSpecDialogConversations.mockReturnValueOnce(
-      new Promise<SpecDialogSessionSummary[]>((resolve) => { releaseStale = resolve; }));
+      new Promise<ReturnType<typeof listing>>((resolve) => { releaseStale = resolve; }));
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
@@ -1246,7 +1267,7 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, transcript: [turn("a widget that reads the ledger")] },
     }));
-    fetchSpecDialogConversations.mockResolvedValue([conversation({ sessionId: "s-1" })]);
+    fetchSpecDialogConversations.mockResolvedValue(listing([conversation({ sessionId: "s-1" })]));
     await renderSurface();
     const first = heldDialogId();
     act(() => proposals.emit(proposal()));
@@ -1267,9 +1288,9 @@ describe("SpecDialogSurface", () => {
   // The row was a button, and a control nested in a button is invalid markup that warns. The two
   // controls are siblings, so the delete needs no propagation trick and the row never opens.
   it("SpecDialog_TheDeleteControl_DoesNotOpenTheConversation", async () => {
-    fetchSpecDialogConversations.mockResolvedValue([
+    fetchSpecDialogConversations.mockResolvedValue(listing([
       conversation({ sessionId: "s-9", openDialogId: null }),
-    ]);
+    ]));
     await renderSurface();
     const first = heldDialogId();
 
@@ -1294,6 +1315,90 @@ describe("SpecDialogSurface", () => {
 
     act(() => messages.emit({
       dialogId: heldDialogId(), title: "Spec dialog", text: "Filed one phase:", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() =>
+      expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
+  });
+
+  // 2026-09-21-f237b: the conversations page hands a conversation to this surface by its address.
+  // Opening one is a hook callback and never was an address, so the address hands it to the hook.
+  it("SpecDialog_AnAddressCarryingASessionId_OpensThatConversation", async () => {
+    searchParams.current = new URLSearchParams({ open: "s-42" });
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.any(String), "/spec resume s-42", undefined));
+  });
+
+  // With the dialog id the row carried, it GOES there instead — which is the only reason the
+  // address carries one. A resume is refused while a turn runs, and a person who left a
+  // conversation mid-turn could otherwise not get back to its reply.
+  it("SpecDialog_AnAddressCarryingAnOpenConversation_GoesToItsDialogRatherThanResuming", async () => {
+    searchParams.current = new URLSearchParams({ open: "s-42", on: "d-7" });
+
+    await renderSurface();
+
+    await waitFor(() => expect(heldDialogId()).toBe("d-7"));
+    expect(postSpecDialogMessage).not.toHaveBeenCalled();
+  });
+
+  // Consumed once and struck from the address, so a reload does not reopen what the operator has
+  // since navigated away from.
+  it("SpecDialog_AnAddressConsumedOnce_DoesNotReopenOnTheNextRender", async () => {
+    searchParams.current = new URLSearchParams({ open: "s-42", on: "d-7" });
+
+    await renderSurface();
+
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith("/spec-dialog"));
+  });
+
+  // 2026-09-21-f237b: once the page above can open a conversation the panel's read does not
+  // contain, an absent row would otherwise answer "behind" on every reply for ever — the
+  // expensive read as a poll, which is what the predicate exists to prevent.
+  it("SpecDialog_AConversationWithNoRowInTheList_ReadsTheListOnceAndThenStops", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    // A CAPPED page that does not hold this conversation: fewer rows than the owner has.
+    fetchSpecDialogConversations.mockResolvedValue(
+      listing([conversation({ sessionId: "s-other", turns: 2 })], 63));
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "one", at: new Date().toISOString(),
+    }));
+    await waitFor(() => expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(0));
+    const spent = fetchSpecDialogConversations.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "two", at: new Date().toISOString(),
+    }));
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "three", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(spent);
+  });
+
+  // But a conversation the server simply does not hold YET — the read that races its own
+  // creation — must still get its read, or it would never reach the panel at all. A page that
+  // served everything the owner has is authoritative; a capped one is not.
+  it("SpecDialog_ANewConversationNothingHasListedYet_StillReadsTheList", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue(listing([]));
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
 
     await waitFor(() =>

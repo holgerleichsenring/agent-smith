@@ -53,3 +53,18 @@ export function timeOfDay(lastActivityAt: string, now: Date = new Date()): strin
   if (calendarDaysBetween(at, now) !== 0) return null;
   return at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+
+/**
+ * 2026-09-21-f237b: when a conversation was last active, said relatively, for a row that has no
+ * day heading over it to date it — which is every row on the conversations page, and, after
+ * 2026-09-21-f237c, every row in the panel too.
+ */
+export function lastActive(at: string, now: Date = new Date()): string {
+  const days = calendarDaysBetween(new Date(at), now);
+  if (days <= 0) return timeOfDay(at, now) ?? "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}

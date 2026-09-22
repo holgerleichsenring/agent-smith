@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import { useFiledWork } from "@/hooks/useFiledWork";
@@ -29,12 +30,44 @@ import { DialogWorking } from "./DialogWorking";
 
 export const WORK_IT_OUT = "Work it out";
 
+/** The address the conversations page links to: which conversation to open, and — when the row
+ *  said it was open — the dialog id it is already living on. */
+export const OPEN_PARAM = "open";
+export const ON_PARAM = "on";
+
+/**
+ * 2026-09-21-f237b: a conversation handed to this surface by its address.
+ *
+ * Opening one is a hook callback and never was an address: a CLOSED conversation is resumed by a
+ * command queued until this page has joined the new dialog id's hub group, which no link can do.
+ * So the page links here and the hook still does the opening — with the dialog id the row carried
+ * where there was one, because that is the only thing that tells `open` to GO to a running
+ * conversation rather than resume it, and a resume is refused while a turn runs.
+ *
+ * Consumed once and then struck from the address, so a reload does not reopen what the operator
+ * has since navigated away from, and the browser's own history stops carrying it.
+ */
+function useHandover(open: (sessionId: string, openDialogId?: string | null) => void) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const taken = useRef<string | null>(null);
+  const sessionId = params.get(OPEN_PARAM);
+  const onDialogId = params.get(ON_PARAM);
+  useEffect(() => {
+    if (!sessionId || taken.current === sessionId) return;
+    taken.current = sessionId;
+    open(sessionId, onDialogId);
+    router.replace("/spec-dialog");
+  }, [sessionId, onDialogId, open, router]);
+}
+
 /** How long the pane wears the mark an inspect puts on it. Long enough to be read as an answer
  *  to the click, short enough that it is gone before the operator reads what it selected. */
 const MARK_MS = 1400;
 
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
+  useHandover(dialog.open);
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.
