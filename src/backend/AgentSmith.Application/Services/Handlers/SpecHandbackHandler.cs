@@ -1,9 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
-using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -35,7 +33,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </para>
 /// </summary>
 public sealed class SpecHandbackHandler(
-    ITicketProviderFactory ticketFactory,
+    SpecHandbackPark park,
     SpecParkStatusResolver parkStatus,
     ISpecSetPointerStore pointers,
     SpecHandbackRepeat repeat,
@@ -75,28 +73,11 @@ public sealed class SpecHandbackHandler(
             return CommandResult.Fail(parkStatus.UnresolvedReason);
         }
 
-        await ParkAsync(context, handback, status!, cancellationToken);
+        await park.ParkAsync(context, project, handback, status!, cancellationToken);
         if (pointer is not null)
             await pointers.SaveAsync(project,
                 SpecHandbackProgress.Record(pointer, handback.Case), cancellationToken);
         return Result(handback);
-    }
-
-    private async Task ParkAsync(
-        SpecHandbackContext context, SpecHandback handback, string status, CancellationToken ct)
-    {
-        var prUrl = context.Pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var url)
-            ? url : null;
-        var waitingLine = TicketMention.WaitingLine(context.Tracker!.Type, context.Ticket);
-        await ticketFactory.Create(context.Tracker!).FinalizeAsync(
-            context.Ticket!.Id, SpecHandbackComment.Build(handback, prUrl, waitingLine), status, ct);
-        // The awaiting-answer flag short-circuits the rest of the run for BOTH classes:
-        // there is nothing to build either way. What differs is how the ticket comes back —
-        // an answered question re-triggers, a verdict waits for a Retry.
-        context.Pipeline.Set(ContextKeys.OpenQuestionsAwaitingAnswer, true);
-        logger.LogInformation(
-            "Ticket {Ticket} handed back ({Case}) — parked in {Status}",
-            context.Ticket.Id.Value, handback.Case, status);
     }
 
     private static CommandResult Result(SpecHandback handback) => handback.Case switch

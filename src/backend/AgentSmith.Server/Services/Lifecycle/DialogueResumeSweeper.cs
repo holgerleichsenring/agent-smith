@@ -6,14 +6,12 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
-/// p0327: the single resume trigger. Every scan it walks the pending
-/// checkpoints and (a) resumes those whose durable inbox already holds an
-/// answer — this also closes the answer-before-checkpoint race, since both
-/// sides are rows by the next tick — and (b) applies the persisted
-/// DefaultAnswer when the days-scale deadline elapsed, so the run resumes
-/// headless (same timeout contract as the hot wait, longer clock). Runs under
-/// the housekeeping leader; scan latency (seconds) is noise against waits
-/// measured in hours or days.
+/// p0327: the single resume trigger. Every scan it walks the pending checkpoints and (a)
+/// resumes those whose durable inbox already holds an answer — this also closes the
+/// answer-before-checkpoint race, since both sides are rows by the next tick — and (b) applies the
+/// persisted DefaultAnswer when the days-scale deadline elapsed, so the run resumes headless (same
+/// timeout contract as the hot wait, longer clock). Runs under the housekeeping leader; scan
+/// latency (seconds) is noise against waits measured in hours or days.
 /// </summary>
 public sealed class DialogueResumeSweeper(
     IServiceProvider services,
@@ -22,6 +20,7 @@ public sealed class DialogueResumeSweeper(
     IRunResumer runResumer,
     IParkedTicketDialogue ticket,
     UnanswerableParkReporter unanswerableParks,
+    IRunListNudge runListNudge,
     TimeProvider timeProvider,
     ILogger<DialogueResumeSweeper> logger)
 {
@@ -72,6 +71,10 @@ public sealed class DialogueResumeSweeper(
                      ?? await ApplyDeadlineDefaultAsync(checkpoint, ct);
         if (answer is null) return false; // still waiting, deadline not reached
         if (!await runResumer.EnqueueResumeAsync(checkpoint, answer, ct)) return false;
+        // 2026-09-22-7c41c: a parked run is outside the set the broadcaster drains, so nothing else
+        // tells an open surface to re-read. Best-effort, and at this sole caller, not the resumer.
+        try { await runListNudge.RunsChangedAsync(checkpoint.RunId, ct); }
+        catch (Exception ex) { logger.LogDebug(ex, "Resume nudge failed for {RunId}", checkpoint.RunId); }
 
         // p0461: and the board stops saying "waiting for you" over a working run.
         await ticket.MoveToInProgressAsync(checkpoint, ct);
@@ -85,8 +88,8 @@ public sealed class DialogueResumeSweeper(
             ? await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct)
             : null;
 
-    // Deadline elapsed → the persisted DefaultAnswer applies, written through
-    // the SAME first-wins inbox so a racing real answer beats the default.
+    // Deadline elapsed → the persisted DefaultAnswer applies, written through the SAME
+    // first-wins inbox so a racing real answer beats the default.
     private async Task<DialogAnswer?> ApplyDeadlineDefaultAsync(
         RunCheckpointRecord checkpoint, CancellationToken ct)
     {
@@ -103,10 +106,9 @@ public sealed class DialogueResumeSweeper(
         return await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct);
     }
 
-    // Abandoned = terminal or cancel-requested. A run still 'running' is NOT
-    // abandoned: the checkpoint event lands while the executor is unwinding
-    // (sandbox teardown), before its RunFinished(waiting_for_input) — that gap
-    // must never consume the checkpoint.
+    // Abandoned = terminal or cancel-requested. A run still 'running' is NOT abandoned: the
+    // checkpoint event lands while the executor is unwinding (sandbox teardown), before its
+    // RunFinished(waiting_for_input) — that gap must never consume the checkpoint.
     private async Task<bool> IsRunAbandonedAsync(string runId, CancellationToken ct)
     {
         using var scope = services.CreateScope();

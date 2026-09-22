@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-22-7c41b
+
+decisions:
+  - category: Architecture
+    chose: "A refused park records the standing fact and the run keeps going"
+    over: "Reporting the park and continuing (today), or failing the run on a refused park"
+    reason: |
+      Continuing is what shipped the defect: the ticket keeps a trigger status with a question
+      on it, the run's exit releases the single-run lease, and the next poll claims it and
+      starts a second run. Failing is worse than the defect. The checkpoint that makes the
+      question answerable in the dashboard is written AFTER the post, so a failing post
+      destroys the only way to answer the question it just asked; and the failure path then
+      moves the ticket to the configured failed status, which on the deployment that produced
+      this measurement is refused for the same reason, locking the ticket behind a refusal that
+      names the wrong configuration field. Recording the fact prevents the second run, leaves
+      the question answerable, and names the parking status — the field that is actually wrong.
+      It is also the mechanism the repository already built for the identical situation at run
+      end (2026-09-18-c1a7), so nothing new decides when a ticket stops being claimable.
+
+  - category: Architecture
+    chose: "The park rule is an outcome SET: TrackerRejectedTheStatus and NoTransitionToTheStatus record; Moved clears; StatusNotExpressible does nothing"
+    over: "Recording every outcome that is not Moved, as the run-end path does"
+    reason: |
+      Two of the four outcomes mean the tracker will answer the same way next time: it looked
+      at the value and refused it, and its workflow offers no transition to it. The second is
+      Jira's ORDINARY answer for a status its workflow cannot reach, so a rule written as a
+      category — "an outright rejection" — would have fixed Azure DevOps and left Jira
+      reporting a park that did not happen. The fourth outcome is different in kind: on GitHub
+      and GitLab an issue's status IS its open-or-closed state, so no clarification status is
+      expressible by construction and recording it would put a standing hold on every park on
+      those trackers. The run-end path keeps its own broader rule; widening or narrowing it is
+      out of this phase's scope and belongs to the named successor for the success finalize.
+
+  - category: Implementation
+    chose: "The park rule lives in UnmovedTicketReport.RecordParkAsync, next to the run-end RecordAsync it delegates to"
+    over: "Repeating the outcome test at each of the two park sites, or changing RecordAsync itself"
+    reason: |
+      The two parks are different code with no shared helper, but they owe the identical rule.
+      One entry point keeps the set in one place, and it routes the three recordable outcomes
+      into the existing RecordAsync so the fact's shape, its clear-on-moved and its warning line
+      have exactly one implementation. Changing RecordAsync itself would silently alter what a
+      FAILED run records, which this phase deliberately does not touch.
+
+  - category: Implementation
+    chose: "UnmovedTicketReport.RecordAsync takes the project name and the tracker name"
+    over: "Keeping its ResolvedProject parameter and building a throwaway one at the park sites"
+    reason: |
+      It read project.Name and project.Tracker.Name and nothing else. Neither park context
+      carries a ResolvedProject — the master and hand-back context builders pass the tracker
+      connection only — so the alternative was a fabricated `new ResolvedProject { … }` at each
+      call, which is the wrapper shim the principles forbid and a lie about what is in hand.
+      The one existing caller holds a ResolvedProject and reads the two names off it directly.
+
+  - category: Implementation
+    chose: "A fifth outcome, NoStatusRequested, answers the poster's two branches that move nothing"
+    over: "Returning a default result, a nullable result, or reusing StatusNotExpressible"
+    reason: |
+      Moved is the ZERO value of the outcome enum — deliberately, so a loose test double reports
+      the write happened — so a defaulted result from the no-questions return or the
+      comment-only path would read as a successful move and would CLEAR a standing hold that
+      nothing had earned. A nullable result answers "nothing" where the caller needs a fact.
+      StatusNotExpressible would have worked mechanically but says the tracker cannot express a
+      status, when the truth is that none was asked for; the two are told apart by a reader and
+      by any later rule that treats them differently. The value is appended, so the persisted
+      integer of every existing record keeps its meaning.
+
+  - category: Implementation
+    chose: "The record is written AFTER the checkpoint, and the hand-back park writes no checkpoint at all"
+    over: "Recording immediately after the post, next to the finalize it reads"
+    reason: |
+      The checkpoint is what makes a mid-run question answerable in the dashboard, and a refused
+      park is exactly the case where the fallback — a manual status move on a board whose status
+      never moved — does not exist. Nothing this phase adds may sit between the post and the
+      checkpoint. The hand-back park has no checkpoint, so recording there closes its one
+      re-entry: that is intended, because the configuration genuinely is wrong and the refusal
+      an operator reads names the field that fixes it.
+
+  - category: Implementation
+    chose: "Every statement that asserted a park now states what the tracker did"
+    over: "Leaving the log lines and adding the record beside them"
+    reason: |
+      A refused park was recorded three times as a park that happened — the poster's line, the
+      master handler's line, and the CommandResult message that becomes the step's trail line —
+      which is why the measurement had to be read off the deployment's server log by timestamp
+      rather than seen in the run. Each now carries the parking status only when the move
+      landed, and says the ticket is held otherwise.
+
+  - category: Implementation
+    chose: "The hand-back park moved into its own type, SpecHandbackPark"
+    over: "Adding a baseline entry for the handler's new length"
+    reason: |
+      Recording the fact pushed SpecHandbackHandler past the 120-line limit, and the ratchet's
+      instruction is to split the responsibility rather than record the debt. The split is a
+      real one: the handler decides WHETHER to park and in which status, the new type performs
+      the park and reports what the tracker did. Its registration went next to the other spec
+      hand-back services rather than into the handler registration file, which is itself over
+      the limit and may only get shorter.

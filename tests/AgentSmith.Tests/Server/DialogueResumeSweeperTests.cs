@@ -217,6 +217,48 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         _findings.All.Should().BeEmpty("a park that can be answered is not a finding");
     }
 
+    /// <summary>
+    /// 2026-09-22-7c41c: a parked run is outside the active set the broadcaster drains, so a
+    /// published event would die there and nothing would tell an open surface to re-read. The
+    /// card would keep demanding an answer that is already in until the run relaunched — which
+    /// is exactly when the status clears it anyway, so without this the phase delivers nothing.
+    /// </summary>
+    [Fact]
+    public async Task Resume_AnEnqueuedRelaunch_NudgesTheRunList()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: T.AddDays(3)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        await BuildInbox().TryDeliverAsync("job-1",
+            new DialogAnswer("q1", "approve", null, DateTimeOffset.UtcNow, "@op"), CancellationToken.None);
+        var nudge = new RecordingNudge();
+
+        (await BuildSweeper(nudge: nudge).ScanOnceAsync(CancellationToken.None)).Should().Be(1);
+
+        nudge.Nudged.Should().ContainSingle().Which.Should().Be("run-1");
+    }
+
+    /// <summary>
+    /// 2026-09-22-7c41c: best-effort, like the capacity deferral's. The relaunch row is already
+    /// written when the nudge is made; a surface that cannot be reached must not undo it.
+    /// </summary>
+    [Fact]
+    public async Task Resume_ANudgeThatThrows_DoesNotFailTheRelaunch()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: T.AddDays(3)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        await BuildInbox().TryDeliverAsync("job-1",
+            new DialogAnswer("q1", "approve", null, DateTimeOffset.UtcNow, "@op"), CancellationToken.None);
+
+        var resumed = await BuildSweeper(nudge: new ThrowingNudge()).ScanOnceAsync(CancellationToken.None);
+
+        resumed.Should().Be(1);
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.QueuedTickets.Single().ReservedRunId.Should().Be("run-1");
+        ctx.RunCheckpoints.Single().ResumedAt.Should().NotBeNull();
+    }
+
     // A run that parked, was answered and had its resume enqueued — the state a second
     // question is asked from.
     private async Task ParkedAndResumedOnceAsync()
@@ -230,7 +272,8 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         (await BuildSweeper().ScanOnceAsync(CancellationToken.None)).Should().Be(1);
     }
 
-    private DialogueResumeSweeper BuildSweeper(IParkedTicketDialogue? ticket = null)
+    private DialogueResumeSweeper BuildSweeper(
+        IParkedTicketDialogue? ticket = null, IRunListNudge? nudge = null)
     {
         var checkpoints = new DbRunCheckpointStore(ScopeFactory());
         var inbox = BuildInbox();
@@ -241,7 +284,27 @@ public sealed class DialogueResumeSweeperTests : IDisposable
             new UnanswerableParkReporter(
                 ScopeFactory(), checkpoints, _findings,
                 NullLogger<UnanswerableParkReporter>.Instance),
+            nudge ?? new RecordingNudge(),
             TimeProvider.System, NullLogger<DialogueResumeSweeper>.Instance);
+    }
+
+    /// <summary>2026-09-22-7c41c: the surface door, recorded.</summary>
+    private sealed class RecordingNudge : IRunListNudge
+    {
+        public List<string> Nudged { get; } = [];
+
+        public Task RunsChangedAsync(string runId, CancellationToken cancellationToken)
+        {
+            Nudged.Add(runId);
+            return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>2026-09-22-7c41c: a hub that is not there. The relaunch is already enqueued.</summary>
+    private sealed class ThrowingNudge : IRunListNudge
+    {
+        public Task RunsChangedAsync(string runId, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("no hub");
     }
 
     /// <summary>A work item carrying the operator's reply, delivered the way the poll does.</summary>

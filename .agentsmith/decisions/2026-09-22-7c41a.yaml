@@ -1,0 +1,161 @@
+phase: 2026-09-22-7c41a
+decisions:
+  - id: the-tier-crosses-the-park-not-the-computed-cap
+    chose: >
+      A new non-excluded context key, ContextKeys.ComplexityTier, written by
+      ScopeEstimateRecorder beside the cap it sized. The relaunch recomputes the effective
+      cap as the configuration RESOLVED NOW, raised to that tier.
+    alternative: >
+      Carry the computed CostCapValues across the checkpoint by removing "PipelineCostCap"
+      from the serializer's excluded list.
+    why: >
+      Configuration is live-reloadable, so a parked run can outlive its own numbers; a
+      frozen value would throw away a change the operator made while the run waited. The
+      recompute reproduces exactly what the scope step did, spends nothing, and keeps the
+      raise a MERGE in both directions — RaisedTo, never an overwrite, so an estimate can
+      still not shrink the operator's instruction.
+    note: >
+      ComplexityTier serialises as a NUMBER (PipelineCostCapConfig.cs uses implicit
+      ordinals: Unknown = 0, Trivial, Small, Medium, Large). Reordering or inserting a
+      member would silently re-read every checkpoint written before the change as a
+      DIFFERENT tier. Append new members at the end, never in the middle.
+  - id: the-recompute-sits-in-the-prologue-in-its-own-type
+    chose: >
+      ResumedCapRecompute, called from ExecutePipelineUseCase.BuildPrologueAsync between the
+      hoisted `resumeReader.TryRead(pipeline)` and the RunPrologue construction, using the
+      SAME `request.PipelineName` literal the launch seed at :307 uses.
+    alternative: >
+      Recompute inside ResumeRequestReader.TryRead, or canonicalise the pipeline name first.
+    why: >
+      The restore has landed and no reader of the cap runs before the first
+      PipelineCostTracker.GetOrCreate, so this is the one correct seam. Per-pipeline cap
+      lookup does NOT resolve aliases (phase-execution vs code), so a canonical name would
+      read a different entry than the launch did. Its own type because
+      ExecutePipelineUseCase.cs sits exactly on its 655-line ratchet baseline; two joinable
+      statements elsewhere in the same method paid for the three lines the seam costs.
+  - id: the-recompute-re-publishes-the-resolved-budget
+    chose: >
+      RunBudgetResolvedEvent is published again with the recomputed cap and the carried tier.
+    alternative: >
+      Leave the run row as the scope step wrote it, and assert the recomputed cap EQUALS it.
+    why: >
+      The two can legitimately differ — that is the point of recomputing rather than
+      freezing. An unchanged row would then contradict the cap the run actually runs
+      against, which is the same class of lie this phase set out to remove. The tier is in
+      hand and the publish is one event, so honesty is cheap.
+  - id: the-spend-rides-a-context-key-not-the-checkpoint-event
+    chose: >
+      A PriorSpendSnapshot record written to a new non-excluded context key
+      (ContextKeys.PriorSpend) immediately before the writer serialises the context, read
+      once in PipelineCostTracker.GetOrCreate's CREATE branch.
+    alternative: >
+      A field on RunCheckpointedEvent.
+    why: >
+      A field there would drag RunCheckpointRecord, ResumePayload, the entity and migrations
+      on four providers, and the dashboard's committed TypeScript mirror whose generator gate
+      blocks the commit — a schema migration to carry eleven numbers. The context key rides
+      the same event, needs no schema, and covers BOTH park paths, because DialogueAskGate
+      and MasterQuestionCheckpoint go through that one writer.
+  - id: the-snapshot-is-set-and-carries-raw-buckets
+    chose: >
+      A SET (overwrite) of the tracker's CaptureSpend(), holding the four raw token buckets,
+      the accrued USD and the worker ledger's own four buckets plus its reported cost and
+      model names.
+    alternative: >
+      Accumulate onto whatever the key already holds; or carry one cache-weighted total.
+    why: >
+      On a second park the tracker was already seeded from the first, so what it reports IS
+      the whole run — adding would double it. And the token arm re-weights raw buckets
+      itself (cache reads at one tenth), so a pre-weighted figure would be weighted twice and
+      a baseline taken from it would not be comparable with what the segment goes on to spend.
+  - id: seeding-moves-money-and-volume-never-call-counts
+    chose: >
+      PipelineCostTracker.SeedPriorSpend adds tokens and USD; WorkerCallLedger.Seed moves its
+      six figures WITHOUT touching CallCount. Neither seeds a call count.
+    alternative: >
+      Seed through WorkerCallLedger.Add, and raise the tracker's _callCount to match.
+    why: >
+      Add would raise CallCount from zero and so invent a WorkerSpend row in result.md for a
+      segment that placed no worker call at all — a figure the segment never produced.
+    accepted-consequence: >
+      BuildSummary returns null while `_callCount == 0 && _workerCalls.CallCount == 0`, so a
+      resumed segment that makes no call of its own renders NO cost section despite carrying
+      real spend. Deliberate: the section reports calls, and this segment made none. What the
+      operator reads for money — the run row, written from EstimateCostUsd — is the whole
+      run's and is correct. Raising the count to make a section appear would put fabricated
+      rows in result.md, which is the worse lie.
+    second-accepted-consequence: >
+      BuildSummary's synthetic "Other" bucket hardcodes CacheReadTokens: 0, so seeded
+      cache-read volume does not show there while still binding the token arm. Left as it is:
+      that bucket has always reported zero cache reads for every unscoped call, this phase
+      changes nothing about it, and the fence's own arithmetic is explicitly out of scope.
+  - id: every-reader-that-acts-on-the-cap-names-it
+    chose: >
+      One renderer, CostCapStop.Describe, naming the cap and the CACHE-WEIGHTED spend, used
+      at all six readers: the within-pass fence (via a new MasterLoopHooks.RenderBudgetStop
+      the factory fills, since the governor that throws holds neither number), the
+      re-engagement catch, the between-pass stop, the skill-call runtime, and the two phase
+      handlers. Rendered with InvariantCulture.
+    alternative: >
+      Retype MasterLoopHooks.IsBudgetExhausted to return a reason instead of a bool.
+    why: >
+      The cap and both frozen pass-start baselines already live in MasterLoopHooksFactory; a
+      sibling delegate reaches them without touching the fence's arithmetic or any other
+      caller. Invariant because the message is matched against configuration an operator
+      wrote in one notation — on a de-DE host the same run rendered "$100 / 1.000.000".
+    accepted-consequence: >
+      Only two of the six readers STOP the run. SkillCallRuntime skips one skill;
+      CheckPhasePremisesHandler returns Ok so the run continues UNCHECKED;
+      ReviewPhaseDiffHandler records NotTaken so the run continues UNREVIEWED. Seeding makes
+      the cap fire EARLIER, so a resumed run over its cap can lose its premise check and its
+      diff review and still open a PR. That degraded-gate outcome is ACCEPTED here and not
+      changed: turning either handler into a hard failure is a control-flow change to the
+      phase-execution gates, not to the cost cap, and belongs to whoever owns those gates.
+      What this phase buys is that each of them now says WHICH cap and WHAT spend let the
+      phase through, so the degradation is legible instead of silent.
+  - id: the-skill-runtime-reports-the-number-that-tripped
+    chose: >
+      BuildCostCapExhaustedResult reports EffectiveBudgetTokens, and
+      RuntimeObservationFactory.BuildCostCapExhausted takes the rendered sentence.
+    alternative: >
+      Keep the raw four-bucket sum it summed before.
+    why: >
+      The arm that fires compares the cache-weighted total; the raw sum named a number the
+      cap never read, so on a cache-heavy run the message and the decision disagreed.
+  - id: a-checkpoint-written-before-this-phase-is-left-alone
+    chose: >
+      No back-fill. A checkpoint with neither key resumes exactly as it does today — the
+      configured cap, accounting from zero — and that is covered by a test.
+    alternative: >
+      Seed from persisted run totals when the relational store is present.
+    why: >
+      A spawned orchestrator has no relational store, which is why the checkpoint is an
+      event in the first place: that seeding would work in the server composition and
+      silently do nothing in the one the failing run used. Runs parked before this ships are
+      named, accepted and handled by hand.
+  - id: the-new-key-passes-the-data-flow-read-gate
+    chose: >
+      Read ContextKeys.PriorSpend straight from PipelineContext in GetOrCreate.
+    alternative: >
+      Declare an edge for it, or bypass the gate the way Snapshot() does.
+    why: >
+      PipelineDataFlowConfig.Enforce defaults to false and every shipped IPhaseDataFlow
+      derives from PermissivePhaseDataFlow, whose wildcard edge covers any key — so the gate
+      warns at worst and never throws. Known edge: if enforcement is ever switched on with
+      tightened, non-wildcard flows, this read needs a declared edge like every other.
+  - id: the-gate-could-not-run-its-own-tests-and-had-to-be-fixed-to-commit
+    chose: >
+      One incidental fix outside this phase's subject: the hook tests' _environment() now
+      drops PHASE_GATE_SELFTEST and PHASE_GATE_LOG.
+    alternative: >
+      Commit around the gate, or leave the fix to a phase of its own.
+    why: >
+      The gate runs .claude/hooks/test_commit_message.py with PHASE_GATE_SELFTEST=1, and
+      every gate the tests spawn inherited it — so under the gate the four tests that check
+      step 0 measured a gate that SKIPS step 0, and failed. That blocked this commit and
+      every other phase commit; standalone the same file is green, which is why it shipped.
+      Circumventing the gate is not on the table, and a phase of its own cannot be committed
+      either while the block stands. The recursion guard the fix must not break is
+      unaffected: the gate under test sets the variable itself for the hook test it runs,
+      and that copy is what the probe passes on. Both hook test files are green under the
+      gate's own environment and standalone, and nothing reaches the real ledger.

@@ -22,6 +22,7 @@ public static class ResumeRegistrations
         services.AddTransient<IDialogueCheckpointWriter, DialogueCheckpointWriter>();
         services.AddTransient<IDialogueAskGate, DialogueAskGate>();
         services.AddTransient<ResumeRequestReader>();
+        services.AddTransient<ResumedCapRecompute>();
         services.AddTransient<IRunResumer, RunResumer>();
         services.AddTransient<PriorRunSeedSource>();
         services.TryAddSingleton<IRunCheckpointStore, NoOpRunCheckpointStore>();

@@ -46,8 +46,8 @@ public sealed class CheckPhasePremisesHandler(
         // and costs no call at all.
         if (premises.None)
             return Skipped($"phase {draft.PhaseId} states no premises of its own");
-        if (PipelineCostTracker.GetOrCreate(context.Pipeline).IsBudgetExhausted)
-            return Skipped($"the run's cost cap is exhausted before phase {draft.PhaseId}");
+        if (PipelineCostTracker.GetOrCreate(context.Pipeline) is { IsBudgetExhausted: true } capped)
+            return Skipped($"{CostCapStop.Describe(capped)} — phase {draft.PhaseId} is UNCHECKED");
 
         await using var look = looks.ForPremiseCheck(context.Pipeline);
         // Every verdict this check can reach rests on a look that ran, so with no repository to

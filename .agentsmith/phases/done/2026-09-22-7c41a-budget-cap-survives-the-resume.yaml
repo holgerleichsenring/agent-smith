@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-7c41a
+
+goal: "A run parked for an answer comes back under the cost cap it was sized to and with the spend it already made, so a resumed run is neither killed at a fraction of its budget nor granted a fresh one."
+
+applies_to: "backend (the checkpoint's carried context, the cost tracker's seeding, and the money fence's message)"
+
+scope:
+  in: >
+    A run's effective cost cap is not the configured one. The scope step estimates a complexity
+    tier and RAISES the cap to that tier, writing the raised value into the pipeline context and
+    into the live cost tracker; the run row records it, and that recorded value is what an
+    operator reads.
+    A resume keeps neither the cap nor the spend. Both keys are on the checkpoint serializer's
+    excluded list, so the relaunch re-seeds the CONFIGURED cap — and the scope step, the only
+    writer of the raised one, is a completed command the resume never re-runs. The run then runs
+    against a cap its own record contradicts, and its accounting restarts at zero.
+    The cap is read by more than the master loop's within-pass fence: the skill-call runtime
+    short-circuits on it, the between-pass stop reads it, and two phase handlers refuse on it. A
+    resumed run meets the wrong number at all four.
+    The live evidence, measured on the deployment's own database and its live configuration:
+    a phase-execution run recorded a 30 USD / 15,000,000 token cap, parked on a question, resumed,
+    and died on the money fence. Its LLM-call rows sum to 2.98 USD and 1,186,320 cache-weighted
+    tokens across both segments — under every arm of the recorded cap by a factor of twenty-five,
+    and 2.37 times over the token arm of the configured default of 500,000. The live config has no
+    per-pipeline entry for this pipeline, so the default is what the relaunch re-seeded. The USD
+    arm was unreachable either way, which leaves the token arm as the only arm that can have
+    fired.
+    The same exclusion explains the second half of the observation: the row reports 1.57 USD while
+    its own call rows sum to 2.98, because the finish path overwrites the row with the segment
+    tracker's total and that tracker started at zero.
+    This phase carries the tier the cap was derived from, and the spend, across the park.
+  out: >
+    CHANGING ANY CAP VALUE, tier table or default. The numbers are the operator's.
+    RE-ESTIMATING THE TIER ON RESUME. The tier is already decided and recorded; re-deriving it
+    spends a model call to reach a value the system holds, and can reach a different one.
+    THE FENCE'S OWN ARITHMETIC. The cache weighting and the two arms are correct; they were
+    reading the wrong cap and the wrong baseline, not computing the wrong sum.
+    REPAIRING RUNS PARKED BEFORE THIS SHIPS. The exclusion applies in both directions, so existing
+    checkpoints carry neither tier nor spend and resume exactly as they do today. Named, accepted,
+    and handled by hand.
+    REPAIRING HISTORICAL ROWS whose recorded total is the segment's rather than the run's. The
+    existing recomputer only moves a stored total DOWN to the per-call sum, so it cannot raise
+    them. A named follow-up, not this phase.
+    WHY THE RUN WAS PARKED and what that did to the ticket. Its own phase.
+
+decisions:
+  - key: |
+      CARRY THE TIER, NOT THE COMPUTED CAP. The tier is a small enum the scope step already holds
+      and currently discards after computing the cap. Recomputing from it on resume reproduces
+      exactly what scope did, spends nothing, and honours a change the operator makes to the cap
+      table or the per-pipeline entry while the run is parked — which a frozen value would throw
+      away. Configuration is live-reloadable, so a parked run can legitimately outlive its own
+      numbers.
+  - key: |
+      THE RAISE IS A MERGE AND MUST STAY ONE. The cap doctrine is that an estimate may RAISE the
+      operator's configuration and never shrink it. Restoring by overwrite inverts that across a
+      park; recomputing as "the configuration now, raised to the tier" preserves it by
+      construction.
+  - key: |
+      THE TRACKER CANNOT BE CARRIED AND MUST NOT BE. It holds private mutable counters, a lock, a
+      pricing resolver, a scope manager and a worker ledger. Serializing it would either be
+      dropped silently or, worse, restore a zero-counter tracker with a default resolver and NO
+      CAP in place of the live one. The carrier is a plain spend snapshot written beside the
+      checkpoint, read where the tracker is created.
+  - key: |
+      THE SNAPSHOT CARRIES RAW BUCKETS, NEVER A WEIGHTED TOTAL. The arm that fired re-weights raw
+      buckets — input, output, cache-create at full weight and cache-read at one tenth. Seeding an
+      already-weighted number would be weighted a second time or make the baseline incomparable.
+      Worker-transport volume is its own channel and feeds the same arm, so it travels too.
+  - key: |
+      THE CHECKPOINT IS THE ONLY CARRIER THAT WORKS EVERYWHERE. A spawned orchestrator has no
+      relational store — which is why the checkpoint is written as an event rather than a row.
+      Seeding from persisted run totals would work in the server composition and silently do
+      nothing in the one the failing run used.
+  - key: |
+      A RESUMED RUN THAT IS GENUINELY OVER ITS CAP MUST STILL STOP, and it will now stop at the
+      FIRST reader it meets rather than in the master loop. Every one of those readers must be
+      able to say which cap it stopped on, or this phase trades a wrong number for a silent one.
+  - key: |
+      A SECOND PARK MUST COMPOUND, NOT RESET. The snapshot is taken from the tracker after it was
+      seeded, so a run parked twice carries the whole run's spend rather than the last segment's.
+
+steps:
+  - id: the-tier-crosses-the-resume
+    action: "The complexity tier the cap was derived from is carried across the resume, and the relaunch recomputes the effective cap as the current configuration raised to that tier — so a resumed run meets the cap its record names and a mid-park configuration change is honoured."
+  - id: the-spend-crosses-the-resume
+    action: "A plain spend snapshot — the raw token buckets, the worker-transport buckets and the accrued cost — is written beside the checkpoint and seeds the cost tracker on relaunch, so the cap is compared against the whole run and a second park compounds rather than resetting."
+  - id: every-reader-names-the-cap-it-used
+    action: "The stop-on-money message states the cap that was exceeded and the spend that exceeded it, at every reader that can stop a run on the cap, which requires the budget hook to report its reason rather than a bare verdict."
+
+tests:
+  - "Resume_ARunSizedToATierCap_ComesBackUnderThatCapNotTheConfiguredOne"
+  - "Resume_ARunWithNoRaisedTier_ComesBackUnderTheConfiguredCap"
+  - "Resume_TheOperatorRaisedTheCapWhileParked_TheRaiseIsNotLost"
+  - "Resume_TheOperatorLoweredTheCapWhileParked_TheTierRaiseStillApplies"
+  - "Resume_TheSpendBeforeThePark_CountsTowardsTheCapAfterIt"
+  - "Resume_ARunParkedTwice_CarriesTheWholeRunsSpend"
+  - "Resume_ARunAlreadyOverItsCap_StopsAtTheFirstReaderNamingTheCap"
+  - "MoneyFence_TheStopMessage_NamesTheCapAndTheSpend"
+  - "Checkpoint_TheTierAndTheSpendSnapshot_SurviveARoundTrip"
+  - "Checkpoint_ACheckpointWrittenBeforeThisPhase_ResumesOnTheConfiguredCap"
+
+done:
+  - "a resumed run's cost readers all read the cap its run row records"
+  - "the spend before the park counts against the cap after it"
+  - "a run parked twice carries the whole run's spend"
+  - "a configuration change made while a run is parked is honoured, and never shrinks the tier raise"
+  - "a run with no raised tier is unchanged"
+  - "a stop on money names the cap it used and the spend that exceeded it"
+  - "the run row's recorded cost becomes the whole run's rather than the last segment's"
+  - "a checkpoint written before this phase still resumes, on the configured cap"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The launch seeds the resolved per-pipeline cap into the context on every launch, resume included."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:307"
+  - claim: "The scope step is the only writer of the raised tier cap; it writes the context key and applies it to the live tracker, and discards the tier afterwards."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:49-55"
+  - claim: "The checkpoint serializer excludes the cap key, the tracker, the pricing resolver and the pricing config, in both directions."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-39"
+  - claim: "The restore runs in the same method body as the launch seed and after it, and the context is last-write-wins."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:307-361"
+  - claim: "The master loop's within-pass fence reads the cap from the context key and freezes the pass-start spend."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterLoopHooksFactory.cs:27-38"
+  - claim: "The budget hook is a bare boolean, and the stop message is composed where neither the cap nor the spend is in scope."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/MasterLoopHooks.cs:30"
+  - claim: "An exhausted fence throws and the handler turns it into a failed run carrying that message."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/MasterLoopGovernorChatClient.cs:43-47"
+  - claim: "Four further readers stop work on the same cap: the skill-call runtime, the between-pass stop, and two phase handlers."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:74"
+  - claim: "The token arm compares a cache-weighted total, cache reads at one tenth, against the configured token cap."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:75-76,91,96-103"
+  - claim: "The tracker is created from three context keys in one factory, which is where a fourth would be read."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:360-373"
+  - claim: "The checkpoint is written as an event because a spawned orchestrator has no relational store."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:18-19"
+  - claim: "The context is serialized inside the checkpoint writer, which is where a snapshot would be written before it."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:59"
+  - claim: "The resume rides the capacity queue under the parked run's own run id, so both segments are one run row."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/RunResumer.cs:60-72"
+  - claim: "The finish path overwrites the row's recorded cost with the finishing tracker's total."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:60"
+  - claim: "A call row's token count is the uncached remainder, so call rows and tracker counters are comparable."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs:122-130"
+  - claim: "The recorded cap is written from a budget event and read only by the surface, so nothing restores it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunClassificationProjection.cs:25"
+  - claim: "The cap type is a sealed class with init-only properties, which the serializer's entry mechanism round-trips."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:78-97"
+  - claim: "The tier raise is a per-dimension maximum over the configured cap, never a shrink."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:38-45,83-96"
+  - claim: "The deployment's live configuration is default 5 USD / 500,000 tokens, a per-pipeline entry for one scan pipeline only, and a large tier of 30 USD / 15,000,000 tokens."
+    evidence: "the pipeline_cost_cap document in the deployment's own config store, read 2026-09-22"
+
+assumptions:
+  - claim: "The pipeline name a run is launched with resolves to the same per-pipeline cap entry as the preset it aliases."
+    check: "Read how the cap is resolved against an alias; a per-pipeline entry under the canonical name would not apply to a run launched under the alias."
+  - claim: "Seeding prior-segment tokens does not double-count against the per-skill scopes the summary renders."
+    check: "Read how the summary computes its unscoped remainder and decide deliberately where seeded spend lands."
+  - claim: "Every reader that can stop a run on the cap can reach the cap and the spend to name them."
+    check: "Open each of the four readers and establish what is in scope at the refusal."
