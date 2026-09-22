@@ -5,8 +5,10 @@ import type { SpecDialogProject, SpecDialogSessionSummary } from "@/types/spec-d
 import { groupByDay, outcomeLabel, timeOfDay } from "./conversationDays";
 
 // 2026-09-15-cb3e: "/spec" and "/spec new <project>" are a project picker and a button, and
-// the caller's conversations are a list — open and closed, each opened by clicking it. The
-// strings still travel through the ingestion endpoint, but nobody has to type them.
+// the caller's conversations are a list — open and closed, each opened by clicking it.
+// 2026-09-22-2a86: and the strings stopped travelling. The button mints a tab the first typed
+// message opens the conversation on, carrying the picked project; a row calls the resume ROUTE.
+// Nothing here posts text for the server to parse back into a command.
 // 2026-09-17-c7aed: the list is the left column, grouped by day and marked with what each
 // conversation filed.
 // 2026-09-17-042ef: the column is the Projects page's panel card, the day is its field label
@@ -33,7 +35,7 @@ export function DialogConversations({
   conversations: SpecDialogSessionSummary[];
   picked: string;
   onPicked: (project: string) => void;
-  onStartNew: (project?: string) => void;
+  onStartNew: () => void;
   onOpen: (sessionId: string, openDialogId: string | null) => void;
   onDelete: (sessionId: string) => void;
 }) {
@@ -75,7 +77,7 @@ export function DialogConversations({
           disabled={starting}
           onClick={() => {
             setStarting(true);
-            onStartNew(picked || undefined);
+            onStartNew();
           }}
           className="btn primary w-full"
         >

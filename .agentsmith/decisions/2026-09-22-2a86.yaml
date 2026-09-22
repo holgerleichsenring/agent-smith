@@ -1,0 +1,105 @@
+phase: 2026-09-22-2a86
+decisions:
+  - id: the-resume-route-checks-the-target-dialog-itself
+    chose: >
+      POST /api/spec-dialog/conversations/{sessionId}/resume, carrying the target dialog id in
+      its body, calls SpecDialogOwnership.MayWatchAsync on THAT dialog id before the resumer is
+      reached at all.
+    alternative: >
+      Leaving the check to SpecDialogResumer, whose guards already refuse a foreign session, or
+      keeping SpecDialogOwnership.MayPostAsync and having the route hand it a synthetic
+      "/spec resume <id>" so the existing branch still ran.
+    why: >
+      The resumer's three guards are all about the SOURCE session — a foreign owner, a pending
+      question, a running turn. The target thread is unguarded, and SpecDialogResumer.MoveAsync
+      CLOSES whatever is open on it before rebinding, so a route addressed by two ids would let
+      a caller resume their own conversation onto another principal's live dialog and close it.
+      That check existed only because the posted text was parsed on its way in: MayPostAsync
+      asked MayWatchAsync about the dialog the text was posted into, which for a resume IS the
+      target. Deleting the spelling without carrying the check would have deleted the guard.
+      Composing the text back would be a wrapper around a parser this phase removes.
+      The precedent followed is SpecDialogDeletionEndpoints, which checks ownership explicitly
+      before acting rather than inside what it calls.
+  - id: the-route-answers-204-404-409-and-403
+    chose: >
+      Resumed is 204 No Content, a session that is not the caller's (or not there) is 404, a
+      question pending or a turn running is 409 with the sentence saying which, and a target
+      dialog the caller may not watch is 403.
+    alternative: >
+      The deletion route's uniform answer — one code for success and every refusal — or 200 with
+      the resumed state in the body.
+    why: >
+      The uniformity of the delete exists so that route tells nobody which session ids exist; the
+      resume cannot be uniform anyway, because the caller must be able to tell "answer it where
+      it is open" from "it moved". 404 for a session that is not the caller's is the resumer's
+      own answer (SpecDialogResumeNotFound) surfaced unchanged, and is still no id oracle. 403
+      for the target dialog is what the three read routes on this surface already answer for the
+      same check, so the surface stays consistent; the delete route's argument against 403 was
+      about ITS terminal answer making a permission test vacuous, and this route's terminal
+      answer is 204. Nothing is returned in a body because the page already knows the session it
+      asked for and reads the dialog immediately afterwards.
+  - id: the-new-conversation-control-posts-nothing-at-all
+    chose: >
+      The control mints a fresh dialog id and stops there. The conversation is opened by the
+      FIRST typed message, which already carries the page's picked project.
+    alternative: >
+      An opening route beside the resume route, so the button calls something.
+    why: >
+      2026-09-20-4b0aa already made the message route open the conversation it is about to
+      route, in one ordered act, precisely because two posts could not order themselves. An
+      opening route would be a second way to do what the message already does, and it would
+      reintroduce the race that phase closed — the page would again have an opening in flight
+      while the operator types. The composer is disabled with a hint while no project is picked
+      and none is open, so nothing is silently dropped, and the "opened" line still reaches the
+      transcript when the first message opens the conversation.
+  - id: the-opening-command-type-survives-the-spellings
+    chose: >
+      SpecCommand keeps exactly one case, SpecOpenCommand. SpecListCommand, SpecResumeCommand
+      and SpecNewCommand are deleted with the words that built them.
+    alternative: >
+      Removing the union entirely and calling the handler with a project string.
+    why: >
+      SpecDialogConversationResolver CONSTRUCTS the opening command for a page that already knows
+      its project — it is not a spelling anybody types — and the router still hands a parsed
+      "/spec" to the same handler. The other three had exactly one construction site each, the
+      parser, and exactly one caller each, the command handler.
+  - id: what-left-with-the-three-spellings
+    chose: >
+      The replies that only answered them (ComposeList, ComposeResumed, ComposeResumeUsage,
+      ComposeResumeRefused, ComposeSessionNotFound), the queries only the list command reached
+      (SpecDialogSessionManager.ListOpenAsync and SpecDialogSessionRepository.ListOpenAsync),
+      SpecDialogOwnership.MayPostAsync and its parser dependency, and the chat test that resumed
+      one thread's session into another.
+    alternative: >
+      Leaving them in place as unreachable code, since nothing calls a dead method.
+    why: >
+      Each was reachable from one word and nothing else, so keeping them would be debt this
+      phase created rather than found. MayPostAsync with its resume branch removed would delegate
+      to MayWatchAsync and nothing more, which is the wrapper shim this repository does not keep;
+      its one caller now asks MayWatchAsync directly. The conversation LIST the page reads is a
+      different query (ListByOwnerAsync, via SpecDialogConversationList) and is untouched.
+  - id: two-sentences-stopped-offering-a-fork
+    chose: >
+      The chat wording of ComposeOpened and ComposeAlreadyOpen now offers a new THREAD where it
+      offered "/spec new". The page wording of both is unchanged, and the project-choice reply
+      still spells "/spec <project>" to a chat reader, which still works.
+    alternative: >
+      Leaving both sentences as they were, which the spec puts out of scope as wording revisited
+      by the chat-door phase.
+    why: >
+      Out of scope there means the sentences that name commands which still EXIST. These two
+      named the fork this phase deletes, so leaving them would have shipped an instruction to
+      type a word the parser no longer reads — a defect created by this phase, not inherited by
+      it. The replacement says something true of chat and adds no new affordance: a session is
+      keyed by thread, so a new thread has always been how chat starts a second conversation.
+  - id: the-one-refusal-test-is-written-as-two
+    chose: >
+      ResumeRoute_ALiveQuestion_IsStillRefused and ResumeRoute_ALiveTurn_IsStillRefused, where
+      the spec names one test for both.
+    alternative: >
+      One test performing both refusals in sequence.
+    why: >
+      The two have different setups (a pending question is planted; a running turn needs a turn
+      runner held open and released), different sentences and different follow-up assertions —
+      the question still waits where it was asked, the running turn's reply still finds its
+      session. Folded into one test, a failure would not say which refusal broke.

@@ -15,29 +15,28 @@ public sealed class SpecCommandParserTests
     public void Parse_SpecWithProject_ReturnsOpenWithProject() =>
         _parser.Parse("/spec backend").Should().Be(new SpecOpenCommand("backend"));
 
-    [Fact]
-    public void Parse_SpecList_ReturnsList() =>
-        _parser.Parse("/spec list").Should().Be(new SpecListCommand());
+    /// <summary>
+    /// 2026-09-22-2a86: the three spellings only this parser ever built. They are not
+    /// keywords any more — each is read as the project it names, which is answered with
+    /// "unknown project" by the scope resolver rather than silently doing something else.
+    /// </summary>
+    [Theory]
+    [InlineData("/spec list", "list")]
+    [InlineData("/spec resume abc123", "resume")]
+    [InlineData("/spec resume", "resume")]
+    [InlineData("/spec new", "new")]
+    [InlineData("/spec new backend", "new")]
+    public void Parse_TheListResumeAndForkSpellings_AreNoLongerParsed(string text, string project) =>
+        _parser.Parse(text).Should().Be(new SpecOpenCommand(project));
 
+    /// <summary>The door chat still has, unchanged — including the case it is typed in.</summary>
     [Fact]
-    public void Parse_SpecResumeWithId_ReturnsResume() =>
-        _parser.Parse("/spec resume abc123").Should().Be(new SpecResumeCommand("abc123"));
-
-    [Fact]
-    public void Parse_SpecResumeWithoutId_ReturnsResumeWithEmptyId() =>
-        _parser.Parse("/spec resume").Should().Be(new SpecResumeCommand(string.Empty));
-
-    [Fact]
-    public void Parse_SpecNew_ReturnsNewWithoutProject() =>
-        _parser.Parse("/spec new").Should().Be(new SpecNewCommand(Project: null));
-
-    [Fact]
-    public void Parse_SpecNewWithProject_ReturnsNewWithProject() =>
-        _parser.Parse("/spec new backend").Should().Be(new SpecNewCommand("backend"));
-
-    [Fact]
-    public void Parse_IsCaseInsensitive() =>
-        _parser.Parse("/SPEC LIST").Should().Be(new SpecListCommand());
+    public void Parse_TheOpeningSpelling_IsUnchangedForChat()
+    {
+        _parser.Parse("/SPEC").Should().Be(new SpecOpenCommand(Project: null));
+        _parser.Parse("/SPEC Backend").Should().Be(new SpecOpenCommand("Backend"));
+        _parser.Parse("  /spec backend  ").Should().Be(new SpecOpenCommand("backend"));
+    }
 
     [Theory]
     [InlineData("fix #42 in sample")]
