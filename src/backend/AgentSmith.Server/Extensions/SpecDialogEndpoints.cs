@@ -66,6 +66,8 @@ internal static class SpecDialogEndpoints
     /// turn runs a master and the approval gate waits up to fifteen minutes: awaiting it
     /// here would hold the connection for the whole turn, and passing the request's token
     /// would abort the conversation the moment the tab closed.
+    /// <para>2026-09-22-476a: the scope is ASYNC — the turn resolves the transient, async-only
+    /// sandbox coordinator, and a synchronous Dispose throws after the reply is written.</para>
     /// </summary>
     private static void Dispatch(
         HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns,
@@ -78,7 +80,7 @@ internal static class SpecDialogEndpoints
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
                     .DispatchAsync(
                         dialogId, text, owner, mayStartRuns, project, CancellationToken.None);
