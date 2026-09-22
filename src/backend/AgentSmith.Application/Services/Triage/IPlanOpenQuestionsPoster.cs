@@ -24,8 +24,13 @@ public interface IPlanOpenQuestionsPoster
     /// names the person it waits for.
     /// p0461: and the PIPELINE, because the comment also has to say where answering
     /// resumes the run, and only the pipeline knows which run this is.
+    /// 2026-09-22-7c41b: it ANSWERS what the tracker did with the status. The status move is
+    /// what makes the park persistent, so a caller that cannot see it refused has no way to
+    /// know the ticket is still claimable. The two branches that move nothing answer
+    /// <see cref="Contracts.Models.TicketFinalizeOutcome.NoStatusRequested"/> rather than a
+    /// default, which would read as a successful move.
     /// </remarks>
-    Task PostAsync(
+    Task<Contracts.Models.TicketFinalizeResult> PostAsync(
         Contracts.Commands.PipelineContext pipeline, TrackerConnection ticketConfig, Ticket ticket,
         IReadOnlyList<PlanOpenQuestion> questions, string? parkStatus, CancellationToken cancellationToken);
 }
