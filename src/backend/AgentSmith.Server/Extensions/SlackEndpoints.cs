@@ -50,7 +50,7 @@ internal static class SlackEndpoints
         {
             try
             {
-                using var scope = scopeFactory.CreateScope();
+                await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider
                     .GetRequiredService<SlackModalSubmissionHandler>()
                     .HandleAsync(json, CancellationToken.None);
@@ -75,7 +75,7 @@ internal static class SlackEndpoints
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         _ = Task.Run(async () =>
         {
-            using var scope = scopeFactory.CreateScope();
+            await using var scope = scopeFactory.CreateAsyncScope();
             await scope.ServiceProvider
                 .GetRequiredService<SlackInteractionHandler>()
                 .HandleAsync(channelId, questionId, answer, json, CancellationToken.None);
