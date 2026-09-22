@@ -647,7 +647,7 @@ describe("SpecDialogSurface", () => {
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
     return {
       sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z",
-      title: "a widget that reads the ledger", outcome: null, openDialogId: null,
+      title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null,
       ...overrides,
     };
   }
@@ -900,13 +900,17 @@ describe("SpecDialogSurface", () => {
 
   // 2026-09-20-4b0af: the heading says what the conversation is ABOUT. The subject rides the
   // SESSION, which this page re-reads after every message, so it is there on the read that
-  // follows the first reply — and the row beside it still says the first line the person wrote.
+  // follows the first reply.
+  // 2026-09-21-f237a: and the row beside it says the same thing, from its own read of the list.
   it("SpecDialog_AConversationWithASubject_HeadsWithIt", async () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, subject: "Das Widget, das das Hauptbuch liest" },
     }));
     fetchSpecDialogConversations.mockResolvedValue([
-      conversation({ sessionId: "s-1", title: "a widget that reads the ledger" }),
+      conversation({
+        sessionId: "s-1", title: "a widget that reads the ledger",
+        subject: "Das Widget, das das Hauptbuch liest",
+      }),
     ]);
 
     await renderSurface();
@@ -914,7 +918,7 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findByTestId("dialog-heading"))
       .toHaveTextContent("Das Widget, das das Hauptbuch liest");
     expect(screen.getByTestId("dialog-conversation-s-1"))
-      .toHaveTextContent("a widget that reads the ledger");
+      .toHaveTextContent("Das Widget, das das Hauptbuch liest");
   });
 
   it("SpecDialog_AConversationWithout_HeadsWithTheFirstLineAsBefore", async () => {
@@ -929,9 +933,143 @@ describe("SpecDialogSurface", () => {
         .toHaveTextContent("a widget that reads the ledger"));
   });
 
-  // The list read is the expensive one and its predicate keys on a null TITLE. A subject that
-  // may legitimately stay null forever must never join that predicate, or every reply of every
-  // subjectless conversation would pay for the list again.
+  // 2026-09-21-f237a: the column is 220px wide and truncates, so the opening sentence is the
+  // part every conversation of a working session has in common. The row says what it is about.
+  it("SpecDialog_ARowWithASubject_ShowsItInTheColumn", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({
+        sessionId: "s-1", title: "Ich brauche alle libraries aktualisiert",
+        subject: "Aktualisierung aller Projektbibliotheken",
+      }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("Aktualisierung aller Projektbibliotheken");
+    expect(screen.getByTestId("dialog-conversation-s-1"))
+      .not.toHaveTextContent("Ich brauche alle libraries aktualisiert");
+  });
+
+  // Nothing is backfilled, so every conversation older than the mint keeps the row it had.
+  it("SpecDialog_ARowWithoutASubject_ShowsTheFirstLineAsBefore", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: "a widget that reads the ledger", subject: null }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("a widget that reads the ledger");
+  });
+
+  // The delete asks about the sentence the person WROTE, in the words they wrote it in — the
+  // opposite preference to the row above it, over the same two strings.
+  it("SpecDialog_ARowWithBoth_NamesTheFirstLineOnItsDeleteControl", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({
+        sessionId: "s-1", title: "Ich brauche alle libraries aktualisiert",
+        subject: "Aktualisierung aller Projektbibliotheken",
+      }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-delete-s-1"))
+      .toHaveAttribute("aria-label", "Delete Ich brauche alle libraries aktualisiert");
+  });
+
+  // A conversation opened with nothing but a pasted block has no first line at all. Asking about
+  // "untitled s-1" beside a row that is showing its subject is worse than asking about the subject.
+  it("SpecDialog_ARowWithASubjectAndNoTitle_NamesTheSubjectOnItsDeleteControl", async () => {
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({
+        sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
+      }),
+    ]);
+
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-delete-s-1"))
+      .toHaveAttribute("aria-label", "Delete Aktualisierung aller Projektbibliotheken");
+  });
+
+  // The row is read from the LIST, which is re-read when the predicate says the page is behind —
+  // so a conversation that was listed without a name says what it is about from the reply on.
+  it("SpecDialog_AfterAReply_TheRowSaysWhatTheConversationIsAbout", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: null, subject: null, turns: 0 }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({
+        sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
+        turns: 2,
+      }),
+    ]);
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    expect(await screen.findByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("Aktualisierung aller Projektbibliotheken");
+  });
+
+  // The defect this phase closes: the title of a conversation opened with a fenced block is null
+  // for GOOD, so before this the page paid the expensive read on every reply for its whole life,
+  // while the row beside it had been naming it since the first turn.
+  it("SpecDialog_ATitlelessRowThatGainedASubject_TriggersNoFurtherListRead", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({
+        sessionId: "s-1", title: null, subject: "Aktualisierung aller Projektbibliotheken",
+        turns: 2,
+      }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+    const read = fetchSpecDialog.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() => expect(fetchSpecDialog.mock.calls.length).toBeGreaterThan(read));
+    expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
+  });
+
+  // A row with NEITHER is what the read exists to fix, and it still triggers one.
+  it("SpecDialog_ATitlelessRowWithNoSubject_StillTriggersAListRead", async () => {
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...view().session!, transcript: [turn("one"), turn("two")] },
+    }));
+    fetchSpecDialogConversations.mockResolvedValue([
+      conversation({ sessionId: "s-1", title: null, subject: null, turns: 2 }),
+    ]);
+    await renderSurface();
+    await waitFor(() => expect(fetchSpecDialogConversations).toHaveBeenCalled());
+    const listed = fetchSpecDialogConversations.mock.calls.length;
+
+    act(() => messages.emit({
+      dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
+    }));
+
+    await waitFor(() =>
+      expect(fetchSpecDialogConversations.mock.calls.length).toBeGreaterThan(listed));
+  });
+
+  // The list read is the expensive one, and its predicate keys on the row having NO NAME AT ALL.
+  // 2026-09-21-f237a: the subject joins it as a second way to be satisfied, never as a second
+  // requirement — a conversation with a title and no subject is named, so it pays nothing, which
+  // is what this case measures.
   it("SpecDialog_ASubjectlessConversation_DoesNotTriggerAFurtherListRead", async () => {
     fetchSpecDialog.mockResolvedValue(view({
       session: { ...view().session!, subject: null, transcript: [turn("one"), turn("two")] },

@@ -104,6 +104,10 @@ export function DialogConversations({
   );
 }
 
+function untitled({ sessionId }: SpecDialogSessionSummary): string {
+  return `untitled ${sessionId}`;
+}
+
 function Conversation({
   conversation,
   current,
@@ -117,7 +121,14 @@ function Conversation({
 }) {
   const filed = outcomeLabel(conversation);
   const time = timeOfDay(conversation.lastActivityAt);
-  const title = conversation.title ?? `untitled ${conversation.sessionId}`;
+  // 2026-09-21-f237a: the ROW says what the conversation is about, the DELETE says what the
+  // person wrote — opposite preferences over the same two strings, on purpose. A row twenty-five
+  // characters wide cannot show enough of an opening sentence to tell one conversation from
+  // another; a confirmation that quoted a model-minted subject would ask someone to approve the
+  // loss of something they have never seen under that name. Where only one of the two exists,
+  // both fall back to it, so neither ever says "untitled" about a row that is showing a name.
+  const title = conversation.subject ?? conversation.title ?? untitled(conversation);
+  const written = conversation.title ?? conversation.subject ?? untitled(conversation);
   return (
     <div className="d-conv-row">
       <button
@@ -144,7 +155,7 @@ function Conversation({
       <button
         type="button"
         data-testid={`dialog-delete-${conversation.sessionId}`}
-        aria-label={`Delete ${title}`}
+        aria-label={`Delete ${written}`}
         title="Delete this conversation"
         onClick={() => onDelete(conversation.sessionId)}
         className="d-conv-x"
