@@ -32,6 +32,52 @@ const base: RunSnapshot = {
   cancelRequested: false,
 };
 
+// 2026-09-22-7c41c: a parked run whose relaunch is under way reads as QUEUED in all four
+// places the row derives a status — the layout gate, the state dot's class, the activity-line
+// gate and the wait-reason column — so the row cannot say it needs an answer with one hand and
+// that it is waiting for a slot with the other.
+describe("RunRow · a parked run whose relaunch is under way", () => {
+  const parked: RunSnapshot = {
+    ...base,
+    status: "waiting_for_input",
+    summary: "Waiting for an operator answer — checkpointed; compute released.",
+    queuePosition: 2,
+  };
+
+  it("RunRow_AWaitingRunWithAQueuePlace_DrawsTheQueuedLayout", () => {
+    render(<RunRow snapshot={parked} />);
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.querySelector(".qreason")).toBeInTheDocument();
+    expect(screen.getByTestId(`run-row-${base.runId}-progress`)).toHaveTextContent("pos 2");
+  });
+
+  it("RunRow_AWaitingRunWithAQueuePlace_DoesNotCarryTheNeedsYouDot", () => {
+    render(<RunRow snapshot={parked} />);
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    // st-need paints the dot in the RUN colour with a pulse; st-q is the static idle dot.
+    expect(row.className).toContain("st-q");
+    expect(row.className).not.toContain("st-need");
+  });
+
+  it("RunRow_AWaitingRunWithAQueuePlace_CarriesNoActivityLine", () => {
+    render(<RunRow snapshot={parked} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`).querySelector(".act")).toBeNull();
+  });
+
+  it("RunRow_AWaitingRunWithAQueuePlace_DoesNotShowTheParkSummaryAsAWaitReason", () => {
+    // The wait-reason column is the QUEUE's reason, written onto a run row only while that
+    // row already reads "queued". A parked run's summary is its PARK's sentence.
+    render(<RunRow snapshot={parked} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`).querySelector(".qreason"))
+      .toHaveTextContent("");
+  });
+
+  it("RunRow_AWaitingRunWithNoQueuePlace_KeepsTheNeedsYouLook", () => {
+    render(<RunRow snapshot={{ ...parked, queuePosition: null }} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`).className).toContain("st-need");
+  });
+});
+
 describe("RunRow", () => {
   it("RunRow_StatusMapsToMockStClass", () => {
     const cases: Array<[string, string]> = [

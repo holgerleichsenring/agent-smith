@@ -10,7 +10,7 @@ import {
 } from "@/types/hub-events";
 import { cn } from "@/lib/utils";
 import { monotonizeBeats } from "@/lib/beatMonotonic";
-import { StoryBar, type BeatKey, BEAT_ORDER } from "./StoryBar";
+import { StoryBar, type BeatKey, type StoryPhase, BEAT_ORDER } from "./StoryBar";
 import { LedgerPanel } from "./LedgerPanel";
 import { VerifySummary } from "./VerifySummary";
 import { buildVerifyFallback } from "./verifyFallback";
@@ -22,6 +22,7 @@ import { usePlanMarkdown } from "@/hooks/usePlanMarkdown";
 import { useSpecMarkdown } from "@/hooks/useSpecMarkdown";
 import { ResultDocument } from "@/components/jobs/ResultTab";
 import { useRunJudgements } from "./useRunJudgements";
+import { isRelaunching } from "@/components/jobs/runStatus";
 
 // p0344b/p0343c: the run as a STORY with the run-viewer.html mock's
 // BEAT-SWITCHED STAGE. The storybar renders the SERVER-computed beats (a run
@@ -82,10 +83,13 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
     [snapshot?.progressLedger, events],
   );
   const hasLedger = !!ledger && ledger.length > 0;
-  const paused = snapshot?.status === "waiting_for_input";
+  // 2026-09-22-7c41c: a third state, never a negated flag. A parked run whose relaunch is
+  // under way is executing nothing, so it is not "in progress"; it is also no longer asking,
+  // so it is not "needs you". Both readings would have been wrong.
+  const phase: StoryPhase = storyPhase(snapshot);
 
   const selected: BeatKey = picked ?? defaultBeat(beats);
-  const subs = useMemo(() => beatSubs(snapshot, beats, paused), [snapshot, beats, paused]);
+  const subs = useMemo(() => beatSubs(snapshot, beats, phase), [snapshot, beats, phase]);
 
   return (
     <div data-testid="run-story">
@@ -95,7 +99,7 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
           beats={beats}
           subs={subs}
           selected={selected}
-          paused={paused}
+          phase={phase}
           onBeatClick={setPicked}
         />
       )}
@@ -111,7 +115,10 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
               <div className="n" data-testid="beat-section-name">{BEAT_NAMES[selected]}</div>
               <div className="s">{subs[selected]}</div>
             </div>
-            <BeatBadge state={beats[selected]} paused={paused && beats[selected] === "active"} />
+            <BeatBadge
+              state={beats[selected]}
+              phase={beats[selected] === "active" ? phase : "running"}
+            />
           </div>
 
           <div data-panel={selected} data-testid={`beat-panel-${selected}`}>
@@ -233,12 +240,24 @@ function PlanPanel({ runId }: { runId: string }) {
   );
 }
 
-function BeatBadge({ state, paused }: { state: string; paused: boolean }) {
+// 2026-09-22-7c41c: what the spine reads off the run. A parked run's relaunch is under way
+// when the server carried it a place in the capacity queue (or the 0 that says its launcher
+// already holds the lease); everything else that is not parked is simply running.
+function storyPhase(snapshot: RunSnapshot | null | undefined): StoryPhase {
+  if (snapshot?.status !== "waiting_for_input") return "running";
+  return isRelaunching(snapshot) ? "relaunching" : "needsYou";
+}
+
+const ACTIVE_BEAT_LABEL: Record<StoryPhase, string> = {
+  running: "in progress",
+  needsYou: "paused · needs you",
+  relaunching: "resuming",
+};
+
+function BeatBadge({ state, phase }: { state: string; phase: StoryPhase }) {
   const map: Record<string, { cls: string; label: string }> = {
     done: { cls: "ok", label: "done" },
-    active: paused
-      ? { cls: "run", label: "paused · needs you" }
-      : { cls: "run", label: "in progress" },
+    active: { cls: "run", label: ACTIVE_BEAT_LABEL[phase] },
     failed: { cls: "bad", label: "failed" },
     pending: { cls: "neu", label: "not started" },
     skipped: { cls: "neu", label: "skipped" },
@@ -317,7 +336,7 @@ function normalizeLedgerStatus(s: string | undefined): ProgressLedgerEntry["stat
 function beatSubs(
   snapshot: RunSnapshot | null,
   beats: RunBeats | null,
-  paused: boolean,
+  phase: StoryPhase,
 ): Record<BeatKey, string> {
   const base: Record<string, string> = {
     done: "Done",
@@ -335,11 +354,14 @@ function beatSubs(
   const ledger = snapshot.progressLedger ?? [];
   if (beats.plan === "done" && ledger.length > 0) subs.plan = `${ledger.length} steps`;
   if (beats.building === "active") {
-    subs.building = paused
-      ? "Paused — open question"
-      : snapshot.totalSteps > 0
-      ? `Step ${snapshot.stepIndex} of ${snapshot.totalSteps}`
-      : "In progress";
+    subs.building =
+      phase === "needsYou"
+        ? "Paused — open question"
+        : phase === "relaunching"
+        ? "Answered — waiting to resume"
+        : snapshot.totalSteps > 0
+        ? `Step ${snapshot.stepIndex} of ${snapshot.totalSteps}`
+        : "In progress";
   } else if (beats.building === "done" && ledger.length > 0) {
     const done = ledger.filter((e) => e.status === "done").length;
     subs.building = `${done} of ${ledger.length} done`;
