@@ -85,9 +85,12 @@ export function SpecDialogSurface() {
     await dialog.remove(sessionId);
   }
   // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
-  // first line the person wrote — which is what it always said, and what the row beside it still
-  // says. The subject rides the SESSION, re-read after every reply, so the heading corrects
-  // itself on the next read; the list keeps being read only while its own predicate says so.
+  // first line the person wrote — which is what it always said. The subject rides the SESSION,
+  // re-read after every reply, so the heading corrects itself on the next read; the list keeps
+  // being read only while its own predicate says so.
+  // 2026-09-21-f237a: the row beside it now prefers the subject too, so the two agree wherever
+  // one has been minted. They are still read from different places — the heading from the
+  // session, the row from the list — because only the session read is issued after every reply.
   const listed = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;

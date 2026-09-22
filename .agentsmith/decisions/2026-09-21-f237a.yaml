@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision-log.schema.json
+phase: 2026-09-21-f237a
+
+decisions:
+  - category: Shape
+    chose: "Subject is carried BESIDE Title on the summary, and the preference is resolved where each string is read"
+    over: "One field on the wire, already resolved to 'the subject if there is one, else the first line'"
+    reason: |
+      Two readers want two different strings off one row. The row wants what the conversation is
+      about, because twenty-five characters of an opening sentence is the part every conversation
+      of a working session has in common. The delete control and its confirmation want the
+      sentence the person typed, because that is what they are being asked to destroy. One
+      resolved field would have made the confirmation quote a string the person never wrote, and
+      the server has no reason to decide which of two strings a reader should see.
+
+  - category: Fallback
+    chose: "The row is subject ?? title ?? untitled; the delete is title ?? subject ?? untitled"
+    over: "The delete stopping at title, as it did, and falling to 'untitled <id>'"
+    reason: |
+      The two preferences are deliberately opposite, but neither may say "untitled" about a row
+      that is showing a name. A conversation opened with nothing but a pasted block has no first
+      line at all — SpecDialogConversationTitle finds no prose outside the fence — while the
+      minter asks for no title and gives it a subject anyway. Before this, such a row would have
+      read "Aktualisierung aller Projektbibliotheken" beside a confirmation asking about
+      "untitled s-9", which names a different thing from the one on screen.
+
+  - category: The list-read predicate
+    chose: "The subject joins the name clause as a second way to be SATISFIED: title == null && subject == null"
+    over: "Leaving the predicate on title alone, as 2026-09-20-4b0af required"
+    reason: |
+      4b0af kept the subject off the list because "a field that can legitimately stay null forever
+      would turn that predicate into a poll that never stops". That is true of an added DISJUNCT
+      and false of an added CONJUNCT. As a conjunct the clause is pointwise weaker than the one it
+      replaces: identical for every titled row, identical for a titleless row older than the mint,
+      and fewer reads exactly where the polling happens. And the polling was real before this
+      phase: a fence-opened conversation has no title for good, so the page paid the expensive
+      read — every listed transcript parsed, two further JSON documents per row — on every reply
+      for the life of the conversation, while the row had named it since the first turn.
+
+  - category: Comparison
+    chose: "== null rather than === null"
+    over: "Strict equality, matching the surrounding code"
+    reason: |
+      The field may be ABSENT rather than null on a page running ahead of its server. A strict
+      comparison would then be false for a missing field and silently switch the clause off,
+      turning the fix back into the defect with no test able to see it.
+
+  - category: Reversal
+    chose: "4b0af's 'the conversations column still shows the first line the person wrote' is reversed one day later, in prose, without mutating that spec"
+    over: "Treating the boundary as settled, or editing 4b0af"
+    reason: |
+      It was a scope boundary, not a finding, and the argument behind it — a person recognises the
+      row they wrote — does not survive the column, which truncates. The phase that drew the
+      boundary did not weigh the truncation. Four pieces of committed prose asserted the old rule,
+      including a test comment stating it as law; all four are retired here rather than left to
+      disagree with the code.

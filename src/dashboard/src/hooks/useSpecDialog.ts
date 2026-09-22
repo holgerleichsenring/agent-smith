@@ -321,12 +321,26 @@ export function useSpecDialog(): SpecDialogState {
   }, [conversations, sessionHere]);
 
   /** Whether a list read would tell this page anything it does not already know: the conversation
-   *  open here is not listed at all, is listed with no title, or is listed with fewer turns than
-   *  the page last read the transcript to be. Once the row identifies the conversation it stops
-   *  being read on every reply, and it comes back the moment the count falls behind again. */
+   *  open here is not listed at all, is listed under NO NAME AT ALL, or is listed with fewer turns
+   *  than the page last read the transcript to be. Once the row identifies the conversation it
+   *  stops being read on every reply, and it comes back the moment the count falls behind again.
+   *
+   *  2026-09-21-f237a: the subject joins the name clause as a second way to be SATISFIED, never
+   *  as a second requirement. 2026-09-20-4b0af kept it out on the argument that a field which may
+   *  stay null forever would make this a poll that never stops — true of an added disjunct, false
+   *  of an added conjunct. A conversation opened with nothing but a pasted block has no title for
+   *  good (SpecDialogConversationTitle finds no prose line outside the fence) and did get a
+   *  subject (the minter never asks for a title), so before this the row named it in the column
+   *  while the page went on paying for the list on every reply, for the life of the conversation.
+   *  For every titled row the count is unchanged.
+   *
+   *  Compared loosely, not with ===: the field may be ABSENT rather than null on a page running
+   *  ahead of its server, and a strict comparison would silently switch the clause off. */
   const listIsBehind = useCallback(() => {
     const row = listedHere.current;
-    return row === null || row.title === null || row.turns < turnsRead.current;
+    return row === null
+      || (row.title == null && row.subject == null)
+      || row.turns < turnsRead.current;
   }, []);
 
   useEffect(() => {

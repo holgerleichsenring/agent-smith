@@ -219,6 +219,45 @@ public sealed class DialogConversationListTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-09-21-f237a: the row says what the conversation is ABOUT. The subject is stored on
+    /// the session by 2026-09-20-4b0af and was served on the session view alone, while the column
+    /// truncates a row to a few words of the opening sentence.
+    /// </summary>
+    [Fact]
+    public async Task List_ASessionWithASubject_ServesItOnTheRow()
+    {
+        await OpenAsync("d-1");
+        await SayAsync("d-1", "Ich brauche alle libraries aktualisiert");
+        var row = await _context.Set<AgentSmith.Infrastructure.Persistence.Entities.SpecDialogSession>()
+            .SingleAsync(session => session.ThreadId == "d-1");
+        row.Subject = "Aktualisierung aller Projektbibliotheken";
+        await _context.SaveChangesAsync();
+
+        var listed = (await ListAsync()).Single();
+
+        listed.Subject.Should().Be("Aktualisierung aller Projektbibliotheken");
+        listed.Title.Should().Be("Ich brauche alle libraries aktualisiert",
+            "the sentence the person wrote is carried beside it, for the deletion to quote");
+    }
+
+    /// <summary>
+    /// Nothing is backfilled, so a conversation older than the mint carries none — and keeps the
+    /// title the row falls back to. The two are carried BESIDE each other rather than resolved
+    /// into one, because a deletion asks about the sentence the person wrote.
+    /// </summary>
+    [Fact]
+    public async Task List_ASessionWithoutASubject_ServesNoneAndKeepsTheTitle()
+    {
+        await OpenAsync("d-1");
+        await SayAsync("d-1", "A widget that reads the ledger");
+
+        var row = (await ListAsync()).Single();
+
+        row.Subject.Should().BeNull();
+        row.Title.Should().Be("A widget that reads the ledger");
+    }
+
+    /// <summary>
     /// An open conversation is already somewhere, and the page goes there rather than resuming it:
     /// a resume is refused while its turn runs. So the list says where an open one lives, and says
     /// nothing for a closed one, which has nowhere to go back to.
