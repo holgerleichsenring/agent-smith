@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision-log.schema.json
+phase: 2026-09-21-f237c
+
+decisions:
+  - category: The heading
+    chose: "The card head reads Recents, and nothing is added above the rows"
+    over: "A Recents heading under the existing Conversations heading"
+    reason: |
+      The card already named the list. Adding a second heading would have put two names on one
+      thing — the arithmetic of 'four headings become one' only works if the one replaces
+      something. Recents is also the truer name: the card holds the recent ones, the picker, the
+      way to start another and the link to all of them.
+
+  - category: The day groups
+    chose: "groupByDay, dayLabel and ConversationDay are deleted; the row dates itself"
+    over: "Grouping only when the rows fall on more than one day"
+    reason: |
+      A conditional rule gives a panel whose shape changes under a reader between two reloads,
+      and keeps a module alive for a case nobody looks at. The groups were uneven by construction
+      anyway: a working day puts everything under Today and leaves three headings unused, a
+      Monday puts everything under Last week. What they were carrying — when — moved onto the row,
+      next to what it dates, and now answers for every row rather than only today's.
+
+  - category: Where the cap is taken
+    chose: "Twenty rows are sliced where they are DRAWN; the conversations array is untouched"
+    over: "Capping the state, or capping the server's read"
+    reason: |
+      The hook finds the conversation open here in that array to decide whether the list is
+      behind, and the surface reads that conversation's fallback heading from it. A sliced array
+      would make a conversation below the twentieth unfindable in both: the pane would lose its
+      heading and the predicate would answer "behind" on every reply for ever — the expensive
+      read as a poll. Twenty is how many a person scans; the fifty the server serves is how far
+      back the page can still recognise what it has open. Two numbers because they answer two
+      questions.
+
+  - category: The open conversation
+    chose: "The first twenty, PLUS the one being read when the list holds it and the twenty do not"
+    over: "A flat first-twenty slice"
+    reason: |
+      Today every row is drawn, so the row carrying aria-current is always on screen, and
+      2026-09-21-f237b made a twenty-first conversation very reachable by giving it an address. A
+      panel that does not contain what the reader is reading is worse than one row too many. Where
+      the list does not hold it at all — outside the server's fifty — there is nothing to append,
+      and f237b is what bounds the cost of that.
+
+  - category: Deleting
+    chose: "Bounding the panel waited for f237b to put the delete control on the page"
+    over: "Capping the panel first and adding the page's delete afterwards"
+    reason: |
+      The control existed on the panel row and nowhere else in the dashboard. Drawing twenty rows
+      before the page carried one would have left every conversation below the twentieth
+      undeletable from any surface — a silent loss of function that no test in this phase would
+      have noticed.
+
+  - category: Width
+    chose: "The panel's track goes 220px to 300px at the widest breakpoint, and the EXCHANGE pays"
+    over: "Taking it from the scope pane; a splitter the reader drags"
+    reason: |
+      The scope pane renders given names — repositories, templates, revisions — that this page did
+      not choose and cannot shorten without lying. The exchange is prose and reflows. A dragged
+      width is per-viewer state this page has nowhere durable to keep, and a panel that forgets
+      its width on every reload is worse than one that never offered.
+
+  - category: The second line
+    chose: "line-clamp-2, with the row's block display removed"
+    over: "Letting a long subject wrap freely"
+    reason: |
+      A subject is minted short but nothing guarantees it, and a row growing to four lines for one
+      verbose subject makes a ragged column. Two lines then the ellipsis is the same truncation,
+      one line later. line-clamp-2 is already this tree's idiom; `block` had to come off because
+      line-clamp sets its own display.

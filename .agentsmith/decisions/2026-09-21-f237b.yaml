@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../decision-log.schema.json
+phase: 2026-09-21-f237b
+
+decisions:
+  - category: The address
+    chose: "/spec-dialog?open=<sessionId>&on=<dialogId> hands a conversation to the surface, and the hook still does the opening"
+    over: "A route per conversation, or a link that resumes one directly"
+    reason: |
+      Opening a conversation never was an address. A CLOSED one is resumed by a command the hook
+      queues until the page has joined the new dialog id's hub group — a link cannot queue
+      anything, and a resume whose answer lands in a group nobody joined is lost. A route per
+      conversation would have to rebuild the subscription, the composer and the panel a second
+      time. So the page links to the surface and the surface hands the id to the callback the
+      panel's own row uses.
+
+  - category: The address carries the dialog id too
+    chose: "The row's openDialogId rides along in the address"
+    over: "A session id alone, with the surface looking the dialog id up"
+    reason: |
+      open() goes to a conversation's own dialog id only when its caller supplies one, and
+      otherwise queues a resume — which the server refuses while a turn runs, which is the very
+      case going to the dialog exists to serve. Nothing maps a session id to its dialog id except
+      the conversation list, and the list is the read that may not hold the row: that is the whole
+      reason this page exists. The page holds the row it is linking from, so it already knows, and
+      the surface needs no lookup at all.
+
+  - category: The limit
+    chose: "One route, an optional limit, clamped between one and a ceiling of 200 against a default of 50"
+    over: "A second endpoint for the page; refusing an out-of-range limit; raising the cap for everyone"
+    reason: |
+      A second endpoint would duplicate the owner filter, the outcome read and the summary
+      mapping — the three things that make this read expensive. Refusing would make this the one
+      route in the tree that refuses where RunQueryEndpoints and RunStepQueryEndpoints clamp,
+      against the same two constants. Raising the cap for everyone would make the panel's
+      per-reply read parse two hundred transcripts to draw twenty rows.
+
+  - category: The count
+    chose: "The route answers the rows AND the owner's total, counted"
+    over: "The page inferring 'there are more' from rows.length === limit"
+    reason: |
+      That inference is wrong for exactly the caller who holds the ceiling exactly, and this tree
+      does not build heuristics around a missing field — the field IS the fix. A COUNT over the
+      two indexed columns the list already filters on touches no transcript, which is what makes
+      it affordable beside a read that parses every one of them. It also turned out to be the
+      thing that makes the absent-row allowance below safe.
+
+  - category: The absent-row allowance
+    chose: "An absent row justifies one CAPPED read per conversation; a page that served everything the owner has spends nothing"
+    over: "One read per conversation regardless; leaving the predicate as it was"
+    reason: |
+      Once this page can open a conversation the panel's read does not contain, an absent row
+      would answer "behind" on every reply for as long as that conversation stayed open — the
+      expensive read as a poll, which is what the predicate exists to prevent. But spending the
+      allowance on ANY landed read breaks the case it must not break: the read that races a
+      conversation's own creation also comes back without it, and a spent allowance there would
+      keep a brand-new conversation out of the panel for good. The served total tells the two
+      apart without a heuristic. A page that holds everything the owner has is authoritative and
+      the row is simply not stored yet; a capped page may not reach far enough back, and that is
+      the only case in which reading again would say the same thing.
+
+  - category: Deleting
+    chose: "The page carries the delete control and the same confirmation"
+    over: "Leaving deletion to the panel, as the first draft of this spec did"
+    reason: |
+      The control existed on the panel row and nowhere else in the dashboard. Bounding the panel
+      to twenty rows — which is 2026-09-21-f237c — would therefore have left every conversation
+      below the twentieth undeletable from any surface. The page has to carry it before the panel
+      may be cut, so it carries it here.
+
+  - category: Honesty about reach
+    chose: "The page says 'the N most recent of M' and never 'all'"
+    over: "Calling it every conversation, or fixing the ordering here"
+    reason: |
+      ListByOwnerAsync takes its cap by Id because SQLite throws on an ORDER BY over a
+      DateTimeOffset, then sorts the taken set by activity in memory. The rows are therefore the
+      most recently CREATED, ordered by activity, and a conversation started long ago and resumed
+      today can fall outside any limit. Raising the ceiling makes that rarer, never impossible.
+      Fixing it needs an orderable activity column and a migration pair — a phase about the
+      repository, and the true prerequisite for cursor paging, which would otherwise not continue
+      coherently from page to page.

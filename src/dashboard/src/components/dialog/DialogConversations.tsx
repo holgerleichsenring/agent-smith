@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { SpecDialogProject, SpecDialogSessionSummary } from "@/types/spec-dialog";
-import { groupByDay, outcomeLabel, timeOfDay } from "./conversationDays";
+import { lastActive, outcomeLabel } from "./conversationRows";
 
 // 2026-09-15-cb3e: "/spec" and "/spec new <project>" are a project picker and a button, and
 // the caller's conversations are a list — open and closed, each opened by clicking it. The
@@ -50,7 +51,11 @@ export function DialogConversations({
       className="ecard inert @3xl:col-span-2 @6xl:col-span-1"
     >
       <div className="d-head">
-        <h2 className="ec-name sans">Conversations</h2>
+        {/* 2026-09-21-f237c: ONE heading. The card already named the list, and adding a Recents
+            heading under it would have put two names on one thing. Recents is the truer name:
+            the card holds the recent ones, the way to start another, and the link to all of
+            them. */}
+        <h2 className="ec-name sans">Recents</h2>
       </div>
       <div className="d-body flex flex-col gap-3">
         {projects.length > 1 && (
@@ -82,26 +87,59 @@ export function DialogConversations({
           + New conversation
         </button>
         {conversations.length > 0 && (
-          <div data-testid="dialog-conversations" className="flex flex-col gap-3">
-            {groupByDay(conversations).map((day) => (
-              <div key={day.label} data-testid="dialog-conversation-day" className="flex flex-col gap-0.5">
-                <h3 className="fl px-1 pb-1">{day.label}</h3>
-                {day.conversations.map((conversation) => (
-                  <Conversation
-                    key={conversation.sessionId}
-                    conversation={conversation}
-                    current={conversation.sessionId === sessionHere}
-                    onOpen={onOpen}
-                    onDelete={onDelete}
-                  />
-                ))}
-              </div>
+          <div data-testid="dialog-conversations" className="flex flex-col gap-0.5">
+            {drawn(conversations, sessionHere).map((conversation) => (
+              <Conversation
+                key={conversation.sessionId}
+                conversation={conversation}
+                current={conversation.sessionId === sessionHere}
+                onOpen={onOpen}
+                onDelete={onDelete}
+              />
             ))}
           </div>
         )}
+        {/* 2026-09-21-f237b: the panel is not the only way to a conversation any more. */}
+        <Link href="/spec-dialog/conversations" className="d-link" data-testid="dialog-see-all">
+          All conversations
+        </Link>
       </div>
     </section>
   );
+}
+
+/** How many rows the panel draws. Not how many it HOLDS — see `drawn`. */
+export const DRAWN = 20;
+
+/**
+ * 2026-09-21-f237c: the rows to draw — the first twenty, plus the conversation open here when
+ * the list holds it and the twenty do not.
+ *
+ * The cap is taken HERE, on the way to the screen, and never on the array behind it. The hook
+ * finds the conversation open here in that same array to decide whether the list is behind, and
+ * the surface reads that conversation's fallback heading from it; a sliced array would make a
+ * conversation below the twentieth unfindable in both, and the predicate would then answer
+ * "behind" on every reply for ever. Twenty is how many a person scans; the fifty the server
+ * serves is how far back the page can still recognise what it has open. Two numbers, two
+ * questions.
+ *
+ * The open one is appended rather than left out because today every row is drawn, so the row
+ * carrying aria-current is always on screen — and 2026-09-21-f237b made a twenty-first
+ * conversation very reachable. A panel that does not contain what the reader is reading is worse
+ * than one row too many.
+ */
+export function drawn(
+  conversations: SpecDialogSessionSummary[],
+  sessionHere: string | null,
+): SpecDialogSessionSummary[] {
+  const rows = conversations.slice(0, DRAWN);
+  if (sessionHere === null || rows.some((row) => row.sessionId === sessionHere)) return rows;
+  const open = conversations.find((row) => row.sessionId === sessionHere);
+  return open ? [...rows, open] : rows;
+}
+
+function untitled({ sessionId }: SpecDialogSessionSummary): string {
+  return `untitled ${sessionId}`;
 }
 
 function Conversation({
@@ -116,8 +154,15 @@ function Conversation({
   onDelete: (sessionId: string) => void;
 }) {
   const filed = outcomeLabel(conversation);
-  const time = timeOfDay(conversation.lastActivityAt);
-  const title = conversation.title ?? `untitled ${conversation.sessionId}`;
+  const time = lastActive(conversation.lastActivityAt);
+  // 2026-09-21-f237a: the ROW says what the conversation is about, the DELETE says what the
+  // person wrote — opposite preferences over the same two strings, on purpose. A row twenty-five
+  // characters wide cannot show enough of an opening sentence to tell one conversation from
+  // another; a confirmation that quoted a model-minted subject would ask someone to approve the
+  // loss of something they have never seen under that name. Where only one of the two exists,
+  // both fall back to it, so neither ever says "untitled" about a row that is showing a name.
+  const title = conversation.subject ?? conversation.title ?? untitled(conversation);
+  const written = conversation.title ?? conversation.subject ?? untitled(conversation);
   return (
     <div className="d-conv-row">
       <button
@@ -127,13 +172,15 @@ function Conversation({
         onClick={() => onOpen(conversation.sessionId, conversation.openDialogId)}
         className="d-conv"
       >
-        <span className="block truncate dsh-body font-medium text-ink">{title}</span>
+        {/* 2026-09-21-f237c: two lines, then the ellipsis — the same truncation, one line
+            later. `block` comes off because line-clamp sets its own display. */}
+        <span className="line-clamp-2 dsh-body font-medium text-ink">{title}</span>
         <span className="ec-marks ec-sub items-center">
           <span className="ec-mark given">{conversation.project}</span>
           <span>
             {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
           </span>
-          {time && <span>{time}</span>}
+          <span>{time}</span>
           {filed && (
             <span data-testid="dialog-conversation-outcome" className="ec-mark filed">
               {filed}
@@ -144,7 +191,7 @@ function Conversation({
       <button
         type="button"
         data-testid={`dialog-delete-${conversation.sessionId}`}
-        aria-label={`Delete ${title}`}
+        aria-label={`Delete ${written}`}
         title="Delete this conversation"
         onClick={() => onDelete(conversation.sessionId)}
         className="d-conv-x"

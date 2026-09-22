@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision-log.schema.json
+phase: 2026-09-22-6ff3
+
+decisions:
+  - category: Placement
+    chose: "The selftest flag is stripped in _environment(), the helper every spawned gate's environment is built from"
+    over: "Clearing it inside each of the four tests that need the step to run"
+    reason: |
+      The defect belongs to every gate the suite spawns, not to four of them: each is meant to be
+      a fresh gate over a throwaway tree, and any of them skipping a step because of a variable
+      the surrounding session set is the same bug wearing a different symptom. The helper already
+      strips CLAUDE_PROJECT_DIR for precisely that reason, so the flag joins it there — one strip
+      beside its twin, rather than four opt-outs the fifth test would forget.
+
+  - category: Division of blame
+    chose: "The gate script is left alone; the tests stop carrying the flag into their children"
+    over: "Having the gate not export the flag, or export it only one level deep"
+    reason: |
+      The gate is right to set it. Without it, a gate driven by the tests would run the tests that
+      are running it, without bottom. What is wrong is that the tests hand their own environment
+      to a child that is supposed to be pristine. The probe keeps inheriting it on purpose — that
+      a test-driven gate does NOT run the tests again is exactly what one of the four asserts.
+
+  - category: Coverage
+    chose: "A test that asserts the helper's OUTPUT carries no flag, with the flag set in the caller's environment"
+    over: "Trusting the four repaired tests to keep failing if the inheritance returns"
+    reason: |
+      They would — but only when run under the gate, which is the one place a red result is easy
+      to read as "the gate is broken" rather than "this changed". A direct assertion on the
+      helper names the rule at the line that implements it, and it fails the same way in both
+      environments.
+
+  - category: Scope
+    chose: "The ordering hole that let this ship is named in the spec and not closed"
+    over: "Making the gate prove a newly added hook test before allowing the commit that adds it"
+    reason: |
+      The step proves a changed hook with the hook it ships, but it cannot prove the commit that
+      first ADDS a test of the step: at that moment the running gate is still the old copy, and
+      the new test only runs on the NEXT commit. No change inside one commit fixes that ordering.
+      What can be guaranteed instead is that the tests are runnable in the environment the gate
+      provides, which is what this phase restores.
