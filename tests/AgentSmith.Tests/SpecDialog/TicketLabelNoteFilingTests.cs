@@ -57,8 +57,9 @@ public sealed class TicketLabelNoteFilingTests
         AgentSmith.Application.Services.Specs.TicketLabelNoteStripper.Strip(work)
             .Should().NotContain(TicketLabelNote.Heading,
                 "the pair the renderer writes is the pair the stripper takes");
-        provider.Created[1].Body.Should().NotContain(TicketLabelNote.BeginIdentifier,
-            "a slice record carries one record label and never reaches the stamp gate");
+        provider.Created.Should().ContainSingle(
+            "2026-09-22-b3d7: the work ticket is the only ticket a cut files, so it is the only "
+            + "body the note can reach");
     }
 
     [Fact]
@@ -93,7 +94,7 @@ public sealed class TicketLabelNoteFilingTests
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            ApprovedSetDoubles.EpicFiler(store), ApprovedSetDoubles.Recorder(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);
 

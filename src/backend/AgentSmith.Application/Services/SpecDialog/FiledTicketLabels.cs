@@ -11,10 +11,13 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// of them would otherwise claim it.
 /// </para>
 /// <para>
-/// 2026-09-17-0e79d: the record label's meaning widened from "the summary of a cut" to "a
-/// record, not work". An approved epic files ONE phase-labelled work ticket and one record per
-/// slice; a record carries the label, the tracker link and no stamp at all, because no machine
-/// reads it — it never routes, never runs and is not a rung.
+/// 2026-09-22-b3d7: THE RECORD LABEL HAS NO WRITER LEFT. An approved cut files ONE phase-labelled
+/// work ticket and nothing beside it. <see cref="IsEpicRecord"/> stays because the tickets that
+/// carry the label are still on the board: the epic PARENT SUMMARIES filed before 2026-09-17-0e79d
+/// widened the label's meaning from "the summary of a cut" to "a record, not work", and the SLICE
+/// RECORDS filed from then until this phase. Both generations carry the label and nothing else —
+/// no stamps, no phase label — so the label is their whole identity, and it is the only thing
+/// standing between them and an ordinary routing decision.
 /// </para>
 /// <para>
 /// 2026-09-13-a72a: an epic child of the WITHDRAWN N-children shape carries where it sits in the
@@ -47,6 +50,11 @@ public static class FiledTicketLabels
     public static bool IsPhaseTicket(IncomingTicketEnvelope envelope) =>
         Carries(envelope, PhaseTicketRenderer.PhaseLabel);
 
+    /// <summary>
+    /// True for a ticket this framework filed as a RECORD — an epic parent summary or a slice
+    /// record, both filed before 2026-09-22-b3d7 and neither filed after it. The incoming path
+    /// refuses them on this alone.
+    /// </summary>
     public static bool IsEpicRecord(IncomingTicketEnvelope envelope) =>
         Carries(envelope, PhaseTicketRenderer.EpicLabel);
 

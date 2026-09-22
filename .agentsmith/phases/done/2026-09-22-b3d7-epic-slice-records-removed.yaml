@@ -1,0 +1,222 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-b3d7
+
+goal: "An approved cut files ONE ticket, so the slice records nothing routed and no machine read stop being written and no filing carries the phase-epic label again."
+
+applies_to: "backend (the spec-dialog filing path) + dashboard (the approval card's count)"
+
+scope:
+  in: >
+    Approving a cut files FOUR tickets where the operator asked for one: the work ticket that
+    carries the whole approved set, and one record ticket per slice beside it. The records are
+    provably redundant — the work ticket's own body already prints one bullet per slice, carrying
+    its id, its goal and its requires: edges, under a "## Slices" heading, and the record filer's
+    own doc says of them that nothing routes them and no machine reads them. They exist so a person can read a
+    slice on its own, which is the one thing the body they duplicate already does.
+    They also cost what a redundant ticket costs: a create and a parent-link call per slice, a
+    second comment on the work ticket listing them, one more note channel to explain a link that
+    did not land — and the framework label `phase-epic` on every one of them.
+    This phase deletes the record filer. Filing an approved cut creates the work ticket, stores the
+    ordered set under it and starts it, exactly as it does today, and stops there. The CUT does not
+    move into the code: the model still decides the slices, the parser still checks them and the
+    orderer still puts them in dependency order — only the filing stops being a second set of
+    tickets. The `epic` outcome kind survives as the model-facing shape, for the reason in the
+    decisions.
+    The two filing paths become one. A phase and a cut both file one ticket, store a set under its
+    spec key and start it; the only differences left are the body, the filing role and the size of
+    the set. They are folded into one path, which also gives a lone phase the store-failure message
+    the cut already has — the same hazard, named for both.
+  out: >
+    THE PARENT-LINK PORT AND ITS CONFIG KEY. `ITicketProvider.LinkToParentAsync` has exactly one
+    caller — the record filer — and the tracker's `parent_link_type` key exists to serve it. They
+    stay, dead, because removing them reaches four provider implementations, the config schema, the
+    config-studio capability descriptor and the dashboard's tracker form: a port-and-config removal
+    wearing a filing change's clothes. Named in prose as the phase that removes a parent link with
+    no caller.
+    THE DESIGN-PARTNER MASTER. The PINNED release this product embeds promises nothing about how
+    many tickets a cut becomes — its epic section describes the outcome block's shape and no ticket
+    count — so an unchanged skill still produces a working filing and this phase needs no pin bump.
+    The sentence about one record per slice exists only in the skills repository's UNRELEASED head.
+    That inverts the urgency: the risk is not a lagging pin, it is that the unreleased commit
+    INTRODUCES a promise the product will no longer keep, so the skills change must land before
+    that commit releases or the next routine pin bump ships a master that is wrong. A separate pull
+    request there, named here so it is not discovered afterwards.
+    A SIBLING THAT EDITS THE SAME RENDERER. The phase that makes a filed ticket say it records
+    rather than steers rewrites the specification section of this same file. Whichever lands first,
+    the other rebases; they do not overlap in what they change, but they touch one file.
+    THE TRACKER LEVEL. Nothing in the code ever chose Epic: which native work-item type a filed
+    role becomes is the tracker's `work_item_kinds` map, and an installation that wants a Feature
+    or a Story sets `work:` to it. That is configuration, not this phase.
+    RENAMING THE `epic` KIND. The word reaches the outcome block, the stored proposal JSON, the
+    turn kind and the dashboard union, and a stored row carrying `"epic"` is read back by kind —
+    an unknown one throws. A rename buys a word and costs a migration.
+    THE READ-BACK OF FILINGS ALREADY STORED. Untouched, deliberately: see the decisions.
+
+decisions:
+  - key: |
+      THE BODY ALREADY IS THE SLICE LIST, SO THE RECORDS WERE A SECOND COPY OF IT. The work
+      ticket prints every slice with its goal and its requires: edges, under its own heading, and
+      carries the specification pointer that says where the approved set lives. A record ticket
+      adds a per-slice title, a goal and a done list for a reader — and a fourth row on a board, a
+      label, a link and a note when the link fails. One ticket that lists three slices and three
+      tickets that each state one is the same information at four times the bookkeeping.
+  - key: |
+      THE `epic` KIND SURVIVES; ONLY THE FILING SHAPE CHANGES. Collapsing the kind into the phase
+      outcome is not a simplification, it is a deletion of checks. A phase outcome carries ONE
+      draft and arrives as a bare ```yaml block that validates exactly one spec, so a set of two
+      or more has no representation on that path at all. Everything that makes a cut a cut lives
+      in the epic parser: at least two children, the phase cap, a done list on every child, and
+      the requires: edges checked for siblings and cycles — none of which a single draft can say.
+      The parent draft is the work ticket's requirement text and has nowhere else to live. The
+      kind is how the MODEL says "this needs several slices"; the filing is how many tickets that
+      costs, and only the second one was wrong.
+  - key: |
+      THE LABEL'S WRITER GOES AND ITS READER STAYS — THIS IS THE MIGRATION ANSWER. `phase-epic` is
+      refused by ProjectResolver BEFORE every other resolution rule, because every other rule ends
+      in something and one of them would claim the ticket. The records already on the operator's
+      board carry it and are not going to be deleted by this phase. If the reader went with the
+      writer, every one of those tickets would become an ordinary ticket the moment it is polled
+      or edited — routable by tag, by area path, by repository, and then run. The renderer's own
+      doc says this in as many words about renaming the value. So: nothing the framework files
+      carries the label again, and the incoming path keeps refusing it, with its doc rewritten to
+      say WHOSE tickets it is refusing — the ones filed before this phase, and none filed after.
+  - key: |
+      HISTORY IS READ BACK, SO `FiledStartState.Record` STAYS. A filing is serialized onto the
+      session row and read back by the pane and by the filed-work reader, and that enum is
+      serialized BY NAME. Delete the member and every stored epic filing fails to deserialize —
+      and the reader's catch shows an unreadable row as absent, so the operator would not get an
+      error, they would get a filing that silently no longer exists. The reader also uses that
+      state to skip the run lookup for a record, which is still the right answer for the rows that
+      carry it. Nothing writes it after this phase; the same goes for the report's notes, whose
+      only writer was the record filer.
+  - key: |
+      ONE FILING PATH, NOT TWO. With the records gone, filing a phase and filing a cut are the
+      same three acts — create one ticket from a rendered body, store the approved set under its
+      spec key, start it — differing only in the body, the filing role and the length of the set.
+      Two classes for that is two places for the next change to land in one of. Folding them also
+      settles an inconsistency: a store that fails after the ticket exists is a broken hand-off
+      either way, and today only the cut's path tells the operator which ticket must not be
+      triggered. The ROLE stays per call site, because an installation may map `work` and `phase`
+      to different native types.
+  - key: |
+      THE `record` FILING ROLE GOES WITH THE RECORDS. It is an operator-facing wire key, so the
+      schema sentence that lists the roles — and explains itself by talking about slice records —
+      changes with it. A stale `record:` entry in a live config still validates and is warned
+      about as an unknown role, which is exactly what it now is: a key that files nothing.
+
+steps:
+  - id: the-requirement-tests-are-repointed-not-deleted
+    action: "The tests that exercised the child-requirement renderer for behaviour the surviving renderers still have — the absent fenced block, the scope halves, the omitted steps, a block-scalar criterion, a free-text precondition — are repointed at those renderers rather than removed with it; only the sibling-filter tests go with the filter."
+  - id: the-harness-preset-asserts-the-new-shape
+    action: "The harness preset that pins today's three-ticket shape, its record-only labels and its two links is rewritten to the one-ticket shape, because the gate runs the harness presets and this phase cannot commit without it."
+  - id: record-filer-deleted
+    action: "EpicSliceRecordFiler and its registration are deleted, with the per-slice create, the parent link and the 'Slices filed' comment on the work ticket."
+  - id: filing-path-unified
+    action: "Filing a phase and filing a cut become one path that renders a body, creates one ticket with the phase label and the approved-set stamp, stores the set under its spec key and starts it; a store that fails names the ticket that must not be triggered, for both."
+  - id: record-label-reader-kept
+    action: "Nothing written by the framework carries phase-epic any more. ProjectResolver's refusal and FiledTicketLabels' reader stay, and their docs say the tickets they refuse are BOTH generations that carry the label: the epic parent summaries filed before the label's meaning widened, and the slice records filed up to this phase."
+  - id: record-body-and-role-removed
+    action: "PhaseTicketRenderer.RenderChildRequirement goes with its only caller, the now-always-empty sibling filter goes out of the requirement body, and TicketFilingRole.Record goes with the schema sentence that lists the roles."
+  - id: surfaces-count-one-ticket
+    action: "The filing summary and the dashboard approval card stop counting slice records; FiledStartState.Record and the filing notes stay readable for filings already stored."
+
+tests:
+  - "Filing_AnApprovedCutOfThreeSlices_CreatesExactlyOneTicket"
+  - "Filing_AnApprovedCut_StoresTheWholeOrderedSetUnderThatTicket"
+  - "Filing_AnApprovedCut_WritesNoTicketCarryingTheRecordLabel"
+  - "Filing_AnApprovedCut_ListsEverySliceAndItsRequiresEdgesInTheTicketBody"
+  - "Filing_ACutWhoseEdgesCannotBeOrdered_IsStillRefusedBeforeAnyTicketExists"
+  - "Filing_AStoreThatFails_NamesTheTicketThatMustNotBeTriggered_ForAPhaseAsWellAsACut"
+  - "ProjectResolver_AnEnvelopeCarryingTheRecordLabel_StillResolvesToNoProject"
+  - "FiledWork_AStoredFilingCarryingARecordState_StillReadsBack"
+  - "EpicOutcomeParser_ACutOfTwoOrMoreSlices_StillResolvesToAnEpicOutcome"
+  - "FilingNotice_AnApprovedCut_CountsOneTicketAndNoRecords"
+  - "ApprovalCard_ACutProposal_SaysOneTicketAndCountsNoRecords"
+
+done:
+  - "approving a cut files exactly one ticket, whatever the slice count"
+  - "that ticket carries the phase label, the approved-set stamp, the ordered slice list and the specification pointer it carries today"
+  - "no ticket the framework files carries phase-epic"
+  - "the incoming path still refuses a ticket that carries it, so the records already on a board stay unroutable"
+  - "a filing stored before this phase still reads back on the filed tab and in the pane"
+  - "the approval card and the filing notice both count one ticket"
+  - "a store that fails after the ticket exists names that ticket, whether one phase or a cut was filed"
+  - "build green, full suite green"
+
+facts:
+  - claim: "Filing dispatches on three shapes, and an epic goes to a filer of its own."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:50-60"
+  - claim: "Filing one phase creates a ticket with the phase label and the approved-set stamp, records the set under it, and starts it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:101-113"
+  - claim: "The epic filer creates the work ticket, stores the ordered children under it, files one record per slice, comments the record references onto the work ticket, and starts the work ticket last."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:77-89"
+  - claim: "A store that fails is the filing's error and names the ticket that must not be triggered; only the epic path has that message."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicTicketFiler.cs:95-111"
+  - claim: "The record filer's own doc states that nothing routes the records and no machine reads them, because the run works the set stored under the work ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:13-17"
+  - claim: "Each record is created with exactly one label, the record label, and then linked to the work ticket; a link that fails is a note."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:45-57"
+  - claim: "The record label is used because a ticket with no framework label would be routed by the project's own rules."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:66-69"
+  - claim: "The record body is rendered by RenderChildRequirement, whose only caller is the record filer."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:81-82"
+  - claim: "The work ticket's body prints a '## Slices' section listing every child's id, goal and requires: edges, plus the specification pointer."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:100-112"
+  - claim: "The record label's value is 'phase-epic', and its doc says renaming it would make every parent already filed routable overnight."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:26-33"
+  - claim: "The sibling filter that keeps a slice's sibling ids out of a body is the only thing the record renderer passes; the other two renderings pass an empty set."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs:32-39"
+  - claim: "A record is recognised on the incoming path by that label alone."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:47-51"
+  - claim: "ProjectResolver refuses an envelope carrying the record label before every other rule and returns no matches, because every other rule ends in something."
+    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:34-42"
+  - claim: "The epic parser refuses fewer than two children and more than the phase cap."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:26-37"
+  - claim: "It also refuses a child with no done list, and runs the requires-edge check over parent and children."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:52-62"
+  - claim: "A reply with no outcome block and a bare yaml draft resolves to a phase outcome built from exactly one validated draft."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:36-44"
+  - claim: "The outcome block accepts kind bug or epic only; phase and answer are refused there by name."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:58-69"
+  - claim: "A phase outcome carries one draft; an epic outcome carries a parent draft and an ordered list of children."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:37-44"
+  - claim: "The orderer puts the children in dependency order before filing and refuses a cut whose edges cannot be ordered."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicChildOrderer.cs:32-47"
+  - claim: "FiledStartState is serialized by name and carries a Record member for a slice record."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStart.cs:10-25"
+  - claim: "A filing, with every filed ticket and its start state, is serialized onto the session row and deserialized back for the pane; a row that cannot be read is shown as absent rather than as an error."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:43-50"
+  - claim: "The same store reads that column back and swallows a deserialization failure into an absent record."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:64-80"
+  - claim: "The filed-work reader skips the run and hand-back lookup for a ticket whose stored start state is Record."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReader.cs:33-41"
+  - claim: "The filing notice summarises an epic as one work ticket plus N linked slice records."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:104-116"
+  - claim: "The dashboard's approval card counts what the button files as one work ticket and N slice records."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:142-152"
+  - claim: "The record filer is the only caller of ITicketProvider.LinkToParentAsync."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/EpicSliceRecordFiler.cs:83-95"
+  - claim: "That port member has four provider implementations and no default."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:60-66"
+  - claim: "The Record filing role exists for the slice records and is resolved to a native work-item kind at the create."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/TicketFilingRole.cs:16-31"
+  - claim: "A work_item_kinds key that is not a known role is warned about and ignored."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketKindResolver.cs:32-45"
+  - claim: "The config schema lists the filing roles including record, and explains the per-role choice by the level a slice record sits at; the tracker's parent_link_type is documented as the link type a filed epic child is linked with."
+    evidence: "config/agentsmith.schema.json:214-223"
+  - claim: "The unit tests assert three created tickets for a two-slice epic and a notice naming two linked slice records."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/EpicWorkTicketTests.cs:30-40"
+  - claim: "The harness preset asserts the same shape end to end: three tickets, the records carrying only the record label, and two links."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.cs:292-330"
+  - claim: "The embedded skills pin is a release version declared in the infrastructure project, and the master it ships promises nothing about how many tickets a cut becomes."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+
+assumptions:
+  - claim: "No slice record already on a tracker is expected to become routable later — they are read, closed or deleted by hand."
+    check: "Ask the operator what should happen to the records filed before this phase; the answer decides nothing in the code, because the refusal stays either way, but it decides whether a follow-up closes them."
+  - claim: "No installation maps the `record` role in a tracker's work_item_kinds, so removing the role costs nobody a working configuration."
+    check: "Grep the deployed server configuration for work_item_kinds and read its keys; a record: entry there is warned about after this phase and should be removed with it."
+  - claim: "The embedded skills pin in this tree still carries the master text that describes the record shape, so the product and the master disagree from this phase until the skills release lands and the pin is bumped."
+    check: "Read the pinned version, then read that RELEASE TAG's copy of the master in the skills repository — never the working tree, which carries unreleased commits."
+  - claim: "Nothing outside the spec-dialog filing path creates a ticket carrying the record label."
+    check: "grep the backend for PhaseTicketRenderer.EpicLabel after the change: the only remaining references should be the constant, the incoming-path reader and their tests."

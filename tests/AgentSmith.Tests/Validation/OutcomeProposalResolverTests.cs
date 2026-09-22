@@ -133,6 +133,26 @@ public sealed class OutcomeProposalResolverTests
         epic.Children[1].Requires.Should().Equal("p9000a");
     }
 
+    /// <summary>
+    /// 2026-09-22-b3d7: the FILING SHAPE changed — one ticket, no slice records — and the `epic`
+    /// KIND did not. Collapsing it into the phase outcome would have deleted checks, not tickets:
+    /// a phase outcome carries ONE draft, so a set of two or more has no representation on that
+    /// path at all, and the at-least-two rule, the phase cap, the per-child done list and the
+    /// sibling and cycle edge checks live only here. The parent draft is the work ticket's own
+    /// requirement text and has nowhere else to live.
+    /// </summary>
+    [Fact]
+    public void EpicOutcomeParser_ACutOfTwoOrMoreSlices_StillResolvesToAnEpicOutcome()
+    {
+        var resolution = _resolver.Resolve(EpicReply());
+
+        var epic = resolution.Should().BeOfType<OutcomeResolved>()
+            .Which.Proposal.Should().BeOfType<EpicOutcome>(
+                "a cut is how the model says several slices, whatever the filing costs").Subject;
+        epic.Parent.Goal.Should().Be("Widget platform end to end");
+        epic.Children.Should().HaveCount(2);
+    }
+
     [Fact]
     public void Resolve_EpicFreeTextPrecondition_Allowed()
     {

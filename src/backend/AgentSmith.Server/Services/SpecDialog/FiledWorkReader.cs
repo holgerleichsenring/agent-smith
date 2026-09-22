@@ -27,8 +27,8 @@ public sealed class FiledWorkReader(
 
     /// <summary>
     /// A ticket with no id or no project was filed before 2026-09-17-042eg and shows its
-    /// references only; a slice record (2026-09-17-0e79d) is not work at all, so nothing looks
-    /// for a run of it.
+    /// references only; a slice record (2026-09-17-0e79d, filed until 2026-09-22-b3d7 and never
+    /// after it) is not work at all, so nothing looks for a run of it.
     /// </summary>
     private async Task<FiledWorkTicketView> RowAsync(FiledTicket ticket, CancellationToken ct)
     {
