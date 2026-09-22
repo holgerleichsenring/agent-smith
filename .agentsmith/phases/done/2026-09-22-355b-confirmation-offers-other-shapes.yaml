@@ -1,0 +1,185 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-355b
+
+goal: "The confirmation offers the other shapes the proposal could take beside approving and rejecting it, derived from the proposal's own kind, so an operator can redirect a cut without writing a note."
+
+applies_to: "backend and dashboard (the spec-dialog confirmation and the three surfaces that render it)"
+
+scope:
+  in: >
+    The terminal confirmation of a design conversation is a hardcoded yes or no. The confirmer
+    builds an approval question with no choices at all, and the three surfaces each build an
+    approve-and-reject pair from the question's kind. An operator who wants a different SHAPE —
+    one ticket where several were proposed, or the other way round — has only the third door: any
+    other text is taken as an edit note.
+    That door works and is not the problem. The problem is that it is invisible: nothing on the
+    card says a different shape is available, so the offer exists only for someone who already
+    knows the system re-proposes on a note.
+    The shapes are not a matter of opinion and do not have to be asked of the model. The proposal
+    is a closed union of four kinds, three of which reach a confirmation, and what each could
+    instead be is a property of the kind: one phase could be cut into several, several could be
+    one, a fix-bug ticket could be a phase. The confirmer already holds the typed proposal, so it
+    can name the alternatives itself.
+    A chosen alternative is not a second filing path. It is fed into the edit door that already
+    exists: the turn runs again with the chosen shape as the note and the proposal being revised,
+    the master re-proposes in that shape, and the operator approves THAT. Nothing files a shape
+    the model did not emit, and the code decides nothing about the cut.
+  out: >
+    ASKING THE MODEL FOR ALTERNATIVES. An earlier draft had the master emit a third fenced block
+    of its own alternatives. It was refused: it requires a change to the master prompt, half of
+    which lives in a separate repository, so the phase would ship dormant; it splits a regex that
+    answers three different questions; and it lets a model-authored label carry a colon, which one
+    surface cannot survive (below). Code-derived labels have none of those problems and say the
+    same thing.
+    SWITCHING THE QUESTION TO THE CHOICE KIND. Three things are keyed off the approval kind: the
+    approve-and-reject pair every surface builds, the decision the transcript records, and the
+    counted summary the pane shows. The alternatives ride BESIDE the pair on an approval question.
+    STORING THE ALTERNATIVES. They are derived from the proposal every time the confirmation is
+    built, so the stored proposal is untouched — which matters, because its stored form is a
+    hand-written record with an explicit member list that silently drops anything not named in it.
+    THE CHOICE BRANCH OF THE CHAT SURFACES. One of them answers a choice question with the
+    choice's INDEX rather than its label. This phase touches only the approval branch, and the
+    index defect is named as the phase that makes a choice question answer its label.
+    A CONSOLE SURFACE. No adapter exists for it, so nothing renders a spec-dialog question there.
+
+decisions:
+  - key: |
+      THE ALTERNATIVES ARE A PROPERTY OF THE KIND, SO THE CODE MAY NAME THEM. This is not the code
+      deciding the cut — it decides nothing about content. It names the two or three shapes the
+      same content could take, and every one of them is answered by the model re-proposing. The
+      operator's rule that the model must decide the slicing is untouched: the model still does,
+      it is merely asked again with a direction.
+  - key: |
+      FRAMEWORK-AUTHORED LABELS ARE WHAT MAKES THIS SAFE ON EVERY SURFACE. One chat surface does
+      not send a button's value at all — it sends the tail of the action id after the LAST colon.
+      A label containing a colon therefore splits in the wrong place, the question id no longer
+      matches, the click is dropped silently, and the proposal dies of timeout fifteen minutes
+      later with the operator believing they answered. Labels the framework writes are short,
+      colon-free and stable, and a test pins that. A model-authored label could not be.
+  - key: |
+      THE LABEL IS THE ANSWER KEY, AND THE ORDER OF MATCHING IS THE CONTRACT. Approve and reject
+      words are matched first, then the offered labels, then everything else is an edit note as
+      today. A label may therefore never be an approval or rejection word, which is trivially
+      satisfiable for labels the framework writes and is enforced where they are written.
+  - key: |
+      THE NOTE IS CARRIED BY THE TRANSCRIPT, AND TWO SURFACES NEVER PUT IT THERE. An answer typed
+      as a message is appended to the transcript on its way in; an answer clicked on a chat
+      surface completes the pending question inside that surface's adapter and is published
+      straight onto the transport, so it never passes the one place that appends. The re-run then
+      reads a transcript byte-identical to the one that produced the proposal and returns the same
+      cut — a full master loop, up to three model calls, for a no-op, under an acknowledgement
+      that says the proposal is being revised. The edit already carries its note as a value; the
+      re-run must use it instead of relying on a precondition that only one path satisfies.
+  - key: |
+      MATCHING A LABEL IS ALREADY WHAT HAPPENS; THE CONSTRAINT IS THE SUBSTANCE. Any reply that is
+      neither an approval nor a rejection is already an edit note, so a picked label already
+      routes correctly. What this phase adds is the guarantee that a label can never BE an
+      approval or rejection word — and that guarantee must be tested through the same decision
+      reader the confirmer uses, which trims and lowercases, not against a raw list.
+  - key: |
+      A PICKED SHAPE COSTS A TURN AND THE CARD MUST SAY SO. Feeding it into the edit door means a
+      fresh master call over the whole transcript plus the proposal review — minutes and money.
+      The card's footer currently says anything written below is a note; a button that silently
+      buys a turn beside that sentence is a surprise the operator did not agree to.
+  - key: |
+      THE FLOW'S FALL-THROUGH MUST STOP MEANING TIMEOUT. The switch over the confirmation result
+      handles three cases explicitly and treats its default as a timed-out approval — it clears
+      the stored proposal and says nothing will be filed. A fourth result added later would fall
+      into that default and silently destroy a proposal instead of failing to compile. The timeout
+      becomes its own case and the default throws.
+
+steps:
+  - id: the-proposal-names-its-other-shapes
+    action: "The confirmation derives the other shapes a proposal of this kind could take, as short framework-authored labels that are neither an approval nor a rejection word and contain no colon, and offers them as the question's choices while the question stays an approval."
+  - id: a-picked-shape-becomes-a-direction
+    action: "A reply matching one of the offered labels is interpreted as an edit carrying that label, so the master re-proposes in the chosen shape and the operator approves that."
+  - id: the-surfaces-offer-them-beside-approve-and-reject
+    action: "The dashboard card and the two chat approval builders render one control per offered shape alongside the approve and reject pair, the card showing each shape's explanation, and the chat surface that answers by action id carries the label there."
+  - id: the-card-says-what-a-pick-costs
+    action: "The card's footer states that picking a shape starts a new turn rather than filing anything."
+  - id: the-note-reaches-the-next-turn-however-it-arrived
+    action: "The edit's note is carried into the re-run and appended as the latest user turn when the refreshed transcript does not already end with it, so a shape picked on a surface that completes its question inside its own adapter reaches the model rather than re-running an unchanged transcript."
+  - id: the-fall-through-stops-meaning-timeout
+    action: "The outcome flow handles a timed-out confirmation as its own case and throws on an unknown one."
+
+tests:
+  - "Confirmation_AOnePhaseProposal_OffersCuttingItIntoSeveral"
+  - "Confirmation_AMultiPhaseProposal_OffersCuttingItIntoOne"
+  - "Confirmation_ABugProposal_OffersMakingItAPhase"
+  - "Confirmation_EveryOfferedLabel_IsColonFreeAndShortEnoughForEverySurface"
+  - "Confirmation_EveryOfferedLabel_IsNeitherAnApprovalNorARejectionWord"
+  - "Confirmation_AReplyMatchingAnOfferedLabel_IsAnEditCarryingThatLabel"
+  - "Confirmation_AReplyMatchingAnApprovalWord_StillApproves"
+  - "Confirmation_AnyOtherText_IsStillAnEditNote"
+  - "DialogCard_AnApprovalWithShapes_RendersThemBesideApproveAndReject"
+  - "DialogCard_AnApprovalWithNoShapes_IsUnchanged"
+  - "DialogCard_AShape_ShowsItsExplanation"
+  - "SlackApproval_AShapeButton_CarriesItsLabelBackAsTheAnswer"
+  - "TeamsApproval_AShapeAction_CarriesItsLabelBackAsTheAnswer"
+  - "OutcomeFlow_ATimedOutConfirmation_ClearsTheProposalAsItDoesToday"
+  - "OutcomeFlow_AnUnknownConfirmation_Throws"
+  - "Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape"
+  - "Router_AShapeTypedAsAMessage_DoesNotAppendItTwice"
+  - "Confirmation_EveryOfferedLabel_IsNoDecisionToTheReaderTheConfirmerUses"
+  - "DialogCard_AChoiceQuestion_IsUnchanged"
+
+done:
+  - "a confirmation names the other shapes the proposal could take, on all three surfaces"
+  - "picking one re-proposes in that shape and files nothing"
+  - "approving and rejecting behave exactly as they do today"
+  - "any other text is still an edit note"
+  - "the card says what picking a shape costs"
+  - "an unknown confirmation result can no longer be mistaken for a timeout"
+  - "build green, dashboard tests green, full suite green"
+
+facts:
+  - claim: "The confirmer builds an approval question with no choices and a fifteen-minute wait."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:23,28-33"
+  - claim: "It interprets an explicit approval, an explicit rejection, any other text as an edit note, and silence as a timeout."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:83-94"
+  - claim: "The proposal is a closed union of an answer, a bug, one phase and several linked phases."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:10-44"
+  - claim: "The question type already has a choice kind and the question already carries a choices field."
+    evidence: "src/backend/AgentSmith.Contracts/Dialogue/QuestionType.cs:6, src/backend/AgentSmith.Contracts/Dialogue/DialogQuestion.cs:8"
+  - claim: "The dashboard card returns the choices INSTEAD of the approve-and-reject pair, and drops each choice's description."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:122-140"
+  - claim: "The card's footer tells the operator that anything written below is a note."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:110-116"
+  - claim: "The wire already carries each choice's description to the client."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogChannelQuestion.cs:21-34"
+  - claim: "One chat surface answers a button by splitting the action id at its LAST colon; the button's value is never read."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SlackPayloadExtractor.cs:32-44"
+  - claim: "That surface's approval builder ignores the choices entirely."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs:102-149"
+  - claim: "Its choice branch encodes the choice's index into the action id rather than its label."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs:85-87"
+  - claim: "The other chat surface submits the choice's label verbatim and its approval builder ignores the choices."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/TeamsQuestionCardBuilder.cs:52,59-79"
+  - claim: "The dashboard sends a picked control's answer as an ordinary dialog message, which is published verbatim as the answer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:34-45"
+  - claim: "The re-run re-reads the state and carries the proposal being revised, and carries NO note: the note is in the transcript only because a typed answer was appended on its way in, which its own documentation states as a precondition."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogEditReload.cs:10-15,27-45"
+  - claim: "The edit result carries the note as a value, and the router discards it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:111-117"
+  - claim: "A typed answer is appended to the durable transcript and then published; a chat surface's button completes the pending question inside its adapter and publishes straight onto the transport."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:34-45"
+  - claim: "The chat confirmation text and one chat surface's own footer both describe a reply as the way to revise, neither mentioning a button."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:27-28"
+  - claim: "The outcome flow switches over the confirmation result and treats its default as a timed-out approval, clearing the stored proposal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:43-61"
+  - claim: "The stored form of a proposal is a hand-written record with an explicit member list, copied member by member on both crossings."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:38,47,60-67"
+  - claim: "The decision reader trims and lowercases before it matches, so a constraint tested against a raw list would let a differently-cased approval word through."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerWords.cs:13-32"
+  - claim: "The composed confirmation text is deliberately empty on the dashboard, which renders the proposal from the pane instead."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:24-29"
+
+assumptions:
+  - claim: "Framework labels stay under that surface's ceilings by arithmetic rather than by promise: the question id is a thirty-two character identifier, so a colon plus a label of at most forty characters is at most seventy-three, and approve, reject and the shapes share ONE action block whose element count also binds."
+    check: "Pin the label ceiling and the element count as constants in the test, rather than depending on a published limit read from the network."
+  - claim: "Rendering choices beside the pair on the card does not collide on React keys, since framework labels are distinct by construction."
+    check: "Read what the card keys each control by and confirm the derived labels are unique per proposal kind."
+  - claim: "No other consumer switches over the confirmation result."
+    check: "Find every switch over that type."
+  - claim: "A picked label reaching the confirmer as an edit note does not need the note to be sanitised before the master sees it."
+    check: "Read what the edit path does with the note text."
