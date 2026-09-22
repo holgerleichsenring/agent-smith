@@ -36,9 +36,19 @@ _resolver_module = None
 
 
 def _environment():
-    """A git environment that ignores the operator's global and system config."""
+    """A git environment that ignores the operator's global and system config.
+
+    2026-09-22-7c41a: it also drops the gate's OWN step-0 variables. This file is run BY
+    the gate with PHASE_GATE_SELFTEST=1 (and a redirected ledger), and every gate a test
+    spawns inherited them — so under the gate the tests measured a gate that skips the
+    very step they exist to check, and four of them failed on every phase commit. The
+    recursion guard is unaffected: the gate under test sets the variable itself for the
+    hook test it runs, and that copy is what the probe passes on.
+    """
     environment = dict(os.environ)
     environment.pop("CLAUDE_PROJECT_DIR", None)
+    environment.pop("PHASE_GATE_SELFTEST", None)
+    environment.pop("PHASE_GATE_LOG", None)
     environment["GIT_CONFIG_GLOBAL"] = os.devnull
     environment["GIT_CONFIG_SYSTEM"] = os.devnull
     return environment

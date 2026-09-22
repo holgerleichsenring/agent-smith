@@ -6,7 +6,7 @@ import type { RunSnapshot } from "@/types/hub-events";
 import type { NodeStatus } from "@/components/execution/TimingGutter";
 import { CancelRequestedBadge } from "./CancelRequestedBadge";
 import { DeleteRunButton } from "./DeleteRunButton";
-import { toNodeStatus } from "./runStatus";
+import { isRelaunching, relaunchPlace, toRunNodeStatus } from "./runStatus";
 import { RunStats, relativeAgo } from "./RunStats";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,13 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
 }
 
 export function RunRow({ snapshot }: Props) {
-  const status = toNodeStatus(snapshot.status);
+  // 2026-09-22-7c41c: ONE derived status drives all four reads below — the layout gate, the
+  // state dot's class, the activity-line gate and the wait-reason column. A parked run whose
+  // relaunch is under way reads as queued in every one of them, so the row cannot say it
+  // needs an answer with one hand and that it is waiting for a slot with the other.
+  const status = toRunNodeStatus(snapshot);
+  const relaunching = isRelaunching(snapshot);
+  const place = relaunchPlace(snapshot);
   const tick = snapshot.ticketId ? `#${snapshot.ticketId}` : `#${shortRunId(snapshot.runId)}`;
   const title = snapshot.ticketTitle ?? snapshot.pipeline;
   const pill = finishedPill(status);
@@ -79,7 +85,11 @@ export function RunRow({ snapshot }: Props) {
 
       {queued ? (
         <>
-          {snapshot.summary ? (
+          {/* 2026-09-22-7c41c: the wait-reason column is the QUEUE's reason, written onto a
+              run row only while that row already reads "queued". A parked run's summary is
+              its PARK's sentence, so it is not shown here — a stale reason beside a live
+              place in line is a second answer waiting to disagree with the first. */}
+          {!relaunching && snapshot.summary ? (
             <span className="qreason hidesm" title={formatRunSummary(snapshot.summary)}>
               {formatRunSummary(snapshot.summary)}
             </span>
@@ -87,7 +97,13 @@ export function RunRow({ snapshot }: Props) {
             <span className="qreason hidesm" />
           )}
           <span className="prog" data-testid={`run-row-${snapshot.runId}-progress`}>
-            {snapshot.queuePosition != null ? `pos ${snapshot.queuePosition}` : "queued"}
+            {relaunching
+              ? place != null
+                ? `resuming · pos ${place}`
+                : "resuming"
+              : snapshot.queuePosition != null
+              ? `pos ${snapshot.queuePosition}`
+              : "queued"}
           </span>
           <span className="cost hidesm" />
           <span className="prog hidesm">{relativeAgo(snapshot.startedAt)}</span>

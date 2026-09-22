@@ -18,7 +18,13 @@ const CANCELLABLE_STATUSES = new Set(["running", "queued", "waiting_for_input"])
 // .ident joined field-block strip on the right (Run # / Ticket / Pipeline /
 // Agent / Repositories — each field renders ONLY when the snapshot carries it).
 
-export function statusSpill(status: string | null): { cls: string; label: string } {
+// 2026-09-22-7c41c: `relaunching` is the parked run whose relaunch is already under way —
+// it wears the QUEUED look (the same `is-prov` class themes the page wrapper), because the
+// answer is in and what it waits for now is a slot, not the operator.
+export function statusSpill(
+  status: string | null, relaunching: boolean = false,
+): { cls: string; label: string } {
+  if (relaunching) return { cls: "is-prov", label: "Resuming" };
   switch ((status ?? "").toLowerCase()) {
     case "running":
       return { cls: "is-run", label: "Running" };
@@ -50,6 +56,8 @@ interface RunDetailHeaderProps {
   repoNames: string[];
   connectionState: HubConnectionState;
   status: string | null;
+  /** 2026-09-22-7c41c: true while a parked run's relaunch is queued or launching. */
+  relaunching?: boolean;
   cancelRequested: boolean;
   // p0332: reserved capacity-time (memory request × pod lifetime, Gi·min) — a
   // RESERVATION, never rendered as money.
@@ -68,13 +76,14 @@ export function RunDetailHeader({
   repoNames,
   connectionState,
   status,
+  relaunching = false,
   cancelRequested,
   costUsd,
   reservedGiMinutes,
   onDeleted,
 }: RunDetailHeaderProps) {
   const cancellable = CANCELLABLE_STATUSES.has((status ?? "").toLowerCase());
-  const spill = statusSpill(status);
+  const spill = statusSpill(status, relaunching);
   const hasReserved = reservedGiMinutes !== null;
 
   return (

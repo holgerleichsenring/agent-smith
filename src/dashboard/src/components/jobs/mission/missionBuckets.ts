@@ -1,5 +1,5 @@
 import type { RunSnapshot } from "@/types/hub-events";
-import { toNodeStatus } from "@/components/jobs/runStatus";
+import { toNodeStatus, toRunNodeStatus } from "@/components/jobs/runStatus";
 
 // p0343: state-ranked mission control. Tickets are worked as jobs; the home
 // screen ranks them by what needs the operator — Needs-you first, then Running,
@@ -14,10 +14,14 @@ export interface MissionBuckets {
   finished: RunSnapshot[];
 }
 
+// 2026-09-22-7c41c: the bucket is read from toRunNodeStatus, not from the raw status — a
+// parked run whose relaunch is under way belongs with the runs waiting for a slot, and the
+// default arm below is RUNNING, so its destination has to be NAMED rather than merely
+// removed from the attention arm.
 export function bucketRuns(runs: RunSnapshot[]): MissionBuckets {
   const buckets: MissionBuckets = { needsYou: [], running: [], queued: [], finished: [] };
   for (const run of runs) {
-    switch (toNodeStatus(run.status)) {
+    switch (toRunNodeStatus(run)) {
       case "input":
         buckets.needsYou.push(run);
         break;

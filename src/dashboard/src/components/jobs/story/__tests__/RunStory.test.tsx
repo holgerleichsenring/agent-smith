@@ -86,6 +86,49 @@ const DECISION_EVENT: RunEvent = {
   reason: "established pattern",
 };
 
+// 2026-09-22-7c41c: the spine has THREE states, not a paused flag. A run whose relaunch is
+// under way is executing nothing (so it is not "in progress") and is no longer asking (so it
+// is not "needs you"). One negated boolean could only ever have said one of those two wrong
+// things — which is why the spine gained a state rather than an inversion.
+describe("RunStory · a parked run whose relaunch is under way", () => {
+  it("RunStory_AWaitingRunWithAQueuePlace_SaysNeitherNeedsYouNorInProgress", () => {
+    render(
+      <RunStory
+        runId="r1"
+        snapshot={snap({ status: "waiting_for_input", queuePosition: 1, beats: BEATS })}
+        events={[]}
+      />,
+    );
+
+    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("resuming");
+    expect(screen.getByTestId("beat-section-badge")).not.toHaveTextContent("needs you");
+    expect(screen.getByTestId("beat-section-badge")).not.toHaveTextContent("in progress");
+    expect(screen.getByTestId("story-beat-building-caption"))
+      .toHaveTextContent("Answered — waiting to resume");
+    // The "?" marker belongs to the open question, and there is no longer one; the beat also
+    // keeps the waiting look rather than the running one — the run is executing nothing.
+    expect(screen.getByTestId("story-beat-building").querySelector(".marker")).toHaveTextContent("");
+    expect(screen.getByTestId("story-beat-building").className).toContain("s-wait");
+    expect(screen.getByTestId("story-beat-building").className).not.toContain("s-run");
+  });
+
+  it("RunStory_AWaitingRunWithNoQueuePlace_StillSaysNeedsYou", () => {
+    render(
+      <RunStory runId="r1" snapshot={snap({ status: "waiting_for_input", beats: BEATS })} events={[]} />,
+    );
+
+    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("paused · needs you");
+    expect(screen.getByTestId("story-beat-building").querySelector(".marker")).toHaveTextContent("?");
+  });
+
+  it("RunStory_ARunningRun_IsStillInProgress", () => {
+    render(<RunStory runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
+
+    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("in progress");
+    expect(screen.getByTestId("story-beat-building-caption")).toHaveTextContent("Step 3 of 9");
+  });
+});
+
 describe("RunStory", () => {
   it("RunStory_ServerBeats_RendersStoryBarFromSnapshot", () => {
     render(<RunStory runId="r1" snapshot={snap({ beats: BEATS })} events={[]} />);
