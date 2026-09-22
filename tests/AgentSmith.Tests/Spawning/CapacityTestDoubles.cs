@@ -43,6 +43,13 @@ internal static class CapacityTestDoubles
         return probe.Object;
     }
 
+    // 2026-09-22-2d11a: an empty hold register — nothing is held, so the release that
+    // precedes every probe releases nothing and the admission is what it always was.
+    public static IHeldSandboxRegister NoHolds() =>
+        new AgentSmith.Application.Services.Sandbox.HeldSandboxRegister(
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<
+                AgentSmith.Application.Services.Sandbox.HeldSandboxRegister>.Instance);
+
     // p0355: the DB-free corpse reaper default — nothing to reap.
     public static ISandboxCorpseReaper NoCorpses() =>
         new NoOpSandboxCorpseReaper();

@@ -673,6 +673,11 @@ export interface SandboxSetting {
    *  fallback; 0 means unbounded. The read returns null, and clearing the field
    *  emits null so the fallback is restored rather than a zero being stored. */
   maxConcurrentSandboxes: number | null;
+  /** 2026-09-22-2d11a: how long a design conversation holds its source sandboxes
+   *  between turns, in seconds. NULL means nobody configured it, which keeps
+   *  SANDBOX_HOLD_SECONDS reachable as the fallback and then the built-in 180;
+   *  0 holds nothing. A held sandbox is released before any capacity probe. */
+  holdSeconds: number | null;
 }
 
 export interface QueueSetting {

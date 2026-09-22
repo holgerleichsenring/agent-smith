@@ -68,6 +68,12 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public int? MaxConcurrentSandboxes { get; set; }
 
+    /// <summary>2026-09-22-2d11a: seconds a design conversation holds its source sandboxes between
+    /// turns (<c>hold_seconds</c>); reapers spare one and every capacity door releases it before
+    /// probing. NULL keeps <c>SANDBOX_HOLD_SECONDS</c> reachable, then the built-in 180; 0 holds
+    /// nothing. Per project: <see cref="SandboxConfig.HoldSeconds"/>.</summary>
+    public int? HoldSeconds { get; set; }
+
     /// <summary>
     /// 2026-08-25-014d: the registries a sandbox toolchain image may be pulled from,
     /// as reference prefixes (<c>mcr.microsoft.com/</c>, <c>ghcr.io/</c>, a private
@@ -109,7 +115,6 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public List<string> ImagePullSecrets { get; set; } = [];
 
-    // p0270a: the per-project override arithmetic that lived here
-    // (ResolveStepTimeout / ResolveRunCommandTimeout) moved into the single
-    // ConfigResolutionPass so the run path and the dashboard read one resolution.
+    // p0270a: the per-project override arithmetic that lived here (ResolveStepTimeout /
+    // ResolveRunCommandTimeout) moved into the single ConfigResolutionPass.
 }

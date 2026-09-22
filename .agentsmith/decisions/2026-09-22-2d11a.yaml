@@ -1,0 +1,112 @@
+phase: 2026-09-22-2d11a
+decisions:
+  - id: one-judgement-serves-both-reapers-and-the-rails-left-them
+    chose: >
+      SandboxReapJudge is the whole decision, over a backend-neutral SandboxReapCandidate that
+      SandboxContainerCandidates and SandboxPodCandidates read out of a container's or a pod's
+      labels. The Docker reaper fell from 116 lines to 97 and the Kubernetes corpse reaper from
+      128 to 102, so the latter left the file-length baseline.
+    alternative: >
+      A third rail written twice — once in SandboxOrphanReaper.Judge, once in
+      KubernetesSandboxCorpseReaper.SelectCorpses.
+    why: >
+      The two reapers already knew the same two rails written differently, and the corpse
+      selection returned a pod name and a run id and read no other label — a conversation stamp
+      could not have reached it at all. One reaper sat four lines under the file limit and the
+      other was over it, so a rail added in place would have had to be added in the file that may
+      only shrink.
+  - id: the-rail-is-a-label-and-a-row-the-eviction-is-a-local-register
+    chose: >
+      Whether a sandbox is HELD is read from its conversation label plus the session row
+      (IConversationLivenessReader over SpecDialogSessionRepository). Which holds may be RELEASED
+      is process-local state in HeldSandboxRegister.
+    alternative: >
+      One mechanism for both — a process-local register consulted by the reapers as well.
+    why: >
+      SandboxOwnerIdentity is the LIVENESS STORE's identity and deliberately not the process's, so
+      two replicas sharing a store clean up after each other, and the cluster's corpse sweep is
+      leader-elected: the replica judging a held pod is usually not the one holding it. A register
+      rail would do nothing on exactly the deployments it exists for. The asymmetry is the trade:
+      reaping a held sandbox wrongly is a correctness bug, while failing to evict another
+      replica's hold is a capacity miss that degrades to today's refusal and lapses with the
+      window.
+  - id: the-release-precedes-the-probe-at-each-of-three-doors
+    chose: >
+      IHeldSandboxRegister.EvictAsync runs before the probe in SpawnPipelineRunsUseCase (beside
+      the corpse reap that already precedes it), in InitRunAdmission and in
+      EnsureRepoSandboxToolHost. It evicts EVERY releasable hold, least-recently-used first.
+    alternative: >
+      Probe, and release only once a denial came back; or a shared admission collaborator to hang
+      the release on.
+    why: >
+      A Kubernetes quota's used figure is the cluster controller's arithmetic and does not drop
+      when a pod is deleted, so probe-release-reprobe reads the same stale figure and denies
+      anyway — on the backend where capacity is scarcest. The three doors consult the probe
+      directly, in two assemblies, with no collaborator between them; inventing a seam was out of
+      scope, so the phase names the three. Evicting all of them is what makes "a hold can never
+      deny a run" true rather than likely.
+  - id: the-release-is-a-force-remove-so-isandboxforceremoval-is-the-register-key
+    chose: >
+      ISandboxForceRemoval (implemented by DockerSandbox and KubernetesSandbox as the disposal
+      tail without the shutdown step) is the type HeldSandbox carries.
+    alternative: >
+      Hold an ISandbox and call DisposeAsync, or fall back to it when a backend offers no force
+      path.
+    why: >
+      A disposal pushes a shutdown step and then waits a flat ten seconds, serially — thirty
+      seconds for a three-repository conversation, on the manual-init door that had its corpse
+      sweep deliberately removed for making an operator wait. Taking the narrow type makes a hold
+      whose release would wait unconstructible, instead of leaving a fallback nobody would notice
+      taking.
+  - id: the-window-is-resolved-once-per-scan-and-a-throw-keeps-the-last-value
+    chose: >
+      SandboxHoldWindowResolver assembles the process-wide value and the per-project overrides
+      once per scan and hands HeldConversationReader a SandboxHoldWindows; a resolution that threw
+      keeps the last one, and a scan that never resolved one spares every labelled sandbox.
+    alternative: >
+      Resolving per container, or answering a failed read with the built-in default.
+    why: >
+      DbConfigurationLoader re-assembles the whole catalog from the document store on every call
+      with no cache, and answers an unreachable store with a BLOCKING startup finding; per
+      container per thirty seconds that is a self-inflicted load and a finding every half minute.
+      Defaulting on failure would turn an operator's deliberate zero into 180 and hold sandboxes
+      they disabled. NOTE: that loader does not throw — an unreachable store yields an EMPTY
+      config, which resolves to the default. The spare-what-you-cannot-judge direction still
+      holds (the default holds rather than reaps), and the last-value path covers a loader that
+      does throw.
+  - id: the-scan-that-sees-no-label-reads-nothing
+    chose: >
+      HeldConversationReader returns HeldConversations.None without touching the catalog or the
+      session store when no candidate carries a conversation label.
+    alternative: >
+      Resolve the window and query the sessions every scan regardless.
+    why: >
+      Nothing stamps a conversation until 2026-09-22-2d11b, so this is the production path for
+      now, and it must cost exactly nothing: no catalog assembly every thirty seconds, no query
+      against a store no sandbox references. It is also what makes the no-op claim testable rather
+      than asserted.
+  - id: the-conversation-id-is-plumbed-with-a-default-of-null
+    chose: >
+      SandboxSpec.ConversationId, both label builders, SourceScopeOpener.OpenAsync and
+      ISourceScopeSandboxFactory.Create all take it, all defaulting to null, and no caller passes
+      one.
+    alternative: >
+      An ambient conversation accessor beside IRunContextAccessor, or leaving the plumbing to
+      2026-09-22-2d11b.
+    why: >
+      The label must exist before the rail that reads it can be proven, and a spec that names no
+      conversation writes no label — so with nothing passing one, every container, pod and reaper
+      verdict is byte for byte what it was. An ambient accessor would have hidden which spawn
+      belongs to which conversation in an AsyncLocal, where the sibling phase cannot see it. The
+      session id is eight hex characters, so it is a legal Docker and Kubernetes label value by
+      shape (checked against SandboxOwnerIdentityResolver's 63-character alphanumeric rule).
+  - id: the-reader-takes-a-timeprovider
+    chose: >
+      HeldConversationReader compares the session's last activity against TimeProvider.GetUtcNow.
+    alternative: >
+      DateTimeOffset.UtcNow, as both reapers use for a candidate's age.
+    why: >
+      The age rail's clock is the container's creation timestamp, which a test controls by
+      constructing the container; the hold window's clock is the reader's own, which a test could
+      only control by writing fixtures relative to real time. TimeProvider is already the house
+      pattern and is registered in the server graph.

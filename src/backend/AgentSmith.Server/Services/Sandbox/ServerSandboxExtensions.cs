@@ -3,12 +3,14 @@ using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Orchestrator;
 using AgentSmith.Server.Services.Sandbox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Extensions;
@@ -62,6 +64,15 @@ internal static class ServerSandboxExtensions
         // carried. Registered for every backend, because the in-process one is the only one
         // that cannot skew and the other two both talk to an image with its own release.
         services.AddSingleton<IWireProtocolWatcher, WireProtocolWatcher>();
+        // 2026-09-22-2d11a: the reapers' held-conversation rail. Registered for every
+        // backend because the rail is the judgement's, not a backend's; the relational
+        // reader replaces the Application composition's empty default here, where the
+        // reapers that use it are composed.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<SandboxHoldWindowResolver>();
+        services.AddSingleton<HeldConversationReader>();
+        services.RemoveAll<IConversationLivenessReader>();
+        services.AddSingleton<IConversationLivenessReader, DbConversationLivenessReader>();
         switch (backend)
         {
             case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;

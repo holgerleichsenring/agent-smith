@@ -99,7 +99,9 @@ public sealed class CutReviewEvidenceIdTests
     {
         public int Created { get; private set; }
 
-        public ISourceScopeSandbox Create(ResolvedProject project, RepoConnection repo, string? revision = null)
+        public ISourceScopeSandbox Create(
+            ResolvedProject project, RepoConnection repo, string? revision = null,
+            string? conversationId = null)
         {
             Created++;
             return new Handlers.CodingMasterTemplateTests.RecordingScope();

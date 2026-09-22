@@ -204,7 +204,7 @@ public sealed class SourceScopeSandboxTests
         var runContext = new Mock<IRunContextAccessor>();
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandbox(
-            Project, repo, revision,
+            Project, repo, revision, conversationId: null,
             new SourceScopeOpener(new SourceScopeMaterialiser(), factory, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance,
             prefixes);

@@ -21,6 +21,7 @@ public sealed class SourceScopeSandboxFactory(
     ILogger<SourceScopeSandbox> sandboxLogger) : ISourceScopeSandboxFactory
 {
     public ISourceScopeSandbox Create(
-        ResolvedProject project, RepoConnection repo, string? revision = null) =>
-        new SourceScopeSandbox(project, repo, revision, opener, observers, sandboxLogger);
+        ResolvedProject project, RepoConnection repo, string? revision = null,
+        string? conversationId = null) =>
+        new SourceScopeSandbox(project, repo, revision, conversationId, opener, observers, sandboxLogger);
 }

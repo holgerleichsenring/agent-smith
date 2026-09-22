@@ -49,7 +49,8 @@ internal static class DerivationTestLooks
     {
         public ISourceScopeSandbox Create(
             Contracts.Models.Configuration.ResolvedProject project,
-            Contracts.Models.Configuration.RepoConnection repo, string? revision = null) =>
+            Contracts.Models.Configuration.RepoConnection repo, string? revision = null,
+            string? conversationId = null) =>
             throw new InvalidOperationException("no template was declared in this test");
     }
 

@@ -124,7 +124,8 @@ public sealed class SourceScopeProgressTests
             Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a",
         };
         return new SourceScopeSandbox(
-            Project, repo, revision, opener, _observers, NullLogger<SourceScopeSandbox>.Instance);
+            Project, repo, revision, conversationId: null, opener, _observers,
+            NullLogger<SourceScopeSandbox>.Instance);
     }
 
     private static Step ReadStep() => new(
