@@ -252,9 +252,12 @@ export interface SpecDialogProposalPush {
  * 2026-09-17-042eg: what a filed ticket became. `Started` means a run will pick it up — the
  * poller's own envelope resolves it to the filing project and it sits in a trigger status.
  * `NotStarted` says why nothing will, and `Record` is a slice record, which is not work at all.
+ * 2026-09-22-9519: `Withdrawn` is a ticket the conversation that filed it closed again, and the
+ * tracker confirmed the close. `null` is a state this build cannot name — a server newer than the
+ * page — which the panel says is unknown rather than picking one of the words above.
  */
 export interface SpecDialogFiledStart {
-  state: "Started" | "NotStarted" | "Record";
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | null;
   reason: string;
 }
 

@@ -140,11 +140,11 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await _client.Issue.Comment.Create(_owner, _repo, n, comment);
     }
 
-    public async Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
+    // 2026-09-22-9519: the state write's own answer, which reports an unparseable id as false.
+    public async Task<bool> CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
-        if (!TryParseIssueNumber(ticketId, out var n)) return;
-        await _client.Issue.Comment.Create(_owner, _repo, n, resolution);
-        await _client.Issue.Update(_owner, _repo, n, new IssueUpdate { State = ItemState.Closed });
+        await UpdateStatusAsync(ticketId, resolution, cancellationToken);
+        return await TransitionToAsync(ticketId, "closed", cancellationToken);
     }
 
     public Task<IReadOnlyList<Ticket>> ListOpenAsync(CancellationToken cancellationToken)

@@ -162,10 +162,10 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _http.SendAsync(HttpMethod.Post, $"{IssueUrl(ticketId)}/notes",
             new { body = comment }, cancellationToken);
 
-    public async Task CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
+    public async Task<bool> CloseTicketAsync(TicketId ticketId, string resolution, CancellationToken cancellationToken)
     {
         await UpdateStatusAsync(ticketId, resolution, cancellationToken);
-        await TransitionToAsync(ticketId, "closed", cancellationToken);
+        return await TransitionToAsync(ticketId, "closed", cancellationToken);
     }
 
     public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
