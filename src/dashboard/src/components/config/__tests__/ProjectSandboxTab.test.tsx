@@ -45,6 +45,14 @@ const processWide: InheritedSandboxProjection["processWide"] = {
   runCommandTimeoutSeconds: { value: 300, source: "global-default" },
   agentRegistry: { value: "ghcr.io/example", source: "global-default" },
   agentVersion: { value: "0.50.0", source: "global-default" },
+  resources: {
+    values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
+    layer: "global-default",
+  },
+  images: {
+    dotnet: { value: "mcr.microsoft.com/dotnet/sdk:9.0", source: "code-default" },
+    node: { value: "node:20-bookworm", source: "code-default" },
+  },
 };
 
 const inherited: InheritedSandboxProjection = {
@@ -121,10 +129,10 @@ describe("ProjectForm sandbox tab", () => {
     );
     // The provenance is said beside the control, not only implied by the placeholder.
     expect(screen.getByTestId("form-section-sandbox")).toHaveTextContent("inherits 900");
-    // The structured three belong to a sibling phase and are not drawn here.
-    expect(screen.queryByTestId("form-field-sandbox-resources")).toBeNull();
-    expect(screen.queryByTestId("form-field-sandbox-images")).toBeNull();
-    expect(screen.queryByTestId("form-field-sandbox-secrets")).toBeNull();
+    // 2026-09-22-6c46 draws the structured three beneath them; each has its own tests.
+    expect(screen.getByTestId("form-field-sandbox-resources")).toBeInTheDocument();
+    expect(screen.getByTestId("form-field-sandbox-images")).toBeInTheDocument();
+    expect(screen.getByTestId("form-field-sandbox-secrets")).toBeInTheDocument();
   });
 
   it("ProjectForm_AnOverriddenValue_ShowsTheOverrideAndStillNamesWhatClearingRestores", () => {

@@ -63,7 +63,7 @@ public static class PipelineExecutionExtensions
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);
         services.AddScoped<DataFlowReadGate>();
         services.AddSingleton<SandboxSpecBuilder>();
-        services.AddSingleton<ISandboxResourceResolver, SandboxResourceResolver>();
+        services.AddSandboxResourceResolution();
         // p0269a: default capacity probe — admits everything. The Server composition
         // replaces it with the Kubernetes / Docker probe for the selected backend.
         // TryAdd so a composition that DOES register a real backend probe wins.

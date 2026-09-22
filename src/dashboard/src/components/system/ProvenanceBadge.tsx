@@ -9,6 +9,9 @@ const LABELS: Record<ResolutionSource, string> = {
   override: "override",
   "global-default": "default",
   "run-resolved": "per run",
+  // 2026-09-22-6c46: a table in the code answered, not a setting — saying "default" here
+  // would send an operator looking for a configuration key that does not exist.
+  "code-default": "code default",
 };
 
 export function ProvenanceBadge({ source }: { source: ResolutionSource }) {

@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Configuration;
 public sealed class InheritedSandboxProjection(
     IConfigResolver resolver,
     IAgentVersionResolver versions,
+    ISandboxResourceResolver resources,
     IOptions<SandboxGlobalConfig> global,
     AgentSmithConfig config,
     ILogger<InheritedSandboxProjection> logger) : IInheritedSandboxProjection
@@ -35,8 +36,31 @@ public sealed class InheritedSandboxProjection(
             // whole image reference, and with an empty project block its layered lookup IS
             // the process-wide field. Reading the field is that answer, not a second one.
             AgentRegistry: ResolvedValue<string>.Global(global.Value.AgentRegistry),
-            AgentVersion: InheritedVersion(counterfactual));
+            AgentVersion: InheritedVersion(counterfactual),
+            Resources: InheritedResources(counterfactual, project.Pipeline),
+            Images: CodeDefaultImages);
     }
+
+    /// <summary>
+    /// The cpu/memory the project would be given with no resources of its own, and the
+    /// LAYER that produced it — from the one resolver, in one walk, so the layer named can
+    /// never belong to a different answer than the value shown. The project's CONFIGURED
+    /// pipeline decides it, exactly as the effective snapshot's does; no context resources
+    /// are passed, because that document is written per run and the layer says so.
+    /// </summary>
+    private InheritedSandboxResources InheritedResources(ResolvedProject counterfactual, string? pipeline) =>
+        new(resources.Resolve(counterfactual, pipeline),
+            resources.ResolveLayer(counterfactual, pipeline));
+
+    /// <summary>
+    /// The per-language table a project's image map is merged over, ONE ANSWER PER KEY —
+    /// including keys the project has not named, which is the whole point: pinning
+    /// <c>dotnet</c> leaves <c>node</c> inheriting. The source is the code table, not the
+    /// configuration, and it is labelled as such so nobody goes looking for a setting.
+    /// </summary>
+    private static IReadOnlyDictionary<string, ResolvedValue<string>> CodeDefaultImages =>
+        ToolchainImageCatalog.KnownLanguages.ToDictionary(
+            kv => kv.Key, kv => ResolvedValue<string>.CodeDefault(kv.Value), StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// The tag an operator who pins nothing gets: the global pin, else the release this

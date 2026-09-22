@@ -28,7 +28,7 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
     private readonly Mock<ISandboxFactory> _factoryMock = new();
     private readonly Mock<ISandboxLanguageResolver> _resolverMock = new();
     private readonly SandboxSpecBuilder _specBuilder = new(
-        new SandboxResourceResolver(Options.Create(new SandboxOptions())),
+        WiredResourceResolver.Create(),
         new StubAgentImageResolver());
 
     private static readonly ContextYamlStackResources Heavy = new("500m", "2", "1Gi", "4Gi");

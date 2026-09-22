@@ -8,9 +8,10 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// block is a deliberate clear. That is the only discriminator C# nullables leave — the
 /// same rule <see cref="ProjectEntity.Templates"/> already applies at the block level.
 /// <para>
-/// The structured three (resources, the per-language image map and the pod's secrets) are
-/// deliberately NOT here: each inherits by a different rule, and the patch never touches
-/// what this block does not carry, so they survive a save through it.
+/// 2026-09-22-6c46: the structured three (resources, the per-language image map and the
+/// pod's secrets) hang under <see cref="Structured"/> rather than beside the scalars,
+/// because they need the same present-means-told discriminator one level down — a client
+/// that renders only the scalars must not clear them.
 /// </para>
 /// </summary>
 public sealed record ProjectSandbox(
@@ -18,4 +19,5 @@ public sealed record ProjectSandbox(
     int? StepTimeoutSeconds = null,
     int? RunCommandTimeoutSeconds = null,
     string? AgentRegistry = null,
-    string? AgentVersion = null);
+    string? AgentVersion = null,
+    ProjectSandboxStructured? Structured = null);

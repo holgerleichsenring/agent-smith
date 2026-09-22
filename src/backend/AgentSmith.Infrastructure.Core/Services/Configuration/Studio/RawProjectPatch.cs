@@ -50,6 +50,28 @@ public static class RawProjectPatch
         block.RunCommandTimeoutSeconds = sandbox.RunCommandTimeoutSeconds;
         block.AgentRegistry = sandbox.AgentRegistry;
         block.AgentVersion = sandbox.AgentVersion;
+        if (sandbox.Structured is { } structured) ApplyStructured(structured, block);
+    }
+
+    /// <summary>
+    /// 2026-09-22-6c46: the structured three, written only when the block CARRIES them —
+    /// the same present-means-told rule one level down, so a client that renders only the
+    /// scalars cannot delete a project's resources, image pins or secret references. Within
+    /// a sent block each is written as given, null included: that is how the form hands one
+    /// back to what it inherits. An EMPTY map or an empty secrets block is not a
+    /// declaration — a project cannot say "inherit nothing" — so it is stored as null,
+    /// which is what deleting the last row of a map control means.
+    /// </summary>
+    private static void ApplyStructured(ProjectSandboxStructured structured, SandboxConfig block)
+    {
+        block.Resources = structured.Resources;
+        block.Images = structured.Images is { Count: > 0 } images
+            ? new Dictionary<string, string>(images)
+            : null;
+        block.Secrets = structured.Secrets is { } secrets
+            && (secrets.Env is { Count: > 0 } || secrets.Files is { Count: > 0 })
+            ? secrets
+            : null;
     }
 
     // 2026-09-16-74a2: the UNION of the names given and the default, never one or the

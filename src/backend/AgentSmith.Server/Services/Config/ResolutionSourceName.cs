@@ -13,6 +13,7 @@ public static class ResolutionSourceName
     {
         ResolutionSource.ProjectOverride => "override",
         ResolutionSource.RunResolved => "run-resolved",
+        ResolutionSource.CodeDefault => "code-default",
         _ => "global-default",
     };
 }
