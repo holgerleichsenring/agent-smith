@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-22-b41d
+
+goal: "A read-only source scope clones one branch at one commit instead of a whole history, so a design conversation stops paying for what it never reads."
+
+applies_to: "backend (the clone a source scope materialises with)"
+
+scope:
+  in: >
+    A design conversation reads source through scopes that clone a repository into a disposable
+    container, and the container is disposed at the end of every turn. The expensive half is the
+    clone, and it is a FULL clone — no depth, no single branch, no filter — so a conversation pays
+    a whole history transfer for a scope whose entire vocabulary is four reads: a file, a
+    directory, a tree and a search.
+    Two attempts to fix this by keeping something alive between turns were specified and refused.
+    Holding the CONTAINER needed an invented liveness protocol, made a phantom run a broadcaster
+    would track a cursor for, and let one conversation over a three-repository project deny every
+    run on an installation whose concurrency bound defaults to two. Holding the VOLUME looked
+    cheap and was not: the ordinary disposal removes the work volume by the name it holds, so a
+    conversation-named volume would have been deleted every turn and the phase would have shipped
+    an inert change no test in its own list could have caught. Reusing a tree also needs rungs the
+    ladder does not have — the clone runs unconditionally and first, and against a non-empty tree
+    it fails and is reported to the operator as an unreachable host.
+    The cheap answer needs none of that. Ask for one branch at one commit. There is no
+    cross-turn state, no sweeper, no new background service, no question about which user wrote
+    the tree, and it works on the cluster path as well as the container path — which the volume
+    attempt had to give up on.
+    It is scoped to the READ-ONLY path. A run's own checkout keeps its full clone: the same
+    factory serves both, and a run legitimately needs history it has not asked for yet.
+  out: >
+    KEEPING ANYTHING ALIVE BETWEEN TURNS. Both shapes are refused above, with the mechanisms.
+    Reusing a tree remains possible and is named as the phase that gives a conversation its own
+    storage — but it must first make a sandbox remove only the volumes it created, give the
+    materialiser rungs for a tree that already exists, and answer what happens when two scopes of
+    one turn address one repository at two revisions.
+    THE RUN'S OWN CHECKOUT. Unchanged. A run diffs against a base, reads its own history and can
+    be handed a revision reachable from nothing; narrowing its clone is a separate question with a
+    separate blast radius.
+    OMITTING BLOBS RATHER THAN HISTORY. A filter that fetches file contents lazily would make a
+    read reach the remote at read time, and the credential is passed per command rather than
+    written into the checkout — so a lazy fetch would happen without it. Deliberately not taken.
+    THE CONTAINER SPAWN, THE IMAGE ENSURE AND THE SHUTDOWN GRACE. Each scope still pays them,
+    serially, in the turn's disposal. This phase narrows the transfer, not the lifecycle.
+
+decisions:
+  - key: |
+      THE CHEAPEST FIX THAT NEEDS NO STATE WINS. Two designs that kept something alive were
+      refused for three different reasons between them, and both were larger than this. A narrower
+      clone removes the same cost with one argument list, no new component and nothing to clean up
+      afterwards.
+  - key: |
+      IT MUST NOT TOUCH THE RUN'S CLONE. One factory builds the clone for both the run and the
+      read-only scope. A run is handed revisions reachable from no branch, compares against bases
+      and reads history; the scope reads files at one commit. The narrowing belongs to the caller
+      that knows which it is.
+  - key: |
+      THE LADDER ALREADY COVERS THE ONE CASE A NARROW CLONE BREAKS. A scope may name a revision,
+      and a single-branch clone at depth one will usually not contain it. That is precisely the
+      case the fetch-by-name rung exists for — its own note says it runs when a checkout has
+      already failed — so the ladder's shape is unchanged; only how often its later rungs run.
+  - key: |
+      A DEEPENING MUST BE POSSIBLE, OR A NAMED REVISION BECOMES A REFUSAL. When the fetch by name
+      cannot land the revision either, the honest answer is to ask for it with depth rather than
+      to report a host as unreachable. The ladder's refusals already tell five failures apart; a
+      narrow clone must not collapse two of them into one.
+  - key: |
+      NOTHING ELSE MAY SILENTLY DEPEND ON THE SCOPE HAVING HISTORY. The four reads do not, but a
+      tool that asks a scope for a log, a blame or a diff would. The phase names what runs against
+      a scope today and refuses to guess about what might later.
+
+steps:
+  - id: a-scope-asks-for-one-branch-at-one-commit
+    action: "The read-only scope's materialisation asks for a clone of a single branch at depth one, while the run's own checkout keeps the clone it has."
+  - id: a-named-revision-can-still-be-reached
+    action: "When a scope names a revision the narrow clone does not contain, the existing fetch-by-name rung runs as it already does, and a fetch that cannot land it asks for the revision with depth before any refusal is reported."
+  - id: a-refusal-still-says-which-failure-it-was
+    action: "The refusals the ladder tells apart stay distinct, so a revision that does not exist is not reported as an unreachable host."
+
+tests:
+  - "SourceScope_AScopeWithNoNamedRevision_ClonesOneBranchAtOneCommit"
+  - "SourceScope_AScopeNamingAReachableRevision_LandsOnIt"
+  - "SourceScope_AScopeNamingARevisionTheNarrowCloneLacks_FetchesItByName"
+  - "SourceScope_AScopeNamingARevisionNoFetchCanLand_IsRefusedAsAMissingRevision"
+  - "SourceScope_AnUnreachableHost_IsStillRefusedAsUnreachable"
+  - "RunCheckout_IsUnchanged_AndStillClonesTheWholeHistory"
+  - "SourceScope_TheFourReads_AreUnchangedAgainstANarrowClone"
+
+done:
+  - "a design conversation's scope transfers one branch at one commit"
+  - "a scope that names a revision still lands on it"
+  - "the five refusals the ladder tells apart are still five"
+  - "a run's own checkout is byte-for-byte the command it is today"
+  - "build green, full suite green"
+
+facts:
+  - claim: "The clone is built with no depth, no single-branch and no filter, into the work path."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:29-40"
+  - claim: "The fetch-by-name rung exists because the clone is full, and its own note says it runs only when a checkout has already failed."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:42-54"
+  - claim: "The materialiser clones first and unconditionally, then runs the checkout and fetch rungs."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeMaterialiser.cs:40-77"
+  - claim: "A scope is created with a revision that may be null."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISourceScopeSandboxFactory.cs:18-19"
+  - claim: "A scope serves four reads and refuses every other step kind."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:12-18"
+  - claim: "Nothing spawns until the first content read, so a turn that reads nothing clones nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:68-97"
+  - claim: "Grounding reads the project's own rules through the source provider with no container, so a turn materialises a scope only when the master reads source."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/CommandNames.SpecDialog.cs:9-18"
+  - claim: "The turn disposes every scope it opened in a finally."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:82-90"
+  - claim: "The ordinary disposal removes the work volume by the name it holds, which is why a conversation-named volume would not have survived a turn."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:45-60"
+  - claim: "The credential is passed per git invocation rather than written into the checkout."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:18-39"
+  - claim: "The work path is a pod-scoped ephemeral directory on the cluster path, so nothing there is reusable between turns either."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:13-14,133-137"
+
+assumptions:
+  - claim: "Nothing that runs against a read-only scope asks for history — a log, a blame, a diff or a merge base."
+    check: "Open every tool that can address a source scope and establish which git operations it can reach."
+  - claim: "A single-branch clone at depth one lands on the default branch a scope with no named revision expects."
+    check: "Read what the checkout rung does when the scope names nothing, and what the resolved head is compared against."
+  - claim: "Asking for a revision with depth is expressible through the same step shape the fetch rung already uses."
+    check: "Read the fetch rung's argument list and establish what a depth-bounded fetch of one revision would add."
+  - claim: "The saving is worth the change — that a design conversation materialises scopes often enough to notice."
+    check: "Count the scope materialisation log lines against the turn count over a period of real use."
