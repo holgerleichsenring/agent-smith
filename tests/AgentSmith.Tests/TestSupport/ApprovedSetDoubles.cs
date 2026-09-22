@@ -34,18 +34,17 @@ internal static class ApprovedSetDoubles
         new RecordingTicketComments().Factory(), new RecordingRunDecisions(),
         NullLogger<ApprovedSetKeptNotice>.Instance);
 
+    /// <summary>
+    /// 2026-09-22-b3d7: the ONE path a phase and an approved cut are both filed through — create,
+    /// store, start. A test that reads the stored set, or that watches the starter, passes its own.
+    /// </summary>
+    internal static ApprovedSetTicketFiler SetFiler(
+        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null) =>
+        new(Recorder(store), starter ?? FiledWorkDoubles.Starter(), Kinds(),
+            NullLogger<ApprovedSetTicketFiler>.Instance);
+
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
-
-    /// <summary>
-    /// 2026-09-17-0e79d: the epic filer stores the approved set under the WORK ticket it files,
-    /// so it needs a recorder of its own. A test that reads the stored set passes its own store.
-    /// </summary>
-    internal static EpicTicketFiler EpicFiler(
-        ISpecApprovalStore? store = null, FiledWorkStarter? starter = null) =>
-        new(new PhaseTicketRenderer(), new EpicChildOrderer(), Recorder(store),
-            new EpicSliceRecordFiler(new PhaseTicketRenderer(), Kinds(), NullLogger<EpicSliceRecordFiler>.Instance),
-            starter ?? FiledWorkDoubles.Starter(), Kinds(), NullLogger<EpicTicketFiler>.Instance);
 
     /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
     /// resolves none, which is what every test that does not set one expects.</summary>

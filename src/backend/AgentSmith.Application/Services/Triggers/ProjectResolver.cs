@@ -33,7 +33,8 @@ public sealed class ProjectResolver(
     {
         // 2026-09-13-a3f1: refused before every other rule — each of those ends in something,
         // and on a project with no pipeline_from_label that something is DefaultPipeline.
-        // 2026-09-17-0e79d: the label now marks any RECORD, an epic's slice records included.
+        // 2026-09-22-b3d7: the framework files nothing carrying this label any more; the refusal
+        // stays for the two generations that do and are still on a board (see EpicLabel).
         if (FiledTicketLabels.IsEpicRecord(envelope))
         {
             logger?.LogInformation("ProjectResolver: '{Label}' marks a record, not work",

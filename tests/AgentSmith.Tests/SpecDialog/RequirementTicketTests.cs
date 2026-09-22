@@ -8,8 +8,14 @@ using FluentAssertions;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-13-b7ba: an epic's tickets are REQUIREMENTS — what is wanted and why. A single
-/// phase filed to be worked now keeps its work order.
+/// 2026-09-13-b7ba: a filed ticket is a REQUIREMENT — what is wanted and why.
+/// <para>
+/// 2026-09-22-b3d7: the slice-record renderer these were written against is gone with the
+/// records. The behaviour they pin is the REQUIREMENT BODY's, which the two surviving
+/// renderings still have, so they are repointed at those rather than deleted with it: the
+/// filed phase for the body's own shape, the cut's work ticket where a second renderer is
+/// what makes the assertion worth making.
+/// </para>
 /// </summary>
 public sealed class RequirementTicketTests
 {
@@ -34,14 +40,12 @@ public sealed class RequirementTicketTests
     private static readonly PhaseDraft Draft =
         new("p9000a", "Widget storage layer", Yaml, ["p9000", "2026-09-17-042ea"]);
 
-    private static readonly IReadOnlySet<string> Siblings = new HashSet<string> { "p9000", "2026-09-17-042ea", "p9000a" };
-
     [Fact]
-    public void RenderChildRequirement_Body_HasNoFencedBlock() =>
+    public void RequirementBody_HasNoFencedBlock() =>
         Render().Should().NotContain("```");
 
     [Fact]
-    public void RenderChildRequirement_Body_RendersScopeInAndOut()
+    public void RequirementBody_RendersScopeInAndOut()
     {
         var body = Render();
 
@@ -52,7 +56,7 @@ public sealed class RequirementTicketTests
     }
 
     [Fact]
-    public void RenderChildRequirement_Body_OmitsSteps() =>
+    public void RequirementBody_OmitsSteps() =>
         Render().Should().NotContain("Add the table and its migration",
             "carrying the cut in prose would let the deriver reproduce the cut it must redo");
 
@@ -73,20 +77,6 @@ public sealed class RequirementTicketTests
     }
 
     /// <summary>
-    /// 2026-09-17-042eb: a sibling's phase id means nothing in a tracker — the order lives in the
-    /// phase-requires labels and on the parent's slice list.
-    /// </summary>
-    [Fact]
-    public void RequirementTicket_SiblingRequires_AreNotInTheBody()
-    {
-        var body = Render();
-
-        body.Should().NotContain("## Requires").And.NotContain("## Preconditions");
-        body.Should().NotContain("p9000\n").And.NotContain("- p9000");
-        body.Should().NotContain("2026-09-17-042ea", "a dated sibling id is a sibling id too");
-    }
-
-    /// <summary>
     /// The edge checker only holds CHILDREN to siblings. A parent may require a phase outside the
     /// epic, and that precondition is still true of the whole cut.
     /// </summary>
@@ -100,11 +90,6 @@ public sealed class RequirementTicketTests
         body.Should().Contain("## Preconditions\n- p8000");
     }
 
-    [Fact]
-    public void RequirementTicket_ChildOutsidePhaseId_StaysAPrecondition() =>
-        new PhaseTicketRenderer().RenderChildRequirement(Draft with { Requires = ["p8000", "p9000"] }, Siblings).Body
-            .Should().Contain("## Preconditions\n- p8000").And.NotContain("- p9000");
-
     /// <summary>A block-scalar done item is one criterion; its continuation must not read back as a second.</summary>
     [Fact]
     public void RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion()
@@ -112,21 +97,20 @@ public sealed class RequirementTicketTests
         const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
 
         var body = new PhaseTicketRenderer()
-            .RenderChildRequirement(new PhaseDraft("p9000a", "Widget storage layer", yaml, []), Siblings).Body;
+            .RenderPhase(new PhaseDraft("p9000a", "Widget storage layer", yaml, [])).Body;
 
         AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
     }
 
     [Fact]
-    public void RequirementTicket_ChildWithFreeTextRequires_KeepsThePrecondition()
+    public void RequirementTicket_FreeTextRequires_KeepsThePrecondition()
     {
-        var draft = Draft with { Requires = ["p9000", "the widget database exists in every environment"] };
+        var draft = Draft with { Requires = ["the widget database exists in every environment"] };
 
-        var body = new PhaseTicketRenderer().RenderChildRequirement(draft, Siblings).Body;
+        var body = new PhaseTicketRenderer().RenderPhase(draft).Body;
 
         body.Should().Contain("## Preconditions\n- the widget database exists in every environment",
             "no label carries a free-text precondition, so the body is the only place it lives");
-        body.Should().NotContain("- p9000");
     }
 
     /// <summary>
@@ -150,6 +134,19 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_Body_CarriesNoParentLine() =>
         Render().Should().NotContain("Parent:");
+
+    /// <summary>
+    /// 2026-09-22-b3d7: the cut's work ticket is the second renderer that carries the requirement
+    /// body, and it is the one a run actually picks up — so the absent-not-malformed reading is
+    /// pinned on it as well as on the filed phase.
+    /// </summary>
+    [Fact]
+    public void SpecSource_TheCutsWorkTicket_LeavesTheDerivationToRun() =>
+        new PhaseSpecFromTicket(
+                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
+            .Extract(new PhaseTicketRenderer().RenderEpicParent(Draft, []).Body)
+            .Should().BeOfType<PhaseSpecInvalid>()
+            .Which.IsAbsent.Should().BeTrue();
 
     /// <summary>
     /// 2026-09-17-0e79a: the approved set is stored and carried, not embedded. A fence in the body
@@ -202,6 +199,5 @@ public sealed class RequirementTicketTests
                 + "Derived instead of failing the run");
     }
 
-    private static string Render() =>
-        new PhaseTicketRenderer().RenderChildRequirement(Draft, Siblings).Body;
+    private static string Render() => new PhaseTicketRenderer().RenderPhase(Draft).Body;
 }

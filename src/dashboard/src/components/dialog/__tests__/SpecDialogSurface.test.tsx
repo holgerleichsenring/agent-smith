@@ -2379,6 +2379,23 @@ describe("SpecDialogSurface", () => {
     expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
   });
 
+  // 2026-09-22-b3d7: this line is the one place the card counts what the button files, and the
+  // button now files ONE ticket whatever the slice count. Counting linked slice records beside it
+  // described the shape the filer stopped producing.
+  it("ApprovalCard_ACutProposal_SaysOneTicketAndCountsNoRecords", async () => {
+    await renderSurface();
+    act(() => proposals.emit(proposal({
+      kind: "epic", phase: null, parent: phase("p9000"),
+      children: [phase("p9000a"), phase("p9000b"), phase("p9000c")],
+    })));
+
+    act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
+
+    const summary = await screen.findByTestId("dialog-approval-summary");
+    expect(summary).toHaveTextContent(/^File this epic\? One work ticket carrying 3 slices\.$/);
+    expect(summary.textContent ?? "").not.toMatch(/record/i);
+  });
+
   it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
@@ -2390,7 +2407,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
     expect(surface).toHaveTextContent("Proposed outcome: epic p9000");
     expect(screen.getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
 
@@ -2472,7 +2489,7 @@ describe("SpecDialogSurface", () => {
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
     expect(within(surface).getAllByTestId("dialog-proposal-finding")).toHaveLength(1);
     expect(screen.getByTestId("dialog-answer-approve")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-unsummarised")).toBeNull();
@@ -2624,7 +2641,7 @@ describe("SpecDialogSurface", () => {
     expect(within(screen.getByTestId("dialog-turn-card")).getByTestId("dialog-card")).toHaveAttribute("data-kind", "epic");
     expect(screen.getByTestId("dialog-proposal")).toHaveTextContent("goal of p9000");
     expect(screen.getByTestId("dialog-approval-summary"))
-      .toHaveTextContent(/^File this epic\? One work ticket and 2 slice records\.$/);
+      .toHaveTextContent(/^File this epic\? One work ticket carrying 2 slices\.$/);
   });
 
   // The read that raced the push may still have caught the draft stored, stamped with a moment
