@@ -350,14 +350,19 @@ public sealed class AgenticMasterHandler(
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
 
+        // 2026-09-17-042ee/2026-09-22-5891: ONLY the design surface reports, wrapped where it
+        // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
+        var composed = ComposeMasterTools(
+            isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
+            progress, recall, remember, context);
+        var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
+
         var request = new AgenticLoopRequest(
             AgentConfig: context.AgentConfig,
             TaskType: TaskType.Primary,
             SystemPrompt: masterBody,
             UserPrompt: userPrompt,
-            Tools: ComposeMasterTools(
-                isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-                progress, recall, remember, context),
+            Tools: masterTools,
             UserImageParts: extras.ImageParts,
             MaxIterations: iterationCeiling,
             MasterLoopHooks: masterHooks);
@@ -674,8 +679,10 @@ public sealed class AgenticMasterHandler(
     // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
     // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
     // the master's read-set + changes) and get the same base surface — never spawn_agents.
-    // p0315b: the spec-dialog surface is content-reads + ask_human only, no sub-agents —
-    // a conversation turn neither writes nor delegates.
+    // p0315b: the spec-dialog surface is content-reads + ask_human only.
+    // 2026-09-22-5891: a design turn fans out too, under its OWN count and child ceiling, and
+    // is excluded BY NAME below from the escalation valve (which would spawn a WRITABLE
+    // sandbox into a read-only turn) and the ledger.
     private IList<AITool> ComposeMasterTools(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
@@ -684,14 +691,13 @@ public sealed class AgenticMasterHandler(
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
-        // 2026-09-17-042ee: only this surface reports; AgenticToolSurface itself is untouched.
-        if (isSpecDialog) return reportingTools.Reporting(
-            toolSurface.SpecDialog(fs, human, web, recall, remember));
-        IList<AITool> BaseSurface() => isScanMaster
-            ? toolSurface.Review(fs, log, web, recall, remember)
-            : toolSurface.ReadWriteWithHuman(
-                fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
-                recall: recall, remember: remember);
+        IList<AITool> BaseSurface() => isSpecDialog
+            ? toolSurface.SpecDialog(fs, human, web, recall, remember)
+            : isScanMaster
+                ? toolSurface.Review(fs, log, web, recall, remember)
+                : toolSurface.ReadWriteWithHuman(
+                    fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                    recall: recall, remember: remember);
 
         var master = BaseSurface();
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
@@ -699,20 +705,29 @@ public sealed class AgenticMasterHandler(
         // everything anyway (full scope, no narrowing) and must not spawn.
         // p0341: coding masters also get update_progress (the durable ledger); scan /
         // spec-dialog surfaces never do — a read-only review keeps no checklist.
-        if (!isScanMaster)
+        if (!isScanMaster && !isSpecDialog)
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
                 .ToList();
-        if (loopLimits.MaxSubAgentsPerRun <= 0) return master;
 
+        // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.
+        var fanOut = isSpecDialog ? loopLimits.MaxSubAgentsPerDialogTurn : loopLimits.MaxSubAgentsPerRun;
+        if (fanOut <= 0) return master;
+
+        // The injected budget's capacity is frozen from the run-wide number, so a turn that
+        // only READ its own count would still be granted twenty. It builds the budget it gates
+        // on and hands that one to the spawn host, which reserves from it.
+        var budget = isSpecDialog ? new SubAgentBudget(fanOut) : subAgentBudget;
         var runId = context.Pipeline.TryGet<string>(ContextKeys.RunId, out var rid) && rid is not null ? rid : "run";
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: BaseSurface().ToList(), AnswerStore: childAnswerStore, Budget: subAgentBudget,
-            AgentConfig: context.AgentConfig);
-        var spawn = new SpawnAgentToolHost(subAgentRunner, subAgentBudget, subAgentNameValidator, decisionLogger, subCtx);
+            ChildTools: [.. isSpecDialog ? SpecDialogChildTools.Of(BaseSurface()) : BaseSurface()],
+            AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
+            // No governor hooks on a child: how far it may go bounds the whole wave.
+            ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);
+        var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
         var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
         return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
     }
