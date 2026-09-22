@@ -53,20 +53,7 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
-            subAgents ?? new StubSubAgentRunner(),
-            new SubAgentBudget(20),
-            new SubAgentNameValidator(),
-            new InMemoryChildAnswerStore(),
-            limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new NoOpTicketDocumentMaterializer(),
-            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
-                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
-                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
-                new SandboxRepoCloner(
-                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
-                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
-                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
-                new SandboxTargets()),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
             new AgentSmith.Application.Services.Handlers.MasterTemplateScopes(
@@ -98,10 +85,33 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
-            new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            Composition(maxSubAgents, subAgents, limits),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>
+    /// The real <see cref="MasterToolComposition"/> the handler holds — the sub-agent
+    /// collaborators and the escalation factory live here since the composition moved out.
+    /// </summary>
+    private static MasterToolComposition Composition(
+        int maxSubAgents, ISubAgentRunner? subAgents, LoopLimitsConfig? limits) =>
+        new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
+            new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
+                new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
+                new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
+                new SandboxRepoCloner(
+                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
+                    AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+                new SandboxTargets()),
+            limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
+            new SubAgentBudget(20),
+            subAgents ?? new StubSubAgentRunner(),
+            new SubAgentNameValidator(),
+            new NoOpDecisionLogger(),
+            new InMemoryChildAnswerStore(),
+            NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
     private sealed class NoTemplateScopes : ISourceScopeSandboxFactory
