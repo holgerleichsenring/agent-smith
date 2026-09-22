@@ -26,8 +26,12 @@ export function deletionWarning(conversation: SpecDialogSessionSummary): string 
   return `Delete “${named(conversation)}”?\n\n${NO_UNDO}\n\n${survives(conversation)}`;
 }
 
+// 2026-09-21-f237a: the sentence the person wrote, and only where there is none the subject the
+// model minted for it. A conversation opened with a pasted block has no first line at all, and
+// asking about "untitled s-9" beside a row that reads its subject is worse than asking about the
+// subject.
 function named(conversation: SpecDialogSessionSummary): string {
-  return conversation.title ?? `untitled ${conversation.sessionId}`;
+  return conversation.title ?? conversation.subject ?? `untitled ${conversation.sessionId}`;
 }
 
 function survives(conversation: SpecDialogSessionSummary): string {

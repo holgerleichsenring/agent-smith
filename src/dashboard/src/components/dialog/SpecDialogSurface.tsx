@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import { useFiledWork } from "@/hooks/useFiledWork";
@@ -29,12 +30,44 @@ import { DialogWorking } from "./DialogWorking";
 
 export const WORK_IT_OUT = "Work it out";
 
+/** The address the conversations page links to: which conversation to open, and — when the row
+ *  said it was open — the dialog id it is already living on. */
+export const OPEN_PARAM = "open";
+export const ON_PARAM = "on";
+
+/**
+ * 2026-09-21-f237b: a conversation handed to this surface by its address.
+ *
+ * Opening one is a hook callback and never was an address: a CLOSED conversation is resumed by a
+ * command queued until this page has joined the new dialog id's hub group, which no link can do.
+ * So the page links here and the hook still does the opening — with the dialog id the row carried
+ * where there was one, because that is the only thing that tells `open` to GO to a running
+ * conversation rather than resume it, and a resume is refused while a turn runs.
+ *
+ * Consumed once and then struck from the address, so a reload does not reopen what the operator
+ * has since navigated away from, and the browser's own history stops carrying it.
+ */
+function useHandover(open: (sessionId: string, openDialogId?: string | null) => void) {
+  const params = useSearchParams();
+  const router = useRouter();
+  const taken = useRef<string | null>(null);
+  const sessionId = params.get(OPEN_PARAM);
+  const onDialogId = params.get(ON_PARAM);
+  useEffect(() => {
+    if (!sessionId || taken.current === sessionId) return;
+    taken.current = sessionId;
+    open(sessionId, onDialogId);
+    router.replace("/spec-dialog");
+  }, [sessionId, onDialogId, open, router]);
+}
+
 /** How long the pane wears the mark an inspect puts on it. Long enough to be read as an answer
  *  to the click, short enough that it is gone before the operator reads what it selected. */
 const MARK_MS = 1400;
 
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
+  useHandover(dialog.open);
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.
@@ -85,9 +118,12 @@ export function SpecDialogSurface() {
     await dialog.remove(sessionId);
   }
   // 2026-09-20-4b0af: the heading says what the conversation is ABOUT, and falls back to the
-  // first line the person wrote — which is what it always said, and what the row beside it still
-  // says. The subject rides the SESSION, re-read after every reply, so the heading corrects
-  // itself on the next read; the list keeps being read only while its own predicate says so.
+  // first line the person wrote — which is what it always said. The subject rides the SESSION,
+  // re-read after every reply, so the heading corrects itself on the next read; the list keeps
+  // being read only while its own predicate says so.
+  // 2026-09-21-f237a: the row beside it now prefers the subject too, so the two agree wherever
+  // one has been minted. They are still read from different places — the heading from the
+  // session, the row from the list — because only the session read is issued after every reply.
   const listed = session
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
@@ -104,7 +140,12 @@ export function SpecDialogSurface() {
             may not hold spec dialogs is told that rather than shown a stack. */}
         {dialog.failure && <FailedSurface surface={`${WORK_IT_OUT} page`} error={dialog.failure} />}
         <div className="@container">
-          <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-[minmax(0,1fr)_300px] @6xl:grid-cols-[220px_minmax(0,1fr)_360px]">
+          {/* 2026-09-21-f237c: the panel's track goes 220px -> 300px, and the EXCHANGE pays. The
+              scope pane renders given names — repositories, templates, revisions — that this page
+              did not choose and cannot shorten without lying, so it keeps its width; the exchange
+              is prose and reflows. The mid and phone breakpoints, where the panel is already full
+              width, are unchanged. */}
+          <div className="grid grid-cols-1 items-start gap-4 @3xl:grid-cols-[minmax(0,1fr)_300px] @6xl:grid-cols-[300px_minmax(0,1fr)_360px]">
             <DialogConversations
               dialogId={dialog.dialogId}
               sessionHere={session?.sessionId ?? null}

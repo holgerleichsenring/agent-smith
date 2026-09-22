@@ -59,10 +59,19 @@ internal static class SpecDialogViewEndpoints
         return Results.Ok(await filedWork.ReadAsync(dialogId, cancellationToken));
     }
 
+    /// <summary>
+    /// 2026-09-21-f237b: the limit is the caller's, clamped between one and the list's ceiling —
+    /// the panel reads its default, the conversations page asks for the ceiling. Clamped rather
+    /// than refused, which is what the other limit-taking routes here do; a limit reaches no
+    /// further than how MANY rows are served, never which, because the owner is taken from the
+    /// signed-in principal below and from nowhere else.
+    /// </summary>
     internal static async Task<IResult> ListAsync(
+        int? limit,
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         SpecDialogConversationList conversations,
         CancellationToken cancellationToken) =>
-        Results.Ok(await conversations.ListAsync(ownership.OwnerOf(user), cancellationToken));
+        Results.Ok(await conversations.ListAsync(
+            ownership.OwnerOf(user), limit, cancellationToken));
 }
