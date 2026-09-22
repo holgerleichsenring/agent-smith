@@ -59,7 +59,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
         _answers = new DialogueAnswerRepository(_context, new SqliteUniqueViolationTranslator());
         _sessions = new SpecDialogSessionManager(
             _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
-        _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _ownership = new SpecDialogOwnership(_repository);
     }
 
     [Fact]

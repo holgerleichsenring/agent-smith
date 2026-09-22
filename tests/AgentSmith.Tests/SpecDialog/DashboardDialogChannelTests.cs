@@ -80,7 +80,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var messenger = new SpecDialogMessenger(
             [new DashboardAdapter(NullLogger<DashboardAdapter>.Instance, _hub)],
             NullLogger<SpecDialogMessenger>.Instance);
-        _ownership = new SpecDialogOwnership(_repository, new SpecCommandParser());
+        _ownership = new SpecDialogOwnership(_repository);
         _services = Services(new DashboardDialogDispatcher(
             Router(messenger),
             new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)),
@@ -157,56 +157,89 @@ public sealed class DashboardDialogChannelTests : IDisposable
         state!.Transcript.Should().BeEmpty("nothing of theirs reaches the transcript");
     }
 
+    /// <summary>
+    /// 2026-09-22-2a86: the page no longer posts "/spec resume &lt;id&gt;" at its own server, so
+    /// the resume is a ROUTE — and the guard that used to be reached by parsing that text is
+    /// carried by the route explicitly. These pin both sides of it over the real store.
+    /// </summary>
     [Fact]
-    public async Task Ingest_ResumingAnotherPrincipalsSession_IsRefused()
+    public async Task ResumeRoute_AConversationTheCallerOwns_IsResumedOntoTheTargetDialog()
     {
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        var result = await Ingest($"/spec resume {opened!.JobId}", Intruder, "d-elsewhere");
+        var result = await Resume(opened!.JobId, FreshDialog);
 
-        Refusal(result);
-        (await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None))!
-            .ThreadId.Should().Be(Dialog, "resume re-binds a session, so it is a takeover too");
+        StatusOf(result).Should().Be(StatusCodes.Status204NoContent);
+        var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
+        row!.ThreadId.Should().Be(FreshDialog, "the conversation moved onto the tab that asked for it");
+        row.ChannelId.Should().Be(FreshDialog, "a page has no channel above the dialog it holds");
+        row.IsOpen.Should().BeTrue();
     }
 
     /// <summary>
-    /// The door the endpoint's own refusal does not cover. A /spec resume typed in a Slack or
-    /// Teams thread reaches this manager directly — no dashboard endpoint, no hub, no
-    /// ownership check on that path — and the resume rewrites the session's platform, channel
-    /// and thread. Guarding only the dashboard left the session takeable from any chat
-    /// workspace by anyone who had seen its id.
+    /// The SOURCE side. The lookup is by session id alone and the resume rewrites where the
+    /// session lives, so without this an id anybody had seen was a conversation anybody could
+    /// take. "Not found" is also no oracle for which ids exist.
     /// </summary>
     [Fact]
-    public async Task Resume_ByAChatUserWhoIsNotTheOwner_LeavesTheSessionWhereItIs()
+    public async Task ResumeRoute_AConversationTheCallerDoesNotOwn_IsNotFound()
     {
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        var taken = await _resumer.ResumeAsync(
-            opened!.JobId, "U-slack-stranger", "slack", "C-public", "1726500000.0001",
-            CancellationToken.None);
+        var result = await Resume(opened!.JobId, "d-elsewhere", Intruder);
 
-        taken.Should().BeOfType<SpecDialogResumeNotFound>(
-            "an unowned session answers 'not found', which is also no id oracle");
+        StatusOf(result).Should().Be(StatusCodes.Status404NotFound);
         var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
-        row!.Platform.Should().Be(Platform);
-        row.ThreadId.Should().Be(Dialog);
+        row!.ThreadId.Should().Be(Dialog, "a resume re-binds a session, so it is a takeover too");
         row.UserId.Should().Be(Owner);
     }
 
+    /// <summary>
+    /// The TARGET side, and the reason this phase is not a deletion. The resumer's own guards
+    /// are all about the source session; the move CLOSES whatever is open on the target thread
+    /// before rebinding. A route addressed by ids that did not check the target would let a
+    /// caller close another principal's live dialog with a conversation of their own.
+    /// </summary>
     [Fact]
-    public async Task Resume_ByItsOwner_MovesTheSessionToTheNewThread()
+    public async Task ResumeRoute_ATargetDialogTheCallerMayNotWatch_IsRefusedAndClosesNothing()
+    {
+        await SendAsync("/spec");
+        var mine = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        var before = _hub.Pushes.Count;
+        await Ingest("/spec", Intruder, FreshDialog);
+        await Settle(before + 1);
+        var theirs = await _sessions.GetOpenByThreadAsync(Platform, FreshDialog, CancellationToken.None);
+
+        var result = await Resume(mine!.JobId, FreshDialog);
+
+        StatusOf(result).Should().Be(StatusCodes.Status403Forbidden);
+        ForgetTracked();
+        (await _sessions.GetOpenByThreadAsync(Platform, FreshDialog, CancellationToken.None))!
+            .JobId.Should().Be(theirs!.JobId, "the dialog they are talking in is still open");
+        (await _repository.GetBySessionIdAsync(mine.JobId, CancellationToken.None))!
+            .ThreadId.Should().Be(Dialog, "and nothing of the caller's moved either");
+    }
+
+    /// <summary>
+    /// A conversation blocked on a question is not moved: the approval gate waits where the
+    /// question was asked, and the answer is expected on that thread.
+    /// </summary>
+    [Fact]
+    public async Task ResumeRoute_ALiveQuestion_IsStillRefused()
     {
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        _pendingQuestions.Set(opened!.JobId, "q-approval", "file these tickets?");
 
-        var resumed = await _resumer.ResumeAsync(
-            opened!.JobId, Owner, Platform, "channel", "d-second-tab", CancellationToken.None);
+        var result = await Resume(opened.JobId, FreshDialog);
 
-        resumed.Should().BeOfType<SpecDialogResumed>();
+        StatusOf(result).Should().Be(StatusCodes.Status409Conflict);
         (await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None))!
-            .ThreadId.Should().Be("d-second-tab");
+            .ThreadId.Should().Be(Dialog);
+        _pendingQuestions.TryPeek(opened.JobId, out _).Should().BeTrue(
+            "the question still waits where it was asked");
     }
 
     /// <summary>
@@ -215,7 +248,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     /// then fail to file — after the operator approved.
     /// </summary>
     [Fact]
-    public async Task Resume_WhileATurnIsRunning_IsRefusedWithAReason()
+    public async Task ResumeRoute_ALiveTurn_IsStillRefused()
     {
         await SendAsync("/spec");
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
@@ -232,36 +265,18 @@ public sealed class DashboardDialogChannelTests : IDisposable
             });
         await Ingest("design the widget", Owner);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-
         var before = _hub.Pushes.Count;
-        await Ingest($"/spec resume {opened!.JobId}", Owner, FreshDialog);
-        await Settle(before + 1);
 
-        LastText().Should().Contain("in the middle of a turn");
-        _hub.Pushes.Last().Group.Should().Be(HubGroups.SpecDialog(FreshDialog));
+        var result = await Resume(opened!.JobId, FreshDialog);
+
+        StatusOf(result).Should().Be(StatusCodes.Status409Conflict);
         release.SetResult();
-        await Settle(before + 2);
+        await Settle(before + 1);
         var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
         row!.ThreadId.Should().Be(Dialog, "the conversation stays where its turn is running");
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!
             .Transcript.Select(turn => turn.Text).Should().Contain(CannedReply,
                 "the running turn's reply still finds its session");
-    }
-
-    [Fact]
-    public async Task Resume_WhileAQuestionIsPending_IsRefusedWithAReason()
-    {
-        await SendAsync("/spec");
-        var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        _pendingQuestions.Set(opened!.JobId, "q-approval", "file these tickets?");
-
-        await SendAsync($"/spec resume {opened.JobId}", FreshDialog);
-
-        LastText().Should().Contain("waiting for an answer");
-        (await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None))!
-            .ThreadId.Should().Be(Dialog);
-        _pendingQuestions.TryPeek(opened.JobId, out _).Should().BeTrue(
-            "the question still waits where it was asked");
     }
 
     /// <summary>
@@ -270,17 +285,16 @@ public sealed class DashboardDialogChannelTests : IDisposable
     /// replaced it on its old tab.
     /// </summary>
     [Fact]
-    public async Task Resume_OntoAFreshDialogId_ClosesNothingElse()
+    public async Task ResumeRoute_OntoAFreshDialogId_ClosesNothingElse()
     {
         await SendAsync("/spec");
         var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        await SendAsync("/spec new");
-        ForgetTracked();
+        await ReplaceTheConversationHereAsync();
         var current = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        await SendAsync($"/spec resume {past!.JobId}", FreshDialog);
+        var result = await Resume(past!.JobId, FreshDialog);
 
-        LastText().Should().Contain("resumed");
+        StatusOf(result).Should().Be(StatusCodes.Status204NoContent);
         (await _sessions.GetOpenByThreadAsync(Platform, FreshDialog, CancellationToken.None))!
             .JobId.Should().Be(past.JobId);
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!
@@ -291,54 +305,36 @@ public sealed class DashboardDialogChannelTests : IDisposable
     /// Found by review, and older than this phase: the resume closed the target thread with a bulk
     /// update the tracked session did not see, then set the session open again — which, to the
     /// change tracker, was no change. So a resume into the thread a session already lived in
-    /// silently closed it while replying "resumed". The tracker is deliberately NOT cleared here:
-    /// clearing it is exactly what hid the bug from the tests beside this one.
+    /// silently closed it while answering that it had resumed. The tracker is deliberately NOT
+    /// cleared here: clearing it is exactly what hid the bug from the tests beside this one.
     /// </summary>
     [Fact]
-    public async Task Resume_IntoTheThreadItAlreadyLivesIn_LeavesItOpen()
+    public async Task ResumeRoute_IntoTheThreadItAlreadyLivesIn_LeavesItOpen()
     {
         await SendAsync("/spec");
         var here = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
-        await SendAsync($"/spec resume {here!.JobId}");
+        var result = await Resume(here!.JobId, Dialog);
 
-        LastText().Should().Contain("resumed");
+        StatusOf(result).Should().Be(StatusCodes.Status204NoContent);
         _context.ChangeTracker.Clear();
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().NotBeNull("resuming a conversation where it already is must not close it");
     }
 
     [Fact]
-    public async Task Resume_AnotherPrincipalsConversation_IsRefused()
+    public async Task ResumeRoute_AClosedConversationOfAnotherPrincipal_IsNotFound()
     {
         await SendAsync("/spec");
         var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        await SendAsync("/spec new");
-        ForgetTracked();
+        await ReplaceTheConversationHereAsync();
 
-        var taken = await _resumer.ResumeAsync(
-            past!.JobId, Intruder, Platform, FreshDialog, FreshDialog, CancellationToken.None);
+        var result = await Resume(past!.JobId, FreshDialog, Intruder);
 
-        taken.Should().BeOfType<SpecDialogResumeNotFound>();
+        StatusOf(result).Should().Be(StatusCodes.Status404NotFound);
         var row = await _repository.GetBySessionIdAsync(past.JobId, CancellationToken.None);
         row!.ThreadId.Should().Be(Dialog);
         row.IsOpen.Should().BeFalse("a closed conversation is reopened by its owner or by nobody");
-    }
-
-    /// <summary>
-    /// The list is what hands out the ids the takeover above needs, so it stops naming
-    /// conversations the caller cannot resume anyway.
-    /// </summary>
-    [Fact]
-    public async Task List_NamesOnlyTheCallersOwnSessions()
-    {
-        await SendAsync("/spec");
-
-        var mine = await _sessions.ListOpenAsync(Owner, Platform, CancellationToken.None);
-        var theirs = await _sessions.ListOpenAsync(Intruder, Platform, CancellationToken.None);
-
-        mine.Should().ContainSingle();
-        theirs.Should().BeEmpty("another principal's conversations are not theirs to see");
     }
 
     [Fact]
@@ -546,7 +542,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     /// reaches it through a typed "/spec", the resolver through a first message that named a
     /// project; its own guard is what keeps the second from forking over the first.</summary>
     private SpecDialogCommandHandler Commands(SpecDialogMessenger messenger) =>
-        new(_sessions, _resumer, new SpecDialogScopeResolver(SingleProjectLoader()),
+        new(_sessions, new SpecDialogScopeResolver(SingleProjectLoader()),
             new SpecDialogReplyComposer(), messenger);
 
     private SpecDialogRouter Router(SpecDialogMessenger messenger)
@@ -608,6 +604,31 @@ new DashboardOutcomeChannel(
         await Settle(before + 1);
         return result;
     }
+
+    /// <summary>The resume route, called the way the page calls it: the conversation by its
+    /// session id, the tab it is to be moved onto, and the principal asking.</summary>
+    private Task<IResult> Resume(string sessionId, string dialogId, string caller = Owner) =>
+        SpecDialogResumeEndpoints.ResumeAsync(
+            sessionId,
+            new SpecDialogResumeEndpoints.SpecDialogResumeRequest(dialogId),
+            Principal(caller), _ownership, _resumer, CancellationToken.None);
+
+    /// <summary>
+    /// What "/spec new" used to do for these tests — a thread whose conversation has been
+    /// replaced, so the one before it is closed and resumable. The fork left with the spellings
+    /// nothing but the parser built.
+    /// </summary>
+    private async Task ReplaceTheConversationHereAsync()
+    {
+        await _sessions.CloseAsync(Platform, Dialog, CancellationToken.None);
+        ForgetTracked();
+        await SendAsync("/spec");
+        ForgetTracked();
+    }
+
+    private static int StatusOf(IResult result) =>
+        result.Should().BeAssignableTo<IStatusCodeHttpResult>().Which.StatusCode
+        ?? throw new InvalidOperationException("the route answered without a status code");
 
     private Task<IResult> Ingest(
         string text, string caller, string dialogId = Dialog, string? project = null) =>

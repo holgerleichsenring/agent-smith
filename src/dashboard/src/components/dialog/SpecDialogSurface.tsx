@@ -153,7 +153,7 @@ export function SpecDialogSurface() {
               conversations={dialog.conversations}
               picked={picked}
               onPicked={setPicked}
-              onStartNew={(chosen) => void dialog.startNew(chosen)}
+              onStartNew={() => void dialog.startNew()}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
               onDelete={(sessionId) => void remove(sessionId)}
             />

@@ -264,11 +264,7 @@ public sealed class ConversationSubjectTests : IDisposable
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(
-                _sessions,
-                new SpecDialogResumer(
-                    _repository, _turnGate, pendingQuestions, TimeProvider.System,
-                    NullLogger<SpecDialogResumer>.Instance),
-                new SpecDialogScopeResolver(Loader()), composer, messenger),
+                _sessions, new SpecDialogScopeResolver(Loader()), composer, messenger),
             turnRunner.Object, outcomeFlow, _turnGate,
             new SpecDialogAnswerAdmission(
                 _sessions, pendingQuestions,
