@@ -25,6 +25,14 @@ internal static class ConfigQueryEndpoints
         app.MapGet("/api/config", (AgentSmithConfig config, IConfigResolver resolver, IConfigurationLoader loader) =>
             Results.Ok(ConfigSnapshotMapper.ToSnapshot(config, resolver, loader.LastRead)))
            .Needs(Permissions.ConfigRead);
+
+        // 2026-09-22-6968: what each project would inherit if its own sandbox block were
+        // empty. Deliberately NOT the snapshot above: that one answers what a run of this
+        // project gets, which for a project that HAS an override is the override — a
+        // placeholder built from it would show the operator their own value back.
+        app.MapGet("/api/config/inherited-sandbox", (IInheritedSandboxProjection projection) =>
+            Results.Ok(InheritedSandboxMapper.ToResponse(projection)))
+           .Needs(Permissions.ConfigRead);
         return app;
     }
 }

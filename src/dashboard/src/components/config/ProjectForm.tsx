@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import type {
   ConfigCapabilities,
   ConfigFinding,
+  InheritedSandboxProjection,
   StudioProject,
   StudioTracker,
 } from "@/lib/configApi";
@@ -12,6 +13,7 @@ import { RefSelect, MultiRefSelect, SelectField, TextField } from "./formFields"
 import { RepoPicker } from "./RepoPicker";
 import { TemplateBindings } from "./TemplateBindings";
 import { TrackerRouting } from "./TrackerRouting";
+import { ProjectSandboxSection } from "./ProjectSandboxSection";
 import { camelCase } from "./capabilityFields";
 import { projectIntegrity, unfinishedTemplates } from "./integrity";
 import type { ConfigCatalog } from "./useConfigCatalog";
@@ -25,7 +27,10 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // draws it on the card, where the page gives it about 900). The drawer keeps the
 // one-line verdict, which is the half that gates Save.
 
-const TABS = ["identity", "repos", "pipeline", "templates", "routing"] as const;
+// 2026-09-22-6968: the sixth tab. Six sandbox controls appended to an existing section
+// would rebuild the one-scroll shape 2026-09-16-74a2 removed, and they belong to none of
+// identity, repos, pipeline, templates or routing.
+const TABS = ["identity", "repos", "pipeline", "templates", "routing", "sandbox"] as const;
 export type ProjectTab = (typeof TABS)[number];
 
 // Per-strategy value hints for the routing section. The STRATEGY LIST itself comes from
@@ -43,6 +48,7 @@ export function ProjectForm({
   onChange,
   catalog,
   capabilities,
+  inheritedSandbox = null,
   findings,
   idField,
 }: {
@@ -50,6 +56,9 @@ export function ProjectForm({
   onChange: (next: StudioProject) => void;
   catalog: ConfigCatalog;
   capabilities: ConfigCapabilities | null;
+  /** 2026-09-22-6968: what each sandbox control would inherit if this project said
+   *  nothing. Null when the projection could not be read. */
+  inheritedSandbox?: InheritedSandboxProjection | null;
   findings: ConfigFinding[];
   idField: ReactNode;
 }) {
@@ -157,6 +166,14 @@ export function ProjectForm({
         )}
 
         {tab === "routing" && <RoutingSection project={project} onChange={onChange} capabilities={capabilities} />}
+
+        {tab === "sandbox" && (
+          <ProjectSandboxSection
+            project={project}
+            onChange={onChange}
+            inheritedSandbox={inheritedSandbox}
+          />
+        )}
       </div>
 
       <DraftFindings findings={findings} />

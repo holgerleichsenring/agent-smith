@@ -8,7 +8,13 @@ import { apiFetch, getJson, refused, sendJson } from "@/lib/apiResponse";
 
 // Where an effective value came from. "run-resolved" = not knowable at config
 // time (e.g. the toolchain image is chosen per run from the repo's context.yaml).
-export type ResolutionSource = "global-default" | "override" | "run-resolved";
+export type ResolutionSource =
+  | "global-default"
+  | "override"
+  | "run-resolved"
+  /** 2026-09-22-6c46: a table in the CODE answered — the per-language toolchain images a
+   *  project's image map is merged over. Not a setting anyone can go looking for. */
+  | "code-default";
 
 export interface ResolvedValue<T> {
   value: T | null;
@@ -139,6 +145,53 @@ export interface ConfigSnapshot {
 
 export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot> {
   return getJson<ConfigSnapshot>(`/api/config`, signal);
+}
+
+/** 2026-09-22-6968: what ONE project's five scalar sandbox controls would inherit if the
+ *  project declared nothing. Not the same question as `resolved` above: that one answers
+ *  what a run of this project gets, which for a project that HAS an override is the
+ *  override — a placeholder built from it would show the operator their own value back.
+ *  A run-resolved value (the toolchain image) carries a null `value` on purpose. */
+export interface InheritedSandbox {
+  toolchainImage: ResolvedValue<string>;
+  stepTimeoutSeconds: ResolvedValue<number>;
+  runCommandTimeoutSeconds: ResolvedValue<number>;
+  agentRegistry: ResolvedValue<string>;
+  agentVersion: ResolvedValue<string>;
+  /** 2026-09-22-6c46: the cpu/memory group and the LAYER that would answer it. */
+  resources: InheritedResources;
+  /** 2026-09-22-6c46: the code-default image table, ONE ANSWER PER KEY — including keys
+   *  the project has not named, because the merge is per key. The pod's secrets are
+   *  deliberately not here: nothing process-wide holds any, so nothing is inherited. */
+  images: Record<string, ResolvedValue<string>>;
+}
+
+/** 2026-09-22-6c46: which of the four layers answers a project's cpu/memory. The value
+ *  alone cannot say it — the light profile a non-code-changing pipeline is held to and a
+ *  configured global default can hold identical numbers. */
+export type SandboxResourceLayer =
+  | "project-override"
+  | "light-profile"
+  | "context-document"
+  | "global-default";
+
+export interface InheritedResources {
+  values: ResourceSummary;
+  layer: SandboxResourceLayer;
+}
+
+/** Keyed by the name of a project the RUNNING configuration holds, so a project being
+ *  created — or renamed before its save — has no row; `processWide` is what it will
+ *  inherit the moment it exists. */
+export interface InheritedSandboxProjection {
+  processWide: InheritedSandbox;
+  projects: Record<string, InheritedSandbox>;
+}
+
+export async function fetchInheritedSandbox(
+  signal?: AbortSignal,
+): Promise<InheritedSandboxProjection> {
+  return getJson<InheritedSandboxProjection>(`/api/config/inherited-sandbox`, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -457,6 +510,49 @@ export interface TemplateReference {
   revision?: string | null;
 }
 
+/** 2026-09-22-6968: the five SCALAR per-project sandbox overrides. Each field is
+ *  null-means-inherit, and the BLOCK is absent-means-leave-alone: a client that does not
+ *  know it sends none and the stored block survives untouched, while a form that shows the
+ *  block sends all five — so a field missing from a SENT block is a deliberate clear.
+ *  The structured three (resources, the per-language image map, the pod's secrets) are not
+ *  here and are never written through this block. */
+export interface ProjectSandbox {
+  toolchainImage?: string;
+  stepTimeoutSeconds?: number;
+  runCommandTimeoutSeconds?: number;
+  agentRegistry?: string;
+  agentVersion?: string;
+  /** 2026-09-22-6c46: the structured three. ABSENT means "I do not render these", and the
+   *  stored resources, image pins and secret references are left alone; a SENT block means
+   *  every one of its three fields is written as given, so an undefined field inside it is
+   *  a deliberate clear back to inherited. */
+  structured?: ProjectSandboxStructured | null;
+}
+
+/** 2026-09-22-6c46: the structured half of a project's sandbox overrides. */
+export interface ProjectSandboxStructured {
+  /** All four quantities or none — the model refuses a partial override. */
+  resources?: ResourceSummary | null;
+  /** Per-language image pins, merged OVER the code-default table per KEY. */
+  images?: Record<string, string> | null;
+  /** NAMES only. There is no value field here and never will be. */
+  secrets?: SandboxSecrets | null;
+}
+
+/** The pod's secret injection, as NAMES: env vars sourced from a Kubernetes Secret
+ *  ("secretName:key" references) and secret keys mounted as files. The values live in the
+ *  cluster and never enter this product. */
+export interface SandboxSecrets {
+  env?: Record<string, string> | null;
+  files?: SandboxSecretFile[] | null;
+}
+
+export interface SandboxSecretFile {
+  mount: string;
+  secret: string;
+  key: string;
+}
+
 /** The relational heart: agent + tracker are single FKs, repos a FK set.
  *  p0345c truth-fix: the field once mislabeled `trigger` IS the pipeline —
  *  renamed on the wire; `resolution` is a strategy choice, not freetext. */
@@ -474,6 +570,9 @@ export interface StudioProject {
    *  new project's blank draft omits it — the server writes the field only when it is
    *  present, so a client that does not know it cannot wipe a stored declaration. */
   templates?: TemplateReference[] | null;
+  /** 2026-09-22-6968: ABSENT means "nothing to say about the sandbox", which is what keeps
+   *  a client that never renders this tab from wiping a stored block. */
+  sandbox?: ProjectSandbox | null;
 }
 
 export interface StudioMcpServer {

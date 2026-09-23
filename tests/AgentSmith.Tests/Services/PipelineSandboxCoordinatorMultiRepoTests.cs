@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Tests.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -257,7 +258,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
             Sut = new PipelineSandboxCoordinator(
                 FactoryMock.Object,
                 new SandboxSpecBuilder(
-                    new SandboxResourceResolver(Options.Create(new SandboxOptions())),
+                    WiredResourceResolver.Create(),
                     new StubAgentImageResolver()),
                 LanguageResolverMock.Object,
                 AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,

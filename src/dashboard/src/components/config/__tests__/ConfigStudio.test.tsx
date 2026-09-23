@@ -45,6 +45,18 @@ vi.mock("@/lib/configApi", () => {
     mcpServersApi: client([]),
     secretsApi: client(secrets),
     fetchChanges: vi.fn().mockResolvedValue([]),
+    // 2026-09-22-6968: the catalog load reads the inherited-sandbox projection beside
+    // its seven lists; a wholesale module mock has to declare it.
+    fetchInheritedSandbox: vi.fn().mockResolvedValue({
+      processWide: {
+        toolchainImage: { value: null, source: "run-resolved" },
+        stepTimeoutSeconds: { value: 900, source: "global-default" },
+        runCommandTimeoutSeconds: { value: 300, source: "global-default" },
+        agentRegistry: { value: "ghcr.io/example", source: "global-default" },
+        agentVersion: { value: "0.50.0", source: "global-default" },
+      },
+      projects: {},
+    }),
     revertChange: vi.fn(),
     fetchConfigExportYml: vi.fn().mockResolvedValue("agents:\n  - id: gpt5\n"),
     validateProjectDraft: vi.fn().mockResolvedValue([]),
@@ -165,6 +177,25 @@ describe("ConfigStudio", () => {
     expect(save).not.toBeDisabled();
     fireEvent.click(save);
     expect(projectsApi.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("ConfigStudio_ProjectDrawer_ThreadsTheInheritedSandboxValuesIntoTheSandboxTab", async () => {
+    // 2026-09-22-6968: before this phase the studio could see no resolved projection at
+    // all — it loaded a catalog of editable entities and nothing else. This is the thread
+    // from the studio's own load down to the sixth tab's placeholders.
+    render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);
+    await screen.findByTestId("config-card-projects-checkout");
+    fireEvent.click(screen.getByTestId("config-card-edit-checkout"));
+    fireEvent.click(screen.getByTestId("form-tab-sandbox"));
+
+    expect(screen.getByTestId("form-field-sandbox-stepTimeoutSeconds")).toHaveAttribute(
+      "placeholder",
+      "900",
+    );
+    expect(screen.getByTestId("form-field-sandbox-agentRegistry")).toHaveAttribute(
+      "placeholder",
+      "ghcr.io/example",
+    );
   });
 
   it("ConfigStudio_SecretsSection_ShowsRedactionNeverValueInput", async () => {

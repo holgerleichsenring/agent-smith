@@ -44,7 +44,7 @@ public sealed class ConfigResolutionPass : IConfigResolver
         SandboxResources: ResolveResources(project),
         AgentImage: ResolvedValue<string>.From(_agentImageResolver.Resolve(project), IsAgentOverride(project)),
         OrchestratorImage: ResolvedValue<string>.From(_orchestratorImageResolver.Resolve(project), IsOrchestratorOverride(project)),
-        ToolchainImage: ResolveToolchain(project),
+        ToolchainImage: ResolveToolchainImage(project),
         CostCap: ResolveCostCap(project.Pipeline));
 
     public ResolvedValue<CostCapValues> ResolveCostCap(string? pipelineName)
@@ -83,7 +83,7 @@ public sealed class ConfigResolutionPass : IConfigResolver
                 ResolveResources(project),
                 new ResolvedValue<string>(null!, ResolutionSource.GlobalDefault),
                 new ResolvedValue<string>(null!, ResolutionSource.GlobalDefault),
-                ResolveToolchain(project), ResolveCostCap(project.Pipeline),
+                ResolveToolchainImage(project), ResolveCostCap(project.Pipeline),
                 ResolutionError: ex.Message);
         }
     }
@@ -103,7 +103,7 @@ public sealed class ConfigResolutionPass : IConfigResolver
     private ResolvedValue<ResourceLimits> ResolveResources(ResolvedProject p) =>
         ResolvedValue<ResourceLimits>.From(_resourceResolver.Resolve(p, p.Pipeline), p.Sandbox?.Resources is not null);
 
-    private static ResolvedValue<string> ResolveToolchain(ResolvedProject p) =>
+    public ResolvedValue<string> ResolveToolchainImage(ResolvedProject p) =>
         string.IsNullOrEmpty(p.Sandbox?.ToolchainImage)
             ? ResolvedValue<string>.PerRun()
             : ResolvedValue<string>.Override(p.Sandbox!.ToolchainImage!);

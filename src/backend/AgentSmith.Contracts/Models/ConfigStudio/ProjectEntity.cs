@@ -23,12 +23,17 @@ public sealed record ProjectEntity(
     // and the studio could neither set it nor see why the project had stopped.
     string? DefaultPipeline = null,
     // 2026-09-13-5fa0: NULLABLE on purpose, and the patch writes it only when it is not
-    // null. RawConfigPatch.Project assigns Repos unconditionally, which is why every
+    // null. RawProjectPatch.Apply assigns Repos unconditionally, which is why every
     // studio save already drops default_branch and consumes; a client that constructs a
     // ProjectEntity without knowing this field — the dashboard's blankEntity does — would
     // wipe a declaration the same way. Absent means "I have nothing to say about
     // templates", not "there are none".
-    IReadOnlyList<TemplateReference>? Templates = null)
+    IReadOnlyList<TemplateReference>? Templates = null,
+    // 2026-09-22-6968: the five SCALAR per-project sandbox overrides. Nullable for the same
+    // reason Templates is: absent means "I was not told", and the patch leaves the stored
+    // block untouched. A form that shows the block sends all five, so a null INSIDE a sent
+    // block means cleared-to-inherit.
+    ProjectSandbox? Sandbox = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }

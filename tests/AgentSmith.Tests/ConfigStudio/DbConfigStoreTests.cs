@@ -164,7 +164,7 @@ public sealed class DbConfigStoreTests : IDisposable
         saved.DefaultPipeline.Should().Be("security-scan");
         saved.Pipelines.Should().Contain("security-scan");
         new ProjectConfigNormalizer()
-            .Inspect("testproject", RawConfigPatch.Project(saved, existing: null))
+            .Inspect("testproject", RawProjectPatch.Apply(saved, existing: null))
             .Should().NotContain(f => f.Field == "default_pipeline");
     }
 
@@ -186,7 +186,7 @@ public sealed class DbConfigStoreTests : IDisposable
             "testproject", "claude-default", "test-ado", ["test-repo"], null,
             ["code", "security-scan"], null, DefaultPipeline: "pr-review");
 
-        var patched = RawConfigPatch.Project(entity, existing);
+        var patched = RawProjectPatch.Apply(entity, existing);
 
         patched.Pipelines.Select(p => p.Name).Should().Equal("code", "security-scan", "pr-review");
         patched.Pipelines[0].Agent.Should().Be("claude-default");

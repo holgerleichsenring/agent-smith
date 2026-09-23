@@ -14,6 +14,13 @@ public enum ResolutionSource
     ProjectOverride,
 
     /// <summary>
+    /// 2026-09-22-6c46: a table in the CODE answered, not the configuration — the
+    /// per-language toolchain images a project's image map is merged over. Naming it
+    /// global-default would send an operator looking for a setting that does not exist.
+    /// </summary>
+    CodeDefault,
+
+    /// <summary>
     /// Not knowable at config time — resolved per run from repo/run inputs
     /// (e.g. the toolchain image chosen from the repo's context.yaml). The
     /// <see cref="ResolvedValue{T}.Value"/> is null for these.
@@ -29,6 +36,9 @@ public sealed record ResolvedValue<T>(T Value, ResolutionSource Source)
 {
     public static ResolvedValue<T> Global(T value) => new(value, ResolutionSource.GlobalDefault);
     public static ResolvedValue<T> Override(T value) => new(value, ResolutionSource.ProjectOverride);
+
+    /// <summary>From the product's own code table rather than from any configuration.</summary>
+    public static ResolvedValue<T> CodeDefault(T value) => new(value, ResolutionSource.CodeDefault);
 
     /// <summary>Run-resolved: no config-time value (Value is default — null for a
     /// reference type, serialized as null for the dashboard).</summary>

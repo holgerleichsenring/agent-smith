@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type {
+  InheritedSandboxProjection,
   StudioAgent,
   StudioConnection,
   StudioMcpServer,
@@ -11,6 +12,7 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import {
+  fetchInheritedSandbox,
   agentsApi,
   trackersApi,
   connectionsApi,
@@ -48,6 +50,11 @@ const EMPTY: ConfigCatalog = {
 
 export interface UseConfigCatalog {
   catalog: ConfigCatalog;
+  /** 2026-09-22-6968: what each project would inherit if it declared no sandbox block —
+   *  the placeholder every null-means-inherit control on the project form shows. Null
+   *  when the projection could not be read: the tab then says so rather than drawing
+   *  blanks that would read as "inherits nothing". */
+  inheritedSandbox: InheritedSandboxProjection | null;
   loading: boolean;
   /** The thrown value, not its message — the studio renders a refusal as a state. */
   error: Error | null;
@@ -65,6 +72,7 @@ function byId<T extends { id: string }>(rows: T[]): T[] {
 
 export function useConfigCatalog(): UseConfigCatalog {
   const [catalog, setCatalog] = useState<ConfigCatalog>(EMPTY);
+  const [inheritedSandbox, setInheritedSandbox] = useState<InheritedSandboxProjection | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -72,15 +80,21 @@ export function useConfigCatalog(): UseConfigCatalog {
     setLoading(true);
     setError(null);
     try {
-      const [agents, trackers, connections, repos, projects, mcp, secrets] = await Promise.all([
-        agentsApi.list(signal),
-        trackersApi.list(signal),
-        connectionsApi.list(signal),
-        reposApi.list(signal),
-        projectsApi.list(signal),
-        mcpServersApi.list(signal),
-        secretsApi.list(signal),
-      ]);
+      const [agents, trackers, connections, repos, projects, mcp, secrets, inherited] =
+        await Promise.all([
+          agentsApi.list(signal),
+          trackersApi.list(signal),
+          connectionsApi.list(signal),
+          reposApi.list(signal),
+          projectsApi.list(signal),
+          mcpServersApi.list(signal),
+          secretsApi.list(signal),
+          // Advisory, never load-bearing: the catalog is what the studio EDITS and the
+          // inherited values only label its controls, so a refusal here must not take
+          // the whole studio down with it.
+          fetchInheritedSandbox(signal).catch(() => null),
+        ]);
+      setInheritedSandbox(inherited);
       // 2026-09-15-9b3e: sorted HERE, not at the render sites. The store returns a SELECT
       // with no ORDER BY, and ten places render one of these arrays — the cards, the agent,
       // tracker, repos and three secret pickers, the key-secret picker, the connection
@@ -111,5 +125,5 @@ export function useConfigCatalog(): UseConfigCatalog {
 
   const reload = useCallback(() => load(), [load]);
 
-  return { catalog, loading, error, reload };
+  return { catalog, inheritedSandbox, loading, error, reload };
 }

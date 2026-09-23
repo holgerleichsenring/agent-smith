@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Sandbox;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -17,6 +18,16 @@ namespace AgentSmith.Application.Services.Sandbox;
 public interface ISandboxResourceResolver
 {
     ResourceLimits Resolve(
+        ResolvedProject projectConfig, string? pipelineName,
+        ContextYamlStackResources? contextResources = null);
+
+    /// <summary>
+    /// 2026-09-22-6c46: which layer produced what <see cref="Resolve"/> returns for the
+    /// same inputs. The layer is NOT recoverable from the value — the light profile and a
+    /// configured global default can hold identical numbers — and the project sandbox tab
+    /// has to name the layer it would inherit from rather than pretend to one number.
+    /// </summary>
+    SandboxResourceLayer ResolveLayer(
         ResolvedProject projectConfig, string? pipelineName,
         ContextYamlStackResources? contextResources = null);
 }
