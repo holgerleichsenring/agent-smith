@@ -41,6 +41,8 @@ public static class RawProjectPatch
     /// block each scalar is written AS GIVEN, null included: that is how the form clears an
     /// override back to inherited. The structured three are never assigned, so they survive
     /// a save through this block the way the whole block used to.
+    /// 2026-09-23-2446: the hold window is one of those scalars now, so a projection that
+    /// did not also read it would have this line write null over a stored value.
     /// </summary>
     private static void ApplySandbox(ProjectSandbox sandbox, RawProjectEntry project)
     {
@@ -50,6 +52,7 @@ public static class RawProjectPatch
         block.RunCommandTimeoutSeconds = sandbox.RunCommandTimeoutSeconds;
         block.AgentRegistry = sandbox.AgentRegistry;
         block.AgentVersion = sandbox.AgentVersion;
+        block.HoldSeconds = sandbox.HoldSeconds;
         if (sandbox.Structured is { } structured) ApplyStructured(structured, block);
     }
 

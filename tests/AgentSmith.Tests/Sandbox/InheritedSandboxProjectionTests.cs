@@ -51,7 +51,8 @@ public sealed class InheritedSandboxProjectionTests
             new StubOrchestratorImageResolver(), config);
         var projection = new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,
-            config, NullLogger<InheritedSandboxProjection>.Instance);
+            config, new SandboxHoldRailDoubles.CountingConfigLoader(config),
+            NullLogger<InheritedSandboxProjection>.Instance);
         return (pass, projection);
     }
 
@@ -128,7 +129,8 @@ public sealed class InheritedSandboxProjectionTests
             new StubOrchestratorImageResolver(), config);
         var projection = new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity(null, null)), resources, options,
-            config, NullLogger<InheritedSandboxProjection>.Instance);
+            config, new SandboxHoldRailDoubles.CountingConfigLoader(config),
+            NullLogger<InheritedSandboxProjection>.Instance);
 
         var act = () => projection.ProcessWide();
 

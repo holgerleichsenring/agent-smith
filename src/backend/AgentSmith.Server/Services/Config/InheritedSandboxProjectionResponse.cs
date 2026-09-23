@@ -1,11 +1,16 @@
 namespace AgentSmith.Server.Services.Config;
 
 /// <summary>
-/// 2026-09-22-6968: what a project's five scalar sandbox controls would inherit if the
+/// 2026-09-22-6968: what a project's six scalar sandbox controls would inherit if the
 /// project declared nothing, projected for the wire. Each value carries its provenance the
 /// way <see cref="ConfigResolvedSettings"/> does — a run-resolved value (the toolchain
 /// image) has a NULL value, and the form must say "detected per run" rather than draw a
 /// blank, because a blank there reads as "no image", which it never means.
+/// <para>
+/// 2026-09-23-2446: the hold window joined them, and it is the one whose provenance can read
+/// <c>environment-variable</c> — it is also the one read live rather than from the
+/// composition-time options.
+/// </para>
 /// </summary>
 public sealed record ConfigInheritedSandbox(
     ConfigResolvedValue<string> ToolchainImage,
@@ -13,6 +18,7 @@ public sealed record ConfigInheritedSandbox(
     ConfigResolvedValue<int> RunCommandTimeoutSeconds,
     ConfigResolvedValue<string> AgentRegistry,
     ConfigResolvedValue<string> AgentVersion,
+    ConfigResolvedValue<int> HoldSeconds,
     ConfigInheritedResources Resources,
     IReadOnlyDictionary<string, ConfigResolvedValue<string>> Images);
 

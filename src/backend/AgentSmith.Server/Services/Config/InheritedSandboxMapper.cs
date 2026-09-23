@@ -5,7 +5,7 @@ namespace AgentSmith.Server.Services.Config;
 
 /// <summary>
 /// 2026-09-22-6968: projects the counterfactual inherited sandbox settings onto the wire.
-/// Pure allow-list, like <see cref="ConfigSnapshotMapper"/> — five scalar values and their
+/// Pure allow-list, like <see cref="ConfigSnapshotMapper"/> — six scalar values and their
 /// provenance, nothing a secret could ride on.
 /// </summary>
 public static class InheritedSandboxMapper
@@ -20,6 +20,7 @@ public static class InheritedSandboxMapper
         RunCommandTimeoutSeconds: Rv(settings.RunCommandTimeoutSeconds),
         AgentRegistry: Rv(settings.AgentRegistry),
         AgentVersion: Rv(settings.AgentVersion),
+        HoldSeconds: Rv(settings.HoldSeconds),
         // 2026-09-22-6c46: the layer travels WITH the numbers, and the image table travels
         // per KEY. The pod's secrets are not here at all — nothing process-wide exists for
         // them to be inherited from, and an empty field would read as an inherited none.

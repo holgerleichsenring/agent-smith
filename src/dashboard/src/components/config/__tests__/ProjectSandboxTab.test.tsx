@@ -45,6 +45,7 @@ const processWide: InheritedSandboxProjection["processWide"] = {
   runCommandTimeoutSeconds: { value: 300, source: "global-default" },
   agentRegistry: { value: "ghcr.io/example", source: "global-default" },
   agentVersion: { value: "0.50.0", source: "global-default" },
+  holdSeconds: { value: 180, source: "code-default" },
   resources: {
     values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
     layer: "global-default",
@@ -106,7 +107,7 @@ beforeEach(() => {
 const openSandbox = () => fireEvent.click(screen.getByTestId("form-tab-sandbox"));
 
 describe("ProjectForm sandbox tab", () => {
-  it("ProjectForm_TheSandboxTab_RendersTheFiveScalarControlsWithTheirInheritedPlaceholders", () => {
+  it("ProjectForm_TheSandboxTab_RendersTheSixScalarControlsWithTheirInheritedPlaceholders", () => {
     render(<Harness />);
     openSandbox();
 
@@ -126,6 +127,11 @@ describe("ProjectForm sandbox tab", () => {
     expect(screen.getByTestId("form-field-sandbox-agentVersion")).toHaveAttribute(
       "placeholder",
       "0.50.0",
+    );
+    // 2026-09-23-2446: the sixth.
+    expect(screen.getByTestId("form-field-sandbox-holdSeconds")).toHaveAttribute(
+      "placeholder",
+      "180",
     );
     // The provenance is said beside the control, not only implied by the placeholder.
     expect(screen.getByTestId("form-section-sandbox")).toHaveTextContent("inherits 900");
@@ -223,6 +229,61 @@ describe("ProjectForm sandbox tab", () => {
     expect(screen.getByTestId("form-field-sandbox-stepTimeoutSeconds")).not.toHaveAttribute(
       "placeholder",
     );
+  });
+
+  // -------------------------------------------------------------------------
+  // 2026-09-23-2446: the hold window. The one control whose placeholder is live,
+  // whose provenance can be an environment variable, and whose zero is a value.
+  // -------------------------------------------------------------------------
+
+  it("ProjectForm_TheHoldControl_ShowsItsInheritedValueAndProvenance", () => {
+    const fromEnvironment: InheritedSandboxProjection = {
+      processWide: { ...processWide, holdSeconds: { value: 240, source: "environment-variable" } },
+      projects: {
+        proj: { ...processWide, holdSeconds: { value: 240, source: "environment-variable" } },
+      },
+    };
+    render(<Harness inheritedSandbox={fromEnvironment} />);
+    openSandbox();
+
+    expect(screen.getByTestId("form-field-sandbox-holdSeconds")).toHaveAttribute(
+      "placeholder",
+      "240",
+    );
+    // The leg is NAMED: sending an operator to a settings form that holds no value is
+    // exactly what the environment provenance exists to prevent.
+    expect(screen.getByTestId("form-section-sandbox")).toHaveTextContent(
+      "inherits 240 from the SANDBOX_HOLD_SECONDS environment variable",
+    );
+  });
+
+  it("ProjectForm_TheHoldControl_SaysItAppliesToTheNextTurnAndNeedsNoRestart", () => {
+    render(<Harness />);
+    openSandbox();
+
+    const section = screen.getByTestId("form-section-sandbox");
+    expect(section).toHaveTextContent("applies to the next turn of a design conversation");
+    expect(section).toHaveTextContent("reaches a reaper scan without a server restart");
+    expect(section).toHaveTextContent("0 holds nothing");
+  });
+
+  it("ProjectForm_AHoldWindowOfZero_IsKeptAsZeroAndNotReadAsInherit", () => {
+    const saved: StudioProject[] = [];
+    render(<Harness initial={{ sandbox: { holdSeconds: 0 } }} onSave={(p) => saved.push(p)} />);
+    openSandbox();
+
+    // A stored zero draws as a zero, not as an empty box showing the inherited 180.
+    expect(screen.getByTestId("form-field-sandbox-holdSeconds")).toHaveValue(0);
+
+    // And a zero TYPED into an empty control survives the round trip as a real override.
+    fireEvent.change(screen.getByTestId("form-field-sandbox-holdSeconds"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByTestId("save"));
+
+    expect(saved[0].sandbox!.holdSeconds).toBe(0);
+    const onTheWire = JSON.parse(JSON.stringify(saved[0].sandbox)) as Record<string, unknown>;
+    expect(onTheWire.holdSeconds).toBe(0);
   });
 
   it("ProjectForm_TheSandboxTab_SaysWhichHalfNeedsARestart", () => {

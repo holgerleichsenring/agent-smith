@@ -29,9 +29,9 @@ public sealed record ProjectEntity(
     // wipe a declaration the same way. Absent means "I have nothing to say about
     // templates", not "there are none".
     IReadOnlyList<TemplateReference>? Templates = null,
-    // 2026-09-22-6968: the five SCALAR per-project sandbox overrides. Nullable for the same
+    // 2026-09-22-6968: the SCALAR per-project sandbox overrides. Nullable for the same
     // reason Templates is: absent means "I was not told", and the patch leaves the stored
-    // block untouched. A form that shows the block sends all five, so a null INSIDE a sent
+    // block untouched. A form that shows the block sends all six, so a null INSIDE a sent
     // block means cleared-to-inherit.
     ProjectSandbox? Sandbox = null)
 {

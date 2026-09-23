@@ -4,7 +4,7 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// 2026-09-22-6968: the SCALAR half of a project's sandbox overrides, as the studio edits
 /// them. Every field is null-means-inherit, and the block itself is null-means-absent: a
 /// client that does not know this block sends none and the stored block is left alone,
-/// while a client that DOES show the block sends all five, so a null field inside a sent
+/// while a client that DOES show the block sends all six, so a null field inside a sent
 /// block is a deliberate clear. That is the only discriminator C# nullables leave — the
 /// same rule <see cref="ProjectEntity.Templates"/> already applies at the block level.
 /// <para>
@@ -13,6 +13,11 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// because they need the same present-means-told discriminator one level down — a client
 /// that renders only the scalars must not clear them.
 /// </para>
+/// <para>
+/// 2026-09-23-2446: <see cref="HoldSeconds"/> is the sixth scalar. The patch assigns every
+/// scalar it knows, so the moment this field existed a save would have written null over a
+/// stored value — which is why the projection reads it in the same change.
+/// </para>
 /// </summary>
 public sealed record ProjectSandbox(
     string? ToolchainImage = null,
@@ -20,4 +25,5 @@ public sealed record ProjectSandbox(
     int? RunCommandTimeoutSeconds = null,
     string? AgentRegistry = null,
     string? AgentVersion = null,
+    int? HoldSeconds = null,
     ProjectSandboxStructured? Structured = null);
