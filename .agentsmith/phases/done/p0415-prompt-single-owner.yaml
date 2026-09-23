@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0415
-goal: "A prompt name resolves from exactly ONE owner, and the resource folder holds only prompts a run can reach. Two live runs proved the divergence: spec-derivation-master exists as an embedded resource AND as a catalog master, and SkillCatalogPromptCatalog's direct-name match served the catalog copy — the one WITHOUT the ships_code rules the parser enforces — while bypassing p0205's loud-failure guard, which only covers NameMap-routed names."
+goal: "A prompt name resolves from exactly ONE declared owner, and the resource folder holds only prompts a run can reach."
 applies_to: "backend"
 requires:
   - p0205   # no silent embedded fallback for catalog-owned prompts
@@ -8,6 +8,12 @@ requires:
 # spec deleted, so the reference named a document that no longer exists. The inventory
 # lives in the confirm-dead step below.
 decisions:
+  - key: the-divergence-was-observed-not-reasoned
+    text: >
+      Two live runs proved it: spec-derivation-master existed both as an embedded resource and
+      as a catalog master, and SkillCatalogPromptCatalog's direct-name match served the catalog
+      copy — the one without the ships_code rules the parser enforces. p0205's loud-failure
+      guard did not catch it, because that guard covers NameMap-routed names only.
   - key: ownership-is-declared-not-derived
     text: "One table names the owner of every prompt the server requests. Resolution reads the table first: a catalog-owned name never falls back to embedded (p0205), an embedded-owned name never consults the catalog. Resolution ORDER stops being the thing that decides."
   - key: spec-derivation-stays-embedded-for-now

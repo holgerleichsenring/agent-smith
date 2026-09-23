@@ -1,15 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0249
 goal: |
-  Multi-repo runs record source edits but commit NOTHING → the keystone fails a
-  run that actually changed code. Proven live (p0242 watcher): the agent's source
-  write IS staged in the target repo's sandbox, but CommitAndPR's per-repo
-  resolution reads a sandbox that sees no staged code. Root: SandboxTargets
-  .SandboxesForRepo decodes only the `<repo>` / `<repo>/<ctx>` key forms, NOT
-  SandboxKeyComposer's multi-group `<repo>-<langSlug>` form — so repo→sandbox
-  resolution is fragile/wrong. Make it AUTHORITATIVE (a coordinator-published
-  key→repo map, not key-string parsing), and instrument CommitAndPR so any
-  residual mismatch is provable in one run.
+  Resolve a multi-repo sandbox by an authoritative coordinator-published key->repo map instead of key-string parsing, so a write staged in a multi-group repo's sandbox is the one CommitAndPR commits.
 
 applies_to: backend
 

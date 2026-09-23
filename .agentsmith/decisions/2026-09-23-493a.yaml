@@ -1,0 +1,33 @@
+phase: 2026-09-23-493a
+decisions:
+  - id: 1
+    what: "Derive the index line from the spec's goal wherever the goal fits, rather than rewriting the entry."
+    alternatives: "Rewrite all 273 entries by hand or by model."
+    why: >
+      PhaseRecordIndexLine.Compose already defines the shape the product writes — goal plus
+      pointer, cut to the cap. Deriving it makes 149 of the 273 a transformation with no new
+      claim in it, which no review has to check. Only what could not be derived was written.
+  - id: 2
+    what: "Screen every entry for a fact the spec does not carry before shortening it."
+    alternatives: "Treat the entry as pure duplication of its spec."
+    why: >
+      It mostly is, which is why the cap is right — but 42 entries carried a correction to
+      their own spec, a release number, or a step the spec claims shipped and did not. One
+      entry corrected its spec's release number; another recorded a deferral the spec still
+      claims as in scope. Those survive the compression; the reasoning does not.
+  - id: 3
+    what: "Shorten a shipped spec's goal instead of exempting the entry from the cap."
+    alternatives: "Leave long goals and keep those entries on the ratchet."
+    why: >
+      An entry cannot fit 400 characters while the goal it derives from runs past 200. The
+      200-character rule predates every one of these specs, so the goals were out of rule, not
+      the cap out of reach. The phase-versioning rule guards against a changed claim, and the
+      operator lifted it for a rewording that keeps one.
+  - id: 4
+    what: "One whole-file budget for a spec, measured but not installed here."
+    alternatives: "A cap per field."
+    why: >
+      Read off the corpus the way p0512 read the 400: the median spec is 4,752 characters, so
+      a 4,800 budget is one half of what is already written. Per field it would take about
+      5,700 ratchet rows; as one file budget it takes 494, and a phase spends the budget where
+      it needs it. Installing it belongs to the phase that bounds a spec file.

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0360
-goal: "A run killed mid-flight (OOM'd sandbox, wall-time, crash) loses at most the work since the last checkpoint, not everything: the framework commits + pushes each dirty repo sandbox to the run branch on every accepted update_progress replace (throttled, secret-scanned), and the final CommitAndPR treats checkpoint-committed repos as delivered instead of 'nothing to commit'"
+goal: "A run killed mid-flight loses only the work since the last checkpoint: every dirty repo sandbox is pushed to the run branch on each accepted update_progress, and CommitAndPR treats it as delivered."
 
 applies_to: backend
 

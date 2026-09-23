@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0341
-goal: "coding-agent-master carries a DURABLE progress ledger (a TodoWrite-style checklist seeded from the ratified plan) that survives context compaction verbatim, so a long run always knows which plan steps are done and which remain — killing the amnesia failure (duplicate greps, drift, retreat to a cheap metadata write) that lets the p0340 completion-loop lose its place mid-run. The ledger is MEMORY, not a new gate; p0340 still owns completion."
+goal: "coding-agent-master carries a durable progress ledger seeded from the ratified plan and surviving compaction, so a long run always knows which steps remain; it is memory, not a new gate"
 
 applies_to: "backend (AgenticMasterHandler, OpenAiContextCompactor + ClaudeContextCompactor, WriteRunResultHandler) + skills (coding-agent-master)"
 

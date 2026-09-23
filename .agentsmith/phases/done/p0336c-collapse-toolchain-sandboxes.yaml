@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0336c
-goal: "One sandbox per (repo, TOOLCHAIN IMAGE) instead of per (repo, image, resources) — same-image contexts within a repo build sequentially under the one agentic loop, so splitting them into separate pods by declared resources (p0268) only inflates the reserved footprint with zero parallelism gain. The footprint calculator (p0336) is aligned to the same grouping so admission reserves the REAL pod count, not one-per-context"
+goal: "One sandbox per (repo, toolchain image) instead of per (repo, image, resources), with the p0336 footprint calculator aligned to the same grouping so admission reserves the real pod count"
 
 applies_to: backend
 

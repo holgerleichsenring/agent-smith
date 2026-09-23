@@ -1,15 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0281d
 goal: |
-  Decouple CLI-driven scans from `projects`. Today api-scan/security-scan (and any verb that
-  runs a pipeline from the CLI) REQUIRE a project entry whose only real contribution is the
-  agent — the tracker is irrelevant and the repo reference is the noop-source placeholder.
-  Add `--agent <name>`: it resolves the agent from the config catalog and builds an EPHEMERAL
-  project (agent + --source-path, no tracker, no catalog repo) in ExecutePipelineUseCase, so a
-  scan runs with no project/tracker/repo at all. `--project` stays working but deprecated; if
-  both are given, --agent wins. Applies to EVERY CLI pipeline verb, not just the two scans.
-  Independent afternoon-sized slice; no discovery dependency. After this, the noop-source repo
-  and the stub scan projects are unnecessary (their removal is p0281e).
+  Decouple CLI pipeline verbs from the projects catalog: --agent resolves an agent and builds
+  an ephemeral project from --source-path, with --project kept working but deprecated.
 
 applies_to: "backend (CLI commands, ExecutePipelineUseCase) + agentsmith.schema.json + sample config"
 

@@ -1,17 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0262
 goal: |
-  Finish the status redesign: the ticket lifecycle status is DERIVED from the two
-  reliable sources (native ticket status + the ActiveRun lease), never read from a
-  stored singleton, and the lifecycle TAGS are pure output markers that drive NO
-  decision. Concretely: remove the drift-prone TicketLifecycles table + the
-  DbAuthoritative transitioner; move in-flight gating off the Enqueued/InProgress
-  TAGS onto the lease (the poller skips fresh-leased tickets); make the claim a
-  lease-only guard; delete the StaleJobDetector (its only non-reaper job — cancelling
-  the run of a stale lease — moves into the ActiveRunReaper). After this, there is ONE
-  place that decides "claim now?" (native-status-in-trigger + no fresh lease), one
-  atomic guard (the lease INSERT), and one recovery path (the reaper). The recurring
-  drift/thrash class is gone at the root, not gated.
+  Derive the ticket lifecycle status from the native status and the ActiveRun lease, dropping the TicketLifecycles table, the DbAuthoritative transitioner and the StaleJobDetector.
 
 applies_to: backend
 

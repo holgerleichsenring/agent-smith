@@ -1,19 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0365-reengagement-forward-progress-archetypes
 goal: |
-  The open loop's forward-progress gate only recognises a crisp completion —
-  MadeForwardProgress returns true ONLY on a newly-done ledger step or a
-  now-green verdict. A pass that made real edits/decisions toward a large
-  still-incomplete step counts as zero progress, so ReengageWhileProductive
-  stops mid-work. Verified live (run 2026-07-22T08-06-43-5d32, MassTransit→
-  Wolverine): the master began step 4, made ~10 productive calls + a new
-  decision, no step flipped done, no build went green — "re-engagement pass
-  made no forward progress — stopping". The keystone correctly recorded the
-  truncation as FAILED, but a productive gpt-5.1 was killed early. The same
-  gate would abort a greenfield UI-from-mockups build in its first pass (no
-  early green build, long no-completed-step ramp). Progress must be measured
-  as STATE CHANGE, and a self-reported "can't" must be verified as skeptically
-  as a self-reported "done".
+  Re-engagement stops on an empty pass — zero tool calls — not on a missing crisp completion, so a pass editing toward a large incomplete step keeps driving and a self-reported block needs a blocker.
 
 requires:
   - p0341c

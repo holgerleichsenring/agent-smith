@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0345c
-goal: "The config studio's forms KNOW the domain — capabilities-driven per-type fields (tracker/connection/agent), a real repo picker fed by the existing discovery cache (+ wildcard), the trigger mislabel fixed into pipeline + a resolution strategy selector, the full agent surface editable, Repositories showing both worlds, and Config-reads retold as wiring/provenance/drift"
+goal: "The config studio's forms know the domain: capabilities-driven per-type fields, a discovery-fed repo picker, the trigger mislabel fixed into pipeline with a resolution selector, and drift surfaced"
 
 applies_to: "backend + dashboard"
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0333
-goal: "MergeMasterFindings stops laundering static-pattern false positives into CRITICAL deliverables: a High+ in-source scanner fact whose file the master READ (and chose not to flag) is treated as an implicit rejection, not an uncovered gap — while git-history secrets and dependency CVEs still promote regardless, because reading current source does not refute them"
+goal: "MergeMasterFindings stops laundering static-pattern false positives into criticals: a High+ fact whose file the master read is an implicit rejection, while history secrets and CVEs still promote"
 
 applies_to: backend
 

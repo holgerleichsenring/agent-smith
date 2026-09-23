@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0279
 goal: |
-  Make the scan masters review DEEPER and cite source HONESTLY — within the single-agent
-  loop (true parallel fan-out is the follow-up p0280). p0278 got the master reviewing,
-  but a fresh current-main run showed a thin pass (4 cross-cutting files, 921/8192 output
-  tokens, 0 endpoint handlers touched) with findings that claim analyzed_from_source yet
-  carry no file:line. Two halves: (A-lite) a COVERAGE re-drive keyed on how little source
-  the master actually read; (B) ANCHORING — the api contract can carry file:line and the
-  framework downgrades source-claims on files the master never read.
+  Make the scan masters review deeper and cite source honestly within the single-agent loop: a coverage re-drive plus file:line anchoring that downgrades unread source claims.
 
 applies_to: "backend + skills"
 

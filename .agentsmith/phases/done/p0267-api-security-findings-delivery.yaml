@@ -1,11 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0267
 goal: |
-  An api-security scan must DELIVER its findings. Today it always reports 0:
-  Nuclei/Spectral/ZAP output and the master's triage never reach the
-  SkillObservations channel DeliverFindings reads, so a real target-API scan
-  (130 Nuclei + 4 ZAP + 1158 Spectral raw) surfaces nothing — identically across
-  models (gpt-4.1 and gpt-5.1 both 0, i.e. structural, not model-fitness).
+  Make an api-security scan deliver its findings: scanner output and the master's triage never reach the channel DeliverFindings reads, so every scan reports zero regardless of model.
 
 applies_to: "backend + skills"
 

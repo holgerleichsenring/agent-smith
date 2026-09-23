@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0359
-goal: "The progress ledger tracks what the master is ACTUALLY doing: the harness reminds the model when the ledger goes stale (Claude-Code TodoWrite mechanic), and the model owns the list — when the plan deviates mid-run it restructures the checklist (add/reword/drop), because the ledger feeds the keystone success verdict and must therefore stay influenceable"
+goal: "The harness reminds the master when its progress ledger goes stale and the model owns the list — add, reword or drop — because the ledger feeds the keystone verdict and must stay influenceable"
 
 applies_to: backend (+ coding-master skill in agent-smith-skills)
 
