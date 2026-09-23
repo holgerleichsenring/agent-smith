@@ -1,15 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0263
 goal: |
-  A real run that changed source but did not emit the Phase 4 verdict block is sunk
-  by the keystone ("did not emit a verification verdict … cannot be reported as
-  success"). The coding-agent-master SKILL already instructs Phase 4 (verified in the
-  pinned catalog v3.13.2) — the gap is MODEL-FITNESS: a gpt-4.1-class model does the
-  work but skips the closing artifact. Mirror the p0255 apply-drive: when the master
-  emitted no parseable verdict and a verdict is expected (a green-tests pipeline),
-  re-prompt the master ONCE — "do not edit further; build, test, emit ONLY your verdict
-  block" — and re-parse. A bounded second shot that salvages the run; the git +
-  verdict keystone still gates the final outcome.
+  When a green-tests pipeline's master emits no parseable verdict, re-prompt it once for the verdict block alone, salvaging a real code-changing run the keystone would otherwise sink.
 
 applies_to: backend
 

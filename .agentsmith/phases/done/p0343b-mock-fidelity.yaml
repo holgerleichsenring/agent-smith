@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0343b
-goal: "The shipped surfaces MATCH the ratified mockups — shell with Runs|Configuration toggle + contextual rail (monitor/catalog with counts, tracker footer), config studio as sidebar catalog with wiring rows + yml export, runs home with inflow pill + mock section styling, run detail with card beats + side metric rail — honest data only, nothing invented"
+goal: "The shipped surfaces match the ratified mockups - shell toggle with contextual rail, config studio catalog with wiring rows and yml export, runs home inflow, run detail beat cards - honest data only"
 
 applies_to: "backend + dashboard"
 

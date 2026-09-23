@@ -1,14 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0265
 goal: |
-  Let the analyzer/context-generator LLM name the exact sandbox toolchain image in
-  context.yaml `stack.image`, and have agent-smith consume it over the hardcoded
-  language→image convention table. Fixes the net8-repo bug (bare "dotnet"/"csharp"
-  resolved to sdk:9.0, which builds net8.0 but cannot RUN its tests — the 8.0
-  runtime/testhost is absent — sinking verification) and unblocks any framework
-  with no table row (Angular, …) without per-language glue or naming heuristics
-  in agent-smith. The LLM (which already read the manifests) decides the image;
-  agent-smith only validates it against a supply-chain + git-bearing gate.
+  Let the context LLM name the sandbox toolchain image in context.yaml stack.image and consume it over the language table, validated against a supply-chain and git-bearing gate.
 
 applies_to: backend
 

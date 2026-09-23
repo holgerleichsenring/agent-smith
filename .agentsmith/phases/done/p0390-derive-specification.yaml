@@ -2,7 +2,7 @@
 phase: p0390
 status: superseded
 superseded_by: p0393a
-goal: "A coding run derives a versioned work spec from the ticket after analysis, keeps it on the ticket branch as spec.yaml + spec.md, and CONTINUES it on every re-entry — so the run works from a structured, reviewable statement of WHAT must be true, and a PR comment or a re-trigger amends one artifact instead of producing a fresh reading of the prose"
+goal: "A coding run derives a versioned work spec from the ticket after analysis, keeps it on the ticket branch as spec.yaml plus spec.md, and continues it on every re-entry instead of re-reading the prose"
 
 applies_to: "pipeline + dashboard + skills"
 

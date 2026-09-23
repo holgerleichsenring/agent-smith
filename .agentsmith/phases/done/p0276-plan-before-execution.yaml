@@ -1,11 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0276
 goal: |
-  The plan is produced INSIDE the coding-agent-master (its Phase 1), so it appears late and
-  the Approval gate has nothing concrete to show ("approve a blank cheque"). Move plan
-  generation to a dedicated step BEFORE the master, so the plan is written and displayed
-  (and approvable) before any code changes; the master then EXECUTES the approved plan
-  instead of planning from scratch.
+  Move plan generation to a dedicated step before the master, so the plan is written, displayed and approvable before any code change and the master executes it instead of planning anew.
 
 applies_to: "server (pipeline + handlers) + coding-agent-master skill"
 

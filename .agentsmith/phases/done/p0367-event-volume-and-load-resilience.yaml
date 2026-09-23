@@ -1,14 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0367-event-volume-and-load-resilience
 goal: |
-  A single run emits ~1350 events, overwhelmingly SandboxCommand + SandboxResult
-  (one pair per tool call), and JobsBroadcaster fans EVERY run event to the Run
-  SignalR group — so every open run-detail viewer is pushed the full tool-call
-  firehose, and every event is also persisted. With several runs at once this
-  saturates the server (the observed ECONNREFUSED bursts) and floods the client.
-  Cut the volume at the source and keep the server answering connections under
-  concurrent load, WITHOUT losing the meaningful signal. Assume multiple runs run
-  simultaneously; the operator's window must stay responsive.
+  Run-event volume is cut at the source — sandbox detail moves to a per-sandbox group, persistence is batched off the send path and every fanout is bounded — so the server stays responsive under load.
 
 applies_to: "server"
 

@@ -1,12 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0283b
 goal: |
-  Make ticket discovery fetch ONLY claimable candidates by composing the tracker query from each
-  routed project's PER-TRACKER trigger — not fetch-all-then-filter. Per branch: (native status ∈
-  trigger_statuses) AND (resolution criterion), OR'd across the projects on the tracker, pushed into
-  JQL / AzDO-WIQL. Supersedes p0283a's status-only narrowing and removes the leaky negative
-  `statusCategory != Done` broad query, which re-reads agent-smith's own parking statuses (Jira
-  done_status "In Review" is NOT category Done). Scope: Jira + Azure DevOps.
+  Compose the ticket-discovery query per routed project from its per-tracker trigger so Jira
+  and Azure DevOps fetch only claimable candidates instead of fetching all and filtering.
 
 applies_to: "backend (TrackerPoller, ITicketProvider, Jira + Azure DevOps providers + per-provider discovery-query builders)"
 

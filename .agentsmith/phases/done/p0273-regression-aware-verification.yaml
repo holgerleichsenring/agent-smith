@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0273
 goal: |
-  Stop two failures at once. (1) A test that was ALREADY red at HEAD must not fail the
-  run — the keystone gates on REGRESSIONS (green→red), not on any red. The agent reports
-  the raw failing-test set TWICE (baseline before edits, final after), and the FRAMEWORK
-  computes regressions = final \ baseline, so "unrelated" is a measured fact, never the
-  agent's opinion. (2) Even when verification IS red, committed work must survive: push the
-  branch + open a PR marked "verification red" instead of aborting to nothing.
+  Gate verification on regressions rather than on any red test, computed by the framework from baseline and final failing sets, and open a PR marked verification red instead of losing the work.
 
 applies_to: "server (+ coding-agent-master skill, separate agent-smith-skills repo)"
 

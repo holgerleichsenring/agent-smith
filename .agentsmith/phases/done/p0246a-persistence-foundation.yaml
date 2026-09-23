@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246a
 goal: |
-  The SELF-CONTAINED persistence foundation of p0246: a new EF Core project with
-  the full ER model, multi-provider selection, the InitialCreate migration, the
-  provider-aware unique-violation translator, and the SQLite-proven single-run
-  constraint. NO production wiring yet (CLI/Server composition unchanged) — this
-  slice proves the core thesis (single-run = an ActiveRun UNIQUE constraint,
-  enforced by a real engine) without risking the running system. The claim
-  cutover, projector, reaper, lifecycle, and thin-notify are p0246b..e.
+  The self-contained persistence foundation - EF Core ER model, multi-provider selection, InitialCreate migration, unique-violation translator and the SQLite-proven single-run constraint, unwired.
 
 applies_to: "server (new AgentSmith.Infrastructure.Persistence) — NOT the CLI single-binary"
 

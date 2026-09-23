@@ -1,19 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0362-compaction-hysteresis-and-cache-side-summary
 goal: |
-  p0357 killed the per-iteration compaction regime BELOW the token threshold;
-  above it, the regime silently survives: the trigger measures the raw
-  append-only FIC history (which never shrinks), so a run that crosses the
-  threshold once compacts on EVERY subsequent call — tail re-sliced, summary
-  extended per turn (micro-summarizer call each), prefix bytes different each
-  time, provider prompt cache broken each iteration. Additionally the small
-  volatile pin (ledger + working state) sits BEFORE the large stable summary,
-  so even between changes the cacheable prefix ends at the ticket. Fix both:
-  measure the compacted VIEW (hysteresis — refold only when the view itself
-  re-crosses the threshold, forward append-only between events) and reorder
-  the view to [head | summary | pin | tail] so the summary lives on the
-  cache side. Post-threshold cached-share is the success metric (p0361/#448
-  makes it visible per call).
+  Compaction measures the compacted view rather than the raw history, so it refolds only when the view re-crosses the threshold, and the view is reordered to head, summary, pin, tail for the cache.
 
 requires:
   - p0341d

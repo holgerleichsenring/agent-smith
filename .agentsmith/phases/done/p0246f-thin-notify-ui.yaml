@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246f
 goal: |
-  The TRANSPORT + UI half of the original p0246e: demote Redis to thin
-  change-notifications and have the dashboard read run data from the DB. The
-  DATA half (everything durable in the DB, readable via DbRunStore /
-  DbRunArtifactStore) shipped in p0246a-e; this is the hub-contract reshape +
-  the dashboard refetch + regenerating p0239b's recorded UI-e2e fixtures. Carved
-  out because it is a large, higher-risk FE+BE contract change to the LIVE
-  SignalR/dashboard surface and warrants its own focused pass.
+  The transport and UI half of p0246e: reshape the hub contract to thin change-notifications, have the dashboard read run data from the DB, and regenerate the recorded UI-e2e fixtures.
 
 applies_to: "server (JobsHub/JobsBroadcaster) + dashboard (refetch + fixtures)"
 

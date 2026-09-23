@@ -1,19 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0251
 goal: |
-  Make the single-run CLAIM purely DB-authoritative — remove the volatile Redis
-  heartbeat gate that sits IN FRONT of the DB lease in the claim path. That gate
-  is the root of a recurring operational failure: after a run finishes/fails the
-  Redis heartbeat (set by MarkClaimedAsync) is only TTL-released — there is NO
-  release-on-finish — so it lingers ~2min and blocks the NEXT claim with
-  AlreadyClaimed, leaving the ticket stuck "pending" until the heartbeat expires
-  (and the bounce keeps re-setting it). It had to be cleared by hand repeatedly.
-
-  The DB ActiveRun UNIQUE(Project,TicketId) lease (p0246b) is the authoritative
-  guard: it survives a label revert AND a flushed Redis (which the heartbeat does
-  not), and it is RELEASED deterministically on run-finish (p0242). The heartbeat
-  pre-check is therefore redundant AND harmful. Drop it from the claim; keep the
-  heartbeat only as a liveness HINT for StaleJobDetector / EnqueuedReconciler.
+  Make the single-run claim purely DB-authoritative by removing the volatile Redis heartbeat gate in front of the ActiveRun lease, which lingered after a run and blocked the next claim.
 
 applies_to: backend
 

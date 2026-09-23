@@ -1,11 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246c
 goal: |
-  The server becomes the single DB writer: a server-side event projector extends
-  the existing Redis-stream consumer (JobsBroadcaster/JobsHubFanout) to persist
-  every ER entity from the run event stream and renew ActiveRun.heartbeat_at. The
-  spawned job stays TRANSPORT-ONLY (no DB connection, no secret-forwarding). Plus
-  the Db* stores behind the existing interfaces and a retention policy.
+  Make the server the single DB writer: a server-side projector persists every ER entity from the run event stream, plus the Db* stores behind the existing interfaces and a retention policy.
 
 applies_to: "server (event projector + Db* stores) — job/CLI stay DB-free"
 

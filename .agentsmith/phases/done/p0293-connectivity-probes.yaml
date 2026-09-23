@@ -1,12 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0293
 goal: |
-  Extend the /system/connections page (p0292) so it probes EVERY runtime connection
-  agent-smith depends on — not just repos + trackers. Add active, on-demand probes for
-  agents (LLM providers), the sandbox backend (Docker/K8s), Redis, the persistence DB,
-  and configured chat adapters (Slack/Teams). Container registry is deliberately excluded:
-  it is deploy infrastructure (k8s / docker-compose pulls images), not a connection
-  agent-smith opens at runtime.
+  Extend the connections page to probe every runtime connection agent-smith depends on:
+  agents, sandbox backend, Redis, the database and configured chat adapters.
 
 applies_to: "backend (probes + diagnostics service) + dashboard (Connections page)"
 

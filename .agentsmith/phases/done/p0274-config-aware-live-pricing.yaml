@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0274
 goal: |
-  Per-LLM-call cost renders $0.0000 even though tokens are tracked and the agent's
-  `pricing` config has the model — because the LIVE per-call path
-  (EventPublishingChatClient) resolves pricing through a BARE ModelPricingResolver that
-  ignores project config and lacks current models (gpt-5.1). Make the live cost path
-  config-aware (same source of truth as the run summary), so config-defined models are
-  priced; refresh the built-in fallback with current model families.
+  Make the live per-call cost path config-aware, sharing the run summary's source of truth, so config-priced models are no longer rendered as $0, and refresh the built-in fallback prices.
 
 applies_to: "server"
 

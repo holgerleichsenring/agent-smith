@@ -1,16 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0250
 goal: |
-  Bring agent-write routing and commit/run-record resolution onto ONE
-  denominator: the repo NAME. The split was the root of "recorded source edits
-  but committed NOTHING" on a multi-group repo — the master addressed sandboxes
-  by the composite KEY (BuildRepoNamesSection listed sandbox keys, p0179h), while
-  CommitAndPR resolved by repo NAME (p0249). For a single-group repo key == name,
-  so they agreed; for a multi-group repo (key `<repo>-<langSlug>`, p0180) they
-  diverged and the agent's write landed in a sandbox the commit never looked at.
-  Now the master addresses by repo NAME and the tool host aliases each name to
-  its sandbox via the authoritative key→repo map (p0249) — write and commit
-  resolve the SAME sandbox by construction.
+  Bring agent-write routing and commit resolution onto one denominator, the repo name, so a multi-group repo's write lands in the same sandbox CommitAndPR commits from.
 
 applies_to: backend
 

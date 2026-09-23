@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0327
-goal: "A run waiting on a DialogQuestion survives process restarts and multi-day silences: checkpoint at the ask, release compute, resume exactly there when the answer arrives. Today AskCommandHandler blocks in-process (RedisDialogueTransport polls job:{id}:in, 2h stream TTL) — a Friday question answered Monday is lost. This phase is the technical heart of the virtual-assistant loop; p0164a-style approvals and p0328 expectation negotiation are its consumers"
+goal: "A run waiting on a DialogQuestion survives restarts and multi-day silences: checkpoint at the ask, release compute, and resume exactly there when the answer arrives."
 
 applies_to: backend + dashboard
 
