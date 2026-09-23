@@ -12,6 +12,9 @@ const LABELS: Record<ResolutionSource, string> = {
   // 2026-09-22-6c46: a table in the code answered, not a setting — saying "default" here
   // would send an operator looking for a configuration key that does not exist.
   "code-default": "code default",
+  // 2026-09-23-2446: an environment variable answered, not a setting either — and this one
+  // is not even in the code, so neither "default" nor "code default" names where to look.
+  "environment-variable": "environment",
 };
 
 export function ProvenanceBadge({ source }: { source: ResolutionSource }) {

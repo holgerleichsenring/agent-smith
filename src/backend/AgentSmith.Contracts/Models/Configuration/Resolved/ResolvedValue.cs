@@ -26,6 +26,14 @@ public enum ResolutionSource
     /// <see cref="ResolvedValue{T}.Value"/> is null for these.
     /// </summary>
     RunResolved,
+
+    /// <summary>
+    /// 2026-09-23-2446: an ENVIRONMENT VARIABLE answered — the sandbox hold window's
+    /// <see cref="SandboxHoldWindow.EnvironmentVariable"/> leg, which exists so an
+    /// installation whose catalog says nothing still has a window. Naming it global-default
+    /// would send an operator to a settings form that holds no value.
+    /// </summary>
+    EnvironmentVariable,
 }
 
 /// <summary>
@@ -39,6 +47,11 @@ public sealed record ResolvedValue<T>(T Value, ResolutionSource Source)
 
     /// <summary>From the product's own code table rather than from any configuration.</summary>
     public static ResolvedValue<T> CodeDefault(T value) => new(value, ResolutionSource.CodeDefault);
+
+    /// <summary>2026-09-23-2446: from an environment variable rather than from the
+    /// catalog — a leg no settings form can be sent to.</summary>
+    public static ResolvedValue<T> FromEnvironment(T value) =>
+        new(value, ResolutionSource.EnvironmentVariable);
 
     /// <summary>Run-resolved: no config-time value (Value is default — null for a
     /// reference type, serialized as null for the dashboard).</summary>

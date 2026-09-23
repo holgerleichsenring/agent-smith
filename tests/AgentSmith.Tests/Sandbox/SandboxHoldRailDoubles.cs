@@ -34,18 +34,24 @@ internal static class SandboxHoldRailDoubles
         new(loader, new ServerContext("agentsmith.yml"),
             NullLogger<SandboxHoldWindowResolver>.Instance);
 
-    /// <summary>A catalog read that counts its calls, and can be made to fail.</summary>
+    /// <summary>
+    /// A catalog read that counts its calls, and can be made to fail. 2026-09-23-2446:
+    /// <see cref="Config"/> is settable, so a test can model an operator EDITING the
+    /// catalog after the process started — which is the difference between a value read
+    /// through the loader and one frozen into an options instance at composition.
+    /// </summary>
     internal sealed class CountingConfigLoader(AgentSmithConfig config) : IConfigurationLoader
     {
         public int Reads { get; private set; }
         public bool Fails { get; set; }
+        public AgentSmithConfig Config { get; set; } = config;
         public ConfigFileReadFact? LastRead => null;
 
         public AgentSmithConfig LoadConfig(string configPath)
         {
             Reads++;
             if (Fails) throw new InvalidOperationException("the configuration store is unreachable");
-            return config;
+            return Config;
         }
     }
 
