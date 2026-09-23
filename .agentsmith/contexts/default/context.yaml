@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-23-e7f0: "Two registrations built a type by hand with a constructor argument, which is how a null took the server down: a supplied argument is matched by runtime type and null has none. Both take a keyed instance now, and a rule forbids the shape rather than the nullability that widening defeats. -> .agentsmith/phases/done/2026-09-23-e7f0-nothing-is-built-with-arguments.yaml"
     2026-09-23-8d4d: "The embedded skills pin moves to the release carrying the corrected discovery example, so the system half of that prompt stops contradicting the user half 7868a fixed. A server mounting no skills reads this bundle. -> .agentsmith/phases/done/2026-09-23-8d4d-skills-pin-carries-the-fix.yaml"
     2026-09-23-2c60: "A server whose configuration declares no auth block died at startup: the sign-in check takes that block as a constructor argument, and ActivatorUtilities cannot match a null to a parameter. The absent block is the state the check exists to report. -> .agentsmith/phases/done/2026-09-23-2c60-preflight-survives-no-auth.yaml"
     2026-09-23-03b8: "Both bootstrap rounds now call the context-generation role, which joins the tool-bearing set in the same commit because a task outside it would leave them reading and writing nothing. Unset still resolves to primary. Four documents stop calling the role cheap, small or tool-less. -> .agentsmith/phases/done/2026-09-23-03b8-bootstrap-rounds-bind-the-role.yaml"

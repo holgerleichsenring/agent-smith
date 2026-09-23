@@ -1,0 +1,38 @@
+phase: 2026-09-23-e7f0
+decisions:
+  - id: 1
+    what: "The rule forbids the ARGUMENT, not its nullability."
+    alternatives: "Promote the compiler's possible-null-argument diagnostic to an error."
+    why: >
+      A nullability rule is satisfied by widening the parameter - which is warning-clean,
+      forwards the null unchanged, and is literally what the fix to the outage did first. With
+      no argument there is nothing to match by runtime type and nothing to fail; the shape
+      cannot be defeated that way.
+  - id: 2
+    what: "Both activation sites move in one phase."
+    alternatives: "Take the sign-in check now and the reachability probe later."
+    why: >
+      Splitting them is how the second one was left standing once already: one draft deferred
+      it to a rule phase, and the rule phase found no warning there and did nothing. The
+      identical shape would have survived both.
+  - id: 3
+    what: "A keyed INSTANCE, not a wrapper type and not a factory."
+    alternatives: "A new type carrying the composed block; or a keyed factory."
+    why: >
+      A distinguishing name is the whole requirement, and a key supplies it with no new type
+      and without moving the five consumers that resolve the plain registration. An instance is
+      what keeps the value the same object the token handler validates against - a factory
+      would re-read on first resolution and reintroduce the drift the passing exists to avoid.
+  - id: 4
+    what: "One key constant per consuming type, declared on that type."
+    alternatives: "One shared key for both."
+    why: >
+      Both extensions register against the same collection, so a shared key would mean two
+      registrations of one key and last-wins would silently decide which block the other type
+      receives.
+  - id: 5
+    what: "No coalesce at the probe's registration."
+    alternatives: "Mirror the sign-in check's guard for symmetry."
+    why: >
+      The method returns before that line when the block is unusable, so a coalesce there would
+      name a state that cannot reach it. The compiler agrees: no diagnostic fires.

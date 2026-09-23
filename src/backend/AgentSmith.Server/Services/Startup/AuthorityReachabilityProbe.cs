@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Contracts;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Services.Startup;
 
@@ -12,11 +13,20 @@ namespace AgentSmith.Server.Services.Startup;
 /// <see cref="IStartupFindings.Clear"/> exists for.
 /// </summary>
 internal sealed class AuthorityReachabilityProbe(
-    TokenAuthorityConfig auth,
+    [FromKeyedServices(AuthorityReachabilityProbe.ComposedAuthorityKey)] TokenAuthorityConfig auth,
     IStartupFindings findings,
     IHttpClientFactory clients,
     ILogger<AuthorityReachabilityProbe> logger) : IAuthorityReachability
 {
+    /// <summary>
+    /// 2026-09-23-e7f0: the composition root registers the block it COMPOSED under this key,
+    /// and this parameter asks for that one. The plain registration is read lazily on first
+    /// resolution, so a probe built later could measure a different authority than the handler
+    /// validates against — the one thing this finding must never be wrong about. The key is
+    /// declared beside the parameter that reads it, so the registration cannot drift from it.
+    /// </summary>
+    public const string ComposedAuthorityKey = "authority-reachability-probe.composed-authority";
+
     private const string DiscoveryPath = "/.well-known/openid-configuration";
 
     // Bounded for the same reason the boot probes are: an authority that blackholes its
