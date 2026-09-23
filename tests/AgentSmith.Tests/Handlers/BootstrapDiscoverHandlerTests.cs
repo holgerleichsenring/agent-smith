@@ -308,6 +308,66 @@ public sealed class BootstrapDiscoverHandlerTests
             "and the closing rule says it is read off the tree");
     }
 
+    [Fact]
+    public async Task BootstrapDiscover_TheTask_ExcludesAnInternallyConsumedLibrary()
+    {
+        // 2026-09-23-3332: the criterion excluded a CONSUMED library, so a class library
+        // the solution consumes internally — shipping to no registry — was never reached
+        // by it and a context was written per layer project. The skill body, which is this
+        // same prompt's system half, excludes internal shared libraries by name; the user
+        // half now says it in the same words.
+        var captured = new CapturedPrompt();
+        var handler = NewHandler(CompleteWith("api", "src/api", "csharp"), captured);
+        var pipeline = NewPipeline("api");
+
+        await handler.ExecuteAsync(NewContext("api", pipeline), CancellationToken.None);
+
+        captured.User.Should().Contain("internal shared libraries",
+            "the task excludes what the skill body excludes, in the skill's own words");
+        captured.User.Should().Contain("consumes internally",
+            "a library needs no registry to be excluded — being consumed at all is enough");
+        captured.User.Should().Contain("named for the layer it holds",
+            "the shape that was mistaken for a component is named so it is recognised");
+    }
+
+    [Fact]
+    public async Task BootstrapDiscover_TheTask_BoundsTheComponentCountByDeployment()
+    {
+        // 2026-09-23-7868a removed the only sentence bounding the COUNT along with the
+        // workdir rule it was written as. The anchor returns as a statement about what is
+        // deployed — never about the workdir, which stays read off the tree.
+        var captured = new CapturedPrompt();
+        var handler = NewHandler(CompleteWith("api", "src/api", "csharp"), captured);
+        var pipeline = NewPipeline("api");
+
+        await handler.ExecuteAsync(NewContext("api", pipeline), CancellationToken.None);
+
+        captured.User.Should().Contain("deploys one thing has",
+            "a reader can tell how many components a one-deployment repository has");
+        captured.User.Should().Contain("however many projects",
+            "the project count is named as what does NOT decide the component count");
+        captured.User.Should().NotContainEquivalentOf("single-component",
+            "the anchor bounds the count, and must not bring back the workdir rule with it");
+    }
+
+    [Fact]
+    public async Task BootstrapDiscover_ThePriorArt_BindsAddingToTheCriterion()
+    {
+        // 2026-09-23-9bb2 closed the prior art with "add a component that was missed",
+        // an invitation to add with nothing bounding what may be added. Adding stays
+        // possible — a repository genuinely grows — but the criterion is what admits it.
+        var captured = new CapturedPrompt();
+        var handler = NewHandler(CompleteWith("server", "src/server", "csharp"), captured);
+        var pipeline = NewPipelineWithExistingDiscoveries(("server", "server", "csharp"));
+
+        await handler.ExecuteAsync(NewContext("monorepo", pipeline), CancellationToken.None);
+
+        captured.User.Should().Contain("add a component the criterion below proves",
+            "the permission to add survives, bound to the criterion instead of beside it");
+        captured.User.Should().NotContain("add a component that was missed",
+            "an unbounded invitation to add is what put a layer project in the answer");
+    }
+
     private static string CompleteWith(string name, string workdir, string language) =>
         $$"""
           {
