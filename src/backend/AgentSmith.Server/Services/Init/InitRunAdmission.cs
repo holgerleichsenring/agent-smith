@@ -29,6 +29,7 @@ namespace AgentSmith.Server.Services.Init;
 public sealed class InitRunAdmission(
     IRunFootprintCalculator footprintCalculator,
     ICapacityBudget capacityBudget,
+    IHeldSandboxRegister heldSandboxes,
     ISandboxCapacityProbe capacityProbe,
     ILogger<InitRunAdmission> logger)
 {
@@ -37,6 +38,10 @@ public sealed class InitRunAdmission(
     {
         var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
         await capacityBudget.RecordAsync(runId, footprint, ct);
+        // 2026-09-22-2d11a: releasing held sandboxes is a force remove with no grace, which
+        // is why it belongs at the door the corpse sweep was taken out of. It is bounded by
+        // what this process holds — nothing, until a design conversation holds one.
+        await heldSandboxes.EvictAsync(ct);
 
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)

@@ -75,6 +75,27 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
             .Where(s => s.Platform == platform && s.SessionId == sessionId)
             .ExecuteDeleteAsync(ct);
 
+    /// <summary>
+    /// 2026-09-22-2d11a: the liveness columns of MANY sessions in one query — what a
+    /// sandbox reaper needs for a whole scan. No transcript is read: a scan that opened
+    /// every transcript of every labelled sandbox would pay a design conversation's worth
+    /// of JSON every thirty seconds.
+    /// </summary>
+    public async Task<IReadOnlyList<SpecDialogSession>> ListBySessionIdsAsync(
+        IReadOnlyCollection<string> sessionIds, CancellationToken ct) =>
+        sessionIds.Count == 0
+            ? []
+            : await unitOfWork.Set<SpecDialogSession>()
+                .Where(s => sessionIds.Contains(s.SessionId))
+                .Select(s => new SpecDialogSession
+                {
+                    SessionId = s.SessionId,
+                    Project = s.Project,
+                    IsOpen = s.IsOpen,
+                    LastActivityAt = s.LastActivityAt
+                })
+                .ToListAsync(ct);
+
     /// <summary>Persists changes staged on a tracked session entity.</summary>
     public Task SaveAsync(CancellationToken ct) => unitOfWork.SaveChangesAsync(ct);
 

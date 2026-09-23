@@ -62,6 +62,15 @@ public sealed class SandboxConfig
     public int? RunCommandTimeoutSeconds { get; set; }
 
     /// <summary>
+    /// 2026-09-22-2d11a: per-project override of how many seconds this project's design
+    /// conversations hold their source sandboxes between turns. Null = inherit the
+    /// top-level <c>sandbox.hold_seconds</c>; 0 = hold nothing for this project. A
+    /// repository set that is expensive to clone wants this higher; a project whose host
+    /// is short on capacity wants it lower or off.
+    /// </summary>
+    public int? HoldSeconds { get; set; }
+
+    /// <summary>
     /// p0245: per-language toolchain image overrides (language/framework slug →
     /// image), merged OVER the SandboxSpecBuilder code-default table — config wins
     /// per key. Null = inherit the code defaults. The whole-project

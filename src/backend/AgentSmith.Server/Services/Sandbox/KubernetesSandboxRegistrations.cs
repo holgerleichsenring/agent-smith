@@ -51,6 +51,7 @@ internal static class KubernetesSandboxRegistrations
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<SandboxPodLabels>(),
             sp.GetRequiredService<LiveRunSetReader>(),
+            sp.GetRequiredService<HeldConversationReader>(),
             sp.GetRequiredService<ILogger<KubernetesSandboxCorpseReaper>>()));
     }
 }

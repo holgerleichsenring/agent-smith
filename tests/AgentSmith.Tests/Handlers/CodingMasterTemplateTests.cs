@@ -300,8 +300,9 @@ public sealed class CodingMasterTemplateTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         var scope = new SourceScopeSandbox(
             ProjectWithTemplate(), ProjectWithTemplate().Templates[0].Repo, "v4.2.0",
+            hold: null,
             new SourceScopeOpener(
-                new SourceScopeMaterialiser(), spawns,
+                new SourceScopeMaterialiser(new SourceScopeRefresh()), spawns,
                 new SandboxSpecBuilder(
                     new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                     Mock.Of<IAgentImageResolver>(
@@ -331,7 +332,8 @@ public sealed class CodingMasterTemplateTests
     internal sealed class FixedScopeFactory(ISourceScopeSandbox scope) : ISourceScopeSandboxFactory
     {
         public ISourceScopeSandbox Create(
-            ResolvedProject project, RepoConnection repo, string? revision = null) => scope;
+            ResolvedProject project, RepoConnection repo, string? revision = null,
+            string? conversationId = null) => scope;
     }
 
     internal sealed class RecordingScope : ISourceScopeSandbox

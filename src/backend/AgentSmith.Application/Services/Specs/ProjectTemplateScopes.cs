@@ -46,14 +46,20 @@ public sealed class ProjectTemplateScopes(
     /// before anything is checked out, so it has discovered nothing and is handed nothing —
     /// and a cut made without the house shape is inherited by every run the epic files.
     /// </summary>
-    public IReadOnlyDictionary<string, ISourceScopeSandbox> ForProject(ResolvedProject project)
+    /// <param name="conversationId">
+    /// 2026-09-22-2d11b: null for a run, and the design conversation's id for a dialog turn —
+    /// which is what lets the sandbox a template is read through outlive the turn that opened it.
+    /// </param>
+    public IReadOnlyDictionary<string, ISourceScopeSandbox> ForProject(
+        ResolvedProject project, string? conversationId = null)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return Select(project, [], contexts: null);
+        return Select(project, [], contexts: null, conversationId);
     }
 
     private IReadOnlyDictionary<string, ISourceScopeSandbox> Select(
-        ResolvedProject project, HashSet<string> discovered, IReadOnlyCollection<string>? contexts)
+        ResolvedProject project, HashSet<string> discovered, IReadOnlyCollection<string>? contexts,
+        string? conversationId = null)
     {
         if (project.Templates.Count == 0) return Empty();
         var wanted = contexts is null || contexts.Count == 0
@@ -72,7 +78,7 @@ public sealed class ProjectTemplateScopes(
             // and then opened two clones of one repository.
             if (!TemplateScopeName.Owns(project.Templates, ordinal)) continue;
             var name = TemplateScopeName.For(template);
-            result[name] = scopes.Create(project, template.Repo, template.Revision);
+            result[name] = scopes.Create(project, template.Repo, template.Revision, conversationId);
             logger.LogInformation(
                 "Template '{Name}' ({Repo} at {Revision}) is open to this run",
                 name, template.Repo.Name, template.Revision ?? "its own default");

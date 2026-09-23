@@ -162,6 +162,20 @@ function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v:
         onChange={(v) => set({ maxConcurrentSandboxes: v ?? null })} testId="setting-sandbox-maxconcurrent"
         placeholder="2"
         help={`sandbox containers one Docker host runs at once — ${NEXT_DECISION}`} />
+      {/* 2026-09-22-2d11a: a design conversation keeps its source sandboxes between
+          turns. A hold never denies a run — every capacity door releases what this
+          server holds before it probes — so the cost of a wrong number is idle
+          resources, not a refusal. */}
+      <p className="help" data-testid="setting-sandbox-hold-note">
+        A design conversation holds the source sandboxes it opened for this long after a
+        turn, so the next question does not pay for the clone again. Left empty it falls
+        back to the SANDBOX_HOLD_SECONDS environment variable, and then to 180 seconds;
+        0 holds nothing. Per project, this can be overridden on the project itself.
+      </p>
+      <NumberField label="Sandbox hold (seconds)" value={value.holdSeconds ?? undefined}
+        onChange={(v) => set({ holdSeconds: v ?? null })} testId="setting-sandbox-hold"
+        placeholder="180"
+        help={`how long a design conversation keeps its source sandboxes — ${NEXT_DECISION}`} />
     </>
   );
 }

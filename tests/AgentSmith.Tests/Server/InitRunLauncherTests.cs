@@ -338,7 +338,8 @@ public sealed class InitRunLauncherTests : IDisposable
         NullLogger<InitRunLauncher>.Instance);
 
     private InitRunAdmission NewAdmission() => new(
-        StubFootprintCalculator(), NewBudget(), _probe, NullLogger<InitRunAdmission>.Instance);
+        StubFootprintCalculator(), NewBudget(), Spawning.CapacityTestDoubles.NoHolds(), _probe,
+        NullLogger<InitRunAdmission>.Instance);
 
     private ICapacityBudget NewBudget() => new DbCapacityBudget(
         _provider.GetRequiredService<IServiceScopeFactory>(),

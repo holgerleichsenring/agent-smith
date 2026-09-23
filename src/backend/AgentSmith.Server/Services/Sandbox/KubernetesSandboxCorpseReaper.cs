@@ -6,23 +6,25 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// p0355: the Kubernetes corpse-pod sweep. Deletes sandbox pods whose owning run is
-/// not live — a CORPSE that would otherwise hold the namespace ResourceQuota and
-/// starve new runs (19008Mi of 20Gi held by orphaned pods, so a fresh 4Gi sandbox was
-/// forbidden and the run died mid-spawn). A live run is one whose DB lease heartbeat
-/// is fresh (flush-proof) or that sits in the Redis active-runs set; a pod younger
-/// than <see cref="MinPodAge"/> is spared. Runs periodically (leader housekeeping)
-/// and at capacity-claim time.
+/// p0355: the Kubernetes corpse-pod sweep. Deletes sandbox pods no rail saves — a
+/// CORPSE that would otherwise hold the namespace ResourceQuota and starve new runs
+/// (19008Mi of 20Gi held by orphaned pods, so a fresh 4Gi sandbox was forbidden and
+/// the run died mid-spawn). Runs periodically (leader housekeeping) and at
+/// capacity-claim time.
 ///
 /// p0465: the sweep asks only for the pods of ITS OWN liveness store
 /// (<see cref="SandboxPodLabels.OwnedSelector"/>) — the namespace is shared, and a
 /// second server in it used to delete the first one's live sandbox pods.
+///
+/// 2026-09-22-2d11a: the rails moved into <see cref="SandboxReapJudge"/>, shared with
+/// the Docker reaper, and a pod whose conversation is held is now one of them.
 /// </summary>
 public sealed class KubernetesSandboxCorpseReaper(
     IKubernetes client,
     KubernetesSandboxOptions options,
     SandboxPodLabels labels,
     LiveRunSetReader liveRuns,
+    HeldConversationReader heldConversations,
     ILogger<KubernetesSandboxCorpseReaper> logger) : ISandboxCorpseReaper
 {
     public static readonly TimeSpan MinPodAge = TimeSpan.FromSeconds(60);
@@ -34,12 +36,15 @@ public sealed class KubernetesSandboxCorpseReaper(
         var pods = await ListCandidatesAsync(cancellationToken);
         if (pods.Count == 0) return 0;
 
+        var candidates = SandboxPodCandidates.From(pods, DateTimeOffset.UtcNow);
         var live = await liveRuns.ReadAsync(cancellationToken);
+        var held = await heldConversations.ReadAsync(candidates, cancellationToken);
         var reaped = 0;
-        foreach (var (podName, runId) in SelectCorpses(pods, live, MinPodAge, DateTimeOffset.UtcNow))
+        foreach (var corpse in SandboxReapJudge.Judge(candidates, live, held, MinPodAge)
+                     .Where(v => v.Outcome == SandboxReapOutcome.Orphan))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (await DeleteAsync(podName, runId, cancellationToken)) reaped++;
+            if (await DeleteAsync(corpse.SandboxId, corpse.RunId, cancellationToken)) reaped++;
         }
         return reaped;
     }
@@ -77,31 +82,10 @@ public sealed class KubernetesSandboxCorpseReaper(
         }
     }
 
-    // Pure: given this store's sandbox pods and the live-run set, name the corpses
-    // (pod name + its run-id label) to delete. Extracted so the corpse decision is
-    // unit-tested without a k8s client mock. A pod is a corpse when it is older than
-    // <paramref name="minAge"/> AND its run-id label maps to no live run (or carries
-    // no run id at all — a runless probe pod its owner never cleaned up).
-    internal static IReadOnlyList<(string PodName, string RunId)> SelectCorpses(
-        IEnumerable<V1Pod> pods, ISet<string> liveRuns, TimeSpan minAge, DateTimeOffset now)
-    {
-        var corpses = new List<(string, string)>();
-        foreach (var pod in pods)
-        {
-            var name = pod.Metadata?.Name;
-            if (string.IsNullOrEmpty(name)) continue;
-            var runId = LabelOrEmpty(pod, SandboxPodLabels.RunIdLabel);
-            if (PodAge(pod, now) < minAge) continue;              // spawn-window race rail
-            if (runId.Length > 0 && liveRuns.Contains(runId)) continue; // a live run owns it
-            corpses.Add((name!, runId));
-        }
-        return corpses;
-    }
-
     private async Task<bool> DeleteAsync(string podName, string runId, CancellationToken ct)
     {
         logger.LogInformation(
-            "Corpse reaper DELETE pod {Pod} runId={RunId} — no live run owns it",
+            "Corpse reaper DELETE pod {Pod} runId={RunId} — no live run and no live conversation owns it",
             podName, runId.Length > 0 ? runId : "—");
         try
         {
@@ -115,14 +99,4 @@ public sealed class KubernetesSandboxCorpseReaper(
             return false;
         }
     }
-
-    private static TimeSpan PodAge(V1Pod pod, DateTimeOffset now)
-    {
-        var created = pod.Metadata?.CreationTimestamp;
-        if (created is null) return TimeSpan.MaxValue; // no timestamp → treat as old (reapable)
-        return now - new DateTimeOffset(DateTime.SpecifyKind(created.Value, DateTimeKind.Utc));
-    }
-
-    private static string LabelOrEmpty(V1Pod pod, string key) =>
-        pod.Metadata?.Labels is { } labels && labels.TryGetValue(key, out var v) ? v : string.Empty;
 }

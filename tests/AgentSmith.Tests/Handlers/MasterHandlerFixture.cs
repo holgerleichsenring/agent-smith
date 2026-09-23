@@ -104,7 +104,8 @@ internal static class MasterHandlerFixture
                     Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
                     AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
-                new SandboxTargets()),
+                new SandboxTargets(),
+                AgentSmith.Tests.Spawning.CapacityTestDoubles.NoHolds()),
             limits ?? new LoopLimitsConfig { MaxSubAgentsPerRun = maxSubAgents },
             new SubAgentBudget(20),
             subAgents ?? new StubSubAgentRunner(),
@@ -116,7 +117,9 @@ internal static class MasterHandlerFixture
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
     private sealed class NoTemplateScopes : ISourceScopeSandboxFactory
     {
-        public ISourceScopeSandbox Create(ResolvedProject project, RepoConnection repo, string? revision = null) =>
+        public ISourceScopeSandbox Create(
+            ResolvedProject project, RepoConnection repo, string? revision = null,
+            string? conversationId = null) =>
             throw new InvalidOperationException("no template was declared in this test");
     }
 

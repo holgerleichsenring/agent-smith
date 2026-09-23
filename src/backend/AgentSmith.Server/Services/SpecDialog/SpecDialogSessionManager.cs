@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -13,6 +14,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogSessionManager(
     SpecDialogSessionRepository repository,
+    IHeldSandboxRegister holds,
     TimeProvider timeProvider,
     ILogger<SpecDialogSessionManager> logger)
 {
@@ -25,7 +27,7 @@ public sealed class SpecDialogSessionManager(
         string platform, string channelId, string threadId, string userId,
         ActiveScope scope, CancellationToken ct)
     {
-        await repository.CloseOpenForThreadAsync(platform, threadId, ct);
+        await CloseAndReleaseAsync(platform, threadId, ct);
 
         var session = new SpecDialogSession
         {
@@ -94,5 +96,18 @@ public sealed class SpecDialogSessionManager(
     }
 
     public Task CloseAsync(string platform, string threadId, CancellationToken ct) =>
-        repository.CloseOpenForThreadAsync(platform, threadId, ct);
+        CloseAndReleaseAsync(platform, threadId, ct);
+
+    /// <summary>
+    /// 2026-09-22-2d11b: a conversation that is closed — or forked away from, which closes it
+    /// first — lets go of the sandboxes it was holding between turns. The teardown is detached
+    /// from whoever asked for it: a fork closes the old session on the way to opening its
+    /// successor, and nobody should wait for containers on that path.
+    /// </summary>
+    private async Task CloseAndReleaseAsync(string platform, string threadId, CancellationToken ct)
+    {
+        var open = await repository.GetOpenByThreadAsync(platform, threadId, ct);
+        await repository.CloseOpenForThreadAsync(platform, threadId, ct);
+        if (open is not null) _ = holds.ReleaseConversationAsync(open.SessionId, CancellationToken.None);
+    }
 }

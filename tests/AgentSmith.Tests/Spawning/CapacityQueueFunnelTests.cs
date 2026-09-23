@@ -238,8 +238,8 @@ public sealed class CapacityQueueFunnelTests : IDisposable
         budget.Setup(b => b.ReleaseAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         return new InitRunAdmission(
-            CapacityTestDoubles.StubCalculator(), budget.Object, CapacityTestDoubles.AlwaysAdmit(),
-            NullLogger<InitRunAdmission>.Instance);
+            CapacityTestDoubles.StubCalculator(), budget.Object, CapacityTestDoubles.NoHolds(),
+            CapacityTestDoubles.AlwaysAdmit(), NullLogger<InitRunAdmission>.Instance);
     }
 
     // The real Docker probe over a daemon already at its bound, with the bound named in the
@@ -325,7 +325,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 CapacityTestDoubles.StubCalculator(),
                 budget.Object,
                 BuildDbQueue(connection),
-                reaper.Object, counted.Object,
+                reaper.Object, CapacityTestDoubles.NoHolds(), counted.Object,
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),

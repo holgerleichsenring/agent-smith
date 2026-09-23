@@ -11,27 +11,31 @@ namespace AgentSmith.Tests.TestHelpers;
 /// Run-commands fire one stdout line via progress so handlers that
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
-internal sealed class StubSandbox : ISandbox
+internal sealed class StubSandbox : IHoldableSandbox
 {
     public string JobId { get; } = "stub-" + Guid.NewGuid().ToString("N")[..8];
     public List<Step> RanSteps { get; } = new();
 
-    // p0239: model git staging so a scripted WriteFile is visible to
-    // `git diff --cached` — without this the fast-tier harness could never make
-    // `anyCode` true, so the keystone-SUCCESS-with-real-change path was untestable.
-    // Repo-relative writes (what `git add -A` in /work would stage) are tracked;
-    // absolute system paths (/root/.nuget credentials) are not in the repo.
+    // p0239: model git staging so a scripted WriteFile is visible to `git diff --cached`.
+    // Repo-relative writes (what `git add -A` in /work would stage) are tracked; absolute
+    // system paths (/root/.nuget credentials) are not in the repo.
     private readonly List<string> _stagedFiles = new();
 
-    // p0193-fix follow-up: remember written contents so a subsequent ReadFile
-    // of the same path returns what was written (write-then-read fidelity).
-    // BootstrapRoundHandler verifies context.yaml exists on the sandbox after
-    // the round — without this the fast tier could never satisfy that check.
+    // p0193-fix follow-up: remember written contents so a subsequent ReadFile of the same
+    // path returns what was written — BootstrapRoundHandler verifies context.yaml exists.
     private readonly Dictionary<string, string> _writtenFiles = new(StringComparer.Ordinal);
+
+    /// <summary>2026-09-22-2d11b: the remote the last clone into this work path named.</summary>
+    public string? Origin { get; private set; }
+
+    /// <summary>What rev-parse answers; a refreshed tree lands on a different one.</summary>
+    public string Head { get; set; } = "stub-head";
 
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
     {
         RanSteps.Add(step);
+        if (IsGit(step, "clone"))
+            Origin = step.Args?.FirstOrDefault(a => a.Contains("://", StringComparison.Ordinal));
         if (step.Kind == StepKind.WriteFile && step.Path is { } wp)
         {
             var rel = wp.StartsWith("/work/", StringComparison.Ordinal) ? wp["/work/".Length..] : wp;
@@ -51,9 +55,10 @@ internal sealed class StubSandbox : ISandbox
                 ? _writtenFiles.GetValueOrDefault(Normalize(rp), string.Empty)
                 : string.Empty,
             StepKind.WriteFile => $"File written: {step.Path}",
-            // p0439: a verified head to name, and nothing beyond it — the stub models no
-            // commits, so the branch never carries work its last verification did not see.
-            StepKind.Run when IsGit(step, "rev-parse") => "stub-head",
+            // p0439: a verified head to name, and nothing beyond it. 2026-09-22-2d11b: and
+            // who the work path is a clone OF, which is what tells the refresh rung apart.
+            StepKind.Run when IsGit(step, "remote.origin.url") => Origin ?? string.Empty,
+            StepKind.Run when IsGit(step, "rev-parse") => Head,
             StepKind.Run when IsGit(step, "--name-status") => string.Empty,
             StepKind.Run when IsGitDiff(step) => GitDiffOutput(step),
             _ => string.Empty,
@@ -71,12 +76,9 @@ internal sealed class StubSandbox : ISandbox
     private static bool IsGit(Step step, string arg) =>
         step.Command == "git" && step.Args is { } a && a.Contains(arg);
 
-    // `git diff --cached --name-only` -> the staged repo-relative names;
-    // `git diff …` (content) -> a real unified diff NAMING the staged files.
-    // p0422: the delivery account reads the diff and cites the file that satisfies each
-    // criterion. A stub answering "diff --git a/staged b/staged" made every citation
-    // unresolvable, so the harness reported nothing delivered over work it had just
-    // written — the stub was the part that lied, not the gate.
+    // `git diff --cached --name-only` -> the staged repo-relative names; `git diff …` -> a
+    // real unified diff NAMING them. p0422: the delivery account cites the file that
+    // satisfies each criterion, so an unresolvable name reports nothing delivered.
     private string GitDiffOutput(Step step)
     {
         if (step.Args is { } a && a.Contains("--name-only"))
@@ -86,9 +88,8 @@ internal sealed class StubSandbox : ISandbox
             $"diff --git a/{file} b/{file}\n--- a/{file}\n+++ b/{file}\n@@ -1 +1 @@\n+stub change\n"));
     }
 
-    // Synthetic workspace tree for handlers that enumerate files. Non-md
-    // entry covers BootstrapDocument's "find a non-md source" path; the
-    // .agentsmith/ entries cover LoadContext / LoadCodingPrinciples.
+    // Synthetic workspace tree for handlers that enumerate files: the non-md entry covers
+    // BootstrapDocument, the .agentsmith/ entries LoadContext / LoadCodingPrinciples.
     private static string DefaultListing(string? path)
     {
         if (string.IsNullOrEmpty(path)) return "[]";
@@ -97,12 +98,18 @@ internal sealed class StubSandbox : ISandbox
         return "[\"document.txt\"]";
     }
 
-    /// <summary>
-    /// 2026-09-13-ed5a: whether the owner tore this sandbox down. A spec-dialog turn owns
-    /// every scope it opened — templates included — and a foreign read-only checkout left
-    /// running is a container nobody owns any more.
-    /// </summary>
+    /// <summary>2026-09-13-ed5a: whether the owner tore this sandbox down — a foreign
+    /// read-only checkout left running is a container nobody owns any more.</summary>
     public bool Disposed { get; private set; }
+
+    /// <summary>2026-09-22-2d11b: whether a hold's release took it, which never waits.</summary>
+    public bool ForceRemoved { get; private set; }
+
+    public Task ForceRemoveAsync(CancellationToken cancellationToken)
+    {
+        ForceRemoved = true;
+        return Task.CompletedTask;
+    }
 
     public ValueTask DisposeAsync()
     {

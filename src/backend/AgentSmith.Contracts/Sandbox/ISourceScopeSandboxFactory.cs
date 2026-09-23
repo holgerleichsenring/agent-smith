@@ -15,6 +15,14 @@ public interface ISourceScopeSandboxFactory
     /// is full — no depth, no --no-tags — so a named revision is a checkout and not a
     /// second protocol.
     /// </param>
+    /// <param name="conversationId">
+    /// 2026-09-22-2d11a: the design conversation this scope belongs to, stamped on the
+    /// sandbox as a label. Null leaves the label off and the reapers' third rail out of
+    /// reach — what a RUN passes. 2026-09-22-2d11b: a design turn names its conversation,
+    /// and the scope then takes the sandbox that conversation already holds and hands it
+    /// back when the turn ends.
+    /// </param>
     ISourceScopeSandbox Create(
-        ResolvedProject project, RepoConnection repo, string? revision = null);
+        ResolvedProject project, RepoConnection repo, string? revision = null,
+        string? conversationId = null);
 }

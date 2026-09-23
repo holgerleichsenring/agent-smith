@@ -58,7 +58,8 @@ public sealed class DialogConversationDeleteTests : IDisposable
         _repository = new SpecDialogSessionRepository(_context);
         _answers = new DialogueAnswerRepository(_context, new SqliteUniqueViolationTranslator());
         _sessions = new SpecDialogSessionManager(
-            _repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
     }
 
@@ -184,7 +185,8 @@ public sealed class DialogConversationDeleteTests : IDisposable
             .ThrowsAsync(new InvalidOperationException("the transaction could not commit"));
 
         var thrown = async () => await SpecDialogDeletionEndpoints.DeleteAsync(
-            session, Principal(Owner), _ownership, _gate, failing.Object, CancellationToken.None);
+            session, Principal(Owner), _ownership, _gate, failing.Object,
+            AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
         await thrown.Should().ThrowAsync<InvalidOperationException>();
         _gate.TryEnter(session).Should().BeTrue(
@@ -260,7 +262,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             sessionId, Principal(caller), _ownership, _gate,
             deleter ?? new SpecDialogConversationDeleter(
                 _context, _repository, _answers, new SpecDialogAttachmentRepository(_context)),
-            CancellationToken.None);
+            AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
     private static int StatusOf(IResult result) =>
         result.Should().BeAssignableTo<IStatusCodeHttpResult>().Which.StatusCode

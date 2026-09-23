@@ -289,6 +289,23 @@ public sealed class SpawnPipelineRunsUseCaseTests
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
     }
 
+    // 2026-09-22-2d11a: the ticket spawn funnel releases held sandboxes in the reconcile
+    // that already precedes the probe, so a hold can never defer a ticket.
+    [Fact]
+    public async Task Release_TheTicketSpawnFunnel_ReleasesBeforeItProbes()
+    {
+        var recording = new AgentSmith.Tests.Sandbox.RecordingHeldSandboxes();
+        var harness = new Harness(quotaProbe: recording.AdmittingProbe(), heldSandboxes: recording);
+
+        await harness.Sut.ExecuteAsync(
+            ClaimableConfig, BuildProject("p1", repos: ["repo-only"]), "fix-bug",
+            Envelope("42"), Trigger(), CancellationToken.None);
+
+        recording.Order.Should().Equal(
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Released,
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe);
+    }
+
     private sealed class Harness
     {
         private readonly RecordingQueue _queue = new();
@@ -301,7 +318,8 @@ public sealed class SpawnPipelineRunsUseCaseTests
         public string? EnqueuedRunId => _queue.LastReservedRunId;
 
         public Harness(bool fits = true, RunFootprintBreakdown? footprint = null,
-            ISandboxCapacityProbe? quotaProbe = null, IRunListNudge? nudge = null)
+            ISandboxCapacityProbe? quotaProbe = null, IRunListNudge? nudge = null,
+            IHeldSandboxRegister? heldSandboxes = null)
         {
             var claimService = new Mock<ITicketClaimService>();
             claimService.Setup(c => c.ClaimAsync(
@@ -333,7 +351,8 @@ public sealed class SpawnPipelineRunsUseCaseTests
             Sut = new SpawnPipelineRunsUseCase(
                 claimService.Object, calculator.Object, budget.Object,
                 _queue,
-                CapacityTestDoubles.NoCorpses(), quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
+                CapacityTestDoubles.NoCorpses(), heldSandboxes ?? CapacityTestDoubles.NoHolds(),
+                quotaProbe ?? CapacityTestDoubles.AlwaysAdmit(),
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 nudge ?? CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),

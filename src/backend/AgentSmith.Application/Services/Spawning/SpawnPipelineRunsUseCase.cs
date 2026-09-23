@@ -39,6 +39,7 @@ public sealed class SpawnPipelineRunsUseCase(
     ICapacityBudget capacityBudget,
     ICapacityQueue capacityQueue,
     ISandboxCorpseReaper corpseReaper,
+    IHeldSandboxRegister heldSandboxes, // 2026-09-22-2d11a: a hold never denies a run
     ISandboxCapacityProbe capacityProbe,
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
@@ -113,6 +114,8 @@ public sealed class SpawnPipelineRunsUseCase(
         string runId, RunFootprintBreakdown footprint, CancellationToken ct)
     {
         await capacityBudget.RecordAsync(runId, footprint, ct);
+        // 2026-09-22-2d11a: the release joins the reconcile that already precedes the probe.
+        await heldSandboxes.EvictAsync(ct);
         await corpseReaper.ReapCorpsesAsync(ct);
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)
