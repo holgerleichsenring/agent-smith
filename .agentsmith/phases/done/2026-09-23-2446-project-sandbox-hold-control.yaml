@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-2446
+
+goal: "The sandbox hold window joins the project form's sandbox tab, reading a live process-wide value so the placeholder an operator sees is the window a reaper scan will actually use."
+
+applies_to: "backend (the shared fallback chain, the studio's project block, the inherited projection's live read, and a provenance name for the environment leg) + dashboard (a sixth scalar control)"
+
+scope:
+  in: >
+    Two phases landed in parallel and neither could see the other's half. 2026-09-22-2d11a put the
+    hold window in both configuration blocks, resolved it project-then-process-wide at reaper-scan
+    time, and gave it a control in the process-wide settings form — whose help text already
+    promises it "can be overridden on the project itself", which is not true today.
+    2026-09-22-6968 opened the project form's sandbox tab. The per-project control was assigned to
+    that tab by both specs and built by neither.
+    THE PLACEHOLDER MUST BE AS LIVE AS THE EFFECT, WHICH NO OTHER FIELD IN THIS TAB HAS TO BE. The
+    inherited projection is built from an options instance and a configuration object that are
+    each assembled ONCE at composition; the config-epoch reloader refreshes the store and not
+    them, and the code says so where it already bit someone. Every other value in the tab reaches
+    its consumer at run start or after a restart, so a frozen placeholder matches a frozen effect.
+    The hold window does not: the scan-time resolver reads the configuration loader live, every
+    thirty seconds on Docker and sixty on a cluster. A placeholder from composition would
+    therefore disagree with the window in force from the moment an operator edits anything — the
+    only moment this control matters. So the projection reads the process-wide sandbox block
+    through the loader for THIS field, the way the resolver does.
+    ONE COMPUTATION, NOT TWO. The process-wide answer is a three-step fallback — the field, then
+    SANDBOX_HOLD_SECONDS, then a built-in three minutes, each clamped at zero. It moves out of the
+    scan-time resolver into one type that both callers use. It belongs in the contracts assembly:
+    the no-static-state rule scans the application and infrastructure assemblies and would flag its
+    default as static state needing an allowlist entry, and contracts is not scanned.
+    THE ENVIRONMENT LEG NEEDS A NAME THAT DOES NOT EXIST. Provenance has four values and none of
+    them is "an environment variable answered". Worse, the name mapper ends in a default arm that
+    renders anything unrecognised as the process-wide default — so a new value whose case is
+    forgotten would silently claim to be the leg it exists to be told apart from. The phase adds
+    the value, the case, and a test that fails when a future value is added without one.
+    A SIXTH SCALAR IS A TRAP THAT THIS CHANGE SETS, NOT A DEFECT IT REPAIRS. Today the patch
+    assigns the five scalars it knows and never mentions the hold window, so a stored per-project
+    value survives every save. The moment the block carries the field, the patch assigns it — and
+    a projection that did not also READ it would write null back on the next save. Both halves
+    land together, and a round-trip test pins it.
+  out: >
+    MAKING THE OTHER FIVE PLACEHOLDERS LIVE. They stay as they are, because what they describe is
+    itself frozen until a restart: a live placeholder for a frozen effect would be a second lie in
+    the opposite direction. Named in prose as the phase that un-freezes the sandbox options, after
+    which one read serves the whole tab.
+    CHANGING HOW THE WINDOW IS RESOLVED AT SCAN TIME. The order, the clamp, the once-per-scan read
+    and the keep-the-last-value-on-failure rule are 2026-09-22-2d11a's. This phase moves where the
+    process-wide half is COMPUTED and not what it computes — but the resolver is not untouched:
+    its default-window constant moves with the chain, and the existing rail test that reads that
+    constant follows it.
+    A PER-PROJECT ENVIRONMENT FALLBACK. The variable is a process-wide fallback and stays one.
+    THE STRUCTURED THREE, AND THE PROCESS-WIDE CONTROL. Untouched.
+    ENFORCING THAT A CLIENT SENDS EVERY SCALAR. It cannot be enforced: the block is a positional
+    record with null defaults, so a missing property and an explicit null bind identically and no
+    discriminator exists at the field level. The rule is a convention the one client keeps, and
+    this phase states it rather than implying a mechanism.
+
+decisions:
+  - key: |
+      THE PROJECTION READS THE LOADER FOR THIS FIELD, AND THAT IS THE WHOLE POINT OF THE PHASE. An
+      earlier draft said moving the fallback chain into one type would make the placeholder and the
+      reaper agree. It would not: one algorithm over two inputs of different ages is still two
+      answers. The loader read is cheap on this path — it is a dashboard request, not a hot loop —
+      and the precedent for calling it without a server-only path already exists in the tree.
+  - key: |
+      THE SHARED TYPE LIVES IN CONTRACTS BECAUSE OF A RULE, NOT A PREFERENCE. The no-static-state
+      rule scans application and infrastructure and flags a non-literal static field on a static
+      class; the default window is exactly that. Contracts is outside the scan, so the chain lands
+      there and costs no allowlist entry — an allowlist entry being the kind of exemption that
+      makes the next rule violation easier to argue for.
+  - key: |
+      A NEW PROVENANCE VALUE, AND A TEST THAT MAKES THE NEXT ONE FAIL LOUDLY. The name mapper's
+      default arm turns an unmapped value into the process-wide default's name. That is not a
+      cosmetic bug here: the environment leg exists precisely because an installation whose catalog
+      says nothing still has a window, and rendering it as "global default" would tell the operator
+      to look in a settings form that holds no value. The test asserts every value maps to a
+      distinct name.
+  - key: |
+      THE NOTE SAYS WHAT IS TRUE OF THIS FIELD ONLY. The tab's header warns that process-wide
+      values need a restart, which is true of the five it was written for. This control applies to
+      the next design-conversation TURN and reaches a reaper scan within a scan interval, with no
+      restart and no new run. Zero holds nothing.
+  - key: |
+      THE FIELD JOINS THE SCALARS RATHER THAN THE STRUCTURED BLOCK. The structured block exists so
+      a client that renders only scalars cannot clear three values it never showed; a hold window
+      is a nullable integer exactly like the two timeouts beside it.
+
+steps:
+  - id: the-fallback-chain-has-one-home
+    action: "The process-wide hold-window fallback — field, then SANDBOX_HOLD_SECONDS, then three minutes, clamped at zero — moves into one type in the contracts assembly, reporting the value AND which leg produced it; the scan-time resolver calls it and behaves exactly as before."
+  - id: the-projection-reads-a-live-block
+    action: "The inherited projection resolves the hold window from a configuration read through the loader rather than from the composition-time options, and carries it with the provenance of the leg that answered."
+  - id: a-provenance-name-for-the-environment
+    action: "A provenance value for the environment leg joins the four that exist, with its wire name, its dashboard rendering, and a test that fails when any value has no name of its own."
+  - id: the-block-carries-a-sixth-scalar-in-both-directions
+    action: "The studio's project sandbox block gains the hold window; the projection reads it and the patch writes it in the same change, so a save cannot write null over a stored value; the documented 'five scalars' becomes six wherever it is written."
+  - id: the-tab-carries-the-control
+    action: "The project sandbox tab renders the sixth control with its inherited placeholder and provenance, and a note saying it applies to the next design-conversation turn, reaches a reaper scan without a restart, and that zero holds nothing."
+
+tests:
+  - "HoldWindow_TheScanTimeResolver_StillResolvesProjectThenProcessWideThenEnvironmentThenDefault"
+  - "HoldWindow_TheEnvironmentVariableName_AppearsInExactlyOnePlaceInTheBackend"
+  - "HoldWindow_ANegativeValue_IsClampedToZeroByTheSharedChain"
+  - "InheritedProjection_AProjectThatSetsItsOwnHoldWindow_StillReportsWhatItWouldInherit"
+  - "InheritedProjection_AProcessWideValueEditedAfterStartup_IsReportedWithoutARestart"
+  - "InheritedProjection_AHoldWindowFromTheEnvironmentVariable_NamesThatLeg"
+  - "InheritedProjection_AnUnconfiguredHoldWindow_ReportsThreeMinutesAsTheBuiltInDefault"
+  - "ProvenanceNames_EveryResolutionSource_HasANameOfItsOwn"
+  - "ProjectRoundTrip_AStoredHoldWindow_SurvivesASaveThatDidNotChangeIt"
+  - "ProjectPatch_ASentBlockWithANullHoldWindow_ClearsItToInherit"
+  - "ProjectPatch_AnEntityWithNoSandboxBlock_LeavesTheStoredHoldWindowUntouched"
+  - "ProjectForm_TheHoldControl_ShowsItsInheritedValueAndProvenance"
+  - "ProjectForm_TheHoldControl_SaysItAppliesToTheNextTurnAndNeedsNoRestart"
+  - "ProjectForm_AHoldWindowOfZero_IsKeptAsZeroAndNotReadAsInherit"
+
+done:
+  - "the hold window is set in the project form beside every other per-project sandbox value"
+  - "the placeholder an operator reads is the window the next reaper scan will use, including after an edit and before any restart"
+  - "the environment leg is named as itself, and a future provenance value cannot silently borrow another's name"
+  - "a stored per-project hold window survives a save, and a cleared control clears it"
+  - "dashboard build + tests green, backend build green, full suite green"
+
+facts:
+  - claim: "The per-project hold window exists in the configuration model; the scan-time resolver builds both halves and the precedence between them is applied where a container is judged."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:71, src/backend/AgentSmith.Server/Services/Sandbox/SandboxHoldWindowResolver.cs:57-72, src/backend/AgentSmith.Server/Services/Sandbox/HeldConversationReader.cs:61"
+  - claim: "The process-wide fallback is the field, then SANDBOX_HOLD_SECONDS, then a 180-second default, each clamped at zero."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxHoldWindowResolver.cs:26,33,57-63"
+  - claim: "The resolution pass and its interface know nothing of the hold window, so the counterfactual cannot come from them."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/IConfigResolver.cs:21-41"
+  - claim: "The inherited projection is built from an options instance and a configuration object assembled once at composition, and the config-epoch reloader refreshes the store rather than them — which the tree already documents where it bit someone."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/InheritedSandboxProjection.cs:19-20, src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:39-44, src/backend/AgentSmith.Server/ServerCompositionBuilder.cs:79-80, src/backend/AgentSmith.Server/Services/Config/TemplateContextLookup.cs:34-38"
+  - claim: "The loader can be called without a server-only path, which is what lets the projection read live."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/TemplateContextLookup.cs:38"
+  - claim: "Provenance has four values and the name mapper ends in a default arm that renders anything unrecognised as the process-wide default's name."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/Resolved/ResolvedValue.cs:8-29, src/backend/AgentSmith.Server/Services/Config/ResolutionSourceName.cs:17, src/dashboard/src/lib/configApi.ts:11-17"
+  - claim: "The patch assigns the five scalars it knows and never mentions the hold window, so a stored per-project value survives a save TODAY — and will not once the block carries the field."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs:45-54, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs:37-46"
+  - claim: "A missing property and an explicit null bind identically, because the block is a positional record with null defaults — so 'a client sends every scalar' is a convention and not an enforceable rule."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectSandbox.cs:17-23, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigDocJson.cs:12-16"
+  - claim: "Zero survives the control, the wire and the store: nothing sets a default-ignore condition and the YAML export omits only nulls and empty collections."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigDocJson.cs:12-16, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigYamlExporter.cs:20-21, src/dashboard/src/components/config/formFields.tsx:252-258"
+  - claim: "The tab's placeholder and provenance helpers treat a null or empty value as inherited, so a zero passes both and must be handled deliberately."
+    evidence: "src/dashboard/src/components/config/ProjectSandboxSection.tsx:37-47"
+  - claim: "The process-wide control exists in the settings form and its help already promises a per-project override."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:174-176, src/dashboard/src/lib/configApi.ts:779"
+  - claim: "A hold window reaches a reaper scan without a restart, thirty seconds apart on Docker and sixty on a cluster."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxHoldWindowResolver.cs:41-55, src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs:29, src/backend/AgentSmith.Server/Services/Hosting/HousekeepingLeaderHostedService.cs:76"
+  - claim: "The no-static-state rule scans application and infrastructure and flags a non-literal static field on a static class; contracts is not scanned."
+    evidence: "tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs:87-93,171-176"
+  - claim: "An existing rail test reads the resolver's default-window constant, so moving it is not invisible."
+    evidence: "tests/AgentSmith.Tests/Sandbox/SandboxHoldRailTests.cs:47"
+  - claim: "The two files the round trip touches have five and eighteen lines of headroom under the file-length limit, and neither is in the ratchet baseline."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs (115 lines), src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs (102 lines)"
+  - claim: "A test that reads an environment variable must join the collection that serialises such tests."
+    evidence: "tests/AgentSmith.Tests/TestSupport/EnvVarCollection.cs"
+
+assumptions:
+  - claim: "The phrase 'five scalars' is written in more places than the block's own documentation."
+    check: "Grep the backend and the dashboard for the count and fix each site the change makes wrong."
+  - claim: "The dashboard's number control can render a zero as a value rather than as an empty box."
+    check: "Read what the control emits for a cleared field and for a typed zero, and what the placeholder helper does with a zero."

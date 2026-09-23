@@ -1,0 +1,94 @@
+phase: 2026-09-23-2446
+decisions:
+  - id: the-projection-reads-the-loader-for-this-field-only
+    chose: >
+      InheritedSandboxProjection takes IConfigurationLoader and resolves the hold window from
+      `loader.LoadConfig(string.Empty).Sandbox` on every call, once per projection rather than
+      once per project row. The other six answers keep coming from the composition-time
+      IOptions<SandboxGlobalConfig> and AgentSmithConfig.
+    alternative: >
+      Reading the hold window from the same frozen options instance as its neighbours, on the
+      grounds that moving the fallback chain into one shared type already makes the
+      placeholder and the reaper agree.
+    why: >
+      It would not: one algorithm over two inputs of different ages is still two answers. The
+      options instance and the config object are each built once at composition and the
+      config-epoch reloader refreshes neither, while the scan-time resolver reads the loader
+      live every thirty seconds on Docker and sixty on a cluster — so a frozen placeholder
+      would start lying the moment an operator edited anything, which is the only moment this
+      control matters. Making the OTHER six live was refused for the mirror-image reason:
+      what they describe is itself frozen until a restart, so a live placeholder there would
+      be a second lie in the opposite direction. The read is a dashboard request, not a hot
+      loop, and TemplateContextLookup already calls the loader without a server-only path.
+  - id: the-shared-chain-lives-in-contracts-because-of-a-rule
+    chose: >
+      SandboxHoldWindow — the field, then SANDBOX_HOLD_SECONDS, then 180, each clamped at
+      zero — is a static class in AgentSmith.Contracts. SandboxHoldWindowResolver's
+      DefaultWindow and EnvironmentVariable constants moved into it and the resolver now calls
+      it; the rail test that read the constant follows it.
+    alternative: >
+      Putting the chain in the application or infrastructure assembly beside its callers, with
+      an allowlist entry for the default-window static.
+    why: >
+      NoStaticStateRuleTests scans application and infrastructure and flags a non-literal
+      static field on a static class; the default window is exactly that. Contracts is outside
+      that scan, so the chain lands there and costs no allowlist entry — and an allowlist entry
+      is the kind of exemption that makes the next rule violation easier to argue for. What the
+      chain computes is unchanged: this phase moved where the process-wide half is COMPUTED,
+      not what it answers.
+  - id: the-environment-leg-is-named-and-the-mapper-stopped-guessing
+    chose: >
+      ResolutionSource gains EnvironmentVariable, rendered "environment-variable" on the wire
+      and "environment" in ProvenanceBadge. ResolutionSourceName.Of names every value
+      explicitly and THROWS on an unrecognised one, and
+      ProvenanceNames_EveryResolutionSource_HasANameOfItsOwn asserts every declared value maps
+      to a distinct non-empty name.
+    alternative: >
+      Keeping the `_ => "global-default"` catch-all arm, or replacing it with
+      `_ => source.ToString()`.
+    why: >
+      The catch-all made a new value claim to be the process-wide default's name — silently,
+      in the one place an operator goes to find out where a value came from, and for a leg that
+      exists precisely to be told apart from that one. A stringified fallback would be unique
+      but not a wire name anyone chose. The throw can never reach a running server because the
+      test fails the moment a value is added without an arm, which is the point: the next
+      person cannot make this mistake either.
+  - id: the-built-in-180-is-a-code-default-not-a-global-one
+    chose: >
+      With no field and no environment variable, the chain reports 180 with
+      ResolutionSource.CodeDefault, and the tab renders it as "inherits the built-in 180".
+    alternative: >
+      Reporting it as GlobalDefault, the way every other unconfigured value in the projection
+      is reported.
+    why: >
+      Same argument as the environment leg, one step further down: no configuration holds this
+      number, so naming it after the settings form sends an operator to an empty field. The
+      code-default provenance already exists for exactly this — a table in the code answering
+      rather than a setting — and the dashboard already renders it.
+  - id: the-field-joins-the-scalars-and-both-halves-land-together
+    chose: >
+      ProjectSandbox gains `int? HoldSeconds` beside the five scalars; ProjectEntityMapping
+      reads it and RawProjectPatch writes it in the same change, under the same
+      absent-block-means-leave-alone rule.
+    alternative: >
+      Hanging it under ProjectSandboxStructured, or shipping the patch write in a later phase.
+    why: >
+      The structured block exists so a client that renders only scalars cannot clear three
+      values it never showed; a hold window is a nullable integer exactly like the two timeouts
+      beside it. Splitting the halves was never available: the patch assigns every scalar it
+      knows, so the moment the block carried the field a save would write null over a stored
+      value unless the projection read it too. ProjectRoundTrip_AStoredHoldWindow_SurvivesASave
+      ThatDidNotChangeIt pins the pair.
+  - id: the-tab-says-what-is-true-of-this-field-only
+    chose: >
+      The hold control's help says it applies to the next turn of a design conversation and
+      reaches a reaper scan without a server restart, and that 0 holds nothing. The tab's
+      header keeps its restart warning but excepts the hold window by name.
+    alternative: >
+      Leaving the header's blanket "the process-wide values are read once at startup" claim,
+      or dropping it now that one field escapes it.
+    why: >
+      The warning is true of the five it was written for and this control is the exception, so
+      stating the exception where the reader is already looking is cheaper than either leaving
+      a false blanket claim or deleting a true one. Zero is said out loud because it is the one
+      value a null-means-inherit control could be read as, and it means the opposite of empty.

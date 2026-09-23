@@ -70,7 +70,7 @@ public sealed class SandboxGlobalConfig
 
     /// <summary>2026-09-22-2d11a: seconds a design conversation holds its source sandboxes between
     /// turns (<c>hold_seconds</c>); reapers spare one and every capacity door releases it before
-    /// probing. NULL keeps <c>SANDBOX_HOLD_SECONDS</c> reachable, then the built-in 180; 0 holds
+    /// probing. NULL falls through <see cref="SandboxHoldWindow"/>'s remaining legs; 0 holds
     /// nothing. Per project: <see cref="SandboxConfig.HoldSeconds"/>.</summary>
     public int? HoldSeconds { get; set; }
 

@@ -14,7 +14,11 @@ export type ResolutionSource =
   | "run-resolved"
   /** 2026-09-22-6c46: a table in the CODE answered — the per-language toolchain images a
    *  project's image map is merged over. Not a setting anyone can go looking for. */
-  | "code-default";
+  | "code-default"
+  /** 2026-09-23-2446: an ENVIRONMENT VARIABLE answered — the sandbox hold window's
+   *  SANDBOX_HOLD_SECONDS leg. Named as itself because a settings form holds no value for
+   *  it, so "global-default" would send an operator to an empty field. */
+  | "environment-variable";
 
 export interface ResolvedValue<T> {
   value: T | null;
@@ -147,7 +151,7 @@ export async function fetchConfig(signal?: AbortSignal): Promise<ConfigSnapshot>
   return getJson<ConfigSnapshot>(`/api/config`, signal);
 }
 
-/** 2026-09-22-6968: what ONE project's five scalar sandbox controls would inherit if the
+/** 2026-09-22-6968: what ONE project's six scalar sandbox controls would inherit if the
  *  project declared nothing. Not the same question as `resolved` above: that one answers
  *  what a run of this project gets, which for a project that HAS an override is the
  *  override — a placeholder built from it would show the operator their own value back.
@@ -158,6 +162,11 @@ export interface InheritedSandbox {
   runCommandTimeoutSeconds: ResolvedValue<number>;
   agentRegistry: ResolvedValue<string>;
   agentVersion: ResolvedValue<string>;
+  /** 2026-09-23-2446: the hold window the NEXT reaper scan will use — read live through the
+   *  configuration loader rather than from the composition-time options, because a reaper
+   *  re-reads it every scan and the other five reach their consumers frozen. Its source may
+   *  be "environment-variable" or the built-in "code-default" 180. */
+  holdSeconds: ResolvedValue<number>;
   /** 2026-09-22-6c46: the cpu/memory group and the LAYER that would answer it. */
   resources: InheritedResources;
   /** 2026-09-22-6c46: the code-default image table, ONE ANSWER PER KEY — including keys
@@ -510,10 +519,10 @@ export interface TemplateReference {
   revision?: string | null;
 }
 
-/** 2026-09-22-6968: the five SCALAR per-project sandbox overrides. Each field is
+/** 2026-09-22-6968: the six SCALAR per-project sandbox overrides. Each field is
  *  null-means-inherit, and the BLOCK is absent-means-leave-alone: a client that does not
  *  know it sends none and the stored block survives untouched, while a form that shows the
- *  block sends all five — so a field missing from a SENT block is a deliberate clear.
+ *  block sends all six — so a field missing from a SENT block is a deliberate clear.
  *  The structured three (resources, the per-language image map, the pod's secrets) are not
  *  here and are never written through this block. */
 export interface ProjectSandbox {
@@ -522,6 +531,9 @@ export interface ProjectSandbox {
   runCommandTimeoutSeconds?: number;
   agentRegistry?: string;
   agentVersion?: string;
+  /** 2026-09-23-2446: seconds this project's design conversations hold their source
+   *  sandboxes between turns. 0 holds nothing, and is a real override — not an empty box. */
+  holdSeconds?: number;
   /** 2026-09-22-6c46: the structured three. ABSENT means "I do not render these", and the
    *  stored resources, image pins and secret references are left alone; a SENT block means
    *  every one of its three fields is written as given, so an undefined field inside it is
