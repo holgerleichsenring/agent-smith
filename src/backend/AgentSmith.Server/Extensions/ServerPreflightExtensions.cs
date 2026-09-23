@@ -39,18 +39,23 @@ internal static class ServerPreflightExtensions
     /// <para>
     /// 2026-09-23-2c60: which is why the coalesce lives here. An installation declaring no
     /// <c>auth:</c> key has no block to hand over, and that is the very state the check exists
-    /// to report — but ActivatorUtilities matches a supplied argument to a parameter by its
-    /// RUNTIME type, and null has none, so the constructor was rejected and the host died at
-    /// startup. The container's own registration of this type coalesces the same way; passing
-    /// it rather than resolving it is deliberate, so the coalesce travels with it.
+    /// to report. The container's own registration of this type coalesces the same way; the
+    /// composed block is a different one, so the coalesce travels with it.
+    /// </para>
+    /// <para>
+    /// 2026-09-23-e7f0: the block reaches the check through a KEYED registration rather than a
+    /// constructor argument. An argument was matched to a parameter by its RUNTIME type, and a
+    /// null block has none, so the constructor was rejected and the host died at startup. A key
+    /// names the parameter instead, and an INSTANCE — not a factory — keeps it the very object
+    /// this composition read, which is the whole reason it is not simply resolved.
     /// </para>
     /// </summary>
     internal static IServiceCollection AddSignInCheck(
         this IServiceCollection services, TokenAuthorityConfig? auth)
     {
-        var authority = auth ?? new TokenAuthorityConfig();
-        services.AddSingleton<IPreflightCheck>(
-            sp => ActivatorUtilities.CreateInstance<SignInCheck>(sp, authority));
+        services.AddKeyedSingleton<TokenAuthorityConfig>(
+            SignInCheck.ComposedAuthorityKey, auth ?? new TokenAuthorityConfig());
+        services.AddSingleton<IPreflightCheck, SignInCheck>();
         return services;
     }
 }

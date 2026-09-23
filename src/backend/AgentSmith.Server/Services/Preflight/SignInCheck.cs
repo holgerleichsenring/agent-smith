@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Security;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Services.Preflight;
 
@@ -24,11 +25,21 @@ namespace AgentSmith.Server.Services.Preflight;
 /// </para>
 /// </summary>
 internal sealed class SignInCheck(
-    TokenAuthorityConfig auth,
+    [FromKeyedServices(SignInCheck.ComposedAuthorityKey)] TokenAuthorityConfig auth,
     RoleMappingSource mapping,
     AdminGrant grant,
     IObservedCallerStore observed) : IPreflightCheck
 {
+    /// <summary>
+    /// 2026-09-23-e7f0: the composition root registers the block it COMPOSED under this key,
+    /// and this parameter asks for that one. The plain registration is read lazily on first
+    /// resolution, so a check built later could measure a different authority than the handler
+    /// validates against — which is why the block used to be handed over as a constructor
+    /// argument, and why the container now holds it instead. The key is declared here, beside
+    /// the parameter that reads it, so the registration cannot drift away from it.
+    /// </summary>
+    public const string ComposedAuthorityKey = "sign-in-check.composed-authority";
+
     public string Name => "sign-in";
 
     public string Category => "auth";
