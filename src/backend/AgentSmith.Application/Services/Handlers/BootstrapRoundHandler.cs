@@ -5,7 +5,6 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -49,11 +48,12 @@ public sealed class BootstrapRoundHandler(
         // so on a repository whose contexts share a toolchain image it describes the
         // representative's subtree — and this round writes a DIFFERENT context's context.yaml.
         var projectMap = ResolveContextProjectMap(pipeline, context.RepoName, context.ContextName)
-                         ?? ResolvePerRepoProjectMap(pipeline, context.RepoName);
+                         ?? RepoOwnedProjectMap.In(pipeline, context.RepoName, sandboxTargets);
         if (projectMap is null)
             return CommandResult.Fail(
                 $"BootstrapRound: no ProjectMap available for repo '{context.RepoName}' " +
-                "(checked RepoProjectMaps[RepoName] and legacy ContextKeys.ProjectMap)");
+                "(no ContextProjectMaps entry for this context, and no sandbox key it owns "
+                + "carries a RepoProjectMaps entry)");
 
         var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.RepoName, context.ContextName);
         var appliesTo = ResolveAppliesTo(pipeline);
@@ -140,20 +140,6 @@ public sealed class BootstrapRoundHandler(
         return true;
     }
 
-
-    // p0384: RepoProjectMaps is the only analysis surface. A SINGLE-sandbox run
-    // may key its sole map by "default"/context name rather than the repo name,
-    // so it falls back to that sole entry; a multi-sandbox run must NOT borrow
-    // another repo's map — a missing entry stays a loud failure.
-    private static ProjectMap? ResolvePerRepoProjectMap(PipelineContext pipeline, string repoName)
-    {
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) || dict is null)
-            return null;
-        if (dict.TryGetValue(repoName ?? string.Empty, out var perRepo)) return perRepo;
-        return dict.Count == 1 && SandboxCount(pipeline) <= 1 ? dict.Values.First() : null;
-    }
-
     private static ProjectMap? ResolveContextProjectMap(
         PipelineContext pipeline, string repoName, string contextName) =>
         pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyDictionary<string, ProjectMap>>>(
@@ -163,12 +149,6 @@ public sealed class BootstrapRoundHandler(
         && byContext.TryGetValue(contextName, out var map)
             ? map
             : null;
-
-    private static int SandboxCount(PipelineContext pipeline) =>
-        pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-            ContextKeys.Sandboxes, out var sandboxes) && sandboxes is not null
-            ? sandboxes.Count
-            : 0;
 
     // p0161d: per-phase applies_to wins if present; otherwise the prompt
     // factory falls back to its per-context PrimaryLanguage line (p0161a D4).
