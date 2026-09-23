@@ -1,0 +1,24 @@
+phase: 2026-09-23-cd28
+decisions:
+  - id: 1
+    what: "Wire the guard that exists rather than write a rule elsewhere."
+    alternatives: "A check in the bootstrap round, or a rule over what a context directory may be called."
+    why: >
+      The guard already states the policy - redirect when one candidate, refuse when several -
+      and is already constructed on this path. It is inert only because it is handed nothing.
+      A second rule in a second place for one invariant is how the two would come to disagree.
+  - id: 2
+    what: "The pipeline is a REQUIRED parameter, not an optional one."
+    alternatives: "Optional, so no existing call site has to change."
+    why: >
+      This phase exists because a parameter that could be omitted was omitted and the guard sat
+      inert for it. Leaving the new one optional preserves exactly that trap, invisibly - no
+      build error, no failing test. Making it required found a SECOND call site within seconds
+      that would have kept asserting the tool was present while building it blind.
+  - id: 3
+    what: "The context-name default was removed in the same move."
+    alternatives: "Keep it and reorder the signature."
+    why: >
+      Making the pipeline required without reordering meant the preceding default had to go.
+      Both callers already passed it explicitly, so nothing changed but the number of omittable
+      parameters - which is the thing this phase is about.
