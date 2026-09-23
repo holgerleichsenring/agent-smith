@@ -1,0 +1,31 @@
+phase: 2026-09-23-2c60
+decisions:
+  - id: 1
+    what: "Coalesce at the registration that hands the argument over."
+    alternatives: "Fix ServerHostFactory, whose nullable value reaches it."
+    why: >
+      The compiler had been reporting that call site since the check shipped, and the warning
+      was not enough. A caller can be corrected and the next one reintroduces it; the
+      registration is the place the shape is fragile, because it is the only preflight
+      registration that passes a constructor argument at all.
+  - id: 2
+    what: "An empty block, not a skipped registration."
+    alternatives: "Register the check only when an auth block exists."
+    why: >
+      The absence of an authority is precisely what the check reports. Skipping it would remove
+      the only signal an operator gets that sign-in is not set up, and would make the failure
+      quiet instead of loud.
+  - id: 3
+    what: "The registration becomes a method of its own."
+    alternatives: "Test through AddServerPreflight."
+    why: >
+      Resolving the preflight checks pulls the whole server graph - the first attempt failed on
+      a configuration loader that has nothing to do with sign-in. One line of construction
+      deserves a seam the size of the thing being proven.
+  - id: 4
+    what: "The nullable value at its source stays nullable."
+    alternatives: "Make TokenAuthority() return an empty block."
+    why: >
+      It is nullable deliberately: an absent key and a key the loader could not match are
+      different states, and telling them apart is what makes present-but-unusable reportable.
+      The coalesce belongs at the boundary that needs a value.
