@@ -55,7 +55,8 @@ public sealed class BootstrapRoundHandler(
                 "(no ContextProjectMaps entry for this context, and no sandbox key it owns "
                 + "carries a RepoProjectMaps entry)");
 
-        var bundle = toolHostFactory.Create(sandbox, repo.LocalPath, context.RepoName, context.ContextName);
+        var bundle = toolHostFactory.Create(
+            sandbox, repo.LocalPath, context.RepoName, context.ContextName, pipeline);
         var appliesTo = ResolveAppliesTo(pipeline);
         var existing = await metaFiles.ReadAsync(sandbox, context.ContextName, cancellationToken);
         if (existing.Error is not null) return CommandResult.Fail(existing.Error);

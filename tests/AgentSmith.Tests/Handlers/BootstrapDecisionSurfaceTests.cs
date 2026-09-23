@@ -2,6 +2,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Core.Services;
 using AgentSmith.Sandbox.Wire;
@@ -38,7 +39,10 @@ public sealed class BootstrapDecisionSurfaceTests
             ContextGates.DerivationStamp());
         using var scope = runContext.BeginScope(RunId);
 
-        var bundle = factory.Create(sandbox, "/work", "Sample.Server", "backend");
+        // This test exercises log_decision; an empty pipeline carries no discovered contexts,
+        // which is the genuine-bootstrap case the name guard passes through.
+        var bundle = factory.Create(
+            sandbox, "/work", "Sample.Server", "backend", new PipelineContext());
         var logDecision = bundle.Tools.OfType<AIFunction>().Single(t => t.Name == "log_decision");
         await logDecision.InvokeAsync(
             new AIFunctionArguments
