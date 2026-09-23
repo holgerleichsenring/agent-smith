@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Factories;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.PipelineHarness.Evals;
@@ -13,13 +14,18 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// search at all. A factory that handed back a bare client would score an account with no
 /// tool — a different component, scoring well on the criteria that need looking least.
 /// </para>
+/// <para>
+/// 2026-09-23-e848: which tasks those are is read from
+/// <see cref="ChatClientFactory.ToolBearingTasks"/>. Stated here as a boolean expression it
+/// agreed with production but no test could compare it to anything.
+/// </para>
 /// </summary>
 internal sealed class AccountEvalChatFactory(IChatClient client, string modelId) : IChatClientFactory
 {
     public IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations = null,
         MasterLoopHooks? masterLoopHooks = null) =>
-        task is TaskType.Primary or TaskType.Scout or TaskType.Planning or TaskType.Reasoning
+        ChatClientFactory.ToolBearingTasks.Contains(task)
             ? new ChatClientBuilder(client)
                 .UseFunctionInvocation(configure: c =>
                     c.MaximumIterationsPerRequest = maxIterations ?? 25)
