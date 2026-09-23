@@ -36,8 +36,17 @@ public sealed class ChatClientFactory(
 {
     private const int MaxIterationsPerRequest = 25;
 
-    private static readonly HashSet<TaskType> ToolBearingTasks =
-        new() { TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning };
+    /// <summary>
+    /// 2026-09-23-e848: which tasks get a tool loop, stated ONCE. The replay factory and the
+    /// harness factories read this set instead of carrying a copy — two of those copies had
+    /// already lost Reasoning, so a recorded run and a scripted run drove a task with no tools
+    /// while production drove the same task with them.
+    /// </summary>
+    public static readonly IReadOnlySet<TaskType> ToolBearingTasks =
+        new HashSet<TaskType>
+        {
+            TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning
+        };
 
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);
     private readonly ILogger<ChatClientFactory> _logger = loggerFactory.CreateLogger<ChatClientFactory>();

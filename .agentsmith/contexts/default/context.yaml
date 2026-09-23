@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-23-e848: "Four factories each decided which tasks get a tool loop and two were wrong: a reasoning call took tools in production and none under replay or in the harness, so a recorded run could pass while what it stood for would not. One readable list now, and a test that names a factory disagreeing with it. -> .agentsmith/phases/done/2026-09-23-e848-tool-loop-one-list.yaml"
     2026-09-23-7868b: "The context-generation role is optional and resolves to primary, and the Studio stops pre-filling it. Four readers took their reasoning neighbour conditional form and the capabilities descriptor agrees. Nothing requests the task, so no run changes. -> .agentsmith/phases/done/2026-09-23-7868b-context-role-becomes-optional.yaml"
     2026-09-23-7868a: "Ten texts told the model a workdir follows from the stack COUNT - four saying single-component, six saying single-stack, including the write tool description that governs what lands in a repository context.yaml. Each now says the field is the sub-tree the source occupies, read off the tree. -> .agentsmith/phases/done/2026-09-23-7868a-discovery-workdir-is-looked-up.yaml"
     2026-09-23-35b8: "The heading instruction stops naming English as the thing to avoid: the minted-subject prompt named one language, and it was the one to steer away from. A German conversation had been headed in Spanish. -> .agentsmith/phases/done/2026-09-23-35b8-subject-language-is-told.yaml"

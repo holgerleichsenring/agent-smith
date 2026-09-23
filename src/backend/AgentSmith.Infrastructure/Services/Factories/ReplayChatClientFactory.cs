@@ -13,17 +13,19 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// It takes the client rather than building one: the replay source is a recorded run, and
 /// the caller that loaded the recording is the one that owns it.
 /// </para>
+/// <para>
+/// 2026-09-23-e848: "exactly as" is now read from
+/// <see cref="ChatClientFactory.ToolBearingTasks"/> rather than restated here. The copy that
+/// stood here omitted Reasoning, so a recorded reasoning call replayed without its tools.
+/// </para>
 /// </summary>
 public sealed class ReplayChatClientFactory(IChatClient replay, int defaultIterations = 25)
     : IChatClientFactory
 {
-    private static readonly HashSet<TaskType> ToolBearingTasks =
-        [TaskType.Primary, TaskType.Scout, TaskType.Planning];
-
     public IChatClient Create(
         AgentConfig agent, TaskType task, int? maxIterations = null,
         MasterLoopHooks? masterLoopHooks = null) =>
-        ToolBearingTasks.Contains(task)
+        ChatClientFactory.ToolBearingTasks.Contains(task)
             ? new ChatClientBuilder(replay)
                 .UseFunctionInvocation(configure: c =>
                     c.MaximumIterationsPerRequest = maxIterations ?? defaultIterations)
