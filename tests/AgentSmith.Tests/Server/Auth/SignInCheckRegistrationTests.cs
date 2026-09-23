@@ -5,6 +5,7 @@ using AgentSmith.Server.Extensions;
 using AgentSmith.Contracts.Models.Access;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Preflight;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -43,9 +44,64 @@ public sealed class SignInCheckRegistrationTests
         result.Message.Should().Contain("no authority is configured");
     }
 
-    private static ServiceProvider Provider(TokenAuthorityConfig? auth)
+    /// <summary>
+    /// 2026-09-23-e7f0: the check is registered, not constructed. What proves it is the
+    /// DESCRIPTOR: an implementation type the container builds, and no factory — a factory is
+    /// the only place a constructor argument could be supplied.
+    /// </summary>
+    [Fact]
+    public void Preflight_TheSignInCheck_IsRegisteredWithoutActivation()
+    {
+        var composed = new TokenAuthorityConfig();
+        var services = new ServiceCollection();
+
+        services.AddSignInCheck(composed);
+
+        var check = services.Single(d =>
+            !d.IsKeyedService && d.ServiceType == typeof(IPreflightCheck));
+        check.ImplementationType.Should().Be(typeof(SignInCheck),
+            "the container builds the check from its registration");
+        check.ImplementationFactory.Should().BeNull(
+            "a factory is where a constructor argument is matched to a parameter by its type");
+
+        var block = services.Single(d =>
+            d.IsKeyedService && d.ServiceType == typeof(TokenAuthorityConfig));
+        block.ServiceKey.Should().Be(SignInCheck.ComposedAuthorityKey);
+        block.KeyedImplementationInstance.Should().BeSameAs(composed,
+            "an instance is what keeps the block this composition read; a factory would read "
+            + "it again, lazily, which is the very thing passing it avoided");
+    }
+
+    /// <summary>
+    /// 2026-09-23-e7f0: and the check reads THAT block rather than the plain registration, which
+    /// is read lazily and can say something else. Here the plain one is usable and enforcing and
+    /// the composed one declares no authority, so only the composed one can produce a skip.
+    /// </summary>
+    [Fact]
+    public async Task SignInCheck_TheKeyedBlock_IsTheInstanceCompositionRead()
+    {
+        var composed = new TokenAuthorityConfig();
+        var lazilyRead = new TokenAuthorityConfig
+        {
+            Authority = "https://the-container-read-this-later", Enforce = true,
+        };
+        using var provider = Provider(composed, lazilyRead);
+
+        provider.GetRequiredKeyedService<TokenAuthorityConfig>(SignInCheck.ComposedAuthorityKey)
+            .Should().BeSameAs(composed, "the key carries the instance, not a second reading");
+
+        var signIn = provider.GetServices<IPreflightCheck>().Single(c => c.Name == "sign-in");
+        var result = await signIn.RunAsync(default);
+
+        result.Status.Should().Be(PreflightStatus.Skip,
+            "an enforcing authority would have been checked; the composed block declares none");
+    }
+
+    private static ServiceProvider Provider(
+        TokenAuthorityConfig? auth, TokenAuthorityConfig? lazilyRead = null)
     {
         var services = new ServiceCollection();
+        if (lazilyRead is not null) services.AddSingleton(lazilyRead);
         services.AddSingleton(_ => new AdminGrant(_ => null));
         services.AddSingleton<IStoredRoleMapping>(new NoStoredRoleMapping());
         services.AddSingleton(sp => new RoleMappingSource(
