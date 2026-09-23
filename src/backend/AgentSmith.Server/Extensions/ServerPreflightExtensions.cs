@@ -15,7 +15,7 @@ namespace AgentSmith.Server.Extensions;
 internal static class ServerPreflightExtensions
 {
     internal static IServiceCollection AddServerPreflight(
-        this IServiceCollection services, TokenAuthorityConfig auth)
+        this IServiceCollection services, TokenAuthorityConfig? auth)
     {
         services.AddPreflight();
         services.AddSingleton<IPreflightSandboxProbe, JobSpawnerSandboxProbe>();
@@ -23,16 +23,34 @@ internal static class ServerPreflightExtensions
         // and each restart reaps the in-flight run + orphans its sandbox pods.
         services.AddSingleton<IPreflightCheck>(
             _ => new ServerMemoryFloorCheck(() => GC.GetGCMemoryInfo().TotalAvailableMemoryBytes));
-        // 2026-09-14-3f5b: server-only for the same reason the memory floor is — two of its
-        // four facts do not exist in the CLI's graph. It is handed the COMPOSED auth block
-        // rather than resolving one: p0503e measured that the registered TokenAuthorityConfig
-        // is read lazily from the environment, so a component built later can measure a
-        // different authority than the handler validates against, and enforcement is the
-        // axis this check turns on.
-        services.AddSingleton<IPreflightCheck>(sp => ActivatorUtilities.CreateInstance<SignInCheck>(sp, auth));
+        services.AddSignInCheck(auth);
         services.AddSingleton<IPreflightInfraProbe, InfraConnectivityProbe>();
         services.AddSingleton<PreflightReportStore>();
         services.AddHostedService<PreflightStartupService>();
+        return services;
+    }
+
+    /// <summary>
+    /// 2026-09-14-3f5b: server-only for the same reason the memory floor is — two of its four
+    /// facts do not exist in the CLI's graph. It is handed the COMPOSED auth block rather than
+    /// resolving one: p0503e measured that the registered TokenAuthorityConfig is read lazily
+    /// from the environment, so a component built later can measure a different authority than
+    /// the handler validates against, and enforcement is the axis this check turns on.
+    /// <para>
+    /// 2026-09-23-2c60: which is why the coalesce lives here. An installation declaring no
+    /// <c>auth:</c> key has no block to hand over, and that is the very state the check exists
+    /// to report — but ActivatorUtilities matches a supplied argument to a parameter by its
+    /// RUNTIME type, and null has none, so the constructor was rejected and the host died at
+    /// startup. The container's own registration of this type coalesces the same way; passing
+    /// it rather than resolving it is deliberate, so the coalesce travels with it.
+    /// </para>
+    /// </summary>
+    internal static IServiceCollection AddSignInCheck(
+        this IServiceCollection services, TokenAuthorityConfig? auth)
+    {
+        var authority = auth ?? new TokenAuthorityConfig();
+        services.AddSingleton<IPreflightCheck>(
+            sp => ActivatorUtilities.CreateInstance<SignInCheck>(sp, authority));
         return services;
     }
 }
