@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-8d4d
+
+goal: "The embedded skills pin carries the corrected discovery example, so the system half of the discovery prompt stops contradicting the user half this repository already fixed."
+
+applies_to: "backend (the embedded skills catalog pin)"
+
+requires: ["2026-09-23-7868a"]
+
+facts:
+  - claim: "The pinned bundle was v5.6.1, whose discovery skill pairs a root workdir with an entrypoint two directories down under the heading single-component."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "That body becomes the discovery round's SYSTEM prompt, so it sits beside the user half 2026-09-23-7868a corrected."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:26"
+  - claim: "7868a named this successor in prose and nothing was cut for it; a server that mounts no skills reads this bundle."
+    evidence: ".agentsmith/phases/done/2026-09-23-7868a-discovery-workdir-is-looked-up.yaml"
+  - claim: "The release carrying the correction is v5.7.1, and its published bundle shows the corrected pair."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:55"
+
+scope:
+  in: >
+    The pin moves to v5.7.1: the version, its checksum, and the bundle beside them. The project
+    file states what a bump is, and this is exactly that and nothing else.
+  out: >
+    Everything else the release changed. This bump is taken for one correction and does not
+    review the rest; the catalog is verified by checksum and the suite is what says whether the
+    masters still compose.
+
+decisions:
+  - key: "The bump is its own phase rather than a line in the phase that found the defect. A pin carries every master in the release, so what it changes is not knowable from the reason it was taken - and a commit that says so is the one an operator reads when something else moves."
+
+steps:
+  - id: move-the-pin
+    action: "Set the version and checksum to the release carrying the correction and replace the bundle."
+    modify:
+      - "AgentSmith.Infrastructure.Core.csproj: the version and checksum"
+      - "Resources: the bundle"
+
+tests:
+  - "EmbeddedCatalog_TheDiscoveryExample_DoesNotCollapseASubTreeWorkdir"
+  - "EmbeddedCatalog_ItsDeclaredVersion_IsTheBundleItCarries"
+
+done:
+  - "The embedded discovery skill's single-component example names a sub-tree workdir."
+  - "The catalog's declared version and its bundle agree, and the checksum verifies at build."
+  - "A pin moved back to a bundle whose example collapses a sub-tree workdir makes a test red."
+  - "Each new test was watched failing with the old pin restored, and the files put back byte-for-byte."
+  - "The full suite is green."
