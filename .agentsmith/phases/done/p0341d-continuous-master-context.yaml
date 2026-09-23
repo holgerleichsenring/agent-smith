@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0341d
-goal: "The coding master's loop becomes ONE continuous conversation — the interactive-harness frame: it runs until verified-done, budget exhausted, or a question only the operator can answer, with in-loop context compaction preserving the thread instead of cutting it. Today the master has ZERO context management: p0114 built the compactors and wired them into the hand-rolled OpenAiAgenticLoop; the p0119a M.E.AI migration deleted that loop and ORPHANED them (verified: no non-test constructor or caller since), so a single pass dies at the raw context window. Re-attach compaction as a provider-agnostic middleware in the current FunctionInvokingChatClient chain, pinning system prompt + current ledger + working state + recent tail. Once this lands, p0341c's re-engagement DEMOTES to crash/timeout recovery — the pass-sequence is the safety net, not the architecture. SUPERSEDES p0341b (its ledger-pin targeted the orphaned compactors, a path that never runs)."
+goal: "The coding master's loop becomes one continuous conversation: provider-agnostic in-loop compaction pins system prompt, ledger, working state and recent tail instead of dying at the context window"
 
 applies_to: "backend (ChatClientFactory chain / ChatClientBuilders, a compacting DelegatingChatClient middleware, OpenAiContextCompactor + ClaudeContextCompactor revival, AgenticMasterHandler wiring)"
 

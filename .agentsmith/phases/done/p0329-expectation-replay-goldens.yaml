@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0329
-goal: "Prove p0328 against reality: replay anonymized historical bug tickets whose human-authored acceptance criteria exist, compare the agent's drafted Soll block against the human gold standard, and turn ratification outcomes into the product's headline metric (first-PR-acceptance / expectation-hit-rate). Without this, expectation negotiation is a belief; with it, it's a measured claim"
+goal: "Prove p0328 against reality: replay anonymized historical tickets against human gold standards and turn ratification outcomes into the first-PR-acceptance metric."
 
 applies_to: backend + dashboard
 

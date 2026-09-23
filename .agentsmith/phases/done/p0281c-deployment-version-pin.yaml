@@ -1,13 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0281c
 goal: |
-  Collapse the two parallel image-version pins into one. Add a `deployment` block
-  (registry + version) that feeds BOTH the orchestrator image and the sandbox-agent image
-  resolution — they ship from the same agent-smith release, so one knob beats two kept in
-  sync. Drop the per-project orchestrator override (a per-project orchestrator build is
-  never a real need). The standalone sandbox.agent_version / orchestrator.{registry,version}
-  blocks still load and win if present (back-compat). Independent afternoon-sized slice; no
-  discovery dependency.
+  Collapse the orchestrator and sandbox-agent image pins into one deployment block and drop
+  the per-project orchestrator override; legacy image blocks still load and win.
 
 applies_to: "backend (config loader, OrchestratorImageResolver, sandbox image resolution) + agentsmith.schema.json + sample config"
 

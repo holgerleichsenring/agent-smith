@@ -1,14 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0255
 goal: |
-  The coding master PLANS the correct edit but never APPLIES it. On run
-  2026-06-08T05-30-49-d8be (ticket: correct a controller's response types) the
-  agent's plan.md was exact and correct — name the file, the annotation change
-  (200→201), the return-statement change (Ok → CreatedAtAction), even the
-  affected test — yet it issued ZERO source WriteFile commands (only plan.md +
-  decisions.md), ~1451 output tokens total, and the run shipped nothing. This is
-  the actually-valuable fix: make the master EXECUTE its plan, not stop after
-  writing it.
+  Make the coding master execute the plan it writes: a run whose plan.md was exact and correct issued zero source writes and shipped nothing.
 
 applies_to: backend
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0358
-goal: "Two operator-visible gaps after p0357. (1) A skills.version update via config studio produced NO log line and NO reload: the epoch bump only rebuilds pollers, and the catalog resolves lazily at the next run/boot — functionally correct (no run ever uses a stale pin) but silent exactly when the operator watches the log for confirmation. On config reload, compare the pin against the cache marker, LOG the verdict either way, and eagerly pull on change so a broken release (404, bad sha256) surfaces at update time. (2) The p0357 python payload had unit tests but no end-to-end container proof — add a docker-compose harness that mirrors the k8s init-container shape (carrier --inject -> shared volume -> unmodified toolchain image) and asserts python3 actually works there."
+goal: "A skills.version change logs its verdict and pulls eagerly so a broken release surfaces at update time, and a compose harness proves the injected python payload works in a stock toolchain image."
 
 applies_to: "backend (SkillsCatalogRefresher, SkillsCatalogReloadHostedService, DI) + tools (verify-python-payload compose harness)"
 

@@ -1,25 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0199f-api-security-scan-docker-tier
 goal: |
-  api-security-scan docker-tier is skip-deferred because TryCheckoutSource
-  host-clones (sets SourcePath to a host path) but the harness's
-  bare-repo URL is sandbox-only. BootstrapGate then aborts on empty
-  /work in the sandbox.
-
-  The real production model: api-security-scan operators run against
-  a live HTTP endpoint, often WITHOUT a source checkout — the scan
-  hits a Swagger URL and probes the API directly. BootstrapGate's
-  p0130a-conditional behaviour ("skips when source_available=false")
-  is the production path. The harness needs to exercise that path,
-  not bolt a working-copy-bind onto a code-targeted pipeline.
-
-  Two test fixtures land:
-    (1) Passive mode (no source) — scanners against a stubbed HTTP
-        target; BootstrapGate conditionally skips; pipeline runs
-        Nuclei + Spectral + ZAP stubs + AgenticMaster + DeliverFindings.
-    (2) Source-mode — operator points to a checked-out repo via
-        SourcePath override; BootstrapGate passes; same chain plus
-        the bootstrap files load.
+  Bring api-security-scan into the docker tier by exercising its production passive mode - scanners against a stubbed HTTP target with no source checkout - plus a source-mode fixture.
 
 requires:
   - p0199-real-composition-pipeline-harness

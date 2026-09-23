@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0224
 goal: |
-  Three live-run problems, fixed as one phase: (1) in-flight LLM rows showed the
-  model as "unknown"; (2) the deterministic "Prepare environment" step kept
-  failing with a wrong/doubled path (a p0212 workdir-derivation regression) on a
-  repo whose npm project lives in a subtree; (3) the project-analyzer searched
-  every file type even in a docs-only repo, ignoring the context.yaml that
-  already declared the type.
+  Fix three live-run problems as one phase: in-flight LLM rows showing the model as unknown, the prerequisites step failing on a wrong path, and the analyzer ignoring the declared context.yaml type.
 
 applies_to: "backend (LLM events, presets) + agent-smith-skills (master prompts)"
 

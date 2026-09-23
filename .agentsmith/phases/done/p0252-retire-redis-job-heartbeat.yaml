@@ -1,17 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0252
 goal: |
-  Retire the Redis job heartbeat (IJobHeartbeatService) as a LIVENESS SOURCE,
-  completing the "ein Weg" directive: one authoritative liveness signal = the DB
-  ActiveRun lease. After p0251 the heartbeat no longer gates the claim, but it is
-  still written (MarkClaimedAsync) and read as a secondary liveness hint by
-  StaleJobDetector and EnqueuedReconciler — and its "claimed" bridge still lingers
-  ~2min for runs that never start (the edge case behind p0251's recurring bug).
-
-  The DB lease is set at CLAIM time (TryClaimAsync) and released on finish (p0242),
-  so it already covers the Enqueued→InProgress window the heartbeat used to bridge.
-  Migrate the two remaining consumers onto the lease, then delete the Redis
-  heartbeat liveness surface so there is nothing left to linger.
+  Retire the Redis job heartbeat as a liveness source and migrate its remaining consumers onto the DB ActiveRun lease, so one authoritative liveness signal remains and nothing lingers.
 
 applies_to: backend
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0368
-goal: "Stop the coding master from wholesale-REWRITING its ProgressLedger and DISCARDING already-completed items. Verified live (run 2026-07-22T13-47-21-78cd, RunStoryRecorded seq ~1302): the ledger went from a 10-item plan with 5 DONE to a fresh 4-item plan with 0 DONE. This loses completed-state, makes the master re-tread finished work (the run ground for 65 min), and defeats ShouldReengage — which keys off the ledger done-count / actionable-pending, so a reset-to-all-pending drives the loop forever. p0359 made update_progress a fully model-owned full REPLACE; that is right for PENDING work but wrong for DONE work. p0368 makes update_progress MERGE, not replace: a step that is DONE stays DONE — a rewrite may not silently drop (omit) or plain-revert a completed item; pending work stays freely editable; a done item leaves DONE only via an EXPLICIT, logged reopen signal."
+goal: "update_progress merges instead of replacing: a done step stays done, an omitted one is re-attached and leaving done needs an explicit reopen signal, while pending work stays freely editable."
 
 applies_to: "backend (ProgressLedgerToolHost.UpdateProgress replace path; a new pure LedgerMergePolicy in AgentSmith.Contracts.Progress; AgenticMasterHandler tool-host construction passes the logger)"
 

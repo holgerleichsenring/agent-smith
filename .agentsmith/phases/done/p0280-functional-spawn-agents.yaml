@@ -1,12 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0280
 goal: |
-  Make spawn_agents genuinely WORK — for a read-only scan master AND a read/write coding
-  master. The p0177 sub-agent path is a scaffold wired into nothing: children get
-  hosts: Array.Empty (no tools), no IRunEventReader impl exists, no observation events are
-  ever published, read_sub_agent_observations has nothing to read, and neither
-  SpawnAgentToolHost nor the reader is ever constructed. The masters' SKILLs advertise
-  spawn_agents — a lie to the model. This phase completes the subsystem.
+  Make spawn_agents genuinely work for a read-only scan master and a read/write coding master
+  by completing the p0177 sub-agent scaffold, which today is wired into nothing.
 
 applies_to: "backend + skills"
 

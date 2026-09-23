@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0322b
-goal: "Repo attribution of sandboxes uses the coordinator's authoritative SandboxRepos map everywhere (a multi-context repo silently lost ALL its bootstrap rounds on re-init because BelongsToRepo string-matching predates the p0268 key scheme), and multi-group sandbox keys become speaking: repo-<contextName> instead of repo-c#-500m-1gi(-2)"
+goal: "Sandbox repo attribution uses the coordinator's authoritative SandboxRepos map everywhere, and multi-group sandbox keys become speaking repo-plus-context-name keys."
 
 applies_to: backend
 

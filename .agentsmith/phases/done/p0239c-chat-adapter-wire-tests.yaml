@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0239c
 goal: |
-  Wire-level tests for the OpenAI / Azure-OpenAI / Anthropic chat adapters —
-  the layer scripting at IChatClientFactory bypasses (p0239b step 2). Carved
-  out of p0239b because it needs a testability refactor of the builders: today
-  OpenAiChatClientBuilder / ClaudeChatClientBuilder construct the SDK clients
-  internally with NO injectable HTTP transport, so request shaping + response/
-  tool-call parsing + the p0235 NetworkTimeout wiring cannot be observed in a
-  fast deterministic test.
+  Wire-level tests for the OpenAI, Azure-OpenAI and Anthropic chat adapters, via an injectable HTTP transport on the builders so request shaping, parsing and the NetworkTimeout are observable.
 
 applies_to: "backend (Infrastructure chat-client builders + their tests)"
 
