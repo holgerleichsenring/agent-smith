@@ -112,8 +112,8 @@ public sealed class BootstrapRoundHandler(
         string system, string user, IList<AITool> tools,
         PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.ContextGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.ContextGeneration);
         var options = new ChatOptions { Tools = tools, MaxOutputTokens = maxTokens };
         var costTracker = PipelineCostTracker.GetOrCreate(pipeline);
         var roleName = role.Role ?? "producer";
