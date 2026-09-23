@@ -2,19 +2,27 @@ using System.Text;
 
 namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilot;
 
-    /// <summary>
-/// 2026-09-07-d5f2: folds one turn's session events into a result, completing on idle and
-/// faulting on error. Idle is the completion signal rather than a turn-end event because idle is
-/// the state in which it is safe to send again, which is what the next call needs to know.
+/// <summary>
+/// 2026-09-07-d5f2 / 2026-09-23-4722a: folds one turn's session events into a result.
+///
+/// A turn ends in one of two ways. Without tools it ends at idle — "no background agents or
+/// attached shell commands in flight", the state in which it is safe to send again. With tools it
+/// ends when every tool the assistant message asked for has arrived as an external-tool request:
+/// the session is then waiting for US, and idle will never come while a call is pending. The
+/// assistant message says how many to expect, so that wait is bounded by the model's own answer
+/// rather than by a timeout.
 /// </summary>
 internal sealed class CopilotTurnCollector
 {
-    private readonly TaskCompletionSource _idle = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly List<string> _deltas = [];
+    private readonly List<CopilotSessionEvent.ExternalToolRequested> _toolRequests = [];
     private readonly StringBuilder _text = new();
+    private int _expectedToolRequests;
 
     public string Text => _text.ToString();
     public IReadOnlyList<string> Deltas => _deltas;
+    public IReadOnlyList<CopilotSessionEvent.ExternalToolRequested> ToolRequests => _toolRequests;
 
     public void Observe(CopilotSessionEvent evt)
     {
@@ -22,23 +30,42 @@ internal sealed class CopilotTurnCollector
         {
             case CopilotSessionEvent.AssistantMessage message:
                 _text.Append(message.Text);
+                _expectedToolRequests += message.ToolRequestCount;
+                CompleteIfAllToolsArrived();
                 break;
             case CopilotSessionEvent.AssistantDelta delta:
                 _deltas.Add(delta.Text);
                 break;
+            case CopilotSessionEvent.ExternalToolRequested request:
+                _toolRequests.Add(request);
+                CompleteIfAllToolsArrived();
+                break;
+            case CopilotSessionEvent.ExternalToolCompleted resolved:
+                // Someone else answered a call we were going to answer: its result will never
+                // reach us, so the turn fails loudly instead of waiting for it.
+                _done.TrySetException(new InvalidOperationException(
+                    $"The Copilot session resolved external tool request {resolved.RequestId} "
+                    + "elsewhere, so its result will never arrive."));
+                break;
             case CopilotSessionEvent.Idle:
-                _idle.TrySetResult();
+                _done.TrySetResult();
                 break;
             case CopilotSessionEvent.Failed failure:
-                _idle.TrySetException(new InvalidOperationException(
+                _done.TrySetException(new InvalidOperationException(
                     $"The Copilot session failed: {failure.Message}"));
                 break;
         }
     }
 
-    public async Task WaitForIdleAsync(CancellationToken cancellationToken)
+    private void CompleteIfAllToolsArrived()
     {
-        using var registration = cancellationToken.Register(() => _idle.TrySetCanceled(cancellationToken));
-        await _idle.Task;
+        if (_expectedToolRequests > 0 && _toolRequests.Count >= _expectedToolRequests)
+            _done.TrySetResult();
+    }
+
+    public async Task WaitAsync(CancellationToken cancellationToken)
+    {
+        using var registration = cancellationToken.Register(() => _done.TrySetCanceled(cancellationToken));
+        await _done.Task;
     }
 }

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Constants;
 using GitHub.Copilot;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilot;
 
@@ -26,6 +27,13 @@ internal static class CopilotSessionFactory
             // An allowlist, documented "only these tools will be available when specified".
             // Empty therefore means the model reaches nothing at all — not "no filter".
             AvailableTools = request.ToolNames.ToList(),
+            // Declared without bodies, so the runtime asks us to run them instead of running them
+            // itself — which is what keeps the tool loop, and every decorator that re-enters it,
+            // in agent-smith. Registration is create-time on purpose: the mid-session RPC is
+            // marked experimental, and a changed tool set rebuilds the session anyway.
+            Tools = request.Tools
+                .Select(t => (AIFunctionDeclaration)new PendingToolDeclaration(t.Name, t.Description, t.Parameters))
+                .ToList(),
             Streaming = true,
             // Both spend model calls INSIDE the session that our decorator chain never sees: no
             // LlmCall pair, no trace entry, no rate-limit acquisition — and their tokens land in
@@ -33,6 +41,10 @@ internal static class CopilotSessionFactory
             // CompactingChatClient's job, as it is for every other provider.
             InfiniteSessions = new InfiniteSessionConfig { Enabled = false },
             ToolSearch = new ToolSearchConfig { Enabled = false },
+            // The session never executes a tool — the declarations carry no body — so a permission
+            // prompt could only stall a turn waiting for an answer no one is there to give. The
+            // decision that matters was already taken in our process by the run's approval policy.
+            OnPermissionRequest = PermissionHandler.ApproveAll,
         };
 
         if (!string.IsNullOrWhiteSpace(request.SystemMessage))

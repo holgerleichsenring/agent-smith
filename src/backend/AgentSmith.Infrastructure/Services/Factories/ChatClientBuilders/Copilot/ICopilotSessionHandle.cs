@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilot;
 
 /// <summary>
@@ -30,7 +32,21 @@ public interface ICopilotSessionHandle : IAsyncDisposable
     Task<CopilotUsage> ReadUsageAsync(CancellationToken cancellationToken);
 
     Task AbortAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-09-23-4722a: answers one pending tool call, which resumes the turn. Exactly one of
+    /// <paramref name="result"/> and <paramref name="error"/> is given.
+    /// </summary>
+    Task RespondToToolAsync(string requestId, string? result, string? error, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// 2026-09-23-4722a: one tool as the session is told about it — a name, a description and a JSON
+/// Schema, and deliberately NO body. A declaration the runtime can execute is one it WILL execute,
+/// which would put the tool loop inside the session; a declaration without one is left pending for
+/// us, which is what keeps the loop in agent-smith where every decorator can re-enter it.
+/// </summary>
+public sealed record CopilotToolDefinition(string Name, string Description, JsonElement Parameters);
 
 /// <summary>
 /// A reading of the session's usage accumulators. These are TOTALS since the session opened,
@@ -62,8 +78,12 @@ public readonly record struct CopilotUsage(
 /// </summary>
 public abstract record CopilotSessionEvent
 {
-    /// <summary>A complete assistant message.</summary>
-    public sealed record AssistantMessage(string Text) : CopilotSessionEvent;
+    /// <summary>
+    /// A complete assistant message. <paramref name="ToolRequestCount"/> is how many tools it
+    /// asked for, which is how the adapter knows how many external-tool requests to expect — a
+    /// session that is waiting on a pending tool call never goes idle.
+    /// </summary>
+    public sealed record AssistantMessage(string Text, int ToolRequestCount = 0) : CopilotSessionEvent;
 
     /// <summary>An incremental chunk, raised only when the session was created streaming.</summary>
     public sealed record AssistantDelta(string Text) : CopilotSessionEvent;

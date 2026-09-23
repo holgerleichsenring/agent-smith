@@ -3,13 +3,16 @@ using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilot;
 namespace AgentSmith.Tests.Factories;
 
 /// <summary>
-/// 2026-09-07-d5f2: a Copilot runtime whose sessions replay a scripted event sequence.
-/// This is the stand-in the adapter's seam exists for — without it, pinning the adapter would need
+/// 2026-09-07-d5f2 / 2026-09-23-4722a: a Copilot runtime whose sessions replay scripted event
+/// sequences — one per provocation, so a tool round trip is scripted as two turns: the model asks
+/// for a tool, then answers once the result comes back.
+///
+/// This is the stand-in the adapter's seam exists for. Without it, pinning the adapter would need
 /// a CLI runtime binary and a live Copilot seat.
 /// </summary>
 internal sealed class FakeCopilotRuntime : ICopilotRuntime
 {
-    private readonly List<CopilotSessionEvent> _script = [];
+    private readonly Queue<CopilotSessionEvent[]> _turns = new();
 
     internal List<FakeCopilotSession> Sessions { get; } = [];
     internal List<string> DeletedSessions { get; } = [];
@@ -17,18 +20,14 @@ internal sealed class FakeCopilotRuntime : ICopilotRuntime
     internal CopilotUsage UsageBefore { get; set; } = CopilotUsage.Zero;
     internal CopilotUsage UsageAfter { get; set; } = CopilotUsage.Zero;
 
-    /// <summary>Sets the events the NEXT send replays, in order.</summary>
-    internal void Script(params CopilotSessionEvent[] events)
-    {
-        _script.Clear();
-        _script.AddRange(events);
-    }
+    /// <summary>Scripts one turn: the events the next send or tool response replays.</summary>
+    internal void Script(params CopilotSessionEvent[] events) => _turns.Enqueue(events);
 
     public Task<ICopilotSessionHandle> CreateSessionAsync(
         CopilotSessionRequest request, CancellationToken cancellationToken)
     {
         Requests.Add(request);
-        var session = new FakeCopilotSession($"session-{Sessions.Count + 1}", this, _script);
+        var session = new FakeCopilotSession($"session-{Sessions.Count + 1}", this, _turns);
         Sessions.Add(session);
         return Task.FromResult<ICopilotSessionHandle>(session);
     }
@@ -40,13 +39,14 @@ internal sealed class FakeCopilotRuntime : ICopilotRuntime
     }
 
     internal sealed class FakeCopilotSession(
-        string sessionId, FakeCopilotRuntime runtime, List<CopilotSessionEvent> script) : ICopilotSessionHandle
+        string sessionId, FakeCopilotRuntime runtime, Queue<CopilotSessionEvent[]> turns) : ICopilotSessionHandle
     {
         private readonly List<Action<CopilotSessionEvent>> _handlers = [];
         private int _usageReads;
 
         public string SessionId => sessionId;
         internal List<string> Prompts { get; } = [];
+        internal List<(string RequestId, string? Result, string? Error)> ToolResponses { get; } = [];
 
         public IDisposable Subscribe(Action<CopilotSessionEvent> handler)
         {
@@ -57,10 +57,24 @@ internal sealed class FakeCopilotRuntime : ICopilotRuntime
         public Task SendAsync(string prompt, CancellationToken cancellationToken)
         {
             Prompts.Add(prompt);
-            // Replay on a worker so the adapter is genuinely awaiting idle rather than being
-            // handed a completed turn on its own stack.
+            return ReplayNextTurn(cancellationToken);
+        }
+
+        public Task RespondToToolAsync(
+            string requestId, string? result, string? error, CancellationToken cancellationToken)
+        {
+            ToolResponses.Add((requestId, result, error));
+            return ReplayNextTurn(cancellationToken);
+        }
+
+        /// <summary>
+        /// Replays on a worker so the adapter is genuinely awaiting the turn rather than being
+        /// handed a finished one on its own stack.
+        /// </summary>
+        private Task ReplayNextTurn(CancellationToken cancellationToken)
+        {
+            var events = turns.Count > 0 ? turns.Dequeue() : [];
             var handlers = _handlers.ToList();
-            var events = script.ToList();
             return Task.Run(() =>
             {
                 foreach (var evt in events)
