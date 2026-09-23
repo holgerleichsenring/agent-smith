@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0167a
 goal: |
-  Introduce a `pr-review` pipeline preset. Distinct from p0025 (PR-feedback
-  loop where agent-smith responds to review comments) — this preset is
-  agent-smith *performing* the review: read a PR diff, dispatch review
-  skills against it, and emit findings as PR comments. Hits the most
-  contested 2026 market segment (CodeRabbit 2M repos, Greptile 82% bug-
-  catch claim).
+  Introduce a pr-review pipeline preset in which agent-smith performs the review: read the PR diff, dispatch review skills against it, and emit the findings as PR comments.
 
 requires: ["p0158a"]
 

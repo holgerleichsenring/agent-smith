@@ -1,14 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246g
 goal: |
-  Align the persistence layer with the reference .NET pattern and ship the
-  deployment migration path. (1) Replace IDbContextFactory with a SCOPED
-  DbContext implementing IUnitOfWork + per-entity repositories (the DbContext is
-  abstracted away, never a factory). (2) Run migrations from an init-container /
-  one-shot service in the deployment — never on app startup (already removed) —
-  via `agentsmith database migrate` (already shipped). (3) Then flip the server
-  to ONE persistence path (always DB + Redis from config); the CLI one-shot runs
-  stay DB-free.
+  Align persistence with the reference .NET pattern - a scoped DbContext as unit of work with per-entity repositories - ship the init-container migration path, and flip the server to one DB path.
 
 applies_to: "server (AgentSmith.Infrastructure.Persistence + Server composition) — NOT the CLI single-binary"
 

@@ -1,21 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0261
 goal: |
-  Two halves of one fix, and they only work together:
-  (1) A processed ticket must never stay in a trigger status (New/Active) — after a
-  run it is no longer new or active. Today only SUCCESS terminalizes the native status
-  (FinalizeAsync → done_status); FAILURE posts a comment only and leaves the ticket
-  open, so a failed run looks identical to an untouched one. Give failure its own
-  configurable terminal native status (failed_status), set the same one-step way, for
-  ALL providers.
-  (2) The agent-smith:failed / agent-smith:done lifecycle TAGS must STOP being decisive
-  for whether a ticket gets triggered — they are nothing more than status info for the
-  human. Triggering rests on the native status (trigger_statuses) plus the run lease,
-  never on the lifecycle tag.
-  This is the foundational lifecycle bug — it predates the relational migration and was
-  masked by exactly that tag. With both halves, the operator's re-run gesture becomes
-  the natural one: reopen the ticket to a trigger status; the stale failed/done tag no
-  longer blocks it.
+  Give failure its own configurable terminal native status for all providers, and stop the lifecycle tags being decisive for triggering, which rests on the native status plus the run lease.
 
 applies_to: backend
 

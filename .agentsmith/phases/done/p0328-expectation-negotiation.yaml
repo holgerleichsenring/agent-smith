@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0328
-goal: "NegotiateExpectation: a pipeline step before planning that turns an underspecified ticket into a ratified expectation. The agent drafts a schema-capped Soll block (observed / expected as verifiable assertions / constraints / at most one A-or-B question), posts it to the ticket and dialogue transports, and implementation starts only after the human ratifies or edits it. The ratified expectation becomes the run's acceptance contract. This is the protocol thesis as product: no verified competitor negotiates the WHAT before coding"
+goal: "NegotiateExpectation: a step before planning where the agent drafts a schema-capped expectation block and implementation starts only once the human ratifies or edits it."
 
 applies_to: backend + skills-repo
 

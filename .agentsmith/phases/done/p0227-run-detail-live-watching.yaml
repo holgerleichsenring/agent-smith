@@ -1,11 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0227
 goal: |
-  Make the run-detail page watchable live, without clicking, and stop two
-  classes of false-alarm noise. Operator feedback on a live run: the top area
-  scrolls away; you have to click the active step to see it run; not every
-  command is visible; a lone "in flight" LLM row hangs unattached; and a
-  canceled run paints its plumbing probes red as if they failed.
+  Make the run-detail page watchable live without clicking, and stop the false alarms from unattached in-flight LLM rows and a canceled run's plumbing probes painted red.
 
 applies_to: "dashboard FE (run-detail page, rail selection, execution tree, bodies)"
 

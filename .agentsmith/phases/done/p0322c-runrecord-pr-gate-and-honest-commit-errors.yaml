@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0322c
-goal: "init-project stops opening pull requests whose only content is the run-record (the 2026-07-10 'ghost PR' #8780: WriteRunResult seeds every repo's sandbox, defeating the empty-commit guard, so a repo with zero bootstrap output still committed+pushed+PR'd), and real git commit failures stop being misreported as 'nothing to commit'"
+goal: "init-project stops opening pull requests whose only content is the run-record, and real git commit failures stop being misreported as a clean tree."
 
 applies_to: backend
 

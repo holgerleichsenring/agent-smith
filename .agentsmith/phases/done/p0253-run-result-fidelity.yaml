@@ -1,23 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0253
 goal: |
-  Make result.md NEVER contradict the RunOutcomeKeystone verdict. A multi-repo
-  fix run recorded `result: success` + "Completed 2 change(s)" in result.md while
-  the keystone correctly recorded the run as FAILED ("produced no code changes").
-  The operator reads "the LLM wrote something but it's not perceived" — really the
-  two outcome-determinations diverge by construction.
-
-  Three root causes, all confirmed by forensics on one run:
-   1. ORDERING: result.md is rendered in the WriteRunResult step, BEFORE the
-      keystone runs in the CommitAndPR step — so the FAILED verdict never reaches
-      result.md, whose frontmatter defaults to success.
-   2. CHANGED-FILES DEFINITION: RunResultFormatter lists every changed path,
-      including run-record artifacts under `.agentsmith/` — which CommitAndPRHandler
-      already excludes from "real code change" (IsRunRecordArtifact). So result.md
-      counts meta files (plan.md/decisions.md) as deliverables → false "2 changes".
-   3. WRITE PLACEMENT: the agent's plan/decisions skills write a RELATIVE
-      `.agentsmith/plan.md` into the repo working tree (not the run-scoped record
-      dir), which is what pollutes the changed-files set in the first place.
+  Make result.md never contradict the RunOutcomeKeystone: render it from the verdict and count only real code changes, not `.agentsmith/` run-record artifacts.
 
 applies_to: backend
 

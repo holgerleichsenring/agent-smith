@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0361-cost-truth-and-duplicate-work-telemetry
 goal: |
-  Operator-reported: two runs displayed $25 + $30 while the provider metered
-  ~$80, and long runs repeat work (same file read n times). Two telemetry
-  gaps, one phase: (a) cost display must be trustworthy — unknown models must
-  never silently price at $0 and the per-phase breakdown must price each call
-  at its own model instead of _lastModel; (b) duplicated tool work must be
-  visible so context-loss (compaction) regressions are measurable instead of
-  an operator impression.
+  Cost display becomes trustworthy — no unknown model priced at zero, every call priced at its own model — and duplicated tool work becomes visible so context-loss regressions are measurable.
 
 scope:
   in: |

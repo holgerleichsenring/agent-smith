@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0336
-goal: "Capacity becomes predictable: a run's complete pod footprint is computed before it starts, reserved atomically against a fixed budget, and a run only starts when its full footprint fits (else it waits with a visible FIFO position) — so a started run can never fail for capacity mid-run, and load produces a calm queue instead of a failure storm. Context-level scoping shrinks the footprint, and the whole calculation is visible in the UI"
+goal: "Capacity becomes predictable: a run's full pod footprint is computed before it starts and reserved atomically against a budget, so it starts only when it fits, else waits at a visible FIFO position"
 
 applies_to: backend + dashboard
 

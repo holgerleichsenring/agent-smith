@@ -1,14 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0292
 goal: |
-  The dashboard shows the resolved config (repos, trackers, webhooks) but gives
-  the operator no way to tell whether any of it actually WORKS — credentials,
-  reachability, webhook wiring are all unverified until a real run fails. Add a
-  Connections diagnostics surface: a new System page that lists every catalog
-  repo and tracker once and lets the operator probe each (and "test all") with a
-  live, read-only round-trip, plus an honest webhook panel (secret configured?
-  last delivery seen?) since an inbound webhook cannot be actively probed from
-  the server side.
+  Add a Connections diagnostics page that probes every catalog repo and tracker with a live
+  read-only round-trip, plus an honest webhook panel for what cannot be actively probed.
 
 applies_to: "backend (probe + diagnostics endpoint) + dashboard (Connections page)"
 

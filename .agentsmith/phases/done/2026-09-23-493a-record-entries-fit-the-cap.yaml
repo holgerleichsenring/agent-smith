@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-493a
+
+goal: "The phase record is an index again: every entry fits the 400-character cap, and the goals it derives from fit theirs, so the file every agent loads first stops carrying a second copy of every spec."
+
+applies_to: "the phase record in contexts/default/context.yaml, the goals of the specs it points at, and the length ratchet that guards both"
+
+requires: ["p0512"]
+
+scope:
+  in: >
+    p0512 capped a record entry at 400 characters and put the 273 that already exceeded it on a
+    ratchet. The ratchet held — nothing grew — but nothing shrank either, and the debt was half
+    the file: 894 entries, 554,000 characters, 279,000 of them past the cap.
+
+    Every over-cap entry is brought under it. The product already composes this line as the
+    phase's goal plus the pointer (PhaseRecordIndexLine.Compose), so 149 entries are derived
+    that way and nothing is written by hand. The rest are compressed by reading the spec: an
+    entry keeps only what the spec does not already say.
+
+    A goal over 200 characters cannot yield an entry under 400, so those goals are shortened to
+    the one sentence the rule always asked for. The claim is unchanged; only the wording is.
+  out: >
+    The specs themselves, beyond their goal line, and a rule enforcing the 200-character
+    goal — nothing asserts it today, and enough shipped goals exceed it to need a ratchet
+    of its own. Both belong to the phase that bounds a spec file and declares the fields it may carry.
+
+decisions:
+  - key: "Derive rather than rewrite where the spec allows it — the product's own composer defines the shape, so 149 entries carry no new prose and no new claim."
+  - key: "An entry may outlive its spec: some carried a correction, a release number or an outstanding step the spec never learned. Those were kept, not cut — 42 entries were screened for it before any were touched."
+  - key: "Shortening a shipped spec's goal is a rewording, not a revision; the phase-versioning rule guards against changed meaning, and the operator lifted it for this pass."
+
+steps:
+  - id: derive-entries
+    action: "Replace every over-cap entry whose spec goal fits, composing goal plus the existing pointer."
+  - id: compress-remainder
+    action: "Compress the entries that need judgment, keeping any fact the spec lacks."
+  - id: shorten-goals
+    action: "Shorten every spec goal over 200 characters to one sentence carrying the same claim."
+  - id: retire-baseline-rows
+    action: "Remove from phase-record-length-baseline.tsv every entry that now fits."
+    modify:
+      - "phase-record-length-baseline.tsv: only the rows that left the cap"
+
+tests:
+  - "PhaseRecord_ANewEntry_FitsTheCap"
+  - "PhaseRecord_AnEntryThatShrankUnderTheCap_MustLeaveTheBaseline"
+  - "PhaseRecord_EveryPointer_ResolvesToAFile"
+  - "PhaseRecord_NoEntryGrew_SinceTheBaselineWasTaken"
+
+done:
+  - "No state.done entry exceeds 400 characters and the baseline file is empty of rows."
+  - "Every pointer in the record resolves to a file that exists."
+  - "No shortened goal exceeds 200 characters and every touched spec still parses."
+  - "The full suite is green."

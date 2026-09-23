@@ -1,14 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0281a
 goal: |
-  Kill the per-repo enumeration. Add a `connections` catalog holding the shared
-  host/org/project/auth once, DISCOVER the repos under a connection via the provider API,
-  and let a project select them by glob/list/exclude (`conn/Sample.App.*`, `!conn/...`)
-  instead of declaring a block per repo. This is the risk-heavy slice of p0281: it moves a
-  network API call into the config LOAD path, which until now parsed agentsmith.yml
-  offline-deterministically to a fixed repo set. So it must define what happens when
-  discovery fails, and must log the resolved set so glob drift can't change a run's scope
-  silently. The legacy `repos:`-catalog-by-name path keeps working in parallel.
+  Replace per-repo enumeration with a connections catalog plus provider-API repo discovery
+  selected by glob, with a defined discovery-failure mode and the resolved set logged.
 
 applies_to: "backend (config loader, source factory, repo discovery) + agentsmith.schema.json + sample config"
 

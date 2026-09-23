@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0259
 goal: |
-  A cancelled run must READ as cancelled, not as a failure. Today operator-cancel
-  publishes RunFinished(status=failed) and the dashboard shows the same red ✕ /
-  "failed" badge an error produces — the operator who pressed cancel cannot tell
-  their own intent from a real crash. Give cancel a dedicated terminal status end
-  to end, make the "cancelling…" state survive navigation, and give cancel its own
-  glyph. While there, lighten the status icon set (the filled coloured circles read
-  as pompous).
+  Give a cancelled run its own terminal status, glyph and surviving 'cancelling' state end to end so a cancel no longer reads as a failure, and lighten the status icon set.
 
 applies_to: backend, frontend
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0340
-goal: "A coding run (fix-bug + add-feature share coding-agent-master) delivers its plan IN SUBSTANCE: a plan is always present at the gate, and the master keeps working until every ratified acceptance criterion is met OR evaluated not-applicable-with-reason — completion is driven by a self-check LOOP against the criteria, not by a hindsight gate that merely fails an under-delivered run"
+goal: "A coding run delivers its plan in substance: a plan is always present at the gate, and the master works until every ratified acceptance criterion is met or evaluated not-applicable with a reason"
 
 applies_to: "backend + skills (coding-agent-master — the SHARED master for fix-bug AND add-feature)"
 

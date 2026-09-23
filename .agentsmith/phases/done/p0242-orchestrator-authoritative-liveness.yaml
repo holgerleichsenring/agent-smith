@@ -1,15 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0242
 goal: |
-  Make run liveness AUTHORITATIVE instead of trusting the volatile Redis
-  heartbeat, closing the residual single-run gap p0238 left open. Two cases the
-  heartbeat cannot survive: (1) a genuine heartbeat lapse (>2min Redis outage)
-  while a run is still alive — the active-run guard is bypassed and a duplicate
-  can spawn; (2) an empty/flushed Redis — heartbeats and runs:active vanish, so
-  the orphan reaper / stale detector treat live work as dead. The fix: derive
-  "is a run active for this ticket?" from the orchestrator (does a sandbox pod /
-  container exist?), and make a stale-revert authoritatively CANCEL the run it
-  reverts rather than leave it alive next to a fresh spawn.
+  Make run liveness authoritative instead of trusting the volatile Redis heartbeat, and make a stale-revert cancel the run it reverts rather than leave it alive beside a fresh spawn.
 
 applies_to: "backend (StaleJobDetector, SandboxOrphanReaper, claim guard, run-cancellation)"
 
