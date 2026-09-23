@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0408
-goal: "A run explains itself to someone who has never seen it: one diagram, GENERATED from the pipeline presets, showing every step of every preset in order, where the phase boundaries fall and what repeats per phase, and for each step whether a model runs — which master, which output shape — or whether it is deterministic machinery. Published on the website next to the existing lifecycle drawings and held true by a drift test, so it stays evidence rather than a claim."
+goal: "One diagram generated from the pipeline presets shows every preset's steps in order, the phase boundaries, and which steps run a model — published on the website and held true by a drift test."
 applies_to: "backend contracts + website"
 requires:
   - p0393a  # PhaseSequence / CodePhaseBlock — the phase-crossing structure the diagram must show

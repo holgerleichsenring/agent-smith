@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0239
 goal: |
-  Make the system's behaviour PROVABLE without a metered LLM run, so a single
-  real run is only a model-fitness check, not the bug-finder. The reason the last
-  ~40 phases kept regressing: mechanics were left to prose / manual runs when they
-  should have been code + a deterministic test. The keystone (p0241) and the
-  single-run invariant (p0238) are now code; this phase makes the fast in-process
-  harness (p0199 RealCompositionHarness) actually EXERCISE them and the exception
-  paths, and closes the fast-tier fidelity gap that currently hides them.
+  Make the system's behaviour provable without a metered LLM run by having the fast in-process harness exercise the keystone, the single-run invariant and the exception paths.
 
 applies_to: "backend (pipeline harness — fast in-process tier)"
 

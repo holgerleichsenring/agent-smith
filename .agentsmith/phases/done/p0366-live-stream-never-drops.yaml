@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0366
-goal: "The dashboard live stream must never silently die on a transient WebSocket drop. The SignalR client reconnects forever, but an automatic-reconnect gets a NEW ConnectionId, so every server-side group membership (Overview/Run/System/Sandbox) is lost — and only the Overview hook re-syncs. The per-run detail view stays 'Connected' yet receives nothing: a live-but-dead view. Fix: on reconnected, re-invoke every active subscription so the fresh connection rejoins every group, idempotently, gap-filling the missed window via the existing retained-window replay. Holds with multiple runs and multiple tabs."
+goal: "The dashboard live stream survives a SignalR reconnect: every active subscription is re-invoked on the new connection so all groups rejoin idempotently and the missed window replays."
 
 applies_to: "dashboard (SignalR transport layer — JobsHubClient subscription tracking + rejoin-on-reconnect, EventStore run-scope replay dedup)"
 

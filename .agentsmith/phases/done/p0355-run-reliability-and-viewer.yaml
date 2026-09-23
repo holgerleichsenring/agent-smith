@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0355
-goal: "Make runs reliable and the run viewer truthful. The load-bearing fix: orphaned sandbox pods 'hang' and hold the k8s namespace ResourceQuota, so later runs are admitted-then-killed with 'exceeded quota' — a reaper must detect corpse pods (a pod whose run is not live) and delete them, BOTH periodically AND at capacity-claim time. Plus the viewer defects observed on #19106: pending steps show a bogus duration, the 5-beat spine marks Building done while Plan is still in progress, the progress ledger / plan is never shown, cost is wrong (especially on revisit after the run ended), and COMPUTE shows 5 pods when only 3 exist. Plus: reaper-cancel mislabeled 'operator', a superseded run finalizing a reclaimed ticket, the runs list hard-capped with no pagination, overflowing row text, and a pre-commit customer-name guard."
+goal: "Make runs reliable and the run viewer truthful: reap corpse sandbox pods holding the k8s quota, reconcile admission with it, and fix the viewer's duration, spine, ledger, cost and pod-count defects"
 
 applies_to: "backend (sandbox/pod lifecycle + orphan reaper + capacity admission, cancel-reason, ticket finalizer, run/cost/pod-count persistence) + dashboard (run viewer status/cost derivation, runs pagination, row overflow) + repo hygiene (pre-commit customer scan)"
 

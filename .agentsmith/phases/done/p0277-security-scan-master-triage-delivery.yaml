@@ -1,13 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0277
 goal: |
-  A code security-scan must DELIVER its master's TRIAGE, not the raw scanner dump.
-  Today StaticPattern/GitHistory/DependencyAudit each AppendObservations(raw) into
-  SkillObservations, AgenticMaster(security-master) then triages — but the preset has
-  NO consumer of the master's answer, so its dedup / prioritization / FP-suppression /
-  context is discarded and DeliverFindings ships the raw scanner noise as if final.
-  Same orphaned-master-output root cause as p0267, masked because the raw scanners
-  already populate the channel (so it never showed as "0 findings").
+  Make a code security-scan deliver its master's triage rather than the raw scanner dump, whose dedup, prioritization and FP-suppression the preset discarded for lack of a consumer.
 
 applies_to: "backend + skills"
 

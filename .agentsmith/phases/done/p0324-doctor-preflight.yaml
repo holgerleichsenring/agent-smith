@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0324
-goal: "agent-smith doctor: an active preflight command that turns every historically silent misconfiguration (skills pin drift, master-description overflow, missing webhook scopes, rate-limit tier mismatch, unreachable Redis/sandbox) into a named check with an actionable failure message. Trust foundation for unattended operation: an assistant that fails silently is worse than none"
+goal: "agent-smith doctor: an active preflight command that turns every historically silent misconfiguration into a named check with an actionable failure message."
 
 applies_to: backend
 

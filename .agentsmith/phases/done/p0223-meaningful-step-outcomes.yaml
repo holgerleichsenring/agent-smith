@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0223
 goal: |
-  Pipeline-step RESULTS must be meaningful, not raw command exit codes. The
-  multi-repo commit/PR step rendered 4-of-5 repos as red "commit -m · exit 1"
-  with stdout hidden — but those were repos with NOTHING TO COMMIT, a normal
-  outcome, not a failure. Classify per-repo outcomes so "no changes — no PR
-  needed" is neutral, a created PR is a clickable link, and a genuine failure
-  shows its real reason. A red row must mean something is actually wrong.
+  Classify per-repo commit/PR step outcomes so nothing-to-commit reads neutral, a created PR is a link and a real failure shows its reason, instead of raw red exit codes.
 
 applies_to: "dashboard FE + backend (commit/PR step outcome events)"
 
