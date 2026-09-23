@@ -65,8 +65,9 @@ add_literal "anthropic-api-key"   "${ANTHROPIC_API_KEY:-}"
 add_literal "openai-api-key"      "${OPENAI_API_KEY:-}"
 add_literal "gemini-api-key"      "${GEMINI_API_KEY:-}"
 add_literal "github-token"        "${GITHUB_TOKEN:-}"
-# 2026-09-07-d5f2: a copilot agent naming its own api_key_secret needs that name as a key here
-# too; the derivation is the env var lower-cased with underscores turned into dashes.
+# 2026-09-23-4722b: an agent naming its own api_key_secret needs that name as a key here too.
+# The derivation is the env var lower-cased with underscores turned into dashes, so
+# COPILOT_TOKEN_TEAM_A becomes copilot-token-team-a. Add it with add_literal beside these.
 add_literal "copilot-github-token" "${COPILOT_GITHUB_TOKEN:-}"
 add_literal "azure-devops-token"  "${AZURE_DEVOPS_TOKEN:-}"
 add_literal "gitlab-token"        "${GITLAB_TOKEN:-}"

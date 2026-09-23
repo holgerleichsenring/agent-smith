@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using System.Diagnostics;
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Providers;
@@ -19,7 +20,7 @@ namespace AgentSmith.Server.Services;
 /// </summary>
 public sealed class KubernetesJobSpawner(
     IKubernetes k8sClient,
-    IOptions<JobSpawnerOptions> options,
+    IOptions<JobSpawnerOptions> options, AgentSmithConfig config,
     ILogger<KubernetesJobSpawner> logger) : IJobSpawner
 {
     private readonly JobSpawnerOptions _options = options.Value;
@@ -172,9 +173,8 @@ public sealed class KubernetesJobSpawner(
 
     private List<V1EnvVar> BuildEnv(string jobId, JobRequest request)
     {
-        var env = AgentSecretBinding.All
-            .Select(b => EnvFromSecret(b.EnvVar, _options.SecretName, b.K8sSecretKey))
-            .ToList();
+        var env = AgentSecretNames.For(config)
+            .Select(n => EnvFromSecret(n, _options.SecretName, AgentSecretNames.K8sSecretKeyFor(n))).ToList();
         env.AddRange(
         [
             new V1EnvVar { Name = "JOB_ID", Value = jobId },

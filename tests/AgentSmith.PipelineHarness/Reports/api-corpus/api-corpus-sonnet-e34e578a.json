@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-23T22:17:40.147358+00:00",
+  "generated_at": "2026-09-23T22:37:11.706598+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,7 +9,7 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no authentication required \u2014 endpoint returns sensitive Member fields (role, contactEmail) with no security scheme declared and no global security policy in spec",
+      "finding_headline": "GET /members/{id}: endpoint carries no security scheme, exposing member records (including role and contactEmail) to unauthenticated callers",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders?memberId=: client-supplied memberId query parameter with no spec-level ownership binding \u2014 authenticated caller can list any member\u0027s orders by substituting memberId",
-      "highest_severity": "High",
+      "finding_headline": "GET /orders: caller-supplied \u0060memberId\u0060 query parameter allows an authenticated user to list any member\u0027s orders (BOLA/IDOR)",
+      "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: client-supplied orderId with no ownership check indicated \u2014 authenticated caller may create invoices against orders belonging to other members",
+      "finding_headline": "POST /invoices: \u0060orderId\u0060 body parameter with no ownership-binding claim \u2014 authenticated caller may create invoices against orders belonging to other members",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: no privilege/role guard declared \u2014 any authenticated member can elevate any other member\u0027s role, including to admin",
+      "finding_headline": "PUT /members/{id}/role: role-assignment endpoint requires only a bearer token with no documented privilege tier, allowing any authenticated member to escalate roles",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
