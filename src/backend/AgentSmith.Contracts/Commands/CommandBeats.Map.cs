@@ -81,6 +81,7 @@ public static partial class CommandBeats
             [CommandNames.BootstrapDispatch] = RunBeat.Building,
             [CommandNames.BootstrapDiscover] = RunBeat.Building,
             [CommandNames.BootstrapRound] = RunBeat.Building,
+            [CommandNames.BootstrapRetire] = RunBeat.Building,
             [CommandNames.AnalyzePrDiff] = RunBeat.Building,
             [CommandNames.PrReviewSkillRound] = RunBeat.Building,
             [CommandNames.ApiSecuritySkillRound] = RunBeat.Building,

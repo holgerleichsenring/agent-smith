@@ -163,7 +163,8 @@ public static class RunResultFormatter
         string? repoName = null,
         IReadOnlyList<DiscoveredComponent>? components = null,
         IReadOnlyDictionary<string, string>? bootstrapOutputsByContext = null,
-        string? sharedCostNote = null)
+        string? sharedCostNote = null,
+        IReadOnlyList<string>? retiredContexts = null)
     {
         var sb = new StringBuilder();
         var heading = repoName is null
@@ -176,6 +177,7 @@ public static class RunResultFormatter
 
         RunCostSectionWriter.AppendInitFrontmatter(sb, durationSeconds, costSummary, repoName);
         AppendDiscoverySection(sb, components);
+        AppendRetiredSection(sb, retiredContexts);
         AppendBootstrapOutputsSection(sb, components, bootstrapOutputsByContext);
         AppendSharedCostNote(sb, sharedCostNote);
 
@@ -197,6 +199,28 @@ public static class RunResultFormatter
         sb.AppendLine("|-----------|---------|----------|----------|");
         foreach (var c in components)
             sb.AppendLine($"| {c.Name} | `{c.Workdir}` | {c.Language} | `{c.Evidence}` |");
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// 2026-09-23-4711: the contexts this run moved aside. A retirement is read by whoever
+    /// opens the pull request, so it is NAMED here — a reader who has to notice a context by
+    /// its absence has not been told anything.
+    /// </summary>
+    private static void AppendRetiredSection(StringBuilder sb, IReadOnlyList<string>? retired)
+    {
+        if (retired is null || retired.Count == 0) return;
+        sb.AppendLine("## Retired contexts");
+        sb.AppendLine();
+        sb.AppendLine(
+            "This derivation did not produce the contexts below. Their directories were MOVED, "
+            + $"not deleted — review them under `{ProjectMetaPaths.RetiredContexts}/` and merge "
+            + "the move, or restore one this run got wrong.");
+        sb.AppendLine();
+        foreach (var name in retired)
+            sb.AppendLine(
+                $"- `{name}` — `{ProjectMetaPaths.Contexts}/{name}` → "
+                + $"`{ProjectMetaPaths.RetiredContexts}/{name}`");
         sb.AppendLine();
     }
 

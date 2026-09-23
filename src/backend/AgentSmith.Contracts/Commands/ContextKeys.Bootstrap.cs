@@ -68,6 +68,15 @@ public static partial class ContextKeys
     public const string ContextProjectMaps = "ContextProjectMaps";
 
     /// <summary>
+    /// 2026-09-23-4711: the contexts this run MOVED ASIDE, keyed by repo name — one entry per
+    /// repository that carried a context the derivation no longer produces. Set by
+    /// BootstrapRetireHandler after the rounds; read by WriteRunResultHandler so the run record
+    /// NAMES what was retired instead of leaving it to be noticed by its absence. Absent when
+    /// the tree already matched what was derived.
+    /// </summary>
+    public const string RetiredContexts = "RetiredContexts";
+
+    /// <summary>
     /// 2026-09-15-c6e9: one BootstrapRoundOutcome per round, ACCUMULATED. A repository fans out
     /// one round per component, so a key the last round wins would report one component and
     /// silently drop the rest.

@@ -74,6 +74,7 @@ public static partial class CommandModelUse
         CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
         CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,
         CommandNames.WritePhaseRecord, CommandNames.BootstrapDispatch,
+        CommandNames.BootstrapRetire,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SpawnNuclei, CommandNames.SpawnSpectral,
         CommandNames.SpawnZap, CommandNames.AnalyzePrDiff,
