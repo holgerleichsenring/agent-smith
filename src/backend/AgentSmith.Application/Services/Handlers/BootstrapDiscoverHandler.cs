@@ -220,16 +220,12 @@ public sealed class BootstrapDiscoverHandler(
     private ISandbox? ResolveSandbox(PipelineContext pipeline, RepoConnection repo) =>
         sandboxTargets.SandboxesForRepo(pipeline, repo) is [var owned, ..] ? owned.Value : null;
 
-    // p0384: RepoProjectMaps is the only analysis surface — a single-repo run is
-    // a dictionary of one, so an unmatched repo name falls back to the sole entry.
-    private static ProjectMap? ResolveProjectMap(PipelineContext pipeline, string repoName)
-    {
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) || dict is null)
-            return null;
-        if (dict.TryGetValue(repoName, out var perRepo)) return perRepo;
-        return dict.Count == 1 ? dict.Values.First() : null;
-    }
+    // 2026-09-23-bb73: the map this repository OWNS, through the same key→repo ownership
+    // test the sandbox beside it is resolved with. RepoProjectMaps is keyed by the composed
+    // sandbox key, so the repo-name lookup hit only where the two coincide — and the sole-entry
+    // fallback that covered the miss answered a count, not ownership.
+    private ProjectMap? ResolveProjectMap(PipelineContext pipeline, string repoName) =>
+        RepoOwnedProjectMap.In(pipeline, repoName, sandboxTargets);
 
     private readonly record struct DiscoverResult(
         bool Success, IReadOnlyList<DiscoveredComponent>? Components, CommandResult? Failure)

@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-bb73
+
+goal: "A repository's analysis map is found through the ownership test rather than by matching a repo name against a sandbox key, so a multi-toolchain repository stops resolving to nothing."
+
+applies_to: "backend (the project-map lookups in the two bootstrap rounds)"
+
+requires: ["2026-09-23-6698"]
+
+facts:
+  - claim: "The map is published keyed by the composed SANDBOX KEY."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs:64"
+  - claim: "The discovery round looks it up by REPO NAME and falls back only when there is exactly one entry, so a repository with several toolchain groups resolves to null and the round fails."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:230"
+  - claim: "The round beside it has the same lookup, bounded by a sandbox count - the bound 2026-09-04-0721 added so a multi-sandbox run could not borrow another repository's map."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:164"
+  - claim: "2026-09-23-6698 named this as its successor: the same defect one line from the sandbox lookup it fixed."
+    evidence: ".agentsmith/phases/done/2026-09-23-6698-sandbox-resolution-uses-the-index.yaml"
+  - claim: "The ownership test that answers it is already injected into both handlers by 2026-09-23-6698."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:61"
+  - claim: "Today the discovery lookup is unreachable on a re-init, because the round returns before it; that is the only reason the defect is not already live."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:55"
+
+scope:
+  in: >
+    Both lookups resolve a repository's map through the ownership test, the way both resolve a
+    sandbox since 2026-09-23-6698: the keys a repository owns, then the map under one of them.
+    The count-based fallbacks go, because a count answers a different question from ownership
+    and answers it wrongly for exactly the repositories that have more than one toolchain.
+
+    The unit fixtures key these maps by repository name, which production never does for a
+    multi-group repository. They are corrected to the shape the coordinator publishes, or they
+    certify a resolution that cannot work.
+  out: >
+    The per-context maps, which are keyed by repository and then by context name and resolve
+    correctly today. Only the per-repository map is looked up against the wrong key space.
+
+decisions:
+  - key: "The ownership test rather than a widened key match. It is the same answer 2026-09-23-6698 reached for sandboxes, published for exactly this, and a second way of deciding which repository owns a key is how the first one drifted."
+  - key: "The fixtures are corrected rather than left. A fixture that keys by repository name makes every test pass while the resolution is dead in production - which is how this survived being read twice."
+
+steps:
+  - id: discovery-resolves-by-owner
+    action: "Resolve the discovery round's map through the ownership test and drop the count fallback."
+    modify:
+      - "BootstrapDiscoverHandler: ResolveProjectMap"
+  - id: round-resolves-by-owner
+    action: "Resolve the writing round's map the same way."
+    modify:
+      - "BootstrapRoundHandler: ResolvePerRepoProjectMap"
+  - id: fixtures-key-as-production-does
+    action: "Key the project-map fixtures by sandbox key."
+    modify:
+      - "the bootstrap handler test pipelines"
+
+tests:
+  - "BootstrapDiscover_MultiGroupRepo_ResolvesItsOwnProjectMap"
+  - "BootstrapRound_MultiGroupRepo_ResolvesItsOwnProjectMap"
+  - "BootstrapRound_RepoOwnsNoMap_StillFailsLoudly"
+
+done:
+  - "A repository with several toolchain groups resolves its own analysis map in both rounds."
+  - "Neither round can resolve a map belonging to another repository."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

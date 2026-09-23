@@ -1,0 +1,32 @@
+phase: 2026-09-23-bb73
+decisions:
+  - id: 1
+    what: "Resolve the map through the ownership test rather than widening the key match."
+    alternatives: "Match the repo name against the key's prefix, as the string fallback does."
+    why: >
+      It is the answer 2026-09-23-6698 reached for sandboxes one line away, and the map it reads
+      is published under the same key space. A second way of deciding which repository owns a
+      key is how the first one drifted.
+  - id: 2
+    what: "The resolution gets its own type instead of joining SandboxTargets."
+    alternatives: "A third member on the ownership type."
+    why: >
+      SandboxTargets sits at 112 lines and is not baselined, so growing it past the ceiling
+      would open a new ratchet entry for a type that is already the right size. It also keeps
+      an analysis map out of a type about sandbox ownership.
+  - id: 3
+    what: "The count-based fallbacks go entirely."
+    alternatives: "Keep them for the single-repository case."
+    why: >
+      A single-repository run resolves its sole map as a CONSEQUENCE of ownership - every key
+      belongs to the one repository - so p0384's behaviour survives without a second rule. A
+      count answers a different question from ownership and answers it wrongly for exactly the
+      repositories that have more than one toolchain.
+  - id: 4
+    what: "The lying fixture is corrected rather than left."
+    alternatives: "Leave it and add the new tests beside it."
+    why: >
+      It keyed the maps by repository name for a repository with two toolchain groups, which
+      the coordinator never publishes. A fixture that describes a shape production does not
+      have makes every test pass while the resolution is dead - which is how this survived
+      being read twice.
