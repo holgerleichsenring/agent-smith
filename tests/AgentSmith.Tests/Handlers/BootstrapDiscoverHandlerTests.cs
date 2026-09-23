@@ -217,6 +217,35 @@ public sealed class BootstrapDiscoverHandlerTests
         captured.User.Should().NotContain("DO NOT guess");
     }
 
+    [Fact]
+    public async Task BootstrapDiscover_TheUserPrompt_TiesTheWorkdirToTheTreeNotTheStackCount()
+    {
+        // 2026-09-23-7868a: the round was told to answer "." whenever it found one
+        // component, so a repository whose sources sit in a sub-tree declared the root
+        // and the analyzer scoped to that workdir read the wrong tree. The system half
+        // is the skill body, stubbed in this fixture; the user half is the factory's.
+        var response = """
+            {
+              "status": "complete",
+              "components": [
+                { "name": "default", "workdir": "src/api", "language": "csharp", "evidence": "src/api/Program.cs" }
+              ]
+            }
+            """;
+        var captured = new CapturedPrompt();
+        var handler = NewHandler(response, captured);
+        var pipeline = NewPipeline("api");
+
+        await handler.ExecuteAsync(NewContext("api", pipeline), CancellationToken.None);
+
+        captured.User.Should().NotContainEquivalentOf("single-component",
+            "how many components a repo holds decides nothing about where one of them sits");
+        captured.User.Should().Contain("this component's SOURCE occupies",
+            "the field description says what the value means");
+        captured.User.Should().Contain("sub-tree its source occupies",
+            "and the closing rule says it is read off the tree");
+    }
+
     private static BootstrapDiscoverHandler NewHandler(
         string canned,
         CapturedPrompt? captured = null,

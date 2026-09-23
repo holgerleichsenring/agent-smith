@@ -150,6 +150,19 @@ public sealed class WriteContextYamlToolHostTests
         result.Should().StartWith("Error:");
     }
 
+    [Fact]
+    public void WriteContextYamlToolDescription_TheWorkdirSentence_NamesNoSingleStackRule()
+    {
+        // 2026-09-23-7868a: this is the description the WRITING round reads, and its
+        // answer is the one that persists into context.yaml. "'.' for single-stack"
+        // collapsed a real sub-tree to the repo root on every one-stack repository.
+        WriteContextYamlToolDescription.Document.Should().NotContainEquivalentOf("single-stack",
+            "where a stack's sources sit is a property of the tree, not of the stack count");
+        WriteContextYamlToolDescription.Document.Should().Contain(
+            "the repo-relative sub-tree this stack's SOURCE occupies",
+            "the description says what the field means instead");
+    }
+
     private WriteContextYamlToolHost BuildHost()
     {
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal)

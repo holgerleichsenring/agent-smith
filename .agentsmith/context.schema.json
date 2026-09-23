@@ -30,7 +30,7 @@
         "workdir": {
           "$comment": "MECHANISM — the sandbox coordinator clones at this path, so /work is this sub-tree.",
           "type": "string",
-          "description": "Sub-tree this context applies to, relative to the repo root. '.' = repo root (single-stack default, contexts/default/). Monorepo example: 'src/Server', 'client', 'docs'. Required per p0161 — sandbox coordinator clones at this path so /work = sub-tree root inside the sandbox.",
+          "description": "Sub-tree this context's source occupies, relative to the repo root, read off the tree: 'src/Server', 'client', 'docs'. '.' only where that source is the whole repository. Required per p0161 — sandbox coordinator clones at this path so /work = sub-tree root inside the sandbox.",
           "examples": [".", "src/Server", "client", "docs"]
         },
         "version": {
