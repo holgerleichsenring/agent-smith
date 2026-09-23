@@ -8,13 +8,15 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// (PipelineNameInitializer, FetchTicket (p0322a), CheckoutSource, AnalyzeCode,
 /// PublishProjectLanguage, LoadSkills, BootstrapDiscover, BootstrapDispatch,
 /// BootstrapRound, WriteRunResult, InitCommit) against the SkillsBackend.
-/// Fixture catalog. BootstrapDiscover takes the re-init projection path
-/// because StubSourceProvider surfaces an existing .agentsmith/contexts/
-/// default tree; BootstrapDispatch then matches csharp-bootstrap by
+/// Fixture catalog. StubSourceProvider surfaces an existing
+/// .agentsmith/contexts/default tree, so this is a RE-INIT — and since
+/// 2026-09-23-9bb2 a re-init runs the discovery round like any other init,
+/// with that tree stated to it as prior art. Its answer is the FIRST item the
+/// scripted queue serves; BootstrapDispatch then matches csharp-bootstrap by
 /// project_language='csharp' and fans out one BootstrapRound. The scripted
 /// LLM writes principles.md so BootstrapRound's "0 changes" guard
 /// stays green. StubProjectAnalyzer replaces the LLM-driven analyzer so the
-/// ScriptedChatClient queue isn't consumed before BootstrapRound runs.
+/// ScriptedChatClient queue isn't consumed before BootstrapDiscover runs.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class InitProjectTests
@@ -44,6 +46,17 @@ public sealed class InitProjectTests
     private static void EnqueueBootstrapWrite(RealCompositionHarness harness)
     {
         harness.ChatClient
+            // 2026-09-23-9bb2: the discovery round is a model call on a re-init too, and it
+            // runs before the bootstrap round — so its answer is queued first.
+            .EnqueueText(
+                """
+                {
+                  "status": "complete",
+                  "components": [
+                    { "name": "default", "workdir": ".", "language": "csharp", "evidence": "Fixture.csproj" }
+                  ]
+                }
+                """)
             .EnqueueToolCall("write_file",
                 """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""")
             // p0193-fix: BootstrapRound fails loudly unless context.yaml exists on

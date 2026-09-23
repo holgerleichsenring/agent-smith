@@ -28,10 +28,12 @@ public sealed class FixtureSkillsCatalogTests
         // p0312a: one root, no category directories — every skill lives in _masters.
         var roles = loader.LoadRoleDefinitions(Path.Combine(catalog.Root, "skills"));
 
-        roles.Should().HaveCount(5,
-            "coding-agent-master + csharp/node/python/generic bootstrap producers");
+        roles.Should().HaveCount(6,
+            "coding-agent-master + csharp/node/python/generic bootstrap producers "
+            + "+ the discovery producer the init round resolves (2026-09-23-9bb2)");
         roles.Should().Contain(r => r.Name == "csharp-bootstrap" && r.OutputSchema == "bootstrap");
         roles.Should().Contain(r => r.Name == "generic-bootstrap" && r.OutputSchema == "bootstrap");
         roles.Should().Contain(r => r.Name == "coding-agent-master" && r.Role == "master");
+        roles.Should().Contain(r => r.Name == "project-discovery" && r.OutputSchema == "discovery");
     }
 }

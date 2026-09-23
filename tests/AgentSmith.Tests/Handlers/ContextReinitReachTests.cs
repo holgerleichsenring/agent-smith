@@ -22,19 +22,24 @@ namespace AgentSmith.Tests.Handlers;
 /// 2026-08-25-c9c7: the way back in for a repository that was initialised before the
 /// image rule existed — this one included, and the shipped demo with it.
 /// <para>
-/// The claim the phase was cut on is that discovery's short-circuit locks such a
-/// repository out: an initialised project never re-writes its context, so a write-path
-/// rule reaches new projects only. That is half right. The short-circuit skips the
-/// discovery LLM CALL; it still projects the existing contexts into
-/// <see cref="ContextKeys.DiscoveredComponents"/>, and BootstrapDispatch fans out one
-/// BootstrapRound per component — a round that reads the existing context.yaml, must
-/// call write_context_yaml, and FAILS the run if it does not. Re-running init-project
-/// IS the route, and the new rule is what makes the rewrite name an image.
+/// The claim the phase was cut on is that discovery locks such a repository out: an
+/// initialised project never re-writes its context, so a write-path rule reaches new
+/// projects only. That is wrong. Discovery publishes
+/// <see cref="ContextKeys.DiscoveredComponents"/> for the repository's components and
+/// BootstrapDispatch fans out one BootstrapRound per component — a round that reads the
+/// existing context.yaml, must call write_context_yaml, and FAILS the run if it does not.
+/// Re-running init-project IS the route, and the new rule is what makes the rewrite name
+/// an image.
 /// </para>
 /// <para>
-/// This pins that property, because it is load-bearing and was never asserted: if the
-/// re-init projection ever stops emitting rounds, the rule silently stops reaching
-/// every repository that already exists.
+/// 2026-09-23-9bb2: the round that enumerates them is a model call on a re-init as much as
+/// on a first init — the existing contexts are prior art inside its prompt. The property
+/// pinned here is unchanged: what discovery answers becomes one round per component.
+/// </para>
+/// <para>
+/// This pins that property, because it is load-bearing and was never asserted: if a
+/// re-init ever stops emitting rounds, the rule silently stops reaching every repository
+/// that already exists.
 /// </para>
 /// </summary>
 public sealed class ContextReinitReachTests
@@ -56,13 +61,14 @@ public sealed class ContextReinitReachTests
             new RemoteContextDiscovery("server", "src/Server", "csharp"),
             new RemoteContextDiscovery("client", "client", "typescript"));
 
-        var discovered = await Discover().ExecuteAsync(
+        var discovered = await Discover(DiscoveryAnswer).ExecuteAsync(
             new BootstrapDiscoverContext(RepoName, new AgentConfig(), pipeline), CancellationToken.None);
         var dispatched = await Dispatch().ExecuteAsync(
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         discovered.IsSuccess.Should().BeTrue();
-        discovered.Message.Should().Contain("re-init", "the discovery call is skipped, not the round");
+        discovered.Message.Should().Contain("discovered components",
+            "the round runs on a re-init and its answer is what the rounds are cut from");
         dispatched.IsSuccess.Should().BeTrue();
         dispatched.InsertNext.Should().HaveCount(2,
             "one bootstrap round per existing context — each one re-writes its context.yaml "
@@ -73,8 +79,19 @@ public sealed class ContextReinitReachTests
             .Should().BeEquivalentTo(["server", "client"]);
     }
 
-    private static BootstrapDiscoverHandler Discover() =>
-        new(Mock.Of<IChatClientFactory>(), null, EventTestStubs.RunContext,
+    private const string DiscoveryAnswer = """
+        {
+          "status": "complete",
+          "components": [
+            { "name": "server", "workdir": "src/Server", "language": "csharp",     "evidence": "src/Server/Program.cs" },
+            { "name": "client", "workdir": "client",     "language": "typescript", "evidence": "client/package.json" }
+          ]
+        }
+        """;
+
+    private static BootstrapDiscoverHandler Discover(string answer) =>
+        new(new StubChatClientFactory(new StubChatClient(new Queue<string>([answer]))),
+            null, EventTestStubs.RunContext,
             new DiscoveryOutputParser(), new SandboxTargets(),
             new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             NullLogger<BootstrapDiscoverHandler>.Instance);
@@ -86,6 +103,15 @@ public sealed class ContextReinitReachTests
                 NullLogger<ActivationSkillFilter>.Instance),
             context => new PipelineContextRunStateConcepts(context, Vocab),
             NullLogger<BootstrapDispatchHandler>.Instance);
+
+    private static ProjectMap StubMap => new(
+        PrimaryLanguage: "csharp",
+        Frameworks: [],
+        Modules: [],
+        TestProjects: [],
+        EntryPoints: [],
+        Conventions: new Conventions(null, null, null),
+        Ci: new CiConfig(false, null, null, null));
 
     private static PipelineContext PipelineWithExistingContexts(
         params RemoteContextDiscovery[] existing)
@@ -106,10 +132,24 @@ public sealed class ContextReinitReachTests
                 ActivatesWhen = "pipeline_name = \"init-project\"",
                 OutputSchema = "bootstrap",
             },
+            // 2026-09-23-9bb2: the round the re-init now runs needs its own skill — a
+            // catalog carrying bootstrap producers alone fails discovery before dispatch.
+            new RoleSkillDefinition
+            {
+                Name = "project-discovery",
+                ActivatesWhen = "pipeline_name = \"init-project\"",
+                OutputSchema = "discovery",
+            },
         });
         pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
             ContextKeys.SandboxDiscoveries,
             existing.ToDictionary(d => d.ContextName, d => d, StringComparer.Ordinal));
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            existing.ToDictionary(d => d.ContextName, _ => Mock.Of<ISandbox>(), StringComparer.Ordinal));
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            existing.ToDictionary(d => d.ContextName, _ => StubMap, StringComparer.Ordinal));
         var concepts = new PipelineContextRunStateConcepts(pipeline, Vocab);
         concepts.SetEnum("pipeline_name", "init-project");
         concepts.SetString("project_language", "csharp");
