@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-e7f0
+
+goal: "Nothing is constructed with an argument the container could hold, so no value reaches a constructor by runtime type matching and the shape that took a server down is gone."
+
+applies_to: "backend (the two registrations that activate a type with an argument, and a rule over the shape)"
+
+requires: ["2026-09-23-2c60"]
+
+facts:
+  - claim: "Two registrations activate a type with an argument, and both pass the same composed auth block for the same reason."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerPreflightExtensions.cs:53, src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:49"
+  - claim: "A third call activates by type with no argument and is not this shape."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:204"
+  - claim: "The second site survives a null only through a flow-narrowing early return four lines above it, not through its parameter type."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:34"
+  - claim: "The reason for passing rather than resolving is real: the registered block is read on FIRST RESOLUTION, while the composed one is read before Build, so the two can differ."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CallerIdentityExtensions.cs:26, src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:79"
+  - claim: "The composed block is the same object the token handler validates against, so a keyed INSTANCE preserves the reason and a factory would not."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:37"
+  - claim: "Keyed registration is already used in three provider families, so the mechanism needs no introduction."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProvidersExtensions.cs:26"
+  - claim: "Five consumers resolve the plain registration and must keep resolving it; the key is what keeps the composed one distinguishable without moving them."
+    evidence: "src/backend/AgentSmith.Server/Security/HubPermissionFilter.cs:30, src/backend/AgentSmith.Server/Security/RoleMappingSource.cs:18, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:58, src/backend/AgentSmith.Server/Extensions/AuthRequirementsEndpoints.cs:31, src/backend/AgentSmith.Server/Services/Startup/RoleMappingMigration.cs:23"
+
+scope:
+  in: >
+    The composed block is registered as a keyed instance, and both types that were activated
+    with it take it through an ordinary keyed parameter. Neither is constructed by hand any
+    more, so nothing matches a value to a parameter by its runtime type.
+
+    A rule then forbids the shape rather than the nullability. A rule about nullable arguments
+    is defeated by widening a parameter - which is warning-clean, forwards the null unchanged,
+    and is exactly what the fix to the outage did first. A rule about the ARGUMENT cannot be
+    defeated that way: with no argument there is no matching to fail.
+
+    The key is a constant on the type that reads it, so the registration and the parameter
+    cannot drift apart.
+  out: >
+    Promoting the compiler's null-argument diagnostic. It fires twice in this repository, one
+    of those is an unconstrained-generic artefact rather than a null bug, and neither is this
+    shape - it is hygiene worth its own decision, not protection against this failure.
+
+    The five container consumers. They resolve the lazily-read block and keep doing so; whether
+    they should read the composed one is a question about authority freshness.
+
+decisions:
+  - key: "The rule is about the argument, not about its type. Widening a parameter to nullable satisfies a nullability rule, forwards the null and leaves the failure intact - that is what happened here - while a shape with no argument cannot fail that way at all."
+  - key: "Both sites move together. Splitting them is how the second one was left standing: one phase deferred it to a rule phase, and the rule phase found no warning there and did nothing."
+  - key: "A keyed instance rather than a wrapper type. The distinguishing name is the whole requirement, and the key supplies it with no new type and no consumer moved - while an INSTANCE, not a factory, is what keeps the value the same object the token handler holds."
+  - key: "The key is a constant on the type that consumes it, reachable from the registration and from a test. The existing keyed families use runtime platform names and offer no home to follow."
+
+steps:
+  - id: both-sites-take-the-key
+    action: "Register the composed block as a keyed instance and have both types resolve it through a keyed parameter."
+    modify:
+      - "ServerPreflightExtensions, ServerAuthenticationExtensions: the two registrations"
+      - "SignInCheck, AuthorityReachabilityProbe: the auth parameter and the key constant"
+  - id: the-shape-has-a-rule
+    action: "Assert that no registration activates a type with an argument."
+    new:
+      - "an architecture rule over the activation shape"
+
+tests:
+  - "Preflight_TheSignInCheck_IsRegisteredWithoutActivation"
+  - "Authentication_TheReachabilityProbe_IsRegisteredWithoutActivation"
+  - "Activation_NoRegistration_PassesAConstructorArgument"
+  - "SignInCheck_TheKeyedBlock_IsTheInstanceCompositionRead"
+
+done:
+  - "No registration in this repository activates a type with a constructor argument."
+  - "Adding one makes the architecture rule red."
+  - "The block both types receive is the same instance the token handler validates against."
+  - "A server with no auth block still starts and still reports that sign-in is not configured."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."
