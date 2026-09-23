@@ -1,0 +1,40 @@
+phase: 2026-09-23-6698
+decisions:
+  - id: 1
+    what: "Call the ownership test the repository already has."
+    alternatives: "Widen the key match in each handler."
+    why: >
+      SandboxTargets.KeyBelongsToRepo names itself the one key-to-repo ownership test, and its
+      own record says string matching on the key scheme is the bug class that dropped
+      multi-group repos twice. The discovery handler already held it in its constructor and
+      never called it. A fourth match would be the same bug a third time.
+  - id: 2
+    what: "The round resolves by repository AND context."
+    alternatives: "By repository, as it did."
+    why: >
+      A repository with two toolchain groups owns two sandboxes and the round is dispatched
+      once per context, so resolving by repository asks a question with several correct
+      answers. Choosing among them arbitrarily is how the singular slot got it wrong.
+  - id: 3
+    what: "A miss stays a failure."
+    alternatives: "Fall back to the sole entry, or to the singular slot."
+    why: >
+      A borrowed sandbox writes a context derived from another tree, and that surfaces only
+      when a later run reasons from it. A failed init writes nothing: the rounds that follow
+      never run, so there is no half-written state to undo.
+  - id: 4
+    what: "The (repo, context) resolution lives on SandboxTargets, not in the round handler."
+    alternatives: "Keep it in the handler beside its caller."
+    why: >
+      The handler was already over the file-length ceiling, and the ratchet's own message asks
+      for the responsibility to be extracted rather than baselined. The question - which sandbox
+      does this repository own for this context - is the one the ownership type already answers
+      for a repository alone, so it had a home before it had a line of code.
+  - id: 5
+    what: "The multi-repo fixtures declare their repositories."
+    alternatives: "Leave them and weaken the ownership test for absent data."
+    why: >
+      They seeded sandboxes and project maps but never ContextKeys.Repos, and with no owner map
+      the ownership test reads the repository count from there - one repository means every
+      sandbox serves it. The fixtures described a shape they did not state; stating it is the
+      fix, and no assertion changed.

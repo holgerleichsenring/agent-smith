@@ -230,6 +230,7 @@ public sealed class BootstrapPrinciplesTransferTests
         transfer,
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
 

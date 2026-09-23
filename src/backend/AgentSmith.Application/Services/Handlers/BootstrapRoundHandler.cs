@@ -27,6 +27,7 @@ public sealed class BootstrapRoundHandler(
     BootstrapPrinciplesTransfer principlesTransfer,
     BootstrapContextWriteVerdict contextWrite,
     BootstrapOutputRecorder outputRecorder,
+    SandboxTargets sandboxTargets,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
 {
@@ -39,11 +40,11 @@ public sealed class BootstrapRoundHandler(
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repo) || repo is null)
             return CommandResult.Fail("BootstrapRound: no Repository in pipeline context");
 
-        var sandbox = ResolvePerRepoSandbox(pipeline, context.RepoName);
+        var sandbox = sandboxTargets.OwnedForContext(pipeline, context.RepoName, context.ContextName);
         if (sandbox is null)
             return CommandResult.Fail(
                 $"BootstrapRound: no sandbox available for repo '{context.RepoName}' " +
-                "(checked Sandboxes[RepoName] and legacy ContextKeys.Sandbox)");
+                $"context '{context.ContextName}' (no sandbox key belongs to this repo)");
         // 2026-09-04-0721: this context's own map first. RepoProjectMaps is keyed by SANDBOX,
         // so on a repository whose contexts share a toolchain image it describes the
         // representative's subtree — and this round writes a DIFFERENT context's context.yaml.
@@ -139,17 +140,6 @@ public sealed class BootstrapRoundHandler(
         return true;
     }
 
-    // p0158g: dispatch order — Sandboxes[RepoName] wins; legacy
-    // ContextKeys.Sandbox is the back-compat fallback (single-repo runs +
-    // pre-p0158g test fixtures that only seed the singular slot).
-    private static ISandbox? ResolvePerRepoSandbox(PipelineContext pipeline, string repoName)
-    {
-        if (pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var dict) && dict is not null
-            && dict.TryGetValue(repoName ?? string.Empty, out var perRepo))
-            return perRepo;
-        return pipeline.TryGet<ISandbox>(ContextKeys.Sandbox, out var legacy) ? legacy : null;
-    }
 
     // p0384: RepoProjectMaps is the only analysis surface. A SINGLE-sandbox run
     // may key its sole map by "default"/context name rather than the repo name,
