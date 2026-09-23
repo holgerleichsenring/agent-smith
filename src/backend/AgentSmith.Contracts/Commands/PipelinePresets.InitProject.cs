@@ -10,12 +10,12 @@ public static partial class PipelinePresets
     // .agentsmith/context.yaml + principles.md via WriteFile (path-write-guard
     // restricts writes to those two paths); InitCommit then commits the new files.
     //
-    // p0161d: BootstrapDiscover slots immediately before BootstrapDispatch. Cold-init
-    // runs the read-only project-discovery skill once per repo to enumerate components
-    // with evidence; Dispatch then fans out one BootstrapRound per (repo, component).
-    // On re-init the handler short-circuits when SandboxDiscoveries already surfaces
-    // non-synthetic contexts, so the preset shape stays static — conditional skip
-    // lives inside BootstrapDiscoverHandler.
+    // p0161d: BootstrapDiscover slots immediately before BootstrapDispatch. It runs the
+    // read-only project-discovery skill once per repo to enumerate components with
+    // evidence; Dispatch then fans out one BootstrapRound per (repo, component).
+    // 2026-09-23-9bb2: a re-init runs that same round — the contexts the repository
+    // already declares go into the prompt as prior art instead of standing in for the
+    // answer, so the preset shape stays static and nothing here is conditional.
     public static readonly IReadOnlyList<string> InitProject =
     [
         CommandNames.LoadCatalog,

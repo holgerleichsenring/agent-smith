@@ -13,6 +13,10 @@ namespace AgentSmith.Application.Services;
 /// ProjectMap (from AnalyzeCode), names the repo root and the
 /// component-criteria anchor, and specifies the discovery output_schema.
 ///
+/// 2026-09-23-9bb2: a repository that already carries
+/// <c>.agentsmith/contexts/</c> states what it declares as prior art
+/// (<see cref="BootstrapDiscoverPriorArt"/>) — the round derives again either way.
+///
 /// The LLM's tool surface is read-only filesystem + ask_human; it returns
 /// a structured discovery JSON document that the handler parses into
 /// <see cref="DiscoveredComponent"/> entries.
@@ -21,7 +25,8 @@ internal static class BootstrapDiscoverPromptFactory
 {
     public static (string System, string User) Build(
         RoleSkillDefinition role, Repository repository, string repoName,
-        ProjectMap projectMap, bool isInteractive)
+        ProjectMap projectMap, bool isInteractive,
+        IReadOnlyList<DiscoveredComponent> declared)
     {
         var system = $$"""
             ## Your Role
@@ -46,6 +51,7 @@ internal static class BootstrapDiscoverPromptFactory
             ```json
             {{projectMapJson}}
             ```
+            {{BootstrapDiscoverPriorArt.Section(declared)}}
 
             ## Your task
 

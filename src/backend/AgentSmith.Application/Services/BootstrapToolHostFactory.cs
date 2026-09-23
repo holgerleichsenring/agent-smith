@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -31,8 +33,14 @@ public sealed class BootstrapToolHostFactory(
     SandboxContextYamlWriter contextYamlWriter,
     VerifyDerivationStamp verifyDerivationStamp)
 {
+    /// <summary>
+    /// 2026-09-23-cd28: <paramref name="pipeline"/> is REQUIRED. The guard this builds sat
+    /// inert because the set it judges against could be omitted — an optional parameter here
+    /// would keep exactly that shape, and a caller that forgot it would be told by nothing.
+    /// </summary>
     public BootstrapToolBundle Create(
-        ISandbox sandbox, string repoLocalPath, string repoName, string contextName = "")
+        ISandbox sandbox, string repoLocalPath, string repoName, string contextName,
+        PipelineContext pipeline)
     {
         var fs = new FilesystemToolHost(
             sandbox, repoLocalPath, readGuard, writeGuard,
@@ -43,17 +51,43 @@ public sealed class BootstrapToolHostFactory(
         // write_context_yaml tool (write_file rejects context.yaml paths). Without
         // this the round could only ever write principles.md — context.yaml
         // was silently unproducible from p0193 until this wiring.
+        // 2026-09-23-cd28: the round's own discovered set reaches the ContextNameGuard the
+        // write host already builds. Handed nothing it admits any name, so a round could
+        // author a stray .agentsmith/contexts/<invented>/ beside the one it was dispatched
+        // for — and nothing deletes a context directory afterwards.
         var writeContextYaml = new WriteContextYamlToolHost(
             new Dictionary<string, ISandbox> { [repoName] = sandbox },
             defaultRepo: repoName,
             contextYamlSerializer,
             contextDocumentGate,
             contextYamlWriter,
-            verifyDerivationStamp);
+            verifyDerivationStamp,
+            DiscoveredContexts(pipeline),
+            repoName);
         var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);
         // 2026-08-26-167c: the round asks the TOOL what happened, not the sandbox.
         return new BootstrapToolBundle(
             tools, fs.GetChanges, log.GetDecisions, () => writeContextYaml.Outcome);
+    }
+
+    // 2026-09-23-cd28: projects ContextKeys.DiscoveredComponents (repo name -> components)
+    // into the shape ContextNameGuard reads (repo name -> context names). A component's
+    // Name IS its context directory — the same value BootstrapDispatchHandler dispatches
+    // the round under. No discovery in the pipeline => null, so the guard stays a no-op.
+    private static IReadOnlyDictionary<string, IReadOnlyList<string>>? DiscoveredContexts(
+        PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+                ContextKeys.DiscoveredComponents, out var perRepo)
+            || perRepo is null || perRepo.Count == 0)
+            return null;
+        var map = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (repoName, components) in perRepo)
+            map[repoName] = components
+                .Select(c => c.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList();
+        return map;
     }
 }
 

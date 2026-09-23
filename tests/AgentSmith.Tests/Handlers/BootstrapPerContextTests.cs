@@ -82,7 +82,9 @@ public sealed class BootstrapPerContextTests
             ContextGates.Serializer(),
             ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp());
 
-        var bundle = factory.Create(Mock.Of<ISandbox>(), "/repo", repoName: "api", contextName: "api");
+        var bundle = factory.Create(
+            Mock.Of<ISandbox>(), "/repo", repoName: "api", contextName: "api",
+            pipeline: new PipelineContext());
 
         bundle.Tools.OfType<AIFunction>().Select(f => f.Name)
             .Should().Contain(WriteContextYamlToolHost.ToolName);

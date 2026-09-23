@@ -184,12 +184,15 @@ public sealed class BootstrapSandboxResolutionTests
                 ["api-ui"] = apiUi,
                 ["web-app"] = webApp,
             });
+        // 2026-09-23-bb73: keyed by SANDBOX KEY, the way AnalyzeProjectHandler publishes them.
+        // Keyed by repository name this fixture certified a lookup production cannot make.
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
             new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
             {
-                ["api"] = NewMap(),
-                ["web"] = NewMap(),
+                ["api-core"] = NewMap(),
+                ["api-ui"] = NewMap(),
+                ["web-app"] = NewMap("typescript"),
             });
         pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(
             ContextKeys.AvailableRoles, new[] { DiscoverySkill });
