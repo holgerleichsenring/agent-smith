@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-e848
+
+goal: "The four factories that decide which tasks get a tool loop agree on one list, so replay and the harness stop driving a task differently from production."
+
+applies_to: "backend and harness (the production chat-client factory, the replay factory, and the two harness factories)"
+
+facts:
+  - claim: "Production grants a tool loop to four tasks; a task outside the set returns before the function-invocation middleware."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:39, :148"
+  - claim: "Replay grants it to three - reasoning is missing."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ReplayChatClientFactory.cs:20"
+  - claim: "The harness's scripted factory grants it to the same three, also without reasoning."
+    evidence: "tests/AgentSmith.PipelineHarness/Llm/ScriptedChatClientFactoryAdapter.cs:35"
+  - claim: "The eval factory agrees with production but states it as an expression, so nothing can read its set."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/AccountEvalChatFactory.cs:22"
+  - claim: "Reasoning is a task that really takes tools in production, so the divergence is a live one and not a leftover."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ConfigBasedModelRegistry.cs:22"
+
+scope:
+  in: >
+    One readable list, stated once and read by all four. Today three of the four carry their own
+    copy and two of them are already wrong: a reasoning call that takes tools in production
+    takes none under replay or in the harness, so a recorded run and a scripted run can pass
+    while the thing they stand in for would not.
+
+    The eval factory's expression becomes a read of the same list, which is what lets a test
+    assert the agreement instead of a person comparing four files.
+  out: >
+    Adding a task to the list. What the list CONTAINS is a question for whichever phase binds a
+    new task to a caller; this one only makes the four copies one.
+
+decisions:
+  - key: "The list moves to where the production factory already owns it and the others read it, rather than a new shared type: three of the four already spell it as a set of the same enum, and a new home would be a fifth place to look."
+  - key: "Reasoning joins the replay and harness sets rather than leaving them as they are. They are wrong today - a divergence found while reading, not introduced here - and leaving it would mean shipping a test that asserts agreement between lists that do not agree."
+
+steps:
+  - id: one-list
+    action: "State the tool-bearing tasks once and have the replay and harness factories read it."
+    modify:
+      - "ChatClientFactory: the set, made readable"
+      - "ReplayChatClientFactory, ScriptedChatClientFactoryAdapter, AccountEvalChatFactory: their copies"
+  - id: prove-the-agreement
+    action: "Assert that every factory grants a tool loop for exactly the same tasks."
+
+tests:
+  - "ToolBearingTasks_EveryFactory_GrantsTheLoopForTheSameTasks"
+  - "ReplayFactory_ReasoningTask_GrantsTheToolLoop"
+  - "ScriptedFactory_ReasoningTask_GrantsTheToolLoop"
+
+done:
+  - "One list states which tasks take tools, and a test fails if any factory disagrees with it."
+  - "A reasoning call under replay and in the harness executes its tools as it does in production."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite and the fast harness tier are green."

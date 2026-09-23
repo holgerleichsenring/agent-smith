@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-6e3f
+
+goal: "A conversation with nothing open asks for its project where a person is looking, and that is the only place it is asked, so choosing one is what starts a conversation."
+
+applies_to: "dashboard (the spec-dialog surface's empty state, the project select that moves into it, and the two tests that encode the old order)"
+
+scope:
+  in: >
+    The rule is already there: SpecDialogSurface computes mustPick when no session is open and
+    no project is picked, and the composer is disabled on it with a hint. What is wrong is
+    where the halves sit. The refusal is mid-page and its cause is a select at the top of the
+    left column, so a person reads a dead text box under a heading saying "New conversation"
+    and concludes something was swallowed.
+
+    With nothing open, the exchange column becomes the choice — the project select, centred,
+    and no composer to refuse a message. Picking leaves that state. The select moves OUT of
+    the conversation list, so it is asked in one place.
+
+    This reverses the ORDER of an interaction the list's select was built for: today a person
+    picks a project and then clicks New, and two tests assert that a pick survives the click.
+    After this phase, New returns to the choice and the pick is made there. Both tests are
+    rewritten to that order; neither loses its subject, which is that a new conversation can
+    be started on a project other than the open one.
+
+    Three states the empty column must answer for, which mustPick cannot distinguish today
+    because the project list is empty in all of them. A read still in flight says it is
+    loading - it cannot borrow what a pending read renders now, because that is the disabled
+    composer this phase removes, and a read that FAILED leaves the same null forever. An
+    installation with no configured project says so and offers no select, repairing a state
+    that reads "Pick a project first" beside no picker anywhere today. An installation with
+    exactly one keeps resolving it without a choice and never sees any of this.
+  out: >
+    Opening a session on the pick. The browser mints the dialog id on mount and holds it, so
+    !dialog.dialogId stays the first-render guard it is; what the first message opens is the
+    server-side SESSION, and that is unchanged.
+
+decisions:
+  - key: "The empty state REPLACES the composer rather than sitting above it. A disabled box beside the control that enables it still reads as a fault; a box that is not there yet reads as a sequence."
+  - key: "The list's select is removed rather than kept as a shortcut. Two places to pick one thing is how the present state came about, and a pick that survives a click to New is only useful while the choice is somewhere the eye does not go."
+  - key: "The picked project is cleared where it lives - in the surface's own state, from the handler that starts a new conversation. The hook mints the dialog id and clears the view, but it holds no reference to the pick, and lifting the pick into it to reach one line would move the send path with it."
+
+steps:
+  - id: choice-is-the-empty-state
+    action: "Render the project choice as the exchange column's own state, with its own test id, distinguishing a pending read and a configuration with no projects."
+    new:
+      - "DialogProjectChoice: the centred select shown in place of transcript and composer"
+    modify:
+      - "SpecDialogSurface: what the exchange column renders while mustPick holds"
+  - id: one-place-to-pick
+    action: "Remove the select from the conversation list and clear the picked project when a new conversation starts."
+    modify:
+      - "DialogConversations: the select and the props that feed it"
+      - "SpecDialogSurface: the onStartNew handler, which clears the picked project before it calls the hook"
+  - id: composer-stops-explaining
+    action: "Drop the composer's mustPick disabling and its hint, and remove the hint prop, which no caller then passes."
+    modify:
+      - "SpecDialogSurface: the composer's disabled and hint props"
+      - "DialogComposer: the hint prop; its test keeps the disabled-controls assertions and loses only the hint one"
+  - id: rewrite-the-order
+    action: "Rewrite the two tests that pick a project before clicking New so they pick it in the choice afterwards."
+    modify:
+      - "SpecDialogSurface.test: the new-conversation project test and the control test"
+
+tests:
+  - "SpecDialogSurface_NoSessionAndNoProject_ShowsTheChoiceAndNoComposer"
+  - "SpecDialogSurface_ViewNotYetRead_SaysItIsLoading"
+  - "SpecDialogSurface_ViewFailed_DoesNotSitInLoadingForever"
+  - "SpecDialogSurface_NoConfiguredProject_SaysSoAndOffersNoSelect"
+  - "SpecDialogSurface_SingleConfiguredProject_OpensStraightIntoTheComposer"
+  - "SpecDialogSurface_StartNew_ReturnsToTheChoice"
+  - "SpecDialogSurface_ProjectPickedInTheChoice_PostsOnThatProject"
+
+done:
+  - "With nothing open and no project picked, the exchange column shows the choice and no text box."
+  - "Exactly one project select exists on the surface, and its test id is unique."
+  - "An installation with one configured project never sees the choice; one with none is told so."
+  - "The new component carries no raw palette or surface class, so dialog-palette and dialog-surfaces stay green."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "pnpm test and pnpm build are green, and the full suite is green."

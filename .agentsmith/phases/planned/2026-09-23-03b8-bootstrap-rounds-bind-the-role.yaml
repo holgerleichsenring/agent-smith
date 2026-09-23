@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-03b8
+
+goal: "The two bootstrap rounds call the context-generation role, with their tools intact, so the model an operator assigns to it is the model that writes their contexts."
+
+applies_to: "backend and docs (the two bootstrap round handlers and the four places that describe the role)"
+
+requires: ["2026-09-23-7868b", "2026-09-23-e848"]
+
+facts:
+  - claim: "Both rounds ask for TaskType.Primary today, for the client and for the output ceiling."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:158, src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:114"
+  - claim: "Both hand that client a tool list, so the task they name must be one that gets a tool loop."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:160, src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:116"
+  - claim: "Both call the two-argument Create, which passes no compaction and no master-loop hooks, so neither the compactor nor the governor can attach to whichever task they name."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:165, :172"
+  - claim: "The pressure finalizer attaches on the named role's own context window, so a role stated without one loses a finalizer the primary's window supplied."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:84, :161"
+  - claim: "Two documentation tables say the role does this job already, and recommend a cheap, small model for it."
+    evidence: "docs/connect-your-stuff/ai-providers.md:24, docs/reference/configuration/agentsmith-yml.md:242"
+  - claim: "A third names this role among the tasks that take no tools, which this phase makes false."
+    evidence: "docs/reference/architecture/ai-clients.md:15"
+  - claim: "A third round of the same pipeline runs on a different role again, so the tables cannot claim one role owns init."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs:120"
+
+scope:
+  in: >
+    Both rounds ask for the context-generation role instead of primary, for the client and for
+    the ceiling. Because the role resolves to primary when unset, an installation that stated
+    nothing calls what it called before; one that stated a model gets it, and gets it with the
+    tool loop the rounds depend on.
+
+    The documentation stops describing the role as cheap and small - it drives a round that
+    reads a repository - and stops listing it among the tasks that take no tools. The row that
+    claims the role generates contexts during init is narrowed to the rounds that actually do,
+    since a third round of that pipeline runs on another role.
+
+    A role stated without a context window loses the pressure finalizer the primary's window
+    supplied. The preflight already reports an unstated window for this role, so the loss is
+    visible rather than silent, and the documentation says which roles want one.
+  out: >
+    Binding the document round, which runs on its own role and is a different question. And the
+    rows an earlier Studio save pre-filled: those resolve to what they say, which is the point
+    of binding, and clearing the backlog is a migration of its own.
+
+decisions:
+  - key: "Both rounds move together. They are one operation from an operator's side - discover the components, write their contexts - and splitting them would leave init half on one model."
+  - key: "The compactor and governor are proven absent rather than assumed harmless: both attach only when the caller passes them, and these rounds call the overload that passes neither."
+  - key: "The documentation is corrected in the same commit as the binding. Its present advice becomes actively harmful the moment the role is live, which is a worse state than the one this phase starts from."
+
+steps:
+  - id: rounds-ask-for-the-role
+    action: "Have both rounds request the context-generation role for the client and the ceiling."
+    modify:
+      - "BootstrapDiscoverHandler, BootstrapRoundHandler: the task they name"
+  - id: docs-say-what-it-drives
+    action: "Correct the four descriptions: what the role drives, that it takes tools, and that a small model is the wrong advice for it."
+    modify:
+      - "docs/connect-your-stuff/ai-providers.md, docs/reference/configuration/agentsmith-yml.md, docs/reference/architecture/ai-clients.md, docs/configure-it/config-studio.md"
+
+tests:
+  - "Bootstrap_BothRounds_AskForTheContextGenerationRole"
+  - "Bootstrap_RoleUnset_CallsTheSameModelAsPrimary"
+  - "Bootstrap_RoleAssigned_CallsThatModelWithItsTools"
+
+done:
+  - "A model assigned to the role is the model both rounds call, and both still execute their tools."
+  - "An installation that stated no role calls the same model with the same ceiling as before."
+  - "No documentation describes the role as cheap or small, or as taking no tools."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite and the harness presets are green."

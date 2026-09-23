@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-7868a
+
+goal: "Neither the round that finds a workdir nor the round that writes one is told to answer \".\" because a repository has one stack, so a single-stack repository keeps the sub-tree its sources occupy."
+
+applies_to: "backend (the discovery prompt, the write-context tool description, the serializer's refusal, two contracts and two schemas)"
+
+requires: ["2026-09-03-7bac"]
+
+facts:
+  - claim: "The discovery task instructs the model to answer \".\" whenever the repository has one component, and the field description above it repeats that."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:84, :76"
+  - claim: "The tool description the WRITING round is given says the same thing in stack wording. This is the field that persists into a repository's context.yaml; discovery's is transient."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolDescription.cs:23, :3"
+  - claim: "The refusal thrown when the field is missing repeats it again, and that text reaches the model precisely when it is being corrected."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs:49"
+  - claim: "Two contracts and two schemas carry it as prose."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlMeta.cs:4, src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlSummary.cs:12, .agentsmith/context.schema.json:33, .agentsmith/schemas/discovery.schema.json:19"
+  - claim: "The pinned skill bundle this repository commits states the rule correctly and then contradicts itself in its worked example, which pairs \".\" with an entrypoint two directories down; the body becomes the discovery round's SYSTEM prompt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Resources/agentsmith-skills-v5.6.1.tar.gz (skills/_masters/project-discovery/SKILL.md:48, :93, :95), src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:26"
+  - claim: "A workdir places no command - 2026-09-03-7bac - but it does scope analysis: the analyzer runs at the sub-tree and the project-map cache is keyed by it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs:140, :144"
+  - claim: "A test can read the user half of the composed discovery prompt; the system half is stubbed in that fixture, so only the user half is provable there."
+    evidence: "tests/AgentSmith.Tests/Handlers/BootstrapDiscoverHandlerTests.cs:194, :34"
+
+scope:
+  in: >
+    Where a stack's sources sit is a property of the tree, not of how many stacks the tree
+    holds. The rule is deleted everywhere it is written - in component wording on the read path
+    and in stack wording on the write path - and each text says instead what the field means:
+    the sub-tree this stack's source occupies, found by looking, with "." for a stack that
+    really does occupy the whole repository.
+
+    The write path matters more than the read path. Discovery's answer is handed on; the tool
+    description governs what is persisted, and a correction that stopped at discovery would
+    leave the writing round still instructed to collapse a sub-tree to ".".
+
+    The definition is unchanged - 7bac's, where the SOURCE lives, placing no command. One
+    consequence is named rather than assumed: a repository that now answers its sub-tree has
+    its analyzer run there and its project map keyed by it, which is what scoping analysis to a
+    workdir has always meant and is the behaviour the wrong answer was suppressing.
+  out: >
+    The pinned skill's own example, which is corrected in the skills repository and arrives here
+    as a release and a pin bump. That is a phase of this repository - the one that raises the
+    embedded skills pin once the correction is released - and until it lands the system half of
+    the discovery prompt still carries the contradiction. This phase fixes the half it owns.
+
+    A gate that proves an answer against the tree. Any check of the form "the declared directory
+    holds a real file" is satisfied by ".", so it would have passed the run that prompted this
+    phase. One cheap check is orthogonal rather than a substitute - that the evidence path lies
+    under the declared workdir, which catches a disjoint answer and not this one - and it is
+    left to whatever phase wants it.
+
+decisions:
+  - key: "The texts are corrected together because they are one rule. Fixing the read path alone moves the wrong answer one round downstream, where it is written to disk instead of discarded."
+  - key: "No gate. The model had read-only tools and a tree in front of it and was told the answer; removing the instruction is what lets it look. A check comparing the workdir against another field the same model wrote proves only self-consistency, and the motivating failure was self-consistent."
+  - key: "The two schema descriptions are corrected as documentation, not as instruction: nothing sends either to a model and nothing validates against a description, but a reader who trusts them is misinformed."
+
+steps:
+  - id: the-read-path
+    action: "Remove the component-count rule from the discovery task and its field description."
+    modify:
+      - "BootstrapDiscoverPromptFactory: the closing rule and the workdir field description"
+  - id: the-write-path
+    action: "Remove the single-stack rule from the tool description the writing round is given and from the refusal thrown when the field is missing."
+    modify:
+      - "WriteContextYamlToolDescription: the workdir sentence"
+      - "ContextYamlSerializer: the missing-field message"
+  - id: the-prose
+    action: "Correct the same sentence in the two contracts and the two schemas."
+    modify:
+      - "ContextYamlMeta, ContextYamlSummary: the Workdir docs"
+      - "context.schema.json, discovery.schema.json: the workdir descriptions"
+
+tests:
+  - "BootstrapDiscover_TheUserPrompt_TiesTheWorkdirToTheTreeNotTheStackCount"
+  - "WriteContextYamlToolDescription_TheWorkdirSentence_NamesNoSingleStackRule"
+  - "ContextYamlSerializer_MissingWorkdir_RefusesWithoutPrescribingADot"
+
+done:
+  - "No prompt, tool description, refusal, contract or schema in this repository derives a workdir from how many stacks a repository has."
+  - "A grep for the single-stack and single-component rule over src and .agentsmith returns only the pinned skills archive."
+  - "Each new test was watched failing with the rule restored, and the file put back byte-for-byte."
+  - "The full suite is green."
