@@ -21,7 +21,7 @@ Agent Smith uses different models at different points in a run. Each agent block
 | `planning` | Generates the plan from the ticket + scout output. | Usually same as `primary`. |
 | `summarization` | Context compaction when conversation gets long. | Cheap. `*-mini` / `*-haiku`. |
 | `code_map_generation` | Builds a navigable code map (optional). | Cheap. |
-| `context_generation` | Generates the per-repo `.agentsmith/context.yaml` during `init-project`. | Cheap. |
+| `context_generation` | Drives the two `init-project` rounds that read the repository through tools: discover its components, then write each `.agentsmith/contexts/<name>/context.yaml`. | The good one. Same as `primary`. |
 
 Roles you don't configure fall back to `primary`. If `primary` isn't set either, the agent block is invalid.
 

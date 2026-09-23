@@ -36,7 +36,7 @@ The fields themselves come from the backend. Pick `type: github` on a tracker an
 
 ## Agents and their roles
 
-An agent is a provider plus a model per role, and the drawer shows all seven roles: coding, scout, primary, planning, summarization, contextgeneration, codemapgeneration. Each takes a model, an optional deployment name for Azure's per deployment routing, and an optional max tokens.
+An agent is a provider plus a model per role, and the drawer shows all eight roles: coding, scout, primary, planning, reasoning, summarization, contextgeneration, codemapgeneration. Each takes a model, an optional deployment name for Azure's per deployment routing, and an optional max tokens. Two of the eight, reasoning and contextgeneration, are themselves optional: leave one out and it resolves to primary, which is why the drawer offers them as a seed rather than a filled row.
 
 ![Editing an agent, with provider and endpoint first, then a model per role](../assets/screenshots/config-agent-drawer.png)
 

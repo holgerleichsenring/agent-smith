@@ -41,11 +41,18 @@ public sealed class ChatClientFactory(
     /// harness factories read this set instead of carrying a copy — two of those copies had
     /// already lost Reasoning, so a recorded run and a scripted run drove a task with no tools
     /// while production drove the same task with them.
+    /// <para>
+    /// 2026-09-23-03b8: ContextGeneration joins them. The two bootstrap rounds hand their
+    /// client a tool list and read a whole repository through it, so a task outside this set
+    /// returns before the function-invocation middleware and the rounds read nothing and
+    /// write nothing.
+    /// </para>
     /// </summary>
     public static readonly IReadOnlySet<TaskType> ToolBearingTasks =
         new HashSet<TaskType>
         {
-            TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning
+            TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning,
+            TaskType.ContextGeneration
         };
 
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);

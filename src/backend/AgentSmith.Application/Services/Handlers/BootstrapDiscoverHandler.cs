@@ -155,8 +155,8 @@ public sealed class BootstrapDiscoverHandler(
         BootstrapDiscoverContext context, RoleSkillDefinition skill,
         string system, string user, IList<AITool> tools, string repoName, CancellationToken ct)
     {
-        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.ContextGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.ContextGeneration);
         var options = new ChatOptions { Tools = tools, MaxOutputTokens = maxTokens };
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var roleName = skill.Role ?? "producer";
