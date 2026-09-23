@@ -46,7 +46,8 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
         if (string.IsNullOrWhiteSpace(doc.Meta.Workdir))
             throw new InvalidOperationException(
                 "context.yaml missing required field meta.workdir (p0161). "
-                + "Single-stack: set workdir: \".\". Monorepo sub-stack: set the relative sub-tree path.");
+                + "Set it to the repo-relative sub-tree this stack's source occupies, "
+                + "read off the tree; \".\" only where that source is the whole repository.");
 
         return ContextYamlParseResult.Ok(
             new ContextYamlSummary(

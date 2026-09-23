@@ -9,9 +9,10 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// agree on what "summary" means.
 /// </summary>
 /// <param name="Workdir">`meta.workdir:` — the sub-tree this context's SOURCE occupies,
-/// relative to the repo root; "." for single-stack. 2026-09-03-7bac: it scopes analysis and
-/// this context's read/write guards and PLACES NO COMMAND — every declared command runs from
-/// the repository root, which is where whoever wrote it was standing.</param>
+/// relative to the repo root; "." only where that source is the whole repository.
+/// 2026-09-03-7bac: it scopes analysis and this context's read/write guards and PLACES NO
+/// COMMAND — every declared command runs from the repository root, which is where whoever
+/// wrote it was standing.</param>
 /// <param name="Language">`stack.lang:` — null if absent (generic-image fallback).</param>
 /// <param name="Prerequisites">`prerequisites:` — operator-owned dependency-install
 /// idiom (p0202a). Read here, alongside language, so it reaches the early EnsurePrerequisites

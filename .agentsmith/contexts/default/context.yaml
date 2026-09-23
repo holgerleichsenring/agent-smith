@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-23-7868a: "Ten texts told the model a workdir follows from the stack COUNT - four saying single-component, six saying single-stack, including the write tool description that governs what lands in a repository context.yaml. Each now says the field is the sub-tree the source occupies, read off the tree. -> .agentsmith/phases/done/2026-09-23-7868a-discovery-workdir-is-looked-up.yaml"
     2026-09-23-35b8: "The heading instruction stops naming English as the thing to avoid: the minted-subject prompt named one language, and it was the one to steer away from. A German conversation had been headed in Spanish. -> .agentsmith/phases/done/2026-09-23-35b8-subject-language-is-told.yaml"
     2026-09-23-493a: "The phase record is an index again: 273 entries over the 400-character cap brought under it (149 derived from their spec's goal the way the product composes the line, 124 compressed by hand keeping any fact the spec lacked), 81 spec goals shortened to one sentence, and the length baseline emptied. -> .agentsmith/phases/done/2026-09-23-493a-record-entries-fit-the-cap.yaml"
     2026-09-22-6968: "A PROJECT'S FIVE SCALAR SANDBOX OVERRIDES ARE EDITABLE, EACH SHOWING WHAT CLEARING IT RESTORES (studio projection + patch guard, counterfactual inherited projection, sixth form tab). The resolution pass run against an emptied block; an absent block is left alone, a sent one clears by null. -> .agentsmith/phases/done/2026-09-22-6968-project-sandbox-settings-tab.yaml"

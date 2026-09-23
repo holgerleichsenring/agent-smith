@@ -73,7 +73,7 @@ internal static class BootstrapDiscoverPromptFactory
               "components": [
                 {
                   "name": "<lowercase slug, no slashes — used as the .agentsmith/contexts/<name>/ directory>",
-                  "workdir": "<repo-relative path, e.g. \".\" for single-component repos or \"server\" for a sub-tree>",
+                  "workdir": "<repo-relative sub-tree this component's SOURCE occupies, read off the tree — e.g. \"server\", \"src/api\"; \".\" only if that source is the whole repo>",
                   "language": "<free-form language slug — csharp/typescript/python/go/markdown/...>",
                   "evidence": "<path of the entrypoint or deploy artefact that proves this component>"
                 }
@@ -81,9 +81,11 @@ internal static class BootstrapDiscoverPromptFactory
             }
             ```
 
-            For single-component repos, return exactly one entry with
-            `workdir="."`. For ambiguity, return `status="ambiguous"` with
-            `ambiguity.message` + `ambiguity.candidates`.
+            A component's `workdir` is the sub-tree its source occupies, read
+            off the tree — never derived from how many components you found.
+            Answer `"."` only where that source really is the whole repo. For
+            ambiguity, return `status="ambiguous"` with `ambiguity.message` +
+            `ambiguity.candidates`.
             """;
         return (system, user);
     }
