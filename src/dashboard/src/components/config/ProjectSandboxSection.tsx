@@ -12,7 +12,7 @@ import { MapField, NumberField, TextField } from "./formFields";
 import { SandboxResourceGroup } from "./SandboxResourceGroup";
 import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
 
-// 2026-09-22-6968: the project form's sixth tab — the five SCALAR per-project sandbox
+// 2026-09-22-6968: the project form's sixth tab — the SCALAR per-project sandbox
 // overrides, none of which was editable anywhere in the product before this. Every one is
 // null-means-inherit, so every control has to say what CLEARING it restores; the
 // placeholder is the counterfactual value the server computes (what this project would get
@@ -22,12 +22,26 @@ import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
 // inheritance question its own way: the cpu/memory group names the LAYER that would answer
 // (four layers, one of them a document written per run), the image map inherits PER KEY from
 // a code table, and the pod's secrets inherit NOTHING and say so.
+//
+// 2026-09-23-2446 added the hold window as the sixth scalar. It is the one control here
+// whose placeholder is LIVE, because its effect is: a reaper resolves the window through the
+// configuration loader on every scan, so an edit to the process-wide value is in force
+// within a scan interval and a placeholder frozen at composition would disagree with it from
+// that moment on. The other five reach their consumers at run start or after a restart, so a
+// frozen placeholder there matches a frozen effect.
 
 // The two halves of the restart story, said per field the way the settings form does. A
 // per-project override is read from the configuration when a run is prepared; the
 // process-wide values it falls back to are built into an options instance once at startup
 // (2026-09-18-0f27), which is why changing THOSE is the half that needs a restart.
 const NEXT_RUN = "applies to the next run of this project";
+
+// The hold window's half of the same story, and it is the opposite one: the next design
+// conversation TURN takes it, and a reaper scan picks it up within its own interval — no
+// restart, no new run. Zero is a value, not an empty box: it holds nothing.
+const NEXT_TURN =
+  "applies to the next turn of a design conversation and reaches a reaper scan "
+  + "without a server restart; 0 holds nothing";
 
 /** An empty control means "inherit", so it is sent as undefined — never 0, never "". */
 const text = (v: string) => (v.trim() === "" ? undefined : v);
@@ -38,6 +52,11 @@ function provenance(v: ResolvedValue<string | number> | undefined): string {
   if (!v) return "inherited value unavailable";
   if (v.source === "run-resolved") return "detected per run from the repository";
   if (v.value === null || v.value === "") return "nothing to inherit — none is configured";
+  // 2026-09-23-2446: the legs that are NOT a settings field say so, or an operator goes
+  // looking for a value in Settings that is not there.
+  if (v.source === "environment-variable")
+    return `inherits ${v.value} from the SANDBOX_HOLD_SECONDS environment variable`;
+  if (v.source === "code-default") return `inherits the built-in ${v.value}`;
   return `inherits ${v.value}`;
 }
 
@@ -82,8 +101,9 @@ export function ProjectSandboxSection({
     <>
       <p className="help" data-testid="form-sandbox-inheritance-note">
         Every field here is an override. Leave one empty and the project inherits what the
-        placeholder names; {NEXT_RUN}. The process-wide values below are read once at
-        startup, so changing THOSE in Settings → sandbox needs a server restart.
+        placeholder names; {NEXT_RUN}. The process-wide values it falls back to — the hold
+        window excepted, which is read live — are read once at startup, so changing THOSE in
+        Settings → sandbox needs a server restart.
       </p>
 
       {inheritedSandbox === null && (
@@ -142,6 +162,15 @@ export function ProjectSandboxSection({
         help={`sandbox agent image tag for this project — ${provenance(row?.agentVersion)}`}
         testId="form-field-sandbox-agentVersion"
         onChange={(v) => set({ agentVersion: text(v) })}
+      />
+
+      <NumberField
+        label="sandbox hold (seconds)"
+        value={block.holdSeconds ?? undefined}
+        placeholder={placeholder(row?.holdSeconds)}
+        help={`how long this project's design conversations hold their source sandboxes between turns — ${provenance(row?.holdSeconds)}; ${NEXT_TURN}`}
+        testId="form-field-sandbox-holdSeconds"
+        onChange={(v) => set({ holdSeconds: v })}
       />
 
       <SandboxResourceGroup

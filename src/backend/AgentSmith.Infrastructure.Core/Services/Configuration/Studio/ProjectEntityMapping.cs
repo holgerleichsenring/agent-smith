@@ -29,7 +29,7 @@ internal static class ProjectEntityMapping
     }
 
     /// <summary>
-    /// 2026-09-22-6968: the five scalar sandbox overrides exactly as stored. NULL when the
+    /// 2026-09-22-6968: the six scalar sandbox overrides exactly as stored. NULL when the
     /// project declares no sandbox block at all — absence, not a copy of the process-wide
     /// defaults, because the form has to tell "this project says nothing" from "this project
     /// pins the same number the global one happens to hold".
@@ -43,6 +43,7 @@ internal static class ProjectEntityMapping
                 sandbox.RunCommandTimeoutSeconds,
                 sandbox.AgentRegistry,
                 sandbox.AgentVersion,
+                sandbox.HoldSeconds,
                 ToStructured(sandbox));
 
     /// <summary>
