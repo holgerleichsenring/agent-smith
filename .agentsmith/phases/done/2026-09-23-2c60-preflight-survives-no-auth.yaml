@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-2c60
+
+goal: "An installation that declares no auth block starts, and its sign-in check reports that state instead of preventing the host from reaching it."
+
+applies_to: "backend (the server's sign-in preflight registration)"
+
+facts:
+  - claim: "The sign-in check is built with the auth block as a constructor ARGUMENT rather than resolved from the container."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerPreflightExtensions.cs:26"
+  - claim: "The value handed over is nullable at its source: an absent auth key leaves it null, deliberately, so that a missing block and an unusable one can be told apart."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:79, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:44"
+  - claim: "The parameter it is passed to was not nullable, which the compiler has been reporting at that call site since the check shipped."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:37"
+  - claim: "ActivatorUtilities matches a supplied argument to a parameter by its runtime type, so a null matches none and no constructor is applicable - reproduced in isolation, and the message is the one operators saw."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerPreflightExtensions.cs:53"
+  - claim: "The container's own registration of the same type already coalesces to an empty block."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CallerIdentityExtensions.cs:26"
+  - claim: "The check's first branch reports exactly the state that stopped it being built, and a test covers that branch - by constructing the check directly, never through the registration."
+    evidence: "src/backend/AgentSmith.Server/Services/Preflight/SignInCheck.cs:41, tests/AgentSmith.Tests/Server/Auth/SignInCheckTests.cs:23"
+  - claim: "An empty block configures no authentication, because that path already treats an unusable block exactly as it treats none."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:34"
+
+scope:
+  in: >
+    The registration coalesces a missing block to an empty one, which is what the container
+    does with the same type three files away. An empty block is not usable, so no
+    authentication is configured and nothing else changes - the check simply reports that
+    sign-in is not set up here, which is what it was written to do.
+
+    The registration moves into a method of its own. It is the only preflight registration that
+    hands a constructor an argument, which is the fragile shape, and a test can reach it without
+    building the whole preflight suite.
+  out: >
+    The nullable value at its source. It is nullable on purpose - telling an absent block from
+    an unusable one is what makes "present but unusable" reportable - so the coalesce belongs at
+    the boundary that needs a value, not at the reader that needs the distinction.
+
+decisions:
+  - key: "The guard goes where the argument is handed over, not at the caller. A caller can be fixed and the next one reintroduces it; the registration is where the shape is fragile."
+  - key: "The registration gets its own method. Resolving every preflight check to reach one of them needs the whole server graph, and the defect is in one line of construction."
+  - key: "An empty block rather than skipping the registration. Skipping would remove the only thing that tells an operator sign-in is not set up, which is the case this phase is about."
+
+steps:
+  - id: coalesce-where-it-is-handed-over
+    action: "Accept a missing auth block at the registration and pass an empty one."
+    new:
+      - "AddSignInCheck: the one preflight registration that takes an argument"
+    modify:
+      - "ServerPreflightExtensions: the parameter becomes nullable and the registration moves"
+
+tests:
+  - "Preflight_NoAuthBlockDeclared_StillBuildsTheSignInCheck"
+  - "Preflight_NoAuthBlockDeclared_SignInSkipsWithTheReason"
+
+done:
+  - "A server whose configuration declares no auth block starts."
+  - "Its sign-in check reports that no authority is configured."
+  - "Both tests were watched failing with the coalesce removed, reproducing the operator's message verbatim, and the file restored byte-for-byte."
+  - "The full suite is green."
