@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.148.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.147.0...v0.148.0) (2026-09-23)
+
+
+### Features
+
+* a design conversation holds its sandboxes between turns (2026-09-22-2d11b) ([e9a08f8](https://github.com/holgerleichsenring/agent-smith/commit/e9a08f81239c34335671cc7c0246a5f8f3b2746c))
+* a design conversation holds its sandboxes between turns, safely (2026-09-22-2d11a, 2026-09-22-2d11b) ([51a8801](https://github.com/holgerleichsenring/agent-smith/commit/51a8801c20d0593bc9ec3bd9a1ec291673311154))
+* a dialog opens on the project choice (2026-09-23-6e3f) ([1465f97](https://github.com/holgerleichsenring/agent-smith/commit/1465f97df6d6f4e9c25ab33f98b24e9ac69051d6))
+* a project's scalar sandbox overrides are editable, each saying what clearing it restores (2026-09-22-6968) ([9fe512f](https://github.com/holgerleichsenring/agent-smith/commit/9fe512f147ff5d09d2f0da5174f80056f840dd8b))
+* a sandbox labelled with a live conversation is not a corpse (2026-09-22-2d11a) ([6a71eb8](https://github.com/holgerleichsenring/agent-smith/commit/6a71eb840a8b502e88689180240389f8aa023bd0))
+* every per-project sandbox override is editable in the project form (2026-09-22-6968, 2026-09-22-6c46) ([926740e](https://github.com/holgerleichsenring/agent-smith/commit/926740e01cd7792c8d272f0b3f380fabd5076c78))
+* the bootstrap rounds call the role an operator assigns (2026-09-23-03b8) ([531c3df](https://github.com/holgerleichsenring/agent-smith/commit/531c3dfc30eb77fb938feee07b17d379693bd529))
+* the sandbox hold window joins the project form, read live (2026-09-23-2446) ([ac8e7e9](https://github.com/holgerleichsenring/agent-smith/commit/ac8e7e9ce8176d6b3f834ab343d4de6cdef0cb56))
+* the sandbox hold window joins the project form, read live (2026-09-23-2446) ([a89f5c0](https://github.com/holgerleichsenring/agent-smith/commit/a89f5c05a862f421003ad66d95cd56bdf5a659ed))
+* the three structured sandbox overrides are editable, each inheriting its own way (2026-09-22-6c46) ([a6c064c](https://github.com/holgerleichsenring/agent-smith/commit/a6c064cc46e896fd2451f265b321d05823b8669a))
+
+
+### Bug Fixes
+
+* a bootstrap round reads the tree it owns (2026-09-23-6698) ([49bb78f](https://github.com/holgerleichsenring/agent-smith/commit/49bb78fef5885519d01c4c154c34c6455f084d7e))
+* a workdir is looked up, not derived from a count (2026-09-23-7868a) ([2c7961f](https://github.com/holgerleichsenring/agent-smith/commit/2c7961f936afe19216106fecd13e69a2cc6336a0))
+* one list says which tasks take tools (2026-09-23-e848) ([f3f58c6](https://github.com/holgerleichsenring/agent-smith/commit/f3f58c64a81711f3b29184da48511e2420bb4f78))
+* the heading instruction forbids no language (2026-09-23-35b8) ([f8b200d](https://github.com/holgerleichsenring/agent-smith/commit/f8b200dcfae26d2a0d47eac1dc9aa8e3cae0f76e))
+* the seven cuts from a live init run (2026-09-23-7868a…03b8) ([b68ccb2](https://github.com/holgerleichsenring/agent-smith/commit/b68ccb22b67d19ab85bd03975315e075a98503cb))
+
 ## [0.147.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.146.1...v0.147.0) (2026-09-22)
 
 
