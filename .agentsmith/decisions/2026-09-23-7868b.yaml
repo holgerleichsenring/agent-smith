@@ -1,0 +1,33 @@
+phase: 2026-09-23-7868b
+decisions:
+  - id: 1
+    what: "Nullable resolving to primary, rather than a changed default constant."
+    alternatives: "Give the role a default that matches what the rounds run on today."
+    why: >
+      An agent with no models block takes every role from its top-level model, so a property
+      default is never evaluated there; an agent with one has a primary of its own, whose
+      provider and deployment a constant would not carry. For an Azure, Gemini or Ollama
+      endpoint a hard-coded model name with no deployment is not a downgrade, it is a break.
+  - id: 2
+    what: "The pre-filled value is stopped where it is written, not recognised where it is read."
+    alternatives: "Treat a stored assignment equal to the former default as unset."
+    why: >
+      That rule would have to hard-code the model name this phase removes - the constant
+      decision 1 rejects - and it would override an operator who chose that model deliberately,
+      which the shipped documentation recommends. The catalog mapper materialised the role for
+      every agent with a models block; making that line conditional, the way its reasoning
+      neighbour already is, stops every future pre-fill at the source.
+  - id: 3
+    what: "The capabilities descriptor moves with the contract."
+    alternatives: "Change the model and leave the Studio form declaring the role required."
+    why: >
+      p0351 built that descriptor so the form and the write-side validation read one source. A
+      role optional in the model and required in the descriptor is the drift it exists to
+      prevent.
+  - id: 4
+    what: "Ship this alone, binding nothing."
+    alternatives: "Bind the task to the bootstrap rounds in the same phase."
+    why: >
+      Nothing requests the task, so this phase changes no run. That is what makes it safe to
+      land before the binding, and it means whatever binds later inherits a role already
+      optional in all four places that read it.

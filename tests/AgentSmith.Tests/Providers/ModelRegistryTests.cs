@@ -101,6 +101,38 @@ public class ModelRegistryTests
     }
 
     [Fact]
+    public void ModelRegistry_ContextGenerationUnset_ResolvesToPrimary()
+    {
+        var config = new ModelRegistryConfig();
+        var registry = CreateRegistry(config);
+
+        var result = registry.GetModel(TaskType.ContextGeneration);
+
+        result.Should().BeSameAs(config.Primary);
+        result.Model.Should().Be(config.Primary.Model);
+        result.MaxTokens.Should().Be(config.Primary.MaxTokens);
+    }
+
+    [Fact]
+    public void ModelRegistry_ContextGenerationAssigned_ResolvesToThatAssignment()
+    {
+        var config = new ModelRegistryConfig
+        {
+            ContextGeneration = new ModelAssignment
+            {
+                Model = "gemini-2.5-flash",
+                MaxTokens = 3072
+            }
+        };
+        var registry = CreateRegistry(config);
+
+        var result = registry.GetModel(TaskType.ContextGeneration);
+
+        result.Model.Should().Be("gemini-2.5-flash");
+        result.MaxTokens.Should().Be(3072);
+    }
+
+    [Fact]
     public void ConfigBasedModelRegistry_ReturnsSummarizationModel()
     {
         var config = new ModelRegistryConfig();
