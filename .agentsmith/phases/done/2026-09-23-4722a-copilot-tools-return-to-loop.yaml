@@ -22,7 +22,11 @@ decisions:
       the tool, and that HandlePendingToolCallAsync on a LATER call resumes the turn. The only
       inferential evidence is that SendAndWaitAsync waits on session.idle with a 60s default while
       SDK-executed tools run inside that wait, so idle is evidently not raised while a call is
-      pending. Inference is not proof, and the whole phase rests on it.
+      pending. Inference is not proof, and the whole phase rests on it. Answering the call is also
+      the ONE place this adapter depends on a GHCP001 API: ToolsApi.HandlePendingToolCallAsync has
+      no stable alternative, and unlike the non-billable send that 2026-09-07-d5f2 declined for the
+      same reason, this one buys the parity the phase exists for. It is suppressed at that single
+      call site, with the package version pinned exactly so it cannot move without a deliberate bump.
   - key: |
       IF THE PROBE FAILS, THE FALLBACK IS NAMED RATHER THAN IMPROVISED. Should a pending call not
       survive across our loop, the alternative is to execute the tool inside the ExternalTool
@@ -46,17 +50,17 @@ decisions:
       drives the loop, and it returns the result as ChatMessage(ChatRole.Tool,
       [FunctionResultContent(callId, ...)]) — which is what the adapter matches on.
   - key: |
-      THE TOOLS ARE REGISTERED PER CALL THROUGH THE RPC, AND THE SCHEMA IS PROJECTED.
-      CopilotSession.RegisterTools is INTERNAL and cannot be called from here. The public
-      create-time surface is SessionConfigBase.Tools (ICollection<AIFunctionDeclaration>), fixed
-      when the session opens; the public mid-session
-      surface is ToolsApi.SetAsync(IList<ProtocolExternalToolDefinition>), which "atomically replaces
-      the complete externally implemented tool list". ProtocolExternalToolDefinition carries Name,
-      Description and Parameters as IDictionary<string, JsonElement>, while an AIFunction carries one
-      JsonElement schema — so there IS a projection, it is written once in one place, and it is
-      tested. SkipPermission is set on the definition rather than approving everything through
-      OnPermissionRequest, because the narrower switch says what is meant: this tool's permission was
-      already decided in our process.
+      THE TOOLS ARE DECLARED WHEN THE SESSION OPENS, ON THE STABLE SURFACE. Three registration
+      paths exist and only one is both public and stable: CopilotSession.RegisterTools is INTERNAL,
+      ToolsApi.SetAsync takes a ProtocolExternalToolDefinition that the SDK marks GHCP001 ("for
+      evaluation purposes only and is subject to change or removal"), and
+      SessionConfigBase.Tools (ICollection<AIFunctionDeclaration>) is stable but fixed when the
+      session opens. The stable one is taken: the declarations are passed at creation, and a
+      genuinely different tool set opens a new session — which the lease already does for a diverged
+      history. An EMPTY set is NOT a change: FunctionInvokingChatClient strips the declarations for
+      the final pass of a loop, and rebuilding there would throw away a live conversation mid-turn.
+      SessionConfigBase.OnPermissionRequest is set to approve, because the session never executes a
+      tool and a prompt could only stall a turn waiting for an answer nobody is there to give.
   - key: |
       THE TOOL ALLOWLIST MUST NAME OUR TOOLS, OR THE LOOP NEVER STARTS. d5f2 creates sessions with an
       empty AvailableTools, which is right when there are no tools. AvailableTools is an IList<string>
@@ -118,13 +122,15 @@ steps:
     new:
       - "tests/AgentSmith.PipelineHarness: a seat-gated probe, skipped when no token is configured"
 
-  - id: a-tool-becomes-a-definition-the-session-will-not-run
+  - id: a-tool-becomes-a-declaration-the-session-will-not-run
     path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
     action:
-      - "Project each AIFunction in ChatOptions.Tools to a ProtocolExternalToolDefinition carrying its name, description and schema, with SkipPermission set."
-      - "Register the set for the call through ToolsApi.SetAsync, and name exactly those tools in the session's AvailableTools."
+      - "Project each AIFunction in ChatOptions.Tools to a body-less declaration carrying its name, description and schema verbatim."
+      - "Declare them when the session opens and name exactly those tools in AvailableTools; approve permission requests, since the session runs nothing."
+      - "Treat a changed tool set as a new session, and an emptied one as no change."
     new:
-      - "CopilotToolProjection: AIFunction -> ProtocolExternalToolDefinition, including the JsonSchema projection"
+      - "PendingToolDeclaration: an AIFunctionDeclaration with no invocable body"
+      - "CopilotToolProjection: AIFunction -> CopilotToolDefinition"
 
   - id: every-tool-call-of-the-message-leaves-as-a-function-call
     path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
@@ -155,27 +161,24 @@ steps:
     action: "Drive full tool round-trips through scripted session events, and assert the composed chain for a copilot agent equals a claude agent's."
 
 tests:
-  - "CopilotToolProjection_FromAnAIFunction_CarriesNameDescriptionAndSchemaAndSetsSkipPermission"
-  - "CopilotSessionChatClient_ExternalToolRequested_ReturnsAFunctionCallAndDoesNotExecuteIt"
-  - "CopilotSessionChatClient_TwoToolsRequestedInOneMessage_ReturnsBothFunctionCalls"
-  - "CopilotSessionChatClient_NextCallCarriesTheToolResults_AnswersEachPendingCallByRequestId"
-  - "CopilotSessionChatClient_ToolResultIsAnError_ReportsItThroughTheErrorArgument"
-  - "CopilotSessionChatClient_ExternalToolCompletedElsewhere_FailsTheCallLoudly"
-  - "CopilotSessionChatClient_Response_CarriesTheSessionIdAsConversationId"
-  - "CopilotSessionChatClient_HistoryDivergedWhileACallWasPending_RebuildsDeletesAndReplays"
-  - "CopilotSessionChatClient_LastIterationWithToolsStripped_DoesNotClearTheSessionsToolList"
-  - "CopilotSessionChatClient_SensitiveToolResultScrubbed_RebuildsAndDeletesTheOldSession"
-  - "ChatClientFactory_CopilotToolBearingTask_ComposesTheSameChainAsClaude"
-  - "ChatClientFactory_CopilotToolBearingTask_KeepsTheIterationCap"
-  - "CopilotSessionChatClient_OptionsCarryTools_NoLongerRefuses"
-
+  - "CopilotToolLoopTests.ExternalToolRequested_ReturnsAFunctionCallAndDoesNotExecuteIt"
+  - "CopilotToolLoopTests.TwoToolsRequestedInOneMessage_ReturnsBothFunctionCalls"
+  - "CopilotToolLoopTests.NextCallCarriesTheToolResults_AnswersEachPendingCallByRequestId"
+  - "CopilotToolLoopTests.ToolThrew_IsReportedThroughTheErrorArgument"
+  - "CopilotToolLoopTests.ToolRoundTrip_EachModelCallIsItsOwnGetResponseAsync"
+  - "CopilotToolLoopTests.ExternalToolCompletedElsewhere_FailsTheCallLoudly"
+  - "CopilotToolLoopTests.SessionCreated_DeclaresTheToolsAndAllowsOnlyThem"
+  - "CopilotToolLoopTests.LastIterationWithToolsStripped_KeepsTheSession"
+  - "CopilotToolLoopTests.ToolSetChanges_RebuildsTheSession"
+  - "CopilotToolLoopTests.ADeclarationOnlyTool_IsNotSomethingTheRuntimeWillRun"
+  - "CopilotPendingCallLivenessTests.PendingToolCall_SurvivesTheCallReturning_AndResumesWhenAnswered (live seat)"
 done:
-  - "the pending-call liveness probe has run against a live seat and its outcome is recorded in the decision file"
+  - "the pending-call liveness probe exists, skips loudly without a seat, and its outcome is recorded in the decision file once it has run"
   - "a copilot agent completes a tool-bearing task: the model calls a tool, our tool host executes it, the result returns to the session, and the turn finishes"
   - "an assistant message requesting two tools yields two function calls, and both pending calls are answered"
   - "each model call we issue is one GetResponseAsync, so each produces its own LlmCall pair, its own trace entry and its own rate-limit acquisition"
   - "the composed decorator chain for a copilot agent is the same chain, in the same order, as for a claude agent — IChatClientBuilder gains no flag and ChatClientFactory gains no branch"
   - "the 25-iteration cap bounds a runaway copilot turn exactly as it bounds any other"
   - "a tool the session requested is never executed by the session: the run trace shows our tool host executing it"
-  - "a sensitive tool result scrubbed mid-turn leaves the model-visible context, and the abandoned session is deleted rather than merely disposed"
+  - "a diverged history rebuilds the session and deletes the old one, so a scrubbed credential leaves the model-visible context"
   - "a copilot agent and a claude agent are configured, launched and read the same way, with no copilot-specific step in any operator procedure"

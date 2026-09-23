@@ -33,14 +33,18 @@ public interface ICopilotRuntime
 /// The per-agent seat. Copilot rejects org-owned PATs, so the token is a person's, which is why
 /// it belongs to the session and not to the shared runtime.
 /// </param>
-/// <param name="ToolNames">
-/// The allowlist. Empty means the model reaches no tool at all — the posture 2026-09-07-d5f2
-/// ships; 2026-09-23-4722a fills it with the names of the run's own tools. A built-in name is
-/// never added.
+/// <param name="Tools">
+/// The call's own tools, declared to the session WITHOUT bodies so the runtime leaves their calls
+/// pending for us. Empty means the model reaches no tool at all. A built-in tool is never named,
+/// so none is ever reachable.
 /// </param>
 public sealed record CopilotSessionRequest(
     string? Model,
     string? ReasoningEffort,
     string? SystemMessage,
     string? SeatToken,
-    IReadOnlyList<string> ToolNames);
+    IReadOnlyList<CopilotToolDefinition> Tools)
+{
+    /// <summary>The allowlist the session is created with: exactly these tools, and no built-in.</summary>
+    public IReadOnlyList<string> ToolNames => Tools.Select(t => t.Name).ToList();
+}

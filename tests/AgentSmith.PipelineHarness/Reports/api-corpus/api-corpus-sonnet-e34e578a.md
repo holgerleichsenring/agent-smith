@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-23T22:37:11.7065980+00:00
+- generated: 2026-09-23T22:54:43.3097710+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [High]: GET /members/{id}: endpoint carries no security scheme, exposing member records (including role and contactEmail) to unauthenticated callers
+  - found [Medium]: GET /members/{id}: no authentication required — endpoint returns Member object including sensitive fields role and contactEmail without any bearer token
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [Medium]: GET /orders: caller-supplied `memberId` query parameter allows an authenticated user to list any member's orders (BOLA/IDOR)
+  - found [Medium]: GET /orders: BOLA — client-supplied memberId query parameter allows an authenticated caller to list any member's orders
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: `orderId` body parameter with no ownership-binding claim — authenticated caller may create invoices against orders belonging to other members
+  - found [Medium]: POST /invoices: potential BOLA — orderId is caller-supplied with no visible ownership check, allowing invoice creation against another member's order
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [High]: PUT /members/{id}/role: role-assignment endpoint requires only a bearer token with no documented privilege tier, allowing any authenticated member to escalate roles
+  - found [Low]: PUT /members/{id}/role: broken function-level authorization — any authenticated member can set any member's role, including escalating to admin
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)

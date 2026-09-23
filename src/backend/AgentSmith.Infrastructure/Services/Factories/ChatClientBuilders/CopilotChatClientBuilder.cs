@@ -35,9 +35,9 @@ public sealed class CopilotChatClientBuilder(
             ReasoningEffort: null,
             SystemMessage: null,
             SeatToken: seatToken,
-            // 2026-09-23-4722a fills this with the run's own tool names; until then a copilot
-            // session reaches nothing, and a tool-bearing call is refused by the client.
-            ToolNames: []);
+            // The call's own tools are declared per session by the client, which knows them;
+            // the template opens with none.
+            Tools: []);
 
         return new CopilotSessionChatClient(
             runtime, template, loggerFactory.CreateLogger<CopilotSessionChatClient>());

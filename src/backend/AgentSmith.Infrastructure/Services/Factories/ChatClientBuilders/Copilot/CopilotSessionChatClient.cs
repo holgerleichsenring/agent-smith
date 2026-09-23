@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.AI;
@@ -13,6 +12,11 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilo
 /// history while the session accumulates its own, and no API seeds a foreign history into a fresh
 /// session. <see cref="CopilotSessionLease"/> therefore decides, per call, whether the live
 /// session can still serve what it is being handed.
+///
+/// One GetResponseAsync is one model call, including when tools are in play: the tools are declared
+/// to the session WITHOUT bodies, so a tool call comes back to us as a
+/// <see cref="FunctionCallContent"/> and the loop stays with FunctionInvokingChatClient — where the
+/// iteration cap, the rate limiter, the cost events and the run trace all already live.
 /// </summary>
 public sealed class CopilotSessionChatClient : IChatClient
 {
@@ -20,12 +24,15 @@ public sealed class CopilotSessionChatClient : IChatClient
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private readonly CopilotSessionLease _lease;
+    private readonly CopilotPendingCalls _pending = new();
+    private readonly CopilotTurnDriver _driver;
 
     public CopilotSessionChatClient(
         ICopilotRuntime runtime, CopilotSessionRequest template, ILogger<CopilotSessionChatClient> logger)
     {
         _template = template;
         _lease = new CopilotSessionLease(runtime, template, logger);
+        _driver = new CopilotTurnDriver(_pending);
     }
 
     public async Task<ChatResponse> GetResponseAsync(
@@ -34,71 +41,57 @@ public sealed class CopilotSessionChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         var turn = await RunTurnAsync(messages, options, cancellationToken);
-        return new ChatResponse(new ChatMessage(ChatRole.Assistant, turn.Text))
+        var message = new ChatMessage(ChatRole.Assistant, turn.Contents());
+        return new ChatResponse(message)
         {
+            // Naming the conversation makes FunctionInvokingChatClient send only the new tool
+            // messages next time, instead of replaying an assistant message we synthesised and
+            // never sent to the session.
             ConversationId = turn.SessionId,
             ModelId = _template.Model,
+            FinishReason = turn.ToolRequests.Count > 0 ? ChatFinishReason.ToolCalls : ChatFinishReason.Stop,
             Usage = CopilotUsageMapping.ToUsageDetails(turn.Usage),
         };
     }
 
-    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+    public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,
         ChatOptions? options = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        // Streaming is a session-CREATION flag, so the deltas are there either way.
-        var turn = await RunTurnAsync(messages, options, cancellationToken);
-        foreach (var delta in turn.Deltas)
-            yield return new ChatResponseUpdate(ChatRole.Assistant, delta) { ConversationId = turn.SessionId };
+        CancellationToken cancellationToken = default) =>
+        CopilotStreaming.UpdatesAsync(
+            () => RunTurnAsync(messages, options, cancellationToken), _template.Model, cancellationToken);
 
-        yield return new ChatResponseUpdate(ChatRole.Assistant, string.Empty)
-        {
-            ConversationId = turn.SessionId,
-            ModelId = _template.Model,
-        };
-    }
-
-    private async Task<TurnResult> RunTurnAsync(
+    private async Task<CopilotTurnResult> RunTurnAsync(
         IEnumerable<ChatMessage> messages, ChatOptions? options, CancellationToken cancellationToken)
     {
-        // Refused, not silently degraded: letting the session own the tool loop would take one
-        // rate-limit slot for a whole turn, emit one LlmCall pair for many model calls and
-        // collapse the run trace to a single entry. 2026-09-23-4722a returns the loop to us.
-        if (options?.Tools is { Count: > 0 })
-            throw new NotSupportedException(
-                "A copilot agent cannot serve a tool-bearing task yet: the session would own the "
-                + "tool loop, and per-call rate limiting, cost events and the run trace would "
-                + "collapse to one entry per turn. Phase 2026-09-23-4722a returns the loop to "
-                + "agent-smith; until it ships, route tool-bearing roles to another provider.");
-
         var history = messages as IReadOnlyList<ChatMessage> ?? messages.ToList();
+        var tools = CopilotToolProjection.From(options?.Tools ?? []);
 
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            // A call that carries only results for calls we are waiting on is the CONTINUATION of a
+            // turn, not a new one: the session is mid-answer and wants the results, not a prompt.
+            if (_pending.IsContinuation(history))
+                return await _driver.RunAsync(
+                    _lease.Current!, c => _pending.AnswerAsync(_lease.Current!, history, c), cancellationToken);
+
             var digests = history.Select(CopilotHistoryWatermark.Digest).ToList();
             var sent = _lease.SentCount;
-            var session = await _lease.AcquireForAsync(history, digests, cancellationToken);
-            if (_lease.SentCount == 0) sent = 0; // the lease rebuilt: everything is new again
+            var session = await _lease.AcquireForAsync(history, digests, tools, cancellationToken);
+            if (_lease.SentCount == 0)
+            {
+                sent = 0;              // the lease rebuilt: everything is new again, and a pending
+                _pending.Clear();      // call belonged to a session that no longer exists
+            }
 
             var tail = history.Skip(sent).Where(m => m.Role != ChatRole.System).ToList();
             var prompt = CopilotPromptRenderer.Render(tail);
-            if (prompt.Length == 0)
-                prompt = CopilotPromptRenderer.ContinuationPrompt;
+            if (prompt.Length == 0) prompt = CopilotPromptRenderer.ContinuationPrompt;
 
-            var before = await session.ReadUsageAsync(cancellationToken);
-            var collector = new CopilotTurnCollector();
-            using (session.Subscribe(collector.Observe))
-            {
-                await session.SendAsync(prompt, cancellationToken);
-                await collector.WaitForIdleAsync(cancellationToken);
-            }
-
-            var after = await session.ReadUsageAsync(cancellationToken);
+            var turn = await _driver.RunAsync(session, c => session.SendAsync(prompt, c), cancellationToken);
             _lease.Commit(digests);
-
-            return new TurnResult(session.SessionId, collector.Text, collector.Deltas, after.Since(before));
+            return turn;
         }
         finally
         {
@@ -112,7 +105,5 @@ public sealed class CopilotSessionChatClient : IChatClient
     // The session goes away with the runtime's own shutdown; blocking here would stall the
     // chat-client cache's disposal for the length of an RPC round trip.
     public void Dispose() => _gate.Dispose();
-
-    private sealed record TurnResult(string SessionId, string Text, IReadOnlyList<string> Deltas, CopilotUsage Usage);
 
 }

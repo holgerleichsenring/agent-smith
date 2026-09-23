@@ -17,7 +17,7 @@ namespace AgentSmith.Tests.Factories;
 public sealed class CopilotSessionChatClientTests
 {
     private static readonly CopilotSessionRequest Template =
-        new(Model: "gpt-5", ReasoningEffort: null, SystemMessage: null, SeatToken: "seat", ToolNames: []);
+        new(Model: "gpt-5", ReasoningEffort: null, SystemMessage: null, SeatToken: "seat", Tools: []);
 
     private static CopilotSessionChatClient NewClient(FakeCopilotRuntime runtime) =>
         new(runtime, Template, NullLogger<CopilotSessionChatClient>.Instance);
@@ -127,23 +127,12 @@ public sealed class CopilotSessionChatClientTests
     }
 
     [Fact]
-    public async Task OptionsCarryTools_RefusesNamingTheSuccessorPhase()
-    {
-        var runtime = new FakeCopilotRuntime();
-        var options = new ChatOptions { Tools = [AIFunctionFactory.Create(() => "ok", "do_something")] };
-
-        var act = () => NewClient(runtime).GetResponseAsync([new ChatMessage(ChatRole.User, "q")], options);
-
-        (await act.Should().ThrowAsync<NotSupportedException>()).WithMessage("*2026-09-23-4722a*");
-        runtime.Sessions.Should().BeEmpty("a refused call must not open a session");
-    }
-
-    [Fact]
     public void RuntimeSessionConfig_UsesEmptyAllowlistAndNoSelfManagedContext()
     {
         var config = CopilotSessionFactory.BuildSessionConfig(Template);
 
         config.AvailableTools.Should().BeEmpty("an empty allowlist means the model reaches no tool at all");
+        config.Tools.Should().BeEmpty();
         config.InfiniteSessions!.Enabled.Should().BeFalse("compaction belongs to CompactingChatClient");
         config.ToolSearch!.Enabled.Should().BeFalse();
         config.Streaming.Should().BeTrue();
