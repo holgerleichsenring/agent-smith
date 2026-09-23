@@ -31,6 +31,11 @@ public static class LlmRateBudget
             "claude" or "anthropic" => AnthropicDefault(),
             "openai" or "azure_openai" or "azure-openai" =>
                 new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 60_000),
+            // 2026-09-07-d5f2: a Copilot seat meters PREMIUM REQUESTS, not tokens per minute, so
+            // there is no published per-minute figure to copy. The metered API tier's numbers are
+            // the conservative stand-in until a live run measures better; the 600/600k fall-through
+            // below is a local-Ollama number and would throttle nothing.
+            "copilot" => new LlmRateLimitOptions(RequestsPerMinute: 60, InputTokensPerMinute: 60_000),
             _ => new LlmRateLimitOptions(RequestsPerMinute: 600, InputTokensPerMinute: 600_000),
         };
 

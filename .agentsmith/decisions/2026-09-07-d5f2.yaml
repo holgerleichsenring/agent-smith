@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-07-d5f2
+
+decisions:
+  - category: Architecture
+    chose: "Copilot serves the NON-tool half here and refuses the rest by name; 2026-09-23-4722a returns the tool loop"
+    over: "Shipping the whole provider at once, with the Copilot session owning the tool loop"
+    reason: |
+      Every decorator in ChatClientFactory sits BELOW UseFunctionInvocation, precisely so it
+      re-enters on each tool iteration — the EventPublishing wrap says so in its own comment
+      ("so each provider call, including tool-loop iterations, produces its own LlmCallStarted /
+      Finished pair"), and RecordingChatClient says so in its summary. A Copilot session that
+      drove the iteration would therefore have taken ONE rate-limit slot for a whole turn, emitted
+      ONE LlmCall pair for many model calls, collapsed the run trace to one flattened entry (the
+      regression p0427 removed), dropped the 25-iteration cap, and made a transient retry
+      re-execute every tool. None of that is visible from the outside, which is what makes it
+      unacceptable rather than merely imperfect. The refusal is in the CLIENT, not the builder:
+      IChatClientBuilder.Build receives AgentConfig and ModelAssignment and never the TaskType, so
+      a builder-side refusal cannot be written — ChatOptions.Tools is the same signal arriving at
+      the only place that has it.
+
+  - category: Architecture
+    chose: "A hash of the sent message prefix as the session watermark"
+    over: "A count of the messages already sent"
+    reason: |
+      A count only notices messages arriving or leaving. An edit at unchanged length — a
+      compaction that replaces a message, SensitiveToolHistoryScrubChatClient rewriting a prior
+      tool result to "[set, applied earlier turn]", a changed system prompt — slips past it and
+      leaves the session answering from a history the caller has since revised. That is a wrong
+      answer produced silently, against a rebuild that costs only latency. The same mechanism is
+      what will protect a credential in 4722a: the scrub changes the prefix, the prefix change
+      forces a rebuild, and the rebuilt session never sees the secret.
+
+  - category: Security
+    chose: "The seat token on the SESSION (SessionConfigBase.GitHubToken), and UseLoggedInUser false unconditionally"
+    over: "One token on the shared CopilotClient"
+    reason: |
+      Copilot rejects org-owned PATs, so a seat is always a person's. A client-level token would
+      have made every copilot agent in a container answer as the same person, which the phase's
+      own done criterion ("two agents naming two secrets answer on two seats") forbids.
+      UseLoggedInUser defaults to reading stored OAuth tokens or gh CLI auth — right on a laptop,
+      wrong in a cluster — and the SDK already flips it when a token is supplied; it is set false
+      explicitly anyway, so a future change to that default cannot silently make a cluster answer
+      as whoever last logged in on the build host.
+
+  - category: Architecture
+    chose: "CopilotClientMode.Empty with an explicit BaseDirectory, plus an empty tool allowlist"
+    over: "The SDK's default CopilotCli mode"
+    reason: |
+      The default mode's own documentation says: "Do not use this mode for server-based
+      multi-user applications — the default coding agent has tools and capabilities that operate
+      across sessions and can access the host OS environment." agent-smith is exactly that
+      application. The empty AvailableTools list is the second lock on top of the mode, because
+      the mode is a default a future SDK version could move; AvailableTools is documented "only
+      these tools will be available when specified", so empty means the model reaches nothing.
+
+  - category: Infrastructure
+    chose: "CopilotSkipCliDownload=true, with the runtime binary resolved at run time from COPILOT_CLI_PATH"
+    over: "Letting the package's build targets fetch the Copilot CLI, as they do by default"
+    reason: |
+      Measured, not estimated: a throwaway project that merely references GitHub.Copilot.SDK
+      produced a 175 MB bin/ directory, because _DownloadCopilotCli runs BeforeTargets="BeforeBuild"
+      and pulls a platform tarball from github.com with a 600s timeout. Unguarded, that becomes a
+      network dependency of every developer build, every CI job and every phase-gate run — and it
+      is impossible in an air-gapped or sovereign deployment, which is the market this product
+      claims. With the property set the same repository builds to 3.2 MB and reaches no network
+      beyond NuGet. CopilotCliBinaryPath is named here so the next reader does not reach for it: it
+      is an MSBuild property consumed by those same download targets, not a run-time setting. The
+      run-time seam is RuntimeConnection.ForStdio(path).
+
+  - category: Infrastructure
+    chose: "The image acquires the Copilot CLI only when asked (--build-arg COPILOT_CLI_VERSION), and the runtime refuses a configured-but-missing path by name"
+    over: "Baking the runtime into every image, or silently falling back to the SDK's bundled runtime"
+    reason: |
+      Baking it in would move the same 175 MB from the build to every pull, for a feature most
+      deployments will not enable. A silent fallback to the "bundled" runtime would be a lie in
+      this repository, because the build deliberately never downloads one — the operator would see
+      an obscure SDK failure instead of "the image was built without it". Only the server image
+      carries the opt-in layer: that is where a deployed model call is made. The CLI and sandbox
+      images take the binary by mount or PATH, which is the same seam.
+
+  - category: Architecture
+    chose: "Usage read as the delta between two readings of the session accumulators"
+    over: "UsageGetMetricsResult.LastCallInputTokens / LastCallOutputTokens"
+    reason: |
+      The LastCall fields are documented as "the most recent MAIN-AGENT api call". For this phase
+      one call is one turn and the two agree — but 4722a makes a turn span several model calls,
+      and a reading that is right only by accident is a trap left for the next phase. Per-model
+      Usage carries typed InputTokens / OutputTokens / CacheReadTokens totals, so the delta needs
+      no guessing at the string keys of the per-token-type map. Cache reads are mapped to
+      UsageDetails.CachedInputTokenCount, which is where LlmCallCostCalculator already looks.
+
+  - category: Product
+    chose: "Token pricing from the agent's own table, declared by the operator, with the provider's premium-request meter beside it in the trace"
+    over: "Registering zero-cost entries in ModelPricingResolver so the agent can be saved"
+    reason: |
+      ConfigStudioCapabilities.ValidateAgent reads AgentEntity.Pricing.Models, not
+      ModelPricingResolver, so zero-cost entries in the resolver would not let the agent be saved
+      at all — the validation never consults it. Copilot bills AI credits rather than tokens, so a
+      per-token rate is an operator-declared PROXY and a flat-rate seat is honestly entered as zero; the run's cost cap
+      is then approximate for that agent, which is said out loud in the example config rather than
+      discovered from a surprising invoice. TotalPremiumRequestCost and TotalNanoAiu travel to the
+      trace as the provider's own meter. A second spend unit in the domain remains p0303's work.
+
+  - category: Quality
+    chose: "Both IDisposable and IAsyncDisposable on the runtime singleton"
+    over: "IAsyncDisposable alone, which is what an async-only lifetime suggests"
+    reason: |
+      A singleton implementing only IAsyncDisposable
+      makes a synchronous ServiceProvider.Dispose() throw "type only implements IAsyncDisposable",
+      which took down ConfigCapabilitiesTests and CliShapedDiTests and would have taken down the
+      CLI's own teardown in production. The synchronous path disposes the client without awaiting
+      a clean stop, because a caller that disposed synchronously has already said it will not wait.
+
+  - category: Quality
+    chose: "The SDK's stable MessageOptions send path, accepting one premium request per doctor probe"
+    over: "Rpc.SendAsync with Billable=false, which would make the probe free"
+    reason: |
+      Rpc.SendAsync is marked GHCP001, "for evaluation purposes only and is subject to change or
+      removal in future updates". A preflight saving is not worth a production dependency on an
+      API the vendor has reserved the right to delete. The cost is stated in the interface's own
+      documentation so the next reader does not rediscover the trade as a surprise.
+
+  - category: Quality
+    chose: "Six small collaborators behind the adapter — session factory, lease, watermark, turn collector, usage mapping, prompt renderer"
+    over: "One CopilotSessionChatClient holding all of it"
+    reason: |
+      Forced by the architecture ratchet (120 lines per file, no collaborators on static classes)
+      and better for it: session OWNERSHIP and the decision to rebuild is a different
+      responsibility from running a turn, and the postures a runtime and a session are opened with
+      are assertable on their own — every one of the settings that overrides a wrong default is
+      now pinned by a test that needs neither a runtime process nor a Copilot seat.

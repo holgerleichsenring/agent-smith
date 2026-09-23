@@ -100,7 +100,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["claude", "openai", "azure_openai", "gemini", "ollama"]
+          "enum": ["claude", "openai", "azure_openai", "gemini", "ollama", "copilot"]
         },
         "model": { "type": "string" },
         "endpoint": { "type": "string" },

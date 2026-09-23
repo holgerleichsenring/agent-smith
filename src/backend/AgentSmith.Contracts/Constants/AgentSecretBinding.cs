@@ -17,6 +17,7 @@ public sealed record AgentSecretBinding(string EnvVar, string K8sSecretKey)
         new(AgentEnvKeys.AzureOpenAiApiKey, "azure-openai-api-key"),
         new(AgentEnvKeys.GeminiApiKey, "gemini-api-key"),
         new(AgentEnvKeys.GroqApiKey, "groq-api-key"),
+        new(AgentEnvKeys.CopilotGitHubToken, "copilot-github-token"),
         new(AgentEnvKeys.GitHubToken, "github-token"),
         new(AgentEnvKeys.GitLabToken, "gitlab-token"),
         new(AgentEnvKeys.AzureDevOpsToken, "azure-devops-token"),

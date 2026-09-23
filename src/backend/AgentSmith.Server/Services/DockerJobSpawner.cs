@@ -24,7 +24,7 @@ public sealed class DockerJobSpawner(
     [
         AgentEnvKeys.AnthropicApiKey, AgentEnvKeys.OpenAiApiKey, AgentEnvKeys.GeminiApiKey,
         AgentEnvKeys.GitHubToken, AgentEnvKeys.AzureDevOpsToken, AgentEnvKeys.GitLabToken,
-        AgentEnvKeys.JiraToken, AgentEnvKeys.JiraEmail, AgentEnvKeys.RedisUrl,
+        AgentEnvKeys.JiraToken, AgentEnvKeys.JiraEmail, AgentEnvKeys.RedisUrl, AgentEnvKeys.CopilotGitHubToken, AgentEnvKeys.CopilotCliPath,
     ];
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
