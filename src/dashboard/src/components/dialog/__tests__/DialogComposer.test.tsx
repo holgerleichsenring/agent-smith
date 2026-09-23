@@ -126,8 +126,11 @@ describe("DialogComposer", () => {
     expect(screen.getByRole("button", { name: "Attach" })).toHaveAttribute("aria-expanded", "false");
   });
 
+  // 2026-09-23-6e3f: the hint is gone — the one state that carried one renders no composer at
+  // all now. What the composer still owes is that DISABLED means disabled, and that is what the
+  // rest of this case asserts.
   it("DialogComposer_WhenDisabled_NeitherControlActs", () => {
-    const { onSend } = renderComposer({ disabled: true, hint: "Pick a project first." });
+    const { onSend } = renderComposer({ disabled: true });
 
     const plus = screen.getByRole("button", { name: "Attach" });
     const send = screen.getByRole("button", { name: "Send" });
@@ -139,6 +142,5 @@ describe("DialogComposer", () => {
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(onSend).not.toHaveBeenCalled();
-    expect(screen.getByTestId("dialog-composer-hint")).toHaveTextContent("Pick a project first.");
   });
 });
