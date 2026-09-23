@@ -9,7 +9,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.ConfigStudio;
 
 /// <summary>
-/// 2026-09-22-6968: the five SCALAR per-project sandbox overrides on both sides of the
+/// 2026-09-22-6968: the SCALAR per-project sandbox overrides on both sides of the
 /// studio's wire. The projection has to tell "this project says nothing" from "this
 /// project pins a value", and the patch has to leave alone what it was not sent — the
 /// stored block survived a save until now only because nothing ever mentioned it.
@@ -27,6 +27,7 @@ public sealed class ProjectSandboxOverrideTests
             RunCommandTimeoutSeconds = 600,
             AgentRegistry = "mirror.example",
             AgentVersion = "0.1.0-canary",
+            HoldSeconds = 600,
             Resources = new ResourceLimits { CpuLimit = "4", MemoryLimit = "8Gi" },
             Images = new Dictionary<string, string> { ["dotnet"] = "mirror.example/dotnet:9.0" },
             Secrets = new SandboxSecrets { Env = new Dictionary<string, string> { ["SF_ID"] = "sf-creds:id" } },
@@ -44,7 +45,7 @@ public sealed class ProjectSandboxOverrideTests
         // 2026-09-22-6c46: the scalar half, read without the structured block that now
         // hangs under it — that half has its own tests.
         (projected.Sandbox! with { Structured = null }).Should().Be(new ProjectSandbox(
-            "mirror.example/dotnet/sdk:9.0", 1800, 600, "mirror.example", "0.1.0-canary"));
+            "mirror.example/dotnet/sdk:9.0", 1800, 600, "mirror.example", "0.1.0-canary", 600));
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public sealed class ProjectSandboxOverrideTests
     }
 
     [Fact]
-    public void ProjectProjection_ABlockThatOnlyCarriesStructuredOverrides_ProjectsFiveNulls()
+    public void ProjectProjection_ABlockThatOnlyCarriesStructuredOverrides_ProjectsSixNulls()
     {
         var raw = new RawProjectEntry
         {
@@ -84,6 +85,62 @@ public sealed class ProjectSandboxOverrideTests
         patched.Sandbox.RunCommandTimeoutSeconds.Should().Be(600);
         patched.Sandbox.AgentRegistry.Should().Be("mirror.example");
         patched.Sandbox.AgentVersion.Should().Be("0.1.0-canary");
+    }
+
+    /// <summary>
+    /// 2026-09-23-2446: the hold window survived a save until now only because the patch
+    /// never mentioned it. The moment the block carried the field the patch began assigning
+    /// it, so a projection that did not also READ it would write null over a stored value on
+    /// the next save — this pins both halves as one round trip.
+    /// </summary>
+    [Fact]
+    public void ProjectRoundTrip_AStoredHoldWindow_SurvivesASaveThatDidNotChangeIt()
+    {
+        var existing = Stored();
+
+        // Read the stored project the way the studio does, change something else entirely,
+        // and save it back — exactly what an operator editing the agent registry does.
+        var projected = ProjectEntityMapping.ToProject("proj", existing);
+        var edited = Entity(projected.Sandbox! with { AgentRegistry = "other.example" });
+        var patched = RawProjectPatch.Apply(edited, existing);
+
+        patched.Sandbox!.HoldSeconds.Should().Be(600);
+        patched.Sandbox.AgentRegistry.Should().Be("other.example");
+    }
+
+    [Fact]
+    public void ProjectPatch_ASentBlockWithANullHoldWindow_ClearsItToInherit()
+    {
+        var existing = Stored();
+
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(StepTimeoutSeconds: 1200)), existing);
+
+        // A form that shows the control and sends the block with the field empty is an
+        // operator handing the project back to what it inherits.
+        patched.Sandbox!.HoldSeconds.Should().BeNull();
+    }
+
+    [Fact]
+    public void ProjectPatch_AnEntityWithNoSandboxBlock_LeavesTheStoredHoldWindowUntouched()
+    {
+        var existing = Stored();
+
+        var patched = RawProjectPatch.Apply(Entity(sandbox: null), existing);
+
+        // A client that does not know the block sends none, and nothing it never showed is
+        // written — the same absent-means-leave-alone rule the other five already keep.
+        patched.Sandbox!.HoldSeconds.Should().Be(600);
+    }
+
+    [Fact]
+    public void ProjectPatch_AHoldWindowOfZero_IsStoredAsZeroRatherThanAsAbsent()
+    {
+        var patched = RawProjectPatch.Apply(
+            Entity(new ProjectSandbox(HoldSeconds: 0)), existing: null);
+
+        // Zero is a declaration — this project holds nothing — and not the absent marker.
+        patched.Sandbox!.HoldSeconds.Should().Be(0);
     }
 
     [Fact]
@@ -141,7 +198,7 @@ public sealed class ProjectSandboxOverrideTests
     }
 
     [Fact]
-    public void ProjectEntity_ASentBlockNamingOneField_BindsTheOtherFourAsNull()
+    public void ProjectEntity_ASentBlockNamingOneField_BindsTheOtherFiveAsNull()
     {
         var body = @"{""id"":""p"",""agent"":""a"",""tracker"":""t"",""repos"":[],""pipelines"":[],"
             + @"""sandbox"":{""stepTimeoutSeconds"":60}}";
@@ -184,7 +241,7 @@ public sealed class ProjectSandboxOverrideTests
     {
         var existing = Stored();
 
-        // A client that renders only the five scalars sends no structured block at all.
+        // A client that renders only the six scalars sends no structured block at all.
         var patched = RawProjectPatch.Apply(
             Entity(new ProjectSandbox(StepTimeoutSeconds: 1200)), existing);
 

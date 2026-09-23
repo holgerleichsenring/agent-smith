@@ -14,6 +14,12 @@ namespace AgentSmith.Contracts.Models.Configuration.Resolved;
 /// absent on purpose: the global sandbox block has no secrets field, so there is nothing to
 /// inherit and a blank here would read as an inherited empty set.
 /// </para>
+/// <para>
+/// 2026-09-23-2446: <see cref="HoldSeconds"/> is the one field here whose answer is read
+/// LIVE, because its effect is live — a reaper resolves it through the configuration loader
+/// on every scan, so a value frozen at composition would stop being true the moment an
+/// operator edited the process-wide one. Its provenance can be the environment.
+/// </para>
 /// </summary>
 public sealed record InheritedSandboxSettings(
     ResolvedValue<string> ToolchainImage,
@@ -21,5 +27,6 @@ public sealed record InheritedSandboxSettings(
     ResolvedValue<int> RunCommandTimeoutSeconds,
     ResolvedValue<string> AgentRegistry,
     ResolvedValue<string> AgentVersion,
+    ResolvedValue<int> HoldSeconds,
     InheritedSandboxResources Resources,
     IReadOnlyDictionary<string, ResolvedValue<string>> Images);

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Configuration.Resolved;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -11,6 +12,15 @@ namespace AgentSmith.Application.Services.Configuration;
 /// empty. The same code, one different input — writing a parallel "inheritance resolver"
 /// would be a second answer able to disagree with the first, which is the defect the single
 /// resolution pass was consolidated to end.
+/// <para>
+/// 2026-09-23-2446: the hold window is the ONE field read through the configuration loader
+/// instead. Both <paramref name="global"/> and <paramref name="config"/> are assembled once
+/// at composition and the config-epoch reloader refreshes neither, which is fine for every
+/// other field here — their effects are frozen until a restart too. The hold window's is
+/// not: a reaper reads it through the loader on every scan, so a placeholder built from the
+/// composition-time options would disagree with the window in force from the moment an
+/// operator edits anything, which is the only moment this control matters.
+/// </para>
 /// </summary>
 public sealed class InheritedSandboxProjection(
     IConfigResolver resolver,
@@ -18,14 +28,30 @@ public sealed class InheritedSandboxProjection(
     ISandboxResourceResolver resources,
     IOptions<SandboxGlobalConfig> global,
     AgentSmithConfig config,
+    IConfigurationLoader loader,
     ILogger<InheritedSandboxProjection> logger) : IInheritedSandboxProjection
 {
-    public InheritedSandboxSettings ProcessWide() => Without(new ResolvedProject());
+    public InheritedSandboxSettings ProcessWide() => Without(new ResolvedProject(), HoldWindow());
 
-    public IReadOnlyDictionary<string, InheritedSandboxSettings> ByProject() =>
-        config.Projects.ToDictionary(kv => kv.Key, kv => Without(kv.Value), StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, InheritedSandboxSettings> ByProject()
+    {
+        // ONE read for the whole projection: the loader re-assembles the entire catalog
+        // from the document store on every call, and every row's counterfactual answer is
+        // the same process-wide one — the per-project leg is exactly what is being emptied.
+        var hold = HoldWindow();
+        return config.Projects.ToDictionary(kv => kv.Key, kv => Without(kv.Value, hold), StringComparer.Ordinal);
+    }
 
-    private InheritedSandboxSettings Without(ResolvedProject project)
+    /// <summary>
+    /// The window the NEXT reaper scan will use, read the way that scan reads it. The
+    /// process-wide sandbox block through the loader, then the environment variable, then
+    /// the built-in three minutes — one chain, so the placeholder and the reaper cannot
+    /// give different answers. A dashboard request, not a hot loop.
+    /// </summary>
+    private ResolvedValue<int> HoldWindow() =>
+        SandboxHoldWindow.ProcessWide(loader.LoadConfig(string.Empty).Sandbox);
+
+    private InheritedSandboxSettings Without(ResolvedProject project, ResolvedValue<int> hold)
     {
         var counterfactual = project with { Sandbox = null };
         return new InheritedSandboxSettings(
@@ -37,6 +63,7 @@ public sealed class InheritedSandboxProjection(
             // the process-wide field. Reading the field is that answer, not a second one.
             AgentRegistry: ResolvedValue<string>.Global(global.Value.AgentRegistry),
             AgentVersion: InheritedVersion(counterfactual),
+            HoldSeconds: hold,
             Resources: InheritedResources(counterfactual, project.Pipeline),
             Images: CodeDefaultImages);
     }
