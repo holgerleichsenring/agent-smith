@@ -18,9 +18,19 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class SourceScopeSandboxFactory(
     SourceScopeOpener opener,
     ISourceScopeObserverAccessor observers,
+    IHeldSandboxRegister holds,
     ILogger<SourceScopeSandbox> sandboxLogger) : ISourceScopeSandboxFactory
 {
     public ISourceScopeSandbox Create(
-        ResolvedProject project, RepoConnection repo, string? revision = null) =>
-        new SourceScopeSandbox(project, repo, revision, opener, observers, sandboxLogger);
+        ResolvedProject project, RepoConnection repo, string? revision = null,
+        string? conversationId = null) =>
+        new SourceScopeSandbox(project, repo, revision, Hold(conversationId, repo, revision),
+            opener, observers, sandboxLogger);
+
+    // 2026-09-22-2d11b: a scope that names no conversation carries no hold, takes nothing
+    // back and disposes what it spawned — which is every caller but a design turn.
+    private SourceScopeHold? Hold(string? conversationId, RepoConnection repo, string? revision) =>
+        string.IsNullOrEmpty(conversationId)
+            ? null
+            : new SourceScopeHold(holds, conversationId, repo, revision, sandboxLogger);
 }

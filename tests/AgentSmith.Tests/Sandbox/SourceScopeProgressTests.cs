@@ -118,13 +118,14 @@ public sealed class SourceScopeProgressTests
             new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         var opener = new SourceScopeOpener(
-            new SourceScopeMaterialiser(), factory, specBuilder, Mock.Of<IRunContextAccessor>());
+            new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, Mock.Of<IRunContextAccessor>());
         var repo = new RepoConnection
         {
             Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a",
         };
         return new SourceScopeSandbox(
-            Project, repo, revision, opener, _observers, NullLogger<SourceScopeSandbox>.Instance);
+            Project, repo, revision, hold: null, opener, _observers,
+            NullLogger<SourceScopeSandbox>.Instance);
     }
 
     private static Step ReadStep() => new(

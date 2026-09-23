@@ -77,6 +77,10 @@ public sealed class NoStaticStateRuleTests
         // literals, and an ALLOWANCE rather than the refusal list above it, because the set
         // of programs the server itself sends to a scope is finite and knowable.
         typeof(AgentSmith.Application.Services.Sandbox.SourceScopeProgramAllowance),
+        // 2026-09-22-2d11b: the git text that tells an unauthorised remote from an
+        // unreachable one — a fixed list of literals, in one place because the clone rung
+        // and the refresh rung must classify a failure the same way.
+        typeof(AgentSmith.Application.Services.Sandbox.SourceScopeFailures),
         typeof(AgentSmith.Application.Services.Sandbox.ToolchainProbeCommand),
     ];
 

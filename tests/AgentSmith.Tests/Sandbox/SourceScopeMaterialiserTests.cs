@@ -9,6 +9,9 @@ namespace AgentSmith.Tests.Sandbox;
 /// <summary>
 /// 2026-09-13-9802: the git ladder that lands a read-only scope on a named revision, and
 /// the refusals it tells apart. Four of these used to arrive as one sentence.
+/// <para>2026-09-22-2d11b: the ladder now opens by asking the work path which remote it is a
+/// clone of — "config" in these sequences — because a held sandbox arrives with a tree in it
+/// and git refuses to clone into a non-empty directory.</para>
 /// </summary>
 public sealed class SourceScopeMaterialiserTests
 {
@@ -22,11 +25,11 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "abc123");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, revision: null, CancellationToken.None);
 
         sha.Should().Be("abc123");
-        sandbox.Commands.Should().Equal("clone", "rev-parse");
+        sandbox.Commands.Should().Equal("config", "clone", "rev-parse");
     }
 
     [Fact]
@@ -34,11 +37,11 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "deadbeef");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         sha.Should().Be("deadbeef");
-        sandbox.Commands.Should().Equal("clone", "checkout", "rev-parse");
+        sandbox.Commands.Should().Equal("config", "clone", "checkout", "rev-parse");
     }
 
     [Fact]
@@ -48,7 +51,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "error: pathspec 'nope' did not match")
             .Returning("fetch", 0, string.Empty);
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "nope", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -64,7 +67,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "fatal: reference is not a tree")
             .Returning("fetch", 1, "error: couldn't find remote ref 9f1c2d");
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -79,11 +82,11 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "9f1c2d");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         sha.Should().Be("9f1c2d");
-        sandbox.Commands.Should().Equal("clone", "checkout", "fetch", "checkout", "rev-parse");
+        sandbox.Commands.Should().Equal("config", "clone", "checkout", "fetch", "checkout", "rev-parse");
     }
 
     [Theory]
@@ -94,7 +97,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("clone", 128, stderr);
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, null, CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
@@ -107,7 +110,7 @@ public sealed class SourceScopeMaterialiserTests
         var sandbox = new ScriptedSandbox()
             .Returning("clone", 128, "fatal: unable to access: Could not resolve host: stub.test");
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, null, CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
@@ -123,7 +126,7 @@ public sealed class SourceScopeMaterialiserTests
 
         try
         {
-            await new SourceScopeMaterialiser()
+            await new SourceScopeMaterialiser(new SourceScopeRefresh())
                 .PrepareAsync(sandbox, Repo, "nope", CancellationToken.None);
         }
         catch (SourceScopeUnavailableException)
@@ -144,7 +147,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "abc123");
 
-        await new SourceScopeMaterialiser()
+        await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, revision: null, CancellationToken.None);
 
         var clone = sandbox.AllArgs.Single(args => args.Contains("clone"));
@@ -158,11 +161,11 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "deadbeef");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         sha.Should().Be("deadbeef");
-        sandbox.Commands.Should().Equal("clone", "checkout", "rev-parse");
+        sandbox.Commands.Should().Equal("config", "clone", "checkout", "rev-parse");
     }
 
     [Fact]
@@ -173,11 +176,11 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "9f1c2d");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         sha.Should().Be("9f1c2d");
-        sandbox.Commands.Should().Equal("clone", "checkout", "fetch", "checkout", "rev-parse");
+        sandbox.Commands.Should().Equal("config", "clone", "checkout", "fetch", "checkout", "rev-parse");
         sandbox.AllArgs.Should().NotContain(
             args => args.Contains("fetch") && args.Contains("--depth"),
             "the rung that already existed lands it, so the depth rung is never reached");
@@ -192,7 +195,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "77c0de");
 
-        var sha = await new SourceScopeMaterialiser()
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "release/7", CancellationToken.None);
 
         sha.Should().Be("77c0de");
@@ -210,7 +213,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "fatal: reference is not a tree")
             .Returning("fetch", 1, "error: couldn't find remote ref 9f1c2d");
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -226,14 +229,14 @@ public sealed class SourceScopeMaterialiserTests
         var sandbox = new ScriptedSandbox()
             .Returning("clone", 128, "fatal: unable to access: Could not resolve host: stub.test");
 
-        var act = () => new SourceScopeMaterialiser()
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
             .Which.Kind.Should().Be(SourceScopeFailureKind.Unreachable);
         // A dead host is not a revision hunt: the narrow clone must not turn an unreachable
         // host into a missing revision, so nothing runs after the clone that failed.
-        sandbox.Commands.Should().Equal(["clone"]);
+        sandbox.Commands.Should().Equal(["config", "clone"]);
     }
 
     /// <summary>
@@ -283,8 +286,10 @@ public sealed class SourceScopeMaterialiserTests
         {
             var args = step.Args ?? [];
             AllArgs.Add(args);
+            // 2026-09-22-2d11b: "config" is the rung that asks the work path who it is a
+            // clone of, which now runs before everything else.
             var word = args.FirstOrDefault(a =>
-                a is "clone" or "checkout" or "fetch" or "rev-parse") ?? "?";
+                a is "config" or "clone" or "checkout" or "fetch" or "rev-parse") ?? "?";
             Commands.Add(word);
 
             // Matched on any arg, so a rung can be scripted by the token that tells it apart

@@ -227,7 +227,8 @@ public sealed class TemplateOwnershipTests
         public int Created { get; private set; }
 
         public ISourceScopeSandbox Create(
-            ResolvedProject project, RepoConnection repo, string? revision = null)
+            ResolvedProject project, RepoConnection repo, string? revision = null,
+            string? conversationId = null)
         {
             Created++;
             return new OpenScope();

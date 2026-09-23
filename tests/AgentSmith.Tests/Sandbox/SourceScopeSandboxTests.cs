@@ -177,7 +177,10 @@ public sealed class SourceScopeSandboxTests
         factory.Spawned[0].Spec.RunId.Should().Be("run-1", "the reaper must see the active run's label");
         var kinds = factory.Spawned[0].Sandbox.RanSteps.Select(s => s.Kind).ToList();
         // 2026-09-13-9802: the clone is followed by a rev-parse that reports the sha.
-        kinds.Should().Equal(StepKind.Run, StepKind.Run, StepKind.ReadFile, StepKind.Grep);
+        // 2026-09-22-2d11b: and preceded by the rung that asks the work path who it is a
+        // clone of — three Run steps before the two reads.
+        kinds.Should().Equal(
+            StepKind.Run, StepKind.Run, StepKind.Run, StepKind.ReadFile, StepKind.Grep);
         factory.Spawned[0].Sandbox.RanSteps[0].Command.Should().Be("git");
         sut.IsMaterialized.Should().BeTrue();
     }
@@ -204,8 +207,8 @@ public sealed class SourceScopeSandboxTests
         var runContext = new Mock<IRunContextAccessor>();
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandbox(
-            Project, repo, revision,
-            new SourceScopeOpener(new SourceScopeMaterialiser(), factory, specBuilder, runContext.Object),
+            Project, repo, revision, hold: null,
+            new SourceScopeOpener(new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance,
             prefixes);
     }

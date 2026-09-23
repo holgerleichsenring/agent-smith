@@ -22,6 +22,10 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
     public const string RunIdLabel = "agent-smith.run-id";
     public const string OwnerLabel = "agent-smith.owner";
 
+    /// <summary>2026-09-22-2d11a: the design conversation a source-scope sandbox belongs
+    /// to. The orphan reaper reads it to tell a held sandbox from a corpse.</summary>
+    public const string ConversationIdLabel = "agent-smith.conversation-id";
+
     public CreateContainerParameters BuildLoader(string containerName, string sharedVolume, string agentImage) => new()
     {
         Name = containerName,
@@ -55,11 +59,11 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
             : [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
         WorkingDir = WorkMount,
         Env = BuildEnv(jobId, redisUrl, packageCaches),
-        Labels = BuildLabels(jobId, spec.RunId),
+        Labels = BuildLabels(jobId, spec.RunId, spec.ConversationId),
         HostConfig = BuildHostConfig(sharedVolume, workVolume, spec, packageCaches)
     };
 
-    private Dictionary<string, string> BuildLabels(string jobId, string? runId)
+    private Dictionary<string, string> BuildLabels(string jobId, string? runId, string? conversationId)
     {
         var labels = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -67,6 +71,7 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
             [OwnerLabel] = owner.Value
         };
         if (!string.IsNullOrEmpty(runId)) labels[RunIdLabel] = runId;
+        if (!string.IsNullOrEmpty(conversationId)) labels[ConversationIdLabel] = conversationId;
         return labels;
     }
 

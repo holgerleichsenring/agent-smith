@@ -43,4 +43,9 @@ public sealed record SandboxSpec(
     // pod references, so an image in a credentialed registry is pullable. Rendered at POD
     // level by PodSpecBuilder, which covers the init container as well as the toolchain;
     // the Docker/InProcess factories have no equivalent and say so when a pull fails.
-    IReadOnlyList<string>? ImagePullSecrets = null);
+    IReadOnlyList<string>? ImagePullSecrets = null,
+    // 2026-09-22-2d11a: the design conversation a source-scope sandbox belongs to.
+    // Stamped as a container/pod label so a reaper can tell a sandbox a turn may come
+    // back to from a corpse. Null (the default, and what every pipeline run passes)
+    // leaves the label off entirely.
+    string? ConversationId = null);

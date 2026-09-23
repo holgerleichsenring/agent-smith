@@ -147,9 +147,28 @@ public sealed class EnsureRepoSandboxToolHostTests
         return (pipeline, project, fs);
     }
 
+    // 2026-09-22-2d11a: the mid-run escalation door releases held sandboxes before it
+    // asks its own single-sandbox probe, so a hold cannot deny a repository the master
+    // discovered it needs.
+    [Fact]
+    public async Task Release_TheMidRunEscalationDoor_ReleasesBeforeItProbes()
+    {
+        var (pipeline, _, fs) = await BootRunAsync();
+        var recording = new AgentSmith.Tests.Sandbox.RecordingHeldSandboxes();
+        var sut = Host(pipeline, fs, recording.DenyingProbe("namespace memory quota exhausted"), recording);
+
+        (await sut.EnsureRepoSandbox("client")).Should().Be(EnsureRepoSandboxToolHost.CapacityDenyAnswer);
+
+        recording.Order.Should().Equal(
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Released,
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe);
+    }
+
     private EnsureRepoSandboxToolHost Host(
-        PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe) =>
+        PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe,
+        IHeldSandboxRegister? heldSandboxes = null) =>
         new(pipeline, fs, probe, new StubSandboxResourceResolver(),
             new SandboxRepoCloner(_sourceFactoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
-            NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets());
+            NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets(),
+            heldSandboxes ?? Spawning.CapacityTestDoubles.NoHolds());
 }

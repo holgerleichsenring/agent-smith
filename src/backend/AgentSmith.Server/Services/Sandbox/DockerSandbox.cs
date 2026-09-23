@@ -19,7 +19,7 @@ public sealed class DockerSandbox(
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
     string toolchainImage,
-    ILogger logger) : ISandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage
+    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
@@ -53,6 +53,16 @@ public sealed class DockerSandbox(
         {
             logger.LogWarning(ex, "Sandbox shutdown signal failed for container {Id}", toolchainContainerId);
         }
+        await ForceRemoveAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// 2026-09-22-2d11a: the same teardown without the shutdown step and its flat
+    /// ten-second wait — what releasing a held sandbox in front of a capacity probe does.
+    /// </summary>
+    public async Task ForceRemoveAsync(CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
         await channel.DisposeAsync();
         await TryRemoveContainerAsync();
         await TryRemoveVolumeAsync(sharedVolume);

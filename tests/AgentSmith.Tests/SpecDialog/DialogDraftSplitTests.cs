@@ -60,7 +60,8 @@ public sealed class DialogDraftSplitTests : IDisposable
         _context.Database.Migrate();
         var repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            repository, TimeProvider.System, NullLogger<SpecDialogSessionManager>.Instance);
+            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            NullLogger<SpecDialogSessionManager>.Instance);
         _slack.SetupGet(adapter => adapter.Platform).Returns(Slack);
         _messenger = new SpecDialogMessenger(
             [new DashboardAdapter(NullLogger<DashboardAdapter>.Instance, _hub), _slack.Object],
