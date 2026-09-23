@@ -1,0 +1,25 @@
+phase: 2026-09-23-35b8
+decisions:
+  - id: 1
+    what: "Delete the clause rather than replace it with a stronger instruction."
+    alternatives: "Name the language in code and pass it in; or emphasise the positive half."
+    why: >
+      The sentence already names its target, so nothing is lost. Detecting the language in
+      code would add a component with a failure mode of its own to decide something the
+      opening message already carries. And adding emphasis to a small model's instruction is
+      the move that produced the prohibition in the first place.
+  - id: 2
+    what: "Pin the whole sentence, full stop included, instead of asserting the clause is absent."
+    alternatives: "A new test asserting the prompt does not contain 'not in English'."
+    why: >
+      A negative assertion passes for every other spelling of the same prohibition and fails
+      on any legitimate future mention of English. Pinning the sentence fails the moment it
+      changes at all — which the mutation proof showed: the mutated prompt contains every
+      word of the expected string and fails only because the sentence does not end there.
+  - id: 3
+    what: "The test pins the instruction, not the heading's language."
+    alternatives: "Claiming the phase proves the Spanish heading stops."
+    why: >
+      That is a property of a small model's output and no test over a stubbed client can
+      observe it. The spec says so rather than letting a green suite imply a guarantee it
+      does not carry.

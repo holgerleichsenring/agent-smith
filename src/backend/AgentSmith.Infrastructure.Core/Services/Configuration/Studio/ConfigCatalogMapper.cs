@@ -41,7 +41,8 @@ internal static class ConfigCatalogMapper
             models["planning"] = ToAssignment(registry.Planning);
             if (registry.Reasoning is { } reasoning) models["reasoning"] = ToAssignment(reasoning);
             models["summarization"] = ToAssignment(registry.Summarization);
-            models["contextGeneration"] = ToAssignment(registry.ContextGeneration);
+            if (registry.ContextGeneration is { } contextGeneration)
+                models["contextGeneration"] = ToAssignment(contextGeneration);
             models["codeMapGeneration"] = ToAssignment(registry.CodeMapGeneration);
         }
         return new AgentEntity(

@@ -1,0 +1,30 @@
+phase: 2026-09-23-e848
+decisions:
+  - id: 1
+    what: "The list stays where the production factory already owns it; the other three read it."
+    alternatives: "A new shared type holding the set."
+    why: >
+      Three of the four already spelled it as a set of the same enum, and a new home would be a
+      fifth place to look. Making the existing one readable is the smallest change that ends
+      the copying.
+  - id: 2
+    what: "Reasoning joins the replay and harness sets."
+    alternatives: "Leave them as they are and assert agreement only for the tasks they share."
+    why: >
+      They are wrong today, not merely different: a reasoning call takes tools in production
+      and none under replay or in the harness, so a recorded run and a scripted run can pass
+      while the thing they stand in for would not. An agreement test over sets that disagree
+      would have to encode the disagreement.
+  - id: 3
+    what: "The agreement test lives in the harness assembly."
+    alternatives: "In AgentSmith.Tests, beside the other factory tests."
+    why: >
+      The harness references AgentSmith.Tests, so a reference back would be circular and
+      AgentSmith.Tests cannot see the two harness factories at all. The harness is the only
+      assembly on the graph that sees all four.
+  - id: 4
+    what: "The test compares one rendered list across all four factories."
+    alternatives: "Four assertions, one per factory."
+    why: >
+      Four assertions drift apart the same way four sets did. One comparison names the
+      disagreeing factory and shows what it granted.

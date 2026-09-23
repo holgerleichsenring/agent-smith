@@ -20,7 +20,8 @@ internal static class WriteContextYamlToolDescription
         "folder names as layers. Those are dropped. State what somebody DECIDED " +
         "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
         "(meta.workdir, stack.lang, stack.image). " +
-        "meta.workdir is REQUIRED — '.' for single-stack, otherwise the sub-tree path. " +
+        "meta.workdir is REQUIRED — the repo-relative sub-tree this stack's SOURCE occupies, " +
+        "read off the tree; '.' only where that source is the whole repository. " +
         "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker image " +
         "whose runtime can BOTH build AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, " +
         "node:20-bookworm); it must come from a registry the operator trusts and must carry git, " +

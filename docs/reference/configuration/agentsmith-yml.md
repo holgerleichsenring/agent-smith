@@ -239,7 +239,7 @@ Route different task types to different models for cost optimization.
 | `primary` | Agentic code execution | Large/capable (Sonnet, GPT-4.1) |
 | `planning` | Plan generation | Large/capable |
 | `summarization` | Context compaction | Small/fast |
-| `context_generation` | Auto-generating context.yaml | Small/fast |
+| `context_generation` | Component discovery + writing each context.yaml (tool-bearing, reads the repo) | Large/capable |
 | `code_map_generation` | Auto-generating code-map.yaml | Small/fast |
 | `reasoning` | Extended thinking (optional) | Reasoning model |
 

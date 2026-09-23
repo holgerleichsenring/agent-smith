@@ -22,9 +22,9 @@ public sealed record PipelineCommand
     public string? ContextName { get; init; }
 
     /// <summary>p0161d: repo-relative workdir for the component this round
-    /// operates on. Mirrors RemoteContextDiscovery.Workdir. "." for
-    /// single-component repos; sub-tree path (e.g. "server/") for
-    /// monorepo components.</summary>
+    /// operates on. Mirrors RemoteContextDiscovery.Workdir — the sub-tree that
+    /// component's source occupies (e.g. "server/"); "." only where that source
+    /// is the whole repo.</summary>
     public string? Workdir { get; init; }
 
     /// <summary>p0393a: names which phase of the derived sequence this command belongs

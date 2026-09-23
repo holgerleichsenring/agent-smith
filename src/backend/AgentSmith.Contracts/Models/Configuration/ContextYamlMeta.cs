@@ -1,8 +1,9 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <param name="Workdir">The sub-tree this context's SOURCE occupies, relative to the repo
-/// root. "." for single-stack. REQUIRED per p0161. 2026-09-03-7bac: it places no command —
-/// build, test, prerequisites and probe all run from the repository root.</param>
+/// root; "." only where that source is the whole repository. REQUIRED per p0161.
+/// 2026-09-03-7bac: it places no command — build, test, prerequisites and probe all run from
+/// the repository root.</param>
 /// <param name="Type">`meta.type:` — one to four system archetypes (agent, pipeline, api, …).
 /// 2026-08-25-056d: a LIST, because the schema has always declared it as one and both shipped
 /// context files write one. As a single string the writer emitted YAML its own schema rejected,

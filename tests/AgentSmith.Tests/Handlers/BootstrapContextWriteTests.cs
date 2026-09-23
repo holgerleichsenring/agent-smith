@@ -114,6 +114,7 @@ public sealed class BootstrapContextWriteTests
         transfer,
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
 

@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-7868b
+
+goal: "The context-generation role becomes an optional assignment that resolves to primary, and the form stops pre-filling it, so the setting can later be bound without changing what any installation runs."
+
+applies_to: "backend (the model registry's context-generation assignment and the four places that read the property)"
+
+facts:
+  - claim: "No caller requests TaskType.ContextGeneration; the task is only mapped. The PROPERTY, however, is read at four sites, three of which dereference it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ConfigBasedModelRegistry.cs:24, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawAgentModelPatch.cs:40, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:44, src/backend/AgentSmith.Application/Services/Preflight/Checks/ContextWindowThresholdCheck.cs:83"
+  - claim: "The fourth site declares the role REQUIRED to the Config Studio form and to write-side validation; only reasoning is optional there."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:48"
+  - claim: "An optional role already ships, and each of those sites already carries its conditional form one or two lines away."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelRegistryConfig.cs:27, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:42, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawAgentModelPatch.cs:38"
+  - claim: "The catalog mapper materialises this role unconditionally for every agent with a models block, which is what pre-fills a value no operator chose."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:44"
+  - claim: "An agent with no models block takes every role from its top-level model, so the property default is unreachable there."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:216"
+  - claim: "The documentation already promises the behaviour this phase implements."
+    evidence: "docs/connect-your-stuff/ai-providers.md:26"
+
+scope:
+  in: >
+    The assignment becomes nullable and resolves to primary when unset, exactly as reasoning
+    does. All four readers take their neighbour's conditional form, and the capabilities
+    descriptor marks the role optional so the Studio form and the write-side validation agree
+    with the contract.
+
+    The mapper's unconditional line is the cause of the pre-filled value, not a symptom of it:
+    making it conditional stops every future pre-fill at the source, and does so with the
+    shape the line above it already uses.
+
+    Nothing requests the task, so no run changes. That is the point of shipping this alone:
+    the contract moves while behaviour stands still, and whatever binds the task later inherits
+    a role that is already optional everywhere.
+  out: >
+    Binding the task to a caller, and the tool-bearing set it would have to join — each its own
+    phase, named in prose because neither is minted yet. Also out: the rows already stored with
+    the pre-filled value. Stopping the cause leaves a bounded backlog, and clearing it is a data
+    migration rather than a rule in the resolution path.
+
+decisions:
+  - key: "Nullable resolving to primary, not a changed default constant. An agent without a models block never evaluates the property, and an agent with one has a primary whose provider and deployment a constant would not carry."
+  - key: "The pre-fill is fixed where it is written, not where it is read. A resolution-path rule that recognised the old default would have to hard-code the model name this phase is removing, and it would override an operator who deliberately chose that model — which the shipped documentation recommends."
+  - key: "The capabilities descriptor moves with the contract. p0351 built it so the form and the validation read one source; a role optional in the model and required in the descriptor is the drift it exists to prevent."
+
+steps:
+  - id: the-role-is-optional
+    action: "Make the assignment nullable and resolve it to primary when unset."
+    modify:
+      - "ModelRegistryConfig: the ContextGeneration property"
+      - "ConfigBasedModelRegistry: its case"
+  - id: readers-take-the-conditional-form
+    action: "Give the three property readers the shape their reasoning neighbour already uses, and stop the mapper materialising the role."
+    modify:
+      - "RawAgentModelPatch, ConfigCatalogMapper, ContextWindowThresholdCheck"
+  - id: the-form-agrees
+    action: "Mark the role optional in the capabilities descriptor."
+    modify:
+      - "ConfigStudioCapabilities: RoleCapabilities"
+
+tests:
+  - "ModelRegistry_ContextGenerationUnset_ResolvesToPrimary"
+  - "ModelRegistry_ContextGenerationAssigned_ResolvesToThatAssignment"
+  - "ConfigCatalog_AgentWithoutContextGeneration_EmitsNoSuchRole"
+  - "RawAgentModelPatch_ContextGenerationOnAnAgentWithoutIt_CreatesTheAssignment"
+  - "ConfigStudioCapabilities_ContextGeneration_IsOptional"
+
+done:
+  - "An installation that states no contextGeneration resolves it to its own primary, whatever provider that names."
+  - "A configuration round-tripped through the Studio gains no contextGeneration entry it did not have."
+  - "No run calls a different model than before this phase, because no caller requests the task."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

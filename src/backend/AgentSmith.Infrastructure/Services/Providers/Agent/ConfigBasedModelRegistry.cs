@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 
 /// <summary>
 /// Config-driven model registry that maps task types to model assignments.
-/// Falls back to Primary model when Reasoning is not configured.
+/// Falls back to Primary model when Reasoning or ContextGeneration is not configured.
 /// </summary>
 public sealed class ConfigBasedModelRegistry(
     ModelRegistryConfig config,
@@ -21,7 +21,7 @@ public sealed class ConfigBasedModelRegistry(
             TaskType.Planning => config.Planning,
             TaskType.Reasoning => config.Reasoning ?? config.Primary,
             TaskType.Summarization => config.Summarization,
-            TaskType.ContextGeneration => config.ContextGeneration,
+            TaskType.ContextGeneration => config.ContextGeneration ?? config.Primary,
             TaskType.CodeMapGeneration => config.CodeMapGeneration,
             _ => config.Primary
         };

@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-35b8
+
+goal: "The heading instruction stops naming English as the thing to avoid, so the one language it mentions is no longer a language the model is being steered away from."
+
+applies_to: "backend (the spec-dialog subject minter's instruction and the test that reads the prompt it sends)"
+
+facts:
+  - claim: "The instruction names the target and then forbids English: \"Write it in the SAME LANGUAGE the conversation is written in, not in English.\""
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:45"
+  - claim: "The instruction is a private const, so no test can read it; what a test CAN read is the prompt the minter sent, which the fixture records system and user messages into."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:41, tests/AgentSmith.Tests/SpecDialog/ConversationSubjectTests.cs:330"
+  - claim: "One existing test already asserts over that recorded prompt, on the phrase alone."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/ConversationSubjectTests.cs:91"
+  - claim: "The call runs on the summarization role, which the registry routes to the small model."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:77, src/backend/AgentSmith.Contracts/Models/Configuration/ModelRegistryConfig.cs:29"
+  - claim: "That source line carries two concatenation operands run together and is 180 characters long."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:45"
+
+scope:
+  in: >
+    The sentence already names its target, so deleting the clause adds none: what it removes is
+    the only language the instruction mentions by name, on a call that runs on the small model.
+    A German conversation was headed in Spanish, and a negation that names English is the one
+    part of the instruction that could put another language in front of the model.
+
+    The existing assertion over the recorded prompt widens from the phrase to the whole sentence
+    with its full stop, so putting the clause back fails it. The run-together concatenation on
+    that line is broken up in the same edit - and because the minter already sat on the
+    120-line ceiling, that one line makes the instruction a type of its own, the way the write
+    tool's description already is.
+  out: >
+    Proving the heading comes out in the right language. That is a property of a small model's
+    output, and no test over a stubbed client can observe it. This phase pins the instruction;
+    whether the Spanish heading stops is answered by the next conversation, not by the suite.
+
+decisions:
+  - key: "Removal, not replacement. The target is already named, and adding an emphasis to a small model's instruction is the move that produced the prohibition in the first place."
+  - key: "2026-09-20-4b0af is not reversed. Its Language decision chose the conversation's language over an English heading everywhere; the words \"not in English\" in its record are the contrast with the alternative it rejected, not a prompt clause. The choice stands."
+  - key: "The instruction moves to its own type rather than earning a ratchet exemption. The file stood exactly at the line ceiling and the split pushed it over; prompt content that grows when the wording changes, while the caller's responsibility does not, is what the write tool's description was extracted for."
+  - key: "The assertion pins the sentence whole rather than the clause\u2019s absence. A negative assertion passes for every other spelling of the same prohibition and fails on any legitimate mention of English."
+
+steps:
+  - id: drop-the-prohibition
+    action: "Remove the clause and split the two concatenation operands back onto their own lines."
+    new:
+      - "SpecDialogSubjectInstruction: the text the model is given when it names a conversation"
+    modify:
+      - "SpecDialogSubjectMinter: it asks the new type for the text"
+  - id: widen-the-assertion
+    action: "Widen the recorded-prompt assertion in the first mint test from the phrase to the whole sentence."
+    modify:
+      - "ConversationSubjectTests: SpecDialogRouter_AFirstTurn_MintsASubjectBeforeItSendsTheReply"
+
+tests:
+  - "SpecDialogRouter_AFirstTurn_MintsASubjectBeforeItSendsTheReply"
+
+done:
+  - "The instruction names one language - the conversation's - and forbids none."
+  - "The widened assertion was watched failing with the clause put back, and the file restored byte-for-byte."
+  - "The full suite is green."

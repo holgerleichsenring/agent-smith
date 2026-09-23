@@ -149,6 +149,7 @@ public sealed class BootstrapRetiredPrinciplesRenameTests
         PrinciplesTransferStubs.Composing(Composed),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
 
