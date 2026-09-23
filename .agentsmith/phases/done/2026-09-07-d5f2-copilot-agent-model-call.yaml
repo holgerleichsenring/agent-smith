@@ -1,0 +1,227 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-07-d5f2
+goal: "An agent of type copilot answers a non-tool model call through the GitHub Copilot SDK on the operator's seat, with the same decorator chain, cost accounting and refusals as every other provider."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      EVERY SDK FACT BELOW WAS READ OFF THE ASSEMBLY, NOT OFF DOCUMENTATION. GitHub.Copilot.SDK
+      1.0.14 was restored and reflected (public namespace GitHub.Copilot, NOT GitHub.Copilot.SDK)
+      and its shipped XML docs were read. Blog posts and release notes describe the 0.1.x shape and
+      are wrong about this one. The package ships 2035 exported types and releases roughly
+      fortnightly, so the version is PINNED and any future premise is re-read from the assembly
+      rather than from this file.
+  - key: |
+      THIS PHASE SERVES SUMMARIZATION AND CODE-MAP GENERATION, AND REFUSES THE REST OUT LOUD.
+      ChatClientFactory.ToolBearingTasks is { Primary, Scout, Planning, Reasoning,
+      ContextGeneration }, and TaskType has no `scan` member at all. What is left — Summarization
+      and CodeMapGeneration — is exactly what a single provider call serves, and for those the
+      factory returns before UseFunctionInvocation, so a copilot agent gets the SAME decorator
+      objects in the SAME order as a claude agent. Everything else is refused until 2026-09-23-4722a
+      gives the loop back to us. This phase is a foundation with a fence, not a feature with a gap:
+      a quiet second loop would be worse than a refusal.
+  - key: |
+      THE REFUSAL LIVES IN THE CLIENT, BECAUSE THE BUILDER CANNOT SEE THE TASK.
+      IChatClientBuilder.Build(AgentConfig, ModelAssignment) receives no TaskType and
+      ChatClientFactory passes none, so a builder-side refusal cannot be written. The adapter's
+      GetResponseAsync refuses instead, when ChatOptions.Tools is non-empty — which is the same
+      signal, arrives at the only place that has it, needs no branch in ChatClientFactory, and is a
+      single line for 4722a to delete.
+  - key: |
+      THE RUNTIME IS A PROCESS, ITS MODE DEFAULTS TO THE ONE THE SDK FORBIDS FOR SERVERS, AND IT
+      STARTS LAZILY. CopilotClientMode defaults to CopilotCli, whose own documentation says: "Do not
+      use this mode for server-based multi-user applications — the default coding agent has tools
+      and capabilities that operate across sessions and can access the host OS environment." The
+      runtime is therefore created with Mode = Empty, which its constructor requires to come with
+      BaseDirectory OR SessionFs (either, not both) and a non-null AvailableTools on every session.
+      The CopilotClient is a container-lifetime singleton and MUST NOT start the process in its
+      constructor: ConfigCapabilitiesTests resolves every registered IChatClientBuilder from a real
+      ServiceProvider, and CI has no runtime binary. Start is lazy, on first session.
+  - key: |
+      THE RUNTIME BINARY IS FOUND AT RUN TIME, NOT AT BUILD TIME. CopilotCliBinaryPath is an
+      MSBuild property read only by the package's download targets and is the wrong lever; it is
+      named here so the next reader does not reach for it. The run-time seam is RuntimeConnection.ForStdio(path, args), surfaced as
+      CopilotClientOptions.Connection ("Path to the runtime executable. When null, the bundled
+      runtime is used"). The path comes from configuration, defaulting to the COPILOT_CLI_PATH
+      environment variable, so an air-gapped deployment points at a binary it placed itself.
+  - key: |
+      THE BUILD MUST NOT START DOWNLOADING 175 MB FOR EVERYONE. GitHub.Copilot.SDK.targets runs
+      _DownloadCopilotCli BeforeTargets="BeforeBuild": it fetches github-copilot-<version>-<platform>.tgz
+      from github.com (600s default timeout), verifies its SHA256 and copies the runtime bundle into
+      runtimes/<rid>/native. Measured, not estimated: a throwaway project referencing the package
+      produced a 175 MB bin/ directory. The repository therefore sets CopilotSkipCliDownload=true.
+      The package's build folder is `build/`, not `buildTransitive/`, so the property is needed only
+      on the one project that references it. The images that RUN a copilot agent acquire the runtime
+      explicitly in their Dockerfile; a build never does.
+  - key: |
+      THE SESSION COMPACTS AND SEARCHES NOTHING BY ITSELF. InfiniteSessions is documented "when
+      enabled (default), sessions automatically manage context limits", and ToolSearch defers tools
+      behind a search tool. Both spend model calls INSIDE the session that our chain never sees: no
+      LlmCall pair, no trace entry, no rate-limit acquisition — and their tokens land in the usage
+      accumulators, so the next delta would price them at our rates and attribute them to our call.
+      Both are switched OFF. Compaction is CompactingChatClient's job, as it is for every other
+      provider.
+  - key: |
+      A SEAT IS A CREDENTIAL AND A CREDENTIAL IS PER SESSION, NOT PER RUNTIME. Copilot rejects
+      org-owned PATs, so the seat is the unit of access, and AgentConfig.ApiKeySecret already names
+      an env var per agent — the field ClaudeChatClientBuilder, OpenAiChatClientBuilder and
+      GeminiChatClientBuilder all read, and the one the dashboard renders as "key secret".
+      SessionConfigBase.GitHubToken is a per-session field; a token on the shared CopilotClient
+      would make every agent in a container answer as one person.
+      CopilotClientOptions.GitHubToken and UseLoggedInUser stay for the runtime's own auth;
+      UseLoggedInUser is documented "Default: true (but defaults to false when GitHubToken is
+      provided)" and is set false explicitly whenever a token was resolved, so a cluster run cannot
+      start answering as whoever last logged in on the build host if that default ever moves.
+  - key: |
+      USAGE IS A DELTA, NOT A LAST-CALL READING. UsageApi.GetMetricsAsync returns session-wide accumulators — TokenDetails, ModelMetrics,
+      TotalNanoAiu, TotalPremiumRequestCost — while LastCallInputTokens / LastCallOutputTokens are
+      documented as "the most recent MAIN-AGENT API call". For this phase one call is one turn and
+      the two agree, but the adapter reads the accumulators before and after and reports the
+      difference anyway, because 4722a makes a turn span several calls and a reading that is right
+      only by accident is a trap left for the next phase.
+  - key: |
+      THE COST IS PRICED FROM TOKENS AND THE OPERATOR IS TOLD WHY. LlmCallCostCalculator prices
+      InputTokenCount / OutputTokenCount against the agent's pricing table, which the config studio
+      requires for every routed model — ConfigStudioCapabilities.ValidateAgent reads
+      AgentEntity.Pricing.Models (the studio's entity, not the YAML config), so the example config
+      carries the rows on the agent and ModelPricingResolver is not touched. Copilot bills AI credits
+      rather than tokens, so those rates are an OPERATOR-DECLARED PROXY: a flat-rate seat is honestly
+      entered as zero, and the run's cost cap is then approximate for that agent. The provider's own
+      meter (TotalPremiumRequestCost, TotalNanoAiu) goes to the run trace beside it. A second spend
+      unit in the domain remains p0303's work; this phase adds none.
+  - key: |
+      THE WATERMARK IS A HASH OF WHAT WAS SENT, NOT A COUNT. No API seeds a foreign history into a
+      fresh session (SendMessageItem carries Prompt, DisplayPrompt, Attachments, RequiredTool,
+      Billable and Source — Source is a provenance tag constrained to user / system / command-<id> /
+      schedule-<id> / agent-<id>, not a message role). A message COUNT would not do: an edit at unchanged length — a compaction that replaces a message, the
+      sensitive-tool scrub rewriting a tool result, a changed system message — leaves a count
+      untouched and the session silently desynchronised. The adapter keeps a hash of the prefix it
+      has sent; a history that extends it sends only the tail, anything else rebuilds.
+      HistoryApi.TruncateAsync / RewindAsync are a cheaper answer and are deliberately NOT used yet:
+      they need a mapping from our message index to the session's event ids, which is 4722a's
+      problem, and correctness comes before the saving.
+  - key: |
+      A DISPOSED SESSION IS NOT A DELETED ONE. CopilotSession.DisposeAsync is documented to PRESERVE
+      session state on disk — conversation history, planning state, artifacts — so that it can be
+      resumed. A rebuild therefore leaves the old conversation in the runtime's store under the
+      configured base directory. Rebuilds use CopilotClient.DeleteSessionAsync after disposal, so a
+      long run does not accumulate abandoned transcripts on the sandbox's disk.
+  - key: |
+      ONE PROVIDER NAME, NOT TWO. ConfigStudioCapabilities.Build takes the builders' SupportedTypes
+      verbatim and de-duplicates only exact matches, so declaring both `copilot` and `github_copilot`
+      would put two entries in the dashboard dropdown for one provider. SupportedTypes is `copilot`
+      alone.
+  - key: |
+      THE DOCTOR NEEDS NO CODE, AND ITS PROBE COSTS A PREMIUM REQUEST. LlmReachableCheck iterates
+      the configured agents and calls IChatClientFactory.ProbeAsync, which builds a bare client and
+      sends a real one-token "ping" — so a copilot agent is probed the moment the builder is
+      registered, and a missing seat surfaces as a FAILURE naming the secret, exactly as for the
+      other providers (Skip is returned only when the config fails to load or no agents are
+      configured). SendMessageItem.Billable would make the probe free, but it is reachable only
+      through Rpc.SendAsync, which the SDK marks GHCP001 "for evaluation purposes only and is
+      subject to change or removal": a preflight saving is not worth a production dependency on an
+      API the vendor may delete. So each doctor run spawns the runtime, opens a session and burns
+      one premium request per copilot agent, and that is stated rather than bought on credit.
+      ProbeAsync's ChatOptions.MaxOutputTokens likewise has no session-level equivalent and is
+      simply not honoured — said plainly, because "the same as the others" cannot cover a knob the
+      SDK does not expose.
+
+packages:
+  - "GitHub.Copilot.SDK 1.0.14 (AgentSmith.Infrastructure) — pinned exactly, with CopilotSkipCliDownload=true"
+
+steps:
+  - id: the-package-lands-without-a-network-build
+    action:
+      - "Add the pinned PackageReference and set CopilotSkipCliDownload=true so no build fetches the CLI tarball."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj"
+
+  - id: the-images-that-run-a-copilot-agent-carry-the-runtime
+    action:
+      - "Acquire the Copilot CLI in the server image ONLY when asked for (--build-arg COPILOT_CLI_VERSION), and expose a deterministic COPILOT_CLI_PATH either way."
+      - "Leave the build itself offline: the acquisition is an optional image layer, not an MSBuild target."
+      - "Refuse a configured runtime path that does not exist, by name — a silent fallback to the SDK's bundled runtime would be a lie in a repository whose build never downloads one."
+    modify:
+      - "src/backend/AgentSmith.Server/Dockerfile"
+
+  - id: the-runtime-is-a-lazy-singleton-in-the-server-posture
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action:
+      - "Own the CopilotClient lifetime: Mode = Empty with BaseDirectory, Connection = ForStdio(configured path), started on first session rather than in the constructor."
+      - "Create sessions with the agent's seat token, an empty tool allowlist, streaming on, SystemMessageMode.Replace carrying the run's own prompt, model and reasoning effort, InfiniteSessions and ToolSearch off."
+    new:
+      - "ICopilotRuntime / CopilotRuntime: client lifetime, runtime-path resolution, session creation and deletion"
+      - "ICopilotSessionHandle: send, event subscription, usage read, abort, disposal"
+      - "CopilotSessionHandle: the GitHub.Copilot CopilotSession implementation"
+
+  - id: the-events-are-folded-into-a-response
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action:
+      - "Fold AssistantMessageEvent into a ChatResponse, completing on SessionIdleEvent and faulting on SessionErrorEvent."
+      - "Surface AssistantMessageDeltaEvent as the streaming path."
+      - "Send only the tail that extends the sent-prefix hash; otherwise dispose, delete and rebuild the session."
+      - "Read the usage accumulators before and after the turn and report the difference as UsageDetails; write premium cost and nano-AIU to the trace."
+      - "Refuse a call whose ChatOptions.Tools is non-empty, naming 2026-09-23-4722a."
+    new:
+      - "CopilotSessionChatClient: IChatClient over one session, holding the sent-prefix hash"
+
+  - id: the-builder-resolves-the-seat
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders"
+    action:
+      - "Build the client from AgentConfig and ModelAssignment; resolve the seat token from ApiKeySecret first, then the SDK's own precedence (COPILOT_GITHUB_TOKEN, GH_TOKEN, GITHUB_TOKEN)."
+    new:
+      - "CopilotChatClientBuilder: IChatClientBuilder, SupportedTypes = [copilot]"
+    modify:
+      - "AgentProviderExtensions: registers the builder and the runtime, as ConfigCapabilitiesTests requires"
+
+  - id: the-seat-reaches-the-run
+    action:
+      - "Register the canonical token name and carry it through the k8s binding, the Docker forward list and the env example."
+    modify:
+      - "AgentEnvKeys: COPILOT_GITHUB_TOKEN"
+      - "AgentSecretBinding: the kebab-case k8s secret key"
+      - "DockerJobSpawner: the forwarded env list"
+      - ".env.example, deploy/apply-k8s-secret.sh (both the add_literal block and the sensitive set)"
+
+  - id: the-config-admits-the-provider
+    action:
+      - "Add copilot to the agent type enum and a copilot agent to the example config, carrying its key secret and its own pricing rows; the runtime path is an environment variable, not a config field."
+      - "Give the provider the same conservative defaults as the metered OpenAI tier — 60 requests and 60k input tokens per minute — because a seat meters premium requests rather than tokens per minute and the 600/600k catch-all is a local-Ollama number."
+    modify:
+      - "config/agentsmith.schema.json: the agent type enum"
+      - "config/agentsmith.example.yml: a copilot agent, commented"
+      - "LlmRateBudget: a copilot case in DefaultFor"
+
+  - id: the-adapter-is-pinned-by-scripted-events
+    path: "tests/AgentSmith.Tests"
+    action: "Drive the adapter through scripted session-event sequences, with no runtime and no entitlement."
+
+tests:
+  - "CopilotSessionChatClientTests.AssistantMessageThenIdle_ReturnsTheContent"
+  - "CopilotSessionChatClientTests.StreamingRequested_YieldsDeltasThenTheFinalMessage"
+  - "CopilotSessionChatClientTests.SessionError_FaultsTheCall"
+  - "CopilotSessionChatClientTests.SecondCallExtendingTheSentPrefix_SendsOnlyTheTail"
+  - "CopilotSessionChatClientTests.PriorMessageEditedAtUnchangedLength_RebuildsAndDeletesTheOldSession"
+  - "CopilotSessionChatClientTests.TurnCompletes_UsageDetailsCarryTheAccumulatorDelta"
+  - "CopilotSessionChatClientTests.OptionsCarryTools_RefusesNamingTheSuccessorPhase"
+  - "CopilotSessionChatClientTests.RuntimeSessionConfig_UsesEmptyAllowlistAndNoSelfManagedContext"
+  - "CopilotSessionChatClientTests.RuntimeSessionConfig_CarriesTheAgentsSeatTokenAndReplacesTheSystemPrompt"
+  - "CopilotSessionChatClientTests.RuntimeClientOptions_NeverUseTheLoggedInUserAndRunInEmptyMode"
+  - "CopilotSessionChatClientTests.RuntimeClientOptions_ConfiguredRuntimeMissing_RefusesByName"
+  - "CopilotSessionChatClientTests.Runtime_Resolved_DoesNotStartTheProcess"
+  - "CopilotSessionChatClientTests.Builder_ApiKeySecretConfigured_PrefersItOverTheEnvironment"
+  - "CopilotSessionChatClientTests.Builder_NoTokenAnywhere_RefusesWithApiKeySecretAndTheEnvVarNames"
+  - "CopilotSessionChatClientTests.Builder_SupportedTypes_IsTheSingleNameCopilot"
+done:
+  - "a copilot agent answers a summarization or code-map-generation call through the SDK with no other provider's API key set"
+  - "that call passes through rate limiting, retry, event publishing, recording, scrubbing and context-length diagnosis — the same objects, in the same order, as a claude agent's"
+  - "a call carrying tools is refused with a message naming 2026-09-23-4722a"
+  - "the run reports the call's real input and output token counts, priced from the agent's own table, with the provider's premium-request meter beside it in the trace"
+  - "the session is created in Empty mode, with an empty tool allowlist, no infinite sessions, no tool search, and the agent's own seat token"
+  - "a second call extending the sent prefix sends only the tail; an edited prior message rebuilds the session and deletes the old one"
+  - "no build in the repository fetches the Copilot CLI: a clean checkout builds green with no network beyond NuGet"
+  - "the server image carries the runtime when asked for it, and a configured path that is not there is refused by name"
+  - "resolving the DI graph does not start a runtime process"
+  - "the capabilities endpoint lists copilot once, and the dashboard dropdown offers it with no dashboard change"
+  - "an agent-smith doctor run reports the copilot agent reachable when the seat is set, and names the unresolved secret when it is not"

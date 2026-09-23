@@ -25,6 +25,14 @@
          Pinned to 5.3.10 (p0185): depends on M.E.AI.Abstractions 9.9.0 (compatible with 10.3.0
          lockstep). Newer OllamaSharp 5.4.x requires 10.4.0+ which we cannot use until #197 lands. -->
     <PackageReference Include="OllamaSharp" Version="5.3.10" />
+    <!-- GitHub Copilot SDK (2026-09-07-d5f2). Pinned EXACT: the API moved between 0.1.x
+         and 1.0.x and the package releases roughly fortnightly. Its build targets would
+         otherwise download a ~175 MB Copilot CLI bundle from github.com before EVERY build
+         (_DownloadCopilotCli, BeforeTargets="BeforeBuild"); CopilotSkipCliDownload below
+         suppresses that, and the runtime binary is resolved at run time from configuration
+         instead. The package ships build/, not buildTransitive/, so the property is needed
+         only here. -->
+    <PackageReference Include="GitHub.Copilot.SDK" Version="[1.0.14]" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Docker.DotNet" Version="3.125.15" />
     <!-- Ignore (Sjuul Janssen, MIT) parses .gitignore patterns without LibGit2Sharp.
@@ -52,6 +60,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- 2026-09-07-d5f2: keep the build offline. See the GitHub.Copilot.SDK note above. -->
+    <CopilotSkipCliDownload>true</CopilotSkipCliDownload>
   </PropertyGroup>
 
   <ItemGroup>
