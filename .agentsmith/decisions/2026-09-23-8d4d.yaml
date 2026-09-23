@@ -1,0 +1,16 @@
+phase: 2026-09-23-8d4d
+decisions:
+  - id: 1
+    what: "Take the bump as its own phase."
+    alternatives: "Fold it into 2026-09-23-7868a, which found the defect."
+    why: >
+      A pin carries every master in the release, not only the one correction it was taken for.
+      What it changes is therefore not knowable from the reason - and a commit that says so is
+      the one an operator reads when something unrelated moves afterwards.
+  - id: 2
+    what: "Verify the corrected example in the downloaded bundle before pinning it."
+    alternatives: "Trusting that the released version contains the merged fix."
+    why: >
+      The fix reached the release through a squash merge, so the branch head is not an ancestor
+      of the tag and an ancestry check answers no. Reading the file out of the published
+      artefact is what actually settles it.
