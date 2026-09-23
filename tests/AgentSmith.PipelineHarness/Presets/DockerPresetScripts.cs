@@ -108,7 +108,18 @@ internal static class DockerPresetScripts
     // principles.md (the bootstrap surface forbids context.yaml via
     // write_file and the fixture skill is intentionally minimal) so the
     // "0 changes" guard stays green.
+    // 2026-09-23-9bb2: a re-init runs the discovery round like any other init, so its
+    // answer is the first thing the FIFO serves — before the bootstrap round's writes.
     private static void SeedInitProject(ScriptedChatClient client) => client
+        .EnqueueText(
+            """
+            {
+              "status": "complete",
+              "components": [
+                { "name": "default", "workdir": ".", "language": "csharp", "evidence": "Fixture.csproj" }
+              ]
+            }
+            """)
         .EnqueueToolCall("write_file",
             """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""")
         .EnqueueText("Bootstrap files written.");

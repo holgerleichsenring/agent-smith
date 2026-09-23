@@ -13,6 +13,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -24,6 +25,12 @@ namespace AgentSmith.Tests.Handlers;
 /// Node repository with a `backend` and a `frontend` context: the re-init reported success
 /// having bootstrapped `backend` alone, so `frontend` kept the retired principles file and
 /// gained no verify block — and the next coding run was refused by a gate that probes both.
+/// <para>
+/// 2026-09-23-9bb2: the re-init derives again instead of returning what it reads, so the
+/// guarantee is now that BOTH contexts reach the round that derives — stated to it from
+/// <see cref="ContextKeys.SandboxContexts"/>, which holds every context of the sandbox, and
+/// never from the representative map beside it.
+/// </para>
 /// </summary>
 public sealed class ContextsInOneSandboxTests
 {
@@ -31,31 +38,34 @@ public sealed class ContextsInOneSandboxTests
     private const string RepoName = "node-service";
 
     [Fact]
-    public async Task ReInit_TwoContextsInOneSandbox_ProjectsBoth()
+    public async Task BootstrapDiscover_ReInitOfATwoContextSandbox_StatesBoth()
     {
         var pipeline = PipelineWithTwoContexts(
             new RemoteContextDiscovery("backend", "backend", "typescript"),
             new RemoteContextDiscovery("frontend", "frontend", "typescript"));
 
-        var components = await ProjectAsync(pipeline);
+        var (prompt, components) = await DiscoverAsync(pipeline);
 
-        components.Select(c => c.Name).Should().BeEquivalentTo(["backend", "frontend"]);
-        components.Single(c => c.Name == "frontend").Workdir.Should().Be("frontend");
+        prompt.Should().Contain("`backend` — workdir `backend`");
+        prompt.Should().Contain("`frontend` — workdir `frontend`",
+            "the sibling is in the sandbox's context list and nowhere in the representative map");
+        components.Select(c => c.Name).Should().BeEquivalentTo(["backend", "frontend"],
+            "one round per context is still what the repository gets");
     }
 
     [Fact]
-    public async Task ReInit_AProjectedContextWithoutALanguage_TakesItsSandboxs()
+    public async Task ReInit_ADeclaredContextWithoutALanguage_TakesItsSandboxs()
     {
-        // A context declaring an image but no stack.lang was legal while it was never
-        // projected. Projected with an empty slug it fails BootstrapDispatch and takes the
-        // whole re-init with it — so the group's one toolchain answers for it.
+        // A context declaring an image but no stack.lang states no language of its own. A
+        // sandbox is ONE toolchain, so the group's language is what the round is told it
+        // declared — the alternative is an empty slug where a value is being quoted back.
         var pipeline = PipelineWithTwoContexts(
             new RemoteContextDiscovery("backend", "backend", "typescript"),
             new RemoteContextDiscovery("frontend", "frontend", null));
 
-        var components = await ProjectAsync(pipeline);
+        var (prompt, _) = await DiscoverAsync(pipeline);
 
-        components.Single(c => c.Name == "frontend").Language.Should().Be("typescript");
+        prompt.Should().Contain("`frontend` — workdir `frontend`, language `typescript`");
     }
 
     [Fact]
@@ -85,20 +95,34 @@ public sealed class ContextsInOneSandboxTests
             .PrimaryLanguage.Should().Be($"{SandboxKey}@backend-lang", "the per-sandbox map stays the representative's");
     }
 
-    private static async Task<IReadOnlyList<DiscoveredComponent>> ProjectAsync(PipelineContext pipeline)
+    /// <summary>Runs the discovery round and returns (the user prompt it composed, its answer).</summary>
+    private static async Task<(string Prompt, IReadOnlyList<DiscoveredComponent> Components)> DiscoverAsync(
+        PipelineContext pipeline)
     {
+        var chat = new StubChatClient(new Queue<string>([DiscoveryAnswer]));
         var handler = new BootstrapDiscoverHandler(
-            Mock.Of<IChatClientFactory>(), null, EventTestStubs.RunContext,
+            new StubChatClientFactory(chat), null, EventTestStubs.RunContext,
             new DiscoveryOutputParser(), new SandboxTargets(),
             new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             NullLogger<BootstrapDiscoverHandler>.Instance);
         var result = await handler.ExecuteAsync(
             new BootstrapDiscoverContext(RepoName, new AgentConfig(), pipeline), CancellationToken.None);
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("re-init", "the short-circuit must not call the model");
-        return pipeline.Get<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
-            ContextKeys.DiscoveredComponents)[RepoName];
+        chat.InvocationCount.Should().Be(1, "a re-init derives again — it does not read its answer off the tree");
+        var prompt = chat.LastMessages.Single(m => m.Role == ChatRole.User).Text ?? string.Empty;
+        return (prompt, pipeline.Get<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents)[RepoName]);
     }
+
+    private const string DiscoveryAnswer = """
+        {
+          "status": "complete",
+          "components": [
+            { "name": "backend",  "workdir": "backend",  "language": "typescript", "evidence": "backend/index.ts" },
+            { "name": "frontend", "workdir": "frontend", "language": "typescript", "evidence": "frontend/package.json" }
+          ]
+        }
+        """;
 
     private static PipelineContext PipelineWithTwoContexts(
         RemoteContextDiscovery representative, RemoteContextDiscovery sibling)
@@ -118,6 +142,18 @@ public sealed class ContextsInOneSandboxTests
         pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.SandboxRepos,
             new Dictionary<string, string>(StringComparer.Ordinal) { [SandboxKey] = RepoName });
+        // 2026-09-23-9bb2: the round is a model call, so it needs the sandbox it reads through,
+        // the repository it names, the analysis map it embeds and the skill that carries it.
+        pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("main"), "https://x/y.git"));
+        pipeline.Set<IReadOnlyList<RoleSkillDefinition>>(
+            ContextKeys.AvailableRoles,
+            new[] { new RoleSkillDefinition { Name = "project-discovery", OutputSchema = "discovery" } });
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [SandboxKey] = Mock.Of<ISandbox>() });
+        pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
+            ContextKeys.RepoProjectMaps,
+            new Dictionary<string, ProjectMap>(StringComparer.Ordinal) { [SandboxKey] = MapFor(SandboxKey) });
         return pipeline;
     }
 

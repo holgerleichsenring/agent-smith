@@ -15,8 +15,9 @@ public static partial class ContextKeys
     /// callable components found in that repo, with workdir + language +
     /// evidence per entry. Published by BootstrapDiscoverHandler; read by
     /// BootstrapDispatchHandler to fan out one BootstrapRound per (repo,
-    /// component). Absent on re-init when SandboxDiscoveries already
-    /// surfaces non-synthetic contexts.</summary>
+    /// component). 2026-09-23-9bb2: always the round's own answer — a re-init
+    /// derives again, with the contexts the repository declares carried into
+    /// the prompt as prior art.</summary>
     public const string DiscoveredComponents = "DiscoveredComponents";
 
     /// <summary>p0161d: set by BootstrapDiscoverHandler when the LLM marked
