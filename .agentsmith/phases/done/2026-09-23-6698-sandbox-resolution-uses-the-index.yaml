@@ -42,6 +42,7 @@ scope:
 decisions:
   - key: "Call the existing ownership test rather than write a fourth match. String matching on the key scheme is the bug class that already dropped multi-group repos twice, by that helper's own record, and the composer has gained a shape since."
   - key: "The round resolves by repository AND context. Resolving by repository alone answers a question with several correct answers, and picking among them is how the singular slot got it wrong in the first place."
+  - key: "The resolution lives on the ownership type, not in the round. The round handler was already over the file ceiling, and \"which sandbox does this repository own for this context\" is the same question the type beside it already answers for a repository."
   - key: "A miss stays a failure rather than becoming a borrow. A borrowed sandbox writes a context derived from another tree, which surfaces only when a later run reasons from it - far worse than a failed init, which writes nothing."
 
 steps:
@@ -52,7 +53,8 @@ steps:
   - id: round-asks-for-its-context
     action: "Resolve the round's sandbox by repository and context, and drop the singular-slot fallback."
     modify:
-      - "BootstrapRoundHandler: ResolvePerRepoSandbox, taking the ownership test"
+      - "SandboxTargets: the (repo, context) resolution joins the ownership test it needs"
+      - "BootstrapRoundHandler: it asks for the pair instead of resolving one itself"
       - "the round handler's registration and its test construction helper"
 
 tests:

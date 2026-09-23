@@ -10,6 +10,9 @@ import { useEffect, useRef, useState } from "react";
 // 2026-09-20-3af8: and an image can go beside what is typed. It is stored the moment it is
 // picked rather than held until Send: there is one upload either way, and an image kept in the
 // page would be lost by the reload that a design turn invites while it runs for a minute.
+// 2026-09-23-6e3f: and it no longer explains why it is disabled. The one reason it carried a
+// hint was a conversation with no project picked, and that state does not render a composer at
+// all now — the exchange column is the choice instead.
 // 2026-09-20-4b0ac: the two controls are glyphs where every other composer puts them — a plus
 // at the lower left, opening a small menu of what can be attached, and an arrow at the lower
 // right. The plus opens a MENU rather than the file dialog, because a plus that always opens
@@ -21,15 +24,11 @@ export function DialogComposer({
   onSend,
   onAttach,
   disabled,
-  hint,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
   onAttach: (file: File) => void;
   disabled?: boolean;
-  /** Why writing is not possible yet — said here rather than left for the router to
-   *  answer with the command tutorial a chat channel needs. */
-  hint?: string;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -69,12 +68,7 @@ export function DialogComposer({
   }, [attaching, disabled]);
 
   return (
-    <div className="d-foot flex flex-col gap-1">
-      {hint && (
-        <p data-testid="dialog-composer-hint" className="dsh-body text-body">
-          {hint}
-        </p>
-      )}
+    <div className="d-foot">
       <div className="flex items-end gap-2">
         <div className="d-attach" ref={attach}>
           {/* The input itself is never shown: a file control styled by the browser cannot be
