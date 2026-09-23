@@ -88,7 +88,8 @@ public sealed class ConversationSubjectTests : IDisposable
         _chat.AgentModels.Should().Equal([ProjectModel],
             "the mint runs on the project's own agent, not on a fabricated one");
         _chat.Prompts.Should().ContainSingle()
-            .Which.Should().Contain("SAME LANGUAGE").And.Contain("a widget that reads the ledger");
+            .Which.Should().Contain("Write it in the SAME LANGUAGE the conversation is written in.")
+            .And.Contain("a widget that reads the ledger");
     }
 
     // The first mint here is REFUSED, so the row still has no subject when the second turn runs:
