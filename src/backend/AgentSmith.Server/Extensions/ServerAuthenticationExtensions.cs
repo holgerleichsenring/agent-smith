@@ -41,12 +41,18 @@ internal static class ServerAuthenticationExtensions
         });
         services.AddSingleton<IAuthorizationHandler, PermissionRequirementHandler>();
         services.AddSingleton<IAuthorizationMiddlewareResultHandler, PermissionAuthorizationResultHandler>();
-        // p0503e: handed THIS auth block rather than resolving one, because the registered
-        // TokenAuthorityConfig is read lazily from the environment — a probe built later
-        // can measure a different authority than the handler validates against, which is
+        // p0503e: THIS auth block reaches the probe rather than a resolved one, because the
+        // registered TokenAuthorityConfig is read lazily from the environment — a probe built
+        // later can measure a different authority than the handler validates against, which is
         // the one thing its finding must never be wrong about.
-        services.AddSingleton<IAuthorityReachability>(
-            sp => ActivatorUtilities.CreateInstance<AuthorityReachabilityProbe>(sp, auth));
+        // 2026-09-23-e7f0: through a key rather than a constructor argument, so nothing is
+        // matched to a parameter by its runtime type. It is the same INSTANCE the JwtBearer
+        // setup above holds, which is what a factory would not have kept. No coalesce here,
+        // unlike the sign-in check: the usability guard at the top of this method already
+        // returned for every block that could be null, so there is no null left to coalesce.
+        services.AddKeyedSingleton<TokenAuthorityConfig>(
+            AuthorityReachabilityProbe.ComposedAuthorityKey, auth);
+        services.AddSingleton<IAuthorityReachability, AuthorityReachabilityProbe>();
         services.AddSingleton<AuthorityAwareChallenge>();
         services.AddHostedService<AuthorityProbeHostedService>();
         return services;
