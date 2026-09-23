@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-9bb2
+
+goal: "A repeated init derives again instead of returning what it finds declared, so a workdir that was wrong can be corrected by running the command that produced it."
+
+applies_to: "backend (the discovery round's re-init path, the prompt that carries the declaration, and the five tests that encode the short circuit)"
+
+requires: ["2026-09-23-8d4d", "2026-09-23-bb73", "2026-09-23-cd28"]
+
+facts:
+  - claim: "One projectable context ANYWHERE in the run skips discovery for EVERY repository - the test is over all discoveries, not per repo."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:86"
+  - claim: "The projection passes the declared workdir through unchanged."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReInitComponentProjection.cs:63"
+  - claim: "Its reason - that reading what a tree declares needs no model - is true of the declaration and not of whether the declaration still holds."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReInitComponentProjection.cs:23"
+  - claim: "The one guard tests for a PLACEHOLDER: the synthetic default with no language. A wrong workdir beside a real language passes it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:102"
+  - claim: "The declared set is SandboxContexts; SandboxDiscoveries carries only each group's representative, and reading the wrong one is the defect 2026-09-04-0721 was cut for."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxContextList.cs:8"
+  - claim: "The writing round's re-init block enumerates no fields: it says keep every operator-authored field verbatim, and separately licenses correcting fields that are clearly stale."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPromptFactory.cs:93"
+  - claim: "Five committed tests assert the short circuit, one of them a harness preset the phase gate runs."
+    evidence: "tests/AgentSmith.Tests/Handlers/BootstrapDiscoverHandlerTests.cs:127, :149, tests/AgentSmith.Tests/Handlers/ContextsInOneSandboxTests.cs:34, tests/AgentSmith.Tests/Handlers/ContextReinitReachTests.cs:52, tests/AgentSmith.PipelineHarness/Presets/InitProjectTests.cs:11"
+  - claim: "The analyzer runs before discovery and is scoped by the DECLARED workdir, so a corrected one arrives after the analysis it invalidates."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs:90"
+
+scope:
+  in: >
+    The declaration becomes the STARTING POINT. The round runs as it does on a first init and is
+    told what the repository declares - read from SandboxContexts, which carries every context
+    rather than each group's representative - as what the last derivation concluded. A run is
+    repeated because something changed, and a skip answering "this was derived once" answers a
+    question nobody asked.
+
+    Nothing here reconciles names. An invented name is refused on the write path by the guard
+    2026-09-23-cd28 wires, which is where a stray directory would otherwise be authored; a
+    second rule in the discovery round would be a second opinion about one invariant.
+
+    The five tests that encode the short circuit are named and rewritten, the harness preset
+    included: its scripted queue is ordered for a round that never called a model, and after
+    this phase it does.
+  out: >
+    Correcting the analysis the corrected workdir invalidates. The analyzer is scoped by the
+    declared workdir and runs three steps earlier, so a repository whose workdir moves has its
+    map read from the old sub-tree for the rest of that run - the context.yaml is corrected and
+    the ProjectMap behind it is not. Re-running init once more answers it, and a phase that
+    reorders the analysis behind discovery is the real fix. It is named here and not taken.
+
+    The writing round's merge clause. It already licenses correcting a stale field, and whether
+    meta.workdir reads as operator-authored or as derived is a prompt question this phase cannot
+    settle by editing a list that does not exist.
+
+decisions:
+  - key: "The declared set is read from SandboxContexts by name in this spec, because the neighbouring map carries only each group's representative and a two-context repository read from it would certify itself complete at one - which is 2026-09-04-0721's defect, re-armed by a check meant to prevent it."
+  - key: "No name reconciliation in this round. Matching a derived context to a declared one has no key that survives the phase's own purpose: by workdir is circular, since the workdir is the thing being corrected; by name degenerates to set equality; by language does not discriminate. The write path already refuses an invented name."
+  - key: "The analyzer ordering is named and left. Fixing it means moving analysis behind discovery in the preset, which changes what every init does, and this phase is already the one that makes a re-init cost a model call."
+
+steps:
+  - id: the-declaration-is-prior-art
+    action: "Replace the skip with the declared components carried into the discovery prompt."
+    modify:
+      - "BootstrapDiscoverHandler: the re-init short circuit"
+      - "BootstrapDiscoverPromptFactory: the declared components a re-init states"
+  - id: the-tests-follow
+    action: "Rewrite the five tests that assert the short circuit, and re-order the harness preset's scripted queue for a round that now calls a model."
+    modify:
+      - "BootstrapDiscoverHandlerTests, ContextsInOneSandboxTests, ContextReinitReachTests: the re-init assertions"
+      - "InitProjectTests: the scripted queue"
+
+tests:
+  - "BootstrapDiscover_ReInitWithExistingContexts_RunsTheRound"
+  - "BootstrapDiscover_ReInitPrompt_StatesTheDeclaredComponentsAsPriorArt"
+  - "BootstrapDiscover_ReInitOfATwoContextSandbox_StatesBoth"
+  - "BootstrapDiscover_ReInitAnswerCorrectsAWorkdir_CarriesTheNewOne"
+
+done:
+  - "A re-init on a repository with existing contexts composes a discovery prompt and calls the model."
+  - "A repository whose sandbox holds two contexts states both to that round."
+  - "A corrected workdir reaches BootstrapDispatch as the derived value, not the declared one."
+  - "The init-project harness preset is green."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

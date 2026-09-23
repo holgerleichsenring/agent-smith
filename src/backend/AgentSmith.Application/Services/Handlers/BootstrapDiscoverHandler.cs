@@ -18,14 +18,18 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0161d: read-only first pass of cold-init. Resolves the project-discovery
+/// p0161d: read-only first pass of init. Resolves the project-discovery
 /// skill (output_schema=discovery) from AvailableRoles, builds a read-only
 /// tool-bearing chat call per RepoConnection, parses the LLM's structured
 /// discovery output, and publishes
 /// <see cref="ContextKeys.DiscoveredComponents"/> for BootstrapDispatchHandler
-/// to fan out. Re-init short-circuits when SandboxDiscoveries already
-/// surfaces a non-synthetic context (real <c>.agentsmith/contexts/&lt;name&gt;/</c>
-/// dirs existed on the remote).
+/// to fan out.
+///
+/// 2026-09-23-9bb2: a re-init runs the SAME round. What the repository already
+/// declares under <c>.agentsmith/contexts/</c> is carried into the prompt as
+/// prior art (<see cref="ReInitComponentProjection"/>) rather than returned as
+/// the answer — the short circuit that returned it meant a workdir derived
+/// wrongly once was confirmed by every attempt to correct it.
 ///
 /// Ambiguity: interactive transports get <c>ask_human</c>; headless runs
 /// fail loud (sets <see cref="ContextKeys.DiscoveryAmbiguous"/>) so
@@ -42,7 +46,6 @@ public sealed class BootstrapDiscoverHandler(
     : ICommandHandler<BootstrapDiscoverContext>
 {
     private const string DiscoverySkillSchema = "discovery";
-    private const string SyntheticDefaultName = "default";
 
     public async Task<CommandResult> ExecuteAsync(
         BootstrapDiscoverContext context, CancellationToken cancellationToken)
@@ -52,20 +55,19 @@ public sealed class BootstrapDiscoverHandler(
             || repos is null || repos.Count == 0)
             return CommandResult.Fail("BootstrapDiscover: no Repos in pipeline context");
 
-        if (TrySkipFromExistingDiscoveries(pipeline, repos, out var skipResult))
-            return skipResult;
-
         if (!TryResolveDiscoverySkill(pipeline, out var skill, out var resolveError))
             return CommandResult.Fail(resolveError);
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var repository) || repository is null)
             return CommandResult.Fail("BootstrapDiscover: no Repository in pipeline context");
 
+        var declared = ReInitComponentProjection.PerRepo(pipeline, repos, sandboxTargets);
         var perRepo = new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(
             repos.Count, StringComparer.Ordinal);
         foreach (var repo in repos)
         {
             var result = await DiscoverOneAsync(
-                context, skill, repository, repo, cancellationToken);
+                context, skill, repository, repo,
+                declared.GetValueOrDefault(repo.Name) ?? [], cancellationToken);
             if (!result.Success) return result.Failure!;
             perRepo[repo.Name] = result.Components!;
         }
@@ -75,31 +77,6 @@ public sealed class BootstrapDiscoverHandler(
         var summary = string.Join(", ", perRepo.Select(kv => $"{kv.Key}:{kv.Value.Count}"));
         return CommandResult.Ok($"BootstrapDiscover: discovered components [{summary}]");
     }
-
-    private bool TrySkipFromExistingDiscoveries(
-        PipelineContext pipeline, IReadOnlyList<RepoConnection> repos, out CommandResult skipResult)
-    {
-        skipResult = CommandResult.Ok("BootstrapDiscover: skipped");
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
-                ContextKeys.SandboxDiscoveries, out var discoveries) || discoveries is null)
-            return false;
-        if (!discoveries.Values.Any(IsRealDiscovery))
-            return false;
-
-        var perRepo = ReInitComponentProjection.PerRepo(pipeline, repos, discoveries, sandboxTargets);
-        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
-            ContextKeys.DiscoveredComponents, perRepo);
-        var summary = string.Join(", ", perRepo.Select(kv => $"{kv.Key}:{kv.Value.Count}"));
-        skipResult = CommandResult.Ok(
-            $"BootstrapDiscover: re-init — projected existing contexts/ ({summary})");
-        logger.LogInformation(
-            "BootstrapDiscover: re-init path — projected {Count} existing context(s) into DiscoveredComponents",
-            perRepo.Values.Sum(v => v.Count));
-        return true;
-    }
-
-    private static bool IsRealDiscovery(RemoteContextDiscovery d) =>
-        !(d.ContextName == SyntheticDefaultName && d.Workdir == "." && d.Language is null);
 
     private static bool TryResolveDiscoverySkill(
         PipelineContext pipeline, out RoleSkillDefinition skill, out string error)
@@ -124,7 +101,8 @@ public sealed class BootstrapDiscoverHandler(
 
     private async Task<DiscoverResult> DiscoverOneAsync(
         BootstrapDiscoverContext context, RoleSkillDefinition skill,
-        Repository repository, RepoConnection repo, CancellationToken ct)
+        Repository repository, RepoConnection repo,
+        IReadOnlyList<DiscoveredComponent> declared, CancellationToken ct)
     {
         var sandbox = ResolveSandbox(context.Pipeline, repo);
         if (sandbox is null)
@@ -138,7 +116,7 @@ public sealed class BootstrapDiscoverHandler(
         var tools = BuildTools(sandbox, repository);
         var isInteractive = dialogueTransport is not null;
         var (system, user) = BootstrapDiscoverPromptFactory.Build(
-            skill, repository, repo.Name, projectMap, isInteractive);
+            skill, repository, repo.Name, projectMap, isInteractive, declared);
         var responseText = await CallSkillAsync(context, skill, system, user, tools, repo.Name, ct);
 
         return ParseAndProject(repo, responseText, context.Pipeline);
@@ -220,16 +198,12 @@ public sealed class BootstrapDiscoverHandler(
     private ISandbox? ResolveSandbox(PipelineContext pipeline, RepoConnection repo) =>
         sandboxTargets.SandboxesForRepo(pipeline, repo) is [var owned, ..] ? owned.Value : null;
 
-    // p0384: RepoProjectMaps is the only analysis surface — a single-repo run is
-    // a dictionary of one, so an unmatched repo name falls back to the sole entry.
-    private static ProjectMap? ResolveProjectMap(PipelineContext pipeline, string repoName)
-    {
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ProjectMap>>(
-                ContextKeys.RepoProjectMaps, out var dict) || dict is null)
-            return null;
-        if (dict.TryGetValue(repoName, out var perRepo)) return perRepo;
-        return dict.Count == 1 ? dict.Values.First() : null;
-    }
+    // 2026-09-23-bb73: the map this repository OWNS, through the same key→repo ownership
+    // test the sandbox beside it is resolved with. RepoProjectMaps is keyed by the composed
+    // sandbox key, so the repo-name lookup hit only where the two coincide — and the sole-entry
+    // fallback that covered the miss answered a count, not ownership.
+    private ProjectMap? ResolveProjectMap(PipelineContext pipeline, string repoName) =>
+        RepoOwnedProjectMap.In(pipeline, repoName, sandboxTargets);
 
     private readonly record struct DiscoverResult(
         bool Success, IReadOnlyList<DiscoveredComponent>? Components, CommandResult? Failure)

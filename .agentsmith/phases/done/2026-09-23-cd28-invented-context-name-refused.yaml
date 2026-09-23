@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-cd28
+
+goal: "The guard that refuses an invented context name is wired into the bootstrap write path, so a model cannot author a stray context directory beside the one it was asked to write."
+
+applies_to: "backend (the bootstrap tool host and the guard it builds inert)"
+
+facts:
+  - claim: "The guard exists, redirects an invented name when a repository has exactly one real context, and refuses when it has several."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContextNameGuard.cs:31, :39"
+  - claim: "It is built with no discovered contexts on the bootstrap path, and with none it admits any name."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapToolHostFactory.cs:46, src/backend/AgentSmith.Application/Services/Tools/ContextNameGuard.cs:21"
+  - claim: "A context's name is its directory, and the write host resolves the target path from it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs:112"
+  - claim: "Nothing deletes a context directory, so a name that lands beside the intended one stays, and the gate then probes both."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs:60"
+  - claim: "The discovered set the guard needs is already in the pipeline when the round runs."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Bootstrap.cs:20"
+
+scope:
+  in: >
+    The bootstrap tool host is built with the set the round was dispatched from, so the guard
+    it already constructs has something to judge against. A name that matches a discovered
+    context passes; an invented one is redirected when there is exactly one candidate and
+    refused when there are several, which is the policy the guard already states.
+
+    This holds on a cold init as much as a re-init: the harm is a stray directory the gate then
+    probes, and neither path is protected today.
+  out: >
+    Deleting a directory a previous run left behind. Nothing removes one today and this phase
+    adds no deletion; it stops the next one being written.
+
+decisions:
+  - key: "Wire the guard rather than write a rule elsewhere. It states the policy, it is constructed on this path already, and it is inert only because it is handed nothing - a second rule in a second place for one invariant is how the two would disagree."
+
+steps:
+  - id: the-guard-is-given-the-set
+    action: "Build the bootstrap tool host with the discovered contexts and the repository it defaults to."
+    modify:
+      - "BootstrapToolHostFactory: the write host's construction"
+
+tests:
+  - "Bootstrap_AnInventedNameWithOneCandidate_IsRedirected"
+  - "Bootstrap_AnInventedNameWithSeveralCandidates_IsRefused"
+  - "Bootstrap_ADiscoveredName_IsWrittenUnchanged"
+
+done:
+  - "A bootstrap round writing an invented context name is redirected or refused, never allowed to author a sibling."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."
