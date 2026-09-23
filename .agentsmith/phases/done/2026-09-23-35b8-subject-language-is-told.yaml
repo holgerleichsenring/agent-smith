@@ -26,7 +26,9 @@ scope:
 
     The existing assertion over the recorded prompt widens from the phrase to the whole sentence
     with its full stop, so putting the clause back fails it. The run-together concatenation on
-    that line is broken up in the same edit.
+    that line is broken up in the same edit - and because the minter already sat on the
+    120-line ceiling, that one line makes the instruction a type of its own, the way the write
+    tool's description already is.
   out: >
     Proving the heading comes out in the right language. That is a property of a small model's
     output, and no test over a stubbed client can observe it. This phase pins the instruction;
@@ -35,13 +37,16 @@ scope:
 decisions:
   - key: "Removal, not replacement. The target is already named, and adding an emphasis to a small model's instruction is the move that produced the prohibition in the first place."
   - key: "2026-09-20-4b0af is not reversed. Its Language decision chose the conversation's language over an English heading everywhere; the words \"not in English\" in its record are the contrast with the alternative it rejected, not a prompt clause. The choice stands."
+  - key: "The instruction moves to its own type rather than earning a ratchet exemption. The file stood exactly at the line ceiling and the split pushed it over; prompt content that grows when the wording changes, while the caller's responsibility does not, is what the write tool's description was extracted for."
   - key: "The assertion pins the sentence whole rather than the clause\u2019s absence. A negative assertion passes for every other spelling of the same prohibition and fails on any legitimate mention of English."
 
 steps:
   - id: drop-the-prohibition
     action: "Remove the clause and split the two concatenation operands back onto their own lines."
+    new:
+      - "SpecDialogSubjectInstruction: the text the model is given when it names a conversation"
     modify:
-      - "SpecDialogSubjectMinter: the instruction constant"
+      - "SpecDialogSubjectMinter: it asks the new type for the text"
   - id: widen-the-assertion
     action: "Widen the recorded-prompt assertion in the first mint test from the phrase to the whole sentence."
     modify:

@@ -38,12 +38,6 @@ public sealed class SpecDialogSubjectMinter(
     /// registry's summarization budget, which is sized for summaries.</summary>
     private const int MaxOutputTokens = 128;
 
-    private const string Instruction =
-        "You are naming a design conversation, for a heading above it.\n"
-        + "Answer with ONE short line naming what the conversation is ABOUT, and with nothing "
-        + "else: no quotation marks, no code fence, no markdown, no list, no closing full stop.\n"
-        + "Write it in the SAME LANGUAGE the conversation is written in, not in English.\n"        + "Keep it under 120 characters. Do not restate the question; name the subject.";
-
     /// <summary>
     /// Mints and stores the subject when this conversation has none and has just had its first
     /// assistant turn, between persisting that turn and sending the reply. A FAILED turn mints
@@ -76,7 +70,7 @@ public sealed class SpecDialogSubjectMinter(
         var agent = Agent(state.Project);
         var response = await chatClients.Create(agent, TaskType.Summarization).GetResponseAsync(
             [
-                new ChatMessage(ChatRole.System, Instruction),
+                new ChatMessage(ChatRole.System, SpecDialogSubjectInstruction.Text),
                 new ChatMessage(ChatRole.User, $"They asked:\n{asked}\n\nThe answer began:\n{reply}"),
             ],
             new ChatOptions { MaxOutputTokens = MaxOutputTokens }, ct);
