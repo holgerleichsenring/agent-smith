@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
 using Docker.DotNet.Models;
@@ -44,7 +45,7 @@ public sealed class SandboxHoldRailTests
     public async Task Reaper_AContainerLabelledWithAConversationQuietPastTheWindow_IsACorpse()
     {
         var verdict = await JudgeContainerAsync(
-            Conversation, Open(SandboxHoldWindowResolver.DefaultWindow + TimeSpan.FromSeconds(1)));
+            Conversation, Open(SandboxHoldWindow.Default + TimeSpan.FromSeconds(1)));
 
         verdict.Outcome.Should().Be(SandboxReapOutcome.Orphan);
     }

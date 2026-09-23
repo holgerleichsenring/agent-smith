@@ -55,6 +55,7 @@ vi.mock("@/lib/configApi", () => {
         runCommandTimeoutSeconds: { value: 300, source: "global-default" },
         agentRegistry: { value: "ghcr.io/example", source: "global-default" },
         agentVersion: { value: "0.50.0", source: "global-default" },
+        holdSeconds: { value: 180, source: "code-default" },
       },
       projects: {},
     }),

@@ -39,7 +39,8 @@ public sealed class InheritedSandboxStructuredTests
             options, resources, new StubAgentImageResolver(), new StubOrchestratorImageResolver(), config);
         return new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,
-            config, NullLogger<InheritedSandboxProjection>.Instance);
+            config, new SandboxHoldRailDoubles.CountingConfigLoader(config),
+            NullLogger<InheritedSandboxProjection>.Instance);
     }
 
     [Fact]

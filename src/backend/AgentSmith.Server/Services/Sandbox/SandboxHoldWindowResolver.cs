@@ -6,9 +6,15 @@ namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
 /// 2026-09-22-2d11a: resolves the sandbox hold window for ONE scan — the project's own
-/// value, then the process-wide sandbox block, then <see cref="EnvironmentVariable"/>,
-/// then <see cref="DefaultWindow"/>. Zero holds nothing, which is the behaviour of
+/// value, then the process-wide sandbox block, then
+/// <see cref="SandboxHoldWindow.EnvironmentVariable"/>, then
+/// <see cref="SandboxHoldWindow.Default"/>. Zero holds nothing, which is the behaviour of
 /// every deployment that never sets it.
+/// <para>
+/// 2026-09-23-2446: the process-wide half is <see cref="SandboxHoldWindow"/>'s, because the
+/// project form's inherited-value projection has to name the window THIS resolver will use
+/// and one algorithm over two inputs would still be two answers.
+/// </para>
 /// <para>
 /// A resolution that THREW keeps the last one this process made and the scan reaps
 /// nothing new: turning an operator's deliberate zero into the built-in default would
@@ -22,16 +28,6 @@ public sealed class SandboxHoldWindowResolver(
     ServerContext serverContext,
     ILogger<SandboxHoldWindowResolver> logger)
 {
-    /// <summary>The empty-store fallback: read only when the catalog names no window.</summary>
-    public const string EnvironmentVariable = "SANDBOX_HOLD_SECONDS";
-
-    /// <summary>
-    /// Three minutes: long enough to cover reading a reply and typing the next question,
-    /// which is where a design conversation lives. A wrong value costs idle resources and
-    /// never a refused run, because a hold is released before any capacity probe.
-    /// </summary>
-    public static readonly TimeSpan DefaultWindow = TimeSpan.FromSeconds(180);
-
     private SandboxHoldWindows? _lastResolved;
 
     /// <summary>
@@ -54,19 +50,14 @@ public sealed class SandboxHoldWindowResolver(
         return _lastResolved;
     }
 
-    private static TimeSpan ProcessWide(SandboxGlobalConfig sandbox)
-    {
-        if (sandbox.HoldSeconds is { } configured) return TimeSpan.FromSeconds(Math.Max(0, configured));
-        return int.TryParse(Environment.GetEnvironmentVariable(EnvironmentVariable), out var fromEnvironment)
-            ? TimeSpan.FromSeconds(Math.Max(0, fromEnvironment))
-            : DefaultWindow;
-    }
+    private static TimeSpan ProcessWide(SandboxGlobalConfig sandbox) =>
+        SandboxHoldWindow.Window(SandboxHoldWindow.ProcessWide(sandbox).Value);
 
     private static IReadOnlyDictionary<string, TimeSpan> ByProject(AgentSmithConfig config) =>
         config.Projects
             .Where(entry => entry.Value.Sandbox?.HoldSeconds is not null)
             .ToDictionary(
                 entry => entry.Key,
-                entry => TimeSpan.FromSeconds(Math.Max(0, entry.Value.Sandbox!.HoldSeconds!.Value)),
+                entry => SandboxHoldWindow.Window(entry.Value.Sandbox!.HoldSeconds!.Value),
                 StringComparer.OrdinalIgnoreCase);
 }

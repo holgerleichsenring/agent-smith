@@ -46,6 +46,7 @@ const row = (over: Partial<InheritedSandbox> = {}): InheritedSandbox => ({
   runCommandTimeoutSeconds: { value: 300, source: "global-default" },
   agentRegistry: { value: "ghcr.io/example", source: "global-default" },
   agentVersion: { value: "0.50.0", source: "global-default" },
+  holdSeconds: { value: 180, source: "code-default" },
   resources: {
     values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
     layer: "global-default",

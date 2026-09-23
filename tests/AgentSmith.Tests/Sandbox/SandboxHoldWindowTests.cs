@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// self-inflicted load — and a read that failed must not turn an operator's deliberate
 /// zero into the built-in default.
 /// </summary>
+[Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class SandboxHoldWindowTests
 {
     private const string Conversation = "a1b2c3d4";
