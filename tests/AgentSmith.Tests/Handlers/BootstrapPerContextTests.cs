@@ -102,6 +102,7 @@ public sealed class BootstrapPerContextTests
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
+            new SandboxTargets(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -132,6 +133,7 @@ public sealed class BootstrapPerContextTests
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
+            new SandboxTargets(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -180,6 +182,7 @@ public sealed class BootstrapPerContextTests
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
+            new SandboxTargets(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
@@ -207,6 +210,7 @@ public sealed class BootstrapPerContextTests
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),
             new BootstrapOutputRecorder(),
+            new SandboxTargets(),
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");

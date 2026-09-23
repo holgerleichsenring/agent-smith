@@ -56,6 +56,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
                 ["api"] = Mock.Of<ISandbox>(),
                 ["web"] = Mock.Of<ISandbox>(),
             });
+        SetRepos(pipeline, "api", "web");
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
             new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
@@ -87,6 +88,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
             {
                 ["api"] = Mock.Of<ISandbox>(),
             });
+        SetRepos(pipeline, "api", "docs");
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
             new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
@@ -120,6 +122,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
                 ["api"] = Mock.Of<ISandbox>(),
                 ["docs"] = Mock.Of<ISandbox>(),
             });
+        SetRepos(pipeline, "api", "docs");
         pipeline.Set<IReadOnlyDictionary<string, ProjectMap>>(
             ContextKeys.RepoProjectMaps,
             new Dictionary<string, ProjectMap>(StringComparer.Ordinal)
@@ -147,6 +150,7 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
         PrinciplesTransferStubs.NoTemplates(),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
 
@@ -157,6 +161,14 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
             "init-project", new AgentConfig(), "skills", null));
         return pipeline;
     }
+
+    // 2026-09-23-6698: the repositories this run carries. The key→repo ownership test
+    // reads them when no SandboxRepos map is seeded — without them a single-repo run is
+    // assumed, in which every sandbox serves the one repository.
+    private static void SetRepos(PipelineContext pipeline, params string[] names) =>
+        pipeline.Set<IReadOnlyList<RepoConnection>>(
+            ContextKeys.Repos,
+            names.Select(n => new RepoConnection { Name = n, Url = "https://x/y.git", Auth = "t" }).ToArray());
 
     private static ProjectMap NewMap(string primaryLanguage) =>
         new(PrimaryLanguage: primaryLanguage,
