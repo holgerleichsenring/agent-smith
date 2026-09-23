@@ -22,7 +22,7 @@ interface ConfigCatalogContextValue extends UseConfigCatalog {
 const ConfigCatalogContext = createContext<ConfigCatalogContextValue | null>(null);
 
 export function ConfigCatalogProvider({ children }: { children: React.ReactNode }) {
-  const { catalog, loading, error, reload: reloadCatalog } = useConfigCatalog();
+  const { catalog, inheritedSandbox, loading, error, reload: reloadCatalog } = useConfigCatalog();
   const [changesCount, setChangesCount] = useState<number | null>(null);
 
   const loadChanges = useCallback(
@@ -48,8 +48,8 @@ export function ConfigCatalogProvider({ children }: { children: React.ReactNode 
   }, [reloadCatalog, loadChanges]);
 
   const value = useMemo<ConfigCatalogContextValue>(
-    () => ({ catalog, loading, error, reload, changesCount }),
-    [catalog, loading, error, reload, changesCount],
+    () => ({ catalog, inheritedSandbox, loading, error, reload, changesCount }),
+    [catalog, inheritedSandbox, loading, error, reload, changesCount],
   );
 
   return <ConfigCatalogContext.Provider value={value}>{children}</ConfigCatalogContext.Provider>;

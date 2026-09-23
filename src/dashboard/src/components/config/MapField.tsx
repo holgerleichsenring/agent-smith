@@ -11,18 +11,26 @@ import { useRef, useState } from "react";
 
 type Row = { id: number; key: string; value: string };
 
+// 2026-09-22-6c46: a row may carry a HINT derived from its key — the per-language image
+// map inherits per key from a code table, so the placeholder of a row the project has not
+// pinned is that key's inherited image, and the note beside it says which of the two the
+// row is. Without it a map editor can only show what the project itself declared.
+export type MapRowHint = { placeholder?: string; note?: string };
+
 export function MapField({
   label,
   values,
   onChange,
   testId,
   help,
+  rowHint,
 }: {
   label: string;
   values: Record<string, string>;
   onChange: (v: Record<string, string> | undefined) => void;
   testId?: string;
   help?: string;
+  rowHint?: (key: string, value: string) => MapRowHint;
 }) {
   const [rows, setRows] = useState<Row[]>(() => toRows(values));
   const nextId = useRef(rows.length);
@@ -55,7 +63,9 @@ export function MapField({
         {label} <span className="help">{help ?? "one key and one value per row"}</span>
       </label>
       <div className="maprows">
-        {rows.map((row, i) => (
+        {rows.map((row, i) => {
+          const hint = rowHint?.(row.key, row.value) ?? {};
+          return (
           <div className="maprow" key={row.id}>
             <input
               type="text"
@@ -70,6 +80,7 @@ export function MapField({
               className="mono"
               aria-label={`${label} value ${i + 1}`}
               data-testid={testId && `${testId}-value-${i}`}
+              placeholder={hint.placeholder}
               value={row.value}
               onChange={(e) => edit(row.id, { value: e.target.value })}
             />
@@ -82,8 +93,14 @@ export function MapField({
             >
               ×
             </button>
+            {hint.note && (
+              <span className="help" data-testid={testId && `${testId}-note-${i}`}>
+                {hint.note}
+              </span>
+            )}
           </div>
-        ))}
+          );
+        })}
         {rows.length === 0 && <span className="help">no entries</span>}
       </div>
       <button

@@ -117,18 +117,14 @@ public static class ConfigSnapshotMapper
 
     private static ConfigResolvedValue<T> Rv<T>(ResolvedValue<T> v) => new(v.Value, Source(v.Source));
 
-    private static ConfigResourceSummary? ToSummary(ResourceLimits? r) =>
+    // 2026-09-22-6c46: public, so the counterfactual projection renders the same summary.
+    public static ConfigResourceSummary? ToSummary(ResourceLimits? r) =>
         r is null ? null : new(r.CpuRequest, r.CpuLimit, r.MemoryRequest, r.MemoryLimit);
 
     private static ConfigCostCapValue? ToCostCap(CostCapValues? c) =>
         c is null ? null : new(c.Usd, c.Tokens);
 
-    private static string Source(ResolutionSource s) => s switch
-    {
-        ResolutionSource.ProjectOverride => "override",
-        ResolutionSource.RunResolved => "run-resolved",
-        _ => "global-default",
-    };
+    private static string Source(ResolutionSource s) => ResolutionSourceName.Of(s);
 
     // The resolver stores the SAME AgentConfig instance the catalog holds
     // (ResolvedProjectBuilder.ResolveAgent), so reference equality recovers the

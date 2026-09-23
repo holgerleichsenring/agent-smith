@@ -1,0 +1,93 @@
+phase: 2026-09-22-6968
+decisions:
+  - id: the-counterfactual-is-the-same-pass-with-an-emptied-block
+    chose: >
+      InheritedSandboxProjection runs the existing IConfigResolver against
+      `project with { Sandbox = null }` and reports the five scalars from that. The toolchain
+      answer comes from a new granular accessor, ResolveToolchainImage, lifted out of
+      ConfigResolutionPass's private static and put on the interface beside the two timeout
+      accessors it already carried.
+    alternative: >
+      A parallel inheritance resolver that reads the global block directly, or reusing the
+      effective (materialized) projection as the placeholder.
+    why: >
+      The effective projection answers the other question — what a run of THIS project gets —
+      so for a project with an override it returns the override, and a control whose
+      placeholder is its own current value says nothing. A second resolver would be a second
+      answer able to disagree with the first, which is the defect the single resolution pass
+      was consolidated to end. Lifting the toolchain accessor costs no lines in
+      ConfigResolutionPass and makes the counterfactual literally the same code.
+  - id: the-agent-registry-is-read-not-resolved-and-the-version-is-resolved
+    chose: >
+      The inherited agent VERSION comes from IAgentVersionResolver run against the emptied
+      project — the existing code, one different input. The inherited REGISTRY is read from
+      SandboxGlobalConfig.AgentRegistry.
+    alternative: >
+      Composing AgentImageResolver against the emptied project and splitting the registry
+      back out of the "{registry}/{name}:{tag}" string it returns.
+    why: >
+      There is no registry resolver: AgentImageResolver's only rule is the project field
+      first, then the global field, so with an empty project block the answer IS the global
+      field. Parsing it back out of a composed image reference would invent a second,
+      fragile rule for a question that has none. The version is different — it is genuinely
+      derived (from the release this server is) when nothing is pinned, so it needs its
+      resolver. That resolver throws on a build that can name no release; the projection is
+      a dashboard read, so it reports "nothing to inherit" rather than crashing, the way
+      Materialize already captures instead of throwing.
+  - id: the-project-patch-moved-to-its-own-file-to-take-the-block
+    chose: >
+      RawConfigPatch.Project (and its PipelineNames helper) became RawProjectPatch.Apply in
+      a file of its own; the four call sites were migrated, and the sandbox write lives
+      there as a private ApplySandbox.
+    alternative: >
+      Adding the sandbox lines to RawConfigPatch, which had seven lines of headroom under
+      its ratchet baseline; or leaving a delegating RawConfigPatch.Project behind.
+    why: >
+      The file is over the 120-line limit, and a file over the limit may only get shorter —
+      headroom under a baseline is debt, not budget. A delegating wrapper would be the shim
+      the repository refuses; the callers are two in src and two in tests, so migrating them
+      is the whole cost. RawConfigPatch drops from 191 to 150 lines.
+  - id: absent-is-the-block-and-null-is-the-field
+    chose: >
+      ProjectEntity.Sandbox is nullable and the patch writes the block ONLY when the entity
+      carries one; within a sent block every scalar is written as given, null included. The
+      form always sends the whole block once it renders it.
+    alternative: >
+      Per-field sentinels, or a "fields I am sending" list beside the block.
+    why: >
+      C# nullables cannot tell "not told" from "deliberately cleared", and the API binds an
+      unmapped member by skipping it, so at the object level an old client and a real null
+      arrive identically. Applying the discriminator at the BLOCK level is the rule the
+      templates list already uses and the only one with a single unambiguous unit. The
+      structured three are never assigned by this patch, so they survive a save through it.
+  - id: a-sixth-tab-and-a-draft-that-says-it-has-no-row
+    chose: >
+      The five controls are a sixth section, `sandbox`, in the tabbed project form; the
+      inherited values are loaded by useConfigCatalog beside its seven CRUD lists and
+      threaded studio -> drawer -> form -> section. A project with no row in the projection
+      falls back to processWide and the tab says why.
+    alternative: >
+      Appending the controls to an existing tab; or fetching the projection inside the
+      section with a hook of its own.
+    why: >
+      Six controls on an existing tab rebuild the one-scroll shape 2026-09-16-74a2 removed,
+      and they belong to none of the five existing sections. The load belongs with the
+      catalog load because the drawer is opened from a catalog the studio already has in
+      hand, and one fetch serves every project the operator opens. The projection is keyed
+      by the name of a project the RUNNING configuration holds, so a project being created —
+      or renamed before its save — has no row; blanks there would read as "inherits
+      nothing", which is why the fallback is said out loud rather than silently applied.
+      The fetch is failure-tolerant: the catalog is what the studio edits, and an advisory
+      placeholder must not take the studio down with it.
+  - id: clearing-emits-undefined-and-the-bound-is-the-precedent
+    chose: >
+      An emptied control sends `undefined` (a trimmed empty string included), which leaves
+      the browser omitted and binds as the null that clears the override.
+    alternative: >
+      The settings form's `keep` idiom, which restores the previous value when a required
+      number is momentarily emptied.
+    why: >
+      `keep` exists because four of the five numbers on that form are REQUIRED — there is no
+      "unset" for them. Every control here is nullable and clearing it is the whole point of
+      the tab, so the concurrent-sandbox bound, which emits null, is the precedent and the
+      other four are not.

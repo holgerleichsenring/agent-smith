@@ -24,8 +24,51 @@ internal static class ProjectEntityMapping
             pipelines,
             ToResolution(project),
             project.DefaultPipeline,
-            ToTemplates(project));
+            ToTemplates(project),
+            ToSandbox(project));
     }
+
+    /// <summary>
+    /// 2026-09-22-6968: the five scalar sandbox overrides exactly as stored. NULL when the
+    /// project declares no sandbox block at all — absence, not a copy of the process-wide
+    /// defaults, because the form has to tell "this project says nothing" from "this project
+    /// pins the same number the global one happens to hold".
+    /// </summary>
+    public static ProjectSandbox? ToSandbox(RawProjectEntry project) =>
+        project.Sandbox is not { } sandbox
+            ? null
+            : new ProjectSandbox(
+                sandbox.ToolchainImage,
+                sandbox.StepTimeoutSeconds,
+                sandbox.RunCommandTimeoutSeconds,
+                sandbox.AgentRegistry,
+                sandbox.AgentVersion,
+                ToStructured(sandbox));
+
+    /// <summary>
+    /// 2026-09-22-6c46: the structured three, always PRESENT on the way out — the studio is
+    /// being told what the stored project holds and "none of the three" is an answer, the
+    /// same way <see cref="ToTemplates"/> always returns a list. Absence means something
+    /// else entirely on the way IN: see <see cref="ProjectSandboxStructured"/>. Each
+    /// collection is copied, so nothing the studio hands back can alias the stored block.
+    /// </summary>
+    private static ProjectSandboxStructured ToStructured(SandboxConfig sandbox) =>
+        new(sandbox.Resources is { } r ? r with { } : null,
+            sandbox.Images is { Count: > 0 } images ? new Dictionary<string, string>(images) : null,
+            ToSecrets(sandbox.Secrets));
+
+    /// <summary>NAMES only — the secret's name and the keys taken from it. There is no
+    /// value on this path to copy, by design.</summary>
+    private static SandboxSecrets? ToSecrets(SandboxSecrets? secrets) =>
+        secrets is null
+            ? null
+            : new SandboxSecrets
+            {
+                Env = secrets.Env is { Count: > 0 } env ? new Dictionary<string, string>(env) : null,
+                Files = secrets.Files is { Count: > 0 } files
+                    ? [.. files.Select(f => new SandboxSecretFile { Mount = f.Mount, Secret = f.Secret, Key = f.Key })]
+                    : null,
+            };
 
     /// <summary>
     /// Always a list, never null, on the way OUT: the studio is being told what the stored

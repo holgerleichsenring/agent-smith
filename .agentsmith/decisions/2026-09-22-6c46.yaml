@@ -1,0 +1,96 @@
+phase: 2026-09-22-6c46
+decisions:
+  - id: the-layer-travels-with-the-value-out-of-one-walk
+    chose: >
+      ISandboxResourceResolver gains ResolveLayer, and both it and Resolve read ONE private
+      walk of the four layers inside SandboxResourceResolver, which returns the limits and
+      the SandboxResourceLayer that produced them. The counterfactual projection asks for
+      both against the project's configured pipeline.
+    alternative: >
+      Recovering the layer from the returned value, or re-deciding it in the projection
+      from PipelinePresets.ExpectsCodeChanges.
+    why: >
+      The layer is not recoverable: the forced light profile and a configured global
+      default can hold identical numbers, so a value cannot say which one it is. Deciding
+      it a second time in the projection is the "second answer able to disagree" this
+      repository consolidated its resolution pass to end — and it would disagree the moment
+      the layer ORDER changed. One walk cannot name a layer the value did not come from.
+  - id: the-acceptance-of-an-llm-block-became-its-own-type
+    chose: >
+      TryAcceptContextResources and its ceiling clamp left SandboxResourceResolver for
+      ContextResourceAcceptance (IContextResourceAcceptance), injected into the resolver;
+      the resolver drops from 127 lines to 64 and leaves the file-length baseline. The two
+      registrations moved into AddSandboxResourceResolution so the pipeline composition
+      file stays at its 120-line limit.
+    alternative: >
+      Adding the layer accessor to the resolver as it stood (the baseline forbids it —
+      a file over the limit may only get shorter), or trimming its comments to make room.
+    why: >
+      Judging an LLM-authored block is a different reason to change than ordering the four
+      layers: one is validation and policy, the other is precedence. Deleting the comments
+      that record WHY each layer exists would have paid for the room with the only
+      explanation of the thing being extended.
+  - id: the-structured-three-hang-under-a-nested-block
+    chose: >
+      ProjectSandbox gains Structured (resources + images + secrets). Its PRESENCE is the
+      discriminator: absent means the client does not render these three and the stored
+      values are left alone; present means all three are written as given, null included.
+    alternative: >
+      The three beside the five scalars under the same block-level rule, or a "fields I am
+      sending" list beside the block.
+    why: >
+      The two halves need opposite answers to the same null. 2026-09-22-6968 established
+      that a null field inside a SENT block is a deliberate clear — correct for the scalars,
+      and fatal here, because a scalar-only client (or an old one) would delete a project's
+      resources, image pins and secret references on every save. Nesting applies the one
+      rule the repository already trusts — present means told — one level down, and it is
+      the only discriminator that survives C# binding. A sending list would be data about
+      data, which is the alternative the scalar phase already refused.
+  - id: the-image-map-reuses-the-map-editor-with-a-per-key-hint
+    chose: >
+      MapField takes an optional rowHint(key, value) giving a row its placeholder and its
+      note; the images control is that editor, hinted from the projected code-default
+      table. Only the file mounts got a new control.
+    alternative: >
+      A second bespoke map control for images, or rendering one row per known language.
+    why: >
+      The phase budgeted ONE new control, for the three-field mount rows that no primitive
+      expresses. The image map is still key-to-value; what it lacked was a per-key answer
+      to show, which is a hint, not a different control. Rendering all twenty catalog keys
+      (dotnet8, .net 8, c#, node20 …) would spend a screen saying what the help line says
+      in a sentence.
+  - id: code-default-is-its-own-provenance
+    chose: >
+      ResolutionSource gains CodeDefault, spelled "code-default" on the wire, and the
+      inherited image table carries it per key.
+    alternative: >
+      Reporting the table as global-default, the nearest existing value.
+    why: >
+      "Global default" names a process-wide SETTING. The image table is in the product's
+      code and no configuration key holds it, so an operator told "default" would go
+      looking for something to edit that does not exist. The dashboard's provenance badge
+      says "code default" for the same reason.
+  - id: the-secrets-block-carries-no-inherited-value-at-all
+    chose: >
+      Neither InheritedSandboxSettings nor its wire record has a secrets field; the control
+      states that nothing is inherited, edits names only, and offers no value input
+      anywhere — the env row's second box is a secretName:key REFERENCE.
+    alternative: >
+      An empty inherited secrets block for symmetry with the other seven overrides.
+    why: >
+      SandboxGlobalConfig has no secrets field: absence of a counterpart is a fact about
+      the configuration model. An empty inherited block would render as a placeholder,
+      and a blank placeholder reads as "you inherit an empty set" — a claim about the
+      cluster this product is in no position to make. A test asserts the property is
+      absent, so symmetry cannot be restored by accident later.
+  - id: an-empty-map-is-not-a-declaration
+    chose: >
+      The patch stores null for an images map or a secrets block that arrives empty, and
+      both controls emit nothing rather than an empty container when their last row goes.
+    alternative: >
+      Storing the empty map the control produced.
+    why: >
+      Null already means "inherit the code defaults" / "this project declares none", and a
+      project has no way to mean "inherit nothing" — so an empty map is a spelling of the
+      same thing that would only differ in the stored YAML. The map editor already emitted
+      nothing on its last deletion, so the rule is kept rather than invented.

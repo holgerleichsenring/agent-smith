@@ -31,7 +31,7 @@ public sealed class ConfigDraftRules(
     /// </summary>
     public IReadOnlyList<StartupFinding> ForProject(ProjectEntity draft, ConfigCatalog catalog)
     {
-        var project = RawConfigPatch.Project(draft, existing: null);
+        var project = RawProjectPatch.Apply(draft, existing: null);
         var tracker = catalog.Trackers.FirstOrDefault(t => t.Id == draft.Tracker);
         var rawTracker = tracker is null ? null : RawConfigPatch.Tracker(tracker, existing: null);
 

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Sandbox;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,16 @@ public sealed class SandboxResourceResolverTests
     private static readonly ContextYamlStackResources ValidContext =
         new("500m", "2", "1Gi", "4Gi");
 
-    private static SandboxResourceResolver NewSut(SandboxOptions? options = null, ILogger<SandboxResourceResolver>? logger = null) =>
-        new(Options.Create(options ?? new SandboxOptions()), logger ?? NullLogger<SandboxResourceResolver>.Instance);
+    // 2026-09-22-6c46: the acceptance of an LLM-authored block (and its WARN lines) is its
+    // own type now, so the logger these tests capture is ITS logger — the resolver that
+    // orders the layers no longer logs.
+    private static SandboxResourceResolver NewSut(
+        SandboxOptions? options = null, ILogger<ContextResourceAcceptance>? logger = null)
+    {
+        var opts = Options.Create(options ?? new SandboxOptions());
+        return new SandboxResourceResolver(
+            opts, new ContextResourceAcceptance(opts, logger ?? NullLogger<ContextResourceAcceptance>.Instance));
+    }
 
     [Fact]
     public void Resolve_FixBug_UsesContextResources()
@@ -137,7 +146,47 @@ public sealed class SandboxResourceResolverTests
             .And.Contain("4").And.Contain("12Gi");
     }
 
-    private sealed class CapturingLogger : ILogger<SandboxResourceResolver>
+    // ---------------------------------------------------------------------
+    // 2026-09-22-6c46: ResolveLayer answers WHICH layer produced what Resolve returns.
+    // The layer is not recoverable from the value, which is why it is asked for directly.
+    // ---------------------------------------------------------------------
+
+    [Fact]
+    public void ResolveLayer_ProjectOverride_NamesTheProjectsOwnBlock()
+    {
+        var project = new ResolvedProject
+        {
+            Sandbox = new SandboxConfig { Resources = new ResourceLimits("500m", "2", "1Gi", "4Gi") },
+        };
+
+        NewSut().ResolveLayer(project, "fix-bug", ValidContext)
+            .Should().Be(SandboxResourceLayer.ProjectOverride);
+    }
+
+    [Fact]
+    public void ResolveLayer_APipelineThatChangesNoCode_NamesTheLightProfile()
+    {
+        NewSut().ResolveLayer(new ResolvedProject(), "security-scan", ValidContext)
+            .Should().Be(SandboxResourceLayer.LightProfile);
+    }
+
+    [Fact]
+    public void ResolveLayer_AnAcceptedContextBlock_NamesTheContextDocument()
+    {
+        NewSut().ResolveLayer(new ResolvedProject(), "fix-bug", ValidContext)
+            .Should().Be(SandboxResourceLayer.ContextDocument);
+    }
+
+    [Fact]
+    public void ResolveLayer_NothingButTheGlobal_NamesTheGlobalDefault()
+    {
+        // The light profile and a configured global default can hold identical numbers, so
+        // the layer is the only thing that tells a control which one it is looking at.
+        NewSut().ResolveLayer(new ResolvedProject(), "fix-bug")
+            .Should().Be(SandboxResourceLayer.GlobalDefault);
+    }
+
+    private sealed class CapturingLogger : ILogger<ContextResourceAcceptance>
     {
         public List<string> Warnings { get; } = [];
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
@@ -154,7 +203,7 @@ public sealed class SandboxResourceResolverTests
     {
         var projectResources = new ResourceLimits("500m", "2000m", "1Gi", "4Gi");
         var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = projectResources } };
-        var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions()));
+        var sut = NewSut();
 
         var resolved = sut.Resolve(project, "fix-bug");
 
@@ -165,10 +214,10 @@ public sealed class SandboxResourceResolverTests
     public void Resolve_ProjectSandboxResourcesNull_ReturnsGlobalDefaults()
     {
         var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = null } };
-        var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions
+        var sut = NewSut(new SandboxOptions
         {
             CpuRequest = "300m", CpuLimit = "1500m", MemoryRequest = "768Mi", MemoryLimit = "3Gi"
-        }));
+        });
 
         var resolved = sut.Resolve(project, "fix-bug");
 
@@ -179,7 +228,7 @@ public sealed class SandboxResourceResolverTests
     public void Resolve_ProjectSandboxNull_ReturnsGlobalDefaults()
     {
         var project = new ResolvedProject { Sandbox = null };
-        var sut = new SandboxResourceResolver(Options.Create(new SandboxOptions()));
+        var sut = NewSut();
 
         var resolved = sut.Resolve(project, "fix-bug");
 

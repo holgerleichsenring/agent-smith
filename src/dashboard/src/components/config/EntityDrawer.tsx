@@ -4,6 +4,7 @@ import { useState } from "react";
 import type {
   ConfigCapabilities,
   ConfigEntityKind,
+  InheritedSandboxProjection,
   StudioConnection,
   StudioEntity,
   StudioProject,
@@ -31,6 +32,7 @@ export function EntityDrawer({
   isNew,
   catalog,
   capabilities,
+  inheritedSandbox = null,
   onClose,
   onSaved,
 }: {
@@ -39,6 +41,8 @@ export function EntityDrawer({
   isNew: boolean;
   catalog: ConfigCatalog;
   capabilities: ConfigCapabilities | null;
+  /** 2026-09-22-6968: what a project would inherit where it overrides nothing. */
+  inheritedSandbox?: InheritedSandboxProjection | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -130,6 +134,7 @@ export function EntityDrawer({
             onChange={setDraft}
             catalog={catalog}
             capabilities={capabilities}
+            inheritedSandbox={inheritedSandbox}
             isNew={isNew}
             findings={findings}
           />
