@@ -1,19 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0199e-legal-analysis-docker-tier
 goal: |
-  legal-analysis docker-tier is skip-deferred because BootstrapDocument
-  runs `markitdown` inside the sandbox and the default toolchain image
-  (`mcr.microsoft.com/dotnet/sdk:8.0`) doesn't ship it. Operator either
-  needs:
-    (a) a toolchain image that bundles markitdown (publish + tag story),
-    or
-    (b) a per-preset install step that pip-installs markitdown before
-        BootstrapDocument runs.
-
-  (b) reuses the InstallDependenciesHandler from p0202 with one
-  additional preset slot — far smaller blast radius than a new image
-  artefact. Operator's context.yaml carries `ci.install_command: pip
-  install markitdown` for the legal-analysis fixture context.
+  Bring legal-analysis into the docker tier by installing markitdown before BootstrapDocument via a per-preset install step declared in the fixture context.yaml, rather than a new toolchain image.
 
 requires:
   - p0199-real-composition-pipeline-harness

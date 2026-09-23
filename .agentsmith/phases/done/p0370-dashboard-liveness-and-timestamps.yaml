@@ -1,12 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0370-dashboard-liveness-and-timestamps
 goal: |
-  Close the two dashboard gaps left by the eventing rework and the operator's
-  review. (a) p0367 moved the per-tool-call firehose off the Run group and added
-  a coalesced SandboxActivity beat, but the dashboard had no handler — the detail
-  view lost its live "something is happening" signal. (b) The run list + detail
-  showed only relative duration ("47m", "2h ago") with no absolute wall-clock
-  time, so a run could not be placed in time.
+  The dashboard renders the coalesced sandbox-activity beat as a liveness signal on the run detail and shows absolute start times beside the relative durations in both list and detail.
 
 applies_to: "dashboard"
 

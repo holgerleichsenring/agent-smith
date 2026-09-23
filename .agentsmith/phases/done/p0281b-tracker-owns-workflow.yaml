@@ -1,14 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0281b
 goal: |
-  Make a project body terse by moving the workflow onto the tracker. The tracker entry OWNS
-  trigger_statuses / done_status / failed_status / pipeline_from_label / polling — identical
-  across all projects on the same tracker today — and a project supplies only its
-  `resolution`. Resolution collapses from the per-project `azuredevops_trigger:` wrapper to a
-  flat `resolution: {tag|area_path|repo|to_address: value}` (strategy is the key); the trigger
-  TYPE is inferred from tracker.type. Override is field-by-field: project → tracker → built-in
-  default, so a project CAN still override any workflow field, it just need not repeat it.
-  Independent of the discovery slice (p0281a); no network dependency.
+  Move the workflow onto the tracker entry so a project supplies only a flat resolution
+  shorthand, overriding field by field: project, then tracker, then built-in default.
 
 applies_to: "backend (config loader, PipelineResolver, ProjectResolver) + agentsmith.schema.json + sample config"
 

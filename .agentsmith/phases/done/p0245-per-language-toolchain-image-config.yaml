@@ -1,14 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0245
 goal: |
-  Let the operator SUPPLY/SELECT a sandbox toolchain image per language in config,
-  instead of the hardcoded SandboxSpecBuilder map being the only authority. Today
-  `csharp -> dotnet/sdk:9.0` is baked in code; an operator who builds a better
-  image (e.g. SDK 9 + the 8.0 runtime, or a pinned internal base) has no per-
-  language hook — only the whole-project `sandbox.toolchain_image` override, which
-  is wrong for polyglot projects. The non-magic answer to "how do you map without
-  the same code magic": the operator DECLARES the image; the code does not guess
-  or install at runtime.
+  Let the operator declare a sandbox toolchain image per language in config, instead of the hardcoded SandboxSpecBuilder map being the only authority below the whole-project override.
 
 applies_to: "backend (SandboxSpecBuilder + config)"
 

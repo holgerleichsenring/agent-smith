@@ -1,15 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0237
 goal: |
-  A failed/cancelled run used to vanish: it "failed" with a bare, often
-  meaningless reason in the ticket, wrote no result.md, opened no PR, and lost
-  partial work. Root cause (proven by a harness repro, not a live re-run): a
-  failed step short-circuited the executor before the finalizer tail. Make a
-  run ALWAYS finalize — record result.md (leading with WHY), open a record/
-  partial PR — on success, failure, AND internal timeout. Also: relocate the
-  agent's plan.md into the per-run record (was overwritten each run at repo
-  root), and harden the coding skill so a weaker model executes + keeps tests
-  in sync instead of stopping after the plan. Folds in p0236.
+  Make a run always finalize - result.md plus a record/partial PR - on success, failure and internal timeout; relocate the agent's plan.md into the per-run record and harden the coding skill.
 
 applies_to: "backend (pipeline executor + run-record) + coding skill"
 

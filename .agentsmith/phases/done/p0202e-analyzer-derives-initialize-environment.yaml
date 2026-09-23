@@ -1,17 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0202e-analyzer-derives-initialize-environment
 goal: |
-  Stop relying on a fixed operator-written prepare command for code projects,
-  and name the whole thing clearly. context.yaml is descriptive; a hand-written
-  executable command goes stale against the repo. The proof: p0202 stored
-  "npm ci", but the checked-out branch has no committed package-lock.json, so
-  npm ci fails (EUSAGE). An LLM that DERIVES the command from what is actually
-  committed picks "npm install".
-
-  So: the analyzer derives it (repo-state-aware) as the DEFAULT for code
-  projects; the operator value is an optional OVERRIDE; and everything is named
-  `prerequisites` / EnsurePrerequisites — no `ci` / `install` jargon, no
-  collision with the existing `stack.ci` (CI-platform array).
+  Let the analyzer derive the repo-state-aware prerequisite command for code projects, with the operator value as an optional override, named prerequisites / EnsurePrerequisites throughout.
 
 requires:
   - p0202-install-dependencies-step-and-aggregation-fixes

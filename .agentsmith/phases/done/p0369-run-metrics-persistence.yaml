@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0369
-goal: "The operator can see WHERE a run's time and cost went without reconstructing it by hand from raw events. Persist a per-run METRICS summary — folded incrementally from LlmCallFinished + SandboxResult as they arrive so a mid-run run already carries it — and serve it on the run detail. Fields: time split (LLM active ms, THROTTLE WAIT ms = time queued on the token rate limiter, sandbox-command ms); tool usage (reads/writes/run-commands/greps + top files by read/write count); content-aware REDUNDANCY (a re-read of UNCHANGED content is waste, a re-read of CHANGED content is legitimate — keyed on path + content-hash, same for re-writes); cache health (cold calls, warm->cold discards, uncached-reprocessed tokens); build/test invocations + failures."
+goal: "A per-run metrics summary is folded from events as they arrive and served on the run detail: time split, tool usage, content-aware redundancy, cache health and build/test counts and failures."
 
 applies_to: "contracts (SandboxResultEvent enrichment, RunMetrics fold + view); backend (SandboxEventProjector producer, RunEventApplier fold, Run entity + migrations, RunSnapshot(Mapper) read model)"
 

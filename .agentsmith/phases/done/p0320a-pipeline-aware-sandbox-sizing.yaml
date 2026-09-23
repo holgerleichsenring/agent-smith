@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0320a
-goal: "Sandbox sizing becomes pipeline-aware: only code-changing pipelines consume the LLM-authored context.yaml stack.resources build sizing; non-build pipelines (init-project, scans, legal, mad) get a light fixed profile. LLM-authored values are clamped to a hard ceiling, and the write_context_yaml guidance asks for balanced, cost-aware sizes instead of maximally defensive ones"
+goal: "Sandbox sizing becomes pipeline-aware: only code-changing pipelines consume the context-authored build sizing, other pipelines get a light profile, and authored values are clamped."
 
 applies_to: backend
 

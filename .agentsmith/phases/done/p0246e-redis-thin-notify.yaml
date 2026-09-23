@@ -1,11 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0246e
 goal: |
-  Demote Redis to thin change-notifications: the backend writes the DB then
-  publishes a tiny 'run {id} changed' nudge; JobsHub serves the run list/detail
-  from DB queries; the UI refetches on the nudge (no container-side caching).
-  Regenerate p0239b's recorded UI-e2e fixtures against the new nudge+refetch
-  contract (they were captured from the OLD payload contract and go stale).
+  Demote Redis to thin change-notifications: write the DB, publish a run-changed nudge, serve run list and detail from DB queries, and refetch in the UI with no container-side caching.
 
 applies_to: "server (JobsHub/JobsBroadcaster) + dashboard (refetch + fixtures)"
 

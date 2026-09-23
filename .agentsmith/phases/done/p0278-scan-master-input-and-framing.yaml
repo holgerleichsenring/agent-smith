@@ -1,15 +1,7 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0278
 goal: |
-  Make the scan masters actually REVIEW. p0267/p0277 fixed delivery, but a live
-  api-security run proved the master does nothing: it gets the coding contract
-  (AgenticMasterHandler renders a "implement your change + verify build/tests" user
-  prompt and a read-write tool surface), so gpt-5.1 ran `dotnet test`, changed
-  nothing, emitted no observations -> 0 findings. AND it is BLIND to the scanner
-  outputs: AgenticMasterHandler never reads NucleiResult/ZapResult/SpectralResult or
-  the OpenAPI spec into the prompt (p0179d retired CompressApiScanFindings, the only
-  feeder), so the 195 Nuclei + 4 ZAP findings were silently discarded. The p0267
-  premise "raw results stay prompt-only INPUTS to the master" was never implemented.
+  Make the scan masters actually review: they get the coding contract and read-write tools and are blind to the scanner outputs, so a live run changed nothing and found nothing.
 
 applies_to: "backend + skills"
 

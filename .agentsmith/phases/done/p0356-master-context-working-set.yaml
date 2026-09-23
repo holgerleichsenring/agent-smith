@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: p0356
-goal: "Make the master handle voluminous work (large multi-repo migrations, #19106) coherently: mechanize instead of iterate, externalize state instead of remembering it. Shape: SUBSTRATE + OVERLAY + SELECTOR. The substrate (growing transcript + p0341d compaction + pinned ledger) stays for all pipelines. The overlay activates when the scout finds large, low-coupling, independently verifiable item structure: a worklist FILE in the sandbox, decide-once-then-fan-out to subagent workers, ground-truth done. Preferred inside the overlay: the master WRITES the transform once (script/codemod via run_command, compiler-driven enumeration) and spends LLM calls only on residuals — O(transform classes), not O(sites)."
+goal: "Make the master handle voluminous multi-repo work coherently - mechanize instead of iterate, externalize state: substrate plus an opt-in worklist overlay keyed on coupling, not volume"
 
 applies_to: "backend agentic master (scout, worklist state, spawn_agents workers, ledger durability, batch verify, telemetry) + master skill text (mechanization affordance)"
 
