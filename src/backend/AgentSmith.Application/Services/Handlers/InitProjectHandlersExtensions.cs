@@ -15,6 +15,12 @@ public static class InitProjectHandlersExtensions
 {
     public static IServiceCollection AddInitProjectHandlers(this IServiceCollection services)
     {
+        // 2026-09-23-4711: one component's producer match, extracted from the dispatcher.
+        services.AddTransient<BootstrapRoundMatch>();
+        // 2026-09-23-4711: the retirement runs between the rounds and the commit — a context
+        // the derivation dropped is moved aside before the pull request is composed.
+        services.AddTransient<BootstrapContextRetirement>();
+        services.AddTransient<ICommandHandler<BootstrapRetireContext>, BootstrapRetireHandler>();
         services.AddTransient<ICommandHandler<InitCommitContext>, InitCommitHandler>();
         services.AddTransient<ICommandHandler<PrCrossLinkContext>, PrCrossLinkHandler>();
         services.AddTransient<ICommandHandler<InitCompleteContext>, InitCompleteHandler>();

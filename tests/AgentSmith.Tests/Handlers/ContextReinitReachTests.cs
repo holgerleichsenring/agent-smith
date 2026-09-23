@@ -70,12 +70,15 @@ public sealed class ContextReinitReachTests
         discovered.Message.Should().Contain("discovered components",
             "the round runs on a re-init and its answer is what the rounds are cut from");
         dispatched.IsSuccess.Should().BeTrue();
-        dispatched.InsertNext.Should().HaveCount(2,
+        // 2026-09-23-4711: the fan-out is followed by ONE retirement, so the rounds are the
+        // commands before it.
+        var rounds = dispatched.InsertNext!
+            .Where(command => command.Name == CommandNames.BootstrapRound).ToList();
+        rounds.Should().HaveCount(2,
             "one bootstrap round per existing context — each one re-writes its context.yaml "
             + "through write_context_yaml, which is where the image rule now applies");
-        dispatched.InsertNext.Select(command => command.Name)
-            .Should().AllBe(CommandNames.BootstrapRound);
-        dispatched.InsertNext.Select(command => command.ContextName)
+        dispatched.InsertNext[^1].Name.Should().Be(CommandNames.BootstrapRetire);
+        rounds.Select(command => command.ContextName)
             .Should().BeEquivalentTo(["server", "client"]);
     }
 
@@ -97,12 +100,13 @@ public sealed class ContextReinitReachTests
             NullLogger<BootstrapDiscoverHandler>.Instance);
 
     private static BootstrapDispatchHandler Dispatch() =>
-        new(new ActivationSkillFilter(
-                new ActivationExpressionParser(new ActivationExpressionTokenizer()),
-                new ActivationEvaluator(),
-                NullLogger<ActivationSkillFilter>.Instance),
-            context => new PipelineContextRunStateConcepts(context, Vocab),
-            NullLogger<BootstrapDispatchHandler>.Instance);
+        new(new BootstrapRoundMatch(
+                new ActivationSkillFilter(
+                    new ActivationExpressionParser(new ActivationExpressionTokenizer()),
+                    new ActivationEvaluator(),
+                    NullLogger<ActivationSkillFilter>.Instance),
+                NullLogger<BootstrapRoundMatch>.Instance),
+            context => new PipelineContextRunStateConcepts(context, Vocab));
 
     private static ProjectMap StubMap => new(
         PrimaryLanguage: "csharp",

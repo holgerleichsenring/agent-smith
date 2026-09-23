@@ -82,6 +82,7 @@ public static partial class CommandDisplayNames
         [CommandNames.BootstrapDispatch] = "Dispatch bootstrap skill",
         [CommandNames.BootstrapDiscover] = "Discover project components",
         [CommandNames.BootstrapRound] = "Produce bootstrap files",
+        [CommandNames.BootstrapRetire] = "Retire dropped contexts",
         [CommandNames.LoadSwagger] = "Load Swagger spec",
         [CommandNames.SpawnNuclei] = "Run Nuclei scan",
         [CommandNames.SpawnSpectral] = "Run Spectral lint",

@@ -13,4 +13,11 @@ public static partial class CommandNames
     /// leaves the pull request open with the reason recorded, and does not fail the
     /// run.</summary>
     public const string InitComplete = "InitCompleteCommand";
+
+    /// <summary>2026-09-23-4711: moves aside every context directory the repository carries
+    /// that this run's derivation did not produce. Emitted by BootstrapDispatch as the LAST
+    /// of its follow-ups, so it runs once every round has written — a round that fails stops
+    /// the pipeline before it and retires nothing. Never a finalizer, for the same
+    /// reason.</summary>
+    public const string BootstrapRetire = "BootstrapRetireCommand";
 }

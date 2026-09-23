@@ -93,6 +93,7 @@ public static class ContextBuildersExtensions
         AddBuilder<BootstrapDispatchContextBuilder>(services, CommandNames.BootstrapDispatch);
         AddBuilder<BootstrapDiscoverContextBuilder>(services, CommandNames.BootstrapDiscover);
         AddBuilder<BootstrapRoundContextBuilder>(services, CommandNames.BootstrapRound);
+        AddBuilder<BootstrapRetireContextBuilder>(services, CommandNames.BootstrapRetire);
         return services;
     }
 
