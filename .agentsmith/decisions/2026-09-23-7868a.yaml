@@ -1,0 +1,31 @@
+phase: 2026-09-23-7868a
+decisions:
+  - id: 1
+    what: "Correct every text carrying the rule, on the read path and the write path together."
+    alternatives: "Fix the discovery prompt alone, which is where the wrong answer was observed."
+    why: >
+      Discovery's workdir is transient; the write tool's description governs what is persisted
+      into a repository's context.yaml. A correction stopping at discovery moves the wrong
+      answer one round downstream, where it is written to disk instead of discarded.
+  - id: 2
+    what: "No validation gate."
+    alternatives: "Refuse a component whose declared manifest is absent or sits outside its workdir."
+    why: >
+      The gate drafted for this phase was satisfiable by naming any file inside the declared
+      directory, so the failure that prompted the phase would have passed it. A gate that works
+      needs a definition of what file proves a component, and a component proved by a deploy
+      artefact alone - a documentation tree among them - has none. The model had tools and a
+      tree in front of it and was told the answer; removing the instruction is the fix.
+  - id: 3
+    what: "The rule was searched for in both wordings, not one."
+    alternatives: "Correcting the places that say 'single-component'."
+    why: >
+      The same rule is written as 'single-stack' on the write path, which is where it does the
+      most damage. Ten texts carried it; a search for one wording found four.
+  - id: 4
+    what: "The two schema descriptions are corrected as documentation, not as instruction."
+    alternatives: "Treating them as contracts the model is held to."
+    why: >
+      Nothing sends either description to a model and nothing validates against a description.
+      A reader who trusts them is still misinformed, which is reason enough to fix them and
+      not reason to claim the fix changes behaviour.

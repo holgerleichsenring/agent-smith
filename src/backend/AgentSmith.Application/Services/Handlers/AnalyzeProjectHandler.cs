@@ -12,8 +12,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// Runs the agentic ProjectAnalyzer per discovered context (p0161a).
 /// Iterates ContextKeys.Sandboxes keys; per key analyzes the sub-tree at
-/// `/work/{discovery.Workdir}` (which is /work for single-stack repos and a
-/// sub-folder for monorepo contexts). Populates ContextKeys.RepoProjectMaps and
+/// `/work/{discovery.Workdir}` (which is /work only where the declared workdir
+/// is "." and a sub-folder otherwise). Populates ContextKeys.RepoProjectMaps and
 /// ContextKeys.RepoCodeMaps (keyed by sandbox key) — the only analysis surface;
 /// p0384 removed the singular first-key collapse so downstream prompts see EVERY
 /// scoped repo. Cache I/O goes through p0182's IProjectMapStore — Redis on the

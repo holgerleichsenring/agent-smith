@@ -80,7 +80,7 @@ public sealed class ContextWindowThresholdCheck(IPreflightConfigSource configSou
         yield return ("planning", models.Planning);
         if (models.Reasoning is { } reasoning) yield return ("reasoning", reasoning);
         yield return ("summarization", models.Summarization);
-        yield return ("contextGeneration", models.ContextGeneration);
+        if (models.ContextGeneration is { } contextGeneration) yield return ("contextGeneration", contextGeneration);
         yield return ("codeMapGeneration", models.CodeMapGeneration);
     }
 }

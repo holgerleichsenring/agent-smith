@@ -16,7 +16,7 @@
         "required": ["name", "workdir", "language", "evidence"],
         "properties": {
           "name": { "type": "string", "minLength": 1, "description": "Context-directory slug under .agentsmith/contexts/. Operator-readable, lowercase, no slashes." },
-          "workdir": { "type": "string", "minLength": 1, "description": "Repo-relative working directory. \".\" for single-component repos." },
+          "workdir": { "type": "string", "minLength": 1, "description": "Repo-relative sub-tree this component's source occupies, read off the tree. \".\" only where that source is the whole repository." },
           "language": { "type": "string", "minLength": 1, "description": "Free-form language slug owned by the LLM (drives bootstrap-skill activation via project_language)." },
           "evidence": { "type": "string", "minLength": 1, "description": "File path proving the component is deployable or callable (entrypoint or deploy artefact)." }
         }

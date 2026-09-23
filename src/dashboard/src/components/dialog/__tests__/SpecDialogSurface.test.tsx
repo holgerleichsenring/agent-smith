@@ -655,23 +655,136 @@ describe("SpecDialogSurface", () => {
     expect(scope).toHaveTextContent("v1.2");
   });
 
+  // 2026-09-23-6e3f: THE EMPTY EXCHANGE IS THE CHOICE. The rule that a conversation needs a
+  // project was already enforced, but its two halves sat half a page apart — a text box disabled
+  // in the middle of the column, and the select that would enable it at the top of another one.
+  // The cases below are what says the halves are now one thing, and what tells the three states
+  // apart that an empty project list cannot.
+  const OTHER = { name: "other", repos: ["repo-b"], templates: [] };
+
+  it("SpecDialogSurface_NoSessionAndNoProject_ShowsTheChoiceAndNoComposer", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-project-choice")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-choice-project")).toBeInTheDocument();
+    // No box to refuse a message, and no transcript behind it either: the column IS the choice.
+    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-transcript-empty")).not.toBeInTheDocument();
+    // And exactly one select on the whole surface — the list no longer carries a second.
+    expect(screen.getAllByLabelText("Project")).toHaveLength(1);
+    expect(screen.queryByTestId("dialog-project-picker")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ViewNotYetRead_SaysItIsLoading", async () => {
+    // A read that never answers. Before this phase the pending state and the answered-empty one
+    // were the same empty list, and both drew a select with nothing in it.
+    fetchSpecDialog.mockReturnValue(new Promise(() => {}));
+    render(<SpecDialogSurface />);
+    await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
+
+    expect(await screen.findByTestId("dialog-project-choice-loading"))
+      .toHaveTextContent("Reading the configured projects");
+    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-project-choice-none")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ViewFailed_DoesNotSitInLoadingForever", async () => {
+    // A failed read leaves the same null view as a pending one, for ever. The page says which.
+    fetchSpecDialog.mockRejectedValue(new Error("the dialog could not be read"));
+    render(<SpecDialogSurface />);
+
+    expect(await screen.findByTestId("dialog-project-choice-failed"))
+      .toHaveTextContent("could not be read");
+    expect(screen.queryByTestId("dialog-project-choice-loading")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_NoConfiguredProject_SaysSoAndOffersNoSelect", async () => {
+    // What used to read "Pick a project first" beside no picker anywhere on the page.
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [] }));
+    await renderSurface();
+
+    expect(await screen.findByTestId("dialog-project-choice-none"))
+      .toHaveTextContent("No project is configured");
+    expect(screen.queryByTestId("dialog-choice-project")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-project-choice-loading")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_SingleConfiguredProject_OpensStraightIntoTheComposer", async () => {
+    // One project is not a choice. It resolves without being asked for, and the person never
+    // meets any of the states above.
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE] }));
+    await renderSurface();
+
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        heldDialogId(), "a widget that reads the ledger", "sample"));
+  });
+
+  it("SpecDialogSurface_StartNew_ReturnsToTheChoice", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    await renderSurface();
+    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+      target: { value: "other" },
+    });
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("dialog-new"));
+
+    // The pick is the surface's own state, so nothing the hook clears would clear it: a new
+    // conversation that kept it would open on a project it never asked about.
+    expect(await screen.findByTestId("dialog-project-choice")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-choice-project")).toHaveValue("");
+    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ProjectPickedInTheChoice_PostsOnThatProject", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, OTHER] }));
+    await renderSurface();
+
+    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+      target: { value: "other" },
+    });
+
+    // Picking leaves the choice, and what was picked is what the first message opens on.
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
+      target: { value: "a widget that reads the ledger" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        heldDialogId(), "a widget that reads the ledger", "other"));
+  });
+
   // 2026-09-22-2a86: the control used to post "/spec other" as message text, which the server
   // parsed back into an opening command. It mints a tab now, and the FIRST message opens the
   // conversation on the picked project — one route, carrying what the page holds.
+  // 2026-09-23-6e3f: in the other ORDER. The pick used to be made in the list before the click;
+  // it is made in the choice the click returns to, and the subject — one route, no command text,
+  // the picked project on the post — is unchanged.
   it("Page_TheNewConversationControl_CallsTheRouteAndPostsNoCommandText", async () => {
     const other = { name: "other", repos: [], templates: [] };
     fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE, other] }));
     await renderSurface();
     const first = heldDialogId();
 
-    fireEvent.change(screen.getByTestId("dialog-project-picker"), {
-      target: { value: "other" },
-    });
     fireEvent.click(screen.getByTestId("dialog-new"));
 
     await waitFor(() => expect(heldDialogId()).not.toBe(first));
     expect(postSpecDialogMessage).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
+      target: { value: "other" },
+    });
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "a widget that reads the ledger" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1559,19 +1672,29 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-exchange-project")).not.toBeInTheDocument();
   });
 
-  // Also a REGRESSION GUARD: this passes on the parent commit too, because the phase deliberately
-  // left the picker alone. It is what says the header naming the session's project did NOT make
-  // the picker follow it — the alternative this phase considered and rejected.
+  // A REGRESSION GUARD on the same subject as before: a new conversation can be started on a
+  // project OTHER than the one open here, and the header naming the open session's project did
+  // not make the choice follow it.
+  // 2026-09-23-6e3f: the order is reversed — New first, and the project picked in the choice the
+  // fresh tab lands on. The read is keyed by dialog id, because the conversation is open on the
+  // id the page arrived with and a fresh one has nothing open.
   it("SpecDialog_NewConversation_StillUsesThePickedProjectWhileASessionIsOpen", async () => {
-    fetchSpecDialog.mockResolvedValue(view({
-      projects: [SAMPLE_SCOPE, { name: "other", repos: ["repo-b"], templates: [] }],
-    }));
+    const projects = [SAMPLE_SCOPE, { name: "other", repos: ["repo-b"], templates: [] }];
+    const arrived: { id: string | null } = { id: null };
+    fetchSpecDialog.mockImplementation(async (dialogId: string) => {
+      arrived.id ??= dialogId;
+      return dialogId === arrived.id
+        ? view({ projects })
+        : view({ projects, session: null });
+    });
     await renderSurface();
+    expect(await screen.findByTestId("dialog-exchange-project")).toHaveTextContent("sample");
 
-    fireEvent.change(await screen.findByTestId("dialog-project-picker"), {
+    fireEvent.click(screen.getByTestId("dialog-new"));
+
+    fireEvent.change(await screen.findByTestId("dialog-choice-project"), {
       target: { value: "other" },
     });
-    fireEvent.click(screen.getByTestId("dialog-new"));
     fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "a widget that reads the ledger" },
     });

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { SpecDialogProject, SpecDialogSessionSummary } from "@/types/spec-dialog";
+import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 import { lastActive, outcomeLabel } from "./conversationRows";
 
 // 2026-09-15-cb3e: "/spec" and "/spec new <project>" are a project picker and a button, and
@@ -18,24 +18,22 @@ import { lastActive, outcomeLabel } from "./conversationRows";
 // a button is invalid markup and warns. The row is a container now, with the open control and
 // the delete control as siblings; neither is inside the other, and neither has to stop a click
 // travelling out of it.
+// 2026-09-23-6e3f: the project select is gone from here. It is asked once, in the exchange
+// column's empty state, where a person starting a conversation is already looking — two places
+// to pick one thing is how a select at the top of this column came to sit half a page away from
+// the box it was silently disabling.
 
 export function DialogConversations({
   dialogId,
   sessionHere,
-  projects,
   conversations,
-  picked,
-  onPicked,
   onStartNew,
   onOpen,
   onDelete,
 }: {
   dialogId: string | null;
   sessionHere: string | null;
-  projects: SpecDialogProject[];
   conversations: SpecDialogSessionSummary[];
-  picked: string;
-  onPicked: (project: string) => void;
   onStartNew: () => void;
   onOpen: (sessionId: string, openDialogId: string | null) => void;
   onDelete: (sessionId: string) => void;
@@ -60,22 +58,6 @@ export function DialogConversations({
         <h2 className="ec-name sans">Recents</h2>
       </div>
       <div className="d-body flex flex-col gap-3">
-        {projects.length > 1 && (
-          <select
-            data-testid="dialog-project-picker"
-            aria-label="Project"
-            value={picked}
-            onChange={(event) => onPicked(event.target.value)}
-            className="d-input"
-          >
-            <option value="">pick a project…</option>
-            {projects.map((project) => (
-              <option key={project.name} value={project.name}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        )}
         <button
           type="button"
           data-testid="dialog-new"

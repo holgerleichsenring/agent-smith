@@ -126,7 +126,7 @@ public sealed class BootstrapDiscoverHandler(
         BootstrapDiscoverContext context, RoleSkillDefinition skill,
         Repository repository, RepoConnection repo, CancellationToken ct)
     {
-        var sandbox = ResolveSandbox(context.Pipeline, repo.Name);
+        var sandbox = ResolveSandbox(context.Pipeline, repo);
         if (sandbox is null)
             return DiscoverResult.Failed(CommandResult.Fail(
                 $"BootstrapDiscover: no sandbox available for repo '{repo.Name}'"));
@@ -155,8 +155,8 @@ public sealed class BootstrapDiscoverHandler(
         BootstrapDiscoverContext context, RoleSkillDefinition skill,
         string system, string user, IList<AITool> tools, string repoName, CancellationToken ct)
     {
-        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.Primary);
-        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.Primary);
+        var chat = chatClientFactory.Create(context.AgentConfig, TaskType.ContextGeneration);
+        var maxTokens = chatClientFactory.GetMaxOutputTokens(context.AgentConfig, TaskType.ContextGeneration);
         var options = new ChatOptions { Tools = tools, MaxOutputTokens = maxTokens };
         var costTracker = PipelineCostTracker.GetOrCreate(context.Pipeline);
         var roleName = skill.Role ?? "producer";
@@ -212,14 +212,13 @@ public sealed class BootstrapDiscoverHandler(
                "Re-run init-project via the CLI for interactive disambiguation.";
     }
 
-    private static ISandbox? ResolveSandbox(PipelineContext pipeline, string repoName)
-    {
-        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
-                ContextKeys.Sandboxes, out var dict) || dict is null)
-            return null;
-        if (dict.TryGetValue(repoName, out var exact)) return exact;
-        return dict.Values.FirstOrDefault();
-    }
+    // 2026-09-23-6698: the sandbox this repository OWNS, through the one key→repo
+    // ownership test. A sandbox key equals the repo name in a single run shape
+    // (several repos, one toolchain group each); the other three key on "default",
+    // on the context name, or on repo-plus-context — so the name lookup missed and
+    // the first entry in the dictionary served, which is another repository's tree.
+    private ISandbox? ResolveSandbox(PipelineContext pipeline, RepoConnection repo) =>
+        sandboxTargets.SandboxesForRepo(pipeline, repo) is [var owned, ..] ? owned.Value : null;
 
     // p0384: RepoProjectMaps is the only analysis surface — a single-repo run is
     // a dictionary of one, so an unmatched repo name falls back to the sole entry.

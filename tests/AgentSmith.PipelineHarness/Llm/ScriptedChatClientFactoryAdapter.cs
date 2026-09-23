@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using Microsoft.Extensions.AI;
 
@@ -11,7 +12,8 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// <summary>
 /// p0199: bridges the harness's single <see cref="ScriptedChatClient"/>
 /// instance into the production IChatClientFactory shape. Tool-bearing
-/// tasks (Primary / Scout / Planning) are wrapped with the same
+/// tasks (2026-09-23-e848: read from <see cref="ChatClientFactory.ToolBearingTasks"/>,
+/// since the copy that stood here omitted Reasoning) are wrapped with the same
 /// FunctionInvokingChatClient as production's ChatClientFactory so
 /// scripted FunctionCallContent responses actually invoke the registered
 /// AITools — that's what exercises FilesystemToolHost / LogDecisionToolHost
@@ -32,9 +34,6 @@ internal sealed class ScriptedChatClientFactoryAdapter(
     ScriptedChatClient client, IRunTraceWriter trace, IRunContextAccessor runContext)
     : IChatClientFactory
 {
-    private static readonly HashSet<TaskType> ToolBearingTasks =
-        new() { TaskType.Primary, TaskType.Scout, TaskType.Planning };
-
     /// <summary>For the unit-shaped tests that drive one collaborator, not a whole run.</summary>
     public static ScriptedChatClientFactoryAdapter Untraced(ScriptedChatClient client) =>
         new(client, new NullRunTraceWriter(),
@@ -45,7 +44,7 @@ internal sealed class ScriptedChatClientFactoryAdapter(
         var inner = trace.IsEnabled
             ? new RecordingChatClient(client, trace, runContext)
             : (IChatClient)client;
-        if (!ToolBearingTasks.Contains(task)) return inner;
+        if (!ChatClientFactory.ToolBearingTasks.Contains(task)) return inner;
         var loopInner = masterLoopHooks is null
             ? inner
             : new MasterLoopGovernorChatClient(inner, masterLoopHooks);

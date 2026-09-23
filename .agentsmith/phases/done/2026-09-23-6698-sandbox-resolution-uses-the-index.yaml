@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-6698
+
+goal: "The two bootstrap rounds ask the repository's own ownership test which sandbox is theirs, so a run stops reading and writing a tree that belongs to another repository or another toolchain."
+
+applies_to: "backend (sandbox resolution in the bootstrap discovery and bootstrap round handlers)"
+
+facts:
+  - claim: "A repo-name lookup against the sandbox dictionary hits in exactly ONE run shape - several repositories, one toolchain group each. The other three shapes key on \"default\", on the context name, or on repo-plus-context, and all three miss."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs:57-63"
+  - claim: "Discovery misses and then returns whichever sandbox is first, with no count guard and no ownership test."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:220"
+  - claim: "The round misses and falls back to the singular slot, which holds the first key the coordinator composed. It is dispatched once per repository AND context, so on one repository with two toolchain groups every round runs in the first group's pod."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:145, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:124, src/backend/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs:57"
+  - claim: "The one ownership test already exists, names itself as such, and is ALREADY injected into the discovery handler - which never calls it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:61, src/backend/AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs:38"
+  - claim: "It answers from the coordinator's key-to-repo map when present and decodes the key scheme when absent, so fixtures that seed no map keep working."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:72-78"
+  - claim: "One repository can own several sandboxes, which is why the accessor beside it returns a list; the round must therefore resolve by repository AND context, not by repository alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:46"
+  - claim: "The round already fails loudly and names the repository when none is found, so this phase changes how one is found, not what happens when none is."
+    evidence: "tests/AgentSmith.Tests/Handlers/BootstrapRoundHandlerMultiRepoTests.cs:80"
+  - claim: "The coordinator publishes the map in the same block as the dictionary, before either round runs."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:116-124"
+
+scope:
+  in: >
+    Both rounds stop matching a repo name against a key and ask SandboxTargets instead, which is
+    the test this repository already calls authoritative and which discovery already holds
+    without using. Discovery takes the sandbox its repository owns. The round takes the one its
+    repository owns FOR ITS CONTEXT, because a repository with two toolchain groups owns two and
+    the round is dispatched once per context.
+
+    The arbitrary fallbacks go: first-in-the-dictionary in discovery, the singular slot in the
+    round. Neither is bounded today and neither can be bounded usefully, since the shape that
+    needs a fallback and the shape that must not have one are the same size.
+  out: >
+    The analysis maps, published under a sandbox key while both rounds look them up by repository
+    name - the same defect one line from the code this phase touches. It is the successor phase:
+    the one that makes the project-map lookup ask the same ownership test.
+
+decisions:
+  - key: "Call the existing ownership test rather than write a fourth match. String matching on the key scheme is the bug class that already dropped multi-group repos twice, by that helper's own record, and the composer has gained a shape since."
+  - key: "The round resolves by repository AND context. Resolving by repository alone answers a question with several correct answers, and picking among them is how the singular slot got it wrong in the first place."
+  - key: "The resolution lives on the ownership type, not in the round. The round handler was already over the file ceiling, and \"which sandbox does this repository own for this context\" is the same question the type beside it already answers for a repository."
+  - key: "A miss stays a failure rather than becoming a borrow. A borrowed sandbox writes a context derived from another tree, which surfaces only when a later run reasons from it - far worse than a failed init, which writes nothing."
+
+steps:
+  - id: discovery-asks-the-owner
+    action: "Resolve discovery's sandbox through the ownership test it already holds, and drop the first-in-the-dictionary fallback."
+    modify:
+      - "BootstrapDiscoverHandler: ResolveSandbox"
+  - id: round-asks-for-its-context
+    action: "Resolve the round's sandbox by repository and context, and drop the singular-slot fallback."
+    modify:
+      - "SandboxTargets: the (repo, context) resolution joins the ownership test it needs"
+      - "BootstrapRoundHandler: it asks for the pair instead of resolving one itself"
+      - "the round handler's registration and its test construction helper"
+
+tests:
+  - "BootstrapDiscover_MultiRepoMultiGroupKeys_ResolvesItsOwnRepoSandbox"
+  - "BootstrapDiscover_NoOwnerMap_StillResolvesByTheKeyScheme"
+  - "BootstrapRound_OneRepoTwoToolchainGroups_ResolvesItsOwnContextSandbox"
+  - "BootstrapRound_RepoOwnsNoSandbox_StillFailsNamingTheRepo"
+
+done:
+  - "Neither round can return a sandbox belonging to another repository, or to another context of its own repository."
+  - "A run whose fixtures seed no owner map resolves exactly as it does today."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

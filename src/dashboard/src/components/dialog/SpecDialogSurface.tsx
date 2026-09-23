@@ -13,6 +13,7 @@ import { deletionWarning } from "./conversationDelete";
 import { DialogComposer } from "./DialogComposer";
 import { DialogConversations } from "./DialogConversations";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
+import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTranscript } from "./DialogTranscript";
 import { DialogWorking } from "./DialogWorking";
@@ -76,6 +77,10 @@ export function SpecDialogSurface() {
   const project = picked || (projects.length === 1 ? projects[0].name : "");
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
+  // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
+  // all three states, so the VIEW is what tells them apart: a read that has not answered leaves
+  // it null, and a read that failed leaves the same null for ever with a failure beside it.
+  const read: ProjectsRead = dialog.view ? "read" : dialog.failure ? "failed" : "pending";
   const [focus, setFocus] = useDialogPaneFocus(dialog.proposal, dialog.filed);
   // 2026-09-20-4b0ae: INSPECT ACKNOWLEDGES ITSELF. The pane selects the proposal tab by
   // fallback whenever nothing has been filed, so the commonest state is the pane already
@@ -149,20 +154,25 @@ export function SpecDialogSurface() {
             <DialogConversations
               dialogId={dialog.dialogId}
               sessionHere={session?.sessionId ?? null}
-              projects={projects}
               conversations={dialog.conversations}
-              picked={picked}
-              onPicked={setPicked}
-              onStartNew={() => void dialog.startNew()}
+              onStartNew={() => {
+                // 2026-09-23-6e3f: the pick is cleared HERE, where it lives. The hook mints the
+                // dialog id and clears the view, but it holds no reference to the pick — and a
+                // new conversation that kept the last one's project would open on it without
+                // ever having asked.
+                setPicked("");
+                void dialog.startNew();
+              }}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
               onDelete={(sessionId) => void remove(sessionId)}
             />
             <section className="ecard inert min-w-0">
               <div className="d-head">
-                {/* 2026-09-17-042em: the header names the open session's PROJECT. The picker
-                    beside the list stays a choice — it feeds New conversation, and disabling it
-                    on the open session's project would stop a new conversation on another one —
-                    so this is where a person reads what the conversation they are in is about. */}
+                {/* 2026-09-17-042em: the header names the open session's PROJECT — this is
+                    where a person reads what the conversation they are in is about.
+                    2026-09-23-6e3f: and the choice that picks one for the NEXT conversation is
+                    this column's empty state, so the two are never on screen together and
+                    neither can be read as the other. */}
                 <div className="d-head-t">
                   <h2 data-testid="dialog-heading" className="ec-name sans min-w-0">
                     {title ?? "New conversation"}
@@ -183,33 +193,48 @@ export function SpecDialogSurface() {
                 </span>
               </div>
               <div className="d-body flex flex-col gap-4">
-                <DialogTranscript
-                  entries={dialog.entries}
-                  onInspect={inspect}
-                />
-                {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
-                    so a page arriving mid-turn is not shown a conversation that looks over. */}
-                {dialog.working && (
-                  <DialogWorking
-                    readings={dialog.readings}
-                    activity={dialog.activity}
-                    since={dialog.workingSince}
+                {mustPick ? (
+                  <DialogProjectChoice
+                    projects={projects}
+                    read={read}
+                    picked={picked}
+                    onPicked={setPicked}
                   />
-                )}
-                {dialog.question && (
-                  <DialogQuestionCard
-                    question={dialog.question}
-                    proposal={dialog.proposal}
-                    onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
-                  />
+                ) : (
+                  <>
+                    <DialogTranscript
+                      entries={dialog.entries}
+                      onInspect={inspect}
+                    />
+                    {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
+                        so a page arriving mid-turn is not shown a conversation that looks over. */}
+                    {dialog.working && (
+                      <DialogWorking
+                        readings={dialog.readings}
+                        activity={dialog.activity}
+                        since={dialog.workingSince}
+                      />
+                    )}
+                    {dialog.question && (
+                      <DialogQuestionCard
+                        question={dialog.question}
+                        proposal={dialog.proposal}
+                        onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
+                      />
+                    )}
+                  </>
                 )}
               </div>
-              <DialogComposer
-                disabled={!dialog.dialogId || mustPick}
-                hint={mustPick ? "Pick a project first — that is what a conversation reads." : undefined}
-                onSend={(text) => void dialog.send(text, project)}
-                onAttach={(file) => void dialog.attach(file, project)}
-              />
+              {/* The first render holds no dialog id yet — it is read off the browser after the
+                  mount — so the composer is still guarded on that. Nothing else disables it:
+                  with no project picked there is no composer to disable. */}
+              {!mustPick && (
+                <DialogComposer
+                  disabled={!dialog.dialogId}
+                  onSend={(text) => void dialog.send(text, project)}
+                  onAttach={(file) => void dialog.attach(file, project)}
+                />
+              )}
             </section>
             <DialogPane
               session={session}

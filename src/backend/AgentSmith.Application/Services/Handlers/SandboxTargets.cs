@@ -77,4 +77,36 @@ public sealed class SandboxTargets
             || sandboxKey.StartsWith(repoName + "/", StringComparison.Ordinal)
             || sandboxKey.StartsWith(repoName + "-", StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// 2026-09-23-6698: the sandbox a repository owns FOR ONE CONTEXT. A round is dispatched
+    /// once per (repo, context) and a repository with two toolchain groups owns two sandboxes,
+    /// so the repository alone has several correct answers — the sandbox's own context list
+    /// picks between them. A repository owning exactly one owns it for every context of its
+    /// own. Null when none belongs to it, which the caller reports rather than borrowing.
+    /// </summary>
+    public ISandbox? OwnedForContext(PipelineContext pipeline, string repoName, string contextName)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(
+                ContextKeys.Sandboxes, out var dict) || dict is null)
+            return null;
+
+        pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var owners);
+        pipeline.TryGet<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
+            ContextKeys.SandboxDiscoveries, out var discoveries);
+        var multiRepo = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos)
+                        && repos is not null && repos.Count > 1;
+
+        var owned = dict
+            .Where(kv => KeyBelongsToRepo(kv.Key, repoName ?? string.Empty, multiRepo, owners))
+            .ToList();
+        if (owned.Count <= 1) return owned.Count == 1 ? owned[0].Value : null;
+
+        foreach (var (key, sandbox) in owned)
+            if (SandboxContextList.InOr(pipeline, key, discoveries?.GetValueOrDefault(key))
+                .Any(c => string.Equals(c.ContextName, contextName, StringComparison.Ordinal)))
+                return sandbox;
+        return null;
+    }
 }

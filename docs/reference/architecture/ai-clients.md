@@ -12,7 +12,7 @@ IChatClientFactory
   └─ OllamaChatClientBuilder       (OllamaSharp 5.4.24 — OllamaApiClient : IChatClient)
 ```
 
-`IChatClientFactory.Create(AgentConfig agent, TaskType task)` resolves the right builder by `AgentConfig.Type`, applies the per-task `ModelAssignment` from `ConfigBasedModelRegistry`, and wraps tool-bearing tasks (Primary / Scout / Planning) with `FunctionInvokingChatClient` configured for `MaximumIterationsPerRequest = 25`. Tasks that don't take tools (ContextGeneration / CodeMapGeneration / Summary) get the bare `IChatClient`.
+`IChatClientFactory.Create(AgentConfig agent, TaskType task)` resolves the right builder by `AgentConfig.Type`, applies the per-task `ModelAssignment` from `ConfigBasedModelRegistry`, and wraps tool-bearing tasks with `FunctionInvokingChatClient` configured for `MaximumIterationsPerRequest = 25`. Which tasks those are is stated once, in `ChatClientFactory.ToolBearingTasks`: Primary / Scout / Planning / Reasoning / ContextGeneration. Tasks outside that set (Summarization / CodeMapGeneration) get the bare `IChatClient`.
 
 `AgentConfig` is per-pipeline runtime data, not a DI singleton — pass it to each `Create` call. The four `IChatClientBuilder`s and the factory itself are DI singletons.
 

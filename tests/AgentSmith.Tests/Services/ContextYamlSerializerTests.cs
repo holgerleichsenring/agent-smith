@@ -156,6 +156,27 @@ public sealed class ContextYamlSerializerTests
     }
 
     [Fact]
+    public void ContextYamlSerializer_MissingWorkdir_RefusesWithoutPrescribingADot()
+    {
+        // 2026-09-23-7868a: this refusal reaches the model exactly when it is being
+        // corrected, so a message prescribing "." for a single-stack repository taught
+        // the wrong answer at the one moment the model was listening.
+        var yaml = """
+            meta:
+              purpose: Serves orders to the storefront.
+            stack:
+              lang: csharp
+            """;
+        var act = () => _sut.Parse(yaml);
+
+        var message = act.Should().Throw<InvalidOperationException>().Which.Message;
+        message.Should().Contain("meta.workdir");
+        message.Should().NotContainEquivalentOf("single-stack");
+        message.Should().NotContain("set workdir: \".\"");
+        message.Should().Contain("sub-tree this stack's source occupies");
+    }
+
+    [Fact]
     public void Parse_BareUnquotedAtScopedPackage_StillSurfacesScannerError()
     {
         // The defensive read-path still works for legacy / external files
