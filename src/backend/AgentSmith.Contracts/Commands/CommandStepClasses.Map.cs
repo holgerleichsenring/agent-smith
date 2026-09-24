@@ -105,6 +105,7 @@ public static partial class CommandStepClasses
         [CommandNames.PipelineNameInitializer] = Internal,
         [CommandNames.PublishProjectLanguage] = Internal,
         [CommandNames.BootstrapDispatch] = Internal,
+        [CommandNames.BootstrapRetire] = Internal,
         [CommandNames.CollectMasterFindings] = Internal,
         [CommandNames.MergeMasterFindings] = Internal,
         [CommandNames.CompressApiScanFindings] = Internal,

@@ -123,7 +123,6 @@
 139	AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs
 138	AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs
 137	AgentSmith.Application/Services/ApiScanFindingsCompressor.cs
-137	AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs
 137	AgentSmith.Application/Services/PipelineQueueConsumer.cs
 137	AgentSmith.Cli/Commands/SkillsPullCommand.cs
 136	AgentSmith.Application/Services/Loop/RuntimeObservationFactory.cs

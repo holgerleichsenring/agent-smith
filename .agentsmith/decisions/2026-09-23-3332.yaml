@@ -1,0 +1,32 @@
+phase: 2026-09-23-3332
+decisions:
+  - id: 1
+    what: "Align the task's criterion to the skill body's wording, not the other way round."
+    alternatives: "Loosen the skill, or leave the two halves differing."
+    why: >
+      The skill is right and shipped; the half this repository writes is the one that is wrong.
+      Matching it costs no release and ends a disagreement inside one prompt - the system half
+      excluded internal shared libraries by name while the user half spoke only of a CONSUMED
+      library, which a layer project shipping to no registry never is.
+  - id: 2
+    what: "The count anchor returns as a statement about deployment."
+    alternatives: "Restore the sentence 2026-09-23-7868a removed."
+    why: >
+      That sentence bounded the count and the workdir in one breath, which is why removing the
+      workdir half took the count with it. Written as what it is - a repository that deploys one
+      thing has one component, however many projects build it - it cannot re-create the defect
+      7868a was cut for.
+  - id: 3
+    what: "The prior art keeps its permission to add, bound to the criterion."
+    alternatives: "Remove the permission."
+    why: >
+      A re-derivation that may only subtract cannot answer a repository that genuinely grew.
+      What was missing was not the limit on adding but the statement that absence from the list
+      makes nothing a component the criterion excludes.
+  - id: 4
+    what: "The contract's prose is corrected with the prompts."
+    alternatives: "Leave it; nothing sends it to a model."
+    why: >
+      2026-09-23-7868a found one rule written in ten places and corrected all of them. Leaving
+      one behind starts the next divergence at one, and a reader of the contract would be told
+      the narrower rule the prompts no longer state.

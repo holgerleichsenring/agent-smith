@@ -1,0 +1,38 @@
+phase: 2026-09-23-4711
+decisions:
+  - id: 1
+    what: "Retire into a SIBLING of contexts/, not a renamed child."
+    alternatives: "A <name>.retired directory inside contexts/."
+    why: >
+      Every reader of what a repository declares lists the children of one directory. A name
+      parked one directory across leaves the probe without anything having to learn that
+      retirement exists; renamed in place it would still be listed and its document would still
+      parse.
+  - id: 2
+    what: "Retire, do not delete."
+    alternatives: "Remove the directory the derivation no longer produces."
+    why: >
+      The tree is the only record a context ever had, and a derivation that produced the wrong
+      set once can produce a wrong set again. A move is a proposal in the pull request; a delete
+      is a fact before anybody looked.
+  - id: 3
+    what: "It runs as the last step of the fan-out, not in the finalizer tail."
+    alternatives: "Beside WriteRunResult, which runs on every exit."
+    why: >
+      The tail is the one thing that runs past a failed step. In it, a half-written derivation
+      would retire against a set that was never finished; after the rounds, a failed round stops
+      the pipeline first and the tree is left exactly as it was.
+  - id: 4
+    what: "Set difference by name, with no attempt to match a dropped context to its successor."
+    alternatives: "Reconciling the derived set onto the declared one."
+    why: >
+      2026-09-23-9bb2 established there is no key for that - the workdir is the thing being
+      corrected and the name is the thing being compared. A name present on one side only needs
+      no counterpart, which is why this is buildable where reconciliation was not.
+  - id: 5
+    what: "A move the sandbox refuses is reported, not fatal."
+    alternatives: "Fail the step."
+    why: >
+      Failing aborts before the commit and throws a whole derivation away over a mv. The
+      retirement is a proposal in the pull request, and there is no pull request if the run
+      dies; the refusal is named in the result and the context stays declared.

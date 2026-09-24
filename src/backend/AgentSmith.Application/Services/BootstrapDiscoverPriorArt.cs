@@ -33,8 +33,10 @@ internal static class BootstrapDiscoverPriorArt
 
             Derive from the tree as you would with no such list, then use it: keep an entry the
             tree still proves, correct a name, workdir or language it does not, drop one whose
-            component is gone, and add a component that was missed. A workdir here that does not
-            match where the source actually sits is the value to fix.
+            component is gone, and add a component the criterion below proves and this list
+            missed — being absent from this list makes nothing a component that the criterion
+            excludes. A workdir here that does not match where the source actually sits is the
+            value to fix.
             """;
     }
 

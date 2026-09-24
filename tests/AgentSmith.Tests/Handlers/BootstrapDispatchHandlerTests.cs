@@ -36,7 +36,15 @@ public sealed class BootstrapDispatchHandlerTests
         ctx => new PipelineContextRunStateConcepts(ctx, Vocab);
 
     private BootstrapDispatchHandler Handler() => new(
-        _filter, _conceptsFactory, NullLogger<BootstrapDispatchHandler>.Instance);
+        new BootstrapRoundMatch(_filter, NullLogger<BootstrapRoundMatch>.Instance),
+        _conceptsFactory);
+
+    /// <summary>
+    /// 2026-09-23-4711: the rounds, without the retirement the dispatcher appends after them.
+    /// Every assertion here is about the FAN-OUT; the retirement has its own tests.
+    /// </summary>
+    private static IReadOnlyList<PipelineCommand> Rounds(CommandResult result) =>
+        [.. result.InsertNext!.Where(c => c.Name == CommandNames.BootstrapRound)];
 
     [Fact]
     public async Task ExecuteAsync_SingleMatch_EmitsBootstrapRound()
@@ -59,9 +67,13 @@ public sealed class BootstrapDispatchHandlerTests
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.InsertNext.Should().HaveCount(1);
-        var emitted = result.InsertNext[0];
+        var rounds = Rounds(result);
+        rounds.Should().HaveCount(1);
+        var emitted = rounds[0];
         emitted.Name.Should().Be(CommandNames.BootstrapRound);
+        // 2026-09-23-4711: the retirement is appended after the fan-out, never inside it.
+        result.InsertNext.Should().HaveCount(2);
+        result.InsertNext[^1].Name.Should().Be(CommandNames.BootstrapRetire);
         emitted.SkillName.Should().Be("csharp-bootstrap");
         emitted.Round.Should().Be(1);
         // p0161d: each emitted round carries ContextName + Workdir
@@ -186,13 +198,13 @@ public sealed class BootstrapDispatchHandlerTests
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.InsertNext.Should().HaveCount(3);
-        var byRepo = result.InsertNext.ToDictionary(c => c.RepoName!, c => c.SkillName);
+        var rounds = Rounds(result);
+        rounds.Should().HaveCount(3);
+        var byRepo = rounds.ToDictionary(c => c.RepoName!, c => c.SkillName);
         byRepo["server"].Should().Be("csharp-bootstrap");
         byRepo["client"].Should().Be("typescript-bootstrap");
         byRepo["docs"].Should().Be("markdown-bootstrap");
-        result.InsertNext.Should().OnlyContain(c => c.Name == CommandNames.BootstrapRound);
-        result.InsertNext.Should().OnlyContain(c => c.Round == 1);
+        rounds.Should().OnlyContain(c => c.Round == 1);
     }
 
     [Fact]
@@ -305,8 +317,8 @@ public sealed class BootstrapDispatchHandlerTests
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.InsertNext.Should().HaveCount(5);
-        result.InsertNext.Select(c => c.RepoName).Should()
+        Rounds(result).Should().HaveCount(5);
+        Rounds(result).Select(c => c.RepoName).Should()
             .BeEquivalentTo(new[] { "api", "web", "docs", "infra", "scripts" });
     }
 
@@ -370,15 +382,16 @@ public sealed class BootstrapDispatchHandlerTests
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.InsertNext.Should().HaveCount(3);
-        var byContext = result.InsertNext.ToDictionary(c => c.ContextName!, c => c);
+        var rounds = Rounds(result);
+        rounds.Should().HaveCount(3);
+        var byContext = rounds.ToDictionary(c => c.ContextName!, c => c);
         byContext["server"].Workdir.Should().Be(".");
         byContext["server"].SkillName.Should().Be("csharp-bootstrap");
         byContext["client"].Workdir.Should().Be("client");
         byContext["client"].SkillName.Should().Be("typescript-bootstrap");
         byContext["docs"].Workdir.Should().Be("docs");
         byContext["docs"].SkillName.Should().Be("markdown-bootstrap");
-        result.InsertNext.Should().OnlyContain(c => c.RepoName == "monorepo");
+        rounds.Should().OnlyContain(c => c.RepoName == "monorepo");
     }
 
     [Fact]
@@ -398,9 +411,9 @@ public sealed class BootstrapDispatchHandlerTests
             new BootstrapDispatchContext(pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.InsertNext.Should().HaveCount(1);
-        result.InsertNext[0].ContextName.Should().Be("default");
-        result.InsertNext[0].Workdir.Should().Be(".");
+        Rounds(result).Should().HaveCount(1);
+        Rounds(result)[0].ContextName.Should().Be("default");
+        Rounds(result)[0].Workdir.Should().Be(".");
     }
 
     private PipelineContext MultiRepoPipelineFor(

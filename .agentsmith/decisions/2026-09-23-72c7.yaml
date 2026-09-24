@@ -1,0 +1,26 @@
+phase: 2026-09-23-72c7
+decisions:
+  - id: 1
+    what: "The check reads the document, not the tree."
+    alternatives: "Prove a workdir against a manifest, the gate 2026-09-23-7868a looked for."
+    why: >
+      That search needed a definition of what file proves a component, and a component proved
+      by a deploy artefact alone has none - which is why 7868a declined it. Looking inward
+      needs no such definition: the same round writes the workdir and the commands, and they
+      can be read against each other.
+  - id: 2
+    what: "It refuses rather than corrects."
+    alternatives: "Set the workdir to the directory the commands agree on."
+    why: >
+      A command entering a directory proves the root is wrong; it does not prove that directory
+      is the source root, since a build script may enter a sub-directory of a component that
+      spans more. A value written on the round's behalf would be a guess wearing a check's
+      authority.
+  - id: 3
+    what: "Unanimity is the bar, and anything unreadable counts as not entering."
+    alternatives: "Fire on any command that enters a directory; or parse harder."
+    why: >
+      One command entering while another does not is a repository with something at the root,
+      and a check that fired there would refuse a shape that works. The same reasoning decides
+      the parser: this text refuses a document, so a shape it cannot read with certainty must
+      cost a refusal that never happens rather than one that should not have.
