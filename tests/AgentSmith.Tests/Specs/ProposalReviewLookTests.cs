@@ -183,6 +183,25 @@ public sealed class ProposalReviewLookTests
         GrepScope.MaxFileSizeBytes.Should().Be(1_000_000, "the description says 1 MB in words");
     }
 
+    /// <summary>
+    /// 2026-09-24-485e: the description used to claim ONE engine's filters for both. GrepScope's
+    /// fourteen directories and its 1 MB ceiling bind the ripgrep path only; a repository that is
+    /// not a read-only source scope is searched by SearchCommands.OverTree, whose argv excludes
+    /// four directories and carries no size flag. A reader who trusts the wrong list reads an
+    /// absence out of a file the search actually opened in full.
+    /// </summary>
+    [Fact]
+    public void ReviewLook_SearchDescription_AttributesEachEnginesExclusions()
+    {
+        var description = new RepositorySearchTool(Over(new RecordingScope()), NullLogger.Instance).Description;
+
+        description.Should().Contain("ripgrep").And.Contain("otherwise grep runs");
+        description.Should().Contain("no size ceiling", "the grep branch applies none");
+        description.Should().Contain("CUT", "a long result is a head, and an absence cannot be read out of the tail");
+        description.Should().Contain("does not locate a file",
+            "a pattern carrying a filename matches every file that mentions it");
+    }
+
     // 2026-09-17-042ed: the scope wraps ANY post-open failure into an exit 1 whose text is the
     // reason, so a failure that merely CONTAINS the words "not found" must not be laundered into
     // "the file is not there" — an absence the reviewer is then free to state as a fact.

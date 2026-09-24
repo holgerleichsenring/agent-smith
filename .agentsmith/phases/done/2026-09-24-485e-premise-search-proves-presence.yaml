@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-485e
+goal: "A premise that names a path is settled by reading that path, and a truncated match list can no longer prove that something is absent."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE LIVE FAILURE, TRACED TO THE STEP THAT IS ACTUALLY WRONG. A phase stated "the package
+      manifest and lockfile are located at the <Component> repository root". The premise check
+      reported it FALSE citing look M6 — `grep -E '"@angular/|package-lock\.json|"dependencies"|
+      "devDependencies"' .`, exit 0 — with the reason "the discovered lockfile is under
+      <Component>/package-lock.json rather than at the repository root". The premise NAMES its
+      paths, and the checker had a tool that answers exactly that: RepositoryFileReadTool replies
+      "<repo>/<path> does not exist." for a path that is not there, minted as a citable look. Two
+      reads would have settled it. A content search was used instead, and a content match tells you
+      a file CONTAINS a string — here, that some file mentions "package-lock.json" — never where a
+      file sits.
+  - key: |
+      WHAT HID THE ROOT LOCKFILE WAS TRUNCATION, AND THE OUTPUT SAID SO. SearchOutcome.Report keeps
+      the first 4000 characters of a match list and appends "… more matches follow". That pattern
+      matches thousands of lines INSIDE each lockfile, so the list ended in directory-traversal
+      order long before it reached the repository root. The marker was there and the reader drew an
+      ABSENCE from a list that had declared itself incomplete. That is the defect this phase
+      closes: not a missing marker, a missing rule about what such a list can prove.
+  - key: |
+      TWO EXPLANATIONS WERE CHECKED AND DISCARDED, AND ARE RECORDED SO NOBODY SPENDS THE HOUR
+      AGAIN. FIRST: a size limit. GrepScope skips files over 1 MB, but only on the ripgrep path
+      (GrepStepHandler / RipgrepArguments); the evidence line says `grep -E`, which is
+      SearchCommands.OverTree — argv `grep -RInE --binary-files=without-match` with four
+      --exclude-dir flags and NO size flag. The lockfiles were read in full. SECOND: that they were
+      too big to matter anyway. This repository's own Angular fixture lockfile is 318,425 bytes,
+      under a third of that ceiling. Neither explanation survives its own evidence.
+  - key: |
+      THE FIX IS A RULE IN THE PROMPT, BECAUSE THE CAPABILITY IS ALREADY THERE. The checker is told
+      what each look can prove: reading a named path settles whether it exists; a content match
+      proves presence of a string, never the location of a file; and a match list that says more
+      follows proves nothing about what is not in it. A premise it cannot settle that way is
+      unproven, which stops nothing — CheckPhasePremisesHandler branches on False alone.
+  - key: |
+      THE SEARCH TOOL'S DESCRIPTION IS FALSE ON THE BRANCH THAT USUALLY RUNS, AND SAYING MORE
+      CONFIDENTLY WOULD HAVE MADE IT WORSE. It interpolates GrepScope.Summary — fourteen excluded
+      directories and a 1 MB ceiling — while the Run-grep branch excludes four directories and
+      applies no ceiling. The description is what a reader trusts when it reports an absence, so it
+      is rewritten to say which engine skips what, and to state that a result may be cut. Both
+      engines' facts stay in the text, so ReviewLook_SearchDescription_NamesWhatIsNotSearched keeps
+      finding every token it asserts.
+  - key: |
+      NO NEW TOOL. A listing tool was specified first and is dropped: the premise NAMED its paths,
+      so enumeration was never the missing piece; the live look was M6 of an allowance of six, so a
+      sixth tool competes for a budget that was already exhausted; and wiring one touches
+      DerivationTools.Over and Named plus four tests that pin the tool set exactly. Enumerating a
+      path nobody named is a real gap, but it is not this one, and building it here would be
+      answering a question the failure did not ask.
+  - key: |
+      THE FRAMEWORK GAINS NO NEW JUDGEMENT. PremiseCheckAdmission's own summary refuses to decide
+      whether a look bears on a premise, and that refusal is right. Narrowly stated: the CITATION's
+      kind is mechanical and already filtered on next door (PhaseReviewAdmission keeps only Read
+      looks), so a Kind rule is reachable — what is not reachable is classifying a PREMISE as being
+      about location. This phase does not guess at either; it tells the reader what its own tools
+      prove.
+
+steps:
+  - id: the-checker-is-told-what-each-look-proves
+    action:
+      - "State in the premise-check prompt that a premise naming a path is settled by reading that path, that a content match proves a string is present and never where a file sits, and that a match list saying more follows proves nothing about what is absent."
+      - "Carry no bracketed evidence id in the new prose, since the prompt's test forbids any letter but its own."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs"
+
+  - id: the-search-says-what-it-skipped-and-what-it-cut
+    action:
+      - "Rewrite the search tool's description so each engine's exclusions are attributed to it, instead of claiming one engine's filters for both."
+      - "State that a long match list is cut and that the cut is marked, so an absence is never read out of the tail that was not shown."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs"
+
+  - id: the-cut-names-its-own-size
+    action: "Say in the truncation marker how much was shown, so the reader knows the list is a head and not a sample."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/SearchOutcome.cs"
+
+  - id: the-rules-are-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the prompt carries the three proof rules and no foreign evidence letter, that the description attributes each engine's exclusions, and that a cut list names its size."
+
+tests:
+  - "PremiseCheckPrompt_Rendered_SaysANamedPathIsSettledByReadingIt"
+  - "PremiseCheckPrompt_Rendered_SaysAContentMatchNeverProvesWhereAFileSits"
+  - "PremiseCheckPrompt_Rendered_SaysATruncatedListProvesNoAbsence"
+  - "SearchDescription_Rendered_AttributesEachEnginesExclusions"
+  - "SearchOutcome_OutputBeyondTheLimit_NamesHowMuchWasShown"
+
+done:
+  - "the premise-check prompt states that a named path is settled by reading it, that a content match never locates a file, and that a truncated list proves no absence"
+  - "the search tool's description no longer claims the ripgrep engine's directory list and size ceiling for the grep engine"
+  - "a cut match list says how much of it was shown"
+  - "the prompt carries no evidence id under a letter other than its own"
+  - "no tool is added, and the look allowance is unchanged"

@@ -16,10 +16,15 @@ public sealed class RepositorySearchTool(DerivationLook look, ILogger logger)
     /// <summary>2026-09-15-ffa7: per look, because the id it spells is the holder's.</summary>
     public string Description =>
         "Searches one repository as checked out now and returns the matching lines with file "
-        + "and line number. Use it to settle whether something is present or absent before you "
-        + $"state it. Read-only, and NOT exhaustive: it skips {GrepScope.Summary}, so what it "
-        + "reports absent is absent outside those. The result starts with an evidence id such "
-        + $"as [{look.Terms.EvidencePrefix}3]; a fact that rests on this search cites that id.";
+        + "and line number. It proves a string is PRESENT; it does not locate a file — a pattern "
+        + "containing a filename matches every file that merely MENTIONS that name. Read-only, "
+        + "and NOT exhaustive, differently per engine: a repository served as a read-only source "
+        + $"scope is searched with ripgrep, which skips {GrepScope.Summary}; otherwise grep runs "
+        + "and skips only .git, node_modules, bin and obj, with no size ceiling. What it reports "
+        + "absent is absent outside whichever of those applied. A long result is CUT and says so "
+        + "where it ends — read no absence out of a tail that was never shown. The result starts "
+        + $"with an evidence id such as [{look.Terms.EvidencePrefix}3]; a fact that rests on this "
+        + "search cites that id.";
 
     public async Task<string> SearchRepository(
         [Description("The repository to search. Use one of the names listed as in scope.")]
