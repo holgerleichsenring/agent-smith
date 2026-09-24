@@ -11,6 +11,49 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class PremiseCheckPromptTests
 {
+    /// <summary>
+    /// 2026-09-24-485e: a live check reported a premise FALSE — "the manifest and lockfile are at
+    /// the repository root" — citing a content grep whose pattern contained the FILENAME. A match
+    /// on that proves some file MENTIONS the name; and the list it came from ended by saying more
+    /// matches followed, so it proved nothing about the root at all. The premise named its paths,
+    /// and reading them would have settled it. The prompt now says which look proves what.
+    /// </summary>
+    [Fact]
+    public async Task PremiseCheck_Prompt_SaysANamedPathIsSettledByReadingIt()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        var prompt = Flowed(h.Provider.Prompts.Should().ContainSingle().Subject);
+        prompt.Should().Contain("NAMES a path is settled by READING that path")
+            .And.Contain("does not exist");
+    }
+
+    [Fact]
+    public async Task PremiseCheck_Prompt_SaysAContentMatchNeverProvesWhereAFileSits()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        Flowed(h.Provider.Prompts.Should().ContainSingle().Subject)
+            .Should().Contain("never proves where a file sits")
+            .And.Contain("MENTIONS that name");
+    }
+
+    [Fact]
+    public async Task PremiseCheck_Prompt_SaysATruncatedListProvesNoAbsence()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        Flowed(h.Provider.Prompts.Should().ContainSingle().Subject)
+            .Should().Contain("HEAD, not an inventory")
+            .And.Contain("Nothing is absent because it is not in it");
+    }
+
     [Fact]
     public async Task PremiseCheck_Prompt_NamesTheRepositoriesAllowanceAndIdSpelling()
     {
@@ -151,4 +194,9 @@ public sealed class PremiseCheckPromptTests
                     current.PhaseId, current.Goal, Contracts.Specs.PhaseRunState.InProgress),
             ]));
     }
+
+    /// <summary>The prompt is prose and wraps; a rule about its WORDING must not also be a rule
+    /// about where the lines break.</summary>
+    private static string Flowed(string prompt) =>
+        System.Text.RegularExpressions.Regex.Replace(prompt, @"\s+", " ");
 }
