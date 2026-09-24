@@ -42,9 +42,14 @@ public sealed class ContextWorkdirCommandsTests
             "the refusal names the half that claims the source is the whole repository");
         result.Should().Contain("entering 'app'",
             "and the directory the commands agree on, so the round can answer it");
-        result.Should().Contain("not copied from the cd",
-            "the commands prove '.' is wrong, not that 'app' is right — a build script may "
-            + "enter a sub-directory of a component that spans more");
+        // 2026-09-24-c71a: the refusal used to forbid reading the directory off the cd. Once
+        // workdir is the directory the MANIFEST sits in, the cd usually enters exactly that —
+        // so the caution is that a build script MAY go deeper, not that the cd is unusable.
+        result.Should().NotContain("not copied from the cd");
+        result.Should().Contain("manifest",
+            "the refusal names what the round should look for, not just what it got wrong");
+        result.Should().Contain("read it off the tree",
+            "a build script may enter a sub-directory of a component that spans more");
         Written().Should().BeFalse("the refusal is returned instead of a file");
     }
 

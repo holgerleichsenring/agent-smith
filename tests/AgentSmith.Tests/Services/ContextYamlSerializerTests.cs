@@ -173,7 +173,8 @@ public sealed class ContextYamlSerializerTests
         message.Should().Contain("meta.workdir");
         message.Should().NotContainEquivalentOf("single-stack");
         message.Should().NotContain("set workdir: \".\"");
-        message.Should().Contain("sub-tree this stack's source occupies");
+        message.Should().Contain("COMPONENT ROOT");
+        message.Should().NotContain("source occupies");
     }
 
     [Fact]

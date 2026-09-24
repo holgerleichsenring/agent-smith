@@ -302,10 +302,19 @@ public sealed class BootstrapDiscoverHandlerTests
 
         captured.User.Should().NotContainEquivalentOf("single-component",
             "how many components a repo holds decides nothing about where one of them sits");
-        captured.User.Should().Contain("this component's SOURCE occupies",
-            "the field description says what the value means");
-        captured.User.Should().Contain("sub-tree its source occupies",
-            "and the closing rule says it is read off the tree");
+        // 2026-09-24-c71a: a live run answered "<Component>/src" for an Angular component whose
+        // package.json sits one level up — the truthful answer to "where the SOURCE occupies".
+        // The question now names a file the answerer can point at.
+        captured.User.Should().NotContain("SOURCE occupies",
+            "that wording is what recorded a component one level too deep");
+        captured.User.Should().NotContain("src/api",
+            "an example pointing INTO a source directory teaches the same mistake");
+        captured.User.Should().Contain("COMPONENT ROOT",
+            "the field description says the value is the component's root");
+        captured.User.Should().Contain("package.json",
+            "and names a manifest, because a manifest can be pointed at where a judgement cannot");
+        captured.User.Should().Contain("evidence",
+            "with the fallback for a component that has no manifest at all");
     }
 
     [Fact]

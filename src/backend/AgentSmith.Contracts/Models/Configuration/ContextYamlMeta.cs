@@ -1,7 +1,8 @@
 namespace AgentSmith.Contracts.Models.Configuration;
 
-/// <param name="Workdir">The sub-tree this context's SOURCE occupies, relative to the repo
-/// root; "." only where that source is the whole repository. REQUIRED per p0161.
+/// <param name="Workdir">The COMPONENT ROOT — the directory holding the manifest that governs
+/// this context, relative to the repo root; where there is none, the directory its evidence sits
+/// in; "." only where that directory is the repository root. REQUIRED per p0161.
 /// 2026-09-03-7bac: it places no command — build, test, prerequisites and probe all run from
 /// the repository root.</param>
 /// <param name="Type">`meta.type:` — one to four system archetypes (agent, pipeline, api, …).

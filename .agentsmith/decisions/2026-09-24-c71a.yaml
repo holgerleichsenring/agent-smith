@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-24-c71a
+
+decisions:
+  - category: Architecture
+    chose: "meta.workdir is the COMPONENT ROOT — the directory holding the manifest that governs the component"
+    over: "The sub-tree the component's SOURCE occupies, which is what every site asked for"
+    reason: |
+      A live context.yaml recorded `<Component>/src` for an Angular component whose package.json,
+      angular.json, tsconfig and jest config all sit one level up — while the verify block of the
+      same document correctly said `cd <Component> && npm run build`. The two disagree because they
+      are produced by different means: the command by someone who looked at the tree, the workdir by
+      someone answering a question about SOURCE. For a src-layout component that question has a
+      truthful answer one level too deep, and the prompt's own example, `src/api`, taught pointing
+      INTO a source directory. A manifest is a thing on disk the answerer can point at; "where the
+      source lives" is a judgement, and the judgement is what went deep.
+
+  - category: Architecture
+    chose: "No *.sln in the manifest list, and an evidence-path fallback for components that have none"
+    over: "A flat list of build manifests including solution files"
+    reason: |
+      A solution spans components and, in this repository, sits at the root — anchoring on one would
+      answer "." for every component in it, contradicting the pinned discovery skill, which answers
+      `src/Sample.Cli` for exactly that shape. And markdown and terraform components are first-class
+      in the discovery vocabulary while carrying no manifest at all: without the fallback the
+      sentence would have no answer for them, and its "." clause would pull them to the repository
+      root. The fallback is the directory their evidence path sits in, which the skill already uses.
+
+  - category: Quality
+    chose: "All thirteen sites in one pass — four that decide the value, three more that are model-facing, six descriptions"
+    over: "Correcting only the discovery prompt that produced the value"
+    reason: |
+      One sentence reached thirteen places because prompts get written from descriptions. Leaving
+      the descriptions behind would reintroduce the drift at the next prompt. The three model-facing
+      sites that a first reading missed are the refusal handed back to the writing round, the
+      embedded context schema every written document is judged against, and the embedded discovery
+      schema the prompt cites by name as its output contract.
+
+  - category: Correctness
+    chose: "Withdraw three claims about what workdir does, in the same pass"
+    over: "Correcting only what the field MEANS"
+    reason: |
+      The write tool's description told the model that verify stages run "at this context's
+      workdir", that verify_derived_from.files are "relative to meta.workdir" and that the probe
+      runs there; ContextYamlSummary claimed workdir "scopes analysis and this context's read/write
+      guards"; context.schema.json claimed "the sandbox coordinator clones at this path, so /work is
+      this sub-tree". All five are false against the code — stages and probe resolve to
+      Repository.SandboxWorkPath, the derivation digest resolves from the repository root, every
+      guard is constructed on /work, and /work IS the repository root. Correcting the meaning while
+      leaving these would have left the model three reasons to believe the meaning just removed.
+
+  - category: Correctness
+    chose: "State that a wrong workdir MISLEADS rather than SCOPES"
+    over: "The first reading, which claimed it scopes the analyzer to a manifest-less sub-tree"
+    reason: |
+      ProjectAnalyzer turns the path into one prompt line and constructs FilesystemToolHost with
+      NULL guards — nothing roots the tools, and 2026-09-03-7bac records the live observation: handed
+      a component sub-tree, the analyzer listed '.', found the root solution file and a sibling test
+      project. The measurable costs are a prompt anchored at a directory holding no manifests and a
+      ProjectMap cache key that finds none there and degrades to HEAD-only, which is benign because
+      HEAD still invalidates. Overstating the damage would have justified a bigger change than the
+      evidence supports.
+
+  - category: Quality
+    chose: "Delete CommandWorkingDirectory and its test"
+    over: "Leaving a dead class that still documents the abolished behaviour"
+    reason: |
+      Its summary reads "Operator override: a context.yaml meta.workdir other than '.' wins" and
+      derives a cwd for prerequisites and test commands — the exact anticipation that reported a
+      correct delivery red in the run 2026-09-03-7bac was cut from. Its last production caller went
+      with p0224; only its own unit test referenced it. A dead class that contradicts the live
+      contract is worse than no class: the next reader finds two answers and no way to tell which
+      one runs.
+
+  - category: Quality
+    chose: "Rewrite the three assertions that already pinned the old wording"
+    over: "Adding a new WorkdirWordingTests class"
+    reason: |
+      2026-09-23-7868a placed assertions on these exact strings one day earlier, in
+      BootstrapDiscoverHandlerTests, WriteContextYamlToolHostTests and ContextYamlSerializerTests.
+      They are why the suite would have gone red on the first edit, and they are the right home for
+      the new ones: a fourth class re-asserting the same strings would be a second place to
+      disagree. Each now demands the new sentence and refuses the old, so a later edit that restores
+      "where the SOURCE lives" fails in the suite rather than in somebody's repository.
+
+  - category: Scope
+    chose: "Ship the skills-side correction beside this phase"
+    over: "Fixing the backend alone and calling the rule corrected"
+    reason: |
+      The round that persists meta.workdir reads project-bootstrap, which still said the field "says
+      where the component's SOURCE lives" and instructed the writer to copy the path from the
+      prompt. agentsmith-skills#199 had corrected project-discovery only. Without the second half
+      one copy of the old sentence stays in the chain — the same half-fix this phase exists to
+      finish. The corollary, recorded because the first reading had it backwards: the write tool's
+      description does NOT govern what is persisted; the skill tells the round to carry the
+      discovery answer through, so the discovery prompt is where the value is decided.

@@ -19,8 +19,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// itself, when it runs and goes red.
 /// </para>
 /// </summary>
-/// <param name="Files">Paths, relative to the declaring context's workdir, that the
-/// stages were derived from. Named by whoever derived them; never inferred here.</param>
+/// <param name="Files">Paths, relative to the REPOSITORY ROOT, that the stages were derived
+/// from — 2026-09-03-7bac: where the declaration that names them is written, which is also
+/// where the digest resolves them. Named by whoever derived them; never inferred here.</param>
 /// <param name="Hash">The framework's digest of those files' content at derivation time.
 /// Written by the write path, not by the model — a model cannot compute one, and a hash
 /// it invented would report drift forever. Null until a write path stamps it.</param>
