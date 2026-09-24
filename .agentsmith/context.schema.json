@@ -28,9 +28,9 @@
           ]
         },
         "workdir": {
-          "$comment": "MECHANISM — the sandbox coordinator clones at this path, so /work is this sub-tree.",
+          "$comment": "MECHANISM — it names which sub-tree this context covers. 2026-09-24-c71a: it places NO command and roots NO tool; the repository is cloned at /work and every stage, probe and guard resolves from there (2026-09-03-7bac).",
           "type": "string",
-          "description": "Sub-tree this context's source occupies, relative to the repo root, read off the tree: 'src/Server', 'client', 'docs'. '.' only where that source is the whole repository. Required per p0161 — sandbox coordinator clones at this path so /work = sub-tree root inside the sandbox.",
+          "description": "The COMPONENT ROOT, relative to the repo root: the directory holding the manifest that governs this context (package.json, *.csproj, pyproject.toml, go.mod, ...) — point AT it, not into it, so sources under 'src/' do not move it. Where a context has no manifest, the directory its evidence sits in. '.' only where that directory is the repository root; a solution or workspace file at the root does not make it one. Required per p0161.",
           "examples": [".", "src/Server", "client", "docs"]
         },
         "version": {

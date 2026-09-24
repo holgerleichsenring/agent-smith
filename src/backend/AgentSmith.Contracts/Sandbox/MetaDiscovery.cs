@@ -8,5 +8,5 @@ namespace AgentSmith.Contracts.Sandbox;
 /// </summary>
 /// <param name="MetaDir">Absolute path to the context's `.agentsmith/contexts/&lt;name&gt;/` dir inside the sandbox.</param>
 /// <param name="ContextName">Sub-directory name (the context key).</param>
-/// <param name="Workdir">`meta.workdir:` from that context's context.yaml — sub-tree the stack lives in, relative to repo root.</param>
+/// <param name="Workdir">`meta.workdir:` from that context's context.yaml — the component root the stack lives in, relative to repo root.</param>
 public sealed record MetaDiscovery(string MetaDir, string ContextName, string Workdir);

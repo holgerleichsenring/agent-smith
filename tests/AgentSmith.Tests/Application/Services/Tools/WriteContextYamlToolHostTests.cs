@@ -159,8 +159,13 @@ public sealed class WriteContextYamlToolHostTests
         WriteContextYamlToolDescription.Document.Should().NotContainEquivalentOf("single-stack",
             "where a stack's sources sit is a property of the tree, not of the stack count");
         WriteContextYamlToolDescription.Document.Should().Contain(
-            "the repo-relative sub-tree this stack's SOURCE occupies",
+            "the repo-relative COMPONENT ROOT",
             "the description says what the field means instead");
+        // 2026-09-24-c71a: and it no longer promises a placement the framework withdrew in
+        // 2026-09-03-7bac — every stage, file path and probe resolves from the repository root.
+        WriteContextYamlToolDescription.Document.Should().NotContain("SOURCE occupies");
+        WriteContextYamlToolDescription.Document.Should().NotContain("at this context's workdir");
+        WriteContextYamlToolDescription.Document.Should().NotContain("relative to meta.workdir");
     }
 
     private WriteContextYamlToolHost BuildHost()

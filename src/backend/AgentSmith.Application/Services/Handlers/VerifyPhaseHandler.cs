@@ -27,7 +27,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// re-derived per run. AnalyzeCode populates <see cref="CiConfig.BuildCommand"/> and
 /// <see cref="CiConfig.TestCommand"/> per repo; those inferred commands come next.
 /// p0400: when a .NET repo declares NEITHER, the entry point is DISCOVERED (a single
-/// *.sln up to depth 2, else a single *.csproj at the context workdir) — never
+/// *.sln up to depth 2, else a single *.csproj found from the repository root) — never
 /// guessed. An ambiguous or absent entry point is a named RESOLUTION failure that
 /// says what was searched and where; it is not reported as a compile result, because
 /// no command was executed. A non-.NET repo declaring neither command is SKIPPED,
