@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-24-81ea
+
+decisions:
+  - category: Correctness
+    chose: "Ask whether the room is short BEFORE releasing any hold"
+    over: "Releasing every hold unconditionally at all three capacity doors"
+    reason: |
+      A design conversation keeps its source-scope sandboxes between turns so the next turn does not
+      clone again. Three doors then released the whole register before their probe — the ticket
+      spawn, the mid-run ensure_repo_sandbox escalation and the manual init — so an operator who
+      alternates design turns with phase runs lost the hold on every admission and the feature never
+      showed itself.
+
+  - category: Correctness
+    chose: "A probe taken before any deletion, never a re-probe after one"
+    over: "Release, re-probe, stop when it fits"
+    reason: |
+      The interface rules the obvious repair out and says why: a Kubernetes quota's used figure is
+      written by the cluster's own controller and does not drop when a pod is deleted, so
+      probe-release-reprobe reads the same stale figure and denies anyway. That objection binds a
+      probe AFTER a deletion. One taken before removes nothing and reads a figure nothing has
+      invalidated. When it says there is room the holds are untouched; when it does not, this is
+      exactly the old unconditional eviction and the release still lands before the probe that
+      denies.
+
+  - category: Quality
+    chose: "Three doors changed together"
+    over: "Fixing the ticket-spawn door alone"
+    reason: |
+      ensure_repo_sandbox fires whenever a coding master discovers a repository it needs — inside a
+      run, repeatedly. Fixing only the spawn door would leave the hold dying mid-run instead of at
+      admission. One method, three call sites, one behaviour.
+
+  - category: Quality
+    chose: "hold_seconds declared in the schema and shown in the example config"
+    over: "Leaving it to the config studio alone"
+    reason: |
+      It existed in the domain model, in SANDBOX_HOLD_SECONDS and in the studio's project sandbox
+      tab — and in no schema, no example and no deployment note. Its default is 180, so an operator
+      who set 180 could not tell whether the setting had taken at all. Both legs are declared, with
+      the sentence that matters: it governs the design dialog only.
+
+  - category: Scope
+    chose: "Say plainly that phase execution does not reuse sandboxes between runs"
+    over: "Letting the operator keep expecting it"
+    reason: |
+      A phase is an ordinary pipeline run; PipelineSandboxCoordinator documents its sandboxes as
+      transient-per-run and disposes every one at run end. There is no hold and no reading of
+      hold_seconds on that path. Making a SET of phases share one checkout is different work with
+      its own questions — what a half-failed phase leaves behind, what the next may assume — and
+      inventing it here would answer a question nobody asked.
+
+  - category: Quality
+    chose: "Rewrite the four door assertions rather than delete them"
+    over: "Dropping the tests that pinned unconditional release"
+    reason: |
+      2026-09-22-2d11a shipped them to pin the ORDER — release before the probe, never after a
+      denial — and that guarantee survives. Each now states the pair: kept when the room suffices,
+      released before the probe when it is short, asserted as a three-step sequence.

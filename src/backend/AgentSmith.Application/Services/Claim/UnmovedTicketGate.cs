@@ -26,6 +26,9 @@ internal sealed class UnmovedTicketGate(IUnmovedTicketStore store)
                 ClaimRejectionReason.TicketLastLeftUnmoved,
                 $"The last run could not move this ticket to '{standing.ConfiguredStatus}' "
                 + $"({standing.Outcome}). Correct that status on tracker '{standing.Tracker}' "
-                + $"or on project '{standing.Project}' — saving either releases this ticket.");
+                + $"or on project '{standing.Project}' — saving either releases this ticket. "
+                + "The usual cause is the WORK-ITEM TYPE rather than the status: a tracker that "
+                + "configures no work_item_kinds files everything as the provider's default type, "
+                + "and a status that type does not have can never be reached.");
     }
 }

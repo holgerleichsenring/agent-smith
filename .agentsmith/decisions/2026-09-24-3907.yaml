@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-24-3907
+
+decisions:
+  - category: Correctness
+    chose: "The outcome-fix re-prompt carries conversation.Thread(), and is recorded with conversation.Continued"
+    over: "The cold single-shot it was — the nudge as UserPrompt and nothing else"
+    reason: |
+      AgenticLoopRunner assembles [system] + PriorMessages + user. With no PriorMessages the retry
+      saw the system prompt and the nudge: not its own failed draft, not its tool results, not the
+      grounding it had done. It was told "Do not repeat the invalid output" while holding no copy of
+      it, so it re-drafted the whole specification from an original prompt that never said what the
+      key it got wrong allows — and invented another one. Every sibling re-prompt passes the thread,
+      including SpecDialogProposalRefusal, called from the same method two lines earlier. This was an
+      omission, not a design.
+
+  - category: Correctness
+    chose: "The refusal names the properties the block allows"
+    over: "Naming only the rejected one, as 2026-09-20-2789 left it"
+    reason: |
+      "This property is not allowed here" is a dead end for an instruction that says "fix exactly
+      what the error names": dropping the key and guessing another is a compliant reading, and three
+      live design turns did exactly that — scope/constraints, scope/exclusions, scope/repositories.
+      The formatter already identified this case and already held the evaluation path; the allowed
+      set was one pointer navigation away and the root schema was already a parameter. It reaches
+      every validator that shares the formatter, so a future closed block is self-correcting too.
+
+  - category: Scope
+    chose: "This is 2789's named successor, and does not re-cut it"
+    over: "Treating it as a fresh bug"
+    reason: |
+      2789 made the refusal READABLE — a passing oneOf contributes no error, and an unknown property
+      reads as a sentence rather than "All values fail against the false schema". Its own scope.out
+      deferred THIS cause in prose and named a successor that was never cut. The distinction it
+      established is load-bearing and stays: a schema-valued additionalProperties keeps its wording,
+      and its test stays byte-identical.
+
+  - category: Scope
+    chose: "The skill template ships beside this, not inside it"
+    over: "Calling either half the whole fix"
+    reason: |
+      `scope` is the only closed block in the schema — the root is open, which is why `facts` and
+      `assumptions` pass while being undeclared — and the catalog shows the key by name while `in`
+      and `out` appear in no file of it. Showing the shape fixes this key; the two changes here fix
+      the class. agent-smith-skills#203 is the other half.
