@@ -115,7 +115,10 @@ public sealed class SpawnPipelineRunsUseCase(
     {
         await capacityBudget.RecordAsync(runId, footprint, ct);
         // 2026-09-22-2d11a: the release joins the reconcile that already precedes the probe.
-        await heldSandboxes.EvictAsync(ct);
+        // 2026-09-24-81ea: and only when the room is short — a run that fits anyway must not cost
+        // a design conversation the sandboxes it is holding for its next turn.
+        await heldSandboxes.EvictIfShortAsync(
+            async c => (await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), c)).Admitted, ct);
         await corpseReaper.ReapCorpsesAsync(ct);
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)

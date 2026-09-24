@@ -289,10 +289,12 @@ public sealed class SpawnPipelineRunsUseCaseTests
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
     }
 
-    // 2026-09-22-2d11a: the ticket spawn funnel releases held sandboxes in the reconcile
-    // that already precedes the probe, so a hold can never defer a ticket.
+    // 2026-09-22-2d11a: the ticket spawn funnel releases held sandboxes in the reconcile that
+    // already precedes the probe, so a hold can never defer a ticket. 2026-09-24-81ea: and it asks
+    // first — a ticket that fits the room must not cost a design conversation the sandboxes it is
+    // holding for its next turn, which is what made the hold invisible in ordinary use.
     [Fact]
-    public async Task Release_TheTicketSpawnFunnel_ReleasesBeforeItProbes()
+    public async Task Release_TheTicketSpawnFunnel_WhenTheRoomSuffices_KeepsTheHolds()
     {
         var recording = new AgentSmith.Tests.Sandbox.RecordingHeldSandboxes();
         var harness = new Harness(quotaProbe: recording.AdmittingProbe(), heldSandboxes: recording);
@@ -301,9 +303,9 @@ public sealed class SpawnPipelineRunsUseCaseTests
             ClaimableConfig, BuildProject("p1", repos: ["repo-only"]), "fix-bug",
             Envelope("42"), Trigger(), CancellationToken.None);
 
-        recording.Order.Should().Equal(
-            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Released,
-            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe);
+        recording.Order.Should().NotContain(AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Released);
+        recording.Order.Should().StartWith(
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe, "it asks before it removes");
     }
 
     private sealed class Harness

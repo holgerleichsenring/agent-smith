@@ -41,7 +41,10 @@ public sealed class InitRunAdmission(
         // 2026-09-22-2d11a: releasing held sandboxes is a force remove with no grace, which
         // is why it belongs at the door the corpse sweep was taken out of. It is bounded by
         // what this process holds — nothing, until a design conversation holds one.
-        await heldSandboxes.EvictAsync(ct);
+        // 2026-09-24-81ea: only when the room is short, so an init that fits leaves a design
+        // conversation's holds alone.
+        await heldSandboxes.EvictIfShortAsync(
+            async c => (await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), c)).Admitted, ct);
 
         var quota = await capacityProbe.HasCapacityAsync(RunFootprint.From(footprint), ct);
         if (!quota.Admitted)

@@ -28,6 +28,17 @@ internal sealed class RecordingHeldSandboxes : IHeldSandboxRegister
         return Task.FromResult(0);
     }
 
+    /// <summary>
+    /// 2026-09-24-81ea: asks first. The question itself is a probe, so it lands in the same list —
+    /// which is how a door proves it asked BEFORE it released, and released only when short.
+    /// </summary>
+    public async Task<int> EvictIfShortAsync(
+        Func<CancellationToken, Task<bool>> fits, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fits);
+        return await fits(cancellationToken) ? 0 : await EvictAsync(cancellationToken);
+    }
+
     public ISandboxCapacityProbe AdmittingProbe() => new OrderedProbe(Order, CapacityDecision.Admit());
 
     public ISandboxCapacityProbe DenyingProbe(string reason) =>

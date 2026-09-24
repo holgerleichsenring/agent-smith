@@ -51,10 +51,14 @@ public sealed class SchemaValidatorTests
             .Contain("phase-spec/requires: Value is \"integer\" but should be \"array\"")
             .And.Contain("phase-spec/requires: Value is \"integer\" but should be \"string\"");
 
+    // 2026-09-24-3907: naming only the dead end is unsatisfiable for a reader told to "fix
+    // exactly what the error names" — three live design turns answered it by guessing another
+    // key (scope/constraints, then scope/exclusions, then scope/repositories). The refusal now
+    // names the way out.
     [Fact]
     public void SchemaValidator_AnUnknownKey_IsReportedByNameAndAsNotAllowed() =>
         Refusal("phase: p9999\ngoal: \"g\"\nscope:\n  in: \"x\"\n  invented_key: \"y\"\n").Should()
-            .Be("phase-spec/scope/invented_key: this property is not allowed here");
+            .Be("phase-spec/scope/invented_key: this property is not allowed here — it allows in, out");
 
     [Fact]
     public void SchemaValidator_ASchemaValuedAdditionalProperties_StillReportsItsTypeError() =>

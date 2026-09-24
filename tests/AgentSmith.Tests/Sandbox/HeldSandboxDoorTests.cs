@@ -17,18 +17,22 @@ namespace AgentSmith.Tests.Sandbox;
 public sealed class HeldSandboxDoorTests
 {
     [Fact]
-    public async Task Release_TheManualInitDoor_ReleasesBeforeItProbes()
+    public async Task Release_TheManualInitDoor_WhenTheRoomSuffices_KeepsTheHolds()
     {
+        // 2026-09-24-81ea: the door used to release unconditionally, so an init that fitted
+        // anyway still cost a design conversation the sandboxes it was holding for its next turn
+        // — and the operator saw a fresh clone every time while hold_seconds said 180.
         var recording = new RecordingHeldSandboxes();
         var admission = Admission(recording, recording.AdmittingProbe());
 
         await admission.TryAdmitAsync(new ResolvedProject { Name = "p1" }, "fix-bug", "run-1", default);
 
-        recording.Order.Should().Equal(RecordingHeldSandboxes.Released, RecordingHeldSandboxes.Probe);
+        recording.Order.Should().NotContain(RecordingHeldSandboxes.Released);
+        recording.Order.Should().StartWith(RecordingHeldSandboxes.Probe, "it asks before it removes");
     }
 
     [Fact]
-    public async Task Release_TheManualInitDoor_ReleasesEvenWhenTheProbeWillDeny()
+    public async Task Release_TheManualInitDoor_WhenTheRoomIsShort_ReleasesBeforeTheDenial()
     {
         var recording = new RecordingHeldSandboxes();
         var admission = Admission(recording, recording.DenyingProbe("namespace quota full"));
@@ -37,8 +41,11 @@ public sealed class HeldSandboxDoorTests
             new ResolvedProject { Name = "p1" }, "fix-bug", "run-1", default);
 
         decision.Admitted.Should().BeFalse();
-        // probe-release-reprobe would read the cluster controller's stale used figure and deny anyway.
-        recording.Order.Should().Equal(RecordingHeldSandboxes.Released, RecordingHeldSandboxes.Probe);
+        // The release still happens BEFORE the probe that decides, never after a denial:
+        // probe-release-reprobe would read the cluster controller's stale used figure and deny
+        // anyway. 2026-09-24-81ea only adds the question that precedes the release.
+        recording.Order.Should().Equal(
+            RecordingHeldSandboxes.Probe, RecordingHeldSandboxes.Released, RecordingHeldSandboxes.Probe);
     }
 
     private static InitRunAdmission Admission(

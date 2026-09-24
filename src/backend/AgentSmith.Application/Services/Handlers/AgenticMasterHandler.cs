@@ -656,9 +656,14 @@ public sealed class AgenticMasterHandler(
         AgenticLoopResult retry;
         try
         {
+            // 2026-09-24-3907: WITH the thread, like every sibling re-prompt. Without it the
+            // runner assembles [system] + nudge and nothing else, so a model told "do not repeat
+            // the invalid output" holds no copy of it and re-drafts the whole specification from
+            // a prompt that never said what the key it got wrong allows.
+            var nudge = specDialogPromptFactory.BuildOutcomeFixNudge(userPrompt, invalid.Error);
             retry = await loopRunner.RunAsync(
-                request with { UserPrompt = specDialogPromptFactory.BuildOutcomeFixNudge(userPrompt, invalid.Error) },
-                ct);
+                request with { UserPrompt = nudge, PriorMessages = conversation.Thread() }, ct);
+            conversation.Continued(nudge, retry.Response);
             costTracker.Track(retry.Response);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)

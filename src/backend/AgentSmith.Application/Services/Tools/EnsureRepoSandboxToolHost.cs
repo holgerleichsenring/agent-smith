@@ -93,7 +93,9 @@ public sealed class EnsureRepoSandboxToolHost(
         var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
         var footprint = new RunFootprint(
             Orchestrator: null, Sandboxes: [resourceResolver.Resolve(project, pipelineName)]);
-        await heldSandboxes.EvictAsync(ct); // 2026-09-22-2d11a: release before the probe
+        // 2026-09-22-2d11a: release before the probe; 2026-09-24-81ea: only when it is short.
+        await heldSandboxes.EvictIfShortAsync(
+            async c => (await capacityProbe.HasCapacityAsync(footprint, c)).Admitted, ct);
         var capacity = await capacityProbe.HasCapacityAsync(footprint, ct);
         if (!capacity.Admitted)
         {

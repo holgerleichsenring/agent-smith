@@ -39,6 +39,23 @@ public interface IHeldSandboxRegister
     Task<int> EvictAsync(CancellationToken cancellationToken);
 
     /// <summary>
+    /// 2026-09-24-81ea: the same release, but only when the room is actually short. A design
+    /// conversation holds its sandboxes so the next turn does not re-clone; every run admission
+    /// released ALL of them unconditionally, so an operator who alternates design turns with runs
+    /// lost the hold every single time and the feature never showed itself.
+    /// <para>
+    /// The question is asked BEFORE anything is removed, which is what makes it safe: the note on
+    /// <see cref="EvictAsync"/> rules out probe-RELEASE-reprobe, because a Kubernetes quota's used
+    /// figure does not drop when a pod is deleted. A probe taken before any deletion reads a figure
+    /// nothing has invalidated, and when it says there is room the holds are simply never touched.
+    /// When it says there is not, this is exactly <see cref="EvictAsync"/> and the caller's own
+    /// probe follows as it always did.
+    /// </para>
+    /// </summary>
+    Task<int> EvictIfShortAsync(
+        Func<CancellationToken, Task<bool>> fits, CancellationToken cancellationToken);
+
+    /// <summary>
     /// 2026-09-22-2d11b: a hold ends when its conversation does — closed, forked away from
     /// or deleted. The entries leave the register before the first await, so a message that
     /// arrives mid-release can never take one back; the removals themselves are what the
