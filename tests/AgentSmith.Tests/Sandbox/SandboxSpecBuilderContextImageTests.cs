@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Builders;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
 
@@ -53,8 +54,11 @@ public sealed class SandboxSpecBuilderContextImageTests
         var spec = NewSut().Build(
             new ResolvedProject(), language: "csharp", pipelineName: "fix-bug", contextImage: contextImage);
 
-        // csharp table entry, not the rejected LLM image.
-        spec.ToolchainImage.Should().Be("mcr.microsoft.com/dotnet/sdk:9.0");
+        // 2026-08-25-3804: the csharp table entry, not the rejected LLM image — read from the
+        // table rather than repeated as a literal. What this test is about is WHICH LINK of the
+        // chain answers a refused image, and a literal made it fail when the table moved, which
+        // is a false alarm about a value it was never guarding.
+        spec.ToolchainImage.Should().Be(ToolchainImageCatalog.ForLanguage("csharp"));
     }
 
     [Theory]

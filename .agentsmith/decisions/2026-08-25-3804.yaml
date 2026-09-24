@@ -1,0 +1,42 @@
+phase: 2026-08-25-3804
+decisions:
+  - what: "Make the currency claim CHECKED rather than removing it."
+    alternatives:
+      - "Drop the claim and state a pinned floor with a reason, going stale visibly."
+      - "Bump the version and leave the sentence, which is what produced the defect."
+    why: |
+      The spec said the phase must choose between an honest pin and a check. A check is
+      strictly better here because both halves of the claim are already written down IN this
+      repository: what it declares it is written in (contexts/default/context.yaml stack.lang)
+      and what it actually compiles against (TargetFramework). The test reads both and fails
+      when an unversioned entry can no longer build this project. A comment cannot do that,
+      and the entry sat one major behind for a month, which is how long an unchecked
+      superlative survives.
+
+  - what: "An unversioned name follows the NEWEST entry; a versioned one pins what it names."
+    alternatives:
+      - "Have every name pin a fixed version, so nothing ever moves."
+    why: |
+      A .NET SDK builds every TFM up to its own and none above it, so for a project of unknown
+      or mixed target the newest SDK is the only strictly-safe choice — and a real solution
+      does mix net8.0 and net10.0. Pinning every name would make 'C#' wrong for every estate
+      that moved on. The distinction is now load-bearing and has its own test: moving the
+      unversioned entries must never quietly move `.net 8` or `net9.0`.
+
+  - what: "Add net8.0 / net9.0 / net10.0 as keys alongside the prose forms."
+    alternatives:
+      - "Keep only the prose forms the schema documents."
+    why: |
+      The TFM is what a .NET developer writes when asked what a project targets, and a
+      discovery round can legitimately put it in stack.lang. An unrecognised value used to
+      fall through the whole chain to a container with no toolchain, in silence — which is
+      exactly the failure 2026-09-24-7e4b makes loud, and which costs nothing to avoid here.
+
+  - what: "Stated caveat, not hidden: an SDK image builds an older TFM by restoring its targeting pack."
+    alternatives: []
+    why: |
+      mcr.microsoft.com/dotnet/sdk:10.0 building a net8.0 project resolves
+      Microsoft.NETCore.App.Ref 8.0 from NuGet rather than from the image. A sandbox restores
+      packages anyway, so this is not a new dependency — but an air-gapped estate with no NuGet
+      mirror would see it, and would pin sandbox.images per language, which the chain already
+      honours ahead of this table.
