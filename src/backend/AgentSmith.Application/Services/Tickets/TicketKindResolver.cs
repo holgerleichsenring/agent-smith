@@ -29,7 +29,16 @@ public sealed class TicketKindResolver(ILogger<TicketKindResolver> logger)
     {
         ArgumentNullException.ThrowIfNull(project);
         var tracker = project.Tracker;
-        if (tracker.WorkItemKinds.Count == 0) return null;
+        if (tracker.WorkItemKinds.Count == 0)
+        {
+            // 2026-09-24-f962: said out loud, because the consequence is invisible until much
+            // later: an unconfigured tracker files the provider's literal, and a lifecycle status
+            // that this literal's type does not have blocks the ticket for good at the run's end.
+            logger.LogInformation(
+                "Tracker '{Tracker}' configures no work_item_kinds; filing {Role} as the "
+                + "provider's default type", tracker.Name, role);
+            return null;
+        }
 
         string? kind = null;
         foreach (var (key, configured) in tracker.WorkItemKinds)
@@ -41,6 +50,9 @@ public sealed class TicketKindResolver(ILogger<TicketKindResolver> logger)
             else if (configuredRole == role)
                 kind = configured;
         }
+        logger.LogInformation(
+            "Tracker '{Tracker}' files {Role} as '{Kind}'", tracker.Name, role,
+            kind ?? "the provider's default type");
         return kind;
     }
 

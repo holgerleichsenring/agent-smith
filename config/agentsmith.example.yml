@@ -77,6 +77,35 @@ deployment:
 # context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
 
+# --- What TYPE of work item a filing creates (2026-09-18-b4f0) ---
+# agent-smith files tickets in four ROLES. Without this map every provider sends its own
+# default — "Task" for Azure DevOps, "Task" for Jira — whatever your board calls things.
+# That matters beyond naming: a lifecycle status you configure elsewhere must be a state
+# the chosen TYPE actually has, or the run cannot move the ticket at its end and the
+# ticket is refused on every later attempt until the configuration changes.
+# The role is a property of the call site, never of the conversation — you cannot ask the
+# assistant for a User Story; you set it here.
+# trackers:
+#   my-tracker:
+#     work_item_kinds:
+#       work: User Story     # an approved cut's one work ticket
+#       phase: User Story    # a single phase filed from a design turn
+#       bug: Bug             # a bug payload
+#       chat: Task           # "create a ticket" from chat
+
+# --- How long a design conversation keeps its sandbox (2026-09-22-2d11a) ---
+# A "work it out" turn reads the repository through a source-scope sandbox. Holding it
+# between turns is what stops the next turn cloning again. Default 180 seconds, so this
+# block is normally unnecessary; 0 holds nothing. It governs the DESIGN DIALOG ONLY — a
+# pipeline run's sandboxes are transient by design and go when the run ends.
+# sandbox:
+#   hold_seconds: 180
+# Per project, which wins over the global value:
+# projects:
+#   my-project:
+#     sandbox:
+#       hold_seconds: 600
+
 # --- Sandbox image pull credential (2026-08-31-46d7, K8s only) ---
 # Names of operator-created Kubernetes image pull secrets the sandbox pod references,
 # so a toolchain image that only exists in a credentialed registry (the only place a

@@ -58,6 +58,11 @@
       "type": "object",
       "description": "Process-wide sandbox defaults (agent image pin, timeouts, the supply-chain boundary, the pull credential). Per-project `sandbox:` blocks override the per-project subset field-by-field; the boundary settings are global only.",
       "properties": {
+        "hold_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How long a design conversation keeps a source-scope sandbox alive between its turns, so the next turn reads the repository it already has instead of cloning again. Default 180. 0 holds nothing. Per-project projects.<name>.sandbox.hold_seconds overrides this. It governs the DESIGN DIALOG only — a pipeline run's sandboxes are transient by design and are torn down when the run ends."
+        },
         "image_pull_secrets": {
           "type": "array",
           "description": "2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the sandbox pod references, so an image that only exists in a credentialed registry is pullable without patching the namespace's default service account out of band. Rendered at pod level, covering the init container and the toolchain container. Kubernetes only \u2014 the Docker backend carries no pull credential and says so when a pull fails. Names are declared, never verified: agent-smith deliberately holds no read access to the namespace's secrets.",
@@ -270,6 +275,11 @@
           "type": "object",
           "description": "Per-project sandbox overrides (toolchain image, resources, timeouts, credentials).",
           "properties": {
+            "hold_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How long a design conversation in THIS project keeps a source-scope sandbox alive between its turns. Overrides sandbox.hold_seconds; default 180; 0 holds nothing. It governs the design dialog only — a pipeline run's sandboxes are transient by design."
+            },
             "toolchain_image": { "type": "string" },
             "images": {
               "type": "object",
