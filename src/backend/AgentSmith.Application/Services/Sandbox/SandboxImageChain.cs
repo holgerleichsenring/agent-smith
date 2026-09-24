@@ -47,10 +47,42 @@ public sealed class SandboxImageChain(
     {
         ArgumentNullException.ThrowIfNull(projectConfig);
         var projectOverride = projectConfig.Sandbox?.ToolchainImage;
-        if (!string.IsNullOrEmpty(projectOverride)) return projectOverride;
-        if (ConfiguredImage(projectConfig, language) is { } configured) return configured;
+        if (!string.IsNullOrEmpty(projectOverride))
+            return Chose("sandbox.toolchain_image", projectOverride, language);
+        if (ConfiguredImage(projectConfig, language) is { } configured)
+            return Chose("sandbox.images", configured, language);
         if (AcceptedContextImage(contextImage, language) is { } accepted) return accepted;
-        return ToolchainImageCatalog.ForLanguage(language) ?? GenericFallbackImage;
+        if (ToolchainImageCatalog.ForLanguage(language) is { } known)
+            return Chose("the language catalog", known, language);
+        return FellThrough(language);
+    }
+
+    // 2026-09-24-7e4b: every earlier link is a deliberate operator choice and was taken in
+    // silence, so an operator debugging a wrong image could not tell an override from a
+    // catalog hit from a refused context image. One line names the link that decided.
+    private string Chose(string link, string image, string? language)
+    {
+        logger?.LogInformation(
+            "Toolchain image '{Image}' for lang={Lang}, chosen by {Link}.",
+            image, language ?? "null", link);
+        return image;
+    }
+
+    // The last link is not a choice, it is what is left when the language was not recognised —
+    // and what is left carries git and NO language toolchain at all. A run that lands here
+    // cannot build or test, and used to find that out as a command-not-found inside a sandbox,
+    // where it reads as the run's problem rather than the image's. It says so instead.
+    private string FellThrough(string? language)
+    {
+        logger?.LogWarning(
+            "No toolchain image is known for lang={Lang}, so this sandbox gets '{Image}' — "
+            + "git and no language toolchain, so nothing can be built, tested or version-checked "
+            + "in it. Name the image in the context's stack.image, or in sandbox.images for that "
+            + "language, or in sandbox.toolchain_image for the whole project. Known languages: "
+            + "{Known}.",
+            language ?? "null", GenericFallbackImage,
+            string.Join(", ", ToolchainImageCatalog.KnownLanguages.Keys));
+        return GenericFallbackImage;
     }
 
     // p0245: the operator's per-language image override, matched case-insensitively
@@ -84,5 +116,4 @@ public sealed class SandboxImageChain(
             trimmed, language ?? "null");
         return trimmed;
     }
-
 }
