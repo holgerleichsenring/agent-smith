@@ -315,7 +315,9 @@ public sealed class CommitAndPRHandler(
         // p0429a: and the account the gate judged the run by, itemised — a reviewer who
         // reads only the PR still reads what went unanswered instead of inferring it.
         // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
-        var body = $"{redBanner}{context.Ticket.Description}"
+        // 2026-09-24-b3c1: the pull-request body is markdown, and an Azure DevOps
+        // description is HTML — rendered raw, a reviewer read the tags themselves.
+        var body = $"{redBanner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
             + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
             + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
             + $"{RunAccountSection.Build(context.Pipeline)}"

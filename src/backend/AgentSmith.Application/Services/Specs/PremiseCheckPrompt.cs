@@ -50,8 +50,13 @@ public static class PremiseCheckPrompt
 
             What each look can prove, because a premise settled by the wrong one is how honest
             work gets stopped:
-            - A premise that NAMES a path is settled by READING that path. The read answers
+            - A premise that gives a PATH is settled by READING that path. The read answers
               "does not exist" for a path that is not there, and that answer is the proof.
+            - A premise that names a FILE WITHOUT SAYING WHERE IT SITS gives you no path to
+              read. Reading a guess proves that one path empty and nothing else: a manifest
+              under a project folder rather than at the root is the ordinary shape. No look
+              offered here can show a file absent from a whole repository, so such a premise
+              is {{Unproven}} — never {{NoLongerHolds}}.
             - A content search proves a string is PRESENT somewhere. It never proves where a
               file sits: a pattern containing a filename matches every file that merely
               MENTIONS that name — a pipeline definition, an ignore file, a README.
