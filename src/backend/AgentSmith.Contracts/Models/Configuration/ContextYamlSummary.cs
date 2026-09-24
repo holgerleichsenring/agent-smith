@@ -8,11 +8,14 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// discovery (ProjectMetaResolver via ISandboxFileReader) so both layers
 /// agree on what "summary" means.
 /// </summary>
-/// <param name="Workdir">`meta.workdir:` — the sub-tree this context's SOURCE occupies,
-/// relative to the repo root; "." only where that source is the whole repository.
-/// 2026-09-03-7bac: it scopes analysis and this context's read/write guards and PLACES NO
-/// COMMAND — every declared command runs from the repository root, which is where whoever
-/// wrote it was standing.</param>
+/// <param name="Workdir">`meta.workdir:` — the COMPONENT ROOT, the directory holding the
+/// manifest that governs this context; where there is none, the directory its evidence sits
+/// in; "." only where that directory is the repository root.
+/// 2026-09-03-7bac: it PLACES NO COMMAND — every declared command runs from the repository
+/// root, which is where whoever wrote it was standing. 2026-09-24-c71a: nor does it scope
+/// anything. The guards are constructed on /work and the analyzer's tools resolve "." there;
+/// it names which sub-tree this context covers and is handed to the analyzer as an
+/// anchor.</param>
 /// <param name="Language">`stack.lang:` — null if absent (generic-image fallback).</param>
 /// <param name="Prerequisites">`prerequisites:` — operator-owned dependency-install
 /// idiom (p0202a). Read here, alongside language, so it reaches the early EnsurePrerequisites

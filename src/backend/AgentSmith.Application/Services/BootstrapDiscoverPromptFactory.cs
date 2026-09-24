@@ -84,7 +84,7 @@ internal static class BootstrapDiscoverPromptFactory
               "components": [
                 {
                   "name": "<lowercase slug, no slashes — used as the .agentsmith/contexts/<name>/ directory>",
-                  "workdir": "<repo-relative sub-tree this component's SOURCE occupies, read off the tree — e.g. \"server\", \"src/api\"; \".\" only if that source is the whole repo>",
+                  "workdir": "<repo-relative COMPONENT ROOT — the directory holding the manifest that governs this component (package.json, *.csproj, pyproject.toml, go.mod, ...); e.g. \"server\", \"src/Sample.Cli\"; \".\" only if that directory is the repository root>",
                   "language": "<free-form language slug — csharp/typescript/python/go/markdown/...>",
                   "evidence": "<path of the entrypoint or deploy artefact that proves this component>"
                 }
@@ -97,9 +97,14 @@ internal static class BootstrapDiscoverPromptFactory
             one component, however many projects, packages or directories the
             build of that one thing spans.
 
-            A component's `workdir` is the sub-tree its source occupies, read
-            off the tree — never derived from how many components you found.
-            Answer `"."` only where that source really is the whole repo. For
+            A component's `workdir` is its ROOT — the directory holding the
+            manifest that governs it, read off the tree and never derived from
+            how many components you found. Point AT that directory, not into it:
+            a Node component whose sources sit in `src/` still has its root where
+            `package.json` is, one level up. Where a component has no manifest —
+            docs, terraform — use the directory its `evidence` path sits in.
+            Answer `"."` only where that directory really is the repository root;
+            a solution or workspace file at the root does not make it one. For
             ambiguity, return `status="ambiguous"` with `ambiguity.message` +
             `ambiguity.candidates`.
             """;

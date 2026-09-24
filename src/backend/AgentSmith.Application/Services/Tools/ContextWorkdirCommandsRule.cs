@@ -9,9 +9,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// <para>
 /// 2026-09-03-7bac: build, test, prerequisites and probe all run at the REPOSITORY ROOT
 /// and no declared path places one, so a command carrying its own <c>cd</c> is how a
-/// sub-tree component expresses itself; meta.workdir says where that component's SOURCE
-/// lives. A source at the root and commands that must all leave the root cannot both be
-/// true — and a live round wrote both into one document.
+/// sub-tree component expresses itself; meta.workdir says where that component's ROOT is.
+/// A root at the repository root and commands that must all leave it cannot both be true —
+/// and a live round wrote both into one document.
 /// </para>
 /// <para>
 /// UNANIMITY IS THE BAR, and the reading of a <c>cd</c> is deliberately narrow. One
@@ -46,14 +46,15 @@ public sealed class ContextWorkdirCommandsRule
 
     private static string Contradiction(string directory) =>
         $"/meta/workdir: the document contradicts itself. meta.workdir says this context's "
-        + $"SOURCE is the whole repository (\".\"), while EVERY declared command begins by "
+        + $"ROOT is the repository root (\".\"), while EVERY declared command begins by "
         + $"entering '{directory}' — and build, test, prerequisites and probe all run at the "
         + "repository root, so a command that carries its own cd is saying the root is not "
-        + $"where this context lives. Decide which half is wrong: if the source really sits "
-        + $"under '{directory}', set meta.workdir to the sub-tree it occupies (read off the "
-        + "tree, not copied from the cd — a command may enter a sub-directory of a component "
-        + "that spans more) and declare the commands as they run from the repository root; if "
-        + "the source is the whole repository, the commands that leave it are wrong.";
+        + $"where this context lives. Decide which half is wrong: if this component really "
+        + $"lives under '{directory}', set meta.workdir to the directory holding the manifest "
+        + "that governs it — usually the one the cd enters, though a build script may enter a "
+        + "sub-directory of a component that spans more, so read it off the tree — and declare "
+        + "the commands as they run from the repository root; if the component really is the "
+        + "whole repository, the commands that leave it are wrong.";
 
     // "." only where the source is the whole repository (ContextYamlMeta), so that is the
     // only workdir a command leaving the root contradicts. A workdir already naming a
