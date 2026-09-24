@@ -48,6 +48,17 @@ public static class PremiseCheckPrompt
             Quote each premise from the list below, as it is written there. A premise that is
             not in that list is discarded, so never report one you composed yourself.
 
+            What each look can prove, because a premise settled by the wrong one is how honest
+            work gets stopped:
+            - A premise that NAMES a path is settled by READING that path. The read answers
+              "does not exist" for a path that is not there, and that answer is the proof.
+            - A content search proves a string is PRESENT somewhere. It never proves where a
+              file sits: a pattern containing a filename matches every file that merely
+              MENTIONS that name — a pipeline definition, an ignore file, a README.
+            - A match list that ends by saying more matches follow is a HEAD, not an inventory.
+              Nothing is absent because it is not in it.
+            A premise you cannot settle with the look its claim calls for is {{Unproven}}.
+
             Do NOT report that a completion criterion of the phase is not satisfied yet. That
             is what the phase is FOR, it is asked and answered elsewhere, and such a finding is
             discarded here. Say nothing about the phase's wording, its size or its ordering.

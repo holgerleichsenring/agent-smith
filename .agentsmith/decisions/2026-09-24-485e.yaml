@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-24-485e
+
+decisions:
+  - category: Correctness
+    chose: "Tell the checker what each look proves — a named path is settled by reading it"
+    over: "Adding a path-listing tool, which the first cut of this spec proposed"
+    reason: |
+      The premise NAMED its paths, and RepositoryFileReadTool already answers exactly that:
+      "<repo>/<path> does not exist." for a path that is not there, minted as a citable look. Two
+      reads would have settled it. Enumeration of a path nobody named is a real gap, but it is not
+      this one — and building it here would have answered a question the failure never asked. The
+      live look was also M6 of an allowance of six, so a sixth tool would compete for a budget the
+      failing run had already exhausted, and wiring one touches DerivationTools.Over and Named plus
+      four tests that pin the tool set exactly.
+
+  - category: Correctness
+    chose: "Say that a truncated match list proves no absence"
+    over: "Making the truncation marker louder, or raising the 4000-character limit"
+    reason: |
+      SearchOutcome already appended "… more matches follow". The reader saw a list that declared
+      itself incomplete and drew an ABSENCE from it anyway — "the lockfile is under <dir>/ rather
+      than at the repository root" — because the pattern matched thousands of lines inside each
+      lockfile and the list ended in tree-walk order long before the root. Raising the limit moves
+      the cliff; saying what a head can prove removes it. The marker now also names its own size,
+      so the reader knows it is a head rather than a sample.
+
+  - category: Correctness
+    chose: "Attribute each search engine's exclusions to the engine that applies them"
+    over: "Adding the files the 1 MB ceiling hides, which the first cut of this spec proposed"
+    reason: |
+      Two explanations were investigated and both died on their own evidence, and they are recorded
+      so the next reader does not spend the same hour. FIRST: that GrepScope's 1 MB ceiling hid the
+      lockfiles. It binds the ripgrep path only (GrepStepHandler, RipgrepArguments); the evidence
+      line says `grep -E`, which is SearchCommands.OverTree — argv `grep -RInE
+      --binary-files=without-match` with four --exclude-dir flags and no size flag. The lockfiles
+      were read in full. SECOND: that they were too big to matter. This repository's own Angular
+      fixture lockfile is 318,425 bytes, under a third of that ceiling. Worse, the description was
+      already claiming the ripgrep engine's fourteen directories and its ceiling for both branches
+      — so the first cut would have added confident detail to a false sentence, on the exact text a
+      reader trusts when reporting an absence.
+
+  - category: Architecture
+    chose: "No new judgement in the framework"
+    over: "Demoting a location finding that cites a search, mechanically"
+    reason: |
+      PremiseCheckAdmission's summary refuses to decide whether a look bears on a premise, and the
+      refusal is right. Stated narrowly, because half of it IS mechanical: the citation's Kind is
+      visible and already filtered on next door (PhaseReviewAdmission keeps only Read looks). What
+      is not reachable is classifying a PREMISE as being about location — a rule that guessed would
+      demote honest findings it misread. So the framework keeps checking what it can see, and the
+      reader is told what its own tools prove.
+
+  - category: Quality
+    chose: "Assert the prompt's wording against whitespace-collapsed text"
+    over: "Asserting the literal string, which fails on a line wrap"
+    reason: |
+      The prompt is prose in a raw string literal and wraps where the source wraps. A rule about
+      its WORDING must not also be a rule about where its lines break, or the next reflow turns a
+      true statement into a red test.

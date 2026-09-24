@@ -27,7 +27,10 @@ internal static class SearchOutcome
             0 => $"'{pattern}' found in {where}:\n"
                  + (output.Length <= MaxOutputChars
                      ? output
-                     : output[..MaxOutputChars] + "\n… more matches follow"),
+                     : output[..MaxOutputChars]
+                       + $"\n… cut here: this is the first {MaxOutputChars} characters of a longer "
+                       + "list, in the order the tree was walked. It is a HEAD, not an inventory — "
+                       + "nothing is absent because it is not above."),
             1 => $"'{pattern}' does not occur anywhere in {where}.",
             _ => $"The search of {where} could not run (exit {result.ExitCode}) and proves nothing: {output}",
         };
