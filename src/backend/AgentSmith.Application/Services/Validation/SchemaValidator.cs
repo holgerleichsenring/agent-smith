@@ -31,7 +31,7 @@ internal static class SchemaValidator
 
         using (document)
         {
-            return Judge(schema.Evaluate(document.RootElement, ListOutput()), schemaName);
+            return Judge(schema.Evaluate(document.RootElement, ListOutput()), schema, schemaName);
         }
     }
 
@@ -41,20 +41,20 @@ internal static class SchemaValidator
     /// JSON string that no longer knows which scalars were numbers.
     /// </summary>
     public static ValidationResult Validate(JsonNode? document, JsonSchema schema, string schemaName) =>
-        Judge(schema.Evaluate(document, ListOutput()), schemaName);
+        Judge(schema.Evaluate(document, ListOutput()), schema, schemaName);
 
     private static EvaluationOptions ListOutput() => new() { OutputFormat = OutputFormat.List };
 
-    private static ValidationResult Judge(EvaluationResults result, string schemaName) =>
+    private static ValidationResult Judge(EvaluationResults result, JsonSchema schema, string schemaName) =>
         result.IsValid
             ? ValidationResult.Valid()
-            : ValidationResult.Invalid(FormatErrors(result, schemaName));
+            : ValidationResult.Invalid(FormatErrors(result, schema, schemaName));
 
-    private static string FormatErrors(EvaluationResults results, string schemaName)
+    private static string FormatErrors(EvaluationResults results, JsonSchema schema, string schemaName)
     {
         var messages = results.Details
             .Where(Decided)
-            .SelectMany(d => d.Errors!.Select(e => FormatOne(schemaName, d, e)))
+            .SelectMany(d => d.Errors!.Select(e => FormatOne(schemaName, schema, d, e)))
             .Distinct()
             .ToList();
         return messages.Count == 0
@@ -86,11 +86,13 @@ internal static class SchemaValidator
             : $"{shown}; (report cut at {MaxClauses} problems, {messages.Count - MaxClauses} more not shown)";
     }
 
-    private static string FormatOne(string schemaName, EvaluationResults detail, KeyValuePair<string, string> error)
+    private static string FormatOne(
+        string schemaName, JsonSchema schema, EvaluationResults detail, KeyValuePair<string, string> error)
     {
         var pointer = detail.InstanceLocation.ToString();
         var location = string.IsNullOrEmpty(pointer) ? schemaName : $"{schemaName}{pointer}";
-        return $"{location}: {(IsUnknownProperty(detail, error) ? PropertyNotAllowed : error.Value)}";
+        if (!IsUnknownProperty(detail, error)) return $"{location}: {error.Value}";
+        return $"{location}: {PropertyNotAllowed}{SchemaAllowedProperties.Of(schema, detail)}";
     }
 
     /// <summary>

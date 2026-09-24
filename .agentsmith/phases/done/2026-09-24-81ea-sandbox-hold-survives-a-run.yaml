@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-81ea
+goal: "A run that fits the room no longer costs a design conversation the sandboxes it is holding, and the setting that governs the hold is discoverable."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE HOLD WORKS AND IS THROWN AWAY BY EVERY RUN. 2026-09-22-2d11a gave a design conversation
+      the right to keep its source-scope sandboxes between turns, with a 180-second window. Three
+      doors then release EVERY hold unconditionally before their capacity probe — the ticket-run
+      spawn, the mid-run ensure_repo_sandbox escalation and the manual init. HeldSandboxRegister's
+      eviction clears the whole register with no capacity test and no per-conversation filter. So an
+      operator who alternates design turns with phase runs — which is the ordinary way this product
+      is used — loses the hold on every single run admission, and the feature never shows itself.
+      The operator's report is exactly that: hold_seconds is 180 and every turn re-clones.
+  - key: |
+      THE FIX IS A QUESTION BEFORE THE RELEASE, NOT A RELEASE THAT CAN BE UNDONE. The obvious repair
+      — release, re-probe, stop when it fits — is ruled out by the contract, and the interface says
+      why: "a Kubernetes quota's used figure is written by the cluster's own controller and does not
+      drop when a pod is deleted, so probe-release-reprobe would read the same stale figure and deny
+      anyway." That objection binds a probe taken AFTER a deletion. It says nothing about one taken
+      before: nothing has been removed, so nothing is stale. EvictIfShortAsync asks first, keeps the
+      holds when the answer is yes, and is exactly the old unconditional eviction when the answer is
+      no — the release still lands BEFORE the probe that decides, and never after a denial.
+  - key: |
+      THE COST IS ONE EXTRA PROBE ON THE PATH THAT FITS, AND NOTHING ON THE PATH THAT DOES NOT. A
+      probe is a quota read or a container count. Paying one to keep a conversation's checkout is
+      the trade this phase makes, and it is only paid when a hold actually exists — the register
+      short-circuits on an empty one before it asks anything.
+  - key: |
+      THE THREE DOORS ARE FIXED TOGETHER, BECAUSE TWO OF THEM FIRE INSIDE A RUN. Fixing only the
+      spawn door would leave ensure_repo_sandbox — which a coding master calls whenever it discovers
+      a repository it needs — releasing every hold mid-run. The manual init door is the same call
+      with the same argument. One method, three call sites, one behaviour.
+  - key: |
+      hold_seconds WAS NOWHERE AN OPERATOR COULD FIND IT. It is absent from
+      config/agentsmith.schema.json, from the example config and from the deployment notes; it
+      exists in the domain model, in the environment as SANDBOX_HOLD_SECONDS and in the config
+      studio's project sandbox tab. Its default is 180, so "configured 180" and "configured nothing"
+      are indistinguishable in behaviour — an operator who set it had no way to tell whether it had
+      taken. Both legs are declared in the schema and shown in the example, with the sentence that
+      matters: it governs the DESIGN DIALOG only.
+  - key: |
+      WHAT THIS PHASE DOES NOT DO, STATED BECAUSE THE OPERATOR EXPECTED IT: phase execution does not
+      reuse a sandbox between runs, and no setting makes it. A phase is an ordinary pipeline run,
+      and PipelineSandboxCoordinator documents its sandboxes as transient-per-run and disposes every
+      one at run end. There is no hold, no conversation label and no reading of hold_seconds on that
+      path. Making a SET of phases share one checkout is a different piece of work with its own
+      questions — what happens when a phase fails half-way, what the next phase may assume about the
+      tree — and inventing it inside this phase would be answering a question nobody asked.
+  - key: |
+      THE THREE DOOR TESTS 2d11a SHIPPED ARE REWRITTEN, NOT DELETED. They pinned "releases before it
+      probes" as UNCONDITIONAL, which is the behaviour being corrected. Each now states the pair:
+      when the room suffices the holds are kept and nothing is released; when it is short the
+      release still lands before the probe that denies. The ordering guarantee 2d11a established is
+      preserved and is now asserted as a three-step sequence rather than a two-step one.
+
+steps:
+  - id: the-register-can-be-asked-first
+    path: "src/backend/AgentSmith.Application/Services/Sandbox"
+    action:
+      - "Add an eviction that takes a 'would this fit?' question, keeps every hold when the answer is yes, and is the existing unconditional eviction when it is no."
+      - "Short-circuit on an empty register, so a process holding nothing asks nothing."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Sandbox/IHeldSandboxRegister.cs"
+      - "src/backend/AgentSmith.Application/Services/Sandbox/HeldSandboxRegister.cs"
+
+  - id: the-three-doors-ask
+    action: "Pass each door's own capacity probe as the question, so a run that fits leaves the holds alone."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs"
+      - "src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs"
+      - "src/backend/AgentSmith.Server/Services/Init/InitRunAdmission.cs"
+
+  - id: the-setting-can-be-found
+    action:
+      - "Declare hold_seconds on both the global and the per-project sandbox block, saying what it governs and that it governs the design dialog only."
+      - "Show both legs in the example config, with the default and the meaning of 0."
+    modify:
+      - "config/agentsmith.schema.json"
+      - "config/agentsmith.example.yml"
+
+  - id: the-doors-are-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Rewrite the three door assertions to the pair — kept when the room suffices, released before the denial when it is short."
+
+tests:
+  - "HeldSandboxDoorTests.Release_TheManualInitDoor_WhenTheRoomSuffices_KeepsTheHolds"
+  - "HeldSandboxDoorTests.Release_TheManualInitDoor_WhenTheRoomIsShort_ReleasesBeforeTheDenial"
+  - "EnsureRepoSandboxToolHostTests.Release_TheMidRunEscalationDoor_WhenTheRoomIsShort_ReleasesBeforeTheDenial"
+
+done:
+  - "a run admitted without pressure leaves every held sandbox in place"
+  - "a run that does not fit still releases the holds before the probe that denies it, never after"
+  - "all three doors behave the same way"
+  - "a process holding nothing asks no probe it did not already ask"
+  - "hold_seconds is declared in the schema and shown in the example config, on both legs"
+  - "the phase says plainly that phase execution does not reuse sandboxes between runs"

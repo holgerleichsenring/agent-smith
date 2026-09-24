@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-f962
+goal: "The work-item type a filing uses is stated when it is chosen and named as the usual cause when a ticket can no longer be moved."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE CAPABILITY EXISTS AND NOTHING SHOWS IT. An operator asked the design partner for a User
+      Story, was given a Task, and had no way to find out why. `trackers.<name>.work_item_kinds` —
+      a map from filing ROLE (work, bug, phase, chat) to the tracker's own type — has shipped since
+      2026-09-18-b4f0, with a schema property, a config-studio field and a dashboard control. It is
+      absent from the example config, absent from the filing's own record, and absent from the one
+      message an operator reads when its absence finally bites. This phase adds no capability; it
+      makes the one that exists observable.
+  - key: |
+      THE COST OF NOT SEEING IT IS NOT A WRONG LABEL, IT IS A TICKET THAT CAN NEVER RUN AGAIN. An
+      unconfigured tracker files everything as the provider's default type. A lifecycle status
+      configured elsewhere must be a state THAT TYPE has; when it is not, the run cannot move the
+      ticket at its end, UnmovedTicketGate records the fact, and every later claim for that ticket
+      is refused — which is what 2026-09-18-b4f0 was itself cut from. The operator sees three
+      tickets polled, matched and Rejected, with no reason on any surface. So the refusal now names
+      the work-item type as the usual cause, in the sentence it already had for the fix.
+  - key: |
+      THE RESOLUTION IS STATED WHERE IT HAPPENS, INCLUDING WHEN IT RESOLVES NOTHING. The resolver
+      was silent on the path that matters most — an empty map returns null and the provider sends
+      its literal. Both branches now say what was chosen, at Information, so the run's own trail
+      answers "what type did this file as" without anybody reading code or guessing from the board.
+  - key: |
+      THE LLM STILL CANNOT NAME THE TYPE, AND THAT STAYS. TicketFilingRole's own contract is that
+      WHAT a filing IS belongs to the call site "statically ... and never of the content". Letting a
+      conversation name a tracker type would let it name one the process template does not have —
+      which is the exact failure this whole area was cut from. What the operator gets instead is the
+      map, named in the example config, and the two places that now say which type was used. The
+      phase says so plainly rather than leaving the request unanswered.
+  - key: |
+      NOT DONE, DELIBERATELY: carrying the type onto the dialog's filed-ticket pane. It would read
+      well — "#19398, filed as Task" before the consequence lands — but it means a new field on
+      FiledTicket, on the wire and on the dashboard, for a fact the log line and the refusal now
+      both carry. If the trail turns out not to be where operators look, that is a small follow-on
+      with a clear shape, and it is better decided after this one has been used.
+
+steps:
+  - id: the-resolution-says-what-it-chose
+    action: "Log the type a role resolved to, and log the unconfigured case too, since that is the one whose consequence arrives latest."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tickets/TicketKindResolver.cs"
+
+  - id: the-refusal-names-the-usual-cause
+    action: "Add the work-item type to the sentence a blocked ticket's claim already returns, beside the status it could not reach."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs"
+
+  - id: the-map-can-be-found
+    action: "Show work_item_kinds in the example config with all four roles, what the default is, and why the choice reaches further than a name."
+    modify:
+      - "config/agentsmith.example.yml"
+
+  - id: the-two-messages-are-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the unconfigured resolution is reported and that the unmoved refusal names the work-item type."
+
+tests:
+  - "TicketKindResolverTests.For_ATrackerThatConfiguresNoKinds_ReportsThatItFilesTheDefault"
+  - "TicketKindResolverTests.For_AConfiguredRole_ReportsTheTypeItChose"
+  - "UnmovedTicketGateTests.Refusal_NamesTheWorkItemTypeAsTheUsualCause"
+
+done:
+  - "the run's trail says which work-item type each filing used, including when none was configured"
+  - "a ticket refused as unmoved is told that the work-item type is the usual cause, beside the status it could not reach"
+  - "work_item_kinds appears in the example config with its four roles and its consequence"
+  - "no new way for a conversation to name a tracker type is added"

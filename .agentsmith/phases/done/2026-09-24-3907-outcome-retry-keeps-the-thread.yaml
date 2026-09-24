@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-3907
+goal: "The one re-prompt a failed design outcome gets carries the conversation it is correcting, and the refusal that triggers it names the properties that are allowed."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE RETRY IS A COLD SINGLE-SHOT, AND THAT IS WHY IT NEVER WORKS. AgenticMasterHandler's
+      outcome-fix re-prompt calls loopRunner.RunAsync with the nudge as UserPrompt and NO
+      PriorMessages. AgenticLoopRunner assembles [system] + PriorMessages + user, so the retry sees
+      the system prompt and the nudge and nothing else: not its own failed draft, not its tool
+      results, not the grounding it did. It is told "Do not repeat the invalid output" while
+      holding no copy of it, and must re-draft the entire specification from the same original
+      prompt that never said what the key it got wrong allows. EVERY sibling re-prompt in this
+      codebase passes PriorMessages = conversation.Thread() — the apply nudge, the verdict nudge,
+      the re-engagement, the scan reconciliation, and SpecDialogProposalRefusal, which is called
+      from the SAME method two lines earlier. This one was missed.
+  - key: |
+      IT ALSO LEAVES NO TRACE, WHICH IS THE OTHER HALF OF THE SAME OMISSION. The sibling calls
+      conversation.Continued(nudge, response); this one does not. So a turn that failed validation
+      and was re-prompted shows one exchange in the thread where two happened, and the next reader —
+      the next turn — cannot see that a correction was already attempted.
+  - key: |
+      THE REFUSAL NAMES ONLY WHAT IS FORBIDDEN, SO "FIX EXACTLY WHAT THE ERROR NAMES" IS
+      UNSATISFIABLE. SchemaValidator formats an unknown property as "<location>: this property is
+      not allowed here". For a closed block that is a dead end: dropping the rejected key and
+      guessing another is a compliant reading of the instruction, and it is what the live runs did —
+      `scope/constraints`, then `scope/exclusions`, then `scope/repositories`. The formatter already
+      identifies exactly this case and already holds the EvaluationPath whose last segment is
+      `additionalProperties`; the allowed set is one pointer navigation away, and the root schema is
+      already a parameter of Validate. Naming it reaches all five validators that share this
+      formatter, not just this one block.
+  - key: |
+      THIS DOES NOT RE-CUT 2026-09-20-2789, IT IS THE SUCCESSOR THAT PHASE NAMED AND NOBODY CUT.
+      2789 made the refusal READABLE — a passing oneOf contributes no error, and an unknown property
+      reads as a sentence instead of the library's "All values fail against the false schema". Its
+      own scope.out defers this: "WHY A MODEL INVENTS A KEY … what a design turn is told about a
+      run's scope is named in prose as the phase that decides it." No such phase was ever planned or
+      done. The distinction 2789 established is load-bearing and stays: a schema-VALUED
+      additionalProperties must keep its current wording, and its test stays byte-identical.
+  - key: |
+      `scope` IS THE ONLY CLOSED BLOCK IN THE WHOLE SCHEMA, WHICH IS WHY IT IS ALWAYS THIS KEY. The
+      root has no additionalProperties at all — that is why `facts` and `assumptions`, which the
+      skill's own template emits and the schema never declares, pass in silence. Only `scope` can
+      produce "this property is not allowed here", and the skill offers the key by name while
+      showing its sub-keys nowhere: `in` and `out` appear in no file of the pinned catalog. The
+      model is told a key exists and never told what goes in it.
+  - key: |
+      THE SKILL'S TEMPLATE IS THE THIRD HALF AND SHIPS BESIDE THIS. Showing `scope: {in, out}` in
+      the design-partner template is one file in the skills repository, a catalog release and a pin
+      bump. It fixes exactly this key; the two changes here fix the CLASS — a future closed block,
+      and every retry that has to correct anything at all. All three are wanted, and the phase says
+      so rather than pretending either half is the whole.
+  - key: |
+      WHAT IS NOT CLAIMED: that a fresh turn always succeeds. It has the transcript and the failure
+      notice rendered as an assistant turn, which is why it usually does, but it is still never
+      given a positive statement of what `scope` allows — so it too may invent a key until the
+      template ships. The honest claim is that the retry currently cannot succeed except by luck,
+      and after this it is at least given what it needs.
+
+steps:
+  - id: the-retry-carries-the-conversation
+    action:
+      - "Pass PriorMessages = conversation.Thread() to the outcome-fix re-prompt, as every sibling re-prompt does."
+      - "Record the exchange with conversation.Continued, so the thread shows the correction that was attempted."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs"
+
+  - id: the-refusal-names-what-is-allowed
+    action:
+      - "For an unknown property, resolve the closed schema node from the evaluation path and name its allowed properties in the message."
+      - "Leave a schema-valued additionalProperties reading exactly as it does today."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Validation/SchemaValidator.cs"
+
+  - id: the-two-are-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the retry is given the thread and recorded in it, and that an unknown-property refusal names the allowed set while the schema-valued case is unchanged."
+
+tests:
+  - "GateSpecOutcome_DraftFailsValidation_TheRePromptCarriesTheThread"
+  - "GateSpecOutcome_DraftFailsValidation_TheRePromptIsRecordedInTheConversation"
+  - "SchemaValidator_UnknownProperty_NamesThePropertiesTheBlockAllows"
+  - "SchemaValidator_SchemaValuedAdditionalProperties_ReadsExactlyAsBefore"
+
+done:
+  - "the outcome-fix re-prompt is given the same thread every sibling re-prompt is given"
+  - "a turn that was re-prompted shows both exchanges in its conversation"
+  - "an unknown-property refusal names the properties the block allows"
+  - "the schema-valued additionalProperties message is byte-identical to today's"
+  - "the skills-side template change is opened beside this phase"

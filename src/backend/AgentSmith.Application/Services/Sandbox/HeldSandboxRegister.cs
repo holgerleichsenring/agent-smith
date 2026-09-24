@@ -4,13 +4,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// 2026-09-22-2d11a: the process-local register of held sandboxes, evicted in front of
-/// every capacity probe. 2026-09-22-2d11b: and taken back by the turn that holds the
-/// conversation, once the agent's heartbeat says the container is still there.
+/// 2026-09-22-2d11a: the process-local register of held sandboxes, evicted in front of a capacity
+/// probe that would otherwise be short. 2026-09-22-2d11b: and taken back by the turn that holds
+/// the conversation, once the agent's heartbeat says the container is still there.
 /// </summary>
 public sealed class HeldSandboxRegister(
     ISandboxHeartbeatProbe heartbeat, ILogger<HeldSandboxRegister> logger) : IHeldSandboxRegister
 {
+    private readonly HeldSandboxRemoval _removal = new(heartbeat, logger);
     private readonly Lock _gate = new();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
 
@@ -28,11 +29,11 @@ public sealed class HeldSandboxRegister(
             if (!_entries.Remove(key, out var entry)) return null;
             taken = entry.Held;
         }
-        if (await IsAliveAsync(taken, cancellationToken)) return taken.Sandbox;
+        if (await _removal.IsAliveAsync(taken, cancellationToken)) return taken.Sandbox;
         logger.LogInformation(
             "Held sandbox {JobId} of conversation {Conversation} is gone; the turn spawns afresh",
             taken.Sandbox.JobId, taken.ConversationId);
-        await RemoveAsync(taken, cancellationToken);
+        await _removal.OneAsync(taken, cancellationToken);
         return null;
     }
 
@@ -49,7 +50,17 @@ public sealed class HeldSandboxRegister(
         if (evicting.Count == 0) return Task.FromResult(0);
         logger.LogInformation(
             "Releasing {Count} held sandbox(es) before a capacity probe", evicting.Count);
-        return RemoveAllAsync(evicting, cancellationToken);
+        return _removal.AllAsync(evicting, cancellationToken);
+    }
+
+    public async Task<int> EvictIfShortAsync(
+        Func<CancellationToken, Task<bool>> fits, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fits);
+        lock (_gate) { if (_entries.Count == 0) return 0; }
+        if (!await fits(cancellationToken)) return await EvictAsync(cancellationToken);
+        logger.LogInformation("Capacity suffices; keeping the held sandbox(es)");
+        return 0;
     }
 
     public Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken)
@@ -67,50 +78,7 @@ public sealed class HeldSandboxRegister(
         logger.LogInformation(
             "Conversation {Conversation} ended; releasing {Count} held sandbox(es)",
             conversationId, ending.Count);
-        return RemoveAllAsync(ending, cancellationToken);
-    }
-
-    private async Task<int> RemoveAllAsync(
-        IReadOnlyList<HeldSandbox> holds, CancellationToken cancellationToken)
-    {
-        var released = 0;
-        foreach (var held in holds)
-            if (await RemoveAsync(held, cancellationToken)) released++;
-        return released;
-    }
-
-    private async Task<bool> RemoveAsync(HeldSandbox held, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await held.Sandbox.ForceRemoveAsync(cancellationToken);
-            return true;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // The hold is gone from the register either way: a sandbox this process
-            // could not remove is left to the reapers, whose rail lapses with the window.
-            logger.LogWarning(ex,
-                "Could not release held sandbox {Key} of conversation {Conversation}",
-                held.Key, held.ConversationId);
-            return false;
-        }
-    }
-
-    // A probe that threw answers NO, for the reason a probe that read "missing" does: the
-    // cost of spawning is a spawn, and the cost of reading through a corpse is the step
-    // timeout plus a thirty-second grace.
-    private async Task<bool> IsAliveAsync(HeldSandbox held, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await heartbeat.IsAliveAsync(held.Sandbox.JobId, cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Heartbeat probe failed for held sandbox {Key}", held.Key);
-            return false;
-        }
+        return _removal.AllAsync(ending, cancellationToken);
     }
 
     private sealed record Entry(HeldSandbox Held, DateTimeOffset HeldAt);

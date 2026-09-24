@@ -10,6 +10,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -66,15 +67,24 @@ public sealed class TicketKindFilingTests
             .And.NotContain("record,", "the known-role list it prints no longer offers it");
     }
 
+    /// <summary>
+    /// 2026-09-24-f962: this used to assert SILENCE — "an installation that configured nothing has
+    /// nothing to report". It has the most to report. An unconfigured tracker files the provider's
+    /// own literal, and a lifecycle status that literal's type does not have cannot be reached at
+    /// the run's end, which blocks the ticket on every later claim. An operator hit that three
+    /// times in a row with nothing on any surface naming the type.
+    /// </summary>
     [Fact]
-    public void Resolve_ATrackerThatConfiguresNothing_ResolvesNothingAndSaysNothing()
+    public void Resolve_ATrackerThatConfiguresNothing_ResolvesNothingAndSaysSo()
     {
         var logger = new CapturingLogger<TicketKindResolver>();
 
         var kind = new TicketKindResolver(logger).For(Project(null), TicketFilingRole.Work);
 
         kind.Should().BeNull();
-        logger.Lines.Should().BeEmpty("an installation that configured nothing has nothing to report");
+        string.Join("\n", logger.Lines).Should()
+            .Contain("configures no work_item_kinds").And.Contain("default type");
+        logger.Warnings.Should().BeEmpty("nothing is wrong — it is a default, not a mistake");
     }
 
     /// <summary>
@@ -133,4 +143,52 @@ public sealed class TicketKindFilingTests
             WorkItemKinds = kinds ?? new Dictionary<string, string>(),
         },
     };
+
+    /// <summary>
+    /// 2026-09-24-f962: the unconfigured path is the one whose consequence arrives latest — the
+    /// provider files its own literal, and a lifecycle status that type does not have blocks the
+    /// ticket for good at the run's end. It must not be the silent path.
+    /// </summary>
+    [Fact]
+    public void For_ATrackerThatConfiguresNoKinds_ReportsThatItFilesTheDefault()
+    {
+        var logger = new KindLogger();
+        var project = ProjectWithKinds(new Dictionary<string, string>());
+
+        new TicketKindResolver(logger).For(project, TicketFilingRole.Phase).Should().BeNull();
+
+        string.Join("\n", logger.Lines).Should()
+            .Contain("configures no work_item_kinds").And.Contain("default type");
+    }
+
+    [Fact]
+    public void For_AConfiguredRole_ReportsTheTypeItChose()
+    {
+        var logger = new KindLogger();
+        var project = ProjectWithKinds(new Dictionary<string, string> { ["phase"] = "User Story" });
+
+        new TicketKindResolver(logger).For(project, TicketFilingRole.Phase).Should().Be("User Story");
+
+        string.Join("\n", logger.Lines).Should().Contain("User Story");
+    }
+
+    private static ResolvedProject ProjectWithKinds(IReadOnlyDictionary<string, string> kinds) =>
+        new()
+        {
+            Name = "p1",
+            Tracker = new TrackerConnection { Name = "t1", WorkItemKinds = kinds },
+        };
+
+    private sealed class KindLogger : ILogger<TicketKindResolver>
+    {
+        public List<string> Lines { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Lines.Add(formatter(state, exception));
+    }
 }

@@ -51,10 +51,14 @@ public sealed class SchemaValidatorTests
             .Contain("phase-spec/requires: Value is \"integer\" but should be \"array\"")
             .And.Contain("phase-spec/requires: Value is \"integer\" but should be \"string\"");
 
+    // 2026-09-24-3907: naming only the dead end is unsatisfiable for a reader told to "fix
+    // exactly what the error names" — three live design turns answered it by guessing another
+    // key (scope/constraints, then scope/exclusions, then scope/repositories). The refusal now
+    // names the way out.
     [Fact]
     public void SchemaValidator_AnUnknownKey_IsReportedByNameAndAsNotAllowed() =>
         Refusal("phase: p9999\ngoal: \"g\"\nscope:\n  in: \"x\"\n  invented_key: \"y\"\n").Should()
-            .Be("phase-spec/scope/invented_key: this property is not allowed here");
+            .Be("phase-spec/scope/invented_key: this property is not allowed here — it allows in, out");
 
     [Fact]
     public void SchemaValidator_ASchemaValuedAdditionalProperties_StillReportsItsTypeError() =>
@@ -106,5 +110,31 @@ public sealed class SchemaValidatorTests
 
         result.ErrorMessage.Should()
             .Be("diff/changes/0: Required properties [\"operation\",\"summary\",\"patch\"] are not present");
+    }
+
+    /// <summary>
+    /// 2026-09-24-3907: the operator's own draft, through the shipped validator. A design turn
+    /// about three repositories with exclusions put exactly that content into `scope`, twice over,
+    /// and got back two dead ends and no way forward — so the next attempt invented a third key.
+    /// This is the message that turn produces now.
+    /// </summary>
+    [Fact]
+    public void SchemaValidator_TheDraftThatKeptFailing_NowNamesTheWayOut()
+    {
+        var refusal = Refusal(
+            """
+            phase: 2026-09-24-a7c3
+            goal: "Update all direct dependencies to their newest compatible minor or patch releases"
+            scope:
+              repositories:
+                - Sample.Server
+                - Sample.Client
+              exclusions: "no major-version changes"
+            """);
+
+        refusal.Should().Contain("phase-spec/scope/repositories: this property is not allowed here");
+        refusal.Should().Contain("phase-spec/scope/exclusions: this property is not allowed here");
+        refusal.Should().Contain("it allows in, out",
+            "a reader told to fix exactly what the error names must be given something to aim at");
     }
 }

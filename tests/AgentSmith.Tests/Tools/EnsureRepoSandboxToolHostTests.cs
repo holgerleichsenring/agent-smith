@@ -149,9 +149,10 @@ public sealed class EnsureRepoSandboxToolHostTests
 
     // 2026-09-22-2d11a: the mid-run escalation door releases held sandboxes before it
     // asks its own single-sandbox probe, so a hold cannot deny a repository the master
-    // discovered it needs.
+    // discovered it needs. 2026-09-24-81ea: it asks first, and releases only when the room is
+    // short — a run that fits must not cost a design conversation the holds it is keeping.
     [Fact]
-    public async Task Release_TheMidRunEscalationDoor_ReleasesBeforeItProbes()
+    public async Task Release_TheMidRunEscalationDoor_WhenTheRoomIsShort_ReleasesBeforeTheDenial()
     {
         var (pipeline, _, fs) = await BootRunAsync();
         var recording = new AgentSmith.Tests.Sandbox.RecordingHeldSandboxes();
@@ -160,6 +161,7 @@ public sealed class EnsureRepoSandboxToolHostTests
         (await sut.EnsureRepoSandbox("client")).Should().Be(EnsureRepoSandboxToolHost.CapacityDenyAnswer);
 
         recording.Order.Should().Equal(
+            AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe,
             AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Released,
             AgentSmith.Tests.Sandbox.RecordingHeldSandboxes.Probe);
     }

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-24-f962
+
+decisions:
+  - category: Product
+    chose: "Make the existing work-item-kind configuration observable"
+    over: "Adding a way for the design conversation to name the type"
+    reason: |
+      trackers.<name>.work_item_kinds has shipped since 2026-09-18-b4f0 with a schema property, a
+      config-studio field and a dashboard control. What was missing was every surface that would
+      have told an operator it exists. Letting a conversation name the type would let it name one
+      the process template does not have — which is the incident that area was cut from — and
+      TicketFilingRole's contract is that what a filing IS belongs to the call site "statically ...
+      and never of the content".
+
+  - category: Correctness
+    chose: "Report the resolution on BOTH branches, including the unconfigured one"
+    over: "The silence an earlier test pinned deliberately"
+    reason: |
+      Resolve_ATrackerThatConfiguresNothing_ResolvesNothingAndSaysNothing asserted that "an
+      installation that configured nothing has nothing to report". It has the most to report: the
+      provider files its own literal, and a lifecycle status that literal's type does not have can
+      never be reached, so the run cannot move the ticket at its end and every later claim is
+      refused. An operator hit exactly that three times with nothing on any surface naming the type.
+
+  - category: Product
+    chose: "Name the work-item type in the unmoved-ticket refusal"
+    over: "Leaving the refusal to name only the status it could not reach"
+    reason: |
+      That sentence is what an operator reads at the moment they are blocked, and it already carried
+      the fix for the status. The type is the usual cause of the status being unreachable, so it
+      belongs in the same breath.
+
+  - category: Scope
+    chose: "Not carrying the type onto the dialog's filed-ticket pane"
+    over: "Showing it where the ticket first appears"
+    reason: |
+      It would read well — "#19398, filed as Task" before the consequence lands — but it means a new
+      field on FiledTicket, on the wire and on the dashboard, for a fact the log line and the refusal
+      now both carry. Better decided after these have been used.
