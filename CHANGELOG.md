@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.149.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.148.0...v0.149.0) (2026-09-24)
+
+
+### Features
+
+* a copilot agent answers a non-tool model call (2026-09-07-d5f2) ([48924d7](https://github.com/holgerleichsenring/agent-smith/commit/48924d7ca82ea96d7fb573fa74bd8f04c0332209))
+* a copilot agent runs a tool-bearing task through our own loop (2026-09-23-4722a) ([bd79124](https://github.com/holgerleichsenring/agent-smith/commit/bd79124dac052653ce0bf76f23272251efc25d19))
+* a re-init retires the contexts it no longer derives (2026-09-23-4711) ([efd6354](https://github.com/holgerleichsenring/agent-smith/commit/efd635452aae4c0f45d87eb265c2cd610a706f21))
+* GitHub Copilot as an agent provider (2026-09-07-d5f2, 2026-09-23-4722a, 2026-09-23-4722b) ([62015d3](https://github.com/holgerleichsenring/agent-smith/commit/62015d3879fb170bfcb99625530ff33ba611fe46))
+
+
+### Bug Fixes
+
+* a context document may not contradict itself about its workdir (2026-09-23-72c7) ([e778f29](https://github.com/holgerleichsenring/agent-smith/commit/e778f2928f510e6ee1da51c51209bbf99d01ba24))
+* a layer project is not a component (2026-09-23-3332) ([f31a6e7](https://github.com/holgerleichsenring/agent-smith/commit/f31a6e7c6a2a612772bfeeaa6d9a86b69e2377c0))
+* a repeated init can correct what it derived (2026-09-23-bb73, cd28, 9bb2) ([f071e83](https://github.com/holgerleichsenring/agent-smith/commit/f071e832d005fe8dfaca361b7b04b6c2d3a9e1aa))
+* a repeated init derives again (2026-09-23-9bb2) ([3ba275e](https://github.com/holgerleichsenring/agent-smith/commit/3ba275e44138a3a1f9faeac3694451f42d7aad48))
+* a sandbox gets the secret names the agents actually name (2026-09-23-4722b) ([3d2a482](https://github.com/holgerleichsenring/agent-smith/commit/3d2a48230c23ff60d7aa231162f2d0cbc353e90e))
+* a server with no auth block starts (2026-09-23-2c60) ([55b5b22](https://github.com/holgerleichsenring/agent-smith/commit/55b5b22a644a13036133579fbbf5cd914a3f6870))
+* a server with no auth block starts (2026-09-23-2c60) ([5a157c8](https://github.com/holgerleichsenring/agent-smith/commit/5a157c8de202e3384611c26ce4ef140e94dc0a20))
+* an analysis map is found by ownership (2026-09-23-bb73) ([3a4e129](https://github.com/holgerleichsenring/agent-smith/commit/3a4e1295cc9d66d624019e2a9290961831fe9968))
+* an invented context name is refused (2026-09-23-cd28) ([7b6f2f8](https://github.com/holgerleichsenring/agent-smith/commit/7b6f2f810dc49b557436cb8107759e1918fb138c))
+* discovery answers what the repository is (2026-09-23-3332, 4711, 72c7) ([fb301e0](https://github.com/holgerleichsenring/agent-smith/commit/fb301e050c5d6e6f9b1e169f917f9b0c30e717cf))
+* nothing is built with an argument the container could hold (2026-09-23-e7f0) ([cdc5868](https://github.com/holgerleichsenring/agent-smith/commit/cdc58684dc3b083d4a9ead3a8cbc117a40b06fa8))
+* nothing is built with an argument the container could hold (2026-09-23-e7f0) ([d328726](https://github.com/holgerleichsenring/agent-smith/commit/d328726223e53c00cc8df9cc54b0e12c18e6e505))
+
 ## [0.148.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.147.0...v0.148.0) (2026-09-23)
 
 
