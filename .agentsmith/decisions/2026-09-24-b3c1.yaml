@@ -1,0 +1,44 @@
+phase: 2026-09-24-b3c1
+decisions:
+  - what: "Join the six unconverted readers to the converter that already ships, rather than adding a second one."
+    alternatives:
+      - "A new HTML-to-markdown converter (HtmlAgilityPack + ReverseMarkdown) in Infrastructure."
+      - "Convert in the dashboard renderer."
+    why: |
+      The first cut of this spec proposed the new converter without opening
+      TicketHtmlConverter, which p0399 added for exactly this and which five readers
+      already call. Two converters over one field are two answers to one question, and
+      their outputs differ — one strips markup, the other emits markdown.
+
+  - what: "Do NOT convert in AzureDevOpsFieldMapper, the apparently tidy boundary."
+    alternatives:
+      - "Convert once at the provider, so the canonical Ticket is always text."
+      - "Convert at the label-note door in FetchTicketHandler, where the ticket is already normalised once."
+    why: |
+      Three consumers read the HTML SHAPE deliberately. TicketTextFingerprint normalises
+      through ToText, so a body arriving pre-converted fingerprints differently,
+      SpecRevisionCause reports TicketEdit, and every ratified spec set on the tracker is
+      re-cut for an edit nobody made. TicketLabelNoteStripper matches an HTML comment pair.
+      PhaseSpecFromTicket selects a pre/code block by regex. None of the three has a test
+      that runs the mapper, so all three would have gone out green. The door variant fails
+      for a subtler reason: the fingerprint's own call would become a SECOND pass, and
+      ToText is not idempotent — a fenced block holding angle brackets is stripped on a
+      second run.
+
+  - what: "Leave the dashboard renderer alone, and state the cost."
+    alternatives:
+      - "Add rehype-raw so events recorded before this phase render."
+    why: |
+      Measured: react-markdown 10 escapes a raw node to text and rehype-sanitize then drops
+      it, so the overview shows an empty article for every run recorded before this phase
+      and will keep doing so. Correcting that needs a new dependency ordered BEFORE the
+      sanitizer, across five components that also render model- and operator-authored prose.
+      That is a dashboard phase with its own risk, not a rider on a backend fix.
+
+  - what: "Include the pull-request body, which the adversarial review did not find."
+    alternatives:
+      - "Ship the five readers the review confirmed and leave the PR body for a follow-up."
+    why: |
+      CommitAndPRHandler leads the body with the raw description, and a pull-request body is
+      markdown. It is the one surface a reviewer who never opens agent-smith reads, so it is
+      the worst place to carry tags. Found while joining the other readers.

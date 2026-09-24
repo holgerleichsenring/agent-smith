@@ -39,6 +39,33 @@ public sealed class FetchTicketHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ADescriptionInHtml_PutsTheTicketsTextOnTheEvent()
+    {
+        // 2026-09-24-b3c1: the run viewer renders this event and the stream keeps it forever.
+        // Left raw, an Azure DevOps body reached the overview as markup no renderer reads.
+        var ticketId = new TicketId("42");
+        var ticket = new Ticket(ticketId, "Dependency update",
+            "<h2 id=goal>Goal </h2><p>Update the dependencies &amp; the lockfile.</p>",
+            null, "New", "AzureDevOps");
+        var providerMock = new Mock<ITicketProvider>();
+        providerMock.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ticket);
+        _factoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(providerMock.Object);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.TicketId, ticketId);
+        await _handler.ExecuteAsync(
+            new FetchTicketContext(ticketId, new TrackerConnection { Type = TrackerType.AzureDevOps }, pipeline),
+            CancellationToken.None);
+
+        var fetched = _publishedEvents.OfType<TicketFetchedEvent>().Single();
+        fetched.Description.Should().Contain("Update the dependencies & the lockfile")
+            .And.NotContain("<h2").And.NotContain("&amp;");
+        pipeline.Get<Ticket>(ContextKeys.Ticket).Description.Should().Contain("<h2",
+            "the pipeline ticket is untouched — the fingerprint normalises it itself");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_Success_StoresTicketInPipeline()
     {
         var ticketId = new TicketId("42");

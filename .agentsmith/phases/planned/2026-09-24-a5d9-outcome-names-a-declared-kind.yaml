@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-a5d9
+goal: "A design turn may name the work-item kind a filing uses, chosen from the kinds the tracker declares, and nothing else."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE OPERATOR ASKED FOR IT VERBALLY AND WAS RIGHT TO. Today the kind follows the filing ROLE —
+      bug, phase, work, chat — resolved from trackers.<name>.work_item_kinds. That is enough to get
+      four different types onto a board, but not to say "this one is an Epic" about a particular
+      piece of work. The conversation is where that is decided, and asking the operator to re-shape
+      the discussion so a different ROLE fires is making a person work around a contract.
+  - key: |
+      THE DANGER IS A FREE-TEXT TYPE, NOT A CHOSEN ONE, AND THE DIFFERENCE IS THE WHOLE PHASE. A
+      model naming any string can name a type the process template does not have. The ticket is then
+      created as something whose lifecycle states differ from the configured ones, the run cannot
+      move it at its end, and the claim refuses it forever — which is the incident 2026-09-18-b4f0
+      was cut from, and which a live operator hit three times in one morning. So the conversation
+      does not NAME a kind, it SELECTS one: the value must appear in the tracker's own
+      work_item_kinds map, and anything else is refused with the list of what it could have said.
+      The operator keeps sole authority over which kinds exist; the conversation gets to pick among
+      them.
+  - key: |
+      TicketFilingRole'S CONTRACT SURVIVES, NARROWED RATHER THAN BROKEN. It says what a filing IS
+      "as the call site filing it knows statically ... and never of the content". That stays true of
+      the ROLE: a bug payload is still a bug, an approved cut is still work. What the content may
+      now carry is an override of the TYPE that role resolves to — a different question, and one
+      whose answer set is fixed by configuration rather than by the model.
+  - key: |
+      THE OVERRIDE IS OPTIONAL AND ABSENT BY DEFAULT, SO NOTHING CHANGES FOR ANYONE WHO SAYS
+      NOTHING. An outcome that names no kind resolves exactly as it does today: the role's entry,
+      or the provider's literal when the tracker configures nothing. A turn that never mentions a
+      type behaves as it did before this phase.
+  - key: |
+      THE REFUSAL IS PART OF THE FEATURE, NOT A FALLBACK. A conversation that asks for a kind the
+      tracker does not declare must be told so IN THE TURN, with the kinds it may choose from —
+      otherwise the operator is back to a silent wrong answer, which is the whole class of defect
+      this repository spent today removing. The refusal is the outcome's, not a validation error:
+      the turn answers, it does not file.
+  - key: |
+      WHERE THE VALUE ENTERS IS THE ```outcome``` BLOCK, WHICH ALREADY CARRIES A `kind`. That word
+      is taken — it names the OUTCOME kind (bug, epic), not the tracker's type — so the new field is
+      named for what it is, `work_item_kind`, and the phase draft's ```yaml``` block gains nothing:
+      a phase is proposed by shape, and an operator who wants a phase filed as something else says
+      so in the turn the outcome is confirmed.
+  - key: |
+      NOT IN SCOPE, AND SAID SO RATHER THAN DISCOVERED LATER: validating the declared kinds against
+      the tracker's real process template. agent-smith cannot read an Azure DevOps process template
+      today, and a kind an operator typed that their board does not have still fails at create time,
+      exactly as it does now. This phase closes the gap between the conversation and the
+      CONFIGURATION, not between the configuration and the board.
+
+steps:
+  - id: an-outcome-may-carry-a-kind
+    path: "src/backend/AgentSmith.Contracts/Models"
+    action:
+      - "Give the typed outcomes an optional work-item kind, defaulted to none so every existing construction site is unchanged."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs"
+
+  - id: the-model-may-select-one
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Read work_item_kind from the outcome block, and say in the design-partner's turn contract that it is a SELECTION from what the tracker declares."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs"
+      - "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs"
+
+  - id: a-kind-nobody-declared-is-refused-in-the-turn
+    action:
+      - "Refuse an outcome naming a kind absent from the tracker's map, answering with the kinds it could have chosen."
+      - "Resolve a named kind ahead of the role's entry when it is declared."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tickets/TicketKindResolver.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs"
+
+  - id: the-selection-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert a declared kind overrides the role, an undeclared one is refused with the list, and an outcome naming none behaves exactly as before."
+
+tests:
+  - "OutcomeKind_ADeclaredKind_OverridesTheRolesEntry"
+  - "OutcomeKind_AKindTheTrackerDoesNotDeclare_IsRefusedWithWhatItCouldHaveChosen"
+  - "OutcomeKind_AnOutcomeNamingNone_ResolvesExactlyAsTheRoleDidBefore"
+  - "OutcomeKind_ATrackerThatDeclaresNothing_RefusesAnyNamedKind"
+  - "SpecDialogPrompt_Rendered_SaysTheKindIsChosenFromWhatTheTrackerDeclares"
+
+done:
+  - "a design turn can say which of the tracker's declared kinds a filing uses, and it is used"
+  - "a kind the tracker does not declare is refused in the turn, naming the ones it could have chosen"
+  - "an outcome that names no kind files exactly as it does today"
+  - "the operator remains the only one who decides which kinds exist"
+  - "the filing role is still decided by the call site, never by the content"

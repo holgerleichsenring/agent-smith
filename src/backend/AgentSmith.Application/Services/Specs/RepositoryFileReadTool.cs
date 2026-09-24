@@ -65,7 +65,9 @@ public sealed class RepositoryFileReadTool(
             read.Ran ? read.Content is null ? "absent" : $"{read.Content.Length} chars" : "could not run", id);
         if (!read.Ran) return $"[{id}] {repository}/{under} could not be read ({read.Error}), so this proves nothing.";
         return shown is null
-            ? $"[{id}] {repository}/{under} does not exist."
+            // 2026-09-24-4f10: the subject is the PATH. Read as a sentence about the
+            // repository this answer is wrong, and a premise check read it that way.
+            ? $"[{id}] {repository} has nothing at {under}. That is about this path only — a file of that name may sit elsewhere in the repository."
             : $"[{id}] {repository}/{under}:\n" + BoundedResultTool.Bound(shown, MaxChars);
     }
 

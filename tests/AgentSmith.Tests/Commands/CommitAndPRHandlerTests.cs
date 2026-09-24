@@ -665,11 +665,34 @@ public class CommitAndPRHandlerTests
             It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
     }
 
-    private CommitAndPRContext CreateContext(PipelineContext? pipeline = null)
+    [Fact]
+    public async Task ExecuteAsync_ADescriptionInHtml_LeadsThePullRequestAsText()
+    {
+        // 2026-09-24-b3c1: a pull-request body is MARKDOWN, and an Azure DevOps description is
+        // HTML. Led with raw, a reviewer who never opens agent-smith read the tags themselves.
+        string? capturedBody = null;
+        _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
+                It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                (_, _, body, _, _, _, _) => capturedBody = body)
+            .ReturnsAsync("https://github.com/test/repo/pull/42");
+        var context = CreateContext(
+            description: "<h2 id=goal>Goal </h2><p>Update the dependencies &amp; the lockfile.</p>");
+
+        await _sut.ExecuteAsync(context, CancellationToken.None);
+
+        capturedBody.Should().Contain("Update the dependencies & the lockfile")
+            .And.NotContain("<h2").And.NotContain("&amp;");
+    }
+
+    private CommitAndPRContext CreateContext(PipelineContext? pipeline = null, string? description = null)
     {
         var pl = pipeline ?? NewPipelineWithSandbox();
         var repo = new Repository(new BranchName("fix/123"), "https://github.com/test/repo");
-        var ticket = new Ticket(new TicketId("123"), "Fix the bug", "Description", null, "Open", "GitHub");
+        var ticket = new Ticket(
+            new TicketId("123"), "Fix the bug", description ?? "Description", null, "Open", "GitHub");
         var changes = new List<CodeChange>
         {
             new(new FilePath("README.md"), "content", "Created")

@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-b3c1
+goal: "The readers still handed a ticket's HTML transport encoding — the coding master, the scope and expectation prompts, the cut review and the run viewer — read its text instead."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE CONVERTER ALREADY SHIPS AND THIS PHASE ONLY JOINS THE READERS THAT MISSED IT.
+      TicketHtmlConverter (p0399) turns an Azure DevOps body into text, keeps <pre> blocks as
+      fences, decodes entities, and passes plain text through untouched. Five readers already
+      call it — TicketSegmenter, AcceptanceCriteriaSection, SpecFallback, SpecPromptComposer,
+      TicketTextFingerprint. A first cut of this phase proposed a SECOND converter, HTML to
+      markdown, without opening that file; two converters over one field are two answers to one
+      question and the wrong shape.
+  - key: |
+      THE CONVERSION MUST NOT MOVE TO THE PROVIDER MAPPER, AND THIS IS THE LOAD-BEARING
+      DECISION. Converting in AzureDevOpsFieldMapper looks like the tidy boundary and breaks
+      three things that read the HTML SHAPE on purpose. TicketTextFingerprint normalises through
+      ToText, so a body arriving already converted fingerprints differently, SpecRevisionCause
+      reports TicketEdit, and every ratified spec set on the Azure DevOps tracker is re-cut for
+      an edit nobody made. TicketLabelNoteStripper matches an HTML COMMENT PAIR and runs on the
+      handler's side of that mapper. PhaseSpecFromTicket selects a <pre><code class="language-
+      yaml"> block by regex. None of the three is covered by a test that runs the mapper, so all
+      three would have gone out green.
+  - key: |
+      PER-READER CONVERSION IS THE PATTERN THIS REPOSITORY ALREADY HAS, NOT A CONCESSION. Five
+      readers call the converter themselves today. Consolidating them behind the label-note door
+      would be the better shape only if ToText were provably idempotent — the fingerprint's own
+      call would become the second pass — and it is not: a fenced block holding angle brackets
+      would be stripped on a second run. Proving or fixing that is its own phase; joining the
+      readers that were simply forgotten is this one.
+  - key: |
+      WHAT THE READERS ACTUALLY GET TODAY, EACH OPENED. MasterUserPrompt interpolates
+      ticket.Description and the criteria raw, so the coding master pays tokens for markup the
+      derivation path stopped paying at p0399. RepoScopeClassifier and ExpectationPromptComposer
+      do the same. SpecCutReviewTicketText joins title, description and criteria raw for the cut
+      review. FetchTicketHandler puts the raw description on TicketFetchedEvent, which is what
+      the run viewer renders and what the persisted stream keeps forever.
+  - key: |
+      NOT IN SCOPE, WITH ITS REASON: the write path. BugTicketRenderer composes a BugTicketDraft
+      the model authored in markdown, not a body read back from a tracker, and
+      AzureDevOpsTicketProvider converts markdown to HTML on create by design. Nothing there is
+      double-encoded and nothing there changes.
+  - key: |
+      NOT IN SCOPE, WITH ITS REASON AND ITS COST STATED: the dashboard renderer. Every
+      TicketFetchedEvent already persisted carries HTML, and the shared Markdown component drops
+      it — measured: react-markdown 10 escapes a raw node to text, and rehype-sanitize then drops
+      it, so the overview shows an empty article for runs recorded before this phase and will
+      keep doing so. Correcting that means rehype-raw as a NEW dependency, ordered BEFORE
+      rehype-sanitize rather than after it, across five components that also render model- and
+      operator-authored prose. That is a dashboard phase with its own risk, and it does not
+      belong inside a backend fix.
+
+steps:
+  - id: the-event-carries-the-tickets-text
+    path: "src/backend/AgentSmith.Application/Services/Handlers"
+    action:
+      - "Convert the description through the shipped converter as the fetched event is published, so the run viewer and the persisted stream carry text."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs"
+
+  - id: the-prompts-read-text-too
+    path: "src/backend/AgentSmith.Application/Services"
+    action:
+      - "Convert the description and the acceptance criteria where the coding master, the scope classifier and the expectation composer interpolate them."
+      - "Convert the ticket the cut review is shown, and the description the pull-request body leads with."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/MasterUserPrompt.cs"
+      - "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs"
+      - "src/backend/AgentSmith.Application/Services/Expectations/ExpectationPromptComposer.cs"
+      - "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewTicketText.cs"
+      - "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs"
+
+  - id: the-conversion-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert each joined reader receives text for an HTML body, that a plain-text body is unchanged, and that a provider HTML body still fingerprints as it did."
+
+tests:
+  - "PublishFetched_ADescriptionInHtml_PutsTheTicketsTextOnTheEvent"
+  - "Build_ADescriptionInHtml_ReachesTheCodingMasterAsText"
+  - "Classify_AcceptanceCriteriaInHtml_ReachTheClassifierAsText"
+  - "Compose_AcceptanceCriteriaInHtml_ReachTheExpectationPromptAsText"
+  - "Of_ATicketWhoseBodyIsHtml_IsShownToTheCutReviewAsText"
+  - "Of_ATicketWhoseBodyIsPlainText_IsUnchanged"
+  - "Body_ADescriptionInHtml_LeadsThePullRequestAsText"
+
+done:
+  - "the run viewer and the persisted event carry the ticket's text, not its markup"
+  - "the coding master, the scope classifier, the expectation composer and the cut review read text"
+  - "the pull-request body leads with the ticket's text, which is what markdown there means"
+  - "a ticket already written as plain text or markdown is unchanged everywhere"
+  - "the ticket fingerprint is untouched, so no approved spec set is re-cut"
+  - "build green, full suite green"
