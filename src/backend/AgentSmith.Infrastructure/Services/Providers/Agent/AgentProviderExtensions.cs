@@ -30,6 +30,12 @@ public static class AgentProviderExtensions
         services.AddSingleton<IChatClientBuilder, OpenAiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, GeminiChatClientBuilder>();
         services.AddSingleton<IChatClientBuilder, OllamaChatClientBuilder>();
+        // 2026-09-07-d5f2: the Copilot runtime is a PROCESS, so one per container — and it starts
+        // lazily, because ConfigCapabilitiesTests resolves every registered builder and CI has no
+        // runtime binary.
+        services.AddSingleton<Factories.ChatClientBuilders.Copilot.ICopilotRuntime,
+            Factories.ChatClientBuilders.Copilot.CopilotRuntime>();
+        services.AddSingleton<IChatClientBuilder, CopilotChatClientBuilder>();
         // p0416: the external-worker bridge — an agent CLI answers the model calls.
         // Registered always, selected only by an agent whose type says so.
         services.AddExternalWorkerBridge();

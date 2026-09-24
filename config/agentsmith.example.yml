@@ -208,6 +208,32 @@ agents:
           output_per_million: 4.0
           cache_read_per_million: 0.08
 
+  # GitHub Copilot (2026-09-07-d5f2). Answers on an operator's Copilot seat instead of a
+  # per-provider API key. Three things differ from the providers above and none of them are
+  # defaults you can leave alone:
+  #   * api_key_secret names the env var holding a PERSON's token — Copilot rejects org-owned
+  #     PATs, so two seats mean two agents naming two variables.
+  #   * the Copilot CLI runtime is NOT downloaded by the build; the image places it and
+  #     COPILOT_CLI_PATH points at it.
+  #   * pricing below is an OPERATOR-DECLARED PROXY. A seat is billed in premium requests, not
+  #     per token, so a flat-rate seat is honestly entered as zero and the run's cost cap is
+  #     approximate for this agent. The provider's own meter travels to the run trace beside it.
+  # Only summarization and code-map generation are served today; a tool-bearing role is refused
+  # with a message naming 2026-09-23-4722a, which returns the tool loop to agent-smith.
+  # copilot-seat:
+  #   type: copilot
+  #   model: gpt-5
+  #   api_key_secret: COPILOT_GITHUB_TOKEN
+  #   models:
+  #     summarization:
+  #       model: gpt-5
+  #       max_tokens: 2048
+  #   pricing:
+  #     models:
+  #       gpt-5:
+  #         input_per_million: 0.0
+  #         output_per_million: 0.0
+
   # Required for api-security-scan to hit Anthropic's 5-min prompt-cache TTL.
   claude-parallel:
     type: claude
