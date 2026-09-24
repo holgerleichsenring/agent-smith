@@ -118,7 +118,7 @@ public sealed class FetchTicketHandler(
                 RunId: runId,
                 TicketId: ticket.Id.Value,
                 Title: ticket.Title,
-                Description: ticket.Description,
+                Description: TicketHtmlConverter.ToText(ticket.Description),
                 State: ticket.Status,
                 Labels: ticket.Labels,
                 AttachmentCount: attachmentCount,

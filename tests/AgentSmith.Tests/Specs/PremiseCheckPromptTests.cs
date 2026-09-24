@@ -19,15 +19,46 @@ public sealed class PremiseCheckPromptTests
     /// and reading them would have settled it. The prompt now says which look proves what.
     /// </summary>
     [Fact]
-    public async Task PremiseCheck_Prompt_SaysANamedPathIsSettledByReadingIt()
+    public async Task PremiseCheck_Prompt_SaysAGivenPathIsSettledByReadingIt()
     {
         var h = For(Draft(), "[]");
 
         await h.RunAsync();
 
         var prompt = Flowed(h.Provider.Prompts.Should().ContainSingle().Subject);
-        prompt.Should().Contain("NAMES a path is settled by READING that path")
+        prompt.Should().Contain("gives a PATH is settled by READING that path")
             .And.Contain("does not exist");
+    }
+
+    /// <summary>
+    /// 2026-09-24-4f10: the rule above was written for a premise that GIVES a path, and read as
+    /// covering a premise that merely names a file it certified a guess. A live run was stopped
+    /// on "the Client repository contains package.json" after one read of the repository ROOT —
+    /// where a client's manifest ordinarily does not sit. The two cases are now separate.
+    /// </summary>
+    [Fact]
+    public async Task PremiseCheck_Prompt_SeparatesAGivenPathFromABareFilename()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        var prompt = Flowed(h.Provider.Prompts.Should().ContainSingle().Subject);
+        prompt.Should().Contain("names a FILE WITHOUT SAYING WHERE IT SITS")
+            .And.Contain("Reading a guess proves that one path empty and nothing else");
+    }
+
+    [Fact]
+    public async Task PremiseCheck_Prompt_SaysAbsenceFromAWholeRepositoryCannotBeShown()
+    {
+        var h = For(Draft(), "[]");
+
+        await h.RunAsync();
+
+        // There is no name or glob look: search_repository matches CONTENT, read_file answers
+        // about one path. Unproven stops nothing, which is the right cost for what cannot be seen.
+        Flowed(h.Provider.Prompts.Should().ContainSingle().Subject)
+            .Should().Contain("No look offered here can show a file absent from a whole repository");
     }
 
     [Fact]

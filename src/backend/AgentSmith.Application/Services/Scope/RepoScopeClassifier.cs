@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
@@ -48,7 +49,7 @@ public sealed class RepoScopeClassifier(
             var response = await chat.GetResponseAsync(
                 [
                     new(ChatRole.System, RepoScopeSystemPrompt.Text),
-                    new(ChatRole.User, BuildUserPrompt(ticket, comments, repos, inventory)),
+                    new(ChatRole.User, RepoScopePrompt.Build(ticket, comments, repos, inventory)),
                 ],
                 new ChatOptions { MaxOutputTokens = maxTokens }, cancellationToken);
             PipelineCostTracker.GetOrCreate(pipeline).Track(response);
@@ -80,40 +81,5 @@ public sealed class RepoScopeClassifier(
             ? new(null, ScopeEstimateParser.Parse(text),
                 "classifier reply had no parseable {\"repos\": …} object", refusal)
             : new(classification, new ScopeEstimate(classification.Tier, classification.Shape), null, refusal);
-    }
-
-    private static string BuildUserPrompt(
-        Ticket ticket, IReadOnlyList<TicketComment>? comments,
-        IReadOnlyList<RepoConnection> repos,
-        IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory)
-    {
-        var sb = new StringBuilder("## Repositories in this project\n");
-        foreach (var repo in repos)
-            sb.AppendLine(DescribeRepo(repo, inventory));
-        sb.AppendLine();
-        // p0316: ticket fields are untrusted — delimited so an embedded injection
-        // reads as data, exactly like the master prompts treat them.
-        sb.AppendLine(TicketPromptDelimiters.Wrap($"""
-            **Title:** {ticket.Title}
-            **Description:** {ticket.Description}
-            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
-            """));
-        var conversation = TicketConversationPromptSection.Render(comments);
-        if (conversation.Length > 0) sb.AppendLine().AppendLine(conversation);
-        return sb.ToString();
-    }
-
-    private static string DescribeRepo(
-        RepoConnection repo, IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>> inventory)
-    {
-        var name = repo.Name ?? string.Empty;
-        if (!inventory.TryGetValue(name, out var contexts) || contexts.Count == 0)
-            return $"- {name}";
-        var described = contexts.Select(c =>
-        {
-            var purpose = string.IsNullOrWhiteSpace(c.Purpose) ? string.Empty : $" — {c.Purpose}";
-            return $"'{c.ContextName}' (workdir={c.Workdir}, lang={c.Language ?? "unknown"}){purpose}";
-        });
-        return $"- {name}: contexts {string.Join("; ", described)}";
     }
 }

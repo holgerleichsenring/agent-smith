@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Entities;
@@ -19,12 +20,15 @@ internal static class ExpectationPromptComposer
     public static string ComposeUserPrompt(Ticket ticket, PipelineContext pipeline)
     {
         var sb = new StringBuilder();
+        // 2026-09-24-b3c1: an Azure DevOps body arrives as HTML — read as TEXT here,
+        // through the converter the derivation path has used since p0399.
+        var criteria = TicketHtmlConverter.ToText(ticket.AcceptanceCriteria);
         // p0316: ticket fields are untrusted — delimited so an embedded
         // injection reads as data, exactly like the master prompts treat them.
         sb.AppendLine(TicketPromptDelimiters.Wrap($"""
             **Title:** {ticket.Title}
-            **Description:** {ticket.Description}
-            **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
+            **Description:** {TicketHtmlConverter.ToText(ticket.Description)}
+            **Acceptance Criteria:** {(criteria.Length > 0 ? criteria : "None specified")}
             """));
         AppendConversation(sb, pipeline);
         AppendScopedRepos(sb, pipeline);

@@ -1,0 +1,31 @@
+phase: 2026-09-24-4f10
+decisions:
+  - what: "Split the proof rule: a premise that GIVES a path is settled by reading it; one that merely names a file is not."
+    alternatives:
+      - "Drop the read rule entirely and make every absence unproven."
+      - "Have the check read several conventional locations before concluding."
+    why: |
+      The rule 2026-09-24-485e added is correct for the case it was written for — a premise
+      that names its paths. Read as covering a premise that names only a filename it
+      certifies a guess, which is how a correct run was stopped on a client manifest that
+      sat one folder below the root. Dropping the rule would lose the case it settles;
+      guessing more locations would make the guess longer, not sound.
+
+  - what: "Say plainly that no look offered can show a file absent from a whole repository."
+    alternatives:
+      - "Add a find-or-glob look so absence becomes provable."
+    why: |
+      search_repository matches CONTENT and its own description already says it never
+      locates a file; read_file answers about one path. A new look would make absence
+      provable and deserves its own phase with its own result bound and evidence line —
+      shipping an unreviewed capability on the back of a one-sentence correction is how a
+      tool surface grows without anyone deciding it should.
+
+  - what: "Have the read tool's own answer name the path as its subject."
+    alternatives:
+      - "Fix only the checker's prompt."
+    why: |
+      The answer is read by every holder of the look, not only the premise check, and a
+      sentence that is exact about a path and wrong about a repository will be misread
+      again by the next reader. Saying which it is at the point of reading costs one clause
+      and does not depend on a prompt being recalled.

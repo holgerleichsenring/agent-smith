@@ -107,8 +107,13 @@ public sealed class ProposalReviewLookTests
         look.Evidence.Looks.Should().OnlyContain(l => !l.Ran);
     }
 
+    /// <summary>
+    /// 2026-09-24-4f10: the answer used to read "… does not exist", and a premise check took that
+    /// as a statement about the REPOSITORY — stopping a correct run over a manifest that sat one
+    /// folder down. The look still ran and is still evidence; what it is evidence OF is the path.
+    /// </summary>
     [Fact]
-    public async Task ReviewLook_ReadOfAMissingFile_IsAnAbsenceTheReviewerMayState()
+    public async Task ReviewLook_ReadOfAMissingFile_IsAnAbsenceAboutThatPathOnly()
     {
         var scope = new RecordingScope { StepExit = 1, Error = "file not found: /work/src/Gone.cs" };
         var look = Over(scope);
@@ -116,8 +121,9 @@ public sealed class ProposalReviewLookTests
 
         var missing = await read.ReadFile(Repo, "src/Gone.cs");
 
-        missing.Should().Contain("does not exist.");
-        look.Evidence.Looks.Single().Ran.Should().BeTrue("a file that is not there is a fact about the tree");
+        missing.Should().Contain("has nothing at src/Gone.cs")
+            .And.Contain("may sit elsewhere in the repository");
+        look.Evidence.Looks.Single().Ran.Should().BeTrue("the look ran — it is evidence about that path");
     }
 
     [Fact]
