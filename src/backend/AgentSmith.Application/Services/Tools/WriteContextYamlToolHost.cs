@@ -39,6 +39,9 @@ public sealed class WriteContextYamlToolHost : IToolHost
     // to what discovery actually resolved. Null / empty for a repo => genuine bootstrap,
     // any name allowed.
     private readonly ContextNameGuard _nameGuard;
+    // 2026-09-23-72c7: the contradiction the document proves against itself — a root
+    // workdir beside commands that every one of them leaves the root to run.
+    private readonly ContextWorkdirCommandsRule _workdirCommands = new();
     // 2026-08-26-167c: what THIS round did, so the round can stop deciding by
     // "a file exists" — a question a re-init answers yes to before it starts.
     private bool _written;
@@ -133,10 +136,20 @@ public sealed class WriteContextYamlToolHost : IToolHost
         try { yaml = _serializer.Serialize(typed); }
         catch (InvalidOperationException ex) { return _budget.Reject(context_name, ex.Message); }
 
-        if (_gate.Defect(typed) is { } defect) return _budget.Reject(context_name, defect);
+        // 2026-09-23-72c7: the self-contradiction is reported ALONGSIDE the gate's defects,
+        // for 2026-08-26-167c's reason — a round sent back twice for one document starts
+        // guessing at the half it was not told about.
+        if (Refusal(_gate.Defect(typed), _workdirCommands.Defect(typed)) is { } defect)
+            return _budget.Reject(context_name, defect);
         _budget.Accepted(context_name);
 
         return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
+    }
+
+    private static string? Refusal(params string?[] defects)
+    {
+        var named = defects.Where(defect => !string.IsNullOrWhiteSpace(defect)).ToList();
+        return named.Count == 0 ? null : string.Join("\n", named);
     }
 
     private bool TryResolveSandbox(string repo, out ISandbox? sandbox, out string? error)

@@ -59,7 +59,12 @@ internal static class BootstrapDiscoverPromptFactory
             components** in this repo. A component is proved by an entrypoint
             (e.g. `Program.cs`, `main.go`, `index.ts` in a package root) OR a
             deploy artefact (e.g. `Dockerfile`, `k8s/`, `Procfile`, `vercel.json`).
-            A consumed library without either is NOT a component.
+            A library without either is NOT a component — neither one that ships
+            to a registry nor one this solution consumes internally. Test
+            projects, internal shared libraries and design-token packages are not
+            components, and a project named for the layer it holds (`domain`,
+            `application`, `core`, `data`, `dto`, ...) is an internal library
+            until an entrypoint or a deploy artefact of its own proves otherwise.
 
             Use your read-only tools (`directory_tree`, `read_file`,
             `list_directory`, `find_files`, `grep_in_tree`) freely — depth over
@@ -86,6 +91,11 @@ internal static class BootstrapDiscoverPromptFactory
               ]
             }
             ```
+
+            How MANY components you return follows what this repository deploys
+            or calls, not what it builds: a repository that deploys one thing has
+            one component, however many projects, packages or directories the
+            build of that one thing spans.
 
             A component's `workdir` is the sub-tree its source occupies, read
             off the tree — never derived from how many components you found.

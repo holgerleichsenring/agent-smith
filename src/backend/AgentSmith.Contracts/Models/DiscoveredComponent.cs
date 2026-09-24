@@ -3,8 +3,10 @@ namespace AgentSmith.Contracts.Models;
 /// <summary>
 /// p0161d: one component surfaced by the read-only BootstrapDiscover round.
 /// A component is independently deployable or independently callable, proved
-/// by an entrypoint or deploy artefact. A consumed library without either
-/// is NOT a component.
+/// by an entrypoint or deploy artefact. A library without either is NOT a
+/// component, whether it ships to a registry or the solution consumes it
+/// internally — a project named for the layer it holds is an internal library
+/// until an entrypoint or a deploy artefact of its own proves otherwise.
 ///
 /// Produced by BootstrapDiscoverHandler from the LLM's structured response;
 /// consumed by BootstrapDispatchHandler to fan out one BootstrapRound per

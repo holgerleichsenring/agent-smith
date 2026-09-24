@@ -318,6 +318,7 @@ public sealed class WriteRunResultHandler(
             pipeline, ContextKeys.DiscoveredComponents);
         var outputs = TryGet<Dictionary<string, Dictionary<string, string>>>(
             pipeline, ContextKeys.BootstrapOutputs);
+        var retired = TryGet<IReadOnlyDictionary<string, IReadOnlyList<string>>>(pipeline, ContextKeys.RetiredContexts);
         var (cost, duration) = ResolveCostAndDuration(pipeline);
         var trail = TryGet<List<ExecutionTrailEntry>>(pipeline, ContextKeys.ExecutionTrail);
         var decisions = TryGet<List<PlanDecision>>(pipeline, ContextKeys.Decisions);
@@ -351,7 +352,8 @@ public sealed class WriteRunResultHandler(
                 perSkillBreakdown,
                 repoName: repo.Name, components: repoComponents,
                 bootstrapOutputsByContext: repoOutputs,
-                sharedCostNote: sharedNote);
+                sharedCostNote: sharedNote,
+                retiredContexts: retired?.GetValueOrDefault(repo.Name)); // 2026-09-23-4711
             await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, cancellationToken);
             await TryStoreResultAsync(runId, resultMd, cancellationToken);
             written++;

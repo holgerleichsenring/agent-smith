@@ -23,6 +23,12 @@ public static class ProjectMetaPaths
     /// <summary>p0161a: per-context meta sub-tree under .agentsmith/contexts/.</summary>
     public const string Contexts = Root + "/contexts";
 
+    /// <summary>2026-09-23-4711: where a context directory goes once a derivation no longer
+    /// produces it. A SIBLING of <see cref="Contexts"/>, never a child: everything that reads
+    /// the contexts a repository declares lists the children of that one directory, so a name
+    /// parked here is out of every probe without anything having to learn it was retired.</summary>
+    public const string RetiredContexts = Root + "/contexts-retired";
+
     /// <summary>p0380: experiential-memory store — one Markdown fact per file.</summary>
     public const string Memory = Root + "/memory";
 
@@ -49,4 +55,9 @@ public static class ProjectMetaPaths
     /// /work/.agentsmith/contexts/&lt;contextName&gt;.</summary>
     public static string MetaDirFor(string contextName) =>
         $"/work/{Contexts}/{contextName}";
+
+    /// <summary>2026-09-23-4711: the absolute sandbox path <see cref="MetaDirFor"/>'s
+    /// directory is MOVED to when it is retired — the same name, one directory across.</summary>
+    public static string RetiredMetaDirFor(string contextName) =>
+        $"/work/{RetiredContexts}/{contextName}";
 }

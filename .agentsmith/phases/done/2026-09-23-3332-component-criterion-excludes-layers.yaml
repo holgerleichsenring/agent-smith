@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-3332
+
+goal: "An internal layer project is not a component, the task says so in the same words the skill does, and a re-init is not invited to add what the criterion excludes."
+
+applies_to: "backend (the discovery task's component criterion, its count anchor, and the prior-art section a re-init carries)"
+
+requires: ["2026-09-23-9bb2"]
+
+facts:
+  - claim: "The task's criterion excludes a CONSUMED library. A layer project that ships to no registry is not consumed, so the words do not reach it."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:62"
+  - claim: "The skill body, which is the same prompt's system half, excludes internal shared libraries by name - so the two halves disagree about the same repository."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Resources/agentsmith-skills-v5.7.1.tar.gz (skills/_masters/project-discovery/SKILL.md:31)"
+  - claim: "2026-09-23-7868a removed the only sentence that bounded the COUNT, because it was written as a workdir rule and read as one."
+    evidence: ".agentsmith/phases/done/2026-09-23-7868a-discovery-workdir-is-looked-up.yaml"
+  - claim: "2026-09-23-9bb2 then added an instruction to add a component that was missed, with nothing bounding what may be added."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPriorArt.cs:35"
+  - claim: "A live re-init of a layered solution produced one context per layer project - application, client, core, data-transfer, domain, emailing - none of which carries an entrypoint or a deploy artefact."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:59"
+  - claim: "The same run left a repository of console tools correct at five, because each of those does carry an entrypoint: the criterion works where nothing contradicts it."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapDiscoverPromptFactory.cs:60"
+
+scope:
+  in: >
+    The criterion says what the skill says: a library a solution consumes INTERNALLY is not a
+    component either, and a layer project named for its layer is the shape to expect. The two
+    halves of one prompt stop disagreeing.
+
+    The count regains an anchor, written as what it is rather than as a workdir rule: a
+    repository that deploys one thing has one component, however many projects build it.
+
+    The prior art stops inviting an unbounded addition. Adding is still possible - a component
+    genuinely missed is why a re-derivation exists - but it is bounded by the criterion rather
+    than offered beside it.
+  out: >
+    The skill body. It already says the right thing, and the fix belongs where the disagreement
+    is - in the half this repository writes.
+
+decisions:
+  - key: "The criterion is aligned to the skill's wording rather than the skill to the criterion. The skill is right and shipped; the half this repository controls is the one that is wrong, and matching it costs no release."
+  - key: "The count anchor returns as a statement about deployment, not about the workdir. It was removed with the workdir rule it was tangled in, and restoring it in the old form would restore the defect 2026-09-23-7868a was cut for."
+  - key: "The contract prose is corrected with the prompts. 2026-09-23-7868a found the same rule written in ten places and corrected all of them; leaving one behind now would start the next divergence at one."
+  - key: "The prior art keeps its permission to add. A re-derivation that may only subtract cannot answer a repository that genuinely grew, and the criterion - not the absence of permission - is what should stop a layer project."
+
+steps:
+  - id: the-criterion-reaches-a-layer
+    action: "Say that an internally consumed library is not a component either, and name the layer-project shape."
+    modify:
+      - "BootstrapDiscoverPromptFactory: the component criterion"
+  - id: the-count-has-an-anchor
+    action: "State that a repository deploying one thing has one component, whatever the project count."
+    modify:
+      - "BootstrapDiscoverPromptFactory: the task's closing rules"
+  - id: adding-is-bounded
+    action: "Bind the prior art's permission to add to the criterion."
+    modify:
+      - "BootstrapDiscoverPriorArt: the closing instruction"
+  - id: the-prose-follows
+    action: "Correct the same sentence where the contract repeats it."
+    modify:
+      - "DiscoveredComponent: the Workdir type summary"
+
+tests:
+  - "BootstrapDiscover_TheTask_ExcludesAnInternallyConsumedLibrary"
+  - "BootstrapDiscover_TheTask_BoundsTheComponentCountByDeployment"
+  - "BootstrapDiscover_ThePriorArt_BindsAddingToTheCriterion"
+
+done:
+  - "The task and the skill exclude the same libraries in the same words."
+  - "A reader of the task can tell how many components a one-deployment repository has."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

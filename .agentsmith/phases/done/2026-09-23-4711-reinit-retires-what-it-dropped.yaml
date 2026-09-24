@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-4711
+
+goal: "A re-init leaves the context tree matching what it derived, so a context the derivation no longer produces is retired instead of standing beside the ones that replaced it."
+
+applies_to: "backend (the bootstrap dispatch that fans a round per derived component, and the meta files that already retire a name)"
+
+requires: ["2026-09-23-3332"]
+
+facts:
+  - claim: "Rounds are fanned out per DERIVED component, so a declared context the derivation dropped is simply never visited - nothing tells it it is gone."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs:57"
+  - claim: "Nothing removes or renames a context directory anywhere in the backend; the only retirement that exists is a FILE inside one context, moved when its name was superseded."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapMetaFiles.cs:53"
+  - claim: "The gate then probes every context the tree carries, so a dropped one keeps being probed and keeps counting as real."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs:60"
+  - claim: "2026-09-23-9bb2 made a re-init derive again and declined reconciliation, having found no key that could match a derived context to a declared one."
+    evidence: ".agentsmith/phases/done/2026-09-23-9bb2-reinit-derives-again.yaml"
+  - claim: "2026-09-23-cd28 stops an INVENTED name being written but says nothing about a declared one that is no longer derived."
+    evidence: ".agentsmith/phases/done/2026-09-23-cd28-invented-context-name-refused.yaml"
+  - claim: "A live re-init derived a new set and left the previous context standing beside it, so the repository now declares both."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapDispatchHandler.cs:57"
+
+scope:
+  in: >
+    After the rounds have run, a context the tree carries and the derivation did not produce is
+    RETIRED: its directory is moved aside under a name the gate does not probe, not deleted.
+    The precedent is one directory down - a superseded file is moved rather than dropped, and
+    the round that follows can still read it.
+
+    Retiring needs no key to match anything. That is why it answers what reconciliation could
+    not: a derived set and a declared set are compared as SETS of names, and a name on one side
+    only needs no counterpart to be acted on. A name that is gone is gone whatever replaced it.
+
+    What is retired is reported, because a person who opens the pull request should read that a
+    context was set aside and why - not discover it by its absence.
+  out: >
+    Deleting anything. A moved directory is recoverable by whoever reads the pull request, and a
+    derivation that was wrong once can be wrong again; the operator merges the retirement or does
+    not.
+
+    Matching a dropped context to the one that replaced it. A retirement does not need to know
+    what succeeded it, and 2026-09-23-9bb2 established there is no key that would say.
+
+decisions:
+  - key: "Retire, do not delete. The tree is the only record a context ever had, and a derivation that produced the wrong set once can produce a wrong set again - a move is a proposal in the pull request, a delete is a fact before anyone looked."
+  - key: "Set difference, not reconciliation. 2026-09-23-9bb2 refused to match a derived context onto a declared one because no field survives being the thing corrected; a name present on one side only needs no such match, which is why this is buildable where that was not."
+  - key: "It runs after the rounds, not before. A round that fails leaves the tree as it was, so a half-written derivation never retires anything - and the retirement is decided from what actually got written rather than from what was planned."
+  - key: "This phase follows the criterion correction. Retiring against a derivation that over-produces would remove the one correct context and keep the wrong ones, which is worse than the state it is fixing."
+
+steps:
+  - id: what-is-gone-is-set-aside
+    action: "After the rounds, move every context directory the tree carries that the derivation did not produce."
+    new:
+      - "the retirement of a context the derivation dropped"
+    modify:
+      - "BootstrapDispatchHandler: the step that follows the fan-out"
+  - id: the-report-says-so
+    action: "Name each retired context in the run's result."
+    modify:
+      - "the init run's result rendering"
+
+tests:
+  - "Bootstrap_AContextTheDerivationDropped_IsMovedAside"
+  - "Bootstrap_AContextTheDerivationKept_IsUntouched"
+  - "Bootstrap_ARoundThatFailed_RetiresNothing"
+  - "Bootstrap_ARetiredContext_IsNamedInTheResult"
+
+done:
+  - "After a re-init, every context directory the tree carries was produced by that derivation."
+  - "A retired context is recoverable from the pull request, not deleted."
+  - "A failed round leaves every context directory where it was."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."

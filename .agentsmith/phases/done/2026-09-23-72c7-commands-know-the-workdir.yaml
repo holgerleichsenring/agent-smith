@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-23-72c7
+
+goal: "A context whose every declared command begins by entering one directory does not also claim its source is the whole repository, because the two cannot both be true."
+
+applies_to: "backend (the write path that persists a context document, and the contract it is checked against)"
+
+facts:
+  - claim: "Every declared stage runs at the REPOSITORY ROOT and no declared path places one, so a command entering a directory is how a sub-tree component expresses itself."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:25"
+  - claim: "meta.workdir says where a context's SOURCE lives - so a source at the root and a command that must leave the root contradict each other."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlMeta.cs:4"
+  - claim: "A live run wrote both into one document in one round: meta.workdir of \".\" beside verify commands that each begin by entering the same sub-directory."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs:122"
+  - claim: "The document is validated for a non-blank workdir and nothing else about it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs:46"
+  - claim: "2026-09-23-7868a declined a gate here, having looked for a manifest to prove a workdir and found that a component proved by a deploy artefact alone has none. It did not consider the commands the same document already carries."
+    evidence: ".agentsmith/phases/done/2026-09-23-7868a-discovery-workdir-is-looked-up.yaml"
+
+scope:
+  in: >
+    The write path refuses a document that contradicts itself: a workdir of "." while EVERY
+    declared command starts by entering one and the same directory. The refusal names both
+    halves and the directory the commands agree on, so the round can answer it - this is the
+    shape the write tool already uses to refuse, and a round that is told what is wrong rewrites
+    rather than failing the run.
+
+    Only that case. Commands that enter different directories, or some that enter one and some
+    that do not, say nothing certain; and a workdir that is already a sub-tree is not contested
+    by a command entering it. The check fires where the document is unambiguous about
+    disagreeing with itself.
+  out: >
+    Deciding a workdir from the commands. The commands are evidence that "." is wrong, not proof
+    that their directory is the source root - a build script may enter a sub-directory of a
+    component that spans more. The round is told it contradicted itself and answers; nothing
+    here writes a value on its behalf.
+
+    Every other disagreement a context document can carry. This one is provable from the
+    document alone and was observed live; a sweep for others is not this phase.
+
+decisions:
+  - key: "The check reads the document, not the tree. It needs no manifest, no language table and no second opinion about what proves a component - which is what 2026-09-23-7868a could not find, and why it declined a gate that looked outward instead of inward."
+  - key: "It refuses rather than corrects. A command entering a directory proves the root is wrong; it does not prove that directory is right, and a value written on the round's behalf would be a guess wearing a check's authority."
+  - key: "Unanimity is the bar. One command entering a directory while another does not is a repository with something at the root, and a check that fired there would refuse a shape that works."
+
+steps:
+  - id: the-document-may-not-contradict-itself
+    action: "Refuse a root workdir when every declared command begins by entering one same directory, naming both halves."
+    new:
+      - "the contradiction the write path refuses"
+    modify:
+      - "WriteContextYamlToolHost: the refusal it already returns"
+
+tests:
+  - "WriteContextYaml_RootWorkdirWithCommandsAllEnteringOneDirectory_IsRefused"
+  - "WriteContextYaml_RootWorkdirWithCommandsEnteringDifferentDirectories_IsWritten"
+  - "WriteContextYaml_RootWorkdirWithSomeCommandsAtTheRoot_IsWritten"
+  - "WriteContextYaml_SubTreeWorkdirWithCommandsEnteringIt_IsWritten"
+
+done:
+  - "A context document claiming a root workdir while every command leaves the root is refused, and the refusal names the directory they agree on."
+  - "A document whose commands disagree with each other, or which has no commands, is written as before."
+  - "Each new test was watched failing against a deliberate break and restored byte-for-byte."
+  - "The full suite is green."
