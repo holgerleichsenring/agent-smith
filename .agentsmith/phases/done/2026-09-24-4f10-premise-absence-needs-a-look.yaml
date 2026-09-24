@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-4f10
+goal: "A failed read at one guessed path stops proving a file is absent from a repository, because no look the check holds can prove that."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE RULE THAT CAUSED THIS IS ONE THIS REPOSITORY WROTE THREE DAYS AGO. 2026-09-24-a7c3 added
+      "a premise that NAMES a path is settled by READING that path — the read answers 'does not
+      exist' for a path that is not there, and that answer is the proof." It was written for a
+      premise that gives a path. A premise naming only a FILENAME gives no path, the check reads
+      the repository root on a guess, the read says the path is empty, and the rule then certifies
+      that guess as proof. A correct run was stopped by the sentence meant to stop wrong ones.
+  - key: |
+      THE DISTINCTION IS PATH VERSUS NAME, AND IT IS THE WHOLE FIX. "src/api/package.json is
+      present" names a path: one read settles it either way. "The Client repository contains
+      package.json" names a FILE WHOSE LOCATION IS UNKNOWN. A read proves that one path empty. It
+      says nothing about the tree — and a package.json under a client's project folder rather than
+      its root is the ordinary shape, not an exotic one.
+  - key: |
+      ABSENCE FROM A TREE IS NOT PROVABLE WITH THE LOOKS THIS CHECK HOLDS, AND THE PROMPT MUST SAY
+      SO RATHER THAN LEAVE IT TO BE INFERRED. search_repository matches CONTENT and its own
+      description already says it never locates a file; read_file answers about one path;
+      dependency_audit and the verify stage answer neither question. There is no name or glob
+      look. So the honest verdict for "the repository does not contain a file called X" is
+      unproven — which stops nothing, which is the right cost.
+  - key: |
+      THE TOOL'S OWN ANSWER IS WHERE THE CLAIM IS OVERREAD, SO IT SAYS WHAT IT PROVED. read_file
+      replies that a path does not exist. Read as a sentence about the repository it is wrong;
+      read as a sentence about the path it is exact. Saying which it is at the place the model
+      reads it costs one clause and does not depend on the checker's prompt being recalled.
+  - key: |
+      NOT IN SCOPE, WITH ITS REASON: adding a find-or-glob look. It would make absence provable
+      and is worth its own phase, with its own bound on result size and its own evidence line.
+      Widening the tool surface inside a correctness fix would ship an unreviewed capability on
+      the back of a one-sentence correction.
+
+steps:
+  - id: a-name-without-a-path-is-not-settled-by-one-read
+    path: "src/backend/AgentSmith.Application/Services/Specs"
+    action:
+      - "Split the path rule: a premise giving a path is settled by reading it; a premise naming a file whose location it does not give is not, and is unproven."
+      - "State that no look offered can show a file absent from a whole repository."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs"
+
+  - id: the-read-says-what-it-proved
+    path: "src/backend/AgentSmith.Application/Services/Tools"
+    action:
+      - "Have the missing-path answer say it is about that path, not about the repository."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Tools/RepositoryFileReadTool.cs"
+
+  - id: the-rule-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the prompt separates a given path from a bare filename and says absence from a tree cannot be shown, and that the read's refusal names the path as its subject."
+
+tests:
+  - "Build_TheProofRules_SeparateAGivenPathFromABareFilename"
+  - "Build_TheProofRules_SayAbsenceFromAWholeRepositoryCannotBeShown"
+  - "ReadFile_APathThatIsNotThere_SaysItIsAboutThatPathNotTheRepository"
+
+done:
+  - "a premise naming a file without its location cannot be reported as no-longer-holds off one read"
+  - "the check says which looks can and cannot show absence"
+  - "the read tool's own answer names the path as what it proves"
+  - "a premise that does give a path is settled exactly as before"

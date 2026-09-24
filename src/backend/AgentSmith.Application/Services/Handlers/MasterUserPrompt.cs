@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -15,6 +16,10 @@ internal static class MasterUserPrompt
         Ticket? ticket, Repository repo, IEnumerable<string> sandboxKeys,
         string conversationSection, string attachmentsSection)
     {
+        // 2026-09-24-b3c1: an Azure DevOps body arrives as HTML. The derivation path has
+        // read it as TEXT since p0399; the coding master was simply never joined to the
+        // same converter and paid tokens for the markup.
+        var criteria = TicketHtmlConverter.ToText(ticket?.AcceptanceCriteria);
         var ticketBlock = ticket is null
             ? "(No ticket attached — investigate the repository and proceed per pipeline goal.)"
             // p0316: ticket fields are untrusted — delimit them so an embedded injection
@@ -22,8 +27,8 @@ internal static class MasterUserPrompt
             : TicketPromptDelimiters.Wrap($"""
                 **ID:** {ticket.Id}
                 **Title:** {ticket.Title}
-                **Description:** {ticket.Description}
-                **Acceptance Criteria:** {ticket.AcceptanceCriteria ?? "None specified"}
+                **Description:** {TicketHtmlConverter.ToText(ticket.Description)}
+                **Acceptance Criteria:** {(criteria.Length > 0 ? criteria : "None specified")}
                 """);
 
         // p0317: conversation + attachments follow the ticket block — all of it is

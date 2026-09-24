@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-24-7e4b
+goal: "A run says which toolchain image it chose and why, so a language nobody recognised cannot hand it a container with no toolchain in silence."
+
+applies_to: "backend (the sandbox image resolution chain)"
+
+decisions:
+  - key: |
+      THE LAST LINK OF THE CHAIN IS THE ONE NOBODY CAN SEE. SandboxImageChain.Resolve walks
+      project override, configured per-language image, accepted context image, language catalog,
+      and then returns GenericFallbackImage. Every earlier link is a deliberate operator choice.
+      The last one is a guess, it is reached exactly when the language was NOT recognised, and it
+      is taken without a single log line. The operator learns which image was chosen only by
+      reading `docker ps`.
+  - key: |
+      WHAT THAT IMAGE IS MAKES THE SILENCE EXPENSIVE. buildpack-deps:bookworm-scm carries git,
+      curl and wget and NO language toolchain at all — no dotnet, no node, no python. A run that
+      lands there cannot build, cannot test, and cannot answer "do the tests pass?", because the
+      binary it would run does not exist. The run then fails early and its sandbox is torn down
+      at the end of the run like any other, so the operator sees containers that will not stay up
+      and has nothing pointing at the cause.
+  - key: |
+      THE FIX IS THE LINE, NOT THE TABLE. Which image a language should get is 2026-08-25-3804's
+      question and it is answered there. This phase answers a different one: when the chain falls
+      past every operator-authored link, the run must SAY so — which language it failed to
+      recognise, which image it fell back to, and that the image carries no toolchain — at a level
+      the operator actually reads. A fallback that announces itself is a fallback; one that does
+      not is a silent wrong answer.
+  - key: |
+      THE OTHER LINKS ARE WORTH ONE LINE TOO, AT A LOWER LEVEL. An operator debugging a wrong
+      image today cannot tell whether their project override was read, whether their context's
+      stack.image was REFUSED by registry trust, or whether the catalog answered. Naming the link
+      that decided turns four indistinguishable outcomes into one readable sentence, and the
+      registry refusal in particular is a decision the operator made and cannot currently observe.
+  - key: |
+      NOT IN SCOPE, AND SAID RATHER THAN DISCOVERED: refusing to start. A container with no
+      toolchain is still useful for a checkout, a read-only analysis, or a language this project
+      has no catalog entry for, and refusing would break those. The fallback stays; it stops being
+      invisible.
+
+steps:
+  - id: the-chain-says-which-link-decided
+    path: "src/backend/AgentSmith.Application/Services/Sandbox"
+    action:
+      - "Have the resolution report which link chose the image and, for a refused context image, that registry trust refused it and where the boundary runs."
+      - "Log the generic fallback at a level the operator reads, naming the unrecognised language, the image, and that it carries no language toolchain."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs"
+
+  - id: the-choice-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the generic fallback is announced with the language it did not recognise, a catalog hit and an operator override are not announced as fallbacks, and a refused context image says trust refused it."
+
+tests:
+  - "Resolve_ALanguageTheCatalogDoesNotKnow_SaysItFellBackToAnImageWithNoToolchain"
+  - "Resolve_ALanguageTheCatalogKnows_DoesNotAnnounceAFallback"
+  - "Resolve_AContextImageOutsideTrust_SaysTrustRefusedItAndWhereTheBoundaryRuns"
+  - "Resolve_AProjectOverride_NamesTheOverrideAsTheDecidingLink"
+
+done:
+  - "a run that falls through to the generic image says so, naming the language it did not recognise"
+  - "the operator can tell from the log which link of the chain chose the image"
+  - "a context image refused by registry trust is reported as refused, not as absent"
+  - "the fallback still works — nothing refuses to start"
