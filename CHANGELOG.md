@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.149.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.0...v0.149.1) (2026-09-24)
+
+
+### Bug Fixes
+
+* meta.workdir is the component root, and places nothing (2026-09-24-c71a) ([e504641](https://github.com/holgerleichsenring/agent-smith/commit/e504641d159546e4e719569acd57960a86d1e88d))
+* meta.workdir is the component root, and places nothing (2026-09-24-c71a) ([a2e0915](https://github.com/holgerleichsenring/agent-smith/commit/a2e091543ca85c39aa40bf1a3eee1c295211ec5d))
+
 ## [0.149.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.148.0...v0.149.0) (2026-09-24)
 
 
