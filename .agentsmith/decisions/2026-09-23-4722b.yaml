@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-23-4722b
+
+decisions:
+  - category: Architecture
+    chose: "The spawners forward the env-var names the loaded configuration references"
+    over: "Adding the missing names to the two hardcoded lists"
+    reason: |
+      AgentConfig.ApiKeySecret lets an agent name ANY variable and every chat-client builder
+      honours it, so a hardcoded list can never be complete: it would have to be extended for each
+      operator's own naming. It also drifts on its own — DockerJobSpawner's literal list had
+      already lost AZURE_OPENAI_API_KEY and GROQ_API_KEY, two canonical keys, and nobody noticed
+      because the failure is silent: the agent authenticates in-process, where the variable is
+      present, and fails only inside a spawned sandbox. Deriving the set from AgentSmithConfig
+      keeps it in step with the place the operator declares the name.
+
+  - category: Architecture
+    chose: "The canonical bindings keep their literal secret keys; only configured names are derived"
+    over: "Deriving every key from its variable name, which would make AgentSecretBinding redundant"
+    reason: |
+      All eleven existing pairs happen to agree with a plain upper-snake-to-kebab derivation, so
+      the derivation could have replaced them — but those keys are the documented contract of a
+      secret an operator has already applied with deploy/apply-k8s-secret.sh. Deriving them would
+      be a rename that only shows up as a pod that cannot authenticate. The explicit table stays
+      authoritative and the derivation fills in for names it does not know.
+
+  - category: Quality
+    chose: "A configured name whose derived key is not a legal Kubernetes secret key is refused where it is read"
+    over: "Letting it through and finding out at spawn time"
+    reason: |
+      A secret key may hold only [-._a-zA-Z0-9]. An illegal name would otherwise surface as a
+      rejected pod spec during a run — far from the config line that caused it and with a message
+      about the pod rather than about the name. The refusal quotes the offending api_key_secret.
+
+  - category: Scope
+    chose: "No requires: edge on the Copilot work"
+    over: "Sequencing this behind 2026-09-07-d5f2, which is what made the gap visible"
+    reason: |
+      The defect predates Copilot and affects every provider; a copilot seat only makes two
+      differently-named secrets the normal case rather than the exotic one. Serialising a defect
+      fix behind an unrelated feature would delay it for no reason, and nothing in this phase
+      touches the Copilot adapter.
+
+  - category: Scope
+    chose: "The AgentSmithConfig singleton as the source, with its staleness stated rather than solved"
+    over: "Taking the live config accessor the config-epoch path uses"
+    reason: |
+      AgentSmithConfig is already a DI singleton in the server composition, so both spawners can
+      take it with no new plumbing. It is built once at composition, so an agent added by a live
+      config reload does not reach the spawners until restart — the same limitation
+      TemplateContextLookup already documents. Following the epoch accessor here would pull live
+      config reload into a phase about forwarding names; it is named so the next reader knows it
+      is a known bound and not an oversight.

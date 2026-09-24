@@ -78,6 +78,32 @@ ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
 RUN mkdir -p /app/config /tmp/agentsmith && \
     chown -R dispatcher:dispatcher /app/config /tmp/agentsmith /home/dispatcher
 
+# 2026-09-07-d5f2: the GitHub Copilot CLI runtime, OPT-IN.
+# The SDK's build targets would fetch a ~175 MB bundle before every build; the repository
+# disables that (CopilotSkipCliDownload) and the binary is resolved at run time instead. Baking
+# it into every image would move the same weight from the build to the pull, so it is off unless
+# asked for: build with --build-arg COPILOT_CLI_VERSION=1.0.85 to include it. The version must be
+# the one GitHub.Copilot.SDK expects (see build/GitHub.Copilot.SDK.props in the package).
+ARG COPILOT_CLI_VERSION=
+RUN set -eu; \
+    if [ -n "${COPILOT_CLI_VERSION}" ]; then \
+      arch="$(uname -m)"; \
+      case "$arch" in x86_64) plat=linux-x64 ;; aarch64|arm64) plat=linux-arm64 ;; \
+        *) echo "unsupported architecture for the Copilot CLI: $arch" >&2; exit 1 ;; esac; \
+      url="https://github.com/github/copilot-cli/releases/download/v${COPILOT_CLI_VERSION}/github-copilot-${COPILOT_CLI_VERSION}-${plat}.tgz"; \
+      mkdir -p /opt/copilot; \
+      curl -fsSL "$url" -o /tmp/copilot.tgz; \
+      tar -xzf /tmp/copilot.tgz -C /opt/copilot; \
+      rm /tmp/copilot.tgz; \
+      bin="$(find /opt/copilot -name copilot -type f | head -1)"; \
+      [ -n "$bin" ] || { echo "the Copilot CLI archive carried no copilot binary" >&2; exit 1; }; \
+      chmod +x "$bin"; \
+      ln -sf "$bin" /opt/copilot/copilot; \
+    fi
+# Deterministic whether or not the layer above ran: an image built without the build-arg simply
+# has no binary there, and the runtime refuses by name instead of failing obscurely.
+ENV COPILOT_CLI_PATH=/opt/copilot/copilot
+
 USER dispatcher
 
 EXPOSE 8081

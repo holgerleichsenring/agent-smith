@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-23-4722a
+
+decisions:
+  - category: Architecture
+    chose: "Declaration-only tools, so a tool call comes back as a FunctionCallContent and OUR loop runs it"
+    over: "Handing the session our real AIFunctions and letting it drive the tool loop"
+    reason: |
+      AIFunction derives from AIFunctionDeclaration, and the SDK decides what to run by asking a
+      declaration for an AIFunction: "Tools backed by an AIFunction are invoked automatically.
+      Declaration-only tools are left pending for the client to resolve via the external tool
+      request event." Passing the real tools would therefore have moved the iteration inside the
+      session — and every decorator in ChatClientFactory sits BELOW UseFunctionInvocation precisely
+      so it re-enters per iteration. The visible cost would have been one rate-limit acquisition per
+      turn instead of per call, one LlmCall pair for many model calls, one flattened trace entry,
+      and no 25-iteration cap. With declaration-only tools the factory composes a copilot agent
+      exactly as it composes a claude agent: IChatClientBuilder gained no flag and ChatClientFactory
+      gained no branch.
+
+  - category: Architecture
+    chose: "The tools are declared when the session opens (SessionConfigBase.Tools)"
+    over: "Registering them per call through ToolsApi.SetAsync"
+    reason: |
+      Three registration paths exist and only one is both public and stable.
+      CopilotSession.RegisterTools is internal. ToolsApi.SetAsync takes a
+      ProtocolExternalToolDefinition, which the SDK marks GHCP001 — and it would also have forced a
+      schema projection into IDictionary<string, JsonElement>, a second definition to keep in step
+      with the one AIFunctionFactory already produced. The create-time surface takes the
+      AIFunctionDeclaration directly, so the schema passes through verbatim. The cost is that a
+      changed tool set needs a new session, which the lease already does for a diverged history.
+
+  - category: Architecture
+    chose: "An emptied tool set does not rebuild the session"
+    over: "Treating any change of the tool list as a new session"
+    reason: |
+      FunctionInvokingChatClient strips the declarations for the final pass of a loop. Reading that
+      as a changed tool set would dispose a live conversation in the middle of a turn and replay it
+      as a prompt — the loop would still finish, but the last answer would come from a session that
+      had never seen the conversation.
+
+  - category: Architecture
+    chose: "The turn ends when every tool the assistant message asked for has arrived"
+    over: "Waiting for SessionIdleEvent, as the non-tool path does"
+    reason: |
+      A session waiting on a pending tool call does not go idle — it is waiting for us. The
+      assistant message carries ToolRequests, so the number to expect comes from the model's own
+      answer rather than from a timeout. This also settles the parallel-call case: ending on the
+      first request would strand the second, the runtime would wait for a result that never comes,
+      and there is no recovery API — PermissionsApi can reconstruct pending permission requests, and
+      nothing reconstructs pending tool calls.
+
+  - category: Architecture
+    chose: "The response names its ConversationId"
+    over: "Leaving it null and letting the client replay the whole exchange"
+    reason: |
+      FunctionInvokingChatClient clears the history it is building when a response carries a
+      ConversationId and forwards only the new tool messages. Without it, the next call would hand
+      back the assistant message this adapter synthesised and never sent to the session, and the
+      sent-prefix hash would read that as a diverged history and rebuild mid-turn.
+
+  - category: Quality
+    chose: "One suppressed GHCP001 call — ToolsApi.HandlePendingToolCallAsync — documented at the call site"
+    over: "Declining the experimental API, as 2026-09-07-d5f2 did for the non-billable send"
+    reason: |
+      There is no stable alternative: RegisterTools and GetTool are internal and
+      ExecuteToolAndRespondAsync is private, so answering a pending call is reachable only through
+      the RPC surface. The earlier refusal was about a convenience — a preflight probe that would
+      not bill a premium request — and paying for a production dependency on a deletable API to save
+      it was a bad trade. This call is what keeps the tool loop in agent-smith, and the alternative
+      is a materially worse product. The package version is pinned exactly, so the API cannot move
+      under us without a deliberate bump, and the suppression marks the single site to revisit.
+
+  - category: Security
+    chose: "Permission requests are approved at the session, because the session executes nothing"
+    over: "Leaving OnPermissionRequest unset and relying on a default nobody has read"
+    reason: |
+      The run's approval policy already spoke, in our process, around the tool this adapter hands
+      out — the session only ever learns that a tool exists. An unanswered prompt could do nothing
+      but stall a turn waiting for a person who is not there.
+
+  - category: Risk
+    chose: "Ship the code with the pending-call liveness ASSUMED, and a seat-gated probe that says so"
+    over: "Holding the phase until a Copilot seat is available, or quietly calling it done"
+    reason: |
+      Three things cannot be verified without a live seat and the CLI runtime, because they live in
+      the runtime rather than in the SDK: that a pending call survives GetResponseAsync returning,
+      that no deadline expires while our loop runs the tool, and that answering it later resumes the
+      turn. The only offline evidence is inferential — SendAndWaitAsync waits on session.idle while
+      SDK-executed tools run inside that wait, so idle is evidently not raised while a call is
+      pending. The probe is written, runs against a real seat, and SKIPS LOUDLY without one; a green
+      tick that proved nothing would be worse than a gap that names itself. If it fails, the
+      fallback is already named in the spec rather than improvised: execute the tool inside the
+      callback and accept one GetResponseAsync per turn, with the losses listed.

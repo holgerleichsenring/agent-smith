@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using System.Diagnostics;
 using AgentSmith.Contracts.Constants;
 using AgentSmith.Contracts.Providers;
@@ -17,15 +18,14 @@ namespace AgentSmith.Server.Services;
 /// </summary>
 public sealed class DockerJobSpawner(
     IOptions<JobSpawnerOptions> options,
+    AgentSmithConfig config,
     ILogger<DockerJobSpawner> logger) : IJobSpawner
 {
     private readonly JobSpawnerOptions _options = options.Value;
-    private static readonly string[] ForwardedEnvVars =
-    [
-        AgentEnvKeys.AnthropicApiKey, AgentEnvKeys.OpenAiApiKey, AgentEnvKeys.GeminiApiKey,
-        AgentEnvKeys.GitHubToken, AgentEnvKeys.AzureDevOpsToken, AgentEnvKeys.GitLabToken,
-        AgentEnvKeys.JiraToken, AgentEnvKeys.JiraEmail, AgentEnvKeys.RedisUrl,
-    ];
+    // 2026-09-23-4722b: the names the CONFIGURATION references, not a literal list. The literal
+    // one had already lost AZURE_OPENAI_API_KEY and GROQ_API_KEY, and it could never carry an
+    // agent's own api_key_secret — which authenticated in-process and silently failed in a sandbox.
+    private IReadOnlyList<string> ForwardedEnvVars => AgentSecretNames.For(config);
 
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
     {
@@ -142,7 +142,7 @@ public sealed class DockerJobSpawner(
         return args;
     }
 
-    private static List<string> BuildEnv(string jobId, JobRequest request)
+    private List<string> BuildEnv(string jobId, JobRequest request)
     {
         var env = new List<string>
         {
