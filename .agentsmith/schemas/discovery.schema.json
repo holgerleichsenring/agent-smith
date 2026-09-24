@@ -16,7 +16,7 @@
         "required": ["name", "workdir", "language", "evidence"],
         "properties": {
           "name": { "type": "string", "minLength": 1, "description": "Context-directory slug under .agentsmith/contexts/. Operator-readable, lowercase, no slashes." },
-          "workdir": { "type": "string", "minLength": 1, "description": "Repo-relative sub-tree this component's source occupies, read off the tree. \".\" only where that source is the whole repository." },
+          "workdir": { "type": "string", "minLength": 1, "description": "Repo-relative COMPONENT ROOT: the directory holding the manifest that governs this component (package.json, *.csproj, pyproject.toml, go.mod, ...), read off the tree — point AT it, not into it, so sources under 'src/' do not move it. Where a component has no manifest, the directory its evidence sits in. \".\" only where that directory is the repository root." },
           "language": { "type": "string", "minLength": 1, "description": "Free-form language slug owned by the LLM (drives bootstrap-skill activation via project_language)." },
           "evidence": { "type": "string", "minLength": 1, "description": "File path proving the component is deployable or callable (entrypoint or deploy artefact)." }
         }

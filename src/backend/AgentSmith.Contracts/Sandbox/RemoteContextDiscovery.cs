@@ -24,8 +24,8 @@ namespace AgentSmith.Contracts.Sandbox;
 /// operator/LLM's own words. Read by the ScopeRepos classifier so it can map a ticket to
 /// affected repos from metadata alone, before any checkout or sandbox exists.</param>
 /// <param name="Verify">2026-08-31-26d4: `verify:` — the ordered stages this context
-/// declares as proof that a change in it holds, executed by the verify gate at THIS
-/// context's workdir. Null = nothing declared; the gate infers as before.
+/// declares as proof that a change in it holds, executed by the verify gate at the
+/// REPOSITORY ROOT (2026-09-03-7bac). Null = nothing declared; the gate infers as before.
 /// <para>
 /// Every construction site passes this BY NAME. 2026-08-28-7b41 records what the
 /// positional tail of this record does to an optional field: the one that phase repaired
@@ -36,8 +36,8 @@ namespace AgentSmith.Contracts.Sandbox;
 /// stages were derived from and their hash at derivation time, so the run can re-hash them
 /// and report a declaration whose source has moved. Null = nothing to compare.</param>
 /// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
-/// target environment whether it answers, run at THIS context's workdir after the
-/// prerequisites and before the master. Null = nothing asks, which the run reports as
+/// target environment whether it answers, run at the REPOSITORY ROOT (2026-09-03-7bac)
+/// after the prerequisites and before the master. Null = nothing asks, which the run reports as
 /// not declared rather than as answered. Passed BY NAME at every construction site, for
 /// the reason the paragraph above gives.</param>
 public sealed record RemoteContextDiscovery(

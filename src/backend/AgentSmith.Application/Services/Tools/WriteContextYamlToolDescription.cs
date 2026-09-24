@@ -20,8 +20,12 @@ internal static class WriteContextYamlToolDescription
         "folder names as layers. Those are dropped. State what somebody DECIDED " +
         "(meta.purpose, quality.limits, behavior) and what the orchestrator ACTS ON " +
         "(meta.workdir, stack.lang, stack.image). " +
-        "meta.workdir is REQUIRED — the repo-relative sub-tree this stack's SOURCE occupies, " +
-        "read off the tree; '.' only where that source is the whole repository. " +
+        "meta.workdir is REQUIRED — the repo-relative COMPONENT ROOT, the directory holding the " +
+        "manifest that governs this stack (package.json, *.csproj, pyproject.toml, go.mod, ...). " +
+        "Point AT it, not into it: sources under 'src/' do not move the root. Where there is no " +
+        "manifest, use the directory the component's evidence sits in; '.' only where that " +
+        "directory is the repository root. It places NO command — every stage below runs at the " +
+        "repository root. " +
         "stack.image is REQUIRED whenever a stack is present — the exact toolchain Docker image " +
         "whose runtime can BOTH build AND run this stack's tests (e.g. mcr.microsoft.com/dotnet/sdk:8.0, " +
         "node:20-bookworm); it must come from a registry the operator trusts and must carry git, " +
@@ -37,7 +41,7 @@ internal static class WriteContextYamlToolDescription
         // 2026-08-31-26d4: the gate the repository owns, ahead of anything a
         // model emits for a single run.
         "verify is the ORDERED list of commands that prove a change in this context holds — " +
-        "each { label, command, when_present? }, run at this context's workdir, stopping at " +
+        "each { label, command, when_present? }, run at the REPOSITORY ROOT, stopping at " +
         "the first non-zero exit. Every command must be able to FAIL: a declared 'echo ...' " +
         "or 'true' stops the run at resolution. Use when_present for a stage that only means " +
         "something when a path exists; an absent path skips that stage instead of reddening " +
@@ -47,14 +51,14 @@ internal static class WriteContextYamlToolDescription
         "(azure-pipelines.yml, .github/workflows/*, .gitlab-ci.yml, Jenkinsfile), its " +
         "Makefile and scripts, its manifests and task runners — the same reading you do " +
         "to work out the build command. Name the files you read them out of in " +
-        "verify_derived_from.files (paths relative to meta.workdir); the framework " +
+        "verify_derived_from.files (paths relative to the REPOSITORY ROOT); the framework " +
         "hashes those files itself, so send no hash. A repository whose pipeline you " +
         "could not find gets NO verify block and no verify_derived_from — an invented " +
         "gate disagrees with the one the estate actually runs. " +
         // 2026-09-01-379a: the question the injected credentials exist for.
         "probe is the ONE command that asks whether this context's TARGET " +
-        "ENVIRONMENT answers — { target, command }, run at this context's " +
-        "workdir before the coding agent starts. Name the target in your own " +
+        "ENVIRONMENT answers — { target, command }, run at the REPOSITORY ROOT " +
+        "before the coding agent starts. Name the target in your own " +
         "words; reference an injected credential by name ($VAR), never by " +
         "value. Declare it only when work here depends on a live target; a " +
         "repository that needs none omits the block.";
