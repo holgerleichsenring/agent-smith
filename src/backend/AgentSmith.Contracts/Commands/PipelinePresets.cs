@@ -11,10 +11,9 @@ namespace AgentSmith.Contracts.Commands;
 /// </summary>
 public static partial class PipelinePresets
 {
-    // Field initialization order across partial files is unspecified by the C# spec,
-    // so the All dictionary is populated in a static constructor — guaranteed to run
-    // AFTER every per-preset field's initializer regardless of the compiler's chosen
-    // file order.
+    // Field initialization order across partial files is unspecified by the C# spec, so All and
+    // Routable are populated in a static constructor — guaranteed to run AFTER every per-preset
+    // field initializer whatever file order the compiler chose.
     private static readonly Dictionary<string, IReadOnlyList<string>> All;
 
     public static IReadOnlyList<string> Names { get; }
@@ -33,6 +32,7 @@ public static partial class PipelinePresets
             [SpecDialogName] = SpecDialog,
         };
         Names = All.Keys.ToList();
+        Routable = [.. Names.Where(n => !NeedsHostSuppliedContext.Contains(n))];
     }
 
     public static IReadOnlyList<string>? TryResolve(string name) =>

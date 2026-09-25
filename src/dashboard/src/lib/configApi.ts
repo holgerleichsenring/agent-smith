@@ -241,6 +241,11 @@ export interface CapabilityField {
   label: string;
   required: boolean;
   kind: CapabilityFieldKind;
+  /** 2026-09-25-3c7ad: the values this field may take, when the set is ours and closed — the
+   *  pipelines a ticket can route to, for instance. Absent means free text, which is what every
+   *  field was before this existed. A stored value outside the list is still shown: the list is
+   *  guidance, and a configuration written before the list existed must stay readable. */
+  choices?: string[];
 }
 
 export interface TrackerTypeDescriptor {
