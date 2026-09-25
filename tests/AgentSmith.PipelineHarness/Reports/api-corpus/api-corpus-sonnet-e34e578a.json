@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-23T22:54:43.309771+00:00",
+  "generated_at": "2026-09-25T14:53:30.185185+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,8 +9,8 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no authentication required \u2014 endpoint returns Member object including sensitive fields role and contactEmail without any bearer token",
-      "highest_severity": "Medium",
+      "finding_headline": "GET /members/{id}: endpoint carries no security declaration \u2014 any unauthenticated caller can read member PII (contactEmail) and privilege level (role) for any member id",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -20,7 +20,7 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: BOLA \u2014 client-supplied memberId query parameter allows an authenticated caller to list any member\u0027s orders",
+      "finding_headline": "GET /orders: authenticated but accepts a caller-supplied memberId query parameter with no documented ownership enforcement \u2014 a member may list another member\u0027s orders",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: potential BOLA \u2014 orderId is caller-supplied with no visible ownership check, allowing invoice creation against another member\u0027s order",
+      "finding_headline": "POST /invoices: authenticated but accepts a caller-supplied orderId with no documented ownership check \u2014 a member may create an invoice against another member\u0027s order",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,8 +42,8 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: broken function-level authorization \u2014 any authenticated member can set any member\u0027s role, including escalating to admin",
-      "highest_severity": "Low",
+      "finding_headline": "PUT /members/{id}/role: role assignment is a privileged administrative action but the spec declares only a generic memberToken with no admin scope or role guard \u2014 any authenticated member may be able to elevate roles",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true

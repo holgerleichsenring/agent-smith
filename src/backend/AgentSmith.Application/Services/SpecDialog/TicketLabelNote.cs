@@ -52,8 +52,8 @@ public static class TicketLabelNote
     /// the stamp; without it this project's own map may match, or a declared default pipeline
     /// answers, or nothing does and the ticket is dropped. The sentence is true on all of them.
     /// </summary>
-    private const string StampSentence =
-        "The `" + FiledTicketLabels.ApprovedSetStamp + "` label says that an approved "
+    private static string StampSentence(string stamp) =>
+        "The `" + stamp + "` label says that an approved "
         + "specification exists for this ticket, and it is what binds this ticket to phase "
         + "execution. Removing it costs the ticket its one guard against a lost hand-off being "
         + "re-derived from a description anyone can edit, and leaves it routed by this project's "
@@ -64,11 +64,14 @@ public static class TicketLabelNote
     /// framework can explain — a bug is filed with an empty label set, and a note about labels it
     /// does not carry would be false.
     /// </summary>
-    public static string? For(IReadOnlyCollection<string> labels)
+    /// <param name="approvedSetStamp">2026-09-25-3c7ac: what THIS board calls the stamp. The note
+    /// has to name the word the ticket actually carries, or it explains a label nobody can see.</param>
+    public static string? For(IReadOnlyCollection<string> labels, string? approvedSetStamp = null)
     {
         ArgumentNullException.ThrowIfNull(labels);
+        var stamp = approvedSetStamp ?? FiledTicketLabels.ApprovedSetStamp;
         List<string> sentences = [];
-        if (Carries(labels, FiledTicketLabels.ApprovedSetStamp)) sentences.Add(StampSentence);
+        if (Carries(labels, stamp)) sentences.Add(StampSentence(stamp));
         return sentences.Count == 0
             ? null
             : $"{Begin}\n{Heading}\n{string.Join("\n\n", sentences)}\n{End}\n";

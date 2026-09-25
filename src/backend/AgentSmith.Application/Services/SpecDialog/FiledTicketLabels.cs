@@ -55,7 +55,7 @@ public static class FiledTicketLabels
     /// <see cref="BindsPhaseExecution"/>.
     /// </para>
     /// </summary>
-    public const string ApprovedSetStamp = "phase-spec:approved";
+    public const string ApprovedSetStamp = Contracts.Tickets.TicketLabels.ApprovedSetStamp;
 
     /// <summary>
     /// True for a ticket this framework filed as a RECORD — an epic parent summary or a slice

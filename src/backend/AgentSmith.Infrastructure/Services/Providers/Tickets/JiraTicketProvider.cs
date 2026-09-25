@@ -25,6 +25,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly JiraIssueSearcher _searcher;
     private readonly IJiraDiscoveryJqlBuilder _jqlBuilder = new JiraDiscoveryJqlBuilder();
     private readonly JiraTransitioner _transitioner;
+    private readonly TicketLabelVocabulary _labels;
     private readonly string? _projectKey;
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
@@ -45,6 +46,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     {
         _baseUrl = connection.BaseUrl.TrimEnd('/');
         _http = TicketProviderHttpClient.WithBasicAuth(httpClient, connection.Email, connection.ApiToken);
+        _labels = connection.ResolvedLabels;
         _mapper = mapper;
         _projectKey = connection.ProjectKey;
         _doneStatus = doneStatus ?? "Done";
@@ -95,7 +97,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _searcher.SearchAsync(
-            $"labels = \"{LifecycleLabels.For(status)}\"",
+            $"labels = \"{_labels.For(status)}\"",
             $"lifecycle={status}", cancellationToken);
 
     // Open-state discovery for the poller; routing and trigger_statuses gate downstream in TrackerPoller.

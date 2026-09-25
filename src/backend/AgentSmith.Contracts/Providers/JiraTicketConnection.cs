@@ -17,7 +17,8 @@ public sealed record JiraTicketConnection(
     string? ProjectKey = null,
     JiraEndpoints? Endpoints = null,
     JiraLifecycleStatusMap? LifecycleStatusMap = null,
-    string? ParentLinkType = null)
+    string? ParentLinkType = null,
+    Tickets.TicketLabelVocabulary? Labels = null)
 {
     private static readonly JiraEndpoints DefaultEndpoints = new();
 
@@ -30,4 +31,9 @@ public sealed record JiraTicketConnection(
 
     /// <summary>Native-status map, or <see cref="JiraLifecycleStatusMap.Empty"/> when unset (label mode).</summary>
     public JiraLifecycleStatusMap ResolvedLifecycleMap => LifecycleStatusMap ?? JiraLifecycleStatusMap.Empty;
+
+    /// <summary>2026-09-25-3c7ac: what this board calls the labels the framework writes. Null is
+    /// today's vocabulary, which is what a tracker configuring nothing gets.</summary>
+    public Tickets.TicketLabelVocabulary ResolvedLabels => Labels ?? Tickets.TicketLabelVocabulary.Default;
+
 }

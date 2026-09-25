@@ -65,8 +65,10 @@ public sealed class ApprovedSetTicketFiler(
         ArgumentNullException.ThrowIfNull(filed);
         ArgumentNullException.ThrowIfNull(notes);
         // 2026-09-18-d518: the note explains the labels this ticket is actually filed with.
-        string[] labels = [FiledTicketLabels.ApprovedSetStamp];
-        var content = render(TicketLabelNote.For(labels));
+        // 2026-09-25-3c7ac: under the name THIS board gave it.
+        var stamp = TicketLabelVocabulary.For(project.Tracker).ApprovedSetStamp;
+        string[] labels = [stamp];
+        var content = render(TicketLabelNote.For(labels, stamp));
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));

@@ -90,4 +90,14 @@ public sealed record TrackerConnection
     /// </summary>
     public IReadOnlyDictionary<string, string> WorkItemKinds { get; init; } =
         new Dictionary<string, string>();
+
+    /// <summary>
+    /// 2026-09-25-3c7ac (YAML key <c>label_names</c>): what THIS board calls the eight labels the
+    /// framework writes — the seven lifecycle words, keyed by state name, and the approved-set
+    /// stamp, keyed <c>approved-set</c>. An unnamed label keeps today's word, and an empty map
+    /// (default) is today's vocabulary exactly. What is READ is always the union of the configured
+    /// name and every name this framework has ever written, so a rename leaves live tickets alone.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LabelNames { get; init; } =
+        new Dictionary<string, string>();
 }

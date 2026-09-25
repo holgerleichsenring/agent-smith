@@ -22,6 +22,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly ITicketFieldMapper<Issue> _mapper;
     private readonly GitHubCommentMapper _commentMapper = new();
     private readonly GitHubIssueLister _lister;
+    private readonly TicketLabelVocabulary _labels;
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
     private readonly GitHubTicketFinalizer _finalizer;
@@ -33,6 +34,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
         ITicketFieldMapper<Issue> mapper, ILogger<GitHubTicketProvider> logger)
     {
         (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        _labels = connection.ResolvedLabels;
         _client = new GitHubClient(new ProductHeaderValue("AgentSmith"))
         { Credentials = new Credentials(connection.Token) };
         _attachmentLoader = attachmentLoader;
@@ -90,8 +92,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // GitHub has no work-item kind: any status that is not open or closed is applied as a
-    // label, so the kind the port carries is not something this tracker can express.
+    // GitHub has no work-item kind: a status that is not open or closed is applied as a label.
     public async Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)
     {
@@ -100,8 +101,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
         return Created(issue);
     }
 
-    // Issues carry labels natively and the add is idempotent, so the label is sent whole with no
-    // read first. A number that does not parse is an id this tracker never issued: nothing lands.
+    // Labels are native and the add is idempotent, so it is sent whole with no read first.
     public async Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken ct)
     {
         if (!TryParseIssueNumber(ticketId, out var n)) return false;
@@ -161,7 +161,7 @@ public sealed class GitHubTicketProvider : ITicketProvider
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
         => _lister.ListByLabelsAsync(
-            [LifecycleLabels.For(status)], ItemStateFilter.All, $"lifecycle={status}", cancellationToken);
+            [_labels.For(status)], ItemStateFilter.All, $"lifecycle={status}", cancellationToken);
 
     public async Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
     {
