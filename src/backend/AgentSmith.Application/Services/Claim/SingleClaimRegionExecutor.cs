@@ -45,11 +45,31 @@ internal sealed class SingleClaimRegionExecutor(
         return transition.Outcome switch
         {
             TransitionOutcome.Succeeded => await EnqueueAsync(request, ct),
-            TransitionOutcome.PreconditionFailed => await ReleaseAndAsync(
-                request, ClaimResult.AlreadyClaimed(), ct),
+            // 2026-09-25-3c7ab: a CONCURRENCY refusal is not a statement about the work. Its
+            // three sources are a GitHub ETag mismatch, an Azure DevOps rev mismatch or 409, and
+            // a Redis label-lock already held — every one of them means somebody else wrote to
+            // this ticket in the same second, and an operator typing a comment is enough. The
+            // index granted this claim; reporting it as AlreadyClaimed was a lie about it, and
+            // releasing the lease handed the ticket back over a label nobody reads as authority.
+            TransitionOutcome.PreconditionFailed => await ProceedUnwrittenAsync(request, transition, ct),
             _ => await ReleaseAndAsync(
                 request, ClaimResult.Failed(transition.Error ?? transition.Outcome.ToString()), ct)
         };
+    }
+
+    /// <summary>
+    /// The claim stands and the board simply does not say so. NotFound and a failed write keep
+    /// releasing: a ticket that is not there produces work nobody can deliver, and a tracker that
+    /// cannot be written to at all will not take this run's result either.
+    /// </summary>
+    private async Task<ClaimResult> ProceedUnwrittenAsync(
+        ClaimRequest request, TransitionResult transition, CancellationToken ct)
+    {
+        logger.LogWarning(
+            "Ticket {Ticket} could not be marked enqueued ({Reason}) — the lease is held and the "
+            + "run proceeds; the board is display, not the guard",
+            request.TicketId.Value, transition.Error ?? nameof(TransitionOutcome.PreconditionFailed));
+        return await EnqueueAsync(request, ct);
     }
 
     private async Task<ClaimResult> EnqueueAsync(ClaimRequest request, CancellationToken ct)
