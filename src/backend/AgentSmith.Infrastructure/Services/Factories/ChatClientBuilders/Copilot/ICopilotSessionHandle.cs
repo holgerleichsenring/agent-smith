@@ -36,8 +36,14 @@ public interface ICopilotSessionHandle : IAsyncDisposable
     /// <summary>
     /// 2026-09-23-4722a: answers one pending tool call, which resumes the turn. Exactly one of
     /// <paramref name="result"/> and <paramref name="error"/> is given.
+    /// <para>
+    /// 2026-09-25-6b2e: returns the runtime's OWN verdict on the answer — the SDK's
+    /// HandlePendingToolCallResult.Success, "whether the tool call result was handled
+    /// successfully". It used to be discarded, which left the adapter unable to tell an accepted
+    /// answer from a refused one and made a refusal look like a resolution race.
+    /// </para>
     /// </summary>
-    Task RespondToToolAsync(string requestId, string? result, string? error, CancellationToken cancellationToken);
+    Task<bool> RespondToToolAsync(string requestId, string? result, string? error, CancellationToken cancellationToken);
 }
 
 /// <summary>

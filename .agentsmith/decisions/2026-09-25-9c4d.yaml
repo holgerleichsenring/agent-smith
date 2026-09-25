@@ -1,0 +1,57 @@
+phase: 2026-09-25-9c4d
+decisions:
+  - what: "Fix the shipped example, not the operator's own compose file."
+    alternatives:
+      - "Correct deploy/docker-compose.yml, where the frozen sha actually is."
+    why: |
+      That file is gitignored as a CLASS — a deployment compose file describes one estate, and the
+      rules that used to sit there named files after they had already leaked. The local copy
+      carries a host path with a customer identifier. A step that edits it ships nothing and drags
+      a leak toward a commit. What ships is the example, and the example declared no build args at
+      all — which is how every operator who copies it ends up writing their own values in, and how
+      one of them froze a sha.
+
+  - what: "The null-value arg form, not ${VAR}."
+    alternatives:
+      - "args: AGENTSMITH_BUILD_REVISION: ${AGENTSMITH_BUILD_REVISION}"
+    why: |
+      Measured: with the variable unset, ${VAR} is forced to an empty STRING that overrides the
+      Dockerfile's own ARG, and compose warns twice on the way past. Written with no value the key
+      is dropped entirely and the image is honestly unstamped, which the server already renders as
+      "not stated by this build". Both end unstamped; only one does it without noise.
+
+  - what: "Leave the image TAG defaults alone."
+    alternatives:
+      - "Remove the :-0.129.0 fallbacks so an unstamped build is visibly unstamped."
+    why: |
+      Measured: `image: name:${AGENTSMITH_VERSION}` with the variable unset resolves to `name:`
+      and compose refuses it outright — "invalid reference format" — so build AND up die, and
+      .env.example does not set that variable. A tag is an addressing string, not an identity
+      stamp; it has no absent rendering. The first draft of this phase proposed exactly that.
+
+  - what: "The derivation is a documented command in front of the build, not a mechanism."
+    alternatives:
+      - "Derive the sha inside the build."
+    why: |
+      Compose interpolates from the environment and has no command substitution, and the
+      Dockerfile cannot read git either because .dockerignore keeps **/.git out of every build
+      context. There is nowhere inside the build for a derivation to live. A build arg that
+      forwards a variable nobody sets is worse than a literal unless the place to set it is
+      written down beside it, so it is.
+
+  - what: "Do not touch the installation response — absence already renders honestly."
+    alternatives:
+      - "Modify InstallationIdentityResponse so an empty revision renders as absent."
+    why: |
+      The reporter already blanks a whitespace value to null, BuildIdentity.IsKnown reads the same
+      way, and the dashboard prints "not stated by this build" and "no revision stamped", with a
+      test already pinning it. The response is a 26-line positional record with no rendering
+      logic. The first draft planned work that was already done.
+
+  - what: "Out of scope, with its reason: kubernetes."
+    alternatives: []
+    why: |
+      Those manifests pin published image TAGS, and the publish workflow stamps published images
+      correctly — a k8s installation reports its true build, which may be old but is not wrong.
+      Only the local build path mis-stamps. Their tags trailing the current release is a
+      release-hygiene question, not this defect.

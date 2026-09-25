@@ -15,6 +15,8 @@ public sealed class BuildIdentityStampingTests
     private const string Workflow = ".github/workflows/docker-publish.yml";
     private const string ServerImage = "src/backend/AgentSmith.Server/Dockerfile";
     private const string DashboardImage = "src/dashboard/Dockerfile";
+    private const string CliImage = "src/backend/AgentSmith.Cli/Dockerfile";
+    private const string ComposeExample = "deploy/docker-compose.example.yml";
 
     [Fact]
     public void BuildIdentity_IsReadableAtRuntimeInBothImages()
@@ -55,6 +57,62 @@ public sealed class BuildIdentityStampingTests
         text.Should().Contain($"{BuildIdentity.VersionVariable}=", "the release version "
             + "rides along because it is what an operator recognises");
     }
+
+    /// <summary>
+    /// 2026-09-25-9c4d: the rule used to read the two Dockerfiles and the publish workflow, and
+    /// nothing else — so it stayed green while every LOCAL build was mis-stamped. A server built
+    /// minutes ago reported a revision 496 commits old, because the operator's own compose file
+    /// carried a frozen sha in its build args. That file is gitignored as a leak class and cannot
+    /// be reached from here; what CAN be fixed is the example every operator copies, which
+    /// declared no build args at all.
+    /// </summary>
+    [Fact]
+    public void ComposeExample_EveryBuiltService_PassesTheIdentityArgs()
+    {
+        var text = Read(ComposeExample);
+        var builds = text.Split('\n').Count(l => l.TrimStart().StartsWith("dockerfile:", StringComparison.Ordinal));
+
+        builds.Should().BeGreaterThan(0, "the example builds something");
+        CountOf(text, BuildIdentity.RevisionVariable).Should().Be(builds,
+            "an image built without the revision cannot say which tree it came from");
+        CountOf(text, BuildIdentity.VersionVariable).Should().Be(builds);
+    }
+
+    /// <summary>
+    /// The null-value form, not ${VAR}. Written with no value, compose passes the variable only
+    /// when the environment has it and drops the key otherwise, leaving the image honestly
+    /// unstamped. Written as ${VAR}, an unset variable is forced to an empty STRING that overrides
+    /// the Dockerfile's own ARG. A literal — which is what froze one estate on a August sha — is
+    /// the failure this case exists for.
+    /// </summary>
+    [Fact]
+    public void ComposeExample_TheIdentityArgs_CarryNoLiteralValue()
+    {
+        var lines = Read(ComposeExample).Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var where = $"{ComposeExample}:{i + 1}";
+            var trimmed = lines[i].Trim();
+            if (!trimmed.StartsWith(BuildIdentity.RevisionVariable, StringComparison.Ordinal)
+                && !trimmed.StartsWith(BuildIdentity.VersionVariable, StringComparison.Ordinal))
+                continue;
+            trimmed.Should().EndWith(":",
+                $"{where} must pass the variable through, not pin a value — a literal here is how "
+                + "an installation ends up reporting a build from a different month");
+        }
+    }
+
+    [Fact]
+    public void CliImage_DeclaresTheIdentityArgAndEnv()
+    {
+        // The local compose build has been passing these to an image that declared neither.
+        Read(CliImage).Should()
+            .Contain($"ARG {BuildIdentity.RevisionVariable}")
+            .And.Contain($"ENV {BuildIdentity.RevisionVariable}=${BuildIdentity.RevisionVariable}");
+    }
+
+    private static int CountOf(string text, string needle) =>
+        text.Split('\n').Count(l => l.Trim().StartsWith(needle, StringComparison.Ordinal));
 
     private static string Read(string relative)
     {

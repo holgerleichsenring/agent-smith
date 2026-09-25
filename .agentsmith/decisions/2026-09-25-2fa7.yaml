@@ -1,0 +1,49 @@
+phase: 2026-09-25-2fa7
+decisions:
+  - what: "Admit the role to the tool-bearing set in the same commit as the binding."
+    alternatives:
+      - "Bind the analyzer to the role and leave the set alone."
+    why: |
+      ChatClientFactory returns before UseFunctionInvocation for a task outside ToolBearingTasks.
+      The analyzer explores a repository WITH tools, so binding alone would have handed the model
+      a tool list it could never call and left the sweep reading nothing — with every role
+      assertion still green, because a fake factory grants no middleware. 2026-09-23-03b8 recorded
+      this about the same move two days earlier, in one line: the two changes are one change.
+
+  - what: "Unset, the role resolves to the agent's SCOUT assignment — not to primary, not to a literal."
+    alternatives:
+      - "Fall back to Primary, like Reasoning and ContextGeneration."
+      - "Keep the registry's hard-coded haiku default."
+    why: |
+      p0374 put this sweep on the scout model after measuring 450k+ tokens a run through the
+      flagship one at flagship pricing. That measurement still governs, and wiring a knob must not
+      quietly undo it: falling back to Primary would have been a silent cost increase for every
+      operator who never sets the role. The hard-coded Claude string was inert while nothing
+      requested the role; the moment something does, an OpenAI, Azure, ollama or Copilot agent
+      would ask its own provider for a model that provider has never heard of.
+
+  - what: "The role becomes optional, and every projection of it becomes conditional."
+    alternatives:
+      - "Keep it non-nullable and give the registry a special case."
+    why: |
+      Optional is what the neighbouring optional roles already are, and it is the only shape in
+      which "the operator stated nothing" is distinguishable from "the operator stated the
+      default". The cost is that the Config Studio catalog, the config patch surface and the
+      context-window preflight each had to stop projecting it unconditionally — which is the same
+      change those neighbours already carry.
+
+  - what: "The rule looks for a role being PASSED to the factory, not for the word."
+    alternatives:
+      - "Scan the sources for TaskType.<Name> with an allowlist of places to ignore."
+    why: |
+      A text scan goes green the moment a role joins ToolBearingTasks — the token is then present
+      in a file that requests nothing — so the rule would retire itself on the day it lands, on
+      the very file whose membership matters. Matching an argument to a chat-client factory method
+      is what "a production caller" means, and it needs no allowlist.
+
+  - what: "Out of scope, with its reason: which model an operator should choose here."
+    alternatives: []
+    why: |
+      This phase makes the choice reachable and leaves it where it belongs. Whether a repository
+      sweep deserves a stronger model is answered by a measurement against a real estate, not by
+      wiring.

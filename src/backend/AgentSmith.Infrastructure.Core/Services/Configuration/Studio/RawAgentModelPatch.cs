@@ -38,7 +38,7 @@ internal static class RawAgentModelPatch
             "reasoning" => registry.Reasoning ??= new ModelAssignment(),
             "summarization" => registry.Summarization,
             "contextGeneration" => registry.ContextGeneration ??= new ModelAssignment(),
-            "codeMapGeneration" => registry.CodeMapGeneration,
+            "codeMapGeneration" => registry.CodeMapGeneration ??= new ModelAssignment(),
             _ => throw new ConfigurationException(
                 $"Unknown agent model role '{role}' (known: coding, scout, primary, planning, " +
                 "reasoning, summarization, contextGeneration, codeMapGeneration)."),

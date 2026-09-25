@@ -247,8 +247,9 @@ agents:
   #   * pricing below is an OPERATOR-DECLARED PROXY. A seat is billed in premium requests, not
   #     per token, so a flat-rate seat is honestly entered as zero and the run's cost cap is
   #     approximate for this agent. The provider's own meter travels to the run trace beside it.
-  # Only summarization and code-map generation are served today; a tool-bearing role is refused
-  # with a message naming 2026-09-23-4722a, which returns the tool loop to agent-smith.
+  #   * every role is served, tool-bearing ones included: the runtime is told the tools by
+  #     declaration only and hands each call back, so the loop — approval policy, sandbox routing,
+  #     event publishing — stays agent-smith's (2026-09-23-4722a, proven live in 2026-09-25-6b2e).
   # copilot-seat:
   #   type: copilot
   #   model: gpt-5
