@@ -26,21 +26,16 @@ public sealed record FiledWorkView(
 }
 
 /// <summary>
-/// One ticket the filing created, with the runs that took it up. A slice record
-/// (2026-09-17-0e79d) carries no run at all: nothing routes it and no run works it.
+/// One ticket with the runs that took it up: one the filing created, or (2026-09-25-c4a6) the one
+/// this conversation is BOUND to, whose Reference is the tracker's own id because a reference is a
+/// created ticket's url. A slice record (2026-09-17-0e79d) carries no run: nothing routes it.
 /// </summary>
-/// <param name="Start">What the ticket became at filing time (2026-09-17-042eg). Null on a
-/// filing written before that phase, which reads as unknown rather than as a claim.</param>
+/// <param name="Start">What the ticket became at filing (2026-09-17-042eg), or NotFiled for a bound
+/// ticket. Null on a filing written before that phase, which reads as unknown.</param>
 /// <param name="Handback">The hand-back case the spec set last recorded, or null.</param>
 public sealed record FiledWorkTicketView(
-    string Reference,
-    string? Key,
-    string Title,
-    string? TicketId,
-    string? Project,
-    FiledWorkStart? Start,
-    IReadOnlyList<FiledWorkRunView> Runs,
-    FiledWorkHandbackView? Handback);
+    string Reference, string? Key, string Title, string? TicketId, string? Project,
+    FiledWorkStart? Start, IReadOnlyList<FiledWorkRunView> Runs, FiledWorkHandbackView? Handback);
 
 /// <summary>
 /// One run of the work ticket, in one of the projects sharing the filing project's tracker.
