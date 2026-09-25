@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.149.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.2...v0.149.3) (2026-09-25)
+
+
+### Bug Fixes
+
+* Copilot answers its tool calls, and two roles that were wired to nothing ([5023b1e](https://github.com/holgerleichsenring/agent-smith/commit/5023b1e690aec69490440b9fcb8b6eba8fd9f24b))
+* Copilot answers its tool calls, and two roles that were wired to nothing (2026-09-25-6b2e, 2026-09-25-9c4d, 2026-09-25-2fa7) ([49f2f77](https://github.com/holgerleichsenring/agent-smith/commit/49f2f779792ba3ed615e04f88fdd48a626db5310))
+
 ## [0.149.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.1...v0.149.2) (2026-09-25)
 
 
