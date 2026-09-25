@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-6b2e
+goal: "A Copilot tool call can be answered: the adapter stops killing the turn on a UI hint, reads the answer's own success flag, and cannot wait forever."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      MEASURED ON A REAL SEAT. 2026-09-23-4722a left one claim unprovable without a seat and said
+      so. With a seat the liveness test fails, identically after 2 seconds and after 90: "The
+      Copilot session resolved external tool request <guid> elsewhere, so its result will never
+      arrive." Not a deadline. Every tool-bearing Copilot call dies on the first answer, so that
+      path has never worked and could not have.
+  - key: |
+      THE SEMANTIC THAT KILLS THE TURN DOES NOT EXIST IN THE SDK. The pinned package documents the
+      event verbatim: ExternalToolCompletedData is an "External tool completion notification
+      signaling UI dismissal", and its RequestId is "the resolved external tool request; clients
+      should dismiss any UI for this request". It says nothing about WHO resolved it, and carries
+      no race. CopilotTurnCollector throws on it unconditionally — a house rule invented on top of
+      a cleanup hint. The first draft of this phase proposed to NARROW that rule; narrowing keeps
+      the invention. The event is not a turn terminator at all, and the guard goes.
+  - key: |
+      THE SIGNAL THAT REALLY SAYS WHETHER THE ANSWER LANDED IS BEING THROWN AWAY. The SDK's
+      HandlePendingToolCallAsync returns HandlePendingToolCallResult, documented "Whether the tool
+      call result was handled successfully". CopilotSessionHandle returns that Task<T> as a bare
+      Task, so the adapter cannot tell an accepted answer from a refused one. That is precisely
+      the discrimination this phase needs, free, in a call it already makes. The measured evidence
+      cannot distinguish "our answer landed" from "our answer was refused" for exactly this
+      reason, which is the strongest argument for reading it.
+  - key: |
+      REMOVING THE THROW WITHOUT ADDING A TERMINATOR WOULD BE WORSE THAN THE BUG. A continuation
+      turn starts with no expected tool requests, so once the completion stops ending it the only
+      terminators left are idle or a new assistant message. If the runtime dismisses a call it has
+      abandoned and never resumes, the wait has nothing to end it — and the client's gate is held
+      across that wait, so one wedged turn wedges every later call on that client. A loud failure
+      turned into a silent hang is a worse trade, so the post-answer wait gets a deadline whose
+      expiry names what did not arrive. 300 seconds matches the network timeout this repository
+      already settled on in p0235.
+  - key: |
+      THE ID-CONFLATION STORY IN THE FIRST DRAFT WAS FALSE, AND ITS DEAD TWIN IS DELETED. The
+      collector consults NO id — it throws on any completion. The one id-aware helper,
+      CopilotPendingCalls.WasResolvedElsewhere, compares against the RequestId values correctly
+      and is called from nowhere. Two guards for one question, one of them dead and wrong-headed,
+      is how the next reader wires up the wrong one. It goes with the rule it was written for.
+  - key: |
+      THE TEST DOUBLE OMITS THE ECHO, WHICH IS WHY THE SUITE WAS GREEN. FakeCopilotRuntime records
+      an answer and replays the next scripted turn without ever emitting the completion, so the
+      normal path never ran against a runtime that dismisses. The echo must be emitted by the
+      answer call itself rather than spliced into a script: two answers against one scripted
+      continuation turn would leave the second echo unfired.
+  - key: |
+      ONE EXISTING TEST IS RIGHT AS IT STANDS AND IS NOT TOUCHED. ExternalToolCompletedElsewhere_
+      FailsTheCallLoudly scripts a FIRST turn in which nothing was answered. Under this phase a
+      completion arriving when the turn answered nothing is still an anomaly worth failing on —
+      the same test, the same verdict. The first draft proposed to rewrite it and to add a new
+      test that duplicates it; both were wrong.
+  - key: |
+      THE IMAGE HAS NEVER BUILT, AND THE FIX IS THREE FACTS THE FIRST DRAFT GOT WRONG. The server
+      Dockerfile aborts on `find /opt/copilot -name copilot -type f`, and the 1.0.85 release
+      archive carries no such file — it is the npm package whose bin entry is a loader script.
+      What the SDK spawns is copilot-runtime, and: the tarball has a package/ prefix, so the path
+      is package/prebuilds/<plat>/; the binary needs its sibling runtime.node, so the directory
+      moves rather than the file; and the image builds for two architectures while
+      COPILOT_CLI_PATH is one literal, so the platform cannot appear in it. The whole prebuilds
+      directory for the building architecture is placed at one stable path.
+  - key: |
+      A PROOF THAT CANNOT RUN MUST NOT REPORT SUCCESS — AND THIS REPOSITORY ALREADY HAS THE
+      MECHANISM. The liveness test returns early without a seat and claims to skip loudly, but
+      xunit 2.5.3 has no Assert.Skip and a bare return is a green tick. A hard failure was the
+      first draft's answer; it would break the manual LiveLLM leg for anyone holding another
+      provider's key, and it singles out one of seven tests whose siblings return the same way.
+      RequiresSqlServerFactAttribute sets Skip in its constructor and reports a REASON. It is
+      copied, not reinvented.
+  - key: |
+      NOT IN SCOPE, NAMED RATHER THAN LEFT UNSAID: the watermark drifts after a tool round trip.
+      The continuation path returns without committing the lease, so the turn AFTER the loop
+      re-renders assistant text the session itself produced back at it. It is masked for tool and
+      call-bearing messages, which carry no text, and not for the post-tool assistant text. That
+      is a second phase, and it cannot be measured until answering works.
+
+steps:
+  - id: the-answer-reports-whether-it-was-taken
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action:
+      - "Return the runtime's own success flag from the respond call instead of discarding it."
+      - "Fail the turn, naming the request, when the runtime says it did not take the answer."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/ICopilotSessionHandle.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotSessionHandle.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotPendingCalls.cs"
+
+  - id: a-dismissal-hint-does-not-end-a-turn
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot"
+    action:
+      - "Stop ending a turn on the completion notification, and record in the type what the SDK says it means."
+      - "Keep failing when a completion arrives for a turn that answered nothing, which is the only case that was ever an anomaly."
+      - "Bound the wait that follows an answer, so a runtime that never resumes cannot hold the client's gate for ever."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotTurnCollector.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotTurnDriver.cs"
+
+  - id: the-double-dismisses-like-the-runtime-does
+    path: "tests/AgentSmith.Tests/Factories"
+    action: "Have the double emit the completion from the answer call itself, so every answer's echo fires."
+    modify:
+      - "tests/AgentSmith.Tests/Factories/FakeCopilotRuntime.cs"
+
+  - id: the-image-takes-the-runtime-the-archive-carries
+    path: "src/backend/AgentSmith.Server"
+    action:
+      - "Place the building architecture's prebuilds directory at one stable path and point the deterministic variable at the runtime inside it."
+      - "Keep the abort when the archive carries no runtime, naming what was looked for."
+    modify:
+      - "src/backend/AgentSmith.Server/Dockerfile"
+
+  - id: the-proof-says-when-it-did-not-run
+    path: "tests/AgentSmith.PipelineHarness/Evals"
+    action:
+      - "Report a missing seat or runtime as a skip WITH ITS REASON, the way the database tests already do."
+      - "Let the wait before answering be set, so the surviving tolerance can be measured once answering works."
+    modify:
+      - "tests/AgentSmith.PipelineHarness/Evals/CopilotPendingCallLivenessTests.cs"
+
+  - id: the-example-states-todays-capability
+    path: "config"
+    action: "Drop both halves of the stale sentence — neither the refusal nor the two-role limit exists in the code."
+    modify:
+      - "config/agentsmith.example.yml"
+
+tests:
+  - "Answer_TheRuntimeDismissesTheRequest_DoesNotEndTheTurn"
+  - "Answer_TheRuntimeRefusesTheAnswer_FailsNamingTheRequest"
+  - "Answer_TheRuntimeNeverResumes_FailsOnItsDeadlineInsteadOfWaiting"
+  - "Answer_AToolRoundTrip_ResumesAndReturnsTheAssistantsReply"
+  - "Liveness_NoSeatOrRuntime_IsReportedAsSkippedWithItsReason"
+
+done:
+  - "a tool-bearing Copilot call completes: the answer is accepted and the turn resumes"
+  - "an answer the runtime refuses fails by name instead of looking like a resolution race"
+  - "a runtime that never resumes ends the turn on a deadline rather than holding the client"
+  - "the unit suite would have caught this — the double dismisses the way the runtime does"
+  - "an image built with the Copilot build-arg contains a runtime the SDK can spawn"
+  - "the liveness proof cannot report success without having run"

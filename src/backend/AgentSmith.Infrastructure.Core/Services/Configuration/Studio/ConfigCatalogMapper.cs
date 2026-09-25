@@ -43,7 +43,10 @@ internal static class ConfigCatalogMapper
             models["summarization"] = ToAssignment(registry.Summarization);
             if (registry.ContextGeneration is { } contextGeneration)
                 models["contextGeneration"] = ToAssignment(contextGeneration);
-            models["codeMapGeneration"] = ToAssignment(registry.CodeMapGeneration);
+            // 2026-09-25-2fa7: optional like its neighbours — an agent that states no code-map
+            // role emits none, rather than the studio showing a value nobody set.
+            if (registry.CodeMapGeneration is { } codeMap)
+                models["codeMapGeneration"] = ToAssignment(codeMap);
         }
         return new AgentEntity(
             id,

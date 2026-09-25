@@ -60,11 +60,30 @@ internal sealed class FakeCopilotRuntime : ICopilotRuntime
             return ReplayNextTurn(cancellationToken);
         }
 
-        public Task RespondToToolAsync(
+        /// <summary>Whether the runtime accepts the next answer — false reproduces a refusal.</summary>
+        internal bool AcceptsAnswers { get; set; } = true;
+
+        /// <summary>
+        /// 2026-09-25-6b2e: the real runtime DISMISSES the call it was just answered, and the echo
+        /// arrives before the resumed turn. Omitting it here is why a turn-killing read of that
+        /// notification shipped green: the fake replayed the next turn and nothing ever dismissed.
+        /// It is emitted from the answer itself rather than scripted, so a second answer against
+        /// one scripted continuation turn still fires its own echo.
+        /// </summary>
+        public Task<bool> RespondToToolAsync(
             string requestId, string? result, string? error, CancellationToken cancellationToken)
         {
             ToolResponses.Add((requestId, result, error));
-            return ReplayNextTurn(cancellationToken);
+            if (!AcceptsAnswers) return Task.FromResult(false);
+            Emit(new CopilotSessionEvent.ExternalToolCompleted(requestId));
+            return ReplayNextTurn(cancellationToken).ContinueWith(
+                _ => true, cancellationToken, TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+
+        private void Emit(CopilotSessionEvent evt)
+        {
+            foreach (var handler in _handlers.ToList()) handler(evt);
         }
 
         /// <summary>

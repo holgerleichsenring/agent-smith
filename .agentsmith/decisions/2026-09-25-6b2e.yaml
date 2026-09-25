@@ -1,0 +1,70 @@
+phase: 2026-09-25-6b2e
+decisions:
+  - what: "Stop treating the completion notification as a turn terminator, rather than narrowing what counts as foreign."
+    alternatives:
+      - "Keep the guard and exempt the request ids this turn answered."
+      - "Keep the guard and compare ids through the existing WasResolvedElsewhere helper."
+    why: |
+      The SDK documents the event verbatim as an "External tool completion notification signaling
+      UI dismissal", whose id names "the resolved external tool request; clients should dismiss
+      any UI for this request". It says nothing about WHO resolved it. The rule that killed the
+      turn was a house invention on top of a cleanup hint, and narrowing it would have kept the
+      invention alive — a late dismissal, a duplicate, or one for a previous turn would still have
+      killed a good turn. A turn that answered nothing keeps failing, because there the event
+      really does mean a call resolved without us.
+
+  - what: "Read HandlePendingToolCallResult.Success and fail on false."
+    alternatives:
+      - "Leave the respond call returning a bare Task, as it was."
+    why: |
+      The measured evidence could not distinguish "our answer landed and this is its echo" from
+      "our answer was refused and the runtime gave up on the call" — precisely because the SDK's
+      own verdict was being typed away. A phase that guesses where the answer is available in the
+      call it already makes is guessing on purpose.
+
+  - what: "Give the resumed turn a 300-second deadline."
+    alternatives:
+      - "Rely on idle, as the prompt-provoked turn does."
+    why: |
+      A turn provoked by a PROMPT ends when the model answers or asks for tools, both bounded by
+      the model. A turn provoked by our ANSWER has neither once the completion stops ending it: a
+      runtime that dismisses and never resumes would wait for ever, and the client's gate is held
+      across that wait, so one wedged turn wedges every later call on that client. Turning a loud
+      failure into a silent hang would have been a worse trade than the bug. 300s is the network
+      timeout this repository already settled on in p0235.
+
+  - what: "The test double dismisses from the answer call itself, not from a script."
+    alternatives:
+      - "Script the completion event in the tests that need it."
+    why: |
+      The real runtime dismisses whatever it is answered, every time. Scripted, two answers against
+      one scripted continuation turn would leave the second echo unfired — the double would be
+      wrong in exactly the way that hid the defect for a fortnight. Emitting it from the answer
+      makes the double's behaviour a property rather than a fixture.
+
+  - what: "Move the whole prebuilds/<platform> directory to one stable path in the image."
+    alternatives:
+      - "Symlink the runtime binary to a fixed name, as the old step did for `copilot`."
+    why: |
+      The 1.0.85 archive is the npm package @github/copilot under a package/ prefix; there is no
+      file named `copilot` in it, so the old find aborted every build that asked for the runtime.
+      What the SDK spawns is copilot-runtime, which needs its siblings (runtime.node) beside it —
+      a symlink away from them breaks it. And the image builds for two architectures while
+      COPILOT_CLI_PATH is a single literal, so the platform cannot appear in the path.
+
+  - what: "A missing seat reports as SKIPPED WITH A REASON, not as a failure."
+    alternatives:
+      - "Fail the test when the seat is absent."
+    why: |
+      Failing is safe for automation — both legs filter the LiveLLM category out — but it breaks
+      the manual LiveLLM leg for anyone holding another provider's key, and it singles out one of
+      seven tests whose siblings return the same way. RequiresSqlServerFactAttribute already
+      solved this shape in the unit suite, so it is copied rather than reinvented.
+
+  - what: "Named, not left unsaid: the lease watermark drifts after a tool round trip."
+    alternatives: []
+    why: |
+      The continuation path returns without committing the lease, so the turn AFTER the loop
+      re-renders assistant text the session itself produced back at it. It is masked for tool and
+      call-bearing messages, which carry no text, and not for post-tool assistant text. It could
+      not be measured until answering worked, and it is its own phase.
