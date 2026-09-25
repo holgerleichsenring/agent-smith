@@ -72,7 +72,7 @@ public sealed class RunQueryPositionTests : IDisposable
         {
             ctx.Runs.Add(new AgentSmith.Infrastructure.Persistence.Entities.Run
             {
-                Id = "run-live", Project = "p1", Pipeline = "fix-bug",
+                Id = "run-live", Project = "p1", Pipeline = "code",
                 TicketId = "9", Status = "running", StartedAt = DateTimeOffset.UtcNow,
             });
             await ctx.SaveChangesAsync();
@@ -86,7 +86,7 @@ public sealed class RunQueryPositionTests : IDisposable
 
     private Task<string> EnqueueAsync(string ticketId, string runId) =>
         _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", ticketId, "fix-bug", "github", runId,
+            "p1", ticketId, "code", "github", runId,
             "waiting for sandbox capacity", ["repo-a"],
             InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 

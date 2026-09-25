@@ -80,7 +80,7 @@ public sealed class SpecDialogOutcomeComposer
     private static string Describe(OutcomeProposal proposal, SpecDialogMarkup m) => proposal switch
     {
         BugOutcome bug =>
-            $"Proposed outcome: {m.Bold("fix-bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
+            $"Proposed outcome: {m.Bold("bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
         PhaseOutcome phase =>
             $"Proposed outcome: {m.Bold("one phase")} — `{phase.Draft.PhaseId}` {phase.Draft.Goal}",
         EpicOutcome epic => DescribeEpic(epic, m),
@@ -103,7 +103,7 @@ public sealed class SpecDialogOutcomeComposer
 
     private static string Summarize(OutcomeProposal proposal) => proposal switch
     {
-        BugOutcome bug => $"a fix-bug ticket ('{bug.Ticket.Title}') for the fix-bug pipeline",
+        BugOutcome bug => $"a bug ticket ('{bug.Ticket.Title}') for the code pipeline",
         PhaseOutcome phase => $"one phase (`{phase.Draft.PhaseId}`)",
         // 2026-09-17-0e79d: an epic is ONE work ticket, and 2026-09-22-b3d7: it is the ONLY
         // ticket. The slices are what that one ticket carries — its body lists every one of them

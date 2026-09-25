@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.Handlers;
@@ -65,12 +66,12 @@ internal static class ModalIntentFactory
         Platform = DispatcherDefaults.PlatformSlack
     };
 
+    // 2026-09-25-e5b1: the three coding commands name the CODE preset, which is the one
+    // pipeline that ships code — the modal still offers three buttons because a person picks
+    // what they want DONE, and p0393 made the framework stop inferring steps from that choice.
     private static string ResolvePipeline(ModalCommandType command) => command switch
     {
-        ModalCommandType.FixBug => "fix-bug",
-        ModalCommandType.FixBugNoTests => "fix-no-test",
-        ModalCommandType.AddFeature => "add-feature",
         ModalCommandType.MadDiscussion => "mad-discussion",
-        _ => "fix-bug"
+        _ => PipelinePresets.CodeName
     };
 }

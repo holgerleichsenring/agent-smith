@@ -33,13 +33,6 @@ public sealed class GitHubPrCommentWebhookHandler(
         "CONTRIBUTOR",
     };
 
-    private static readonly HashSet<string> AllowedPipelines = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "fix-bug",
-        "security-scan",
-        "pr-review",
-    };
-
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && SupportedEventTypes.Contains(eventType);
 
@@ -84,7 +77,7 @@ public sealed class GitHubPrCommentWebhookHandler(
             {
                 case CommentIntentType.NewJob:
                     var pipeline = parsed.Request!.PipelineName;
-                    if (!AllowedPipelines.Contains(pipeline))
+                    if (!PrCommentPipelines.Allowed.Contains(pipeline))
                     {
                         logger.LogInformation(
                             "Ignoring PR comment from {Author} on {Repo}#{Pr}: pipeline={Pipeline} is not allowed",

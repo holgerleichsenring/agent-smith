@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Commands;
 using FluentAssertions;
 
@@ -16,9 +17,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// problem, instead of in a gate run that reports sixteen unrelated failures.
 /// </para>
 /// <para>
-/// The forbidden names are read from <see cref="PipelinePresets.PresetAliases"/> rather
-/// than listed again here — a second copy of a list that is about to be emptied would
-/// outlive its subject and start lying.
+/// 2026-09-25-a7e8 read the forbidden names from the alias map; 2026-09-25-e5b1 deleted it, so
+/// they are read from <see cref="RetiredPipelineNames"/> — still one list, and still not a second
+/// copy that would outlive its subject and start lying.
 /// </para>
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -40,15 +41,15 @@ public sealed class HarnessPresetNameTests
         {
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
-                foreach (var alias in PipelinePresets.PresetAliases.Keys)
+                foreach (var alias in RetiredPipelineNames.Replacements.Keys)
                     if (Regex.IsMatch(lines[i], $"(?<![A-Za-z0-9-]){Regex.Escape(alias)}(?![A-Za-z0-9-])"))
                         offenders.Add($"{Relative(file)}:{i + 1} names '{alias}'");
         }
 
         offenders.Should().BeEmpty(
-            "a retired alias resolves only while PipelinePresets.PresetAliases still carries "
-            + "it. Ask for the preset the alias resolves to, and say what the SCENARIO is in "
-            + "words.\n  " + string.Join("\n  ", offenders));
+            "a retired name resolves to nothing at all since 2026-09-25-e5b1. Ask for the "
+            + "preset it was retired INTO, and say what the SCENARIO is in words.\n  "
+            + string.Join("\n  ", offenders));
     }
 
     [Fact]

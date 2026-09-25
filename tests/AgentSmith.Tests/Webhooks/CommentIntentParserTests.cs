@@ -40,26 +40,26 @@ public sealed class CommentIntentParserTests
     [Fact]
     public async Task AgentSmithPrefix_NewJob_DelegatesTailToIntentParser()
     {
-        SetupLlmIntent("fix #123 in my-api", "fix-bug", "my-api", "123");
+        SetupLlmIntent("fix #123 in my-api", "code", "my-api", "123");
 
         var result = await _sut.ParseAsync(
             "/agent-smith fix #123 in my-api", ConfigPath, CancellationToken.None);
 
         result.Type.Should().Be(CommentIntentType.NewJob);
-        result.Request!.PipelineName.Should().Be("fix-bug");
+        result.Request!.PipelineName.Should().Be("code");
         result.Request.TicketId!.Value.Should().Be("123");
     }
 
     [Fact]
     public async Task AsShortPrefix_NewJob_DelegatesTailToIntentParser()
     {
-        SetupLlmIntent("fix", "fix-bug");
+        SetupLlmIntent("fix", "code");
 
         var result = await _sut.ParseAsync(
             "/as fix", ConfigPath, CancellationToken.None);
 
         result.Type.Should().Be(CommentIntentType.NewJob);
-        result.Request!.PipelineName.Should().Be("fix-bug");
+        result.Request!.PipelineName.Should().Be("code");
     }
 
     [Fact]
@@ -68,13 +68,13 @@ public sealed class CommentIntentParserTests
         // The post-slash body can be free-form text in any language — the LLM
         // resolves "fixe einen Bug" → fix-bug. This is the headline win of p0146e
         // (no more "German/English trap" from the deleted PipelineAliases table).
-        SetupLlmIntent("fixe einen Bug", "fix-bug");
+        SetupLlmIntent("fixe einen Bug", "code");
 
         var result = await _sut.ParseAsync(
             "/agent-smith fixe einen Bug", ConfigPath, CancellationToken.None);
 
         result.Type.Should().Be(CommentIntentType.NewJob);
-        result.Request!.PipelineName.Should().Be("fix-bug");
+        result.Request!.PipelineName.Should().Be("code");
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class CommentIntentParserTests
     [Fact]
     public async Task MultiLine_CommandOnFirstLine_DelegatesFirstLineTailToIntentParser()
     {
-        SetupLlmIntent("fix #99 in core", "fix-bug", "core", "99");
+        SetupLlmIntent("fix #99 in core", "code", "core", "99");
 
         var body = """
             /agent-smith fix #99 in core
@@ -117,7 +117,7 @@ public sealed class CommentIntentParserTests
         var result = await _sut.ParseAsync(body, ConfigPath, CancellationToken.None);
 
         result.Type.Should().Be(CommentIntentType.NewJob);
-        result.Request!.PipelineName.Should().Be("fix-bug");
+        result.Request!.PipelineName.Should().Be("code");
     }
 
     // /approve and /reject paths stay structural — no LLM call, body text passes

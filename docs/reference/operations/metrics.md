@@ -33,12 +33,12 @@ Why BCL and not OpenTelemetry directly: the `OpenTelemetry.*` NuGet ecosystem ch
 
 Incremented **once per matched (project, pipeline) pair** when the resolver returns more than one match for an incoming ticket envelope. Single-match resolutions (the common case) emit nothing.
 
-Example: a tag matches three projects A, B, C — each with one pipeline `fix-bug`. One ticket event produces three increments:
+Example: a tag matches three projects A, B, C — each with one pipeline `code`. One ticket event produces three increments:
 
 ```
-agent_smith_ambiguous_resolution_total{project="A",pipeline="fix-bug"} += 1
-agent_smith_ambiguous_resolution_total{project="B",pipeline="fix-bug"} += 1
-agent_smith_ambiguous_resolution_total{project="C",pipeline="fix-bug"} += 1
+agent_smith_ambiguous_resolution_total{project="A",pipeline="code"} += 1
+agent_smith_ambiguous_resolution_total{project="B",pipeline="code"} += 1
+agent_smith_ambiguous_resolution_total{project="C",pipeline="code"} += 1
 ```
 
 The per-pair increment is intentional. The dashboard question is "how often is project X picking up a ticket that other projects are also picking up?" — a per-project question. Operators who want "total ambiguous events" take `max()` across the per-project counts.
@@ -56,7 +56,7 @@ Incremented when a pipeline's Plan phase produces no actionable work (`plan.Step
 Example: a multi-repo project fans out to three repos; one repo's Plan comes back empty. One increment:
 
 ```
-agent_smith_pipeline_skipped_as_irrelevant_total{project="acme-product",pipeline="fix-bug",reason="empty_plan"} += 1
+agent_smith_pipeline_skipped_as_irrelevant_total{project="acme-product",pipeline="code",reason="empty_plan"} += 1
 ```
 
 The skip is graceful — the run exits successfully, no PR is opened, no further handlers (Apply, Verify, Commit) execute. From the queue's point of view the job completed normally; from the operator's point of view there is no PR noise on a repo where the LLM found nothing to do.

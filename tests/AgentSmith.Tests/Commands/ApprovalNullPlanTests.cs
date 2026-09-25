@@ -80,7 +80,7 @@ public sealed class ApprovalNullPlanTests
         Repos = [new RepoConnection { Name = "primary", Type = RepoType.Local, Path = "/tmp" }],
         Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/x/y" },
         Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
-        Pipeline = "fix-bug",
+        Pipeline = "code",
         CodingPrinciplesPath = "config/principles.md",
     };
 }

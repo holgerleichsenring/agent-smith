@@ -30,7 +30,7 @@ Autonomous:  Agent observes --> Agent writes tickets --> Human reviews
 
 ## Specialist Roles
 
-The same multi-skill mechanism as fix-bug and security-scan, but the question is different. Not "what is wrong with this code?" but "what should be improved in this project?"
+The same multi-skill mechanism as the code and security-scan pipelines, but the question is different. Not "what is wrong with this code?" but "what should be improved in this project?"
 
 | Role | Perspective |
 |------|-------------|

@@ -178,15 +178,15 @@ public sealed class ConfigCapabilitiesTests
     public void ValidateProjectResolution_RejectsUnknownStrategyAndEmptyValue()
     {
         var unknown = () => ConfigStudioCapabilities.ValidateProjectResolution(
-            new ProjectEntity("p", "a", "t", ["r"], "fix-bug", ["fix-bug"], new ProjectResolution("labels", "x")));
+            new ProjectEntity("p", "a", "t", ["r"], "code", ["code"], new ProjectResolution("labels", "x")));
         unknown.Should().Throw<ConfigurationException>().WithMessage("*labels*not a known*");
 
         var empty = () => ConfigStudioCapabilities.ValidateProjectResolution(
-            new ProjectEntity("p", "a", "t", ["r"], "fix-bug", ["fix-bug"], new ProjectResolution("tag", " ")));
+            new ProjectEntity("p", "a", "t", ["r"], "code", ["code"], new ProjectResolution("tag", " ")));
         empty.Should().Throw<ConfigurationException>().WithMessage("*must not be empty*");
 
         var valid = () => ConfigStudioCapabilities.ValidateProjectResolution(
-            new ProjectEntity("p", "a", "t", ["r"], "fix-bug", ["fix-bug"], new ProjectResolution("area_path", "Acme/Platform")));
+            new ProjectEntity("p", "a", "t", ["r"], "code", ["code"], new ProjectResolution("area_path", "Acme/Platform")));
         valid.Should().NotThrow();
     }
 

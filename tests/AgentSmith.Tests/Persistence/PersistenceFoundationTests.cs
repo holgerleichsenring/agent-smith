@@ -88,7 +88,7 @@ public sealed class PersistenceFoundationTests : IDisposable
         {
             var run = new Run
             {
-                Id = "run-1", Project = "proj", Pipeline = "fix-bug", TicketId = "T-1",
+                Id = "run-1", Project = "proj", Pipeline = "code", TicketId = "T-1",
                 Status = "running", StartedAt = DateTimeOffset.UtcNow,
             };
             // Children are keyed by RunId (no FK relationship), so they are added
@@ -114,7 +114,7 @@ public sealed class PersistenceFoundationTests : IDisposable
         using var ctx = NewContext();
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "proj", Pipeline = "fix-bug", TicketId = "T-1",
+            Id = runId, Project = "proj", Pipeline = "code", TicketId = "T-1",
             Status = "running", StartedAt = DateTimeOffset.UtcNow,
         });
         await ctx.SaveChangesAsync();

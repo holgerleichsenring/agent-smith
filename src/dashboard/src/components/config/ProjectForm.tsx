@@ -242,13 +242,14 @@ function markedTabs(findings: ConfigFinding[], project: StudioProject): Set<Proj
   return marked;
 }
 
-// p0393/p0392: `pipelines` is what the studio may OFFER; a stored configuration may carry
-// a retired alias. SelectField keeps an unlisted current value selectable, and this
-// labels it for what it is rather than silently rewriting it.
+// p0393/p0392: `pipelines` is what the studio may OFFER; a stored configuration may still
+// carry a retired name. SelectField keeps an unlisted current value selectable, and this
+// labels it for what it is rather than silently rewriting it. 2026-09-25-e5b1: such a name
+// no longer runs — the alias map that made it resolve is gone — so the sentence says so.
 function pipelineHelp(value: string, capabilities: ConfigCapabilities | null): string {
   if (!capabilities) return "capabilities unavailable";
   if (value && !capabilities.pipelines.includes(value))
-    return `'${value}' is a retired name — it still runs, but pick a current one to replace it`;
+    return `'${value}' is a retired name — it no longer runs; pick a current one to replace it`;
   return "which pipeline definition this project runs; what a TICKET routes to is the tracker's, below";
 }
 

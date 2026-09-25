@@ -15,12 +15,12 @@ public class PipelineConfigResolverTests
         {
             Agent = new AgentConfig { Type = "Claude", Model = "sonnet" },
             CodingPrinciplesPath = ".agentsmith/principles.md",
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
+            Pipelines = [new PipelineDefinition { Name = "code" }],
         };
 
-        var resolved = _sut.Resolve(project, "fix-bug");
+        var resolved = _sut.Resolve(project, "code");
 
-        resolved.PipelineName.Should().Be("fix-bug");
+        resolved.PipelineName.Should().Be("code");
         resolved.Agent.Type.Should().Be("Claude");
         resolved.SkillsPath.Should().Be("skills");
         resolved.CodingPrinciplesPath.Should().Be(".agentsmith/principles.md");
@@ -103,7 +103,7 @@ public class PipelineConfigResolverTests
     {
         var project = new ResolvedProject
         {
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
+            Pipelines = [new PipelineDefinition { Name = "code" }],
         };
 
         var resolved = _sut.Resolve(project, "completely-unknown");
@@ -117,12 +117,12 @@ public class PipelineConfigResolverTests
         var project = new ResolvedProject
         {
             Agent = new AgentConfig { Type = "Claude" },
-            Pipeline = "fix-bug",
+            Pipeline = "code",
         };
 
-        var resolved = _sut.Resolve(project, "fix-bug");
+        var resolved = _sut.Resolve(project, "code");
 
-        resolved.PipelineName.Should().Be("fix-bug");
+        resolved.PipelineName.Should().Be("code");
         resolved.Agent.Type.Should().Be("Claude");
         resolved.SkillsPath.Should().Be("skills");
     }
@@ -149,7 +149,7 @@ public class PipelineConfigResolverTests
             DefaultPipeline = "security-scan",
             Pipelines =
             [
-                new PipelineDefinition { Name = "fix-bug" },
+                new PipelineDefinition { Name = "code" },
                 new PipelineDefinition { Name = "security-scan" },
             ],
         };
@@ -162,18 +162,18 @@ public class PipelineConfigResolverTests
     {
         var project = new ResolvedProject
         {
-            Pipelines = [new PipelineDefinition { Name = "fix-bug" }],
+            Pipelines = [new PipelineDefinition { Name = "code" }],
         };
 
-        _sut.ResolveDefaultPipelineName(project).Should().Be("fix-bug");
+        _sut.ResolveDefaultPipelineName(project).Should().Be("code");
     }
 
     [Fact]
     public void ResolveDefaultPipelineName_LegacyOnly_ReturnsLegacyPipeline()
     {
-        var project = new ResolvedProject { Pipeline = "fix-bug" };
+        var project = new ResolvedProject { Pipeline = "code" };
 
-        _sut.ResolveDefaultPipelineName(project).Should().Be("fix-bug");
+        _sut.ResolveDefaultPipelineName(project).Should().Be("code");
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class PipelineConfigResolverTests
         {
             Pipelines =
             [
-                new PipelineDefinition { Name = "fix-bug" },
+                new PipelineDefinition { Name = "code" },
                 new PipelineDefinition { Name = "security-scan" },
             ],
         };

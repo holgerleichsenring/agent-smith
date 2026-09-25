@@ -4,7 +4,7 @@ Two capabilities that belong together: the run negotiates *what counts as done* 
 
 ## The Soll block: negotiate the WHAT before planning
 
-Every `fix-bug` run has a `NegotiateExpectation` step between analysis and planning (p0328). After the agent has actually reproduced and analyzed the problem — this is the point: the draft is grounded in the analysis, not in the raw ticket text — it writes a capped expectation block:
+Every `code` run has a `NegotiateExpectation` step between analysis and planning (p0328). After the agent has actually reproduced and analyzed the problem — this is the point: the draft is grounded in the analysis, not in the raw ticket text — it writes a capped expectation block:
 
 - **observed** — what actually happens today.
 - **expected** — verifiable assertions about what must be true afterwards.

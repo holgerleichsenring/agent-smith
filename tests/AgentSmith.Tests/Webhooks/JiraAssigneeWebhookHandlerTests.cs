@@ -72,7 +72,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
                         {
                             Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                         },
-                        DefaultPipeline = "fix-bug",
+                        DefaultPipeline = "code",
                         TriggerStatuses = triggerStatuses ?? new List<string> { "Open" },
                         DoneStatus = "In Review"
                     }
@@ -148,7 +148,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
     {
         var (sut, resolver, spawn) = CreateHandler(BuildConfig());
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(BuildPayload(), EmptyHeaders);
 
@@ -156,7 +156,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
         spawn.Verify(s => s.ExecuteAsync(
             It.IsAny<AgentSmithConfig>(),
             It.Is<ResolvedProject>(p => p.Name == "my-project"),
-            "fix-bug",
+            "code",
             It.Is<IncomingTicketEnvelope>(e => e.TicketId == "PROJ-123" && e.Platform == "jira"),
             It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(),
@@ -170,7 +170,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
         // resolver returns the match, but handler-level filter rejects because
         // assignee != AssigneeName.
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(BuildPayload(assigneeName: "Someone Else"), EmptyHeaders);
 
@@ -186,7 +186,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
         var (sut, resolver, spawn) =
             CreateHandler(BuildConfig(triggerStatuses: new List<string> { "Open", "Active" }));
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(BuildPayload(issueStatus: "In Review"), EmptyHeaders);
 

@@ -51,7 +51,7 @@ public sealed class ConfigStudioApiSmokeTests
             agent: claude-default
             tracker: test-ado
             repos: [test-repo]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
@@ -81,7 +81,7 @@ public sealed class ConfigStudioApiSmokeTests
             agent: claude-default
             tracker: sample-ado
             repos: [sample-cloud/Sample.Api.Server]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           ado_token: ${AGENTSMITH_TEST_ADO_TOKEN}
         """;
@@ -112,7 +112,7 @@ public sealed class ConfigStudioApiSmokeTests
             // p0345c: projects serve the truth-fixed field name — the raw pipeline:
             // key is "pipeline" on the wire, no longer mislabelled "trigger".
             var projectsJson = await http.GetStringAsync("/api/config/projects");
-            projectsJson.Should().Contain("\"pipeline\":\"fix-bug\"")
+            projectsJson.Should().Contain("\"pipeline\":\"code\"")
                 .And.NotContain("\"trigger\"");
 
             // p0345c: the capabilities descriptor — backend truth for the forms.
@@ -138,7 +138,7 @@ public sealed class ConfigStudioApiSmokeTests
 
             // Referential integrity surfaces as HTTP 400, not a 500 — a project with an unknown agent ref.
             var bad = await http.PostAsJsonAsync("/api/config/projects",
-                new ProjectEntity("broken", "no-such-agent", "test-ado", ["test-repo"], "fix-bug", ["fix-bug"]));
+                new ProjectEntity("broken", "no-such-agent", "test-ado", ["test-repo"], "code", ["code"]));
             bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
 
             await app.StopAsync();
@@ -217,14 +217,14 @@ public sealed class ConfigStudioApiSmokeTests
             // A connection-scoped project repo ref is VALID when the connection exists…
             var scoped = await http.PostAsJsonAsync("/api/config/projects",
                 new ProjectEntity("p2", "claude-default", "sample-ado",
-                    ["sample-cloud/Sample.Worker"], "fix-bug", ["fix-bug"]));
+                    ["sample-cloud/Sample.Worker"], "code", ["code"]));
             scoped.StatusCode.Should().Be(HttpStatusCode.OK);
             (await http.GetStringAsync("/api/config/projects")).Should().Contain("sample-cloud/Sample.Worker");
 
             // …and an unknown connection is a 400, not a silent pass or a 500.
             var badConn = await http.PostAsJsonAsync("/api/config/projects",
                 new ProjectEntity("broken", "claude-default", "sample-ado",
-                    ["ghost-conn/Sample.Api.Server"], "fix-bug", ["fix-bug"]));
+                    ["ghost-conn/Sample.Api.Server"], "code", ["code"]));
             badConn.StatusCode.Should().Be(HttpStatusCode.BadRequest);
             (await badConn.Content.ReadAsStringAsync()).Should().Contain("unknown connection 'ghost-conn'");
 

@@ -109,8 +109,8 @@ public sealed class ProjectResolverTests
         var trigger = TriggerWithTag("alpha");
         trigger.PipelineFromLabel = new Dictionary<string, string>
         {
-            ["agent-smith:bug"] = "fix-bug",
-            ["agent-smith:feature"] = "add-feature",
+            ["agent-smith:bug"] = "code",
+            ["agent-smith:feature"] = "code",
         };
         var config = ConfigWith(("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
             project => project with { GithubTrigger = trigger }));
@@ -126,8 +126,8 @@ public sealed class ProjectResolverTests
         var trigger = TriggerWithTag("alpha");
         trigger.PipelineFromLabel = new Dictionary<string, string>
         {
-            ["agent-smith:bug"] = "fix-bug",
-            ["agent-smith:feature"] = "add-feature",
+            ["agent-smith:bug"] = "code",
+            ["agent-smith:feature"] = "code",
         };
         var config = ConfigWith(("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
             project => project with { GithubTrigger = trigger }));
@@ -135,7 +135,7 @@ public sealed class ProjectResolverTests
         var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha", "agent-smith:feature"] });
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be("add-feature");
+            .Which.PipelineName.Should().Be("code");
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class ProjectResolverTests
         var matches = _sut.Resolve(config, new IncomingTicketEnvelope { Labels = ["alpha"] });
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be("fix-bug");
+            .Which.PipelineName.Should().Be("code");
     }
 
     [Fact]
@@ -155,8 +155,8 @@ public sealed class ProjectResolverTests
     {
         var globalTriggers = new PipelineTriggerMap(new Dictionary<string, string>
         {
-            ["agent-smith:bug"] = "fix-bug",
-            ["agent-smith:feature"] = "add-feature",
+            ["agent-smith:bug"] = "code",
+            ["agent-smith:feature"] = "code",
         });
         var config = ConfigWith(globalTriggers,
             ("alpha", new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
@@ -199,7 +199,7 @@ public sealed class ProjectResolverTests
             {
                 Name = name,
                 Tracker = tracker,
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
             };
             projects[name] = shape(project);
         }
@@ -210,5 +210,5 @@ public sealed class ProjectResolverTests
         TriggerWithResolution(new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = tag });
 
     private static WebhookTriggerConfig TriggerWithResolution(ProjectResolutionConfig resolution) =>
-        new() { ProjectResolution = resolution, DefaultPipeline = "fix-bug" };
+        new() { ProjectResolution = resolution, DefaultPipeline = "code" };
 }

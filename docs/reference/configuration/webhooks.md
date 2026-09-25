@@ -99,7 +99,7 @@ The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ..
 
 ## PR Comment Commands
 
-Independent of the ticket lifecycle. Comments like `/agent-smith fix-bug` start an ad-hoc pipeline (no claim flow, no lifecycle labels). Configured per project:
+Independent of the ticket lifecycle. Comments like `/agent-smith fix` start an ad-hoc pipeline (no claim flow, no lifecycle labels). Configured per project:
 
 ```yaml
 projects:
@@ -108,7 +108,7 @@ projects:
       enabled: true
       require_member: true
       allowed_pipelines:
-        - fix-bug
+        - code
         - security-scan
         - pr-review
 ```

@@ -46,7 +46,7 @@ public sealed class InheritedSandboxStructuredTests
     [Fact]
     public void ResourceProjection_AProjectWithNoOverride_NamesTheLayerThatWouldAnswer()
     {
-        var projection = Build(("builder", "fix-bug"));
+        var projection = Build(("builder", "code"));
 
         var inherited = projection.ByProject()["builder"].Resources;
 
@@ -84,7 +84,7 @@ public sealed class InheritedSandboxStructuredTests
     [Fact]
     public void ImageProjection_ACodeDefaultTable_IsProjectedWithPerKeyProvenance()
     {
-        var projection = Build(("builder", "fix-bug"));
+        var projection = Build(("builder", "code"));
 
         var images = projection.ByProject()["builder"].Images;
 
@@ -99,7 +99,7 @@ public sealed class InheritedSandboxStructuredTests
     [Fact]
     public void ImageProjection_OnTheWire_CarriesEveryKeyAndItsSourceName()
     {
-        var response = InheritedSandboxMapper.ToResponse(Build(("builder", "fix-bug")));
+        var response = InheritedSandboxMapper.ToResponse(Build(("builder", "code")));
 
         var images = response.Projects["builder"].Images;
 

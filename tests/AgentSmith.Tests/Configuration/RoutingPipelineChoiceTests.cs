@@ -56,10 +56,17 @@ public sealed class RoutingPipelineChoiceTests
     }
 
     [Fact]
-    public void Findings_ARetiredAliasInAConfiguration_IsStillAccepted()
+    public void Findings_ARetiredNameInAConfiguration_IsReportedAndNamesItsReplacement()
     {
-        RoutingPipelineNames.Findings(Config("fix-bug")).Should().BeEmpty(
-            "an alias is still a legal value until the harness and the callers move off it");
+        // 2026-09-25-e5b1: while the alias map existed this was a legal value and this check
+        // stayed silent. It is now the check that catches an operator who never rewrote it —
+        // and "offered: code, security-scan, …" would leave them guessing which of those their
+        // old word became, so the finding says the one word that replaced it.
+        var findings = RoutingPipelineNames.Findings(Config("fix-bug")).ToList();
+
+        findings.Should().ContainSingle()
+            .Which.Severity.Should().Be(StartupFindingSeverity.Advisory);
+        findings[0].Reason.Should().Contain("fix-bug").And.Contain("retired into 'code'");
     }
 
     [Fact]

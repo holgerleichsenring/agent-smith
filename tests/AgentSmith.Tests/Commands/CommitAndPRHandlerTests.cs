@@ -406,7 +406,7 @@ public class CommitAndPRHandlerTests
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
 
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
         // Ratified criteria with no account behind them: nothing measured itself.
         pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
         var context = CreateContext(pipeline) with { Changes = Array.Empty<CodeChange>() };
@@ -426,7 +426,7 @@ public class CommitAndPRHandlerTests
         // p0241 keystone: real diff + a green verification verdict → the happy
         // path still succeeds and resolves the ticket with the keystone active.
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
         var context = CreateContext(pipeline);
@@ -457,7 +457,7 @@ public class CommitAndPRHandlerTests
                 (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.DoneStatus, "done");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Green, true, true, true, true, "fixed"));
@@ -574,7 +574,7 @@ public class CommitAndPRHandlerTests
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Failed, true, false, true, false, "build failed"));
         pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
@@ -598,7 +598,7 @@ public class CommitAndPRHandlerTests
         // p0241 keystone: code changed but the agent emitted no verdict → the
         // build/test outcome is unknown, so the run cannot be a success.
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
         var context = CreateContext(pipeline);
 

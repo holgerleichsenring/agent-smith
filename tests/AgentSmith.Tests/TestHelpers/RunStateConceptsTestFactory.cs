@@ -57,7 +57,7 @@ internal static class RunStateConceptsTestFactory
         // question, and PipelineNameVocabularyTests is the test that asks it.
         ["pipeline_name"] = new(
             "pipeline_name", "test", ConceptType.Enum,
-            PipelinePresets.Names.Concat(PipelinePresets.PresetAliases.Keys).Distinct().ToArray(),
+            [.. PipelinePresets.Names],
             null, []),
         ["source_available"] = new("source_available", "test", ConceptType.Bool, null, null, []),
         ["context_yaml_present"] = new("context_yaml_present", "test", ConceptType.Bool, null, null, []),

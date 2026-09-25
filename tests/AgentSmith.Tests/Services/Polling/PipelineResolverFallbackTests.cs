@@ -14,8 +14,8 @@ public sealed class PipelineResolverFallbackTests
     private static readonly PipelineTriggerMap GlobalMap = new(
         new Dictionary<string, string>
         {
-            ["bug"] = "fix-bug",
-            ["feature"] = "add-feature",
+            ["bug"] = "code",
+            ["feature"] = "code",
         });
 
     [Fact]
@@ -25,7 +25,7 @@ public sealed class PipelineResolverFallbackTests
 
         var result = new PipelineResolver().Resolve(trigger, new[] { "bug" }, GlobalMap);
 
-        result.Should().Be("fix-bug");
+        result.Should().Be("code");
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public sealed class PipelineResolverFallbackTests
 
         var result = new PipelineResolver().Resolve(trigger, new[] { "feature" }, GlobalMap);
 
-        result.Should().Be("add-feature");
+        result.Should().Be("code");
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public sealed class PipelineResolverFallbackTests
     {
         var trigger = new WebhookTriggerConfig
         {
-            PipelineFromLabel = new() { ["enhancement"] = "add-feature" },
+            PipelineFromLabel = new() { ["enhancement"] = "code" },
         };
 
         var result = new PipelineResolver().Resolve(trigger, new[] { "bug" }, GlobalMap);

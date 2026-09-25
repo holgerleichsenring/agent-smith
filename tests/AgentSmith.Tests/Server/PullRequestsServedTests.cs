@@ -45,7 +45,7 @@ public sealed class PullRequestsServedTests : IDisposable
     {
         const string runId = "2026-07-17T10-00-00-0001";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["api"], T, "claude", "42"),
+            new RunStartedEvent(runId, "ticket", "code", ["api"], T, "claude", "42"),
             new TicketFetchedEvent(runId, "42", "Fix the login bug", "desc", "Open", [], 0, "github", T),
             new PullRequestOutcomeEvent(runId, "api", "opened", T.AddMinutes(3), "https://git/pr/1"),
             new RunFinishedEvent(runId, "success", "https://git/pr/1", "done", T.AddMinutes(5)));
@@ -58,7 +58,7 @@ public sealed class PullRequestsServedTests : IDisposable
         var list = PullRequestQueryEndpoints.Flatten([run]);
         list.Should().ContainSingle();
         list[0].Should().Be(new AgentSmith.Contracts.Runs.PullRequestListItem(
-            runId, "42", "Fix the login bug", "fix-bug",
+            runId, "42", "Fix the login bug", "code",
             "api", "opened", "https://git/pr/1", null, T.AddMinutes(3)));
 
         // p0350: the run DETAIL snapshot surfaces every OPENED PR from run.Repos in
@@ -103,7 +103,7 @@ public sealed class PullRequestsServedTests : IDisposable
     {
         const string runId = "2026-07-17T10-00-00-0003";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["api"], T, "claude", "9"),
+            new RunStartedEvent(runId, "ticket", "code", ["api"], T, "claude", "9"),
             new PullRequestOutcomeEvent(runId, "api", "failed", T.AddMinutes(1), null, "push rejected"),
             new PullRequestOutcomeEvent(runId, "api", "opened", T.AddMinutes(2), "https://git/pr/retry"),
             new RunFinishedEvent(runId, "success", "https://git/pr/retry", "done", T.AddMinutes(5)));
@@ -127,7 +127,7 @@ public sealed class PullRequestsServedTests : IDisposable
         {
             ctx.Add(new Run
             {
-                Id = runId, Pipeline = "fix-bug", TicketId = "88", TicketTitle = "Old run",
+                Id = runId, Pipeline = "code", TicketId = "88", TicketTitle = "Old run",
                 Status = "success", StartedAt = T, FinishedAt = T.AddMinutes(5),
                 PullRequestsJson = null,
             });
@@ -156,7 +156,7 @@ public sealed class PullRequestsServedTests : IDisposable
     {
         const string runId = "2026-07-17T10-00-00-0005";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["api"], T, "claude", "1"),
+            new RunStartedEvent(runId, "ticket", "code", ["api"], T, "claude", "1"),
             new RunFinishedEvent(runId, "failed", null, "broke before PR", T.AddMinutes(5)));
 
         var run = await NewStore().GetRunDetailAsync(runId, CancellationToken.None);

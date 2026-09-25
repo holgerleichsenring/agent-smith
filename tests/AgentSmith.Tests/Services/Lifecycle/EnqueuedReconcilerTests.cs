@@ -54,7 +54,7 @@ public sealed class EnqueuedReconcilerTests
         var harness = new Harness();
         harness.SetupEnqueuedTicket("42");
         harness.Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns([new ProjectMatch("other", "fix-bug", "github")]);
+            .Returns([new ProjectMatch("other", "code", "github")]);
 
         await harness.BuildSut().RunAsync(OnePass());
 
@@ -117,12 +117,12 @@ public sealed class EnqueuedReconcilerTests
             TicketFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Provider.Object);
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
-                Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "fix-bug" } }
+                Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "code" } }
             });
             // Default: the ticket routes to THIS project (the lease tests exercise the
             // lease gate, not routing). Cross-project routing is overridden per-test.
             Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-                .Returns([new ProjectMatch("proj", "fix-bug", "github")]);
+                .Returns([new ProjectMatch("proj", "code", "github")]);
         }
 
         public void SetupEnqueuedTicket(string id)
