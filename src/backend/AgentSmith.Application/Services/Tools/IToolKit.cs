@@ -18,7 +18,7 @@ public interface IToolKit
     /// Returns the AITool set the LLM may call for the given pipeline + phase.
     /// </summary>
     /// <param name="pipelineName">
-    /// Pipeline preset name (e.g. "fix-bug", "security-scan"). Use
+    /// Pipeline preset name (e.g. "code", "security-scan"). Use
     /// <see cref="WildcardPipelineName"/> when no specific pipeline applies
     /// (legacy callers, ad-hoc test setups).
     /// </param>

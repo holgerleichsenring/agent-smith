@@ -69,7 +69,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -104,7 +104,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -118,7 +118,7 @@ public class ExecutePipelineUseCaseTests
             .ReturnsAsync(CommandResult.Ok("Done"));
 
         await _sut.ExecuteAsync(
-            new PipelineRequest("todo-list", "fix-bug",
+            new PipelineRequest("todo-list", "code",
                 Context: new Dictionary<string, object>
                 {
                     [ContextKeys.ComplexityTier] = ComplexityTier.Large,
@@ -140,7 +140,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -161,7 +161,7 @@ public class ExecutePipelineUseCaseTests
             .ReturnsAsync(LeaseReleaseOutcome.Released);
 
         await _sut.ExecuteAsync(
-            new PipelineRequest("todo-list", "fix-bug", new TicketId("123")),
+            new PipelineRequest("todo-list", "code", new TicketId("123")),
             "config.yml", CancellationToken.None);
 
         attached.Should().NotBeNull("a ticket run takes the lease over from the claim");
@@ -175,7 +175,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -211,7 +211,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -241,7 +241,7 @@ public class ExecutePipelineUseCaseTests
         {
             Projects = { ["todo-list"] = new ResolvedProject
             {
-                Pipeline = "fix-bug",
+                Pipeline = "code",
                 Repos = new[] { new RepoConnection { Name = "todo-list" } }
             } }
         };
@@ -347,7 +347,7 @@ public class ExecutePipelineUseCaseTests
     {
         Projects = { ["todo-list"] = new ResolvedProject
         {
-            Pipeline = "fix-bug",
+            Pipeline = "code",
             Repos = new[] { new RepoConnection { Name = "todo-list" } }
         } }
     };
@@ -398,7 +398,7 @@ public class ExecutePipelineUseCaseTests
             .ReturnsAsync(CommandResult.Ok("Done"));
 
         var result = await _sut.ExecuteAsync(
-            new PipelineRequest("demo", "fix-bug"), "config.yml", CancellationToken.None);
+            new PipelineRequest("demo", "code"), "config.yml", CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         executed!.Name.Should().Be("Demo", "the run speaks the CONFIGURED spelling");
@@ -413,7 +413,7 @@ public class ExecutePipelineUseCaseTests
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig());
 
         var act = () => _sut.ExecuteAsync(
-            new PipelineRequest("ghost", "fix-bug", RunId: "run-reserved"),
+            new PipelineRequest("ghost", "code", RunId: "run-reserved"),
             "config.yml", CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>();
@@ -433,7 +433,7 @@ public class ExecutePipelineUseCaseTests
         _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig());
 
         var act = () => _sut.ExecuteAsync(
-            new PipelineRequest("ghost", "fix-bug"), "config.yml", CancellationToken.None);
+            new PipelineRequest("ghost", "code"), "config.yml", CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>();
         _events.Events.Should().BeEmpty();
@@ -451,7 +451,7 @@ public class ExecutePipelineUseCaseTests
             .ThrowsAsync(new InvalidOperationException("sandbox image not built"));
 
         var act = () => _sut.ExecuteAsync(
-            new PipelineRequest("todo-list", "fix-bug", RunId: "run-reserved"),
+            new PipelineRequest("todo-list", "code", RunId: "run-reserved"),
             "config.yml", CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();

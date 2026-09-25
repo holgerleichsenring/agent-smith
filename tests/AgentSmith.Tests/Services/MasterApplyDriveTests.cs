@@ -16,20 +16,20 @@ public sealed class MasterApplyDriveTests
     public void ShouldDriveApply_CodePreset_OnlyRunRecordWrites_True()
     {
         var changes = new List<CodeChange> { Change(".agentsmith/plan.md"), Change(".agentsmith/decisions.md") };
-        MasterReengagementPolicy.ShouldDriveApply("fix-bug", changes).Should().BeTrue();
+        MasterReengagementPolicy.ShouldDriveApply("code", changes).Should().BeTrue();
     }
 
     [Fact]
     public void ShouldDriveApply_CodePreset_NoWritesAtAll_True()
     {
-        MasterReengagementPolicy.ShouldDriveApply("fix-bug", new List<CodeChange>()).Should().BeTrue();
+        MasterReengagementPolicy.ShouldDriveApply("code", new List<CodeChange>()).Should().BeTrue();
     }
 
     [Fact]
     public void ShouldDriveApply_CodePreset_HasRealSourceEdit_False()
     {
         var changes = new List<CodeChange> { Change("src/Controllers/AppController.cs"), Change(".agentsmith/plan.md") };
-        MasterReengagementPolicy.ShouldDriveApply("fix-bug", changes).Should().BeFalse();
+        MasterReengagementPolicy.ShouldDriveApply("code", changes).Should().BeFalse();
     }
 
     [Fact]

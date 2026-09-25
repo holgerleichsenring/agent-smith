@@ -15,7 +15,7 @@ public sealed class SubAgentToolPolicyTests
         var toolKit = BuildToolKit();
 
         var tools = toolKit.GetToolsFor(
-            "fix-bug", phase: null, investigatorMode: null,
+            "code", phase: null, investigatorMode: null,
             hosts: new IToolHost[] { new SpawnAgentToolHost(), new BenignHost() },
             isSubAgent: true);
 
@@ -29,7 +29,7 @@ public sealed class SubAgentToolPolicyTests
         var toolKit = BuildToolKit();
 
         var tools = toolKit.GetToolsFor(
-            "fix-bug", phase: null, investigatorMode: null,
+            "code", phase: null, investigatorMode: null,
             hosts: new IToolHost[] { new SpawnAgentToolHost(), new BenignHost() },
             isSubAgent: false);
 
@@ -43,8 +43,8 @@ public sealed class SubAgentToolPolicyTests
         var toolKit = BuildToolKit();
         var hosts = new IToolHost[] { new SpawnAgentToolHost(), new BenignHost() };
 
-        var legacy = toolKit.GetToolsFor("fix-bug", phase: null, investigatorMode: null, hosts);
-        var explicitMaster = toolKit.GetToolsFor("fix-bug", phase: null, investigatorMode: null, hosts, isSubAgent: false);
+        var legacy = toolKit.GetToolsFor("code", phase: null, investigatorMode: null, hosts);
+        var explicitMaster = toolKit.GetToolsFor("code", phase: null, investigatorMode: null, hosts, isSubAgent: false);
 
         legacy.Count.Should().Be(explicitMaster.Count);
     }

@@ -25,7 +25,7 @@ public static partial class ContextKeys
 
     public const string PipelineTypeName = "PipelineType";
 
-    /// <summary>p0145: pipeline preset name (e.g. "fix-bug", "security-scan"). Set by
+    /// <summary>p0145: pipeline preset name (e.g. "code", "security-scan"). Set by
     /// ExecutePipelineUseCase alongside PipelineTypeName. Distinct from the
     /// "pipeline_name" concept (Activation-system enum) — this key is the
     /// ToolKit pipeline-allow-list lookup key.</summary>

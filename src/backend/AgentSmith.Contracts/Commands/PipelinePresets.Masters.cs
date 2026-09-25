@@ -28,5 +28,5 @@ public static partial class PipelinePresets
     /// preset runs; anything unmapped is a coding pipeline.
     /// </summary>
     public static string MasterFor(string pipelineName) =>
-        MastersByPipeline.GetValueOrDefault(Canonical(pipelineName), CodingMaster);
+        MastersByPipeline.GetValueOrDefault(pipelineName, CodingMaster);
 }

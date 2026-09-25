@@ -69,7 +69,7 @@ public sealed class RunStoryServedTests : IDisposable
                 ]))!;
 
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(runId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(runId, 0, "Fetch ticket", 9, T, "Fetch ticket", CommandNames.FetchTicket),
             new StepFinishedEvent(runId, 0, "success", 100, T),
             new RunStoryRecordedEvent(runId, ledgerJson, acceptanceJson, T),
@@ -117,7 +117,7 @@ public sealed class RunStoryServedTests : IDisposable
     {
         const string runId = "2026-07-16T10-00-00-0002";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T),
+            new RunStartedEvent(runId, "ticket", "code", ["primary"], T),
             // pre-p0344b producer: no CommandName on the step event
             new StepStartedEvent(runId, 0, "Fetch ticket", 9, T),
             new RunFinishedEvent(runId, "success", null, "done", T.AddMinutes(5)));
@@ -136,7 +136,7 @@ public sealed class RunStoryServedTests : IDisposable
     {
         const string runId = "2026-07-16T10-00-00-0003";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T),
+            new RunStartedEvent(runId, "ticket", "code", ["primary"], T),
             new StepStartedEvent(runId, 0, "Fetch ticket", 9, T, "Fetch ticket", CommandNames.FetchTicket),
             new RunStoryRecordedEvent(runId, "[]", null, T),
             new RunFinishedEvent(runId, "failed", null, "broke", T.AddMinutes(5)));

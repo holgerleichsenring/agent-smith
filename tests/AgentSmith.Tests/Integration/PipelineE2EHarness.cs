@@ -94,7 +94,7 @@ internal sealed class PipelineE2EHarness : IAsyncDisposable
         // fix-no-test aliases onto fix-bug to reuse its skill roster.
         var conceptValue = presetName switch
         {
-            "fix-no-test" => "fix-bug",
+            "code" => "code",
             _ => presetName,
         };
         pipeline.Set(ContextKeys.ResolvedPipeline,

@@ -167,7 +167,7 @@ function asShape(choice: SpecDialogChoice): Control {
 
 /** What the proposal says would be filed, and nothing it does not say. */
 function summaryOf(proposal: SpecDialogProposalPush): string | null {
-  if (proposal.bug) return "File this bug? One fix-bug ticket.";
+  if (proposal.bug) return "File this bug? One bug ticket.";
   if (proposal.parent) {
     const slices = proposal.children.length;
     // 2026-09-22-b3d7: the button files ONE ticket, whatever the slice count. The slices are

@@ -37,7 +37,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Plan, null, hosts));
 
         // p0151a: Plan-phase recon skills need ls/find via run_command for
         // directory inventory. WriteFile still excluded — Plan is read-side only.
@@ -54,7 +54,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Implementation, null, hosts));
 
         // p0154: 11 filesystem-host primitives (read/write/edit/multi_edit/
         // list_directory/directory_tree/find_files/grep_in_file/grep_in_tree/
@@ -75,7 +75,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Verify, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Verify, null, hosts));
 
         tools.Should().Contain("run_command");
         tools.Should().NotContain("write_file");
@@ -86,7 +86,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Bootstrap, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Bootstrap, null, hosts));
 
         // Bootstrap is write-capable; raw shell access (run_command) is universally available.
         tools.Should().Contain("write_file");
@@ -98,7 +98,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", null, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", null, null, hosts));
 
         // Same count as Implementation: full filesystem-host surface + log_decision + ask_human.
         tools.Should().HaveCount(13);
@@ -109,7 +109,7 @@ public sealed class ToolKitTests
     {
         var (kit, hosts) = Build();
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Investigate, null, hosts));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Investigate, null, hosts));
 
         tools.Should().Contain("run_command");
     }

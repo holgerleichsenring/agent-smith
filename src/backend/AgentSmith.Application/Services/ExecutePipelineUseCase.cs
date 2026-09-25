@@ -552,7 +552,7 @@ public sealed class ExecutePipelineUseCase(
         var intent = await intentParser.ParseAsync(userInput, cancellationToken);
         var config = configLoader.LoadConfig(configPath);
         var projectName = intent.ProjectName.Value;
-        var pipelineName = ResolvePipelineName(pipelineOverride, config, projectName, fallback: "fix-bug");
+        var pipelineName = ResolvePipelineName(pipelineOverride, config, projectName, fallback: PipelinePresets.CodeName);
 
         return new PipelineRequest(
             projectName, pipelineName,

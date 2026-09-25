@@ -268,7 +268,7 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
 
         Resolve(provider.Created[0].Labels).Should().ContainSingle()
-            .Which.PipelineName.Should().Be(PipelinePresets.PhaseExecutionName);
+            .Which.PipelineName.Should().Be(PipelinePresets.CodeName);
     }
 
     /// <summary>

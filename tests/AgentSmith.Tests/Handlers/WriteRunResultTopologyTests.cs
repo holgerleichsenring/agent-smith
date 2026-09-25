@@ -94,12 +94,12 @@ public sealed class WriteRunResultTopologyTests
     public async Task WriteRunResult_FrontmatterIncludesPipelineNameAndStatus()
     {
         var pipeline = NewPipelineWithSandbox();
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
 
         await _sut.ExecuteAsync(CreateContext("Fix something", pipeline), CancellationToken.None);
 
         var content = ResultContent();
-        content.Should().Contain("pipeline_name: fix-bug");
+        content.Should().Contain("pipeline_name: code");
         content.Should().Contain("status: done");
         content.Should().Contain("run_id: " + SampleRunId);
     }

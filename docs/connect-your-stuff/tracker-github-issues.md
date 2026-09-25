@@ -60,8 +60,8 @@ projects:
       done_status: closed
       pipeline_from_label:
         agent-smith:init:               init-project
-        agent-smith:bug:                fix-bug
-        agent-smith:feature:            add-feature
+        agent-smith:bug:                code
+        agent-smith:feature:            code
         agent-smith:security-scan:      security-scan
 
 secrets:
@@ -87,9 +87,8 @@ trackers:
     open_states: [open]
     done_status: closed
     pipeline_from_label:
-      agent-smith:bug:     fix-bug
-      agent-smith:feature: add-feature
-
+      agent-smith:bug:     code
+      agent-smith:feature: code
 projects:
   github-todolist:
     agent: default-openai

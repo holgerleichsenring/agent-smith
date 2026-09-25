@@ -45,7 +45,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
             {
                 Name = "p1",
                 Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
-                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" },
+                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "code" },
             },
         },
     };
@@ -216,7 +216,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
         await funnel.SpawnAsync(ticketId: "42");
 
         var refused = await NewInitAdmission(fits: false)
-            .TryAdmitAsync(new ResolvedProject { Name = "p1" }, "fix-bug", "run-1", CancellationToken.None);
+            .TryAdmitAsync(new ResolvedProject { Name = "p1" }, "code", "run-1", CancellationToken.None);
 
         using var ctx = new AgentSmithDbContext(Options());
         refused.Admitted.Should().BeFalse();
@@ -338,7 +338,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
 
         public Task<SpawnResult> SpawnAsync(string ticketId) =>
             _sut.ExecuteAsync(
-                ClaimableConfig, _project, "fix-bug",
+                ClaimableConfig, _project, "code",
                 new IncomingTicketEnvelope { TicketId = ticketId, Platform = "github" },
                 new WebhookTriggerConfig { DoneStatus = "closed" },
                 CancellationToken.None);

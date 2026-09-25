@@ -60,14 +60,14 @@ public sealed class ProjectResolver(
                     continue;
                 }
 
-                // p0315d: a ticket that BINDS routes hard-bound to phase execution on every
-                // project it matches — BEFORE pipeline_from_label, which would otherwise drop it:
-                // no operator's label map holds the framework's own stamp.
-                // 2026-09-22-766b: a FILING binds on the APPROVAL rather than on a word it wrote
-                // for itself; a PERSON still binds by typing the phase word. Load-bearing on the
-                // WEBHOOK, which resolves a repository and an area path a poll cannot.
+                // p0315d: a ticket that BINDS routes hard-bound to the CODE preset on every
+                // project it matches — BEFORE pipeline_from_label, which would otherwise drop
+                // it: no operator's label map holds the framework's own stamp. 2026-09-25-e5b1
+                // names `code` itself, not the phase-execution alias p0393 collapsed into it.
+                // 2026-09-22-766b: a FILING binds on the APPROVAL, a PERSON by typing the phase
+                // word. Load-bearing on the WEBHOOK, which resolves a repo a poll cannot.
                 var pipeline = FiledTicketLabels.BindsPhaseExecution(envelope)
-                    ? PipelinePresets.PhaseExecutionName
+                    ? PipelinePresets.CodeName
                     : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);
 

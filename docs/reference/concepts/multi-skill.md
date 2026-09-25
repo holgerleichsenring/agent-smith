@@ -30,7 +30,7 @@ Structured pipelines skip LLM triage entirely. Each skill receives a single LLM 
 
 ### Hierarchical Pipelines
 
-Used by: **fix-bug**, **add-feature**
+Used by: **code**
 
 1. **Lead First** -- the lead skill runs first and produces a plan/directive
 2. **Contributors** -- contributor skills run next; the lead's plan is injected into each contributor's context
@@ -78,7 +78,7 @@ Agent Smith ships with role sets for different domains:
 
 | Directory | Roles | Used by | Pipeline Type |
 |-----------|-------|---------|---------------|
-| `config/skills/coding/` | Architect, Backend Dev, Tester, DBA, Security, DevOps, Frontend, Product Owner | fix-bug, add-feature | hierarchical |
+| `config/skills/coding/` | Architect, Backend Dev, Tester, DBA, Security, DevOps, Frontend, Product Owner | code | hierarchical |
 | `config/skills/security/` | Vulnerability Analyst, Auth Reviewer, Injection Checker, Secrets Detector, False Positive Filter | security-scan | structured |
 | `config/skills/api-security/` | API Design Auditor, Auth Tester, Vulnerability Analyst, False Positive Filter | api-scan | structured |
 | `config/skills/legal/` | Contract Analyst, Compliance Checker, Risk Assessor, Liability Analyst, Clause Negotiator | legal-analysis | discussion |

@@ -10,7 +10,7 @@ public sealed class AllHostsActivePolicyTests
     {
         var policy = new AllHostsActivePolicy();
 
-        var allowed = policy.GetAllowedHosts("fix-bug");
+        var allowed = policy.GetAllowedHosts("code");
 
         // p0191: + GetArtifactCredentialsToolHost (private package feeds).
         // p0193: + WriteContextYamlToolHost (typed context.yaml write path).

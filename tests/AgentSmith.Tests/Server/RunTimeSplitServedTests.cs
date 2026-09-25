@@ -88,7 +88,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
 
     private static IEnumerable<AgentSmith.Contracts.Events.RunEvent> SerialCommandRun() =>
     [
-        new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+        new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
         new StepStartedEvent(RunId, 0, "Implement", 1, T),
         new SandboxCommandEvent(RunId, "primary", "ReadFile", 0, T) { OriginStepIndex = 0 },
         Sandbox(0, "ReadFile", durationMs: 50),
@@ -102,7 +102,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     public async Task StepTimeSplit_RunningStep_ReportsNoScaffolding()
     {
         await ApplyAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(RunId, 0, "Implement", 2, T),
             Llm(0, durationMs: 700, throttleMs: 0));
 
@@ -163,7 +163,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     public async Task RunWithoutAttributedTime_ServesNoSplit_NotZeros()
     {
         await ApplyAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T),
             new StepStartedEvent(RunId, 0, "Implement", 1, T),
             new StepFinishedEvent(RunId, 0, "success", 5_000, T.AddSeconds(5)),
             new RunFinishedEvent(RunId, "success", null, "done", T.AddSeconds(6)));
@@ -188,7 +188,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     // Step 0: 20s wall-clock, one 1.5s call (0.4s of it throttled), two commands
     // summing to 9.05s. Step 1: 4s wall-clock, one 0.8s call, no sandbox work.
     private Task SeedTwoStepRunAsync() => ApplyAsync(
-        new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+        new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
         new StepStartedEvent(RunId, 0, "Implement", 2, T),
         Llm(0, durationMs: 1500, throttleMs: 400),
         Sandbox(0, "ReadFile", durationMs: 50),

@@ -10,9 +10,10 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Triggers;
 
 /// <summary>
-/// p0315d: trigger routing by ticket kind. A ticket the framework FILED routes hard-bound to the
-/// phase-execution preset in ProjectResolver — before pipeline_from_label, which would otherwise
-/// drop it. Every other ticket keeps today's label routing (bug -> fix-bug).
+/// p0315d: trigger routing by ticket kind. A ticket the framework FILED routes hard-bound in
+/// ProjectResolver — before pipeline_from_label, which would otherwise drop it. Every other
+/// ticket keeps today's label routing. 2026-09-25-e5b1: the bind target is the CODE preset by
+/// its own name; it was `phase-execution`, an alias of `code` that no longer resolves.
 /// <para>
 /// 2026-09-22-766b: TWO KEYS BIND, FOR TWO DIFFERENT REASONS. A FILING writes the approval stamp
 /// and nothing else — "somebody approved a specification for this ticket" and "this ticket is
@@ -37,14 +38,14 @@ public sealed class PhaseExecutionRoutingTests
     private readonly ProjectResolver _sut = new(new AgentSmithMetrics(), new PipelineResolver());
 
     [Fact]
-    public void Routing_AFiledTicketCarryingTheApprovalStamp_BindsToPhaseExecution()
+    public void Routing_AFiledTicketCarryingTheApprovalStamp_BindsToTheCodePreset()
     {
         var matches = _sut.Resolve(
             TagResolved(), Envelope("proj", FiledTicketLabels.ApprovedSetStamp));
 
         matches.Should().ContainSingle(
-            m => m.PipelineName == PipelinePresets.PhaseExecutionName,
-            "a ticket filed from an approved set must route to the phase-execution preset even "
+            m => m.PipelineName == PipelinePresets.CodeName,
+            "a ticket filed from an approved set must route to the code preset even "
             + "though no pipeline_from_label entry maps the framework-owned stamp");
     }
 
@@ -55,7 +56,7 @@ public sealed class PhaseExecutionRoutingTests
             TagResolved(), Envelope("proj", PhaseTicketRenderer.PhaseLabel, "bug"));
 
         matches.Should().ContainSingle(
-            m => m.PipelineName == PipelinePresets.PhaseExecutionName,
+            m => m.PipelineName == PipelinePresets.CodeName,
             "no filing writes this word, but a person types it deliberately — it is a documented "
             + "trigger, it wins over the project's own label map exactly as it always did, and "
             + "taking it away would remove a way of starting a run that nobody asked to lose");
@@ -69,7 +70,7 @@ public sealed class PhaseExecutionRoutingTests
         var matches = _sut.Resolve(RepoResolved(), envelope);
 
         matches.Should().ContainSingle(
-            m => m.PipelineName == PipelinePresets.PhaseExecutionName,
+            m => m.PipelineName == PipelinePresets.CodeName,
             "the webhook carries the source repository, so this project matches there — and the "
             + "bind is the only thing that can name a pipeline for it");
     }
@@ -83,7 +84,7 @@ public sealed class PhaseExecutionRoutingTests
         var matches = _sut.Resolve(AreaPathResolved(), envelope);
 
         matches.Should().ContainSingle(
-            m => m.PipelineName == PipelinePresets.PhaseExecutionName,
+            m => m.PipelineName == PipelinePresets.CodeName,
             "a work-item webhook carries the area path, so this project matches there too");
     }
 
@@ -95,7 +96,7 @@ public sealed class PhaseExecutionRoutingTests
             TagResolved(), Envelope("proj", FiledTicketLabels.ApprovedSetStamp));
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be(PipelinePresets.PhaseExecutionName);
+            .Which.PipelineName.Should().Be(PipelinePresets.CodeName);
     }
 
     [Fact]
@@ -116,7 +117,7 @@ public sealed class PhaseExecutionRoutingTests
         var matches = _sut.Resolve(TagResolved(), Envelope("proj", "bug"));
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be("fix-bug",
+            .Which.PipelineName.Should().Be("code",
                 "a ticket carrying neither binding key keeps today's pipeline_from_label routing "
                 + "untouched — the bind is two named keys, not a catch-all");
     }
@@ -129,7 +130,7 @@ public sealed class PhaseExecutionRoutingTests
         var matches = _sut.Resolve(TagResolved(), Envelope("proj") with { HasApprovedRecord = true });
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be(PipelinePresets.PhaseExecutionName,
+            .Which.PipelineName.Should().Be(PipelinePresets.CodeName,
                 "the record is the durable half of the fact, and a deleted label must not cost "
                 + "the ticket its route");
     }
@@ -152,7 +153,7 @@ public sealed class PhaseExecutionRoutingTests
         var matches = _sut.Resolve(TagResolved(), Envelope("proj", "bug"));
 
         matches.Should().ContainSingle()
-            .Which.PipelineName.Should().Be("fix-bug",
+            .Which.PipelineName.Should().Be("code",
                 "an envelope built by a caller with no store behind it carries false, which is "
                 + "the state every envelope was in before this field existed");
     }
@@ -170,7 +171,7 @@ public sealed class PhaseExecutionRoutingTests
         AreaPath = areaPath,
     };
 
-    // One project with the typical bug -> fix-bug label map. The map is a strict filter: without
+    // One project with the typical bug -> code label map. The map is a strict filter: without
     // the hard bind a filed ticket would be dropped here, never routed.
     private static AgentSmithConfig TagResolved() =>
         Config(new ProjectResolutionConfig { Strategy = ResolutionStrategy.Tag, Value = "proj" });
@@ -195,13 +196,13 @@ public sealed class PhaseExecutionRoutingTests
             {
                 Name = "alpha",
                 Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 Repos = repos ?? [],
                 GithubTrigger = new WebhookTriggerConfig
                 {
                     ProjectResolution = resolution,
-                    DefaultPipeline = "fix-bug",
-                    PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug" },
+                    DefaultPipeline = "code",
+                    PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "code" },
                 },
             },
         },

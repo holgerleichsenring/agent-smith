@@ -39,7 +39,7 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
             agent: claude-default
             tracker: sample-ado
             repos: [sample-cloud/Sample.Api.Server, sample-cloud/Sample.Web.Client]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           ado_token: ${AGENTSMITH_TEST_ADO_TOKEN}
         """;
@@ -106,7 +106,7 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
 
         _h.Store.UpsertProject(
             new ProjectEntity("p2", "claude-default", "sample-ado",
-                ["sample-cloud/Sample.Worker"], "fix-bug", ["fix-bug"]),
+                ["sample-cloud/Sample.Worker"], "code", ["code"]),
             Tester);
 
         _h.Store.GetProjects().Should().Contain(p => p.Id == "p2"
@@ -120,7 +120,7 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
 
         var act = () => _h.Store.UpsertProject(
             new ProjectEntity("broken", "claude-default", "sample-ado",
-                ["ghost-conn/Sample.Api.Server"], "fix-bug", ["fix-bug"]),
+                ["ghost-conn/Sample.Api.Server"], "code", ["code"]),
             Tester);
 
         act.Should().Throw<ConfigurationException>().WithMessage("*unknown connection 'ghost-conn'*");
@@ -134,7 +134,7 @@ public sealed class ConnectionsConfigStoreTests : IDisposable
 
         var act = () => _h.Store.UpsertProject(
             new ProjectEntity("broken", "claude-default", "sample-ado",
-                ["not-a-catalog-repo"], "fix-bug", ["fix-bug"]),
+                ["not-a-catalog-repo"], "code", ["code"]),
             Tester);
 
         act.Should().Throw<ConfigurationException>().WithMessage("*unknown repo*");

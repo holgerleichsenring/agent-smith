@@ -86,7 +86,7 @@ public class CommandContextFactoryTests
             Repos = new[] { new RepoConnection { Type = RepoType.Local, Path = "/tmp" } },
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/test/repo" },
             Agent = new AgentConfig { Type = "claude", Model = "sonnet" },
-            Pipeline = "fix-bug",
+            Pipeline = "code",
             CodingPrinciplesPath = "config/principles.md"
         };
     }

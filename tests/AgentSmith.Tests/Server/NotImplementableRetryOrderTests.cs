@@ -134,7 +134,7 @@ public sealed class NotImplementableRetryOrderTests
         Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
         GithubTrigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             TriggerStatuses = triggerStatus is null ? [] : [triggerStatus],
             DoneStatus = "closed",
         },

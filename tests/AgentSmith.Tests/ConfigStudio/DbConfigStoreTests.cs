@@ -38,7 +38,7 @@ public sealed class DbConfigStoreTests : IDisposable
             agent: claude-default
             tracker: test-ado
             repos: [test-repo]
-            pipeline: fix-bug
+            pipeline: code
             resolution:
               tag: testproject
         limits:

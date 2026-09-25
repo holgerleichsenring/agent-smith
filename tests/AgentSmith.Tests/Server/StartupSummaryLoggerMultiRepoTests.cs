@@ -30,7 +30,7 @@ public sealed class StartupSummaryLoggerMultiRepoTests
                 new RepoConnection { Name = "repo-b", Url = "https://example/b", Type = RepoType.GitHub },
                 new RepoConnection { Name = "repo-c", Url = "https://example/c", Type = RepoType.GitHub },
             },
-            Pipeline = "fix-bug",
+            Pipeline = "code",
         };
         var config = new AgentSmithConfig
         {
@@ -61,7 +61,7 @@ public sealed class StartupSummaryLoggerMultiRepoTests
             {
                 new RepoConnection { Name = "only-repo", Url = "https://example/only", Type = RepoType.GitHub },
             },
-            Pipeline = "fix-bug",
+            Pipeline = "code",
         };
         var config = new AgentSmithConfig
         {

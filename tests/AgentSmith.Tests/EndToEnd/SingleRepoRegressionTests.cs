@@ -56,7 +56,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "github", "7", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "github", "7", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "gitlab", "11", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "gitlab", "11", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "azuredevops", "42", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "azuredevops", "42", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class SingleRepoRegressionTests
                 {
                     Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                 },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 DoneStatus = "closed"
             }
         });
@@ -144,7 +144,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "jira", "PROJ-99", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "jira", "PROJ-99", "code", "my-repo", "closed");
     }
 
     private static void AssertCanonicalShape(
@@ -171,7 +171,7 @@ public sealed class SingleRepoRegressionTests
         {
             Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
         },
-        DefaultPipeline = "fix-bug",
+        DefaultPipeline = "code",
         DoneStatus = "closed"
     };
 

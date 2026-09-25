@@ -18,7 +18,7 @@ public class EffectiveTriggerBuilderTests
         TriggerStatuses = ["New", "Active"],
         DoneStatus = "Resolved",
         FailedStatus = "Resolved",
-        PipelineFromLabel = new Dictionary<string, string> { ["agent-smith:bug"] = "fix-bug" },
+        PipelineFromLabel = new Dictionary<string, string> { ["agent-smith:bug"] = "code" },
     };
 
     [Fact]
@@ -120,7 +120,7 @@ public class EffectiveTriggerBuilderTests
             TriggerStatuses = ["New", "Active"],
             DoneStatus = "Resolved",
             FailedStatus = "Resolved",
-            PipelineFromLabel = new Dictionary<string, string> { ["agent-smith:bug"] = "fix-bug" },
+            PipelineFromLabel = new Dictionary<string, string> { ["agent-smith:bug"] = "code" },
         };
         var project = new RawProjectEntry { Tracker = "t", AzuredevopsTrigger = legacy };
 

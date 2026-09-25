@@ -35,7 +35,7 @@ public sealed class SandboxResourceResolverTests
             CpuRequest = "100m", CpuLimit = "500m", MemoryRequest = "256Mi", MemoryLimit = "512Mi"
         });
 
-        var resolved = sut.Resolve(project, "fix-bug", ValidContext);
+        var resolved = sut.Resolve(project, "code", ValidContext);
 
         // p0268: a valid context block sizes the sandbox over the global default.
         resolved.Should().Be(new ResourceLimits("500m", "2", "1Gi", "4Gi"));
@@ -48,7 +48,7 @@ public sealed class SandboxResourceResolverTests
         var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = projectResources } };
         var sut = NewSut();
 
-        var resolved = sut.Resolve(project, "fix-bug", ValidContext);
+        var resolved = sut.Resolve(project, "code", ValidContext);
 
         // Operator authority beats the LLM guess — project wins even with a valid context.
         resolved.Should().BeSameAs(projectResources);
@@ -65,7 +65,7 @@ public sealed class SandboxResourceResolverTests
         }, logger);
         var bad = new ContextYamlStackResources("500m", "lots", "1Gi", "4Gi");
 
-        var resolved = sut.Resolve(project, "fix-bug", bad);
+        var resolved = sut.Resolve(project, "code", bad);
 
         resolved.Should().Be(new ResourceLimits("100m", "500m", "256Mi", "512Mi"));
         logger.Warnings.Should().ContainSingle().Which.Should().Contain("unparseable");
@@ -80,7 +80,7 @@ public sealed class SandboxResourceResolverTests
         // memory_limit missing → the whole block is rejected, not silently completed.
         var partial = new ContextYamlStackResources("500m", "2", "1Gi", null);
 
-        var resolved = sut.Resolve(project, "fix-bug", partial);
+        var resolved = sut.Resolve(project, "code", partial);
 
         resolved.Should().Be(ResourceLimits.Default);
         logger.Warnings.Should().ContainSingle().Which.Should().Contain("partial");
@@ -93,7 +93,7 @@ public sealed class SandboxResourceResolverTests
         var logger = new CapturingLogger();
         var sut = NewSut(logger: logger);
 
-        var resolved = sut.Resolve(project, "fix-bug", contextResources: null);
+        var resolved = sut.Resolve(project, "code", contextResources: null);
 
         resolved.Should().Be(ResourceLimits.Default);
         logger.Warnings.Should().BeEmpty();
@@ -116,7 +116,7 @@ public sealed class SandboxResourceResolverTests
     [InlineData("init-project")]
     [InlineData("security-scan")]
     [InlineData("legal-analysis")]
-    [InlineData("fix-bug")]
+    [InlineData("code")]
     public void Resolve_ProjectOverride_WinsForAllPipelines(string pipelineName)
     {
         // p0320a: operator authority beats both the light profile and the LLM guess.
@@ -139,7 +139,7 @@ public sealed class SandboxResourceResolverTests
         var sut = NewSut(logger: logger);
         var oversized = new ContextYamlStackResources("3", "4", "8Gi", "12Gi");
 
-        var resolved = sut.Resolve(project, "fix-bug", oversized);
+        var resolved = sut.Resolve(project, "code", oversized);
 
         resolved.Should().Be(new ResourceLimits("2", "2", "6Gi", "6Gi"));
         logger.Warnings.Should().ContainSingle().Which.Should().Contain("ceiling")
@@ -159,7 +159,7 @@ public sealed class SandboxResourceResolverTests
             Sandbox = new SandboxConfig { Resources = new ResourceLimits("500m", "2", "1Gi", "4Gi") },
         };
 
-        NewSut().ResolveLayer(project, "fix-bug", ValidContext)
+        NewSut().ResolveLayer(project, "code", ValidContext)
             .Should().Be(SandboxResourceLayer.ProjectOverride);
     }
 
@@ -173,7 +173,7 @@ public sealed class SandboxResourceResolverTests
     [Fact]
     public void ResolveLayer_AnAcceptedContextBlock_NamesTheContextDocument()
     {
-        NewSut().ResolveLayer(new ResolvedProject(), "fix-bug", ValidContext)
+        NewSut().ResolveLayer(new ResolvedProject(), "code", ValidContext)
             .Should().Be(SandboxResourceLayer.ContextDocument);
     }
 
@@ -182,7 +182,7 @@ public sealed class SandboxResourceResolverTests
     {
         // The light profile and a configured global default can hold identical numbers, so
         // the layer is the only thing that tells a control which one it is looking at.
-        NewSut().ResolveLayer(new ResolvedProject(), "fix-bug")
+        NewSut().ResolveLayer(new ResolvedProject(), "code")
             .Should().Be(SandboxResourceLayer.GlobalDefault);
     }
 
@@ -205,7 +205,7 @@ public sealed class SandboxResourceResolverTests
         var project = new ResolvedProject { Sandbox = new SandboxConfig { Resources = projectResources } };
         var sut = NewSut();
 
-        var resolved = sut.Resolve(project, "fix-bug");
+        var resolved = sut.Resolve(project, "code");
 
         resolved.Should().BeSameAs(projectResources);
     }
@@ -219,7 +219,7 @@ public sealed class SandboxResourceResolverTests
             CpuRequest = "300m", CpuLimit = "1500m", MemoryRequest = "768Mi", MemoryLimit = "3Gi"
         });
 
-        var resolved = sut.Resolve(project, "fix-bug");
+        var resolved = sut.Resolve(project, "code");
 
         resolved.Should().Be(new ResourceLimits("300m", "1500m", "768Mi", "3Gi"));
     }
@@ -230,7 +230,7 @@ public sealed class SandboxResourceResolverTests
         var project = new ResolvedProject { Sandbox = null };
         var sut = NewSut();
 
-        var resolved = sut.Resolve(project, "fix-bug");
+        var resolved = sut.Resolve(project, "code");
 
         resolved.Should().Be(ResourceLimits.Default);
     }
