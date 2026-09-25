@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0199 fast-tier fix-bug coverage. Asserts the preset round-trips the
+/// p0199 fast-tier coverage for the bug-fix scenario. Asserts the preset round-trips the
 /// real composition (handler chain + DI + config loader) for two LLM
 /// script shapes:
 ///   - Master writes a file and runs a build — proves the agentic loop +
@@ -39,7 +39,7 @@ public sealed class FixBugTests
             .EnqueueText("""Build green; closing. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"patched","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.Should().NotBeNull("the pipeline must run to a terminal result, not throw");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command");
@@ -61,7 +61,7 @@ public sealed class FixBugTests
         harness.ChatClient.EnqueueThrow(new OperationCanceledException("A task was canceled."));
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse("a thrown master must surface as a failed run");
 
@@ -101,7 +101,7 @@ public sealed class FixBugTests
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue($"real change + green verdict must pass the keystone: {result.Message}");
 
@@ -123,7 +123,7 @@ public sealed class FixBugTests
     {
         // p0241: the EXACT incident from ticket 18838 — the master loops with 0
         // changes (no tool calls, single text response) and the run used to be
-        // reported as a hollow "success". The keystone now refuses it: a fix-bug
+        // reported as a hollow "success". The keystone now refuses it: a bug fix
         // that ships no code is a FAILURE. The pipeline must still not crash —
         // downstream handlers tolerate an empty CodeChanges list and finalize.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
@@ -135,9 +135,9 @@ public sealed class FixBugTests
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeFalse("a fix-bug that changed no source must not be a success");
+        result.IsSuccess.Should().BeFalse("a bug fix that changed no source must not be a success");
         result.Message.Should().Contain("not satisfied by the branch");
         harness.ChatClient.ToolCalls.Should().BeEmpty("the master made no tool calls");
     }
@@ -160,7 +160,7 @@ public sealed class FixBugTests
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         // This test is about prerequisites reaching the sandbox — that happens
         // during setup, before the keystone outcome. (The keystone fails a no-
@@ -188,7 +188,7 @@ public sealed class FixBugTests
             harness.ChatClient.EnqueueText("No changes needed.");
 
             var runner = new PipelineRunner(harness.Services);
-            var result = await runner.RunAsync("fix-bug");
+            var result = await runner.RunAsync("code");
 
             // This test is about the loaded config/registries reaching DI — true
             // regardless of the keystone outcome of a no-change run.
@@ -208,7 +208,7 @@ public sealed class FixBugTests
     {
         // p0239 keystone outcome 3 (unverified-fail): the master ships a real
         // change but its final answer carries NO parseable verification verdict.
-        // fix-bug ExpectsGreenTests, so a run whose build/test outcome is unknown
+        // The preset ExpectsGreenTests, so a run whose build/test outcome is unknown
         // cannot be a success — the keystone refuses it even though code changed.
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
@@ -220,7 +220,7 @@ public sealed class FixBugTests
             .EnqueueText("I changed the file. (No structured verdict emitted.)");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         // p0421: the master's self-report stopped being a gate input. A change the branch
         // carries, a build that ran, and criteria accounted for against the diff — that is
@@ -243,7 +243,7 @@ public sealed class FixBugTests
             .EnqueueText("""Tests are red. {"status":"failed","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":false,"summary":"two tests fail"}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         // p0421: the master's self-report is no longer a gate input. A red SELF-REPORT over
         // work the branch does carry is not a delivery failure — the build gate answers harm
@@ -272,7 +272,7 @@ public sealed class FixBugTests
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
-        await runner.RunAsync("fix-bug");
+        await runner.RunAsync("code");
 
         // Route strips the "primary/" repo prefix, so the run-record write lands
         // as the bare repo-relative path ".agentsmith/runs/run/plan.md".
@@ -310,7 +310,7 @@ public sealed class FixBugTests
         });
 
         var runner = new PipelineRunner(harness.Services);
-        var act = async () => await runner.RunAsync("fix-bug", cts.Token);
+        var act = async () => await runner.RunAsync("code", cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>(
             "an operator cancel propagates as a cancellation, it is not silently swallowed by "

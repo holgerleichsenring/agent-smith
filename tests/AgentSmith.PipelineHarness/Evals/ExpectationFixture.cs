@@ -31,7 +31,7 @@ public sealed record ExpectationFixture(
     public sealed record TicketMaterial(
         string? Title, string? Description, string? AcceptanceCriteria);
 
-    /// <summary>Optional analysis-stage context (the fix-bug preset drafts
+    /// <summary>Optional analysis-stage context (the coding preset drafts
     /// AFTER AnalyzeCode, so a realistic replay grounds the draft the same
     /// way).</summary>
     public sealed record Hints(string? CodeMap);
