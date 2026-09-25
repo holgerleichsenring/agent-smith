@@ -189,6 +189,10 @@ public sealed class ServerCommandBuildPollersTests
         // p0283b: the poller resolves the discovery-query builder.
         services.AddSingleton<ITrackerDiscoveryQueryBuilder>(
             new TrackerDiscoveryQueryBuilder(NullLogger<TrackerDiscoveryQueryBuilder>.Instance));
+        // 2026-09-25-3c7aa: and the envelope builder that asks whether a ticket has an approved
+        // specification recorded for it.
+        services.AddSingleton(new AgentSmith.Application.Services.Polling.PolledTicketEnvelope(
+            AgentSmith.Tests.TestSupport.ApprovedRecordProbes.None()));
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         return services.BuildServiceProvider();
     }

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Text.Json;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -100,7 +101,7 @@ public sealed class JiraAssigneeWebhookHandlerTests
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var handler = new JiraAssigneeWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher,
+            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
             NullLogger<JiraAssigneeWebhookHandler>.Instance);
         return (handler, resolver, spawn);
     }

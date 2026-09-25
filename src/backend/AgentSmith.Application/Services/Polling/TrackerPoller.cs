@@ -27,6 +27,7 @@ public sealed class TrackerPoller(
     IActiveRunLease activeRunLease,
     ISystemEventPublisher systemEvents,
     ITrackerDiscoveryQueryBuilder discoveryQueryBuilder,
+    PolledTicketEnvelope envelopes,
     ILogger<TrackerPoller> logger) : IEventPoller
 {
     public string PlatformName => tracker.Type.ToString();
@@ -101,7 +102,7 @@ public sealed class TrackerPoller(
 
     private async Task DispatchTicketAsync(Ticket ticket, TrackerPollCounts counts, CancellationToken ct)
     {
-        var envelope = BuildEnvelope(ticket);
+        var envelope = await envelopes.ForAsync(tracker, ticket, ct);
         await TryPublishSystemAsync(new TicketScannedEvent(
             Source, tracker.Name, ticket.Id.Value,
             (IReadOnlyList<string>)(ticket.Labels?.ToArray() ?? Array.Empty<string>()),
@@ -184,13 +185,6 @@ public sealed class TrackerPoller(
             logger.LogDebug(ex, "Failed to publish system event {Type} from {Source}", ev.Type, ev.Source);
         }
     }
-
-    private IncomingTicketEnvelope BuildEnvelope(Ticket ticket) => new()
-    {
-        Labels = ticket.Labels,
-        TicketId = ticket.Id.Value,
-        Platform = tracker.Type.ToString().ToLowerInvariant(),
-    };
 
     private static bool IsStatusAllowed(WebhookTriggerConfig trigger, string status) =>
         trigger.TriggerStatuses.Count == 0

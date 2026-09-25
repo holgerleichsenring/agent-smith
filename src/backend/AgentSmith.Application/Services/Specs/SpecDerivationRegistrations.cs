@@ -65,6 +65,9 @@ public static class SpecDerivationRegistrations
     // resolver both ScopeRepos and DeriveSpec ask. 2026-09-22-6ad7: the record no longer competes
     // with the branch for the SET; it hands one over only when the branch carries nothing.
     services.TryAddSingleton<ISpecApprovalStore, Persistence.InMemorySpecApprovalStore>();
+    // 2026-09-25-3c7aa: asked where an incoming envelope is built, on both routed paths.
+    services.TryAddSingleton<ApprovedRecordProbe>();
+    services.TryAddSingleton<Polling.PolledTicketEnvelope>();
     services.AddTransient<ApprovedSpecSetResolver>();
     services.AddTransient<ApprovedSpecSetCarrier>();
     services.AddTransient<ApprovedSetHandoff>();

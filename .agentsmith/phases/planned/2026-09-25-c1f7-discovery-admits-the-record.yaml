@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-c1f7
+requires: ["2026-09-25-3c7aa"]
+goal: "A ticket with an approved specification is found by the poll even with no framework label on it, on every tracker whose query can say so."
+
+applies_to: "backend (the approval store, the discovery query and the two query builders that filter server-side)"
+
+scope:
+  in: "Naming the tickets an approved record still expects work on, in a form a tracker query can carry; admitting them beside the label guard on the two trackers that filter server-side; and saying plainly what happens on the two that do not."
+  out: "Anything the routing bind already answers (3c7aa). Also out: changing what a discovered ticket does afterwards."
+
+decisions:
+  - key: |
+      THREE THINGS ARE MISSING BEFORE A QUERY CAN NAME THESE TICKETS, AND THEY ARE THE PHASE. The store
+      offers a single-row get and a save and no enumeration; the record has no state, so "still open" is
+      not expressible and the set grows monotonically forever; and the spec key lowercases the ticket id
+      and replaces every non-alphanumeric character, so DPG-1239 becomes jira-dpg-1239 and the tracker's
+      own id cannot be recovered from it. Recovering it with a per-provider parser is the thing this
+      repository refused to write for the parent stamp, for the same reason.
+  - key: |
+      SO THE RECORD STORES THE TICKET ID IT WAS WRITTEN FOR, AND STORES WHEN IT WAS SATISFIED. The id is
+      a column, not a derivation; the satisfaction is what bounds the list, and without it the query
+      grows with every approval this deployment has ever made and starts re-fetching tickets the parking
+      statuses exist to exclude.
+  - key: |
+      TWO TRACKERS FILTER SERVER-SIDE AND TWO DO NOT, AND THE ANSWER DIFFERS. Jira and Azure DevOps
+      push the label guard into JQL and WIQL, so a ticket without the label is never fetched and the id
+      list is what admits it. GitHub and GitLab narrow by tag or fall back to listing open issues, and
+      the stamp is not in their filter at all — nothing is broken there and nothing is added, and this is
+      stated so that a later reader does not add it for symmetry.
+  - key: |
+      THE ID LIST IS OR'D AT THE TOP LEVEL, WHICH BOTH BUILDERS CURRENTLY CANNOT EXPRESS. Today the label
+      guard is AND-ed onto the routing clause. A list that must ADMIT tickets the guard would exclude is
+      a disjunction with the whole rest of the query, and that is a change in the two builders and their
+      interfaces rather than one more item in a list.
+  - key: |
+      IT IS CAPPED, AND THE CAP IS ITS OWN, BECAUSE THE BRANCH CEILING DOES NOT COVER IT. The existing
+      ceiling bounds the branch list and leaves the trigger labels uncapped; collapsing to the broad
+      branch WIDENS the query rather than bounding it. So the id list carries a limit of its own, and
+      above it the oldest unsatisfied records are named and the rest are reported rather than silently
+      dropped.
+
+steps:
+  - id: a-record-knows-its-ticket-and-when-it-was-satisfied
+    path: "src/backend/AgentSmith.Infrastructure.Persistence"
+    action:
+      - "Store the tracker's own ticket id on the approval record, and record when a run satisfied it, with a migration that backfills nothing it cannot recover."
+
+  - id: the-store-can-list-what-is-outstanding
+    path: "src/backend/AgentSmith.Contracts/Specs"
+    action:
+      - "Add a bounded listing of unsatisfied records for one tracker connection to the store port and its two implementations."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Specs/ISpecApprovalStore.cs"
+
+  - id: the-query-admits-them
+    path: "src/backend/AgentSmith.Application/Services/Polling"
+    action:
+      - "Carry the ids on the discovery query under a cap of its own, and OR them at the top level in the JQL and WIQL builders."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs"
+      - "src/backend/AgentSmith.Contracts/Models/Triggers/DiscoveryQuery.cs"
+
+  - id: the-label-note-stops-warning
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Rewrite the ticket's label note to describe a hint, now that removing it costs nothing on any covered path."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/TicketLabelNote.cs"
+
+  - id: the-admission-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert an unlabelled approved ticket is admitted on Jira and Azure DevOps, that a satisfied record is not, and that the cap reports rather than drops."
+
+tests:
+  - "Discovery_AnApprovedTicketWithoutTheStamp_IsAdmittedByItsId"
+  - "Discovery_ASatisfiedRecord_IsNotAdmittedAgain"
+  - "Discovery_MoreOutstandingRecordsThanTheCap_NamesTheOldestAndReportsTheRest"
+  - "Discovery_TheJqlAndWiql_OrTheIdsAtTheTopLevel"
+  - "Discovery_GitHubAndGitLab_AreUnchanged"
+  - "SpecKey_TheStoredTicketId_IsTheTrackersOwnAndNotDerivedFromTheKey"
+
+done:
+  - "a ticket whose stamp was deleted is still discovered on Jira and Azure DevOps"
+  - "a record a run has satisfied never widens a later query"
+  - "the id list has a cap of its own and says what it left out"
+  - "GitHub and GitLab discovery is unchanged, and the spec says why"
+  - "the ticket's label note describes a hint rather than a cost"
+  - "build green, full suite green"

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -17,6 +18,7 @@ public sealed class JiraAssigneeWebhookHandler(
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
+    ApprovedRecordProbe approvals,
     ILogger<JiraAssigneeWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -43,6 +45,13 @@ public sealed class JiraAssigneeWebhookHandler(
 
             var envelope = WebhookEnvelopeBuilders.BuildForJiraIssue(root, issueKey, ticketUrl);
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-09-25-3c7aa: a webhook route is per PLATFORM, so the record is looked for on
+            // every connection of that type; a ticket whose stamp is gone still binds.
+            envelope = envelope with
+            {
+                HasApprovedRecord = await approvals.ExistsForPlatformAsync(
+                    config, envelope.Platform, envelope.TicketId, cancellationToken),
+            };
             var matches = envelopeResolver.Resolve(config, envelope);
             var filtered = FilterByAssignee(config, matches, newAssignee);
 
