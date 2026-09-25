@@ -45,12 +45,12 @@ public sealed class HousekeepingLeaderHostedService(
         logger.LogInformation(
             "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog + CancelEnforcer + DialogueResumeSweeper");
         var queue = services.GetRequiredService<IRedisJobQueue>();
-        var ticketFactory = services.GetRequiredService<ITicketProviderFactory>();
         var activeRunLease = services.GetRequiredService<IActiveRunLease>();
         var timeProvider = services.GetRequiredService<TimeProvider>();
+        // 2026-09-25-b4d9: the candidates come from the taken-ticket record, so the reconciler
+        // no longer needs a ticket provider or the envelope resolver to find them.
         var reconciler = new EnqueuedReconciler(
-            activeRunLease, queue, ticketFactory, configLoader,
-            services.GetRequiredService<IEnvelopeProjectResolver>(),
+            activeRunLease, queue, services.GetRequiredService<ITakenTicketStore>(), configLoader,
             services.GetRequiredService<AgentSmith.Application.Services.Specs.ApprovedSpecSetCarrier>(),
             timeProvider, serverContext.ConfigPath,
             services.GetRequiredService<ILogger<EnqueuedReconciler>>());

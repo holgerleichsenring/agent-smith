@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -21,7 +22,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class RunFinalizationProjection(
     QueuedRunProjection queuedRuns,
-    ICapacityBudget? capacityBudget = null)
+    ICapacityBudget? capacityBudget = null,
+    ITakenTicketStore? takenTickets = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
     {
@@ -34,11 +36,20 @@ public sealed class RunFinalizationProjection(
         // pod must not overwrite 'cancelled', and vice versa.
         if (run.FinishedAt is not null) return;
         await FinishAsync(uow, run, e, ct);
-        // p0336: a terminal run stops holding compute — free its budget reservation.
-        // A waiting state (queued / waiting_for_input) keeps FinishedAt null and its
-        // reservation, so the run is guaranteed its footprint when it (re)launches.
-        if (run.FinishedAt is not null && capacityBudget is not null)
-            await capacityBudget.ReleaseAsync(e.RunId, ct);
+        // A waiting state (queued / waiting_for_input) keeps FinishedAt null, so what a
+        // terminal run gives up is given up here and nowhere else.
+        if (run.FinishedAt is not null) await ReleaseWhatTheRunHeldAsync(run, e.RunId, ct);
+    }
+
+    // p0336: a terminal run stops holding compute — free its budget reservation. A waiting
+    // state keeps its reservation, so the run is guaranteed its footprint when it (re)launches.
+    // 2026-09-25-b4d9: and it stops owing the ticket a run, so the taken-ticket record goes
+    // with it. This is the CLEAR the record's lifetime hangs on — completion, never a timer.
+    private async Task ReleaseWhatTheRunHeldAsync(Run run, string runId, CancellationToken ct)
+    {
+        if (capacityBudget is not null) await capacityBudget.ReleaseAsync(runId, ct);
+        if (takenTickets is not null && run.TicketId is { Length: > 0 } ticketId)
+            await takenTickets.ClearAsync(run.Project, ticketId, ct);
     }
 
     private async Task FinishAsync(

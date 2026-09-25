@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -213,7 +214,8 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         return new TicketClaimService(
             claimLock.Object, _store, factory.Object, new Mock<IRedisJobQueue>().Object,
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
     }
 
     private ICapacityQueue Queue() =>

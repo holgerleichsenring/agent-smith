@@ -270,7 +270,8 @@ public sealed class ParkRecordsARefusedMoveTests
             .Returns(transitioner.Object);
         return new TicketClaimService(
             claimLock.Object, _store, transitionerFactory.Object, Mock.Of<IRedisJobQueue>(),
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
     }
 
     private static AgentSmithConfig Config() => new()

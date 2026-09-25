@@ -1,28 +1,30 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Triggers;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Lifecycle;
 
 /// <summary>
-/// Periodically reconciles Enqueued tickets. For any ticket in Enqueued status with
-/// no FRESH active-run lease, re-pushes a PipelineRequest onto IRedisJobQueue. Covers
-/// Redis loss, crashed pre-consume pods, and enqueue failures from TicketClaimService.
-/// Runs on every replica unconditionally — leader-election is deferred to p96.
+/// Periodically re-enqueues the tickets this framework took up and has not finished. For any
+/// taken-ticket record with no FRESH active-run lease, it re-pushes a PipelineRequest onto
+/// IRedisJobQueue. Covers Redis loss, crashed pre-consume pods, and enqueue failures from
+/// TicketClaimService. Runs on every replica unconditionally — leader-election is deferred to p96.
 ///
-/// p0252: liveness is the DB lease (set at claim, renewed while the run executes),
-/// not the volatile Redis heartbeat — the same source StaleJobDetector reverts against.
+/// p0252: liveness is the DB lease (set at claim, renewed while the run executes), not the
+/// volatile Redis heartbeat.
+///
+/// 2026-09-25-b4d9: the CANDIDATES come from the record, not from asking the tracker for the
+/// `agent-smith:enqueued` label. The reaper deletes an orphan's lease three minutes after the
+/// crash, so a label on somebody else's board was the last surviving evidence of it — and the
+/// pipeline to rebuild the request with was read back out of that same board.
 /// </summary>
 public sealed class EnqueuedReconciler(
     IActiveRunLease activeRunLease,
     IRedisJobQueue jobQueue,
-    ITicketProviderFactory ticketFactory,
+    ITakenTicketStore takenTickets,
     IConfigurationLoader configLoader,
-    IEnvelopeProjectResolver envelopeResolver,
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: an orphan is re-enqueued with its set
     TimeProvider timeProvider,
     string configPath,
@@ -51,69 +53,46 @@ public sealed class EnqueuedReconciler(
     private async Task ReconcileOnceAsync(CancellationToken ct)
     {
         var config = configLoader.LoadConfig(configPath);
-        foreach (var (name, project) in config.Projects)
-            await ReconcileProjectSafeAsync(config, name, project, ct);
+        // A record whose state says the reaper holds the ticket is not in this list: the two
+        // loops never act on one ticket at once.
+        foreach (var taken in await takenTickets.ListReconcilableAsync(ct))
+            await ReconcileSafeAsync(config, taken, ct);
     }
 
-    private async Task ReconcileProjectSafeAsync(
-        AgentSmithConfig config, string projectName, ResolvedProject project, CancellationToken ct)
+    private async Task ReconcileSafeAsync(AgentSmithConfig config, TakenTicketFact taken, CancellationToken ct)
     {
-        try { await ReconcileProjectAsync(config, projectName, project, ct); }
+        try { await ReconcileAsync(config, taken, ct); }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "EnqueuedReconciler skipped project {Project} (Tickets.Type={Type}): {Message}",
-                projectName, project.Tracker.Type, ex.Message);
+                "EnqueuedReconciler skipped taken ticket {Project}/{Ticket}: {Message}",
+                taken.Project, taken.TicketId, ex.Message);
         }
     }
 
-    private async Task ReconcileProjectAsync(
-        AgentSmithConfig config, string projectName, ResolvedProject project, CancellationToken ct)
+    private async Task ReconcileAsync(AgentSmithConfig config, TakenTicketFact taken, CancellationToken ct)
     {
-        var provider = ticketFactory.Create(project.Tracker);
-        var enqueued = await provider.ListByLifecycleStatusAsync(
-            TicketLifecycleStatus.Enqueued, ct);
+        // A project the configuration no longer knows cannot be launched into. The record
+        // stays: it is cleared by completion, and an operator who restores the project gets
+        // the ticket back rather than a row silently dropped by a reconcile pass.
+        if (!config.Projects.TryGetValue(taken.Project, out var project)) return;
 
-        foreach (var ticket in enqueued)
-        {
-            // On a shared tracker ListByLifecycleStatusAsync returns EVERY project's Enqueued
-            // tickets. Re-enqueue only the ones whose labels route to THIS project, through the
-            // same IEnvelopeProjectResolver the poller claims through — otherwise a ticket owned
-            // by project B is re-enqueued once per project sharing the tracker (duplicate runs).
-            var match = ResolveMatch(config, projectName, project, ticket);
-            if (match is null) continue;
+        var ticketId = new TicketId(taken.TicketId);
+        // A fresh lease means a claim/run is already in flight (the lease is set
+        // at claim time and renewed while the run executes) — don't re-enqueue.
+        var lease = await activeRunLease.GetByTicketAsync(taken.Project, ticketId, ct);
+        if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < ActiveRunReaper.LeaseFreshFor)
+            return;
 
-            // A fresh lease means a claim/run is already in flight (the lease is set
-            // at claim time and renewed while the run executes) — don't re-enqueue.
-            var lease = await activeRunLease.GetByTicketAsync(projectName, ticket.Id, ct);
-            if (lease is not null && timeProvider.GetUtcNow() - lease.HeartbeatAt < ActiveRunReaper.LeaseFreshFor)
-                continue;
-
-            var request = new PipelineRequest(
-                projectName, match.Value.PipelineName,
-                TicketId: ticket.Id,
-                Headless: true,
-                Context: await approvedSets.ContextForAsync(project.Tracker, ticket.Id.Value, ct));
-            await jobQueue.EnqueueAsync(request, ct);
-            logger.LogInformation(
-                "Reconciler re-enqueued orphan Enqueued ticket {Project}/{Ticket} (pipeline {Pipeline})",
-                projectName, ticket.Id.Value, match.Value.PipelineName);
-        }
-    }
-
-    private ProjectMatch? ResolveMatch(
-        AgentSmithConfig config, string projectName, ResolvedProject project, Ticket ticket)
-    {
-        var envelope = new IncomingTicketEnvelope
-        {
-            Labels = ticket.Labels ?? [],
-            TicketId = ticket.Id.Value,
-            Platform = project.Tracker.Type.ToString().ToLowerInvariant(),
-        };
-        foreach (var m in envelopeResolver.Resolve(config, envelope))
-            if (string.Equals(m.ProjectName, projectName, StringComparison.Ordinal))
-                return m;
-        return null;
+        var request = new PipelineRequest(
+            taken.Project, taken.Pipeline,
+            TicketId: ticketId,
+            Headless: true,
+            Context: await approvedSets.ContextForAsync(project.Tracker, taken.TicketId, ct));
+        await jobQueue.EnqueueAsync(request, ct);
+        logger.LogInformation(
+            "Reconciler re-enqueued orphan taken ticket {Project}/{Ticket} (pipeline {Pipeline})",
+            taken.Project, taken.TicketId, taken.Pipeline);
     }
 }

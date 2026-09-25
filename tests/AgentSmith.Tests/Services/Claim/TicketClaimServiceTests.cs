@@ -185,7 +185,7 @@ public sealed class TicketClaimServiceTests
         var h = new Harness();
         var sut = new TicketClaimService(
             h.ClaimLock.Object, h.UnmovedTickets, h.Factory.Object, h.JobQueue.Object,
-            h.Lease.Object, NullLogger<TicketClaimService>.Instance);
+            h.Lease.Object, h.TakenTickets, NullLogger<TicketClaimService>.Instance);
         return (sut, h);
     }
 
@@ -211,6 +211,7 @@ public sealed class TicketClaimServiceTests
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
         public Mock<IActiveRunLease> Lease { get; } = new();
         public InMemoryUnmovedTicketStore UnmovedTickets { get; } = new();
+        public InMemoryTakenTicketStore TakenTickets { get; } = new(); // 2026-09-25-b4d9
 
         public Harness()
         {
