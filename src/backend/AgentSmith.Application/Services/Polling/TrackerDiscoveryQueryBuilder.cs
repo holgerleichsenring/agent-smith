@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
@@ -22,9 +23,17 @@ public sealed class TrackerDiscoveryQueryBuilder(
 
     private static readonly DiscoveryBranch BroadBranch = new([], Criterion: null);
 
-    /// <summary>The keys ProjectResolver hard-binds on, which the label guard must let through.</summary>
-    private static readonly string[] PhaseExecutionBindings =
-        [FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel];
+    /// <summary>The keys ProjectResolver hard-binds on, which the label guard must let through.
+    /// 2026-09-25-3c7ac: the stamp under THIS board's name as well as the historical one — the
+    /// builder holds the tracker, so it is one of the few readers that can ask.</summary>
+    private static string[] PhaseExecutionBindings(TrackerConnection tracker) =>
+        [.. new[]
+            {
+                TicketLabelVocabulary.For(tracker).ApprovedSetStamp,
+                FiledTicketLabels.ApprovedSetStamp,
+                PhaseTicketRenderer.PhaseLabel,
+            }
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
 
     public DiscoveryQuery Build(AgentSmithConfig config, TrackerConnection tracker)
     {
@@ -59,7 +68,7 @@ public sealed class TrackerDiscoveryQueryBuilder(
         // those tickets out of discovery, or such a ticket would never be polled at all.
         // 2026-09-22-766b: the guard names EXACTLY what binds, which is two keys — the approval
         // stamp every filing writes, and the phase word a person types.
-        foreach (var binding in PhaseExecutionBindings)
+        foreach (var binding in PhaseExecutionBindings(tracker))
             if (triggerLabels.Count > 0
                 && !triggerLabels.Contains(binding, StringComparer.OrdinalIgnoreCase))
                 triggerLabels.Add(binding);

@@ -75,6 +75,8 @@ public static class TrackerCapabilityFields
         new CapabilityField("defaultPipeline", "Default pipeline", Required: false),
         new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
         new CapabilityField("parentLinkType", "Parent link type (Jira)", Required: false),
+        // 2026-09-25-3c7ac: what this board calls the labels agent-smith writes onto it.
+        new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map),
     ];
 
     // 2026-09-18-b4f0: declared for the two tracker types whose create sends a kind, and for

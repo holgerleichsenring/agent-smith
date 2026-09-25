@@ -36,7 +36,9 @@ public sealed record TrackerEntity(
     string? DefaultPipeline = null,
     string? ParentLinkType = null,
     // 2026-09-18-b4f0: role -> native work-item/issue type for the tickets agent-smith files.
-    IReadOnlyDictionary<string, string>? WorkItemKinds = null)
+    IReadOnlyDictionary<string, string>? WorkItemKinds = null,
+    // 2026-09-25-3c7ac: what this board calls the labels the framework writes. APPENDED.
+    IReadOnlyDictionary<string, string>? LabelNames = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }
