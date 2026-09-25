@@ -121,6 +121,42 @@ public sealed class PhaseExecutionRoutingTests
                 + "untouched — the bind is two named keys, not a catch-all");
     }
 
+    [Fact]
+    public void Routing_ATicketWithARecordAndNoStamp_BindsToPhaseExecution()
+    {
+        // 2026-09-25-3c7aa: the approval RECORD, read where the envelope was built. A stamp
+        // anybody with tracker access can delete is no longer what decides the route.
+        var matches = _sut.Resolve(TagResolved(), Envelope("proj") with { HasApprovedRecord = true });
+
+        matches.Should().ContainSingle()
+            .Which.PipelineName.Should().Be(PipelinePresets.PhaseExecutionName,
+                "the record is the durable half of the fact, and a deleted label must not cost "
+                + "the ticket its route");
+    }
+
+    [Fact]
+    public void Routing_ATicketWithARecordAndTheRecordLabel_IsStillRefusedFirst()
+    {
+        var matches = _sut.Resolve(
+            TagResolved(),
+            Envelope("proj", PhaseTicketRenderer.EpicLabel) with { HasApprovedRecord = true });
+
+        matches.Should().BeEmpty(
+            "a record is not work, and that refusal stays ahead of every other rule — including "
+            + "the one this phase added");
+    }
+
+    [Fact]
+    public void Routing_AnEnvelopeNobodyEnriched_RoutesExactlyAsBefore()
+    {
+        var matches = _sut.Resolve(TagResolved(), Envelope("proj", "bug"));
+
+        matches.Should().ContainSingle()
+            .Which.PipelineName.Should().Be("fix-bug",
+                "an envelope built by a caller with no store behind it carries false, which is "
+                + "the state every envelope was in before this field existed");
+    }
+
     private static IncomingTicketEnvelope Envelope(params string[] labels) =>
         EnvelopeFrom(null, null, labels);
 

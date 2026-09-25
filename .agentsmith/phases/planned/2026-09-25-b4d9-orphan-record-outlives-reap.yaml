@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-b4d9
+goal: "The record that a ticket was taken up outlives the reaper, so recovering an orphaned run no longer depends on a label somebody may delete from the board."
+
+applies_to: "backend (the claim's lease, the reaper and the enqueued reconciler)"
+
+scope:
+  in: "A durable record of a ticket this framework took up and has not finished, which survives the reaper deleting the lease; reconciliation reading that record instead of asking the tracker for a label; and keeping the pipeline the ticket was claimed for, which the lease does not hold today."
+  out: "The poller's Pending catch-up query, which enumerates tickets nobody has taken up — no row can answer that and the label there is an OPERATOR's handle, not our bookkeeping (3c7ac names it). Also out: what a board is allowed to show, which is 3c7ac."
+
+decisions:
+  - key: |
+      THE BOARD IS TODAY THE DURABLE RECORD AND THE DATABASE THE TRANSIENT ONE, WHICH IS EXACTLY
+      BACKWARDS. A claim INSERTs a lease and then enqueues; a crash between the two leaves an unattached
+      lease and no run row at all. ActiveRunReaper scans every sixty seconds against a three-minute
+      threshold and DELETES such a lease, while EnqueuedReconciler runs every ten minutes and finds its
+      candidates by asking the TRACKER for `agent-smith:enqueued`. So three minutes after the crash the
+      only surviving evidence of the orphan is a label on somebody else's board. This phase is the
+      field that is missing, not a cleverer way to read what is there.
+  - key: |
+      THE RECORD IS WHAT THE RECONCILER NEEDS TO REBUILD A REQUEST, WHICH IS MORE THAN THE LEASE HOLDS.
+      Re-enqueueing needs the pipeline, and the lease has no pipeline column; today it is recovered from
+      the ticket's LABELS through the resolver. The record therefore carries what the claim knew when it
+      took the ticket up — project, ticket, platform, pipeline — so a rebuild needs the tracker for
+      nothing at all.
+  - key: |
+      IT IS CLEARED BY COMPLETION, NOT BY A TIMER. A record deleted on a timer is the same disappearing
+      act one layer down. It is written when the claim is granted and removed when the ticket reaches a
+      terminal state or is reconciled; the reaper keeps deleting the LEASE, which is a liveness fact and
+      rightly transient.
+  - key: |
+      THE REAPER AND THE RECONCILER MUST NOT FIGHT OVER ONE TICKET. The reaper cancels and releases
+      stale leases every sixty seconds; a reconciler that re-enqueues from the record on a ten-minute
+      cadence could re-launch a ticket the reaper is in the middle of cancelling. The record's own state
+      is what separates them, and it is stated here because two loops over one ticket is how the label
+      thrash of p0260 happened.
+  - key: |
+      ONE NEW TABLE, NOT A COLUMN ON THE LEASE. The lease is deleted on purpose and by several paths;
+      hanging durability on a row whose deletion is the mechanism would mean teaching every one of those
+      paths a new rule. A record with its own lifetime is smaller than that.
+
+steps:
+  - id: a-claim-leaves-a-durable-record
+    path: "src/backend/AgentSmith.Infrastructure.Persistence"
+    action:
+      - "Record project, ticket, platform and pipeline when a claim is granted, with a migration, and remove it when the ticket reaches a terminal state."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs"
+
+  - id: reconciliation-reads-the-record
+    path: "src/backend/AgentSmith.Application/Services/Lifecycle"
+    action:
+      - "Find reconciliation candidates in the records rather than by asking the tracker for a lifecycle label, and rebuild the request from what the record carries."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs"
+
+  - id: the-two-loops-do-not-collide
+    path: "src/backend/AgentSmith.Application/Services"
+    action:
+      - "Make the record's state decide which loop owns a ticket, so a reaped ticket is not re-enqueued underneath the reaper."
+
+  - id: the-orphan-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert an orphan whose lease was reaped and whose label was deleted is still reconciled, with the pipeline it was claimed for."
+
+tests:
+  - "Orphan_ALeaseReapedAndTheLabelDeleted_IsStillReconciled"
+  - "Orphan_TheRebuiltRequest_CarriesThePipelineTheClaimKnew"
+  - "Orphan_ATicketThatFinished_LeavesNoRecordBehind"
+  - "Orphan_ATicketTheReaperIsCancelling_IsNotReEnqueued"
+  - "Orphan_NoTrackerCall_IsMadeToFindCandidates"
+
+done:
+  - "an orphaned ticket is recovered with no lifecycle label on the board and no lease left"
+  - "the rebuilt request carries the pipeline the claim knew, not one re-derived from labels"
+  - "reconciliation makes no tracker call to find its candidates"
+  - "the reaper and the reconciler never act on one ticket at once"
+  - "build green, full suite green"

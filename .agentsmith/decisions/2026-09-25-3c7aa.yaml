@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-3c7aa
+
+decisions:
+  - category: Architecture
+    chose: "A field on the incoming envelope, set where the two ROUTED paths build one"
+    over: "Giving ProjectResolver the approval store and asking per ticket"
+    reason: |
+      The resolver documents itself as a stateless pure function over config plus envelope, and
+      its tests are synchronous over values. Handing it a store makes every routing test
+      asynchronous and gives one function two reasons to change. The envelope already carries
+      every other fact routing reads, so the record joins it there. The cost is that the field
+      must be set at each construction site — four exist, and only the two that route tickets
+      (the poll and the four webhook builders) set it; the reconciler and the filing's own
+      starter leave it false, which is exactly today's behaviour.
+    alternatives:
+      - "A decorator around IEnvelopeProjectResolver: a second place deciding what binds"
+
+  - category: Architecture
+    chose: "An OR beside the two labels, never a replacement"
+    over: "Keying the bind and the gate on the record alone"
+    reason: |
+      A container run and a CLI run bind the in-memory approval store, so a record read there
+      answers no for every ticket. Replacing the label check would have deleted the bind and the
+      missing-set park for every non-server path — a silent loss on exactly the runs nobody
+      watches. The two disagree only in the direction that was broken: a record with no label now
+      works, and a label with no record keeps parking as loudly as before.
+    alternatives:
+      - "Reading the store inside the run: the process that most needs it is the one that cannot"
+
+  - category: Architecture
+    chose: "The webhook side sweeps every connection of the payload's platform"
+    over: "Passing the tracker connection through the webhook route"
+    reason: |
+      A webhook route is per platform — two Jira connections share one endpoint — and the record
+      is keyed by the tracker CONNECTION name. The spawn dispatcher already answers the same
+      question the same way for the same reason. A ticket id that collides across two connections
+      of one type would bind on the wrong record's existence, but the bind is only reached after
+      a project MATCH, and an untagged ticket matches nothing; the failure would be a ticket that
+      routes to phase execution one poll early, not to a wrong project.
+    alternatives:
+      - "Resolving the connection from the payload: no platform's payload names ours"
+
+  - category: Design
+    chose: "The park reason names which half held the ticket"
+    over: "Keeping the sentence that asserts the label"
+    reason: |
+      The sentence opened by stating the ticket carries the approved-set stamp. For the case this
+      phase adds — a ticket held by its record with no label on it — that is simply false, and a
+      park is read by an operator deciding what to repair. It now says 'has an approved
+      specification recorded for it' or names the label, whichever actually held it.
+    alternatives: []
+
+  - category: Architecture
+    chose: "The polled envelope moved into a file of its own"
+    over: "Growing TrackerPoller by the read"
+    reason: |
+      The poller is over the 120-line limit and the ratchet allows a listed file to get shorter
+      only. The envelope is a shape with one question in it and the loop around it is a different
+      responsibility, so the extraction is what the rule was for rather than a way around it. The
+      poller came out eight lines shorter than its baseline.
+    alternatives: []

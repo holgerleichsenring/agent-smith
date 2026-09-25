@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -16,6 +17,7 @@ public sealed class GitHubIssueWebhookHandler(
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
+    ApprovedRecordProbe approvals,
     ILogger<GitHubIssueWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -44,6 +46,13 @@ public sealed class GitHubIssueWebhookHandler(
                 issueEl, issueNumber.ToString(), repoUrl, ticketUrl);
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-09-25-3c7aa: a webhook route is per PLATFORM, so the record is looked for on
+            // every connection of that type; a ticket whose stamp is gone still binds.
+            envelope = envelope with
+            {
+                HasApprovedRecord = await approvals.ExistsForPlatformAsync(
+                    config, envelope.Platform, envelope.TicketId, cancellationToken),
+            };
             var matches = envelopeResolver.Resolve(config, envelope);
 
             logger.LogInformation(

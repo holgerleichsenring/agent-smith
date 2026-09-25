@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Models;
@@ -93,7 +94,7 @@ public sealed class JiraCommentWebhookHandlerTests
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var handler = new JiraCommentWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher,
+            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
             new PlanAnswerParser(NullLogger<PlanAnswerParser>.Instance),
             NullLogger<JiraCommentWebhookHandler>.Instance);
         return (handler, resolver, spawn);

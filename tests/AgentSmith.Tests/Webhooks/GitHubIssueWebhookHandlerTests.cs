@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -43,7 +44,7 @@ public sealed class GitHubIssueWebhookHandlerTests
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var handler = new GitHubIssueWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher,
+            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
             NullLogger<GitHubIssueWebhookHandler>.Instance);
         return (handler, resolver, spawn);
     }
