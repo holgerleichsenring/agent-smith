@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.149.2](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.1...v0.149.2) (2026-09-25)
+
+
+### Bug Fixes
+
+* a search proves presence, not place, and a cut list proves no absence (2026-09-24-485e) ([62d0814](https://github.com/holgerleichsenring/agent-smith/commit/62d0814350993aa4eb73a163f644e0901c57e11b))
+* a search proves presence, not place, and a cut list proves no absence (2026-09-24-485e) ([a289264](https://github.com/holgerleichsenring/agent-smith/commit/a289264d98ba314b46e6163ade80fad61c87cc55))
+* the ticket's text reaches its readers, and one read stops proving absence ([03b29f2](https://github.com/holgerleichsenring/agent-smith/commit/03b29f27781f11927c223ec467906bf37e4ae11b))
+* the ticket's text reaches its readers, and one read stops proving absence (2026-09-24-b3c1, 2026-09-24-4f10) ([ea5bbd4](https://github.com/holgerleichsenring/agent-smith/commit/ea5bbd48f3a6491a3b57aad3e057bd96b27185cd))
+* the toolchain image builds what the project targets, and says who chose it ([dca15a0](https://github.com/holgerleichsenring/agent-smith/commit/dca15a01d63762abc2f862b5720907358f528869))
+* the toolchain image builds what the project targets, and says who chose it (2026-08-25-3804, 2026-09-24-7e4b) ([f596a31](https://github.com/holgerleichsenring/agent-smith/commit/f596a31571522125fc0d0484ea8c5af2facf82d0))
+* three defects behind one morning of hole-chasing (3907, 81ea, f962) ([35f8334](https://github.com/holgerleichsenring/agent-smith/commit/35f8334be7c9395648ec12d2f7c66d6ab03eabb4))
+* three defects behind one morning of hole-chasing (3907, 81ea, f962) ([2b7c9a5](https://github.com/holgerleichsenring/agent-smith/commit/2b7c9a5754d05a3870484eb57be070c33539de4a))
+
 ## [0.149.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.0...v0.149.1) (2026-09-24)
 
 
