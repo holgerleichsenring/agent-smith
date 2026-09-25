@@ -28,7 +28,7 @@ In the [dashboard](dashboard.md) a queued run is amber, shows "queued · #positi
 
 What a sandbox asks for is not one global number (p0320a):
 
-- **Code-changing pipelines** (fix-bug, add-feature, phase execution) use the repo's declared `stack.resources` from its `.agentsmith/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
+- **The code-changing pipeline** (`code`) uses the repo's declared `stack.resources` from its `.agentsmith/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
 - **Non-build pipelines** (init-project, scans, legal analysis, mad-discussion) get a light fixed profile. A security scan reads code; it doesn't need a build box.
 - The spawned orchestrator pod is sized separately and small (it runs the LLM loop, compiles nothing) — see the env values in `deploy/k8s/8-deployment-server.yaml`.
 

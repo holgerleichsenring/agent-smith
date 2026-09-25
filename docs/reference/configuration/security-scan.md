@@ -55,7 +55,7 @@ The auto-fix flow:
 2. Critical/High findings grouped by file and category
 3. If `confirm_before_fix: true`, the agent asks for approval via [Interactive Dialogue](../concepts/interactive-dialogue.md)
 4. Separate fix jobs spawn (K8s jobs or Docker containers)
-5. Each fix job runs the fix-bug pipeline with a security-specific system prompt
+5. Each fix job runs the `code` pipeline with a security-specific system prompt
 6. PRs are created with branch naming: `security-fix/cwe-{id}-{slug}`
 
 !!! warning "Auto-fix is opt-in"

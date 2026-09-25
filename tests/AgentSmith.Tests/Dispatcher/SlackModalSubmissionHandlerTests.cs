@@ -134,7 +134,7 @@ public sealed class SlackModalSubmissionHandlerTests
             It.Is<JobRequest>(r =>
                 r.InputCommand.Contains("#42") &&
                 r.Project == "my-project" &&
-                r.PipelineOverride == "fix-bug"),
+                r.PipelineOverride == "code"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -150,7 +150,7 @@ public sealed class SlackModalSubmissionHandlerTests
         await _sut.HandleAsync(payload, CancellationToken.None);
 
         _spawner.Verify(s => s.SpawnAsync(
-            It.Is<JobRequest>(r => r.PipelineOverride == "fix-no-test"),
+            It.Is<JobRequest>(r => r.PipelineOverride == "code"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -168,7 +168,7 @@ public sealed class SlackModalSubmissionHandlerTests
         _spawner.Verify(s => s.SpawnAsync(
             It.Is<JobRequest>(r =>
                 r.InputCommand.Contains("#58") &&
-                r.PipelineOverride == "add-feature"),
+                r.PipelineOverride == "code"),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

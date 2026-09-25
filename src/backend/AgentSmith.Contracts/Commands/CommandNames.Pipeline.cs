@@ -43,7 +43,7 @@ public static partial class CommandNames
     /// assume their install/restore ran first; <c>dotnet test</c> restores
     /// implicitly so dotnet repos can leave the command empty. Empty/missing
     /// command → step skips cleanly. Inserted only into the three
-    /// code-touching presets (fix-bug, fix-no-test, add-feature).</summary>
+    /// code-touching preset (code).</summary>
     public const string EnsurePrerequisites = "EnsurePrerequisitesCommand";
     public const string BootstrapProject = "BootstrapProjectCommand";
     public const string LoadCodeMap = "LoadCodeMapCommand";

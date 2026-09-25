@@ -16,19 +16,17 @@ public sealed class PipelineNameInitializerHandlerTests
         NullLogger<PipelineNameInitializerHandler>.Instance);
 
     [Fact]
-    public async Task ExecuteAsync_RetiredPipelineName_PublishesTheCanonicalName()
+    public async Task ExecuteAsync_RetiredPipelineName_ThrowsRatherThanPublishingIt()
     {
-        var pipeline = PipelineFor("fix-bug");
-        var context = new PipelineNameInitializerContext(pipeline);
+        // p0393 canonicalised a retired name to `code` here, because the run had genuinely
+        // been started under the alias. 2026-09-25-e5b1 deleted the alias map, so no run can
+        // reach this handler under one — and if one somehow did, the vocabulary refuses the
+        // word rather than letting every concept-keyed rule key off a name nothing declares.
+        var context = new PipelineNameInitializerContext(PipelineFor("fix-bug"));
 
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var act = async () => await _sut.ExecuteAsync(context, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        var concepts = RunStateConceptsTestFactory.Default(pipeline);
-        concepts.GetEnum("pipeline_name").Should().Be("code",
-            "p0393: an alias run executes `code`, so activation and every concept-keyed "
-            + "rule must see `code` — and the retired name is deliberately absent from the "
-            + "catalog vocabulary, so publishing it raw would throw");
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]

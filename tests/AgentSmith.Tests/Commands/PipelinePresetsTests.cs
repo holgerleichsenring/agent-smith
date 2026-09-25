@@ -6,10 +6,9 @@ namespace AgentSmith.Tests.Commands;
 public class PipelinePresetsTests
 {
     [Theory]
-    [InlineData("fix-bug")]
-    [InlineData("fix-no-test")]
+    [InlineData("code")]
     [InlineData("init-project")]
-    [InlineData("add-feature")]
+    [InlineData("security-scan")]
     public void TryResolve_KnownPreset_ReturnsCommands(string name)
     {
         var result = PipelinePresets.TryResolve(name);
@@ -24,10 +23,24 @@ public class PipelinePresetsTests
         PipelinePresets.TryResolve("nonexistent").Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("fix-bug")]
+    [InlineData("fix-no-test")]
+    [InlineData("add-feature")]
+    [InlineData("phase-execution")]
+    public void TryResolve_ARetiredName_ResolvesToNothing(string retired)
+    {
+        // 2026-09-25-e5b1: these four resolved to `code` through the alias map, and resolving
+        // is the ONE thing they did — every per-preset classification read the raw name. The
+        // map is gone, so they are unknown words like any other, and this is what says so.
+        PipelinePresets.TryResolve(retired).Should().BeNull();
+        PipelinePresets.IsAcceptedName(retired).Should().BeFalse();
+    }
+
     [Fact]
     public void TryResolve_CaseInsensitive()
     {
-        PipelinePresets.TryResolve("Fix-Bug").Should().NotBeNull();
+        PipelinePresets.TryResolve("Code").Should().NotBeNull();
         PipelinePresets.TryResolve("INIT-PROJECT").Should().NotBeNull();
     }
 

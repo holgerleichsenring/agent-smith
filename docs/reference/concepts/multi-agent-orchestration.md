@@ -20,12 +20,12 @@ A single skill may declare multiple supported roles (`roles_supported: [lead, an
 
 ## Phases
 
-Structured pipelines (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`) declare three phases.
+Structured pipelines (`code`, `security-scan`, `api-security-scan`) declare three phases.
 
 | Phase | Round # | Typical roles | What happens |
 |---|---|---|---|
 | `Plan` | 1 | Lead, Analysts | Lead emits a plan; analysts contribute perspective. |
-| `AgenticStep` | — | (no triage roles) | Developer agent writes code following the plan. Only in `fix-bug` / `add-feature`. |
+| `AgenticStep` | — | (no triage roles) | Developer agent writes code following the plan. Only in `code`. |
 | `Review` | 2 | Lead (sometimes), Reviewers | Reviewers compare diff against the plan via `{{plan}}` template token. |
 | `Final` | 3 | Filter | Reduces or synthesizes the run's output. |
 
@@ -74,7 +74,7 @@ The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` e
 
 | Pipeline | Shape today |
 |---|---|
-| `fix-bug`, `add-feature`, `fix-no-test` | Master-based: expectation → plan → approval → `coding-agent-master` executes and verifies in one loop (see [Methodology](../../how-it-works/methodology.md)) |
+| `code` | Master-based: expectation → plan → approval → `coding-agent-master` executes and verifies in one loop (see [Methodology](../../how-it-works/methodology.md)) |
 | `security-scan`, `api-security-scan` | Scan master + roles on a read-only surface; delivery = curated triage + uncovered High+ scanner facts |
 | `legal-analysis` | `legal-analyst-master` + specialist sub-agents |
 | `mad-discussion` | Perspective masters + `mad-synthesizer` |

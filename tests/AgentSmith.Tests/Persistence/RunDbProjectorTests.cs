@@ -52,7 +52,7 @@ public sealed class RunDbProjectorTests : IDisposable
 
     private static IReadOnlyList<RunEvent> SampleStream(string runId, DateTimeOffset t) => new RunEvent[]
     {
-        new RunStartedEvent(runId, "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+        new RunStartedEvent(runId, "ticket", "code", new[] { "primary" }, t, "claude", "42"),
         new TicketFetchedEvent(runId, "42", "Fix the bug", "desc", "Open", Array.Empty<string>(), 0, "github", t),
         new StepStartedEvent(runId, 0, "LoadCatalog", 14, t),
         new LlmCallFinishedEvent(runId, "gpt-4.1", "coding-agent", 1000, 200, 0.05m, 1200, t, "implementation", "primary"),
@@ -73,7 +73,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var run = await NewStore().GetRunDetailAsync("run-1", CancellationToken.None);
 
         run.Should().NotBeNull();
-        run!.Pipeline.Should().Be("fix-bug");
+        run!.Pipeline.Should().Be("code");
         run.Status.Should().Be("success");
         run.Summary.Should().Be("Fixed the bug");
         run.TicketTitle.Should().Be("Fix the bug");
@@ -92,7 +92,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var projector = NewProjector();
         var t = _clock.Now;
         await projector.ProjectAsync(
-            new RunStartedEvent("run-cache", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-cache", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
         await projector.ProjectAsync(
             new LlmCallFinishedEvent(
@@ -118,7 +118,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var t = _clock.Now;
         var projector = NewProjector();
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "api", "web" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "api", "web" }, t, "claude", "42"),
             CancellationToken.None);
         await projector.ProjectAsync(
             new SandboxCreatedEvent("run-1", "api", "dotnet:8", "csharp", t.AddMinutes(1), MemoryRequest: "1Gi"),
@@ -170,7 +170,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var projector = NewProjector();
         var t = _clock.Now;
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
         await projector.ProjectAsync(new SandboxCommandEvent("run-1", "primary", "dotnet", 4, t), CancellationToken.None);
         await projector.ProjectAsync(new SandboxCommandEvent("run-1", "primary", "git", 4, t), CancellationToken.None);
@@ -193,7 +193,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var projector = NewProjector();
         var t = _clock.Now;
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
 
         _clock.Now = t.AddMilliseconds(100); // younger than MaxBufferAge
@@ -210,7 +210,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var projector = NewProjector();
         var t = _clock.Now;
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
 
         (await NewStore().GetActiveRunsAsync(CancellationToken.None))
@@ -256,7 +256,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var t = _clock.Now;
         var projector = NewProjector();
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
         await projector.ProjectAsync(
             new RunCancelRequestedEvent("run-1", "operator", t), CancellationToken.None);
@@ -281,7 +281,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var t = _clock.Now;
         var projector = NewProjector();
         await projector.ProjectAsync(
-            new RunStartedEvent("run-1", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
         await projector.ProjectAsync(
             new RunCancelRequestedEvent("run-1", "operator", t), CancellationToken.None);
@@ -334,7 +334,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var t = _clock.Now;
         foreach (var ev in new AgentSmith.Contracts.Events.RunEvent[]
         {
-            new RunStartedEvent("run-pr", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-pr", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             new PullRequestOutcomeEvent("run-pr", "primary", "opened", t, "https://pr/7"),
         })
             await projector.ProjectAsync(Deliver(ev), CancellationToken.None);
@@ -353,7 +353,7 @@ public sealed class RunDbProjectorTests : IDisposable
         var t = _clock.Now;
         foreach (var ev in new AgentSmith.Contracts.Events.RunEvent[]
         {
-            new RunStartedEvent("run-ignored", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-ignored", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             new TicketInstructionIgnoredEvent(
                 "run-ignored", "drop the production database", "destructive instruction", t),
         })

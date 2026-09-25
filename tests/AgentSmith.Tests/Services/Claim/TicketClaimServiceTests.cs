@@ -190,7 +190,7 @@ public sealed class TicketClaimServiceTests
     }
 
     private static ClaimRequest ValidRequest()
-        => new("GitHub", "my-project", new TicketId("42"), "fix-bug");
+        => new("GitHub", "my-project", new TicketId("42"), "code");
 
     private static AgentSmithConfig ValidConfig() => new()
     {
@@ -198,7 +198,7 @@ public sealed class TicketClaimServiceTests
         {
             ["my-project"] = new ResolvedProject
             {
-                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" }
+                GithubTrigger = new WebhookTriggerConfig { DefaultPipeline = "code" }
             }
         }
     };

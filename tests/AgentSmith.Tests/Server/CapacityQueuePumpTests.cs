@@ -50,13 +50,13 @@ public sealed class CapacityQueuePumpTests : IDisposable
 
         harness.LastClaim.Should().NotBeNull();
         harness.LastClaim!.ExistingRunId.Should().Be(reserved);
-        harness.LastClaim.PipelineName.Should().Be("fix-bug");
+        harness.LastClaim.PipelineName.Should().Be("code");
         using (var ctx = new AgentSmithDbContext(Options()))
             ctx.QueuedTickets.Should().BeEmpty("the launched head leaves the queue");
 
         // The launched run starts on the SAME id — the queued row becomes running.
         await ApplyAsync(new RunStartedEvent(
-            reserved, "ticket", "fix-bug", ["repo-a"], DateTimeOffset.UtcNow,
+            reserved, "ticket", "code", ["repo-a"], DateTimeOffset.UtcNow,
             "claude", "42", Project: "p1", Platform: "github"));
         using var check = new AgentSmithDbContext(Options());
         var run = check.Runs.Single();
@@ -337,7 +337,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
 
         public Task<string> EnqueueAsync(string ticketId) =>
             _queue.EnqueueAsync(new CapacityQueueCandidate(
-                "p1", ticketId, "fix-bug", "github",
+                "p1", ticketId, "code", "github",
                 AgentSmith.Application.Services.RunIdGenerator.Generate(DateTimeOffset.UtcNow),
                 "waiting for sandbox capacity", ["repo-a"],
                 InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);

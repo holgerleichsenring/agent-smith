@@ -53,7 +53,7 @@ public sealed class EnqueuedReconcilerTests
     public async Task RecordForAProjectTheConfigDoesNotKnow_IsNotReEnqueued()
     {
         var harness = new Harness();
-        await harness.Taken.TakeAsync(new TakenTicketFact("gone", "42", "github", "fix-bug"), default);
+        await harness.Taken.TakeAsync(new TakenTicketFact("gone", "42", "github", "code"), default);
 
         await harness.BuildSut().RunAsync(OnePass());
 
@@ -112,11 +112,11 @@ public sealed class EnqueuedReconcilerTests
         public Harness() =>
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
-                Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "fix-bug" } }
+                Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "code" } }
             });
 
         public Task TakeTicketAsync(string id) =>
-            Taken.TakeAsync(new TakenTicketFact("proj", id, "github", "fix-bug"), default);
+            Taken.TakeAsync(new TakenTicketFact("proj", id, "github", "code"), default);
 
         public EnqueuedReconciler BuildSut() => new(
             Lease.Object, JobQueue.Object, Taken, ConfigLoader.Object,

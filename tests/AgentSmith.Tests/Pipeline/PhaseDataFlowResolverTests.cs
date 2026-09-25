@@ -9,10 +9,10 @@ public sealed class PhaseDataFlowResolverTests
     [Fact]
     public void Resolve_KnownPreset_ReturnsRegisteredFlow()
     {
-        var flow = new TestFlow("fix-bug");
+        var flow = new TestFlow("code");
         var resolver = new PhaseDataFlowResolver(new[] { flow });
 
-        resolver.Resolve("fix-bug").Should().BeSameAs(flow);
+        resolver.Resolve("code").Should().BeSameAs(flow);
     }
 
     [Fact]
@@ -26,10 +26,10 @@ public sealed class PhaseDataFlowResolverTests
     [Fact]
     public void Resolve_IsCaseInsensitive()
     {
-        var flow = new TestFlow("Fix-Bug");
+        var flow = new TestFlow("Code");
         var resolver = new PhaseDataFlowResolver(new[] { flow });
 
-        resolver.Resolve("fix-bug").Should().BeSameAs(flow);
+        resolver.Resolve("code").Should().BeSameAs(flow);
     }
 
     private sealed class TestFlow(string name) : IPhaseDataFlow

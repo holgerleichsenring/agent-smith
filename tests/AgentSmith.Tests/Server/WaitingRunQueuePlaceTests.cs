@@ -191,7 +191,7 @@ public sealed class WaitingRunQueuePlaceTests : IDisposable
 
     private Task<string> EnqueueResumeAsync(string ticketId, string runId) =>
         _queue.EnqueueAsync(new CapacityQueueCandidate(
-            Project, ticketId, "fix-bug", "github", runId, "resuming after an answer",
+            Project, ticketId, "code", "github", runId, "resuming after an answer",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null, IsResume: true),
             CancellationToken.None);
 
@@ -200,7 +200,7 @@ public sealed class WaitingRunQueuePlaceTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = Project, Pipeline = "fix-bug", TicketId = ticketId,
+            Id = runId, Project = Project, Pipeline = "code", TicketId = ticketId,
             Status = status, StartedAt = DateTimeOffset.UtcNow,
             FinishedAt = finished ? DateTimeOffset.UtcNow : null,
         });

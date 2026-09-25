@@ -36,7 +36,7 @@ public sealed class RunMetricsServedTests : IDisposable
     {
         const string runId = "2026-07-22T10-00-00-0001";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(runId, "ticket", "code", ["primary"], T, "claude", "42"),
             new LlmCallFinishedEvent(runId, "m", "coder", 2000, 10, 0.02m, 1500, T, ThrottleWaitMs: 400),
             new SandboxResultEvent(runId, "primary", "ReadFile", 0, 50, T, Summary: "src/A.cs", ContentHash: "h1"),
             new SandboxResultEvent(runId, "primary", "ReadFile", 0, 40, T, Summary: "src/A.cs", ContentHash: "h1"),
@@ -68,7 +68,7 @@ public sealed class RunMetricsServedTests : IDisposable
     {
         const string runId = "2026-07-22T10-00-00-0002";
         await ApplyAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", ["primary"], T),
+            new RunStartedEvent(runId, "ticket", "code", ["primary"], T),
             new RunFinishedEvent(runId, "success", null, "done", T.AddMinutes(1)));
 
         var run = await new RunRepository(new AgentSmithDbContext(Options()))

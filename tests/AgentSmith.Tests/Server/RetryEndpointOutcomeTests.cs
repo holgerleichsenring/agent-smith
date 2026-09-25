@@ -36,7 +36,7 @@ public sealed class RetryEndpointOutcomeTests : IDisposable
         ctx.Database.Migrate();
         ctx.Runs.Add(new Run
         {
-            Id = RunId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = RunId, Project = "p1", Pipeline = "code", TicketId = "42",
             Status = "failed", StartedAt = DateTimeOffset.UtcNow,
         });
         ctx.SaveChanges();
@@ -96,7 +96,7 @@ public sealed class RetryEndpointOutcomeTests : IDisposable
                 Tracker = new TrackerConnection { Name = "tracker-a", Type = TrackerType.GitHub },
                 GithubTrigger = new WebhookTriggerConfig
                 {
-                    DefaultPipeline = "fix-bug", TriggerStatuses = ["Approved"], DoneStatus = "closed",
+                    DefaultPipeline = "code", TriggerStatuses = ["Approved"], DoneStatus = "closed",
                 },
             },
         },

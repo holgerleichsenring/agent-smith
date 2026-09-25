@@ -137,9 +137,9 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
                 TicketFinalizeOutcome.TrackerRejectedTheStatus), CancellationToken.None);
         await RecordUnmovedAsync();
 
-        var unknownProject = await ClaimAsync(Request("ghost", "fix-bug"));
+        var unknownProject = await ClaimAsync(Request("ghost", "code"));
         var unknownPipeline = await ClaimAsync(Request(Project, "no-such-pipeline"));
-        var unmoved = await ClaimAsync(Request(Project, "fix-bug"));
+        var unmoved = await ClaimAsync(Request(Project, "code"));
 
         unknownProject.Rejection.Should().Be(ClaimRejectionReason.UnknownProject,
             "the config pre-check runs first, before the gate reads the project by name");
@@ -150,11 +150,11 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
     private Task<ClaimResult> ClaimAsync(ClaimRequest request) =>
         ClaimService().ClaimAsync(request, Config(), CancellationToken.None);
 
-    private Task<SpawnResult> SpawnAsync(string pipelineName = "fix-bug") =>
+    private Task<SpawnResult> SpawnAsync(string pipelineName = "code") =>
         Funnel().ExecuteAsync(
             Config(), Config().Projects[Project], pipelineName,
             new IncomingTicketEnvelope { TicketId = Ticket, Platform = "github" },
-            new WebhookTriggerConfig { DefaultPipeline = "fix-bug" },
+            new WebhookTriggerConfig { DefaultPipeline = "code" },
             CancellationToken.None);
 
     private Task RecordUnmovedAsync() => _store.RecordAsync(
@@ -235,7 +235,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
                 Tracker = new TrackerConnection { Name = Tracker, Type = TrackerType.GitHub },
                 GithubTrigger = new WebhookTriggerConfig
                 {
-                    DefaultPipeline = "fix-bug", TriggerStatuses = ["Approved"], DoneStatus = "closed",
+                    DefaultPipeline = "code", TriggerStatuses = ["Approved"], DoneStatus = "closed",
                 },
             },
         },

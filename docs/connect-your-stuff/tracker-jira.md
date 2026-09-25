@@ -67,8 +67,8 @@ projects:
       done_status: Done
       pipeline_from_label:
         agent-smith-init:               init-project
-        agent-smith-bug:                fix-bug
-        agent-smith-feature:            add-feature
+        agent-smith-bug:                code
+        agent-smith-feature:            code
         agent-smith-security-scan:      security-scan
 
 secrets:

@@ -10,8 +10,8 @@ Agent Smith can be triggered and controlled directly from pull request comments.
 Write a comment on any PR to start a pipeline:
 
 ```
-/agent-smith fix                         # fix-bug pipeline for this PR
-/agent-smith fix #123 in my-api          # fix-bug for a specific ticket
+/agent-smith fix                         # code pipeline for this PR
+/agent-smith fix #123 in my-api          # code pipeline for a specific ticket
 /agent-smith security-scan               # security scan for this PR
 /agent-smith review                      # PR review pipeline
 /agent-smith help                        # list available commands
@@ -71,7 +71,7 @@ projects:
       enabled: true
       require_member: true         # only repo members can issue commands
       allowed_pipelines:           # restrict which pipelines can be started
-        - fix-bug
+        - code
         - security-scan
         - pr-review
 ```

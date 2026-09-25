@@ -35,9 +35,7 @@ public static partial class PipelinePresets
         Routable = [.. Names.Where(n => !NeedsHostSuppliedContext.Contains(n))];
     }
 
-    public static IReadOnlyList<string>? TryResolve(string name) =>
-        All.GetValueOrDefault(name)
-        ?? (PresetAliases.TryGetValue(name, out var target) ? All.GetValueOrDefault(target) : null);
+    public static IReadOnlyList<string>? TryResolve(string name) => All.GetValueOrDefault(name);
 
     private static readonly Dictionary<string, PipelineType> PipelineTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -57,7 +55,7 @@ public static partial class PipelinePresets
     /// Returns the pipeline interaction type. Defaults to Discussion for unknown pipelines.
     /// </summary>
     public static PipelineType GetPipelineType(string pipelineName) =>
-        PipelineTypes.GetValueOrDefault(Canonical(pipelineName), PipelineType.Discussion);
+        PipelineTypes.GetValueOrDefault(pipelineName, PipelineType.Discussion);
 
     // p0241: the keystone keys "is this a code-changing run?" / "must its tests be
     // green?" off an explicit allow-list, NOT off PipelineType (an interaction-
@@ -78,7 +76,7 @@ public static partial class PipelinePresets
     /// sized for building.
     /// </summary>
     public static bool ExpectsCodeChanges(string pipelineName) =>
-        CodeChangingPresets.Contains(Canonical(pipelineName));
+        CodeChangingPresets.Contains(pipelineName);
 
     /// <summary>
     /// p0312a: every pipeline resolves its skills from the catalog root, because
@@ -98,45 +96,20 @@ public static partial class PipelinePresets
 
     /// <summary>2026-09-16-a4d7: what a ticket runs when neither the tracker nor the project's
     /// trigger declares a fallback. PipelineResolver is the only place that ANSWERS with it; the
-    /// name lives here so the studio's draft rules can report it across the assembly boundary.</summary>
-    public const string UndeclaredFallbackPipeline = "fix-bug";
+    /// name lives here so the studio's draft rules can report it across the assembly boundary.
+    /// 2026-09-25-e5b1: it is the code preset itself now — it was the alias `fix-bug`, which is
+    /// the same pipeline said in a word that no longer resolves.</summary>
+    public const string UndeclaredFallbackPipeline = CodeName;
 
     /// <summary>
-    /// p0393: preset names that RESOLVE to another preset. An operator configuration
-    /// naming one keeps working and logs the replacement — renaming by alias rather than
-    /// by breaking configuration, because preset names live in triggers (default_pipeline)
-    /// and projects that agent-smith does not own.
+    /// Every name a CONFIGURATION may legitimately carry. 2026-09-25-e5b1: that is now exactly
+    /// the presets — a retired name is no longer accepted anywhere, and a configuration still
+    /// carrying one is reported by <c>RoutingPipelineNames</c> with the name that replaced it.
+    /// Distinct from <see cref="Names"/> only in what it is ASKED: this is what may be stored,
+    /// <see cref="Routable"/> is what a ticket may be routed to, and <see cref="Names"/> is what
+    /// the studio offers.
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> PresetAliases =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            [UndeclaredFallbackPipeline] = CodeName,
-            ["fix-no-test"] = CodeName,
-            ["add-feature"] = CodeName,
-            [PhaseExecutionName] = CodeName,
-        };
-
-    /// <summary>The preset an alias resolves to, or null when the name is not an alias.</summary>
-    public static string? ResolveAlias(string pipelineName) =>
-        PresetAliases.GetValueOrDefault(pipelineName);
-
-    /// <summary>
-    /// The canonical preset name: an alias resolved to its target, anything else unchanged.
-    /// EVERY per-preset classification goes through this. Resolving the command list while
-    /// classifying the raw name would make an alias half-real — the run would execute `code`
-    /// but be sized as a non-code pipeline and judged by a keystone that expects no diff,
-    /// which is worse than not aliasing at all.
-    /// </summary>
-    public static string Canonical(string pipelineName) =>
-        PresetAliases.GetValueOrDefault(pipelineName, pipelineName);
-
-    /// <summary>
-    /// Every name a CONFIGURATION may legitimately carry: the current presets plus the
-    /// retired aliases. Distinct from <see cref="Names"/>, which is what agent-smith
-    /// OFFERS — an alias must keep validating and must not be presented as a choice.
-    /// </summary>
-    public static bool IsAcceptedName(string pipelineName) =>
-        All.ContainsKey(pipelineName) || PresetAliases.ContainsKey(pipelineName);
+    public static bool IsAcceptedName(string pipelineName) => All.ContainsKey(pipelineName);
 
     /// <summary>
     /// p0312a: presets that were removed rather than renamed, with the reason a

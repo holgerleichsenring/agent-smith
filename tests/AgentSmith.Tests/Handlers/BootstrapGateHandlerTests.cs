@@ -19,7 +19,7 @@ public sealed class BootstrapGateHandlerTests
     [Fact]
     public async Task ExecuteAsync_BothFilesPresent_ReturnsOk()
     {
-        var pipeline = PipelineFor("fix-bug",
+        var pipeline = PipelineFor("code",
             contextYamlPresent: true, codingPrinciplesPresent: true);
 
         var result = await _sut.ExecuteAsync(new BootstrapGateContext(pipeline), CancellationToken.None);
@@ -30,7 +30,7 @@ public sealed class BootstrapGateHandlerTests
     [Fact]
     public async Task ExecuteAsync_ContextYamlMissing_ReturnsFailWithStructuredMessage()
     {
-        var pipeline = PipelineFor("fix-bug",
+        var pipeline = PipelineFor("code",
             contextYamlPresent: false, codingPrinciplesPresent: true);
 
         var result = await _sut.ExecuteAsync(new BootstrapGateContext(pipeline), CancellationToken.None);

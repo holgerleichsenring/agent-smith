@@ -41,7 +41,7 @@ public sealed class EpicParentRoutingTests
             Config(pipelineFromLabel: null), Envelope(FiledTicketLabels.ApprovedSetStamp));
 
         matches.Should().ContainSingle().Which.PipelineName
-            .Should().Be(PipelinePresets.PhaseExecutionName);
+            .Should().Be(PipelinePresets.CodeName);
     }
 
     [Fact]

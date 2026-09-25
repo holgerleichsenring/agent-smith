@@ -28,12 +28,13 @@ public sealed class PipelineMasterRoutingTests
         PipelinePresets.MasterFor(pipeline).Should().Be(master);
 
     [Fact]
-    public void MasterFor_CodeAndItsAliases_ResolveTheCodingMaster()
+    public void MasterFor_Code_ResolvesTheCodingMaster()
     {
+        // 2026-09-25-e5b1: the four retired names used to be asserted here too, through the
+        // alias map. They resolve to nothing now, which the fallback below covers — and what
+        // a configuration still naming one should say is the startup finding's job, not this
+        // table's.
         PipelinePresets.MasterFor(PipelinePresets.CodeName).Should().Be(PipelinePresets.CodingMaster);
-        foreach (var alias in PipelinePresets.PresetAliases.Keys)
-            PipelinePresets.MasterFor(alias).Should().Be(PipelinePresets.CodingMaster,
-                $"alias '{alias}' runs the code preset, so it runs the code preset's master");
     }
 
     [Fact]
