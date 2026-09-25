@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-f4b7
+goal: "A ticket filed before the framework marked its own region can be adopted into one — by asking the person, once, never by inferring where their prose ends."
+
+applies_to: "backend (the amendment path and the design turn that offers it)"
+
+scope:
+  in: "Offering, on a ticket that carries no marker pair, to ADOPT it: the framework renders its region from the approved set and the person says what of the existing body is theirs to keep. One question, one answer, and the markers exist from then on."
+  out: "Inferring the boundary. Every ticket this framework ever filed ends its body with a label note between markers, and 'everything above that is ours' is exactly the heuristic over operator text this repository refuses elsewhere — it would delete a sentence somebody added under the requirement and call it bookkeeping."
+
+decisions:
+  - key: |
+      2026-09-25-8e51e SHIPPED THE AMENDMENT AND REFUSED THE COMMON CASE, ON PURPOSE. It replaces
+      the framework's own marked region and leaves everything else; a ticket with no markers has no
+      region to replace, so it is refused with that reason rather than rewritten on a guess. Every
+      ticket filed before that phase is in exactly that state, which makes congruence a property
+      that starts now rather than one that reaches backwards.
+  - key: |
+      THE BOUNDARY IS ASKED FOR, BECAUSE IT CANNOT BE DERIVED AND MUST NOT BE GUESSED. The body of a
+      filed ticket is goal, why, scope, acceptance criteria, preconditions and a label note — and
+      then whatever a person has since typed into it, anywhere. A rule that claims a prefix would
+      delete their sentence; a rule that claims nothing leaves the ticket unamendable for ever. So
+      the conversation shows what it would write and asks what of the current body to keep beside
+      it. The person answers once and the markers exist from then on.
+  - key: |
+      ADOPTION IS AN AMENDMENT, NOT A SECOND MECHANISM. It goes through the same rewrite, the same
+      record write, the same branch re-publish and the same refusals — a run that has taken the
+      ticket still blocks it, and Jira still cannot carry it. What it adds is the one question, and
+      the markers it leaves behind.
+  - key: |
+      A TICKET NOBODY ADOPTS STAYS UNAMENDABLE, AND THAT IS AN ACCEPTABLE RESTING STATE. The
+      conversation still reads it, still discusses it, still files new work from it. Only the
+      rewrite is withheld, and the reason is on screen rather than in a log.
+
+steps:
+  - id: an-unmarked-ticket-is-offered-adoption
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "On a bound ticket with no marker pair, offer adoption instead of refusing outright, carrying what the framework would write and the body as it stands."
+
+  - id: the-person-says-what-is-theirs
+    path: "src/backend/AgentSmith.Application/Services"
+    action:
+      - "Put the two side by side in the turn and ask which of the current body to keep beside the framework's region — one question, answered once."
+
+  - id: adoption-writes-the-markers
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Write the answered body with the framework's region inside its marker pair, through the same rewrite, refusals and record write an amendment already uses."
+
+  - id: the-adoption-is-pinned
+    path: "tests"
+    action: "Assert an unmarked ticket is offered adoption and not rewritten, that an unanswered offer writes nothing, and that an adopted ticket amends normally afterwards."
+
+tests:
+  - "Adoption_AnUnmarkedTicket_IsOfferedAdoptionRatherThanRefused"
+  - "Adoption_AnOfferNobodyAnswered_WritesNothing"
+  - "Adoption_AnAdoptedTicket_AmendsNormallyAfterwards"
+  - "Adoption_ATicketHeldByARunThatTookIt_IsStillRefused"
+  - "Adoption_OnJira_IsStillUnsupported"
+  - "Adoption_NoBoundaryIsEverInferred_FromTheLabelNotesPosition"
+
+done:
+  - "a ticket filed before the markers existed can be amended after one question"
+  - "no rewrite ever infers where a person's prose begins"
+  - "an unanswered offer leaves the ticket exactly as it was"
+  - "an adopted ticket is congruent with its approved specification from then on"
+  - "build green, full suite green"
