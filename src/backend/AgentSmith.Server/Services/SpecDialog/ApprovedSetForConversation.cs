@@ -1,5 +1,3 @@
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -19,9 +17,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class ApprovedSetForConversation(
     SpecDialogSessionRepository sessions,
-    SpecDialogTicketTextRepository ticketText,
-    ISpecApprovalStore approvals,
-    IConfigurationLoader configLoader)
+    ISpecApprovalStore approvals)
 {
     public async Task<ApprovedSetView?> ForAsync(string dialogId, CancellationToken ct)
     {

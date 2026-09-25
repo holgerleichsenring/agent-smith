@@ -568,9 +568,7 @@ public sealed class FiledWorkReadTests : IDisposable
             // approved set to show, and the reader asks for one either way.
             new ApprovedSetForConversation(
                 new SpecDialogSessionRepository(ctx),
-                new SpecDialogTicketTextRepository(ctx),
-                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore(),
-                new Moq.Mock<AgentSmith.Contracts.Services.IConfigurationLoader>().Object));
+                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore()));
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

@@ -76,10 +76,7 @@ public sealed class ApprovedSetInThePaneTests : IDisposable
     }
 
     private ApprovedSetForConversation Sut() => new(
-        new SpecDialogSessionRepository(_context),
-        new SpecDialogTicketTextRepository(_context),
-        _approvals,
-        new Mock<IConfigurationLoader>().Object);
+        new SpecDialogSessionRepository(_context), _approvals);
 
     private Task BindAsync(string? ticketKey) =>
         new SpecDialogSessionRepository(_context).AddAsync(
