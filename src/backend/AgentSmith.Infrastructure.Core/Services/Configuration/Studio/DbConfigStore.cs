@@ -58,6 +58,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public void UpsertTracker(TrackerEntity entity, ChangeAttribution by) => Mutate(() =>
     {
         ConfigStudioCapabilities.ValidateTracker(entity);
+        RoutingWordCollisionRule.ValidateTracker(entity, _catalog);
         Save(ConfigDocTypes.Tracker, entity.Id, RawConfigPatch.Tracker(entity, Existing(_document!.Trackers, entity.Id)), by);
     });
 
@@ -68,6 +69,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     {
         ConfigReferentialValidator.ValidateProject(entity, _catalog);
         ConfigStudioCapabilities.ValidateProjectResolution(entity);
+        RoutingWordCollisionRule.ValidateProject(entity, _catalog);
         Save(ConfigDocTypes.Project, entity.Id, RawProjectPatch.Apply(entity, Existing(_document!.Projects, entity.Id)), by);
     });
 
@@ -130,8 +132,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
         docStore.Save(new ConfigDocWrite(type, id, doc, expected, edges, by.Actor));
     }
 
-    private void Delete(string type, string id, ChangeAttribution by) => Mutate(() =>
-        docStore.Delete(type, id, by.Actor));
+    private void Delete(string type, string id, ChangeAttribution by) => Mutate(() => docStore.Delete(type, id, by.Actor));
 
     private void Mutate(Action mutation)
     {
@@ -156,6 +157,5 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
         if (_document is null) Reload();
     }
 
-    private static T? Existing<T>(IReadOnlyDictionary<string, T> map, string id) where T : class =>
-        map.GetValueOrDefault(id);
+    private static T? Existing<T>(IReadOnlyDictionary<string, T> map, string id) where T : class => map.GetValueOrDefault(id);
 }
