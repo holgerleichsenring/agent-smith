@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-9c4d
+goal: "The installation page names the build actually running, or says it was not stated — never a revision frozen into a file a year of commits ago."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      MEASURED, NOT SUSPECTED. The locally running server reports serverRelease 0.144.1 and
+      serverRevision 415bde74, which is PR #571 from 2026-08-27 — 496 commits behind main. Its
+      image was built today, minutes before the reading. The container's own environment carries
+      those values, so nothing downstream is at fault: they were passed in.
+  - key: |
+      THE VALUE IS FROZEN IN THE COMPOSE FILE, AND THE COMMENT ABOVE IT EXPLAINS WHY. deploy/
+      docker-compose.yml passes AGENTSMITH_BUILD_REVISION as a LITERAL sha, with no variable and
+      no expansion, under a comment saying "the publish workflow sets them; a local compose build
+      has to pass them too". The gap was real; the answer taken was to write one sha into the
+      file. Every local build since has stamped 2026-08-27.
+  - key: |
+      THIS IS THE QUESTION THE WHOLE OPERATION KEEPS ASKING. "Is the fix actually deployed?" is
+      the single most repeated question of a debugging session, and the endpoint built to answer
+      it has been answering confidently and wrongly. An honest "not stated by this build" costs
+      one rebuild to resolve; a stale sha costs a whole round of chasing a defect that was
+      already fixed.
+  - key: |
+      DERIVE IT, DO NOT DEFAULT IT. The revision is a fact about the tree being built, so the
+      build reads it from the tree rather than from a literal somebody must remember to bump.
+      When it cannot be read — a source drop with no git metadata — the value is ABSENT and the
+      page says so, which the response shape already supports. A wrong answer is worse than no
+      answer, and that is the whole phase.
+  - key: |
+      THE RELEASE VERSION HAS THE SAME SHAPE AND IS FIXED THE SAME WAY. It reads
+      ${AGENTSMITH_VERSION:-0.144.1}: an operator who never sets the variable is told a version
+      that was current in August. The default becomes absent rather than a number, so an
+      unstamped build is visibly unstamped.
+  - key: |
+      THE EXISTING TEST GUARDS THE HALF THAT WAS ALREADY RIGHT. BuildIdentityStampingTests checks
+      that the Dockerfiles declare the ARG and that the PUBLISH WORKFLOW passes the git sha.
+      Nothing looks at the compose file, which is where the literal lives — so the suite stayed
+      green while every local build was mis-stamped. The rule is extended to the file that
+      actually builds the operator's image.
+
+steps:
+  - id: the-compose-build-stamps-the-tree-it-builds
+    path: "deploy"
+    action:
+      - "Pass the revision from the environment with no literal fallback, for every image the file builds."
+      - "Do the same for the release version, so an unset variable renders as unstamped rather than as a stale number."
+    modify:
+      - "deploy/docker-compose.yml"
+      - "deploy/docker-compose.example.yml"
+
+  - id: a-build-with-nothing-to-say-says-nothing
+    path: "src/backend/AgentSmith.Server"
+    action: "Confirm an absent stamp renders as not-stated end to end, rather than as an empty string a reader mistakes for a value."
+    modify:
+      - "src/backend/AgentSmith.Server/Models/InstallationIdentityResponse.cs"
+
+  - id: the-rule-covers-the-file-that-builds-the-image
+    path: "tests/AgentSmith.Tests/Architecture"
+    action: "Assert no compose build passes a literal revision or release version, and that both are taken from the environment."
+    modify:
+      - "tests/AgentSmith.Tests/Architecture/BuildIdentityStampingTests.cs"
+
+tests:
+  - "Compose_TheBuildArgs_CarryNoLiteralRevision"
+  - "Compose_TheBuildArgs_TakeTheRevisionFromTheEnvironment"
+  - "Compose_TheReleaseVersion_HasNoStaleDefault"
+  - "Installation_ABuildThatStatedNothing_SaysSoRatherThanShowingAnEmptyValue"
+
+done:
+  - "a locally built image reports the sha it was built from"
+  - "a build that stated no identity says so instead of naming an old one"
+  - "the rule test fails if a literal is ever written back into a compose build"
