@@ -57,6 +57,11 @@ const watchFiledWork = vi.fn(async () => async () => {});
 // the conversations page. The search params are a ref so a case can set them before rendering,
 // and the replace that strikes the parameter afterwards is observable.
 const searchParams = { current: new URLSearchParams() };
+// 2026-09-25-8e51b: what the server answers for a ticket — which conversation it has, and the
+// dialog a running one is living on.
+const readTicketConversation = vi.fn();
+// 2026-09-25-8e51a: the ticket alone — what its own routing names.
+const readTicketProject = vi.fn();
 const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
@@ -99,8 +104,15 @@ vi.mock("@/lib/specDialogApi", () => ({
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: (limit?: number) => fetchSpecDialogConversations(limit),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
-  postSpecDialogMessage: (dialogId: string, text: string, project?: string) =>
-    postSpecDialogMessage(dialogId, text, project),
+  // 2026-09-25-8e51b: the binding is passed on only when there IS one, so every case that
+  // predates it still asserts the three-argument call it always made.
+  postSpecDialogMessage: (dialogId: string, text: string, project?: string, ticketId?: string) =>
+    ticketId === undefined
+      ? postSpecDialogMessage(dialogId, text, project)
+      : postSpecDialogMessage(dialogId, text, project, ticketId),
+  readTicketConversation: (project: string, ticketId: string) =>
+    readTicketConversation(project, ticketId),
+  readTicketProject: (ticketId: string) => readTicketProject(ticketId),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
     resumeSpecDialogConversation(sessionId, dialogId),
@@ -3622,5 +3634,136 @@ describe("Inspecting reaches the pane", () => {
     await renderSurface();
 
     expect(screen.getByRole("tabpanel")).toHaveAttribute("tabindex", "-1");
+  });
+});
+
+describe("a page addressed with a ticket", () => {
+  // 2026-09-25-8e51b: a ticket has ONE conversation, so the page asks which one rather than
+  // opening a second — and it needs the DIALOG id of a running one, because that is the only
+  // thing that sends it to a live conversation instead of queueing a resume the server refuses.
+  beforeEach(() => {
+    readTicketConversation.mockReset();
+    readTicketConversation.mockResolvedValue(null);
+    searchParams.current = new URLSearchParams("ticket=DPG-1239&project=sample");
+  });
+
+  // The address is a module-level ref shared with every other case in this file, so it is put
+  // back — a suite that leaks one is a suite whose order decides its result.
+  afterEach(() => {
+    searchParams.current = new URLSearchParams();
+    readTicketConversation.mockReset();
+    readTicketProject.mockReset();
+  });
+
+  it("goes to the conversation the ticket already has", async () => {
+    readTicketConversation.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      sessionId: "s-42",
+      openDialogId: "d-42",
+    });
+
+    await renderSurface();
+
+    // An OPEN conversation is GONE TO, not resumed — a resume is refused while a turn runs, which
+    // is exactly why the server answers with the dialog id a running one is living on.
+    await waitFor(() => expect(readTicketConversation).toHaveBeenCalledWith("sample", "DPG-1239"));
+    await waitFor(() => expect(heldDialogId()).toBe("d-42"));
+    expect(resumeSpecDialogConversation).not.toHaveBeenCalled();
+  });
+
+  it("carries the ticket on the first message when it has no conversation yet", async () => {
+    readTicketConversation.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+    await waitFor(() => expect(readTicketConversation).toHaveBeenCalled());
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "let us work it out" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.anything(),
+        "let us work it out",
+        "sample",
+        "DPG-1239",
+      ),
+    );
+  });
+});
+
+describe("a page addressed with a ticket and no project", () => {
+  // 2026-09-25-8e51a: the TICKET names the project, from its own routing on its own tracker.
+  beforeEach(() => {
+    readTicketProject.mockReset();
+    searchParams.current = new URLSearchParams("ticket=DPG-1239");
+  });
+
+  afterEach(() => {
+    searchParams.current = new URLSearchParams();
+    readTicketProject.mockReset();
+  });
+
+  it("uses the one project the ticket names", async () => {
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: ["sample"],
+      unanswerable: [],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+    await waitFor(() => expect(readTicketProject).toHaveBeenCalledWith("DPG-1239"));
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "work it out" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.anything(),
+        "work it out",
+        "sample",
+        "DPG-1239",
+      ),
+    );
+  });
+
+  it("says why when a project could not be answered for from a ticket", async () => {
+    // Two configured projects, or there is no choice to make and no reason to give one.
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: [],
+      unanswerable: ["beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    // A project routed by area path is not the operator's configuration being wrong — a ticket
+    // read by its id simply cannot carry one.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-project-choice-reason").textContent).toContain(
+        "routes by area path",
+      ),
+    );
   });
 });

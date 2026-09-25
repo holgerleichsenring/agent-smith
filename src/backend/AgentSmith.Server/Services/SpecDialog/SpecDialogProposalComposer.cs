@@ -63,7 +63,9 @@ public sealed class SpecDialogProposalComposer(
     private IReadOnlyList<SpecDialogPhaseView> Order(EpicOutcome epic) =>
         [.. orderer.Order(epic.Children).Children.Select(View)];
 
-    private static SpecDialogPhaseView View(PhaseDraft draft) => new(
+    /// <summary>2026-09-25-8e51d: shared, because the approved set is drawn in the same shape the
+    /// proposal is — one phase view, one TypeScript mirror, one thing to keep in step.</summary>
+    internal static SpecDialogPhaseView View(PhaseDraft draft) => new(
         draft.PhaseId, draft.Goal,
         [.. draft.Steps.Select(step => step.Action)],
         draft.Tests, draft.Done, draft.Requires, draft.Yaml);

@@ -12,10 +12,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class FiledWorkWatch(
-    SpecDialogOwnership ownership, FiledWorkFiling filing, FiledWorkWatchRegistry registry)
+    SpecDialogOwnership ownership,
+    FiledWorkFiling filing,
+    FiledWorkBoundTicket bound,
+    FiledWorkWatchRegistry registry)
 {
     /// <summary>
-    /// Registers this connection for what the dialog's session last filed. Throws for a dialog
+    /// Registers this connection for what the dialog's session is following. Throws for a dialog
     /// belonging to another principal: a browser-minted dialog id is no boundary, and this is
     /// the surface that follows real runs.
     /// </summary>
@@ -26,6 +29,20 @@ public sealed class FiledWorkWatch(
         if (!await ownership.MayWatchAsync(dialogId, owner, context.ConnectionAborted))
             throw new HubException($"Spec dialog '{dialogId}' belongs to another principal.");
         registry.Watch(
-            context.ConnectionId, await filing.TicketIdsAsync(dialogId, context.ConnectionAborted));
+            context.ConnectionId, await FollowedAsync(dialogId, context.ConnectionAborted));
+    }
+
+    /// <summary>
+    /// 2026-09-25-c4a6: the ids the read draws rows for — the latest filing's, and the BOUND
+    /// ticket's when the filing named none. A bound conversation registered nothing, so a run of
+    /// its ticket could finish with the pane still showing the state it was fetched in. Read
+    /// server-side off the session row like the filing above it, so the caller still names a
+    /// dialog id and never a ticket.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> FollowedAsync(string dialogId, CancellationToken ct)
+    {
+        var filed = await filing.TicketIdsAsync(dialogId, ct);
+        if (filed.Count > 0) return filed;
+        return await bound.OfAsync(dialogId, ct) is { } ticket ? [ticket.TicketId] : [];
     }
 }

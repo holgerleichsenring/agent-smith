@@ -38,7 +38,7 @@ internal static class SpecDialogTurnSeeds
     internal static Dictionary<string, object> Build(
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
-        IFiledTicketWithdrawal withdrawal)
+        IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -66,6 +66,9 @@ internal static class SpecDialogTurnSeeds
         };
         // 2026-09-17-042ed: only an edit turn carries one, and the prompt renders its findings.
         if (state.Revising is { } revising) seeds[ContextKeys.SpecDialogRevisedProposal] = revising;
+        // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
+        // carries it, so an unbound conversation renders exactly the prompt it rendered before.
+        if (ticket is not null) seeds[ContextKeys.SpecDialogTicket] = ticket;
         return seeds;
     }
 

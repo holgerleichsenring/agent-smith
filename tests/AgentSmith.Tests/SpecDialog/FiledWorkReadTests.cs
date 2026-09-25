@@ -436,6 +436,75 @@ public sealed class FiledWorkReadTests : IDisposable
             .Single().Url.Should().Be("https://git.test/pr/1");
     }
 
+    /// <summary>
+    /// 2026-09-25-c4a6: the conversation filed nothing and is BOUND to the ticket, so the runs
+    /// are reached through the binding. The row is a filing's shape with no filing behind it: its
+    /// identity is the tracker's id, because a reference is the url a created ticket carried.
+    /// </summary>
+    [Fact]
+    public async Task TicketRuns_TheRunsForATicketNobodyFiled_AreFoundAndShown()
+    {
+        await BoundAsync();
+        await RunsAsync(Run("r-1", "alpha", Work, T, pullRequests:
+            """[{"repo":"api","status":"opened","url":"https://git.test/pr/1","openedAt":"2026-09-17T10:00:00Z"}]"""));
+
+        var ticket = (await ReadAsync()).Tickets.Single();
+
+        ticket.TicketId.Should().Be(Work);
+        ticket.Reference.Should().Be(Work, "a reference is a created ticket's url and nobody created this one here");
+        ticket.Title.Should().Be($"Work {Work}");
+        ticket.Start!.State.Should().Be(FiledStartState.NotFiled);
+        ticket.Runs.Single().RunId.Should().Be("r-1");
+        ticket.Runs.Single().PullRequests.Single().Url.Should().Be("https://git.test/pr/1");
+    }
+
+    [Fact]
+    public async Task TicketRuns_TheReach_IsTheProjectsSharingTheConversationsTracker()
+    {
+        await BoundAsync();
+        await RunsAsync(Run("r-beta", "beta", Work, T), Run("r-gamma", "gamma", Work, T));
+
+        (await ReadAsync()).Tickets.Single().Runs.Select(r => r.Project).Should()
+            .Equal(["beta"], "a bare ticket number means different work on two trackers");
+    }
+
+    /// <summary>
+    /// The binding is the key only where there is no filing. A conversation that filed is shown
+    /// what IT filed — a second row for the ticket it belongs to would be the same work twice.
+    /// </summary>
+    [Fact]
+    public async Task TicketRuns_AConversationWithAFiling_BehavesExactlyAsBefore()
+    {
+        await BoundAsync("2002");
+        await FileAsync(Filed(Work, "alpha"));
+        await RunsAsync(Run("r-1", "alpha", Work, T), Run("r-2", "alpha", "2002", T));
+
+        var ticket = (await ReadAsync()).Tickets.Single();
+
+        ticket.Reference.Should().Be($"https://tracker.test/{Work}");
+        ticket.Start!.State.Should().Be(FiledStartState.Started);
+        ticket.Runs.Single().RunId.Should().Be("r-1");
+    }
+
+    /// <summary>
+    /// The spec key cannot be turned back into a tracker id, so a conversation whose ticket was
+    /// never read is bound to work nothing can find. It shows no row rather than a guessed id,
+    /// which would match another ticket's runs.
+    /// </summary>
+    [Fact]
+    public async Task TicketRuns_ABoundTicketWhoseTextWasNeverRead_ShowsNoRow()
+    {
+        await AddAsync(new SpecDialogSession
+        {
+            SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
+            UserId = Owner, Project = "alpha", IsOpen = true, LastActivityAt = T,
+            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", Work).Value,
+        });
+        await RunsAsync(Run("r-1", "alpha", Work, T));
+
+        (await ReadAsync()).Tickets.Should().BeEmpty();
+    }
+
     private static TicketSpecSet SpecSet(string project, SpecHandbackCase handback, int repeated) =>
         new()
         {
@@ -532,12 +601,38 @@ public sealed class FiledWorkReadTests : IDisposable
             SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
             UserId = Owner, Project = "alpha", IsOpen = true, LastActivityAt = T,
         });
+        await FileAsync(filed);
+    }
+
+    /// <summary>Writes the latest filing onto whatever open session this dialog already has.</summary>
+    private async Task FileAsync(params FiledTicket[] filed)
+    {
         await using var ctx = new AgentSmithDbContext(Options());
         var store = new SpecDialogLatestOutcomeStore(
             new SpecDialogSessionRepository(ctx), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
         await store.SetFilingAsync(
             Platform, Dialog, new FilingReport(filed, null), new AnswerOutcome(),
             CancellationToken.None);
+    }
+
+    /// <summary>
+    /// 2026-09-25-c4a6: a conversation BOUND to a ticket (2026-09-25-8e51b) that filed nothing.
+    /// The session row keeps the tracker connection and the SPEC KEY spelling; the ticket text
+    /// the binding read (2026-09-25-8e51c) is the only place the tracker's own id is kept.
+    /// </summary>
+    private async Task BoundAsync(string ticketId = Work, string project = "alpha")
+    {
+        await AddAsync(new SpecDialogSession
+        {
+            SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
+            UserId = Owner, Project = project, IsOpen = true, LastActivityAt = T,
+            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", ticketId).Value,
+        });
+        await AddAsync(new SpecDialogTicketText
+        {
+            SessionId = "s-1", TicketId = ticketId, Title = $"Work {ticketId}",
+            Text = "what the ticket says", Fingerprint = "f", ReadAt = T,
+        });
     }
 
     private Task RunsAsync(params Run[] runs) => AddAsync(runs);
@@ -559,11 +654,18 @@ public sealed class FiledWorkReadTests : IDisposable
             new FiledWorkFiling(new SpecDialogLatestOutcomeStore(
                 new SpecDialogSessionRepository(ctx),
                 NullLogger<SpecDialogLatestOutcomeStore>.Instance)),
+            new FiledWorkBoundTicket(
+                new SpecDialogSessionRepository(ctx), new SpecDialogTicketTextRepository(ctx)),
             new FiledWorkTrackerProjects(Config()),
             new FiledWorkRunsReader(
                 _scopes, new FiledWorkPhaseReviews(NullLogger<FiledWorkPhaseReviews>.Instance),
                 new DbRunCheckpointStore(_scopes), NullLogger<FiledWorkRunsReader>.Instance),
-            new FiledWorkHandbacks(_scopes));
+            new FiledWorkHandbacks(_scopes),
+            // 2026-09-25-8e51d: these cases are about FILED work; an unbound conversation has no
+            // approved set to show, and the reader asks for one either way.
+            new ApprovedSetForConversation(
+                new SpecDialogSessionRepository(ctx),
+                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore()));
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

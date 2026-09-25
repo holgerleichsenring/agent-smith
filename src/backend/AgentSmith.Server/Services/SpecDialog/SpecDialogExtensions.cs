@@ -59,7 +59,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>();
+        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>(); // 8e51e
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
         // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
@@ -73,6 +73,9 @@ internal static class SpecDialogExtensions
         // scoped unit of work as the session manager it reads through; the dispatcher is
         // the ingestion endpoint's one entry point into the router.
         services.AddScoped<SpecDialogOwnership>();
+        services.AddScoped<TicketConversationBinder>(); // 8e51b
+        services.AddScoped<TicketTextForConversation>().AddScoped<ApprovedSetDivergence>(); // 8e51c/e
+        services.AddScoped<TicketProjectChoice>().AddScoped<ApprovedSetForConversation>(); // 8e51a/d
         services.AddScoped<DashboardDialogDispatcher>();
         // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
         // work; the catalog is transient because it re-reads the configuration per call.
@@ -90,7 +93,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogTurnImages>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
-        services.AddScoped<FiledWorkFiling>();
+        services.AddScoped<FiledWorkFiling>().AddScoped<FiledWorkBoundTicket>(); // 2026-09-25-c4a6
         services.AddTransient<FiledWorkTrackerProjects>();
         services.AddTransient<FiledWorkPhaseReviews>();
         services.AddTransient<FiledWorkRunsReader>();

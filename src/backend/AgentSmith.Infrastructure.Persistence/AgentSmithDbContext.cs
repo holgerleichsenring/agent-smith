@@ -9,10 +9,9 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace AgentSmith.Infrastructure.Persistence;
 
 /// <summary>
-/// The relational system-of-record. Doubles as the unit of work: callers stage
-/// entity changes and commit with one SaveChangesAsync, which also stamps the
-/// EntityBase audit columns. Configuration of the load-bearing tables lives in
-/// IEntityTypeConfiguration classes; the uniform Run-child FK length is set here.
+/// The relational system-of-record and the unit of work: callers stage changes and commit with one
+/// SaveChangesAsync, which stamps the EntityBase audit columns. Tables are configured in
+/// IEntityTypeConfiguration classes; the uniform Run-child FK length is here.
 /// </summary>
 public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> options)
     : DbContext(options), IUnitOfWork
@@ -23,8 +22,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunStep> RunSteps => Set<RunStep>();
     public DbSet<RunEvent> RunEvents => Set<RunEvent>();
     public DbSet<RunDecision> RunDecisions => Set<RunDecision>();
-    // p0466: one row per derived phase — the phase as an addressable thing.
-    public DbSet<RunPhase> RunPhases => Set<RunPhase>();
+    public DbSet<RunPhase> RunPhases => Set<RunPhase>(); // p0466: a phase as an addressable thing
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
@@ -57,7 +55,8 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunConfiguration());
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
-        modelBuilder.ApplyConfiguration(new SpecDialogAttachmentConfiguration()); // 2026-09-20-3af8
+        modelBuilder.ApplyConfiguration(new SpecDialogAttachmentConfiguration()); // 3af8
+        modelBuilder.ApplyConfiguration(new SpecDialogTicketTextConfiguration()); // 8e51c
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
         modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
         modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7
@@ -73,10 +72,11 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
         modelBuilder.ApplyConfiguration(new ObservedCallerConfiguration()); // 2026-08-26-7a51
         new RunChildConfiguration().Apply(modelBuilder);
-        // p0388a: applied AFTER the child loop so the per-step trail index is
-        // added alongside — not instead of — the uniform RunId index.
+        // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
-        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
+        // Provider-conditional: an entity configuration cannot see the provider name.
+        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 61f1
+        new TicketConversationIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 8e51b
         new MoneyPrecisionConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-28-b883
     }
 

@@ -22,3 +22,15 @@ public sealed record OutcomeConfirmationTimedOut : ConfirmationResult;
 /// the master is re-prompted with the note to revise it.
 /// </summary>
 public sealed record OutcomeEditRequested(string Note) : ConfirmationResult;
+
+/// <summary>
+/// 2026-09-25-8e51e: an approval of a DIFFERENT act — the proposal amends the ticket this
+/// conversation belongs to instead of filing a new one.
+/// <para>
+/// A result of its own rather than an offered shape, because the shape ladder is fed into the
+/// EDIT door: a picked shape comes back as ordinary text and becomes a note the master
+/// re-proposes against, which is exactly what the ladder is for. An amendment is not a
+/// re-proposal — it is the operator saying yes to this proposal, on a ticket that already exists.
+/// </para>
+/// </summary>
+public sealed record OutcomeAmendRequested : ConfirmationResult;

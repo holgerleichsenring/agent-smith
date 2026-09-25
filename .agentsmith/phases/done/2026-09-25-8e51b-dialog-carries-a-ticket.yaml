@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-8e51b
+goal: "A design conversation may belong to a ticket, there is one per ticket, and asking to discuss that ticket again reaches the conversation that exists."
+
+applies_to: "backend (the spec-dialog session, its store, both opening doors and the conversation list) and dashboard (the entry, the link and the column)"
+
+scope:
+  in: "The ticket a conversation belongs to, stored under the key the approval record uses; one conversation per ticket, enforced where conversations are opened, on both doors; a heading taken from the ticket's title; a route that answers which conversation a ticket has and where it is open; and the entry and mark on the page."
+  out: "Reading the ticket's BODY into the turn (8e51c), the specs behind it (8e51d) and writing anything back (8e51e). A conversation with no ticket keeps behaving exactly as it does today, including staying private to its owner."
+
+decisions:
+  - key: |
+      ONE PER TICKET MEANS SHARED, AND THAT IS A DELIBERATE CHANGE TO WHO MAY REACH A CONVERSATION.
+      Every read path today is owner-scoped: the list filters by user, a foreign session answers
+      NotFound on resume, and the ownership rule says in as many words that a second principal must
+      not be able to post into someone else's design conversation and approve its filing. A ticket's
+      conversation cannot be both one-per-ticket and private, because the artifact it amends — the
+      approval record — is keyed by ticket and upserts in place. So a TICKET-BOUND conversation is
+      reachable by anyone who may reach its project, and an unbound one stays exactly as private as
+      it is now. The threat the ownership rule named is accepted knowingly here: the people who can
+      see a project's tickets are the people who may discuss them.
+  - key: |
+      THE KEY IS THE SPEC KEY'S SPELLING, NOT A RAW TICKET ID. The approval record is keyed by
+      tracker connection plus a key that lowercases the ticket id and collapses every
+      non-alphanumeric character. Storing a raw id would make DPG-1239 and dpg-1239 two
+      conversations on a case-sensitive database and one record — two drafts of one artifact, which
+      is the whole thing this rule prevents — and one conversation on a case-insensitive one. The
+      uniqueness would then mean something different on each of the four providers.
+  - key: |
+      THE UNIQUE INDEX IS PROVIDER-CONDITIONAL, BECAUSE SQL SERVER TREATS TWO NULLS AS EQUAL. An
+      unfiltered unique index over the nullable pair permits exactly ONE ticket-less conversation in
+      the whole table there, so every later open fails. This repository already solved this for the
+      same shape — the run-record identity index is filtered to the rows that HAVE a value, and only
+      on that provider, applied from the context because an entity configuration cannot see the
+      provider name. Same pattern, same place, and two migrations plus two snapshots, as the
+      subject column took.
+  - key: |
+      THE DOOR IS WHERE IT IS ENFORCED, AND THERE ARE TWO OF THEM. A dashboard conversation is
+      opened by the first message AND by an image upload; a ticket that reached only the first would
+      leave a conversation nobody could bind afterwards. The open command carries the project today
+      and gains the ticket, so both doors hand it the same thing.
+  - key: |
+      THE LINK CANNOT BE A SESSION ID, SO A ROUTE ANSWERS FOR THE TICKET. The page opens a
+      conversation by session id and needs the dialog id it is already living on to GO to a running
+      one rather than queue a resume the server refuses mid-turn. Nothing maps a ticket to either.
+      So the server answers both for a ticket, and the page uses the handover path it already has.
+  - key: |
+      THE HEADING IS THE TICKET'S TITLE, NORMALISED RATHER THAN ADMITTED. The subject admission rule
+      refuses brackets, quotes and anything over its column width — it exists to throw away a
+      MODEL's answer, and a real ticket title routinely carries all three. A title is not a guess;
+      it is trimmed to the column and stored. The mint is skipped entirely, so the conversation also
+      costs one model call less.
+
+steps:
+  - id: a-session-may-belong-to-a-ticket
+    path: "src/backend/AgentSmith.Infrastructure.Persistence"
+    action:
+      - "Store the tracker and the spec-key spelling of the ticket on the session, capped at the indexed-string limit, with a unique index over the pair filtered on the provider that needs it."
+      - "Write both migrations and both snapshots."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/SpecDialogSessionConfiguration.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs"
+
+  - id: opening-reaches-the-one-that-exists
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Carry the ticket through both opening doors, and answer a request to discuss one with that ticket's conversation — opened, resumed, or newly created — never with a second."
+      - "Let a ticket-bound conversation be reached by any principal who may reach its project, and leave an unbound one owner-scoped."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationResolver.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecCommand.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogCommandHandler.cs"
+      - "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs"
+
+  - id: a-ticket-can-be-asked-for
+    path: "src/backend/AgentSmith.Server/Extensions"
+    action:
+      - "Answer, for a ticket, which conversation it has and the dialog id it is open on, so a link can reach a running conversation instead of queueing a refused resume."
+    modify:
+      - "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs"
+      - "src/backend/AgentSmith.Server/Models/SpecDialogSessionSummary.cs"
+
+  - id: the-heading-comes-from-the-ticket
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Take the subject from the ticket's title, trimmed to the column, and skip the mint for a bound conversation."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs"
+
+  - id: the-page-can-start-and-reach-one
+    path: "src/dashboard/src"
+    action:
+      - "Offer starting a conversation for a ticket, address it by link through the existing handover, and mark a ticket-bound row in both conversation lists."
+    modify:
+      - "src/dashboard/src/components/dialog/SpecDialogSurface.tsx"
+      - "src/dashboard/src/components/dialog/DialogConversations.tsx"
+      - "src/dashboard/src/hooks/useSpecDialog.ts"
+      - "src/dashboard/src/lib/specDialogApi.ts"
+      - "src/dashboard/src/types/spec-dialog.ts"
+
+  - id: the-belonging-is-pinned
+    path: "tests"
+    action: "Assert one conversation per ticket across principals, the resume path, the provider-filtered index, a title with brackets, and that an unbound conversation is unchanged."
+
+tests:
+  - "TicketDialog_ASecondRequestForOneTicket_ReachesTheExistingConversation"
+  - "TicketDialog_ASecondPrincipalAskingForTheSameTicket_ReachesItRatherThanA404"
+  - "TicketDialog_AConversationWithNoTicket_StaysPrivateToItsOwner"
+  - "TicketDialog_AClosedTicketConversation_IsResumedRatherThanDuplicated"
+  - "TicketDialog_ATicketIdDifferingOnlyInCase_IsOneConversation"
+  - "TicketDialog_TwoTrackersNumberingATicketAlike_AreTwoConversations"
+  - "TicketDialog_ManyConversationsWithNoTicket_AllInsertOnEveryProvider"
+  - "TicketDialog_ATitleCarryingBracketsAndQuotes_IsStillTheHeading"
+  - "TicketDialog_TheHeading_CostsNoModelCall"
+  - "TicketDialog_AnImageUploadOpeningTheConversation_CarriesTheTicketToo"
+  - "TicketDialog_TheRouteForATicket_AnswersItsSessionAndTheDialogItIsOpenOn"
+
+done:
+  - "a ticket has one design conversation, and any principal who may reach the project reaches it"
+  - "a conversation with no ticket is unchanged in every path, owner scoping included"
+  - "many ticket-less conversations still insert on every configured database provider"
+  - "a ticket title containing brackets or quotes is the conversation's heading, and no model call is made for it"
+  - "a link reaches a running ticket conversation rather than queueing a resume the server refuses"
+  - "build green, dashboard tests green, full suite green"

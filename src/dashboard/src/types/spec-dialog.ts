@@ -258,7 +258,10 @@ export interface SpecDialogProposalPush {
  * page — which the panel says is unknown rather than picking one of the words above.
  */
 export interface SpecDialogFiledStart {
-  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | null;
+  /** 2026-09-25-c4a6: `NotFiled` is the ticket this conversation is BOUND to and did not file —
+   *  minted by the read for the row it draws, never stored, because what a ticket became at
+   *  filing time is a question about an act nobody here performed. */
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | "NotFiled" | null;
   reason: string;
 }
 
@@ -295,6 +298,18 @@ export interface SpecDialogFilingPush {
 // own and refetched on a data-free nudge; nothing about a run arrives over the hub.
 
 /** One thing 2026-09-17-042eh's review kept against a phase's own diff. */
+/** 2026-09-25-8e51d: the specification a person approved for the ticket a conversation belongs
+ *  to. Labelled with its approval, because the branch — not this — is what a run reads. */
+export interface ApprovedSetView {
+  key: string;
+  tracker: string;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  approvedInConversation: string | null;
+  repositories: string[];
+  phases: SpecDialogPhaseProposal[];
+}
+
 export interface FiledWorkFinding {
   repository: string;
   path: string;
@@ -385,4 +400,7 @@ export interface FiledWorkTicket {
 export interface FiledWork {
   dialogId: string;
   tickets: FiledWorkTicket[];
+  /** 2026-09-25-8e51d: the specification approved for the ticket this conversation BELONGS to,
+   *  which a conversation that filed nothing itself still has. Null when there is none. */
+  approved?: ApprovedSetView | null;
 }

@@ -17,4 +17,8 @@ public static class PersistenceLimits
     /// heading and the column can never disagree about how long a subject may be.
     /// </summary>
     public const int ConversationSubject = 120;
+
+    /// <summary>2026-09-25-8e51c: the column holds exactly what the composer may produce — the
+    /// number is declared once, in Contracts, so neither side can pick its own.</summary>
+    public const int SeededTicketText = global::AgentSmith.Contracts.Tickets.SeededTicketLimits.Text;
 }

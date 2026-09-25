@@ -79,4 +79,6 @@ internal sealed class RecordingTicketProviderFactory(RecordingTicketProvider pro
     : ITicketProviderFactory
 {
     public ITicketProvider Create(TrackerConnection config) => provider;
+
+    public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
 }

@@ -37,6 +37,15 @@ public enum FiledStartState
     /// leaves the record exactly as it was, because a record saying withdrawn about a ticket still
     /// on the board is the failure this state exists to prevent.</summary>
     Withdrawn,
+
+    /// <summary>
+    /// 2026-09-25-c4a6: the conversation is BOUND to this ticket and did not file it, so what it
+    /// became at filing time is a question about an act nobody here performed. NEVER STORED: no
+    /// filing carries it, the filed-work read mints it for the row it draws, and it exists so that
+    /// the row states which case it is instead of leaving the state absent — absent means "a
+    /// filing written before the states existed", which is a different fact.
+    /// </summary>
+    NotFiled,
 }
 
 /// <summary>
@@ -53,6 +62,14 @@ public enum FiledStartState
 /// </summary>
 public sealed record FiledWorkStart(FiledStartState? State, string Reason)
 {
+    /// <summary>
+    /// 2026-09-25-c4a6: what the row for a BOUND ticket says instead of an empty state. The
+    /// conversation reaches the ticket through its binding, so the sentence says that and claims
+    /// nothing about how the ticket came to exist, which this server may have had no part in.
+    /// </summary>
+    public static FiledWorkStart NotFiledHere { get; } = new(
+        FiledStartState.NotFiled, "this conversation belongs to this ticket; it did not file it");
+
     /// <summary>
     /// The line a filing notice appends under the ticket it is about, as a NESTED BULLET: a bare
     /// newline inside a list item is a soft break in CommonMark, so on the page the reason would
@@ -76,6 +93,7 @@ public sealed record FiledWorkStart(FiledStartState? State, string Reason)
         FiledStartState.NotStarted => "not started",
         FiledStartState.Record => "record",
         FiledStartState.Withdrawn => "withdrawn",
+        FiledStartState.NotFiled => "not filed here",
         _ => "unknown",
     };
 }

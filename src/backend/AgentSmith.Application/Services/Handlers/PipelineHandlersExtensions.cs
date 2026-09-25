@@ -36,7 +36,7 @@ public static class PipelineHandlersExtensions
     {
         services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
-        services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>();
+        services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>().AddTransient<SpecDialog.EpicParentReader>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();
         services.AddTransient<Scope.RepoScopeClassifier>().AddTransient<Scope.RemoteContextInventoryBuilder>();

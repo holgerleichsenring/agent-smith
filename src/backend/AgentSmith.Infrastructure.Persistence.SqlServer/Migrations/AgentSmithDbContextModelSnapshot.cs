@@ -1277,6 +1277,14 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("TicketKey")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("Tracker")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
                     b.Property<string>("TranscriptJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1298,7 +1306,64 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.HasIndex("Platform", "ThreadId");
 
+                    b.HasIndex("Tracker", "TicketKey")
+                        .IsUnique()
+                        .HasFilter("[Tracker] IS NOT NULL AND [TicketKey] IS NOT NULL");
+
                     b.ToTable("SpecDialogSessions");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTicketText", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<DateTimeOffset>("ReadAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.ToTable("SpecDialogTicketText");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
