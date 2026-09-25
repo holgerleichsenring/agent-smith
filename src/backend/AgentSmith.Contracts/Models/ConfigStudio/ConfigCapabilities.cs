@@ -38,8 +38,13 @@ public sealed record ConfigCapabilities(
 /// declared without editing TypeScript as well. It is declared here now, which is what
 /// lets a newly declared field render without a UI change.
 /// </summary>
+/// <param name="Choices">2026-09-25-3c7ad: the values this field may take, when the set is ours
+/// and closed. It rides BESIDE the kind rather than replacing it: a map's value side is a choice
+/// while the field is still a map, and one kind per field cannot say both. Empty means free text,
+/// which is every field that had no list before this existed.</param>
 public sealed record CapabilityField(
-    string Key, string Label, bool Required, CapabilityFieldKind Kind = CapabilityFieldKind.Text);
+    string Key, string Label, bool Required, CapabilityFieldKind Kind = CapabilityFieldKind.Text,
+    IReadOnlyList<string>? Choices = null);
 
 /// <summary>The value shape of a <see cref="CapabilityField"/>, as the form must edit it.</summary>
 [JsonConverter(typeof(CapabilityFieldKindConverter))]

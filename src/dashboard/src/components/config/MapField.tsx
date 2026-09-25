@@ -24,6 +24,7 @@ export function MapField({
   testId,
   help,
   rowHint,
+  valueChoices,
 }: {
   label: string;
   values: Record<string, string>;
@@ -31,6 +32,9 @@ export function MapField({
   testId?: string;
   help?: string;
   rowHint?: (key: string, value: string) => MapRowHint;
+  // 2026-09-25-3c7ad: the VALUE side may be a closed set the backend declares — the pipelines a
+  // ticket can route to. The key side never is: it is the operator's own word on their board.
+  valueChoices?: string[];
 }) {
   const [rows, setRows] = useState<Row[]>(() => toRows(values));
   const nextId = useRef(rows.length);
@@ -75,15 +79,37 @@ export function MapField({
               value={row.key}
               onChange={(e) => edit(row.id, { key: e.target.value })}
             />
-            <input
-              type="text"
-              className="mono"
-              aria-label={`${label} value ${i + 1}`}
-              data-testid={testId && `${testId}-value-${i}`}
-              placeholder={hint.placeholder}
-              value={row.value}
-              onChange={(e) => edit(row.id, { value: e.target.value })}
-            />
+            {valueChoices && valueChoices.length > 0 ? (
+              <select
+                className="mono"
+                aria-label={`${label} value ${i + 1}`}
+                data-testid={testId && `${testId}-value-${i}`}
+                value={row.value}
+                onChange={(e) => edit(row.id, { value: e.target.value })}
+              >
+                <option value="">—</option>
+                {/* A stored value the list does not hold stays selectable, so a configuration
+                    written before the list existed is not silently rewritten on the next save. */}
+                {(valueChoices.includes(row.value) || row.value === ""
+                  ? valueChoices
+                  : [row.value, ...valueChoices]
+                ).map((choice) => (
+                  <option key={choice} value={choice}>
+                    {choice}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                className="mono"
+                aria-label={`${label} value ${i + 1}`}
+                data-testid={testId && `${testId}-value-${i}`}
+                placeholder={hint.placeholder}
+                value={row.value}
+                onChange={(e) => edit(row.id, { value: e.target.value })}
+              />
+            )}
             <button
               type="button"
               className="pick"
