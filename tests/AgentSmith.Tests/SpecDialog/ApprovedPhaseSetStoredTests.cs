@@ -36,6 +36,25 @@ public sealed class ApprovedPhaseSetStoredTests
     }
 
     /// <summary>
+    /// 2026-09-25-c1f7: the record also stores the TRACKER'S OWN ticket id, because discovery has
+    /// to name it in a JQL or WIQL clause and the spec key it is stored under has already lowered
+    /// it and replaced every non-alphanumeric character.
+    /// </summary>
+    [Fact]
+    public async Task ApprovedPhase_Stored_CarriesTheTrackersOwnTicketId()
+    {
+        var store = ApprovedSetDoubles.Store();
+
+        await ApprovedSetDoubles.Recorder(store).RecordAsync(
+            State(), Project(), "DPG-1239", [Draft("p19106a")], default);
+
+        var key = SpecSetKey.For("azuredevops", "DPG-1239");
+        key.Value.Should().Be("azuredevops-dpg-1239", "the key cannot give the id back");
+        (await store.GetAsync("sample-tracker", key.Value, default))!
+            .TicketId.Should().Be("DPG-1239");
+    }
+
+    /// <summary>
     /// Numbering and cause are the RUN's bookkeeping, written when it publishes the set to the
     /// ticket branch — a stored revision would make the first published revision the second.
     /// </summary>
