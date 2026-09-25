@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Demo;
 /// <summary>
 /// p0326: extracts the embedded demo sample project (seeded bug + failing
 /// boundary test) into a workspace directory and git-inits it with one
-/// baseline commit. The result is a fully local repo the fix-bug preset can
+/// baseline commit. The result is a fully local repo the code preset can
 /// run against — RepoType.Local, no remote, no tracker.
 /// </summary>
 public sealed class DemoWorkspaceMaterializer(
