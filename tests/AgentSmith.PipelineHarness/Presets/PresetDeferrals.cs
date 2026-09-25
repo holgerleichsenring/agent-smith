@@ -36,9 +36,11 @@ internal static class PresetDeferrals
     {
         switch (preset.ToLowerInvariant())
         {
-            case "fix-bug":
-            case "fix-no-test":
-            case "add-feature":
+            // 2026-09-25-a7e8: the four coding names were four cases with one body long
+            // before p0393 collapsed them into `code` — nothing scenario-specific was
+            // ever scripted here, so the collapse costs no coverage. The docker tier is
+            // where the three coding scenarios differ, and DockerPresetScripts keeps them.
+            case "code":
             case "mad-discussion":
                 client.EnqueueText("No changes needed.");
                 break;

@@ -14,7 +14,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// p0326: the demo path, LLM-free. Materializes the REAL embedded sample
 /// project (seeded bug + failing boundary test) into a temp workspace, then
-/// drives the REAL fix-bug preset through the composition with an inline
+/// drives the REAL coding preset through the composition with an inline
 /// ticket instead of a tracker — the exact request shape `agent-smith demo`
 /// builds. Proves the two demo seams end-to-end: FetchTicket's inline
 /// materialization and the trackerless run reaching a green keystone.
@@ -67,10 +67,10 @@ public sealed class DemoFixBugTests : IAsyncLifetime
                 "Fix the boundary condition so the failing test passes.",
                 "dotnet test tests/Sample.Tests/Sample.Tests.csproj"),
         };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(
-            $"the demo's inline-ticket fix-bug run must reach a green keystone: {result.Message}");
+            $"the demo's inline-ticket bug-fix run must reach a green keystone: {result.Message}");
         var ticket = runner.LastContext!.Get<Ticket>(ContextKeys.Ticket);
         ticket.Source.Should().Be(InlineTicket.Source, "the run's requirement record is the inline payload");
         ticket.Title.Should().Contain("Bulk discount");

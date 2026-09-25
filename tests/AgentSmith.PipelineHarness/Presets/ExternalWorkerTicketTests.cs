@@ -57,7 +57,7 @@ public sealed class ExternalWorkerTicketTests
             });
 
         var runner = new PipelineRunner(harness.Services) { AgentOverride = ExternalWorkerHarness.Agent() };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(
             $"an externally driven ticket must pass the same keystone as a provider-driven one: {result.Message}");
@@ -95,7 +95,7 @@ public sealed class ExternalWorkerTicketTests
         // calls the executor directly, so the scope is opened here to assert on the
         // identity a deployed run would carry.
         using (harness.Services.GetRequiredService<IRunContextAccessor>().BeginScope("run-external"))
-            await runner.RunAsync("fix-bug");
+            await runner.RunAsync("code");
 
         worker.Prompts.Should().NotBeEmpty("the worker answered the run's model calls");
         var masterPrompt = worker.Prompts.FirstOrDefault(p => p.Contains("write_file", StringComparison.Ordinal));
