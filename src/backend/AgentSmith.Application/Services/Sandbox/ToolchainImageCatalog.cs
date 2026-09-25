@@ -22,18 +22,29 @@ public static class ToolchainImageCatalog
     private static readonly Dictionary<string, string> LanguageImages = new(StringComparer.OrdinalIgnoreCase)
     {
         // .NET / C# family — canonical + operator-facing variants.
-        // Bare C#/.NET resolve to the LATEST SDK: the .NET 9 SDK builds every
-        // supported TFM (net8.0, net9.0, …), so it is the strictly-safer default
-        // for a "C#" project of unknown/mixed target (a solution can mix net8 +
-        // net9, as real estates do). Explicit dotnet8/.net 8 still pin 8.0.
+        //
+        // 2026-08-25-3804: an UNVERSIONED name resolves to the highest SDK in this
+        // table, because a .NET SDK builds every TFM up to its own and none above
+        // it. That is a property of the toolchain, not a claim about the calendar:
+        // this table does not know what the newest .NET is and must not pretend to.
+        // What keeps it honest is a check, not a comment — ToolchainImageCatalogTests
+        // resolves THIS repository's own declared language against THIS repository's
+        // own TargetFramework and fails when the image cannot build it. The entry was
+        // one major behind for a month, which is exactly how long an unchecked
+        // "latest" claim survives. A VERSIONED name still pins what it names.
         ["dotnet8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         ["dotnet9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        ["dotnet"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        [".net"] = "mcr.microsoft.com/dotnet/sdk:9.0",
+        ["dotnet10"] = "mcr.microsoft.com/dotnet/sdk:10.0",
+        ["dotnet"] = "mcr.microsoft.com/dotnet/sdk:10.0",
+        [".net"] = "mcr.microsoft.com/dotnet/sdk:10.0",
         [".net 8"] = "mcr.microsoft.com/dotnet/sdk:8.0",
         [".net 9"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        ["csharp"] = "mcr.microsoft.com/dotnet/sdk:9.0",
-        ["c#"] = "mcr.microsoft.com/dotnet/sdk:9.0",
+        [".net 10"] = "mcr.microsoft.com/dotnet/sdk:10.0",
+        ["net8.0"] = "mcr.microsoft.com/dotnet/sdk:8.0",
+        ["net9.0"] = "mcr.microsoft.com/dotnet/sdk:9.0",
+        ["net10.0"] = "mcr.microsoft.com/dotnet/sdk:10.0",
+        ["csharp"] = "mcr.microsoft.com/dotnet/sdk:10.0",
+        ["c#"] = "mcr.microsoft.com/dotnet/sdk:10.0",
         // Node / TS / JS — full bookworm (not -slim) because git must be
         // present in the sandbox: CheckoutSourceHandler runs `git clone`
         // INSIDE the sandbox, and the -slim variants drop git to save ~750MB.
