@@ -155,6 +155,25 @@ export async function readTicketConversation(
   return (await res.json()) as TicketConversationRead;
 }
 
+/** 2026-09-25-8e51a: the ticket alone — every configured tracker is asked for it, and the
+ *  projects routed to the one that has it are matched from its own labels. */
+export async function readTicketProject(ticketId: string): Promise<TicketProjectRead | null> {
+  const path = `/api/spec-dialog/tickets/${encodeURIComponent(ticketId)}`;
+  const res = await apiFetch(path);
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as TicketProjectRead;
+}
+
+export interface TicketProjectRead extends TicketConversationRead {
+  tracker: string;
+  /** The projects this ticket's own routing names. One is chosen; none or several are asked about. */
+  projects: string[];
+  /** Projects routed by area path, repository or address — which a ticket read by id cannot
+   *  carry, so they are unanswerable rather than unmatched. Shown as a reason, not a fault. */
+  unanswerable: string[];
+}
+
 export interface TicketConversationRead {
   ticketId: string;
   title: string;

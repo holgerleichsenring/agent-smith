@@ -43,7 +43,7 @@ public sealed class TicketConversationBinder(
                 .GetTicketAsync(new TicketId(ticketId.Trim()), ct);
             return TicketBinding.For(
                 project.Tracker.Name, project.Tracker.Type.ToString().ToLowerInvariant(),
-                ticket.Id.Value, ticket.Title);
+                ticket.Id.Value, ticket.Title, ticket.Labels);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

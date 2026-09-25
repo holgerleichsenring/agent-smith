@@ -107,7 +107,6 @@
 150	AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs
 149	AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs
 148	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs
-148	AgentSmith.Application/Services/Triggers/ProjectResolver.cs
 148	AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs
 148	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs
 147	AgentSmith.Contracts/Providers/ITicketProvider.cs
