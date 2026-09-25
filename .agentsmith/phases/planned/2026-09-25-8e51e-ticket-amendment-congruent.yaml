@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-8e51e
+requires: ["2026-09-25-8e51c", "2026-09-25-8e51d"]
+goal: "Approving an amendment in a ticket's conversation leaves the ticket saying what the approved set says, on the trackers that can carry it, and never under a live run."
+
+applies_to: "backend (the ticket port and its adapters, the outcome flow and its sink, the approval record and the ticket body renderer)"
+
+scope:
+  in: "An amend outcome routed through the path an approval already takes; a rewrite member on the port implemented where a round trip survives; the framework's own region of the body marked and replaced from the approved set; the difference between the ticket as it stands and the set COMPUTED and put to the person; and a refusal while any project sharing the tracker holds the ticket."
+  out: "Rewriting prose a person wrote outside the framework's markers. Jira, where a description round trip is lossy by construction — it answers Unsupported and says why."
+
+decisions:
+  - key: |
+      CONGRUENCE IS DERIVED, NOT COMPARED, AND WHAT IT BUYS IS A CORRECT HUMAN. The run does not read
+      the ticket's description at all — the branch is the only set it reads, and on a stamped ticket
+      the description is not consulted. So a stale body never mis-drives a run; it mis-informs
+      whoever reads the ticket, approves the pull request or judges the result. The framework's own
+      region is re-rendered from the approved set by the renderer that writes it at filing, and
+      there is no diff job, because a diff between two hand-maintained texts is a report nobody
+      reads.
+  - key: |
+      A READ-MODIFY-WRITE DOES NOT SURVIVE EVERY TRACKER, AND JIRA IS REFUSED RATHER THAN BROKEN.
+      Jira stores a description as a structured document and reads it back as text nodes only:
+      mentions, emoji, media, inline cards and status nodes are DROPPED, links lose their target,
+      and every mark, heading level, list marker and table structure is flattened. Rewriting a Jira
+      description would therefore destroy the human half of it. GitHub and GitLab round-trip
+      markdown verbatim and are implemented. Azure DevOps converts markdown to HTML on the way in
+      and hands the HTML back, so it writes the field the ticket's own TYPE reads — a Bug keeps its
+      body in reproduction steps — and leaves the rest of the document alone.
+  - key: |
+      IT ROUTES THROUGH THE ACCEPT PATH, NOT THROUGH THE SHAPE LADDER. A picked shape comes back as
+      ordinary text and is interpreted as an EDIT NOTE the master re-proposes against — that is what
+      the offered shapes are for, and an amend is not a re-proposal. So the amend is a confirmation
+      result of its own, with its own arm in the flow and its own entry in the sink, and the shape
+      ladder keeps meaning size.
+  - key: |
+      THE CONTRADICTION IS COMPUTED, NOT SUGGESTED. A prompt instruction with no computed input is a
+      hallucination surface. The turn is handed the difference between the stored ticket text and
+      the approved set — which 8e51c already stores and fingerprints — and its job is to put that
+      difference to the person, not to choose a side.
+  - key: |
+      THE RECORD'S APPROVAL IS WRITTEN THE WAY THE CONVERSATION ALREADY WRITES ONE. A re-cut demand
+      records an approval attributed to a COMMENT's author with an empty conversation, deliberately,
+      because there was no design conversation. An amendment has one. So it records the same TYPE
+      through the recorder the dialog already owns, under the same key, honouring the rules that
+      recorder already states: a re-approved set may not be shorter and may not edit at or before
+      the executed head.
+  - key: |
+      A LIVE RUN REFUSES THE AMENDMENT, AND THE LEASE IS SWEPT ACROSS THE TRACKER'S PROJECTS. The
+      lease is keyed by project and ticket, one ticket may match several projects, and a run is
+      spawned per match — the filed-work reader already sweeps the projects sharing a tracker for
+      exactly this reason. Checking only the conversation's own project would miss a live sibling.
+      The refusal names the run and offers to amend when it ends.
+  - key: |
+      THE FINGERPRINT MOVES WITH THE BODY, OR THE NEXT RUN ACCUSES THE OPERATOR. The branch set
+      carries a fingerprint of the ticket as the tracker stored it, and a changed one reads as a
+      ticket EDIT: the set is kept, correctly, and a notice is posted telling the operator their
+      edit was ignored and pointing them away from the conversation. An amendment that did not
+      refresh it would produce that notice after every amendment, for ever.
+
+steps:
+  - id: a-ticket-can-be-rewritten-where-that-survives
+    path: "src/backend/AgentSmith.Contracts/Providers"
+    action:
+      - "Add a rewrite member to the port, in a file of its own rather than growing the port's, answering whether it landed and reporting Unsupported without throwing."
+      - "Implement it on GitHub and GitLab verbatim, and on Azure DevOps into the field the work-item type reads; refuse it on Jira with the round-trip reason."
+
+  - id: an-amend-is-its-own-outcome
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Give the amend its own confirmation result, its arm in the outcome flow and its entry in the sink, and offer it only on a conversation that has a ticket."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeShapes.cs"
+
+  - id: the-frameworks-region-is-marked-and-replaced
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Wrap the rendered requirement in its own marker pair, and say what an amendment does to a ticket that predates the markers."
+      - "Refresh the ticket fingerprint the branch set carries, so the next run does not report an edit nobody made."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs"
+
+  - id: the-difference-is-computed-and-asked-about
+    path: "src/backend/AgentSmith.Application/Services"
+    action:
+      - "Hand the turn the difference between the stored ticket text and the approved set, and tell it to put that difference to the person rather than choose."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs"
+
+  - id: a-live-run-blocks-it
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Refuse an amendment while any project sharing the tracker holds the ticket's lease, naming the run and offering to amend when it ends."
+
+  - id: the-congruence-is-pinned
+    path: "tests"
+    action: "Assert the rendered region matches the set, prose outside the markers survives, Jira refuses with its reason, a held ticket is refused, and the fingerprint moves."
+
+tests:
+  - "Amendment_AfterApproval_TheTicketsFrameworkRegionRendersTheApprovedSet"
+  - "Amendment_ProseOutsideTheMarkers_IsUnchangedOnGitHubAndGitLab"
+  - "Amendment_OnAzureDevOps_WritesTheFieldTheWorkItemTypeReads"
+  - "Amendment_OnJira_IsRefusedAndSaysWhyTheRoundTripCannotCarryIt"
+  - "Amendment_ATicketHeldByASiblingProjectsRun_IsRefusedNamingTheRun"
+  - "Amendment_ATicketThatPredatesTheMarkers_IsHandledAsThePhaseStates"
+  - "Amendment_TheBranchFingerprint_IsRefreshedSoTheNextRunReportsNoEdit"
+  - "Amendment_ATicketWhoseTextContradictsTheSet_IsComputedAndPutToThePerson"
+  - "Amendment_AConversationWithNoTicket_IsNeverOfferedTheAmend"
+  - "OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind"
+
+done:
+  - "after an amendment, the ticket's framework region and the approved specification say the same thing"
+  - "text a person wrote outside the framework's markers survives on the trackers that carry a rewrite"
+  - "Jira refuses the rewrite and says why, instead of silently flattening a description"
+  - "a difference between the ticket and the set is computed and put to the person"
+  - "an amendment is refused while any project sharing the tracker holds the ticket"
+  - "the next run reports no ticket edit after an amendment"
+  - "build green, full suite green"

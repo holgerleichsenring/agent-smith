@@ -25,7 +25,7 @@ internal static class SpecDialogEndpoints
     /// 2026-09-20-4b0aa — the project the page holds, so a FIRST message can open its own
     /// conversation. A caller that names none is answered exactly as it always was.</summary>
     internal sealed record SpecDialogMessageRequest(
-        string DialogId, string Text, string? Project = null);
+        string DialogId, string Text, string? Project = null, string? TicketId = null);
 
     internal static async Task<IResult> IngestAsync(
         SpecDialogMessageRequest body, HttpContext ctx)
@@ -42,7 +42,7 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project);
+        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project, body.TicketId);
         return Results.Accepted();
     }
 
@@ -71,7 +71,7 @@ internal static class SpecDialogEndpoints
     /// </summary>
     private static void Dispatch(
         HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns,
-        string? project)
+        string? project, string? ticketId)
     {
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
@@ -83,7 +83,7 @@ internal static class SpecDialogEndpoints
                 await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
                     .DispatchAsync(
-                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None);
+                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None, ticketId);
             }
             catch (Exception ex)
             {

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-8e51a
+goal: "A ticket names the project a design conversation is grounded on when its own routing says so, and says why; anything else asks, with the candidates in hand."
+
+applies_to: "backend (envelope matching and the dialog's scope resolution) and dashboard (the project choice on the Work it out page)"
+
+scope:
+  in: "A project-only match over a ticket's routing envelope, shared with the run-side resolver; the dialog's scope resolution answering from it; and a choice that names the reason it preselected or the reason it must ask."
+  out: "Everything about reading the ticket's CONTENT (8e51c) or carrying it on a conversation (8e51b). Also out: changing what the run-side resolver decides — a conversation must not be able to alter how a ticket routes to a RUN."
+
+decisions:
+  - key: |
+      THE MATCH EXISTS AND THE DECISION AROUND IT IS THE WRONG ONE FOR A CONVERSATION. ProjectResolver
+      answers (project, pipeline) pairs and DROPS a ticket whose labels match no pipeline_from_label
+      entry, and refuses a record label before anything else. Both are right for a RUN — no pipeline,
+      no work — and wrong for a conversation: a person may discuss any ticket on the board, including
+      one nothing would route. So the MATCHING is shared and the DECISION is not.
+  - key: |
+      SHARED BY EXTRACTION, NOT BY A FLAG. A boolean on the resolver saying "and also answer for
+      conversations" would put two policies in one function and let a future change to one silently
+      move the other. The predicate that decides whether a trigger matches an envelope becomes its
+      own thing; the run-side resolver keeps its pipeline step, its record refusal and its metrics
+      exactly as they are, and the dialog reads the match set.
+  - key: |
+      A PRESELECTED PROJECT IS SHOWN, NEVER ASSUMED. The project decides which repositories a
+      conversation reads and which tracker it will file into — too much to infer silently from a
+      word on a ticket. One match preselects AND says what matched; none or several ask, with the
+      candidates and the reason. This is the same posture the surface already has for a single
+      configured project, extended to a reason the reader can check.
+  - key: |
+      THE THREE OUTCOMES ARE THE ONES THE SURFACE ALREADY DRAWS. ScopeResolved, ScopeChoiceRequired
+      and ScopeUnknownProject already exist and the picker already renders a pending, read and failed
+      state. What is new is a REASON travelling beside the resolution, so nothing about the layout has
+      to be invented for this.
+
+steps:
+  - id: the-match-is-its-own-thing
+    path: "src/backend/AgentSmith.Application/Services/Triggers"
+    action:
+      - "Extract the trigger-matches-envelope predicate so both the run-side resolver and a project-only match read one implementation."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs"
+
+  - id: a-ticket-may-name-the-project
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Resolve a conversation's scope from a ticket's envelope when one is offered, carrying the reason it matched or the reason it could not."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogScopeResolver.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/ScopeResolution.cs"
+
+  - id: the-choice-says-why
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Show the preselected project with what matched it, and show the candidates with the reason when the choice is still open."
+    modify:
+      - "src/dashboard/src/components/dialog/DialogProjectChoice.tsx"
+
+  - id: the-resolution-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert a ticket matching one project preselects it with a reason, a ticket matching none or several asks, and the run-side resolver's answers are unchanged."
+
+tests:
+  - "DialogScope_ATicketMatchingOneProject_ResolvesToItWithTheReason"
+  - "DialogScope_ATicketMatchingNoProject_AsksWithTheCandidates"
+  - "DialogScope_ATicketMatchingSeveral_AsksWithThoseSeveral"
+  - "DialogScope_ATicketNoPipelineWouldRoute_StillResolvesAProject"
+  - "DialogScope_ARecordLabelledTicket_IsNotRefusedForAConversation"
+  - "ProjectResolver_EveryExistingCase_AnswersExactlyAsBefore"
+
+done:
+  - "a ticket whose routing names one project opens its conversation on that project, and the surface says what matched"
+  - "a ticket that matches none or several is asked about, with the candidates shown"
+  - "a ticket no pipeline would route can still be discussed"
+  - "the run-side routing decision is byte-for-byte unchanged"
+  - "build green, dashboard tests green, full suite green"

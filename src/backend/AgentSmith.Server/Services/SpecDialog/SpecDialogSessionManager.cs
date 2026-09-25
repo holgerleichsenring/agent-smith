@@ -25,7 +25,7 @@ public sealed class SpecDialogSessionManager(
     /// </summary>
     public async Task<ConversationState> OpenAsync(
         string platform, string channelId, string threadId, string userId,
-        ActiveScope scope, CancellationToken ct)
+        ActiveScope scope, CancellationToken ct, TicketBinding? ticket = null)
     {
         await CloseAndReleaseAsync(platform, threadId, ct);
 
@@ -36,6 +36,13 @@ public sealed class SpecDialogSessionManager(
             UserId = userId, Project = scope.Project,
             ReposJson = SpecDialogSessionMapper.WriteRepos(scope.Repos),
             LastActivityAt = timeProvider.GetUtcNow(),
+            Tracker = ticket?.Tracker,
+            TicketKey = ticket?.Key,
+            // 2026-09-25-8e51b: a bound conversation is NAMED before its first exchange, so the
+            // mint — which only runs on a session with no subject — never runs for one. Trimmed
+            // rather than admitted: the admission rule refuses brackets and quotes because it
+            // judges a MODEL's answer, and a real ticket title routinely carries both.
+            Subject = SpecDialogSessionMapper.Heading(ticket?.Title),
         };
         await repository.AddAsync(session, ct);
 

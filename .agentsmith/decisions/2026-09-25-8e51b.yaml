@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-8e51b
+
+decisions:
+  - category: Architecture
+    chose: "A ticket-bound conversation is reachable by anyone who may reach this surface"
+    over: "One conversation per ticket PER PERSON, or an owner-scoped shared one"
+    reason: |
+      Every read path on this surface is owner-scoped today, and the ownership rule says plainly
+      why: a second principal must not be able to post into someone else's design conversation and
+      approve its filing. But a ticket's conversation cannot be both one-per-ticket and private.
+      Per-person conversations bring back the two-drafts problem the rule exists to remove — the
+      approval record is keyed by ticket and upserts in place, so the later approval wins in
+      silence. Owner-scoping the shared one answers a second principal with a 404 for a ticket
+      they can see on the board. So the widening is deliberate and narrow: a conversation that
+      belongs to a TICKET is shared, one that belongs to none stays private, and DELETING is still
+      the owner's alone.
+    alternatives:
+      - "A per-project grant: a permission model this surface does not have, for one feature"
+
+  - category: Architecture
+    chose: "The key is the approval record's own spelling, not a raw ticket id"
+    over: "Storing the tracker's id as the tracker writes it"
+    reason: |
+      The record's key lowercases the id and collapses every non-alphanumeric character. A raw id
+      would make DPG-1239 and dpg-1239 two conversations over ONE record on a case-sensitive
+      database, and one conversation on a case-insensitive one — so "at most one per ticket" would
+      mean something different on each of the four providers this ships against. The tracker's own
+      id is kept beside it, because every later call addresses the tracker with that.
+    alternatives: []
+
+  - category: Correctness
+    chose: "The unique index is filtered, on the one provider that needs it"
+    over: "An unfiltered unique index over the nullable pair"
+    reason: |
+      SQL Server treats two NULLs as equal in a unique index, so an unfiltered one would permit
+      exactly ONE ticket-less conversation in the whole table and fail every later open. The
+      repository already solved this shape once, for the run-record identity index, and for the
+      same reason applies it from the context: an entity configuration cannot see the provider
+      name. Two migrations and two snapshots, as the subject column took.
+    alternatives: []
+
+  - category: Correctness
+    chose: "The ticket handover holds the latest open in a ref"
+    over: "Depending on it, as the conversation handover beside it does"
+    reason: |
+      The conversation handover calls open synchronously, so its identity churn is harmless. This
+      one calls it when a READ returns — and by then the page has loaded its own fresh
+      conversation, so open is a different function and the effect has been torn down. The answer
+      was dropped once, silently: the address consumed, the ticket's conversation never reached.
+      The test found it before the operator would have.
+    alternatives: []
+
+  - category: Design
+    chose: "The heading is the ticket's title, trimmed"
+    over: "Putting it through the subject admission rule"
+    reason: |
+      That rule refuses brackets, quotes, leading dashes and anything over the column width,
+      because it is judging a MODEL's one-line answer that is minted once and never revised. A
+      real ticket title routinely carries all three. A title is not a guess, so it is trimmed to
+      the column and stored — and the mint never runs for a bound conversation, which also costs
+      one model call less.
+    alternatives: []
+
+  - category: Architecture
+    chose: "The binder's method is not called BindAsync"
+    over: "The obvious name"
+    reason: |
+      A minimal-API endpoint takes the binder as a parameter, and ASP.NET reads a BindAsync method
+      on a parameter type as a custom model binder — the route then fails at startup with a
+      signature complaint about a method never meant for it. Found by a test that had nothing to
+      do with this phase.
+    alternatives: []

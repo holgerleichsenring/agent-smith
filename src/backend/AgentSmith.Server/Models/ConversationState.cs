@@ -12,6 +12,19 @@ public sealed record ConversationState
     public required string JobId { get; init; }
     public required string ChannelId { get; init; }
     public required string UserId { get; init; }
+
+    /// <summary>
+    /// 2026-09-25-8e51b: the tracker connection and the spec-key spelling of the ticket this
+    /// conversation belongs to, or null for one that belongs to none. A bound conversation is
+    /// reachable by anyone who may reach this surface — see SpecDialogOwnership.MayReach.
+    /// </summary>
+    public string? Tracker { get; init; }
+
+    /// <inheritdoc cref="Tracker"/>
+    public string? TicketKey { get; init; }
+
+    /// <summary>True when this conversation belongs to a ticket, and is therefore shared.</summary>
+    public bool MayBeReachedBy(string owner) => UserId == owner || TicketKey is not null;
     public required string Platform { get; init; }
     public required string Project { get; init; }
     public required string TicketId { get; init; }

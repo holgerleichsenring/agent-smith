@@ -50,6 +50,22 @@ public sealed class SpecDialogSession : EntityBase
     /// </summary>
     public string? Subject { get; set; }
 
+    /// <summary>
+    /// 2026-09-25-8e51b: the tracker CONNECTION this conversation's ticket lives on, and the
+    /// ticket in the spelling the approval record uses — the spec key, which lowercases the id and
+    /// collapses every non-alphanumeric character. Both null for a conversation that belongs to no
+    /// ticket, which is every conversation that existed before this.
+    /// <para>
+    /// The spelling matters: a raw id would make DPG-1239 and dpg-1239 two conversations on a
+    /// case-sensitive database and ONE approval record — two drafts of the artifact this pair
+    /// exists to keep single — and one conversation on a case-insensitive one.
+    /// </para>
+    /// </summary>
+    public string? Tracker { get; set; }
+
+    /// <inheritdoc cref="Tracker"/>
+    public string? TicketKey { get; set; }
+
     /// <summary>False once the session is closed or forked away from.</summary>
     public bool IsOpen { get; set; } = true;
 

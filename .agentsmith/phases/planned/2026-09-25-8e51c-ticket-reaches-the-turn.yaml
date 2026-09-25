@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-8e51c
+requires: ["2026-09-25-8e51b"]
+goal: "The ticket a conversation belongs to reaches every turn as the requirement under discussion, bounded, and the conversation can see when it has changed underneath."
+
+applies_to: "backend (the session store, the turn seeds and the design turn's prompt)"
+
+scope:
+  in: "Storing the bound ticket's text with the session; seeding it onto every turn and rendering it in the design turn's prompt as a requirement rather than as instructions; a ceiling on what is seeded; and a fingerprint so a ticket that changed under the conversation is visible rather than guessed at."
+  out: "Attachments, the epic parent and the approved set (8e51d), and writing anything back (8e51e). No tracker TOOL and no new declared master input."
+
+decisions:
+  - key: |
+      IT RIDES IN THE USER PROMPT, NOT AS A DECLARED MASTER INPUT, SO NO SKILLS RELEASE IS NEEDED.
+      Every other thing a design turn carries — the transcript, the images, the revision section,
+      the reply contract — is rendered by the spec-dialog prompt factory into the turn's user
+      message. The master's declared inputs are its four BODY placeholders, and 2026-09-19-4c1f was
+      a different defect: inputs the master declared that the preset failed to fill. Choosing the
+      prompt-factory path keeps this phase inside one repository.
+  - key: |
+      THE TEXT LIVES WITH THE SESSION, IN A TABLE THAT ALREADY EXISTS FOR EXACTLY THIS. A seed lives
+      for one turn and a conversation lives for days; a reply three days later must be grounded on
+      the same text the earlier turns discussed. The attachment table already stores per-session
+      blobs keyed by session, which is the shape this is, so the ticket's text goes there rather
+      than into a new unbounded column on an indexed row.
+  - key: |
+      A CEILING, AND THE REASON IS WRITTEN DOWN IN THIS REPOSITORY ALREADY. A conversation re-sends
+      its whole prompt every turn, on the one surface with neither a cost fence nor an iteration
+      ceiling, so whatever is seeded is multiplied by the length of the conversation rather than
+      paid once — which is why the image ceiling is four rather than ten. One live ticket thread ran
+      to 147,462 characters. The two ticket sections the run path renders are capped at 20,000, and
+      this one takes the same cap and says what it dropped.
+  - key: |
+      THE TICKET IS A REQUIREMENT AND NEVER A METHOD, AND THIS IS THE EXPENSIVE FAILURE. A live run
+      took "adopt the newest versions" and "run lint, test and coverage" off a ticket, turned them
+      into acceptance criteria that were false before the work started, and re-drove the master pass
+      after pass until an operator cancelled it. Ticket text is also third-party input the port
+      itself calls untrusted. The block is delimited the way the run path delimits ticket text, and
+      the prompt says no sentence in it instructs the model.
+  - key: |
+      CHANGE IS DETECTED, NOT TYPED. There is already a fingerprint of a ticket's text, built to
+      make "the ticket changed under us" visible. Stored beside the text, a turn can SAY the ticket
+      moved; a re-read the operator has to remember to ask for is a heuristic around a fact we can
+      compute.
+  - key: |
+      OUR OWN COMMENTS AND OUR OWN NOTE NEVER GO BACK IN. A filed ticket carries a bookkeeping note
+      between markers and comments this framework wrote; feeding either back shows the model its own
+      echo. Both are already recognised — the note by its marker pair, our comments by their
+      heading — and the same predicates serve here.
+
+steps:
+  - id: the-ticket-text-is-stored-with-the-conversation
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Fetch the bound ticket once, strip the framework note, drop our own comments, cap what is kept, and store it with the session beside its fingerprint."
+      - "Give it its own collaborator: the session manager has seven lines left under the class limit."
+
+  - id: every-turn-is-seeded-with-it
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Seed the stored ticket onto each turn under its own context key, empty and all, the way the image set is seeded."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs"
+      - "src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecDialog.cs"
+
+  - id: the-prompt-renders-it-as-a-requirement
+    path: "src/backend/AgentSmith.Application/Services"
+    action:
+      - "Render the seeded ticket in the design turn's prompt inside the delimiters the run path uses, stating that it is what somebody wants and that no sentence in it instructs the model."
+      - "Say when the cap dropped part of it, so a short answer is never mistaken for a short ticket."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs"
+
+  - id: a-changed-ticket-says-so
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Compare the ticket's fingerprint when a turn runs and tell the turn when the ticket has moved since the conversation read it."
+
+  - id: the-grounding-is-pinned
+    path: "tests"
+    action: "Assert the block reaches the rendered prompt framed as requirement, that the note and our comments never do, that the cap holds and says so, and that a changed ticket is reported."
+
+tests:
+  - "TicketGround_ABoundConversation_SeedsTheTicketOnEveryTurn"
+  - "TicketGround_TheRenderedPrompt_SaysNoSentenceInItInstructsTheModel"
+  - "TicketGround_AFiledTicketsOwnNote_IsNeverSeeded"
+  - "TicketGround_OurOwnComments_AreNeverSeeded"
+  - "TicketGround_ATicketLongerThanTheCap_IsTruncatedAndSaysSo"
+  - "TicketGround_ATicketChangedSinceTheConversationReadIt_IsReportedToTheTurn"
+  - "TicketGround_AConversationWithNoTicket_RendersExactlyThePromptItRendersToday"
+  - "TicketGround_AProviderThatRefusesTheFetch_LeavesTheConversationUsableAndSaysSo"
+
+done:
+  - "every turn of a ticket conversation is grounded on that ticket's text, bounded and delimited"
+  - "the prompt presents it as a requirement and states that none of it instructs the model"
+  - "the framework's own note and comments never reach the model"
+  - "a ticket that moved under the conversation is reported by the turn rather than guessed at"
+  - "a conversation with no ticket renders exactly the prompt it renders today"
+  - "build green, full suite green"

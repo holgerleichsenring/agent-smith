@@ -55,6 +55,7 @@ GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
 GET	/api/runs/{runId}/trail	runs.read
 GET	/api/spec-dialog/conversations	dialog.write
 GET	/api/spec-dialog/images/{imageId:long}	dialog.write
+GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write
 GET	/api/spec-dialog/{dialogId}	dialog.write
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
 GET	/health	anonymous

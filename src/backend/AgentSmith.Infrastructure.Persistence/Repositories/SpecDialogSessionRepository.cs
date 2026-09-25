@@ -24,6 +24,18 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
             .OrderByDescending(s => s.Id)
             .FirstOrDefaultAsync(ct);
 
+    /// <summary>
+    /// 2026-09-25-8e51b: the conversation a ticket has, open or CLOSED. Open-only would miss the
+    /// closed row that still holds the ticket and insert a duplicate straight into the unique
+    /// index — the newest wins, because a fork closes the old row and opens another.
+    /// </summary>
+    public Task<SpecDialogSession?> GetByTicketAsync(
+        string tracker, string ticketKey, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>()
+            .Where(s => s.Tracker == tracker && s.TicketKey == ticketKey)
+            .OrderByDescending(s => s.Id)
+            .FirstOrDefaultAsync(ct);
+
     public Task<SpecDialogSession?> GetBySessionIdAsync(
         string sessionId, CancellationToken ct) =>
         unitOfWork.Set<SpecDialogSession>()

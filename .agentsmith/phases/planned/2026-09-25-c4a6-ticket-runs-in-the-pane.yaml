@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-c4a6
+requires: ["2026-09-25-8e51b"]
+goal: "A ticket conversation shows the runs that worked its ticket and follows them, not only the runs of work that conversation filed."
+
+applies_to: "backend (the filed-work reader, its watch and its nudge) and dashboard (the pane)"
+
+scope:
+  in: "Reading the runs and pull requests for the ticket a conversation is BOUND to, registering the live-update watch from that binding, and drawing rows for a ticket this conversation did not file."
+  out: "The approved record (8e51d) and the epic parent (2026-09-25-d0b8)."
+
+decisions:
+  - key: |
+      THE RUNS READER ALREADY ANSWERS BY TICKET; WHAT KEYS OFF THE FILING IS THE READER ABOVE IT.
+      It takes a project list and a ticket id and needs no change. The filed-work reader reaches its
+      ticket through the conversation's latest FILING, which a bound-but-unfiled ticket does not
+      have, and that is the one place the key has to change.
+  - key: |
+      THE ROW TYPE IS FILING-SHAPED AND HAS TO STOP BEING. Its identity is the created ticket's
+      reference — the react key, the test id, the tracker link and what a run read is matched on —
+      and a ticket nobody filed has none, because the domain ticket carries no url. It also carries
+      what the ticket BECAME once the approval created it, which is meaningless for a ticket the
+      framework did not file, and the panel's label for that is deliberately exhaustive. Both get an
+      answer for the unfiled case rather than an empty string.
+  - key: |
+      THE WATCH REGISTERS SERVER-SIDE FROM THE BINDING, WHICH KEEPS THE INVARIANT IT WAS WRITTEN
+      FOR. The read and the watch both start server-side so that a caller names a dialog id and
+      never a ticket — nobody can follow a ticket by asking for it. A bound conversation's ticket is
+      read off its session row, so the caller still names only the dialog, and the rule survives the
+      feature.
+  - key: |
+      A PARKED RUN'S QUESTION AND A PHASE REVIEW'S FINDINGS NOW TRAVEL FOR A TICKET THIS CONVERSATION
+      DID NOT FILE, AND THAT IS SAID OUT LOUD. The route already demands the dialog permission and
+      the runs-read permission, and runs-read is installation-wide with no project scope by design.
+      So this exposes nothing a caller could not already read — but the reach stays the projects
+      sharing the conversation's own tracker, never every project, because a bare ticket number
+      means different work on two trackers.
+
+steps:
+  - id: the-runs-are-read-from-the-binding
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Reach the ticket from the conversation's binding when it has no filing, keeping the project reach at those sharing its tracker."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReader.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkFiling.cs"
+
+  - id: a-row-exists-for-a-ticket-nobody-filed
+    path: "src/backend/AgentSmith.Server/Models"
+    action:
+      - "Give the row an identity and a start state for a ticket this conversation did not file, rather than an empty reference."
+    modify:
+      - "src/backend/AgentSmith.Server/Models/FiledWorkView.cs"
+
+  - id: the-watch-follows-the-binding
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Register the live-update watch from the bound ticket as well as from a filing, server-side, so the pane refreshes when a run moves."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkWatch.cs"
+
+  - id: the-pane-draws-it
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Draw a row for a ticket this conversation did not file, without a tracker link it does not have."
+    modify:
+      - "src/dashboard/src/components/dialog/DialogFiledPanel.tsx"
+
+  - id: the-reading-is-pinned
+    path: "tests"
+    action: "Assert the runs of an unfiled ticket are found and drawn, that the watch fires for them, and that a caller still cannot name a ticket."
+
+tests:
+  - "TicketRuns_TheRunsForATicketNobodyFiled_AreFoundAndShown"
+  - "TicketRuns_ARunMoving_NudgesTheBoundConversation"
+  - "TicketRuns_ACallerNamingATicket_IsStillRefused"
+  - "TicketRuns_TheReach_IsTheProjectsSharingTheConversationsTracker"
+  - "TicketRuns_AConversationWithAFiling_BehavesExactlyAsBefore"
+
+done:
+  - "a ticket conversation shows the runs and pull requests for its ticket, filed by it or not"
+  - "the pane refreshes when one of those runs moves"
+  - "a caller still names a dialog and never a ticket"
+  - "build green, dashboard tests green, full suite green"
