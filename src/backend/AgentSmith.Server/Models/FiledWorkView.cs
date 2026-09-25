@@ -13,7 +13,13 @@ namespace AgentSmith.Server.Models;
 /// because a phase is the unit an operator reasons in.
 /// </summary>
 /// <param name="Tickets">In filing order. Empty for a dialog id with no open session.</param>
-public sealed record FiledWorkView(string DialogId, IReadOnlyList<FiledWorkTicketView> Tickets)
+/// <param name="Approved">2026-09-25-8e51d: the specification a person approved for the ticket
+/// this conversation BELONGS to. It rides this read rather than the dialog view, which the page
+/// refetches after every hub message; a record changes only on an approval.</param>
+public sealed record FiledWorkView(
+    string DialogId,
+    IReadOnlyList<FiledWorkTicketView> Tickets,
+    ApprovedSetView? Approved = null)
 {
     /// <summary>A dialog id nobody has a conversation open on follows nothing.</summary>
     public static FiledWorkView Empty(string dialogId) => new(dialogId, []);

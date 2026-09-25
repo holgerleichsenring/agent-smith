@@ -14,15 +14,19 @@ public sealed class FiledWorkReader(
     FiledWorkFiling filing,
     FiledWorkTrackerProjects trackerProjects,
     FiledWorkRunsReader runs,
-    FiledWorkHandbacks handbacks)
+    FiledWorkHandbacks handbacks,
+    ApprovedSetForConversation approved)
 {
     public async Task<FiledWorkView> ReadAsync(string dialogId, CancellationToken ct)
     {
+        // 2026-09-25-8e51d: a conversation BOUND to a ticket has an approved set to show even
+        // when it filed nothing itself, so this is read before the filing is looked for.
+        var set = await approved.ForAsync(dialogId, ct);
         var latest = await filing.OfAsync(dialogId, ct);
-        if (latest is null) return FiledWorkView.Empty(dialogId);
+        if (latest is null) return FiledWorkView.Empty(dialogId) with { Approved = set };
         var rows = new List<FiledWorkTicketView>();
         foreach (var ticket in latest.Filed) rows.Add(await RowAsync(ticket, ct));
-        return new FiledWorkView(dialogId, rows);
+        return new FiledWorkView(dialogId, rows, set);
     }
 
     /// <summary>

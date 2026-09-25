@@ -295,6 +295,18 @@ export interface SpecDialogFilingPush {
 // own and refetched on a data-free nudge; nothing about a run arrives over the hub.
 
 /** One thing 2026-09-17-042eh's review kept against a phase's own diff. */
+/** 2026-09-25-8e51d: the specification a person approved for the ticket a conversation belongs
+ *  to. Labelled with its approval, because the branch — not this — is what a run reads. */
+export interface ApprovedSetView {
+  key: string;
+  tracker: string;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  approvedInConversation: string | null;
+  repositories: string[];
+  phases: SpecDialogPhaseProposal[];
+}
+
 export interface FiledWorkFinding {
   repository: string;
   path: string;
@@ -385,4 +397,7 @@ export interface FiledWorkTicket {
 export interface FiledWork {
   dialogId: string;
   tickets: FiledWorkTicket[];
+  /** 2026-09-25-8e51d: the specification approved for the ticket this conversation BELONGS to,
+   *  which a conversation that filed nothing itself still has. Null when there is none. */
+  approved?: ApprovedSetView | null;
 }

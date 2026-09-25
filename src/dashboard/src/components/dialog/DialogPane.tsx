@@ -11,7 +11,11 @@ import type {
 } from "@/types/spec-dialog";
 import { DialogFiledPanel } from "./DialogFiledPanel";
 import { DialogProposalPanel } from "./DialogProposalPanel";
+import { DialogApprovedPanel } from "./DialogApprovedPanel";
+import { DialogPaneTabs, statusOf } from "./DialogPaneTabs";
 import { DialogScopePanel } from "./DialogScopePanel";
+import type { DialogPaneTab } from "./DialogPaneTab";
+export type { DialogPaneTab } from "./DialogPaneTab";
 
 // 2026-09-15-6d9c: the right-hand column shows what the conversation is currently about —
 // what the agent may read until it has proposed something, the proposal while it is being
@@ -23,7 +27,7 @@ import { DialogScopePanel } from "./DialogScopePanel";
 // own drawer tabs — the selected state is read off aria-selected, which the tablist already
 // carries, so nothing on this page has to maintain a second flag for it.
 
-export type DialogPaneTab = "proposal" | "scope" | "filed";
+
 
 export interface DialogPaneFocus {
   tab: DialogPaneTab;
@@ -64,6 +68,9 @@ export function DialogPane({
     ...(shownProposal ? (["proposal"] as const) : []),
     ...(session || projects.length > 0 ? (["scope"] as const) : []),
     ...(filed ? (["filed"] as const) : []),
+    // 2026-09-25-8e51d: a conversation BOUND to a ticket has an approved specification to show
+    // even when it filed nothing itself, which is the case this tab exists for.
+    ...(work?.approved ? (["approved"] as const) : []),
   ];
   const fallback: DialogPaneTab = filed ? "filed" : proposal ? "proposal" : "scope";
   const tab = focus && offered.includes(focus.tab) ? focus.tab : fallback;
@@ -82,31 +89,15 @@ export function DialogPane({
       data-inspected={marked ? "true" : undefined}
       className="ecard inert d-pane"
     >
-      <div className="d-head items-center">
-        <div role="tablist" className="flex flex-wrap gap-1">
-          {offered.map((offer) => (
-            <button
-              key={offer}
-              type="button"
-              role="tab"
-              id={tabId(offer)}
-              data-testid={`dialog-tab-${offer}`}
-              aria-selected={offer === tab}
-              aria-controls={offer === tab ? panelId : undefined}
-              onClick={() => onFocus({ tab: offer })}
-              className="dtab"
-            >
-              {TAB_LABEL[offer]}
-            </button>
-          ))}
-        </div>
-        {/* 2026-09-17-042ef: "Filed" stood three times in one corner — the selected tab, this
-            eyebrow and the panel's own heading. The tab is the name, so this says only what the
-            name cannot: a state, and nothing at all when there is no state to say. */}
-        <span className={tab === "filed" && filed?.error ? "fl bad" : "fl"}>
-          {statusOf(tab, shownProposal, proposal, filed)}
-        </span>
-      </div>
+      <DialogPaneTabs
+        offered={offered}
+        tab={tab}
+        tabId={tabId}
+        panelId={panelId}
+        onPick={(offer) => onFocus({ tab: offer })}
+        status={statusOf(tab, shownProposal, proposal, filed)}
+        bad={tab === "filed" && !!filed?.error}
+      />
       {/* 2026-09-20-4b0ae: tabIndex minus one is focusable programmatically and only so — it
           keeps the panel out of the tab order the tablist and the controls inside it already
           provide, while letting an inspect from the exchange land the reader on what it selected. */}
@@ -121,31 +112,14 @@ export function DialogPane({
         {tab === "filed" && filed && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
         {tab === "scope" && <DialogScopePanel session={session} projects={projects} />}
+        {tab === "approved" && work?.approved && (
+          <DialogApprovedPanel approved={work.approved} />
+        )}
       </div>
     </aside>
   );
 }
 
-const TAB_LABEL: Record<DialogPaneTab, string> = {
-  proposal: "Proposal",
-  scope: "Scope",
-  filed: "Filed",
-};
-
-function statusOf(
-  tab: DialogPaneTab,
-  shown: SpecDialogProposalPush | null,
-  latest: SpecDialogProposalPush | null,
-  filed: SpecDialogFilingPush | null,
-): string {
-  if (tab === "filed") return filed?.error ? "filing failed" : "";
-  // The scope pane has no state to report — it is a list of what a conversation may read, and
-  // the panel says that in a sentence of its own. An eyebrow repeating it was the same noise
-  // the heading was, one tab over.
-  if (tab === "scope") return "";
-  if (shown !== latest) return "superseded";
-  return filed ? "filed" : "not filed yet";
-}
 
 /** The pane's choice lasts until the outcome changes; a new proposal or filing takes over. */
 export function useDialogPaneFocus(

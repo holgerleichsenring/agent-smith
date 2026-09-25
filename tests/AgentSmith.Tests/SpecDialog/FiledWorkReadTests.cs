@@ -563,7 +563,14 @@ public sealed class FiledWorkReadTests : IDisposable
             new FiledWorkRunsReader(
                 _scopes, new FiledWorkPhaseReviews(NullLogger<FiledWorkPhaseReviews>.Instance),
                 new DbRunCheckpointStore(_scopes), NullLogger<FiledWorkRunsReader>.Instance),
-            new FiledWorkHandbacks(_scopes));
+            new FiledWorkHandbacks(_scopes),
+            // 2026-09-25-8e51d: these cases are about FILED work; an unbound conversation has no
+            // approved set to show, and the reader asks for one either way.
+            new ApprovedSetForConversation(
+                new SpecDialogSessionRepository(ctx),
+                new SpecDialogTicketTextRepository(ctx),
+                new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore(),
+                new Moq.Mock<AgentSmith.Contracts.Services.IConfigurationLoader>().Object));
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
