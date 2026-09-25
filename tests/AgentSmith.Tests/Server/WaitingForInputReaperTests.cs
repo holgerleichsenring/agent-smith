@@ -50,9 +50,11 @@ public sealed class WaitingForInputReaperTests : IDisposable
         // Days pass. ActiveRunReaper scans with a zero threshold (everything
         // held would be stale) — a parked run holds NOTHING to reap.
         var events = new Mock<IEventPublisher>(MockBehavior.Strict);
+        var registry = new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance);
         var reaper = new ActiveRunReaper(
-            lease, new RunCancellationRegistry(NullLogger<RunCancellationRegistry>.Instance),
-            events.Object, TimeProvider.System, NullLogger<ActiveRunReaper>.Instance);
+            lease, registry,
+            TestSupport.StaleLeaseReleases.For(lease, registry, events.Object, TimeProvider.System),
+            TimeProvider.System, NullLogger<ActiveRunReaper>.Instance);
         var released = await reaper.RunOnceAsync(TimeSpan.Zero, CancellationToken.None);
 
         released.Should().Be(0, "the parked run holds no lease — nothing is stale");
@@ -83,7 +85,7 @@ public sealed class WaitingForInputReaperTests : IDisposable
     }
 
     private static RunStartedEvent Started(string runId) => new(
-        runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
+        runId, "ticket", "code", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

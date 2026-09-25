@@ -29,10 +29,13 @@ internal static class ClaimPreChecker
         var trigger = GetTrigger(project, platform);
         if (trigger is null) return false;
 
-        // p0315d: phase-execution is hard-bound to the `phase` ticket label in
-        // ProjectResolver, never declared in pipeline_from_label — the trigger
-        // existing for the platform is the whole config-side requirement.
-        if (string.Equals(pipelineName, PipelinePresets.PhaseExecutionName, StringComparison.OrdinalIgnoreCase))
+        // p0315d: a bound phase ticket is hard-bound to a pipeline by ProjectResolver and
+        // is in NOBODY's pipeline_from_label — the trigger existing for the platform is the
+        // whole config-side requirement. 2026-09-25-e5b1: that bind target is `code` now, so
+        // the exemption moved with it. It follows that a claim naming `code` is never refused
+        // as un-routed; the claim still has to name a real project with a trigger, and the
+        // ticket still has to have carried the framework's own label to be bound at all.
+        if (string.Equals(pipelineName, PipelinePresets.CodeName, StringComparison.OrdinalIgnoreCase))
             return true;
 
         // 2026-09-16-a4d7: an undeclared default still routes to the fallback, so the

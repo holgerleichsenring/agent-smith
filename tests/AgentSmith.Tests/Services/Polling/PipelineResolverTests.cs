@@ -11,23 +11,25 @@ public sealed class PipelineResolverTests
     // can state that it declares none. The behaviour for that trigger is UNCHANGED — the
     // literal moved out of the config object and into the one place that answers with it.
     [Fact]
-    public void PipelineResolver_TriggerStatesNoDefault_StillAnswersFixBug()
+    public void PipelineResolver_TriggerStatesNoDefault_AnswersTheCodePreset()
     {
+        // 2026-09-25-e5b1: the answer was the alias `fix-bug`, which was the code preset under
+        // a name that no longer resolves. The BEHAVIOUR is unchanged — the same pipeline runs.
         var trigger = new WebhookTriggerConfig();
 
         trigger.DefaultPipeline.Should().BeNull();
-        new PipelineResolver().Resolve(trigger, ["some-label"]).Should().Be("fix-bug");
-        PipelinePresets.UndeclaredFallbackPipeline.Should().Be("fix-bug");
+        new PipelineResolver().Resolve(trigger, ["some-label"]).Should().Be(PipelinePresets.CodeName);
+        PipelinePresets.UndeclaredFallbackPipeline.Should().Be(PipelinePresets.CodeName);
     }
 
     [Fact]
     public void Resolve_EmptyPipelineFromLabel_ReturnsDefaultPipeline()
     {
-        var trigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" };
+        var trigger = new WebhookTriggerConfig { DefaultPipeline = "code" };
 
         var pipeline = new PipelineResolver().Resolve(trigger, ["bug"]);
 
-        pipeline.Should().Be("fix-bug");
+        pipeline.Should().Be("code");
     }
 
     [Fact]
@@ -35,10 +37,10 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             PipelineFromLabel = new()
             {
-                ["bug"] = "fix-bug",
+                ["bug"] = "code",
                 ["feature"] = "implement-feature",
                 ["security-review"] = "security-scan"
             }
@@ -54,12 +56,12 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig
         {
-            PipelineFromLabel = new() { ["Bug"] = "fix-bug" }
+            PipelineFromLabel = new() { ["Bug"] = "code" }
         };
 
         var pipeline = new PipelineResolver().Resolve(trigger, ["BUG"]);
 
-        pipeline.Should().Be("fix-bug");
+        pipeline.Should().Be("code");
     }
 
     [Fact]
@@ -71,7 +73,7 @@ public sealed class PipelineResolverTests
             PipelineFromLabel = new()
             {
                 ["agent-smith:pending"] = "trapped-pipeline",
-                ["bug"] = "fix-bug"
+                ["bug"] = "code"
             }
         };
 
@@ -85,7 +87,7 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             PipelineFromLabel = new() { ["security-review"] = "security-scan" }
         };
 
@@ -99,8 +101,8 @@ public sealed class PipelineResolverTests
     {
         var trigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
-            PipelineFromLabel = new() { ["bug"] = "fix-bug" }
+            DefaultPipeline = "code",
+            PipelineFromLabel = new() { ["bug"] = "code" }
         };
 
         var pipeline = new PipelineResolver().Resolve(trigger, []);
@@ -111,11 +113,11 @@ public sealed class PipelineResolverTests
     [Fact]
     public void Resolve_EmptyLabels_AndEmptyMap_ReturnsDefaultPipeline()
     {
-        var trigger = new WebhookTriggerConfig { DefaultPipeline = "fix-bug" };
+        var trigger = new WebhookTriggerConfig { DefaultPipeline = "code" };
 
         var pipeline = new PipelineResolver().Resolve(trigger, []);
 
-        pipeline.Should().Be("fix-bug");
+        pipeline.Should().Be("code");
     }
 
     [Fact]
@@ -126,11 +128,11 @@ public sealed class PipelineResolverTests
         // filter — only the 5 closed-set status labels get stripped.
         var trigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             PipelineFromLabel = new()
             {
                 ["agent-smith:init"] = "init-project",
-                ["agent-smith:bug"] = "fix-bug"
+                ["agent-smith:bug"] = "code"
             }
         };
 
@@ -146,7 +148,7 @@ public sealed class PipelineResolverTests
         // filtered out, operator-defined ones pass through.
         var trigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             PipelineFromLabel = new()
             {
                 ["agent-smith:init"] = "init-project"

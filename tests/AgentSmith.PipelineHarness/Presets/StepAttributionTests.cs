@@ -13,7 +13,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0388a's done-bullet, proven against a REAL pipeline run instead of a mocked
-/// step runner: a scripted fix-bug run through the production composition must
+/// step runner: a scripted coding run through the production composition must
 /// persist rows whose step attribution matches the steps that actually ran.
 ///
 /// <para>Covers both emission shapes the ambient step scope exists for — an event
@@ -117,7 +117,7 @@ public sealed class StepAttributionTests
     private static async Task<PersistedRun> RunAndReadAsync(RealCompositionHarness harness)
     {
         var runner = new PipelineRunner(harness.Services);
-        await runner.RunAsync("fix-bug");
+        await runner.RunAsync("code");
         var runId = runner.LastRunId!;
         using var scope = harness.Services.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Metrics;
@@ -55,7 +56,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "github", "7", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "github", "7", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -77,7 +78,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "gitlab", "11", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "gitlab", "11", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -99,7 +100,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "azuredevops", "42", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "azuredevops", "42", "code", "my-repo", "closed");
     }
 
     [Fact]
@@ -115,7 +116,7 @@ public sealed class SingleRepoRegressionTests
                 {
                     Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                 },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 DoneStatus = "closed"
             }
         });
@@ -143,7 +144,7 @@ public sealed class SingleRepoRegressionTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        AssertCanonicalShape(captured.Value, "jira", "PROJ-99", "fix-bug", "my-repo", "closed");
+        AssertCanonicalShape(captured.Value, "jira", "PROJ-99", "code", "my-repo", "closed");
     }
 
     private static void AssertCanonicalShape(
@@ -170,7 +171,7 @@ public sealed class SingleRepoRegressionTests
         {
             Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
         },
-        DefaultPipeline = "fix-bug",
+        DefaultPipeline = "code",
         DoneStatus = "closed"
     };
 
@@ -230,7 +231,8 @@ public sealed class SingleRepoRegressionTests
 
         var claimService = new TicketClaimService(
             claimLock.Object, new InMemoryUnmovedTicketStore(), factory.Object, queue.Object,
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
             CapacityTestDoubles.StubCalculator(),
@@ -255,24 +257,24 @@ public sealed class SingleRepoRegressionTests
     private static (GitHubIssueWebhookHandler sut, CapturedRequest captured)
         BuildGitHubHandler(AgentSmithConfig config) =>
         BuildStack(config, (l, c, r, d) =>
-            new GitHubIssueWebhookHandler(l, c, r, d,
+            new GitHubIssueWebhookHandler(l, c, r, d, ApprovedRecordProbes.None(),
                 NullLogger<GitHubIssueWebhookHandler>.Instance));
 
     private static (GitLabIssueWebhookHandler sut, CapturedRequest captured)
         BuildGitLabHandler(AgentSmithConfig config) =>
         BuildStack(config, (l, c, r, d) =>
-            new GitLabIssueWebhookHandler(l, c, r, d,
+            new GitLabIssueWebhookHandler(l, c, r, d, ApprovedRecordProbes.None(),
                 NullLogger<GitLabIssueWebhookHandler>.Instance));
 
     private static (AzureDevOpsWorkItemWebhookHandler sut, CapturedRequest captured)
         BuildAdoHandler(AgentSmithConfig config) =>
         BuildStack(config, (l, c, r, d) =>
-            new AzureDevOpsWorkItemWebhookHandler(l, c, r, d,
+            new AzureDevOpsWorkItemWebhookHandler(l, c, r, d, ApprovedRecordProbes.None(),
                 NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance));
 
     private static (JiraAssigneeWebhookHandler sut, CapturedRequest captured)
         BuildJiraAssigneeHandler(AgentSmithConfig config) =>
         BuildStack(config, (l, c, r, d) =>
-            new JiraAssigneeWebhookHandler(l, c, r, d,
+            new JiraAssigneeWebhookHandler(l, c, r, d, ApprovedRecordProbes.None(),
                 NullLogger<JiraAssigneeWebhookHandler>.Instance));
 }

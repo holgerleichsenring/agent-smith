@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -32,7 +33,7 @@ public sealed class TicketProviderFactory(
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
         _logger.LogDebug("CreateAzureDevOps: org={Org} project={Project}", config.Organization, config.Project);
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
-        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token);
+        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token, TicketLabelVocabulary.For(config));
         var loader = new AzureDevOpsAttachmentLoader(
             connection,
             httpClientFactory.CreateClient(),
@@ -50,7 +51,7 @@ public sealed class TicketProviderFactory(
     {
         _logger.LogDebug("CreateGitHub: url={Url}", config.Url);
         var token = secrets.GetRequired("GITHUB_TOKEN");
-        var connection = new GitHubTicketConnection(config.Url!, token);
+        var connection = new GitHubTicketConnection(config.Url!, token, TicketLabelVocabulary.For(config));
         var loader = new GitHubAttachmentLoader(
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubAttachmentLoader>());
@@ -66,7 +67,8 @@ public sealed class TicketProviderFactory(
         var email = secrets.GetRequired("JIRA_EMAIL");
         var token = secrets.GetRequired("JIRA_TOKEN");
         var connection = new JiraTicketConnection(
-            url, email, token, config.Project, config.Endpoints, ParentLinkType: config.ParentLinkType);
+            url, email, token, config.Project, config.Endpoints,
+            ParentLinkType: config.ParentLinkType, Labels: TicketLabelVocabulary.For(config));
         return new JiraTicketProvider(connection, httpClientFactory.CreateClient(),
             new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
@@ -82,7 +84,7 @@ public sealed class TicketProviderFactory(
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var escapedPath = Uri.EscapeDataString(projectPath);
         var httpClient = httpClientFactory.CreateClient();
-        var connection = new GitLabTicketConnection(baseUrl, escapedPath, token);
+        var connection = new GitLabTicketConnection(baseUrl, escapedPath, token, TicketLabelVocabulary.For(config));
         var loader = new GitLabAttachmentLoader(
             connection, httpClient,
             loggerFactory.CreateLogger<GitLabAttachmentLoader>());

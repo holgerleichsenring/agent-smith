@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-3c7ab
+goal: "A write the board refuses stops deciding whether a run may proceed: a lease legitimately held is kept, a refused label is logged, and a ticket that is not there still fails."
+
+applies_to: "backend (the claim region and the ticket lifecycle coordinator)"
+
+scope:
+  in: "The three ways a lifecycle write fails and what each one may do to a claim this framework already holds: a concurrency refusal keeps the lease, a refused write at run end is logged, and a ticket that does not exist still fails the claim."
+  out: "Making RECONCILIATION independent of the board — the row it would read is deleted by the reaper within three minutes while the label stays on the tracker for ever, so that needs a durable record and is phase 2026-09-25-b4d9 (orphan-record-outlives-reap). Also out: rendering a lifecycle state as a native status on a tracker that has no native writer, and the label NAMES, which are 3c7ac."
+
+decisions:
+  - key: |
+      THE BOARD STOPPED BEING A PRECONDITION AND NOBODY FINISHED THE SENTENCE. No transitioner checks
+      the `from` state any more — GitHubTicketStatusTransitioner:64-67, GitLabTicketStatusTransitioner:53-56,
+      AzureDevOpsTicketStatusTransitioner:58-62, JiraTicketStatusTransitioner:108-112 — and
+      ReadCurrentAsync has no production caller at all: the four implementations, the locking decorator
+      and tests. p0262 made the claim lease-only; what is left is one branch in the claim region that
+      still lets a tracker's answer take a lease away.
+  - key: |
+      PRECONDITIONFAILED IS A CONCURRENCY ARTEFACT AND NEVER A STATEMENT ABOUT THE WORK. Its three
+      sources are a GitHub ETag mismatch, an Azure DevOps rev mismatch or 409, and a Redis label-lock
+      already held; GitLab and Jira never produce it. Every one of them means "somebody else wrote to
+      this ticket in the same second" — an operator typing a comment is enough. Today
+      SingleClaimRegionExecutor releases the lease and reports AlreadyClaimed, which is a lie about a
+      claim the unique index granted. The lease is the guard, so the lease stands and the label write
+      is retried or logged.
+  - key: |
+      NOTFOUND AND A FAILED WRITE STAY CLAIM FAILURES, AND THIS IS DELIBERATE RATHER THAN TIMID. A 404
+      is not a ticket whose label is missing; it is a ticket that is not there — deleted, a wrong id, a
+      wrong project key — and starting a run against it produces work nobody can deliver. A Failed
+      write means the tracker could not be written to at all, and a run that cannot report its state at
+      the end is worse than a run that does not start. The board may not decide what the work IS; it
+      may still say that it is unreachable.
+  - key: |
+      A REFUSED LIFECYCLE WRITE IS A LOG LINE AND MUST NOT BECOME AN UNMOVED TICKET. UnmovedTicket is a
+      different fact: it records a FINALIZE whose NATIVE status did not move, is keyed on the trigger
+      status, and feeds UnmovedTicketGate, which REFUSES every later claim of that ticket. Routing a
+      refused label into it would turn a cosmetic failure into a permanent block on the ticket — the
+      exact opposite of what this series is for. The coordinator logs, as it does today, and that is
+      the whole treatment.
+  - key: |
+      WHAT THIS PHASE DOES NOT DO IS SAID HERE RATHER THAN DISCOVERED LATER. Deleting
+      `agent-smith:enqueued` from a ticket still costs orphan recovery, because EnqueuedReconciler
+      finds its candidates by asking the TRACKER for that label and the only row that would replace it
+      — the unattached lease — is deleted by ActiveRunReaper about three minutes in, while the
+      reconciler runs every ten. The board is currently the DURABLE record and the database is the
+      transient one, which is the inversion this series exists to fix and cannot be fixed by reading
+      differently. It is phase 2026-09-25-b4d9.
+
+steps:
+  - id: a-concurrency-refusal-keeps-the-lease
+    path: "src/backend/AgentSmith.Application/Services/Claim"
+    action:
+      - "Keep the lease and proceed with the claim when the lifecycle write is refused for concurrency, recording that the board was not written."
+      - "Leave NotFound and a failed write releasing the lease and failing the claim, exactly as today."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs"
+
+  - id: a-refused-write-at-run-end-is-only-logged
+    path: "src/backend/AgentSmith.Application/Services/Lifecycle"
+    action:
+      - "State at the coordinator that a refused lifecycle write is logged and never recorded as an unmoved ticket, and pin it."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs"
+
+  - id: the-boards-authority-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert each transition outcome's effect on the claim, and that a refused write at run end records no unmoved ticket and fails no run."
+
+tests:
+  - "Claim_APreconditionFailedLifecycleWrite_KeepsTheLeaseAndProceeds"
+  - "Claim_APreconditionFailedLifecycleWrite_IsNotReportedAsAlreadyClaimed"
+  - "Claim_ATicketThatDoesNotExist_StillFailsTheClaimAndReleasesTheLease"
+  - "Claim_ATrackerThatCannotBeWrittenTo_StillFailsTheClaim"
+  - "Lifecycle_ARefusedWriteAtRunEnd_IsLoggedAndRecordsNoUnmovedTicket"
+  - "Lifecycle_ARefusedWriteAtRunEnd_DoesNotFailTheRun"
+
+done:
+  - "a lifecycle write refused for concurrency no longer takes away a lease the index granted"
+  - "a ticket that does not exist, and a tracker that cannot be written to, still fail the claim"
+  - "a refused lifecycle write at run end is logged, records no unmoved ticket and fails no run"
+  - "no production code reads a lifecycle state off the board to decide anything"
+  - "build green, full suite green"

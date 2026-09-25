@@ -18,7 +18,7 @@ public sealed class RunSnapshotMapperTests
     {
         var run = new Run
         {
-            Id = "run-1", Pipeline = "fix-bug", Trigger = "ticket", Status = "success",
+            Id = "run-1", Pipeline = "code", Trigger = "ticket", Status = "success",
             Summary = "Fixed it", StartedAt = DateTimeOffset.Parse("2026-06-07T10:00:00Z"),
             FinishedAt = DateTimeOffset.Parse("2026-06-07T10:05:00Z"), CostTotalUsd = 0.07m,
             TicketId = "42", TicketTitle = "The bug", AgentName = "claude", CancelRequested = false,
@@ -35,7 +35,7 @@ public sealed class RunSnapshotMapperTests
         var snap = RunSnapshotMapper.ToSnapshot(run);
 
         snap.RunId.Should().Be("run-1");
-        snap.Pipeline.Should().Be("fix-bug");
+        snap.Pipeline.Should().Be("code");
         snap.Status.Should().Be("success");
         snap.Summary.Should().Be("Fixed it");
         snap.Repos.Should().ContainSingle().Which.Should().Be("primary");
@@ -82,7 +82,7 @@ public sealed class RunSnapshotMapperTests
         // bound (exact once finished).
         var run = new Run
         {
-            Id = "run-1", Pipeline = "fix-bug", Status = "success", TotalSteps = null,
+            Id = "run-1", Pipeline = "code", Status = "success", TotalSteps = null,
             Steps = [new RunStep { StepIndex = 0, StepName = "LoadCatalog", Status = "ok" }],
         };
 
@@ -98,7 +98,7 @@ public sealed class RunSnapshotMapperTests
         var start = DateTimeOffset.Parse("2026-07-13T10:00:00Z");
         var run = new Run
         {
-            Id = "run-1", Pipeline = "fix-bug", Status = "success",
+            Id = "run-1", Pipeline = "code", Status = "success",
             StartedAt = start, FinishedAt = start.AddMinutes(10),
             JobId = "job-1", // p0330: a spawned orchestrator pod lived start->finish
             Sandboxes =
@@ -132,14 +132,14 @@ public sealed class RunSnapshotMapperTests
 
         var running = new Run
         {
-            Id = "r1", Pipeline = "fix-bug", Status = "running", StartedAt = start, JobId = "job-1",
+            Id = "r1", Pipeline = "code", Status = "running", StartedAt = start, JobId = "job-1",
             Sandboxes = [new RunSandbox { Key = "api", RepoName = "api", SpawnedAt = start }],
         };
         RunSnapshotMapper.ToSnapshot(running).ReservedGiMinutes.Should().BeNull();
 
         var preMigration = new Run
         {
-            Id = "r2", Pipeline = "fix-bug", Status = "success",
+            Id = "r2", Pipeline = "code", Status = "success",
             StartedAt = start, FinishedAt = start.AddMinutes(3),
             Sandboxes = [new RunSandbox { Key = "api", RepoName = "api" }],
         };
@@ -154,7 +154,7 @@ public sealed class RunSnapshotMapperTests
         // opened on a non-success run (its work preserved for review).
         var run = new Run
         {
-            Id = "run-1", Pipeline = "add-feature", Status = "failed",
+            Id = "run-1", Pipeline = "code", Status = "failed",
             Repos =
             [
                 new RunRepo { RepoName = "server", PrStatus = "opened", PrUrl = "https://az/server/pr/1" },
@@ -179,7 +179,7 @@ public sealed class RunSnapshotMapperTests
         // not the over-counting reservation. Their memory requests sum.
         var run = new Run
         {
-            Id = "run-1", Pipeline = "fix-bug", Status = "running",
+            Id = "run-1", Pipeline = "code", Status = "running",
             Sandboxes =
             [
                 new RunSandbox
@@ -204,7 +204,7 @@ public sealed class RunSnapshotMapperTests
 
         // No spawned sandboxes (in-process run, or pods not yet up) → null, so the
         // client renders "calculating…"/omits, never a fabricated count.
-        var noBoxes = new Run { Id = "r2", Pipeline = "fix-bug", Status = "running" };
+        var noBoxes = new Run { Id = "r2", Pipeline = "code", Status = "running" };
         RunSnapshotMapper.ToSnapshot(noBoxes).LiveCompute.Should().BeNull();
     }
 

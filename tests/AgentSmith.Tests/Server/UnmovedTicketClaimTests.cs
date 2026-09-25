@@ -93,9 +93,9 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         await RecordUnmovedAsync();
 
         var spawn = await Funnel().ExecuteAsync(
-            Config(), Config().Projects[Project], "fix-bug",
+            Config(), Config().Projects[Project], "code",
             new IncomingTicketEnvelope { TicketId = Ticket, Platform = "github" },
-            new WebhookTriggerConfig { DefaultPipeline = "fix-bug" },
+            new WebhookTriggerConfig { DefaultPipeline = "code" },
             CancellationToken.None);
 
         spawn.ClaimResults.Should().ContainSingle()
@@ -233,7 +233,8 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         return new TicketClaimService(
             claimLock.Object, _store, transitionerFactory.Object, _jobQueue.Object,
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
     }
 
     private SpawnPipelineRunsUseCase Funnel() => new(
@@ -289,7 +290,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         Queue().EnqueueAsync(Candidate(Ticket, isResume), CancellationToken.None);
 
     private static CapacityQueueCandidate Candidate(string ticketId, bool isResume) => new(
-        Project, ticketId, "fix-bug", "github",
+        Project, ticketId, "code", "github",
         AgentSmith.Application.Services.RunIdGenerator.Generate(DateTimeOffset.UtcNow),
         "waiting for sandbox capacity", ["repo-a"],
         InitialContextJson: "{}", PlanAnswersJson: null, IsResume: isResume);
@@ -300,7 +301,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         var run = await context.Runs.FirstOrDefaultAsync(r => r.Id == runId);
         if (run is null)
         {
-            run = new Run { Id = runId, Project = Project, TicketId = Ticket, Pipeline = "fix-bug" };
+            run = new Run { Id = runId, Project = Project, TicketId = Ticket, Pipeline = "code" };
             context.Runs.Add(run);
         }
         run.Status = "waiting_for_input";
@@ -338,14 +339,14 @@ public sealed class UnmovedTicketClaimTests : IDisposable
                 Tracker = new TrackerConnection { Name = Tracker, Type = TrackerType.GitHub },
                 GithubTrigger = new WebhookTriggerConfig
                 {
-                    DefaultPipeline = "fix-bug", TriggerStatuses = ["Approved"], DoneStatus = "closed",
+                    DefaultPipeline = "code", TriggerStatuses = ["Approved"], DoneStatus = "closed",
                 },
             },
         },
     };
 
     private static ClaimRequest Request() =>
-        new("GitHub", Project, new TicketId(Ticket), "fix-bug");
+        new("GitHub", Project, new TicketId(Ticket), "code");
 
     private static IServiceProvider BuildServiceProvider(SqliteConnection connection)
     {

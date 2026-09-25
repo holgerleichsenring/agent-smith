@@ -268,7 +268,7 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
 
         Resolve(provider.Created[0].Labels).Should().ContainSingle()
-            .Which.PipelineName.Should().Be(PipelinePresets.PhaseExecutionName);
+            .Which.PipelineName.Should().Be(PipelinePresets.CodeName);
     }
 
     /// <summary>
@@ -516,5 +516,13 @@ public sealed class EpicWorkTicketTests
 
         public Task SaveAsync(SpecApprovalRecord record, CancellationToken cancellationToken) =>
             throw error;
+
+        public Task<OutstandingApprovals> ListOutstandingAsync(
+            string tracker, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult(OutstandingApprovals.None);
+
+        public Task MarkSatisfiedAsync(
+            string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

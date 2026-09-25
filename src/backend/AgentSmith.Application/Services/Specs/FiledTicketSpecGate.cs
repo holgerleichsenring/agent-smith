@@ -11,6 +11,13 @@ namespace AgentSmith.Application.Services.Specs;
 /// DeriveSpec with no readable set on its branch and no record to hand one over, the hand-off
 /// broke. Deriving then would silently replace a ratified spec with a guess.
 /// <para>
+/// 2026-09-25-3c7aa: an approval RECORD holds the ticket to the same rule, whether or not the
+/// stamp is still on it. One arm of this changes behaviour and it is smaller than it reads: the
+/// source resolver runs the hand-off first, so a record over a branch holding NOTHING hands its
+/// set over and never reaches here. What reaches here is a branch that answered badly, and a
+/// ticket whose stamp somebody deleted.
+/// </para>
+/// <para>
 /// 2026-09-22-6ad7: the finding is a HAND-BACK rather than a failed step. A failed step finalizes
 /// the ticket into the failure status, which moves a ticket out of the open set because a file is
 /// not on a branch yet; the park leaves it where a person can put the specs there and trigger it
@@ -47,7 +54,10 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var labels = ticket.Labels ?? [];
-        if (!FiledTicketLabels.CarriesApprovedSet(labels)) return null;
+        // 2026-09-25-3c7aa: the RECORD or the stamp. A record is the durable half — a label can be
+        // taken off a board by anyone — and the stamp is still read because a run in a process that
+        // binds the in-memory store is handed no record at all.
+        if (record is null && !FiledTicketLabels.CarriesApprovedSet(labels)) return null;
         if (FiledTicketLabels.ParentId(labels) is { } parent)
         {
             logger.LogInformation(

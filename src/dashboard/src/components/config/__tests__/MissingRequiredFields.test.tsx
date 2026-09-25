@@ -46,7 +46,9 @@ vi.mock("@/lib/configApi", () => {
         agent: "claude",
         tracker: "gh",
         repos: ["repo"],
-        // p0393: a RETIRED preset name. It still runs, so it must still load.
+        // p0393 retired this name; 2026-09-25-e5b1 stopped it resolving. The startup
+        // migration rewrites a stored one, but a form that met it before the migration ran
+        // — or after a hand edit — must still LOAD it rather than blanking the field.
         pipeline: "fix-bug",
         pipelines: ["fix-bug"],
         defaultPipeline: "fix-bug",
@@ -160,6 +162,8 @@ describe("Config Studio shows what is missing (p0392)", () => {
 
     // 2026-09-16-74a2: three pipeline fields became one, and it is the DEFAULT — the
     // legacy singular left the form (the loader shim still appends it to the list).
+    // 2026-09-25-e5b1: the stored value survives and is LABELLED, never silently rewritten —
+    // the field says the name is retired, so the operator chooses what replaces it.
     fireEvent.click(await screen.findByTestId("form-tab-pipeline"));
     const pipeline = (await screen.findByTestId("form-field-defaultPipeline")) as HTMLSelectElement;
     // It LOADS: the stored value survives opening the form.
@@ -263,7 +267,7 @@ describe("Config Studio shows what is missing (p0392)", () => {
         severity: "advisory",
         reason:
           "Tracker 'gh' declares no pipeline_from_label and no default pipeline: " +
-          "every ticket it routes runs 'fix-bug'.",
+          "every ticket it routes runs 'code'.",
         project: null,
         trigger: null,
         field: "defaultPipeline",
@@ -280,7 +284,7 @@ describe("Config Studio shows what is missing (p0392)", () => {
       expect(await screen.findByTestId("form-field-defaultPipeline")).toBeInTheDocument();
       const slot = await screen.findByTestId("form-finding-defaultPipeline");
       expect(slot).toHaveAttribute("data-severity", "advisory");
-      expect(slot.textContent).toContain("fix-bug");
+      expect(slot.textContent).toContain("code");
       // Advisory never disables Save.
       await waitFor(() => expect(screen.getByTestId("config-drawer-save")).not.toBeDisabled());
     } finally {

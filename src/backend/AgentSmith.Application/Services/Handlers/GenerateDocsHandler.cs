@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Generates or updates documentation for code changes via the agentic LLM loop.
-/// Runs after Test in the add-feature pipeline.
+/// Runs after Test in the code pipeline.
 /// </summary>
 public sealed class GenerateDocsHandler(
     IChatClientFactory chatClientFactory,

@@ -127,3 +127,48 @@ describe("MapField", () => {
     expect(lastEmit(onEmit)).toBeUndefined();
   });
 });
+
+describe("a value side with declared choices", () => {
+  // 2026-09-25-3c7ad: the pipeline a label routes to is OUR closed set, and it was a free-text
+  // box whose legal values were written down nowhere — the operator's live configuration names
+  // three that no longer exist.
+  it("renders a select over the declared values", () => {
+    render(
+      <MapField
+        label="Pipeline by label"
+        values={{ "agent-smith:code": "code" }}
+        valueChoices={["code", "security-scan"]}
+        onChange={() => {}}
+        testId="m"
+      />,
+    );
+
+    const value = screen.getByTestId("m-value-0");
+    expect(value.tagName).toBe("SELECT");
+    expect([...value.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toContain(
+      "security-scan",
+    );
+  });
+
+  it("keeps a stored value the list does not hold", () => {
+    render(
+      <MapField
+        label="Pipeline by label"
+        values={{ "agent-smith:bug": "fix-bug" }}
+        valueChoices={["code"]}
+        onChange={() => {}}
+        testId="m"
+      />,
+    );
+
+    // A configuration written before the list existed must stay readable rather than be
+    // silently rewritten by the next save.
+    expect((screen.getByTestId("m-value-0") as HTMLSelectElement).value).toBe("fix-bug");
+  });
+
+  it("stays a text box when nothing declares a set", () => {
+    render(<MapField label="Extra" values={{ a: "b" }} onChange={() => {}} testId="m" />);
+
+    expect(screen.getByTestId("m-value-0").tagName).toBe("INPUT");
+  });
+});

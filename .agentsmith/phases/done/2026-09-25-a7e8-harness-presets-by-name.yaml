@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-a7e8
+goal: "The preset harness drives presets by the names they have, so the retired alias names can be deleted without taking the gate's own suite with them."
+
+applies_to: "tests (the pipeline harness's preset suites and its name map)"
+
+scope:
+  in: "Every harness suite and fixture that names a retired alias, moved onto the preset name it resolves to, and the harness's own name map with it."
+  out: "Deleting the aliases, which is 2026-09-25-e5b1 and cannot land until this has. Nothing in src changes here."
+
+decisions:
+  - key: |
+      THE GATE RUNS THIS SUITE, SO THE DELETION CANNOT PRECEDE IT. The phase gate runs the whole
+      solution, the harness resolves a preset by name and THROWS when the name does not resolve,
+      and roughly sixteen harness files ask for fix-bug, fix-no-test, add-feature or
+      phase-execution. Deleting the alias map first produces a tree whose own gate cannot go
+      green — which is why this is a phase and not a step inside one.
+  - key: |
+      IT IS A RENAME AND NOTHING ELSE. Every one of those names already resolves to the code
+      preset, so each suite runs exactly the pipeline it runs today. A behaviour change hidden in
+      this move would be invisible against a green suite, so there is none: the only edits are the
+      string a suite asks for, and the map that translates one of them.
+  - key: |
+      THE SUITE NAMES STAY. A file called after the work it proves — fixing a bug, adding a
+      feature — is named for its SCENARIO, not for a preset, and renaming those files would make
+      this diff unreadable for no gain.
+
+steps:
+  - id: the-suites-ask-for-the-preset-they-run
+    path: "tests/AgentSmith.PipelineHarness"
+    action:
+      - "Replace every retired alias name a harness suite or fixture asks for with the preset name it resolves to."
+
+  - id: the-harness-name-map-follows
+    path: "tests/AgentSmith.PipelineHarness"
+    action:
+      - "Point the harness's own pipeline-name map at preset names rather than at an alias."
+
+  - id: the-move-is-pinned
+    path: "tests/AgentSmith.PipelineHarness"
+    action: "Assert no harness source names a retired alias, so the next one added is caught here rather than by a red gate."
+
+tests:
+  - "Harness_NoSuite_NamesARetiredAlias"
+  - "Harness_EverySuite_ResolvesThePresetItAsksFor"
+
+done:
+  - "no harness source names a retired alias"
+  - "every harness suite runs exactly the preset it ran before"
+  - "build green, full suite green"

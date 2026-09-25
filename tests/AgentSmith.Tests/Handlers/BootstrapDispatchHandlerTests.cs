@@ -21,7 +21,7 @@ public sealed class BootstrapDispatchHandlerTests
     {
         ["pipeline_name"] = new(
             "pipeline_name", "test", ConceptType.Enum,
-            new[] { "init-project", "fix-bug", "security-scan" }, null, []),
+            new[] { "init-project", "code", "security-scan" }, null, []),
         ["project_language"] = new(
             "project_language", "test", ConceptType.String,
             null, null, []),
@@ -136,7 +136,7 @@ public sealed class BootstrapDispatchHandlerTests
     [Fact]
     public async Task ExecuteAsync_ActivatesWhenExcludesPipelineName_NoMatch()
     {
-        var pipeline = PipelineFor("fix-bug", "csharp",
+        var pipeline = PipelineFor("code", "csharp",
             new RoleSkillDefinition
             {
                 Name = "csharp-bootstrap",

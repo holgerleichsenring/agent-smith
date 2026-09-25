@@ -141,7 +141,7 @@ public sealed class MoneyPrecisionPersistenceTests
 
     private static Run NewRun(string runId) => new()
     {
-        Id = runId, Project = "money-precision", Pipeline = "fix-bug", TicketId = runId,
+        Id = runId, Project = "money-precision", Pipeline = "code", TicketId = runId,
         Status = "success", StartedAt = DateTimeOffset.UtcNow, CostTotalUsd = RunTotal, BudgetCapUsd = BudgetCap,
     };
 }

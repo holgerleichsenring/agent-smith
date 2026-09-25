@@ -22,7 +22,7 @@ public sealed record SkillCallRequest
     public required TaskType TaskType { get; init; }
 
     /// <summary>
-    /// p0145: pipeline preset name (e.g. "fix-bug", "schedule-appointment").
+    /// p0145: pipeline preset name (e.g. "code", "security-scan").
     /// Carried for the future <c>SkillCallRuntime</c> → <c>IToolKit</c>
     /// integration in p0142, which will use it to compose <c>ToolSet</c>
     /// internally. Null on legacy callers; consumed via the

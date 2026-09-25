@@ -76,6 +76,7 @@ export function CapabilityFieldInputs({
                   label={label}
                   values={current}
                   testId={`form-field-${f.key}`}
+                  valueChoices={f.choices}
                   onChange={(v) => onFieldChange(f.key, v)}
                 />
               </FieldSlot>

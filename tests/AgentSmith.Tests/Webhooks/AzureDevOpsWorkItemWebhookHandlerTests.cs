@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -37,7 +38,7 @@ public sealed class AzureDevOpsWorkItemWebhookHandlerTests
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var handler = new AzureDevOpsWorkItemWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher,
+            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
             NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
         return (handler, resolver, spawn);
     }

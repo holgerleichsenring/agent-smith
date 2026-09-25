@@ -291,7 +291,7 @@ describe("ProjectForm", () => {
     openTab("pipeline");
 
     const fallback = screen.getByTestId("form-tracker-routing-fallback").textContent ?? "";
-    expect(fallback).toContain("fix-bug");
+    expect(fallback).toContain("code");
     expect(fallback).toContain("nothing declares that");
   });
 

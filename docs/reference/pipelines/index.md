@@ -18,9 +18,7 @@ Agent Smith ships with **a dozen pipeline presets** — pre-built sequences of c
 
 | Pipeline | Trigger | What It Does |
 |----------|------------|-------------|
-| **fix-bug** | `agent-smith fix --ticket N --project P` / label | Ticket → branch → code → verified green → PR |
-| **fix-no-test** | label / `pipeline:` config | Like fix-bug for repos without a test suite |
-| **add-feature** | `agent-smith feature --ticket N --project P` / label | fix-bug + generated tests + docs |
+| **code** | `agent-smith fix --ticket N --project P` / label | Ticket → spec → branch → code → verified green → PR |
 | **pr-review** | label / PR comment | Reviews a PR diff, posts line-anchored findings as comments |
 | **security-scan** | `agent-smith security-scan --agent A` / label | Multi-role code security review with SARIF output |
 | **api-security-scan** | `agent-smith api-scan --agent A --swagger … --target …` / label | Nuclei + Spectral + AI specialist panel on live APIs |
@@ -29,7 +27,7 @@ Agent Smith ships with **a dozen pipeline presets** — pre-built sequences of c
 | **skill-manager** | label / chat | Author, lint, and validate skills |
 | **autonomous** | `agent-smith autonomous --project P` | Observe project, write tickets autonomously |
 | **init-project** | `agent-smith init --project P` / `agent-smith:init` label | Bootstrap `.agentsmith/` in every repo of a project |
-| **spec-dialog / phase-execution** | chat thread / `phase` label | The conversational design partner and the phase runner — see [Spec dialogue](../../how-it-works/spec-dialogue.md) |
+| **spec-dialog** | chat thread | The conversational design partner; a `phase` label routes the ticket it files to **code** — see [Spec dialogue](../../how-it-works/spec-dialogue.md) |
 
 All pipeline commands support `--dry-run` to preview the execution plan without running it. Utility commands (`compile-wiki`, `security-trend`) also support `--dry-run`.
 
@@ -40,7 +38,7 @@ Two init-project behaviors worth knowing: re-running init preserves your manual 
 Every pipeline is an ordered list of **commands**. Each command has a matching **handler** that does the actual work. Commands share a `PipelineContext` — a key-value store that flows data between steps.
 
 ```
-Pipeline: fix-bug
+Pipeline: code
 ├── LoadCatalog            → loads the skills catalog (embedded by default)
 ├── FetchTicket            → reads ticket + comments + attachments from the tracker
 ├── ScopeRepos             → narrows the run to the repos the ticket touches
@@ -121,7 +119,7 @@ Since Phase 64, Agent Smith classifies every pipeline into one of three **orches
 
 ### Hierarchical pipelines
 
-**fix-bug**, **add-feature**, **fix-no-test**. A lead skill drives the workflow, delegating to contributor skills and validating through gate skills. The execution graph is deterministic (built by `SkillGraphBuilder`), but the lead has authority to direct contributors. No convergence rounds -- gates provide pass/fail verdicts.
+**code**. A lead skill drives the workflow, delegating to contributor skills and validating through gate skills. The execution graph is deterministic (built by `SkillGraphBuilder`), but the lead has authority to direct contributors. No convergence rounds -- gates provide pass/fail verdicts.
 
 ### Context keys
 

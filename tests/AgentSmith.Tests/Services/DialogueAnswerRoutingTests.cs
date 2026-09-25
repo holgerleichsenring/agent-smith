@@ -37,7 +37,7 @@ public sealed class DialogueAnswerRoutingTests
     [Fact]
     public void WebhookResult_WithoutDialogueAnswer_DefaultsToNull()
     {
-        var result = new WebhookResult(true, "fix-bug pr:org/my-api#42", "fix-bug");
+        var result = new WebhookResult(true, "fix-bug pr:org/my-api#42", "code");
 
         result.DialogueAnswer.Should().BeNull();
     }

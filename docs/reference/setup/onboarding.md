@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Before Agent Smith can run a code-touching pipeline (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`, `autonomous`) against a repository, the repo needs two files:
+Before Agent Smith can run a code-touching pipeline (`code`, `security-scan`, `api-security-scan`) against a repository, the repo needs two files:
 
 - `.agentsmith/context.yaml` — the project's architectural fingerprint (stack, modules, conventions).
 - `.agentsmith/principles.md` — the constraints Agent Smith respects when changing code.
@@ -46,8 +46,8 @@ projects:
         value: https://github.com/mycompany/my-new-repo.git
       pipeline_from_label:
         agent-smith:init: init-project    # the onboarding mapping
-        bug: fix-bug
-        feature: add-feature
+        bug: code
+        feature: code
       done_status: "closed"
 ```
 
@@ -89,7 +89,7 @@ Merge the PR. The repo is now bootstrapped.
 
 ## Step 5 — File follow-up tickets
 
-The first real ticket can now run. Apply any other trigger label (`bug` → `fix-bug`, `feature` → `add-feature`, `security-review` → `security-scan`, etc.) to a fresh issue, and the corresponding pipeline runs against the bootstrapped repository.
+The first real ticket can now run. Apply any other trigger label (`bug` → `code`, `feature` → `code`, `security-review` → `security-scan`, etc.) to a fresh issue, and the corresponding pipeline runs against the bootstrapped repository.
 
 ## Triggering init via Slack (optional)
 
@@ -155,14 +155,14 @@ projects:
       - acme-backend
       - acme-frontend
       - acme-sdk
-    pipeline: fix-bug
+    pipeline: code
     jira_trigger:
       assignee_name: "Agent Smith"
       project_resolution: { strategy: tag, value: acme-product }
       pipeline_from_label:
         agent-smith:init: init-project
-        bug: fix-bug
-      default_pipeline: fix-bug
+        bug: code
+      default_pipeline: code
 ```
 
 ### Operator workflow
@@ -173,7 +173,7 @@ projects:
 
 The three runs do not coordinate — each one detects its own repo's stack, writes its own files, and opens its own PR. You can run all three in parallel by labelling all three repos at once if you prefer; the queue will serialise them according to `agent.queue.max_parallel_jobs`.
 
-Once every repo has the `.agentsmith/` directory merged on its default branch, subsequent ticket triggers against the project (e.g. a `bug`-labelled Jira issue) fan out to all three repos and execute the `fix-bug` pipeline end-to-end against each.
+Once every repo has the `.agentsmith/` directory merged on its default branch, subsequent ticket triggers against the project (e.g. a `bug`-labelled Jira issue) fan out to all three repos and execute the `code` pipeline end-to-end against each.
 
 > **Pitfall**: a ticket on a partially-bootstrapped multi-repo project still spawns N pipeline runs. The runs against bootstrapped repos succeed; the runs against not-yet-bootstrapped repos abort fast with "Run init-project first" and produce a failed-run artefact under `.agentsmith/runs/<run-id>/`. This is noisy. Bootstrap every repo in the project before relying on ticket-triggered runs.
 

@@ -70,11 +70,16 @@ public static class TrackerCapabilityFields
         new CapabilityField("closeTransitionName", "Close transition name", Required: false),
         new CapabilityField("extraFields", "Extra ticket fields", Required: false, CapabilityFieldKind.List),
         new CapabilityField("zeroMatchComment", "Comment when nothing matched", Required: false, CapabilityFieldKind.Bool),
-        new CapabilityField("pipelineFromLabel", "Pipeline by label", Required: false, CapabilityFieldKind.Map),
+        new CapabilityField(
+            "pipelineFromLabel", "Pipeline by label", Required: false, CapabilityFieldKind.Map,
+            Choices: Commands.PipelinePresets.Routable),
         // OPTIONAL: Required is a blocking draft finding, and would make every existing tracker unsaveable.
-        new CapabilityField("defaultPipeline", "Default pipeline", Required: false),
+        new CapabilityField(
+            "defaultPipeline", "Default pipeline", Required: false, Choices: Commands.PipelinePresets.Routable),
         new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
         new CapabilityField("parentLinkType", "Parent link type (Jira)", Required: false),
+        // 2026-09-25-3c7ac: what this board calls the labels agent-smith writes onto it.
+        new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map),
     ];
 
     // 2026-09-18-b4f0: declared for the two tracker types whose create sends a kind, and for

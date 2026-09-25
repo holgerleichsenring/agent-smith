@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Models;
@@ -66,7 +67,7 @@ public sealed class JiraCommentWebhookHandlerTests
                         },
                         TriggerStatuses = triggerStatuses ?? new List<string> { "Open" },
                         DoneStatus = "In Review",
-                        DefaultPipeline = "fix-bug"
+                        DefaultPipeline = "code"
                     }
                 }
             }
@@ -93,7 +94,7 @@ public sealed class JiraCommentWebhookHandlerTests
             NullLogger<WebhookSpawnDispatcher>.Instance);
         var handler = new JiraCommentWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher,
+            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
             new PlanAnswerParser(NullLogger<PlanAnswerParser>.Instance),
             NullLogger<JiraCommentWebhookHandler>.Instance);
         return (handler, resolver, spawn);
@@ -127,7 +128,7 @@ public sealed class JiraCommentWebhookHandlerTests
     {
         var (sut, resolver, spawn) = CreateHandler(BuildConfig());
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(BuildPayload(), EmptyHeaders);
 
@@ -135,7 +136,7 @@ public sealed class JiraCommentWebhookHandlerTests
         spawn.Verify(s => s.ExecuteAsync(
             It.IsAny<AgentSmithConfig>(),
             It.Is<ResolvedProject>(p => p.Name == "my-project"),
-            "fix-bug",
+            "code",
             It.Is<IncomingTicketEnvelope>(e => e.TicketId == "PROJ-456" && e.Platform == "jira"),
             It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(),
@@ -147,7 +148,7 @@ public sealed class JiraCommentWebhookHandlerTests
     {
         var (sut, resolver, spawn) = CreateHandler(BuildConfig());
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(
             BuildPayload(commentText: "just a regular comment"), EmptyHeaders);
@@ -164,7 +165,7 @@ public sealed class JiraCommentWebhookHandlerTests
         var (sut, resolver, spawn) =
             CreateHandler(BuildConfig(triggerStatuses: new List<string> { "Open" }));
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-project", "fix-bug", "jira") });
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
 
         var result = await sut.HandleAsync(
             BuildPayload(issueStatus: "Closed"), EmptyHeaders);

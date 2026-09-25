@@ -13,9 +13,9 @@ public sealed class BootstrapGatePipelinePresetsTests
 {
     public static TheoryData<string, IReadOnlyList<string>> StrictPresets => new()
     {
-        { "fix-bug", PipelinePresets.Code },
-        { "fix-no-test", PipelinePresets.Code },
-        { "add-feature", PipelinePresets.Code },
+        { "code", PipelinePresets.Code },
+        { "code", PipelinePresets.Code },
+        { "code", PipelinePresets.Code },
         { "security-scan", PipelinePresets.SecurityScan },
     };
 

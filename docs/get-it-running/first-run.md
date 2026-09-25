@@ -4,7 +4,7 @@ Two steps. Step 1 proves the whole loop in minutes on a bundled sample project �
 
 ## Step 1 — the demo
 
-`agent-smith demo` materializes a tiny C# project (with a seeded, deterministic bug and a failing unit test that pins the expected behavior) into a local git workspace, files an inline ticket describing the bug, and runs the real `fix-bug` pipeline against it. No tracker, no repo remote, no Docker, no Redis — the result is a local commit plus a printed diff.
+`agent-smith demo` materializes a tiny C# project (with a seeded, deterministic bug and a failing unit test that pins the expected behavior) into a local git workspace, files an inline ticket describing the bug, and runs the real `code` pipeline against it. No tracker, no repo remote, no Docker, no Redis — the result is a local commit plus a printed diff.
 
 The minimal config is just one agent and its key:
 
@@ -32,14 +32,14 @@ What happens, in order:
 
 1. **Preflight** — the relevant subset of `agent-smith doctor` (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
 2. **Workspace** — the bundled sample project is extracted to a temp directory and git-initialized with one baseline commit (`--workspace DIR` to choose the location, `--agent NAME` to pick a specific agent from your config).
-3. **The run** — the real `fix-bug` preset, headless and in-process: inline ticket → checkout → analyze → plan → agentic execute → test → commit. Same production path your real tickets will take.
+3. **The run** — the real `code` preset, headless and in-process: inline ticket → checkout → analyze → plan → agentic execute → test → commit. Same production path your real tickets will take.
 4. **The result** — a local commit fixing the seeded bug, the `git diff HEAD~1` printed to your terminal, and the workspace left in place for inspection.
 
 Exit code 0 means the loop worked end to end. Everything after this page is about pointing that same loop at your own systems.
 
 ## Step 2 — your real tracker and repo
 
-Walking through one full `fix-bug` run, end to end. The example uses the fictional `TodoList` project. Substitute your tracker, repo, and AI provider as you go — the pages under [Connect your stuff](../connect-your-stuff/tracker-azure-devops.md) have the specifics per system.
+Walking through one full `code` run, end to end. The example uses the fictional `TodoList` project. Substitute your tracker, repo, and AI provider as you go — the pages under [Connect your stuff](../connect-your-stuff/tracker-azure-devops.md) have the specifics per system.
 
 ### What you need
 

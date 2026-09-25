@@ -14,19 +14,19 @@ public class ProjectConfigNormalizerTests
     [Fact]
     public void Normalize_LegacyPipelineString_TranslatesToPipelinesAndDefaultPipeline()
     {
-        var project = new RawProjectEntry { Pipeline = "fix-bug" };
+        var project = new RawProjectEntry { Pipeline = "code" };
 
         _sut.Normalize("p", project);
 
         project.Pipelines.Should().HaveCount(1);
-        project.Pipelines[0].Name.Should().Be("fix-bug");
-        project.DefaultPipeline.Should().Be("fix-bug");
+        project.Pipelines[0].Name.Should().Be("code");
+        project.DefaultPipeline.Should().Be("code");
     }
 
     [Fact]
     public void Normalize_LegacySkillsPathDefaultValue_NotCarriedToPipelineDefinition()
     {
-        var project = new RawProjectEntry { Pipeline = "fix-bug", SkillsPath = "skills" };
+        var project = new RawProjectEntry { Pipeline = "code", SkillsPath = "skills" };
 
         _sut.Normalize("p", project);
 
@@ -48,16 +48,16 @@ public class ProjectConfigNormalizerTests
     {
         var project = new RawProjectEntry
         {
-            Pipeline = "fix-bug",
+            Pipeline = "code",
             Pipelines = [new RawPipelineEntry { Name = "security-scan" }],
         };
 
         _sut.Normalize("p", project);
 
         project.Pipelines.Should().HaveCount(2);
-        project.Pipelines.Should().Contain(p => p.Name == "fix-bug");
+        project.Pipelines.Should().Contain(p => p.Name == "code");
         project.Pipelines.Should().Contain(p => p.Name == "security-scan");
-        project.DefaultPipeline.Should().Be("fix-bug");
+        project.DefaultPipeline.Should().Be("code");
     }
 
     [Fact]
@@ -65,8 +65,8 @@ public class ProjectConfigNormalizerTests
     {
         var project = new RawProjectEntry
         {
-            Pipeline = "fix-bug",
-            Pipelines = [new RawPipelineEntry { Name = "fix-bug", SkillsPath = "skills/custom" }],
+            Pipeline = "code",
+            Pipelines = [new RawPipelineEntry { Name = "code", SkillsPath = "skills/custom" }],
         };
 
         _sut.Normalize("p", project);
@@ -81,7 +81,7 @@ public class ProjectConfigNormalizerTests
         var project = new RawProjectEntry
         {
             DefaultPipeline = "missing",
-            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "code" }],
         };
 
         Action act = () => _sut.Normalize("proj", project);
@@ -97,7 +97,7 @@ public class ProjectConfigNormalizerTests
     {
         var project = new RawProjectEntry
         {
-            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "code" }],
             GithubTrigger = new WebhookTriggerConfig
             {
                 // p0391: fix-bug can park, so the trigger must name a park status — that is a
@@ -122,7 +122,7 @@ public class ProjectConfigNormalizerTests
         // ticket in a trigger status — so discovery re-claimed it and the same run repeated.
         var project = new RawProjectEntry
         {
-            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "code" }],
             GithubTrigger = new WebhookTriggerConfig { TriggerStatuses = ["open"] },
         };
 
@@ -134,7 +134,7 @@ public class ProjectConfigNormalizerTests
         finding.Project.Should().Be("proj");
         finding.Trigger.Should().Be("github_trigger");
         finding.Field.Should().Be("needs_clarification_status");
-        finding.Reason.Should().Contain("fix-bug");
+        finding.Reason.Should().Contain("code");
     }
 
     [Fact]
@@ -149,14 +149,14 @@ public class ProjectConfigNormalizerTests
             GithubTrigger = new WebhookTriggerConfig
             {
                 TriggerStatuses = ["open"],
-                PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "add-feature" },
+                PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "code" },
             },
         };
 
         Action act = () => _sut.Normalize("proj", project);
 
         act.Should().NotThrow();
-        _findings.All.Should().ContainSingle(f => f.IsBlocking && f.Reason.Contains("add-feature"));
+        _findings.All.Should().ContainSingle(f => f.IsBlocking && f.Reason.Contains("code"));
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class ProjectConfigNormalizerTests
     {
         // No trigger block = no tracker-driven runs = nothing to park. CLI-only projects
         // and the many trackerless test/demo configs stay valid.
-        var project = new RawProjectEntry { Pipelines = [new RawPipelineEntry { Name = "fix-bug" }] };
+        var project = new RawProjectEntry { Pipelines = [new RawPipelineEntry { Name = "code" }] };
 
         Action act = () => _sut.Normalize("proj", project);
 
@@ -289,7 +289,7 @@ public class ProjectConfigNormalizerTests
     {
         var project = new RawProjectEntry
         {
-            Pipelines = [new RawPipelineEntry { Name = "fix-bug" }],
+            Pipelines = [new RawPipelineEntry { Name = "code" }],
             GithubTrigger = new WebhookTriggerConfig { TriggerStatuses = ["open"] },
             JiraTrigger = new JiraTriggerConfig
             {

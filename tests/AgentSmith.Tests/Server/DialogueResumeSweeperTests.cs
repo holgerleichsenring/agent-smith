@@ -358,12 +358,12 @@ public sealed class DialogueResumeSweeperTests : IDisposable
     }
 
     private static RunStartedEvent Started(string runId) => new(
-        runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
+        runId, "ticket", "code", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
     private static RunCheckpointedEvent Checkpointed(
         string runId, DateTimeOffset deadline, string questionId = "q1") => new(
-        runId, "p1", "42", "github", "fix-bug", "job-1", questionId,
+        runId, "p1", "42", "github", "code", "job-1", questionId,
         QuestionJson: $$"""{"QuestionId":"{{questionId}}","Type":3,"Text":"Approve?","Context":null,"Choices":null,"DefaultAnswer":"reject","Timeout":"3.00:00:00"}""",
         RemainingCommandsJson: """[{"Name":"CheckoutSourceCommand"},{"Name":"ApprovalCommand"},{"Name":"AgenticMasterCommand"}]""",
         ContextJson: "[]", ExecutionCount: 14,

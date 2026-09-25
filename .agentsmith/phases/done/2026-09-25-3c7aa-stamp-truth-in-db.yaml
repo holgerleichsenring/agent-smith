@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-3c7aa
+goal: "A ticket with an approved specification routes and derives from the record that holds it, whether or not the label saying so is still on the board."
+
+applies_to: "backend (the incoming envelope and its four builders, the routing bind, and the filed-ticket spec gate)"
+
+scope:
+  in: "An envelope field saying an approved record exists, set where a polled or a webhook ticket is turned into one; the routing bind reading it BESIDE the two labels it reads today; and the spec gate admitting a record OR the stamp, with the epic-child exemption untouched."
+  out: "DISCOVERY, which pre-filters by label in JQL and WIQL before any ticket is in hand: the store has no enumeration, the record has no state column, and the spec key lowercases the ticket id beyond recovery, so admitting records by id is phase 2026-09-25-c1f7. The label note's rewrite goes with it — it stays true until discovery is covered."
+
+decisions:
+  - key: |
+      THE LABEL IS A SECOND COPY OF A FACT WE ALREADY OWN. ApprovedSpecSet holds the record, keyed by
+      tracker connection and spec key, and ISpecApprovalStore.GetAsync answers it. The stamp asserts the
+      same thing on somebody else's board, where anybody may delete it. The record is the truth; the
+      label becomes one of two ways to reach the same answer.
+  - key: |
+      IT IS AN OR AND NEVER A REPLACEMENT, AND SAYING SO IS LOAD-BEARING. A container or CLI run binds
+      the IN-MEMORY approval store, so a record read there answers nothing; replacing the stamp check
+      with a record check would delete the guard for every non-server run. Both are read, either
+      suffices, and the two disagree only in the direction that was broken before: a record with no
+      label now works.
+  - key: |
+      PROJECTRESOLVER STAYS PURE AND THE FACT ARRIVES ON THE ENVELOPE, WHICH FOUR PLACES BUILD — not
+      two. The polled path builds one in TrackerPoller; the webhook path builds all four platforms in
+      WebhookEnvelopeBuilders, reached from eight handlers; the reconciler and the filing's own starter
+      build the other two. Only the first two carry tickets whose route is being decided here, and both
+      are named as steps rather than left to a resolver that builds no envelope at all.
+  - key: |
+      THE WEBHOOK PATH KNOWS A PLATFORM AND NOT A CONNECTION, SO IT SWEEPS. The record is keyed by the
+      tracker CONNECTION's name and a webhook route is per platform — two Jira connections share one
+      route. So the webhook side asks every configured connection OF THAT TYPE and takes the first
+      answer, which is the same shape the spawn dispatcher already uses for the same reason. Where no
+      connection answers, the field is false and the stamp still binds: the fallback is today's
+      behaviour.
+  - key: |
+      THE GATE ALREADY HAS A HANDOFF IN FRONT OF IT, SO ONE ARM IS SMALLER THAN IT LOOKS. The source
+      resolver runs the approved-set handoff BEFORE the gate, and a record with nothing at the branch
+      path hands the set over rather than parking. Re-keying the gate therefore changes production
+      behaviour in one arm only — a branch present but unreadable — plus the new case of a record whose
+      label was deleted. The epic-child exemption keeps its position ahead of the park.
+  - key: |
+      WHAT A DELETED STAMP COSTS TODAY IS THE ROUTING BIND AND, ON TWO TRACKERS, DISCOVERY — not a
+      derived guess. Since the filing writes the set to the ticket branch and the branch is the first
+      source, a run whose label vanished still finds its specification. Saying this plainly keeps the
+      phase honest: it repairs a routing hole, and the discovery hole is named and deferred rather than
+      implied to be fixed.
+  - key: |
+      THE FILING WINDOW MOVES ONE STEP EARLIER AND STAYS SAFE FOR A NAMED REASON. Filing creates the
+      ticket, stores the record, writes the branch, then tags and starts; admitting a ticket by its
+      record makes it bindable from the store-write onward. It stays safe because the resolver requires
+      a project MATCH before it asks whether the ticket binds, and an untagged ticket matches nothing.
+      That invariant is written here because this series spends its time weakening labels.
+
+steps:
+  - id: the-envelope-carries-the-fact
+    path: "src/backend/AgentSmith.Contracts/Models/Triggers"
+    action:
+      - "Add an optional 'an approved record exists' field to the incoming envelope, defaulted false so every existing construction site is unchanged."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs"
+
+  - id: the-two-routed-paths-set-it
+    path: "src/backend/AgentSmith.Server/Services/Webhooks"
+    action:
+      - "Set the field from the approval store when the poller builds an envelope for a discovered ticket."
+      - "Set it on the webhook path by asking every configured connection of the payload's platform, taking the first record found."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEnvelopeBuilders.cs"
+
+  - id: the-bind-reads-it-beside-the-labels
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Answer BindsPhaseExecution from the record field OR the approved-set stamp OR the person's phase word."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs"
+
+  - id: the-gate-admits-a-record-or-the-stamp
+    path: "src/backend/AgentSmith.Application/Services/Specs"
+    action:
+      - "Hold a ticket to the missing-set park when a record exists OR the stamp is present, keeping the epic-child exemption ahead of it."
+      - "Stop asserting in the reason that the ticket carries the stamp; name which of the record and the branch is missing."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs"
+      - "src/backend/AgentSmith.Application/Services/Specs/MissingSpecReason.cs"
+
+  - id: the-inversion-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert both diagonals and both routed paths, and update the two existing tests that pin the stamp wording and the discovery guard."
+
+tests:
+  - "Routing_APolledTicketWithARecordAndNoStamp_BindsToPhaseExecution"
+  - "Routing_AWebhookTicketWithARecordAndNoStamp_BindsToPhaseExecution"
+  - "Routing_AWebhookPlatformWithTwoConnections_FindsTheRecordOnEither"
+  - "Routing_ATicketWithAStampAndNoRecord_StillBinds"
+  - "Routing_APersonsPhaseWord_BindsExactlyAsBefore"
+  - "Routing_AnEnvelopeBuiltWithNoStore_CarriesFalseAndRoutesAsBefore"
+  - "Gate_ARecordAndAnUnreadableBranch_Parks"
+  - "Gate_AStampWithNoRecordAndNoBranch_ParksAndSaysWhichHalfIsMissing"
+  - "Gate_AnEpicChild_IsStillExemptBeforeTheParkIsConsidered"
+  - "Gate_AHandWrittenTicketWithNeither_DerivesAsBefore"
+
+done:
+  - "a ticket whose approved record exists binds to phase execution on the polled and the webhook path with no label on it"
+  - "a ticket carrying the stamp with no record still binds and still parks, exactly as today"
+  - "the park reason no longer asserts a label the ticket may not carry, and names which half is missing"
+  - "a run in a process with no reachable store behaves exactly as it does today"
+  - "build green, full suite green"

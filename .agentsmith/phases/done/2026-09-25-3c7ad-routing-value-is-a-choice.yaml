@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-3c7ad
+goal: "The configuration form offers the pipelines agent-smith actually has, instead of a free-text box whose legal values are written down nowhere."
+
+applies_to: "backend (the capability descriptor and the config validator) and dashboard (the field renderer)"
+
+scope:
+  in: "A field descriptor that carries its allowed values; the routing map's VALUE side and the default pipeline declared as choices over the pipelines a ticket can route to; the dashboard rendering a choice as a select; and a startup finding when a stored configuration names a pipeline that does not exist."
+  out: "Deleting the retired alias names, which needs the preset harness migrated off them first — 2026-09-25-a7e8 then 2026-09-25-e5b1. Until those land an alias is still a legal value and is offered as legacy rather than hidden."
+
+decisions:
+  - key: |
+      THE LEFT SIDE IS THE OPERATOR'S VOCABULARY AND THE RIGHT SIDE IS OURS. A routing rule maps a
+      label on their board to a pipeline in this product. The label must stay free text — it is
+      their word. The pipeline is a closed set this code defines, and today it is typed blind into
+      a text box: the live configuration names three values that are no longer presets, and
+      nothing says so.
+  - key: |
+      A KIND CANNOT EXPRESS IT, BECAUSE THE KIND IS ALREADY MAP. The descriptor gives each field
+      ONE kind, and the routing field is a map; setting it to a choice would destroy the map-ness
+      and leaving it a map gives the allowed values nowhere to live. So the CHOICES ride as their
+      own property on the field — additive, defaulted, and read by the map renderer for its value
+      side and by a scalar field for the default pipeline.
+  - key: |
+      THE DESCRIPTOR IS THE ONE SOURCE, BECAUSE IT ALREADY IS. The capability table is explicitly
+      the single source for both the rendered form and the upsert validation, so the two cannot
+      drift. A dropdown built in the client from a hard-coded list would be exactly that drift —
+      and the list would be wrong the first time a preset is added.
+  - key: |
+      WHAT IS OFFERED IS NOT WHAT IS ACCEPTED, AND THE OFFER IS DERIVED. Two presets cannot be
+      reached from a ticket at all: the design conversation, whose run is seeded with a transcript
+      and a reply slot, and project initialisation, which is launched with a context no label-routed
+      run can supply. The offer is therefore "the presets a ticket can route to", derived from that
+      property rather than hand-written as a minus-one list, so the next such preset cannot quietly
+      become offerable. Acceptance keeps admitting everything it admits today.
+  - key: |
+      THE FINDING IS ADVISORY, NOT BLOCKING, AND THAT IS DELIBERATE. A blocking finding on a
+      project disables every one of its triggers, so making an unknown pipeline name blocking would
+      take a running deployment off the air over a typo in one label rule. It is reported, it names
+      what is offered, and the run that would have used it fails where it always did.
+  - key: |
+      AN OLDER DASHBOARD DEGRADES TO A TEXT BOX RATHER THAN BREAKING. The field-kind converter
+      already crosses the wire as a lowercase word and the client keeps an unrecognised kind
+      verbatim, falling through to its text input. So a dashboard built before this phase renders
+      the field exactly as it does today.
+
+steps:
+  - id: a-field-may-carry-its-allowed-values
+    path: "src/backend/AgentSmith.Contracts/Models/ConfigStudio"
+    action:
+      - "Give the capability field an optional list of allowed values, defaulted to none so every existing declaration is unchanged."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ConfigCapabilities.cs"
+
+  - id: the-routable-presets-are-derived
+    path: "src/backend/AgentSmith.Contracts/Commands"
+    action:
+      - "Answer which presets a ticket can route to from the property that makes the other two unroutable, rather than from a hand-written exclusion list."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: the-descriptor-declares-the-choices
+    path: "src/backend/AgentSmith.Contracts/Services"
+    action:
+      - "Declare the routing map's value side and the tracker's default pipeline as choices over the routable presets."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs"
+
+  - id: the-studio-renders-a-select
+    path: "src/dashboard/src/components/config"
+    action:
+      - "Render a field carrying allowed values as a select, on the map's value side and as a scalar, keeping a value the list does not hold visible rather than silently dropping it."
+    modify:
+      - "src/dashboard/src/components/config/MapField.tsx"
+      - "src/dashboard/src/components/config/capabilityFields.tsx"
+      - "src/dashboard/src/lib/configApi.ts"
+
+  - id: an-unknown-pipeline-is-reported
+    path: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration"
+    action:
+      - "Report an advisory startup finding for a configured pipeline name that is neither a preset nor an accepted legacy name, naming what it could be."
+
+  - id: the-offer-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the offered set excludes the two unroutable presets and is derived, that the descriptor carries the choices, and that an unknown name is reported and not blocking."
+
+tests:
+  - "Capabilities_TheRoutingValue_IsAChoiceOverTheRoutablePresets"
+  - "Capabilities_TheOfferedPresets_ExcludeTheOnesATicketCannotRouteTo"
+  - "Capabilities_TheOfferedPresets_AreDerivedAndNotAHandWrittenList"
+  - "Capabilities_ARetiredAliasInAConfiguration_IsStillAccepted"
+  - "Findings_AConfiguredPipelineNobodyOffers_IsReportedAndNotBlocking"
+  - "MapField_AValueSideWithChoices_RendersASelect"
+  - "MapField_AStoredValueOutsideTheChoices_IsStillShown"
+
+done:
+  - "the routing form offers the real preset names instead of a free-text box"
+  - "the offered set is derived, so a preset a ticket cannot route to can never be offered by accident"
+  - "a configuration naming a pipeline nobody offers is reported at startup and disables nothing"
+  - "an older dashboard renders the field as it does today"
+  - "build green, dashboard tests green, full suite green"

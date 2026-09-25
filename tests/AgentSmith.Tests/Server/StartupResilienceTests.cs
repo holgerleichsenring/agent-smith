@@ -221,7 +221,7 @@ public sealed class StartupResilienceTests : IDisposable
             agent: claude-default
             tracker: gh
             repos: [shared-repo]
-            pipeline: fix-bug
+            pipeline: code
             resolution:
               not_a_strategy: whatever
             github_trigger:
@@ -290,7 +290,7 @@ public sealed class StartupResilienceTests : IDisposable
             agent: claude-default
             tracker: gh
             repos: [shared-repo]
-            pipeline: fix-bug
+            pipeline: code
             resolution:
               tag: alpha
             github_trigger:
@@ -300,7 +300,7 @@ public sealed class StartupResilienceTests : IDisposable
             agent: claude-default
             tracker: gh
             repos: [shared-repo]
-            pipeline: fix-bug
+            pipeline: code
             resolution:
               tag: beta
             github_trigger:

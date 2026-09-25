@@ -64,7 +64,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
         ServiceProvider provider, string runId, string ticketId, DateTimeOffset at,
         string project = Project) =>
         ProjectAsync(provider, new RunStartedEvent(
-            runId, "ticket", "fix-bug", new[] { "primary" }, at, "claude", ticketId,
+            runId, "ticket", "code", new[] { "primary" }, at, "claude", ticketId,
             Project: project));
 
     [Fact]

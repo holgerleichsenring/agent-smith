@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Skills;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Activation;
@@ -16,19 +17,43 @@ public sealed class PipelineNameInitializerHandlerTests
         NullLogger<PipelineNameInitializerHandler>.Instance);
 
     [Fact]
-    public async Task ExecuteAsync_RetiredPipelineName_PublishesTheCanonicalName()
+    public async Task ExecuteAsync_ARetiredName_IsPublishedVerbatimAndNotCanonicalised()
     {
+        // p0393 canonicalised a retired name to `code` HERE, because a run had genuinely been
+        // started under the alias. 2026-09-25-e5b1 deleted the alias map, so the resolved name
+        // IS the published one and nothing rewrites it on the way through.
+        //
+        // The vocabulary is pinned by the test rather than taken from the shipped catalog: the
+        // catalog lives in another repository, still declares the retired names, and is reached
+        // only when a skills checkout happens to be present — so a test that asserted the
+        // catalog's opinion passed on a machine without one and failed on CI with one. What this
+        // handler owes is that it publishes what it was given.
+        var declaring = DeclaringPipelineName("fix-bug");
+        var handler = new PipelineNameInitializerHandler(
+            RunStateConceptsTestFactory.WithVocabulary(declaring),
+            NullLogger<PipelineNameInitializerHandler>.Instance);
         var pipeline = PipelineFor("fix-bug");
-        var context = new PipelineNameInitializerContext(pipeline);
 
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        await handler.ExecuteAsync(new PipelineNameInitializerContext(pipeline), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
-        var concepts = RunStateConceptsTestFactory.Default(pipeline);
-        concepts.GetEnum("pipeline_name").Should().Be("code",
-            "p0393: an alias run executes `code`, so activation and every concept-keyed "
-            + "rule must see `code` — and the retired name is deliberately absent from the "
-            + "catalog vocabulary, so publishing it raw would throw");
+        RunStateConceptsTestFactory.WithVocabulary(declaring)(pipeline)
+            .GetEnum("pipeline_name").Should().Be("fix-bug");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ANameTheVocabularyDoesNotDeclare_ThrowsRatherThanPublishingIt()
+    {
+        // The retired names are no longer presets, so a vocabulary derived from the presets does
+        // not declare them — and the write fails loudly instead of letting every concept-keyed
+        // rule downstream key off a word nothing declares.
+        var handler = new PipelineNameInitializerHandler(
+            RunStateConceptsTestFactory.WithVocabulary(RunStateConceptsTestFactory.FallbackMinimal),
+            NullLogger<PipelineNameInitializerHandler>.Instance);
+        var context = new PipelineNameInitializerContext(PipelineFor("fix-bug"));
+
+        var act = async () => await handler.ExecuteAsync(context, CancellationToken.None);
+
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
@@ -66,6 +91,15 @@ public sealed class PipelineNameInitializerHandlerTests
         var downstreamConcepts = RunStateConceptsTestFactory.Default(pipeline);
         downstreamConcepts.GetEnum("pipeline_name").Should().Be("security-scan");
     }
+
+    /// <summary>A vocabulary that declares exactly these pipeline names, and nothing else's
+    /// opinion — the shipped catalog lives in another repository and is reachable only
+    /// sometimes, which is not a property a handler test may depend on.</summary>
+    private static ConceptVocabulary DeclaringPipelineName(params string[] names) =>
+        new(new Dictionary<string, ProjectConcept>
+        {
+            ["pipeline_name"] = new("pipeline_name", "test", ConceptType.Enum, [.. names], null, []),
+        });
 
     private static PipelineContext PipelineFor(string pipelineName)
     {

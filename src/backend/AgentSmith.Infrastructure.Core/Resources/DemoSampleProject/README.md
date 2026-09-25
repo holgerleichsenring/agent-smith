@@ -2,7 +2,7 @@
 
 A tiny C# service with one seeded, deterministic bug. `agent-smith demo`
 materializes this project into a local git workspace and runs the real
-`fix-bug` pipeline against it — no tracker, no remote, no webhook.
+`code` pipeline against it — no tracker, no remote, no webhook.
 
 ## The seeded bug
 

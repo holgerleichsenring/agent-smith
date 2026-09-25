@@ -34,7 +34,7 @@ internal static class TestCommentIntentParserFactory
         var pipeline =
             lower.Contains("security") ? "security-scan"
             : lower.Contains("unknown-cmd") ? "unknown-cmd"
-            : "fix-bug";
+            : "code";
 
         // Mirror the old PipelineAliases reach so the existing handler tests
         // (which feed "/agent-smith fix", "/agent-smith fix #123 in my-api",

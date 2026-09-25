@@ -170,7 +170,7 @@ agent-smith mad --ticket 87 --project my-project --headless
 
 ## When to Use MAD
 
-The MAD pipeline is best used **before** the fix-bug or add-feature pipelines for decisions that benefit from structured debate:
+The MAD pipeline is best used **before** the `code` pipeline for decisions that benefit from structured debate:
 
 - Architecture decisions (monolith vs microservices, database choice)
 - API design reviews (REST vs GraphQL, resource modeling)
@@ -179,7 +179,7 @@ The MAD pipeline is best used **before** the fix-bug or add-feature pipelines fo
 - Refactoring strategies (incremental vs big-bang)
 
 !!! tip "Workflow"
-    A common pattern is: **MAD** first to decide the approach, then **add-feature** to implement it. The MAD discussion PR serves as the decision record.
+    A common pattern is: **MAD** first to decide the approach, then **code** to implement it. The MAD discussion PR serves as the decision record.
 
 ## Configuring Max Rounds
 

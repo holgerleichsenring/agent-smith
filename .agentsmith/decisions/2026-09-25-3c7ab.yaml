@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-3c7ab
+
+decisions:
+  - category: Architecture
+    chose: "A concurrency refusal keeps the lease and the run proceeds"
+    over: "Releasing the lease and reporting AlreadyClaimed, as it did"
+    reason: |
+      PreconditionFailed has three sources and none of them is a statement about the work: a
+      GitHub ETag mismatch, an Azure DevOps rev mismatch or 409, and a Redis label-lock already
+      held. All three mean somebody else wrote to the ticket in the same second, and an operator
+      typing a comment is enough. The unique index had already granted the claim, so reporting
+      AlreadyClaimed was a lie about it and the release handed the ticket back over a label
+      nothing reads as authority. p0262 made the claim lease-only; this is the branch it left.
+    alternatives:
+      - "Retrying the write: a retry loop against a human typing is a loop that loses anyway"
+
+  - category: Architecture
+    chose: "NotFound and a failed write still fail the claim"
+    over: "Treating every refusal as cosmetic now that the board is display"
+    reason: |
+      A 404 is not a ticket whose label is missing, it is a ticket that is not there — deleted, a
+      wrong id, a wrong project key — and a run against one produces work nobody can deliver. A
+      failed write means the tracker could not be reached at all, and a run that cannot report its
+      result at the end is worse than one that does not start. The board may not decide what the
+      work IS; it may still say that it is unreachable.
+    alternatives: []
+
+  - category: Architecture
+    chose: "A refused write at run end stays a log line"
+    over: "Recording it as an unmoved ticket, which looked like the existing home for it"
+    reason: |
+      UnmovedTicket records a FINALIZE whose NATIVE status did not move, is keyed on the trigger
+      status, and feeds a gate that REFUSES every later claim of that ticket. Routing a cosmetic
+      label failure into it would turn "deleting a label breaks nothing" into a permanent block on
+      the work — the exact opposite of this series. Found by the adversarial review of the first
+      cut of this phase, which had proposed exactly that.
+    alternatives: []
+
+  - category: Scope
+    chose: "Reconciliation keeps asking the tracker, and the phase says so"
+    over: "Enumerating orphans from our own rows, as the first cut proposed"
+    reason: |
+      The row that would replace the label does not survive long enough to be read: a crash
+      between the lease INSERT and the enqueue leaves an unattached lease and no run row, the
+      reaper deletes such a lease about three minutes in, and the reconciler runs every ten. The
+      board is today the DURABLE record and the database the transient one. That is a missing
+      field, not a reading problem, and it is phase 2026-09-25-b4d9.
+    alternatives: []

@@ -12,14 +12,12 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
-/// Jira lifecycle transitioner. Delegates mode selection to JiraWorkflowCatalog.
-/// Label-mode updates fields.labels via PUT. Native-mode (p0300a) drives the
-/// operator-named workflow statuses via POST /transitions and falls back to labels
-/// for any unmapped state or unmatched transition, so a lifecycle change is never
-/// silently lost. Concurrent-writer serialization is the decorator's concern
-/// (LockedTicketStatusTransitioner, Server-only) — Jira labels are not atomic
-/// (no If-Match), but a single CLI process cannot race with itself, so the lock
-/// only attaches in the multi-pod Server composition.
+/// Jira lifecycle transitioner. JiraWorkflowCatalog picks the mode: label mode PUTs
+/// fields.labels, native mode (p0300a) POSTs the operator-named workflow transitions and falls
+/// back to labels for any unmapped state, so a lifecycle change is never silently lost.
+/// Concurrent-writer serialization is the Server-only decorator's concern
+/// (LockedTicketStatusTransitioner): Jira labels have no If-Match, and one CLI process cannot
+/// race itself.
 /// </summary>
 public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
 {
@@ -32,6 +30,7 @@ public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
     private readonly HttpClient _httpClient;
     private readonly ILogger<JiraTicketStatusTransitioner> _logger;
     private readonly JiraNativeLifecycleTransitioner? _native;
+    private readonly TicketLabelVocabulary _labels;
 
     public JiraTicketStatusTransitioner(
         JiraTicketConnection connection,
@@ -44,6 +43,7 @@ public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
         _apiToken = connection.ApiToken;
         _projectKey = connection.ProjectKey ?? "default";
         _endpoints = connection.ResolvedEndpoints;
+        _labels = connection.ResolvedLabels;
         _catalog = catalog;
         _httpClient = httpClient;
         _logger = logger;
@@ -105,12 +105,9 @@ public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
             return TransitionResult.NotFound();
         }
 
-        // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
-        // precondition. `current` is still read to strip the old lifecycle label; `from`
-        // is advisory. Concurrent-writer serialization is the decorator's Redis lock;
-        // run-level single-run is the lease's job (p0246b).
-        var current = ParseLifecycle(labels);
-        return await PutLabelsAsync(ticketId, current, to, ct);
+        // p0262: lifecycle tags are pure markers — set `to` unconditionally, `from` advisory.
+        // Serialization is the decorator's Redis lock; single-run is the lease's job (p0246b).
+        return await PutLabelsAsync(ticketId, labels, to, ct);
     }
 
     private async Task<string[]?> FetchLabelsAsync(TicketId ticketId, CancellationToken ct)
@@ -130,10 +127,9 @@ public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
     }
 
     private async Task<TransitionResult> PutLabelsAsync(
-        TicketId ticketId, TicketLifecycleStatus? current, TicketLifecycleStatus to, CancellationToken ct)
+        TicketId ticketId, string[] labels, TicketLifecycleStatus to, CancellationToken ct)
     {
-        var newLabels = BuildLabels(current, to);
-        var body = new { update = new { labels = BuildLabelOps(current, to) } };
+        var body = new { update = new { labels = BuildLabelOps(labels, to) } };
         var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}";
 
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
@@ -148,29 +144,30 @@ public sealed class JiraTicketStatusTransitioner : ITicketStatusTransitioner
             _logger.LogWarning("Jira label update failed: {Status} {Body}", resp.StatusCode, details);
             return TransitionResult.Failed($"HTTP {(int)resp.StatusCode}");
         }
-        _ = newLabels;
         return TransitionResult.Succeeded();
     }
 
-    private static object[] BuildLabelOps(TicketLifecycleStatus? current, TicketLifecycleStatus to)
+    /// <summary>2026-09-25-3c7ac: removal by PREDICATE over the labels the ticket carries, as
+    /// Azure DevOps and GitHub already strip. Removing the literal computed for the state we
+    /// believe it is in reads the HISTORICAL word and removes the CONFIGURED one, which is not
+    /// there — so a renamed board kept both, for ever.</summary>
+    private object[] BuildLabelOps(string[] labels, TicketLifecycleStatus to)
     {
-        var ops = new List<object> { new { add = LifecycleLabels.For(to) } };
-        if (current is not null) ops.Add(new { remove = LifecycleLabels.For(current.Value) });
+        var target = _labels.For(to);
+        var ops = new List<object> { new { add = target } };
+        foreach (var stale in labels
+                     .Where(l => _labels.IsLifecycleLabel(l))
+                     .Where(l => !string.Equals(l, target, StringComparison.OrdinalIgnoreCase))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+            ops.Add(new { remove = stale });
         return [.. ops];
     }
 
-    private static string[] BuildLabels(TicketLifecycleStatus? current, TicketLifecycleStatus to)
-    {
-        var list = new List<string> { LifecycleLabels.For(to) };
-        if (current is not null) list.Remove(LifecycleLabels.For(current.Value));
-        return [.. list];
-    }
 
-
-    private static TicketLifecycleStatus? ParseLifecycle(string[] labels)
+    private TicketLifecycleStatus? ParseLifecycle(string[] labels)
     {
         foreach (var label in labels)
-            if (LifecycleLabels.TryParse(label, out var status))
+            if (_labels.TryParse(label, out var status))
                 return status;
         return null;
     }

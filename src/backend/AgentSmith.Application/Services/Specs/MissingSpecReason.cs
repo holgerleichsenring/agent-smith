@@ -20,14 +20,21 @@ public static class MissingSpecReason
         Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state)
     {
         ArgumentNullException.ThrowIfNull(ticket);
-        return $"Ticket {ticket.Id.Value} carries '{FiledTicketLabels.ApprovedSetStamp}', so it "
-            + "was filed from an approved specification — and this run has no specification to "
-            + $"work. {Branch(key, state)} {Approval(record)}\n\n"
+        return $"Ticket {ticket.Id.Value} {Held(ticket, record)}, so it was filed from an "
+            + "approved specification — and this run has no specification to work. "
+            + $"{Branch(key, state)} {Approval(record)}\n\n"
             + "Nothing was derived and nothing was put in its place from a copy: a specification "
             + "a person approved is not replaced by a guess, and not by a record nobody can read "
             + "or edit either.\n\n"
             + ApprovedSetKept.WhereToChangeItWithNoPullRequest;
     }
+
+    /// <summary>2026-09-25-3c7aa: WHICH half held it. The sentence used to assert the stamp, which
+    /// is false for the case this phase added — a ticket held by its record with no label on it.</summary>
+    private static string Held(Ticket ticket, SpecApprovalRecord? record) =>
+        record is not null
+            ? "has an approved specification recorded for it"
+            : $"carries '{FiledTicketLabels.ApprovedSetStamp}'";
 
     private static string Branch(SpecSetKey key, SpecSetBranchState state) =>
         state == SpecSetBranchState.NothingAtThePath

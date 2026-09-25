@@ -55,7 +55,7 @@ public static class FiledTicketLabels
     /// <see cref="BindsPhaseExecution"/>.
     /// </para>
     /// </summary>
-    public const string ApprovedSetStamp = "phase-spec:approved";
+    public const string ApprovedSetStamp = Contracts.Tickets.TicketLabels.ApprovedSetStamp;
 
     /// <summary>
     /// True for a ticket this framework filed as a RECORD — an epic parent summary or a slice
@@ -74,7 +74,11 @@ public static class FiledTicketLabels
 
     /// <summary>
     /// 2026-09-22-766b: the one question routing asks — does this ticket bind to phase execution?
-    /// TWO LABELS ANSWER IT, for two different reasons. The APPROVED-SET STAMP is what every
+    /// 2026-09-25-3c7aa: THREE THINGS ANSWER IT and the first is not on the board — the approval
+    /// RECORD, whose existence the envelope carries, read where it was built. The two labels stay
+    /// as an OR and never as a fallback: a process binding the in-memory store answers no to every
+    /// ticket, so replacing them would delete the bind for every non-server path. THE TWO LABELS,
+    /// for two different reasons. The APPROVED-SET STAMP is what every
     /// FILING writes: it survives lifecycle filtering and the tracker's own webhook carries it
     /// exactly as the poll does, so binding on it loses no path, and it is the only framework
     /// word a board ever gains. The PHASE WORD is what a PERSON types: no filing writes it, it is
@@ -82,7 +86,8 @@ public static class FiledTicketLabels
     /// run that nobody asked to lose.
     /// </summary>
     public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope) =>
-        Carries(envelope, ApprovedSetStamp) || Carries(envelope, PhaseTicketRenderer.PhaseLabel);
+        Carries(envelope, ApprovedSetStamp) || Carries(envelope, PhaseTicketRenderer.PhaseLabel)
+        || envelope.HasApprovedRecord;
 
     /// <summary>
     /// 2026-09-17-0e79d: NO PRODUCTION CALLER LEFT. The framework stamps no POSITION on anything

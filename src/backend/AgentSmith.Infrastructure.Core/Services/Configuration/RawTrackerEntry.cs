@@ -61,6 +61,11 @@ public sealed class RawTrackerEntry
     /// is linked to its parent with.</summary>
     public string? ParentLinkType { get; set; }
 
+    /// <summary>2026-09-25-3c7ac (YAML key <c>label_names</c>): what this board calls the eight
+    /// labels the framework writes — the seven lifecycle states by name, and the approved-set
+    /// stamp under <c>approved-set</c>. Unset keeps today's words.</summary>
+    public Dictionary<string, string>? LabelNames { get; set; }
+
     /// <summary>
     /// 2026-09-18-b4f0 (YAML key <c>work_item_kinds</c>): role -> native work-item/issue
     /// type for the tickets agent-smith files (work / record / bug / phase / chat). Unset

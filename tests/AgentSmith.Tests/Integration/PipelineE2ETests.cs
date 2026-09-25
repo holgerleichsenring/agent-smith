@@ -29,9 +29,7 @@ public sealed class PipelineE2ETests(ITestOutputHelper output)
     public static readonly IEnumerable<object[]> AllPresets =
     [
         ["mad-discussion"],
-        ["fix-bug"],
-        ["fix-no-test"],
-        ["add-feature"],
+        ["code"],
         ["security-scan"],
         // legal-analysis: DeliverOutput requires non-empty CodeChanges
         // (the master skill is expected to write findings); with the
@@ -61,7 +59,7 @@ public sealed class PipelineE2ETests(ITestOutputHelper output)
         // guarantee here is "no handler bug / no DI gap": the run reaches a
         // terminal result without an unhandled exception. Keystone success with a
         // real change is covered by the keystone unit tests + the Docker tier.
-        var codeChanging = presetName is "fix-bug" or "fix-no-test" or "add-feature";
+        var codeChanging = presetName == "code";
         if (codeChanging)
         {
             result.Exception.Should().BeNull(

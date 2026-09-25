@@ -45,7 +45,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("mr:org/my-api!15");
     }
 
@@ -70,7 +70,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("#99");
         result.TriggerInput.Should().Contain("mr:org/my-api!15");
     }

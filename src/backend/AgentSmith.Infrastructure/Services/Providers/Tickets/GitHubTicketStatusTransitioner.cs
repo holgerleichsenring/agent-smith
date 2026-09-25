@@ -12,17 +12,15 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>
-/// Atomic GitHub Issues lifecycle transitioner. Reads the issue with its ETag,
-/// verifies the 'from' label is present, then PATCHes the labels array with If-Match.
-/// A 412 Precondition Failed means another process changed the issue between read and write.
-/// </summary>
+/// <summary>Atomic GitHub Issues lifecycle transitioner: reads the issue with its ETag and
+/// PATCHes the labels array with If-Match, so a 412 means another process wrote in between.</summary>
 public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
 {
     private readonly string _owner;
     private readonly string _repo;
     private readonly HttpClient _http;
     private readonly ILogger<GitHubTicketStatusTransitioner> _logger;
+    private readonly TicketLabelVocabulary _labels;
 
     public string ProviderType => "GitHub";
 
@@ -33,6 +31,7 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
         _http = httpClient;
         _logger = logger;
+        _labels = connection.ResolvedLabels;
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", connection.Token);
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("AgentSmith/1.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
@@ -107,20 +106,20 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
         return TransitionResult.Succeeded();
     }
 
-    private static TicketLifecycleStatus? ReadLifecycleLabel(JsonElement issue)
+    private TicketLifecycleStatus? ReadLifecycleLabel(JsonElement issue)
     {
         if (!issue.TryGetProperty("labels", out var labels)) return null;
         foreach (var label in labels.EnumerateArray())
         {
             if (!label.TryGetProperty("name", out var nameEl)) continue;
             var name = nameEl.GetString();
-            if (name is not null && LifecycleLabels.TryParse(name, out var status))
+            if (name is not null && _labels.TryParse(name, out var status))
                 return status;
         }
         return null;
     }
 
-    private static string[] BuildLabels(JsonElement issue, TicketLifecycleStatus to)
+    private string[] BuildLabels(JsonElement issue, TicketLifecycleStatus to)
     {
         var result = new List<string>();
         if (issue.TryGetProperty("labels", out var labels))
@@ -129,11 +128,11 @@ public sealed class GitHubTicketStatusTransitioner : ITicketStatusTransitioner
             {
                 if (!label.TryGetProperty("name", out var nameEl)) continue;
                 var name = nameEl.GetString();
-                if (name is null || LifecycleLabels.IsLifecycleLabel(name)) continue;
+                if (name is null || _labels.IsLifecycleLabel(name)) continue;
                 result.Add(name);
             }
         }
-        result.Add(LifecycleLabels.For(to));
+        result.Add(_labels.For(to));
         return [.. result];
     }
 

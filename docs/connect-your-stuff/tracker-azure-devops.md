@@ -121,8 +121,8 @@ projects:
       done_status: Resolved
       pipeline_from_label:
         agent-smith:init:               init-project
-        agent-smith:bug:                fix-bug
-        agent-smith:feature:            add-feature
+        agent-smith:bug:                code
+        agent-smith:feature:            code
         agent-smith:security-scan:      security-scan
         agent-smith:api-security-scan:  api-security-scan
 

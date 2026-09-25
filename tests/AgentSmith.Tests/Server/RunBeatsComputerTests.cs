@@ -23,7 +23,7 @@ public sealed class RunBeatsComputerTests
     {
         // p0394a: "GeneratePlanCommand" is a retired step kept by literal name —
         // this run record shape is exactly what pre-p0394a runs persisted.
-        var run = TerminalRun("fix-bug", "success", Steps(
+        var run = TerminalRun("code", "success", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
             ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
@@ -45,7 +45,7 @@ public sealed class RunBeatsComputerTests
         // p0394a retired GeneratePlan/PlanOpenQuestions from the phase path, but run
         // records persisted before the retirement still carry these steps — their
         // beats and trail labels must keep rendering, keyed by literal name.
-        var run = TerminalRun("fix-bug", "success", Steps(
+        var run = TerminalRun("code", "success", Steps(
             ("s", CommandNames.FetchTicket),
             ("s", "GeneratePlanCommand"), ("s", "PlanOpenQuestionsCommand"),
             ("s", CommandNames.AgenticMaster), ("s", CommandNames.CommitAndPR)));
@@ -65,7 +65,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void FinishedRun_AcceptanceProven_VerifyDone_EvenWithoutVerifyCommand()
     {
-        var run = TerminalRun("fix-bug", "success", Steps(
+        var run = TerminalRun("code", "success", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.AgenticMaster),
             ("s", CommandNames.CommitAndPR)));
         run.AcceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
@@ -86,7 +86,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void FinishedRun_AcceptanceUnproven_VerifyStaysSkipped()
     {
-        var run = TerminalRun("fix-bug", "success", Steps(
+        var run = TerminalRun("code", "success", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.AgenticMaster),
             ("s", CommandNames.CommitAndPR)));
         run.AcceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
@@ -107,7 +107,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending()
     {
-        var run = TerminalRun("fix-bug", "failed", Steps(
+        var run = TerminalRun("code", "failed", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
             ("f", "GeneratePlanCommand")));
@@ -126,7 +126,7 @@ public sealed class RunBeatsComputerTests
     {
         // p0439: the run delivered — a planned beat it never emitted was skipped, not
         // the point where the story ended.
-        var run = TerminalRun("fix-bug", RunStatuses.Shortfall, Steps(
+        var run = TerminalRun("code", RunStatuses.Shortfall, Steps(
             ("s", CommandNames.FetchTicket), ("s", CommandNames.AgenticMaster),
             ("s", CommandNames.CommitAndPR)));
 
@@ -139,7 +139,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void ActiveRun_CurrentBeatActive_EarlierDone_LaterPending()
     {
-        var run = ActiveRun("fix-bug", Steps(
+        var run = ActiveRun("code", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("s", CommandNames.CheckoutSource), ("s", CommandNames.AnalyzeCode),
             ("s", "GeneratePlanCommand"), ("s", CommandNames.Approval),
@@ -159,7 +159,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void PreMigrationRow_StepsWithoutCommandName_BeatsNull()
     {
-        var run = TerminalRun("fix-bug", "success",
+        var run = TerminalRun("code", "success",
         [
             new RunStep { Id = 1, StepIndex = 0, StepName = "Fetching ticket", Status = "success" },
             new RunStep { Id = 2, StepIndex = 1, StepName = "Executing master", Status = "success" },
@@ -172,7 +172,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void QueuedRun_NoStepsYet_PlannedBeatsPending()
     {
-        var run = new Run { Id = "r1", Pipeline = "fix-bug", Status = "queued" };
+        var run = new Run { Id = "r1", Pipeline = "code", Status = "queued" };
 
         var beats = RunBeatsComputer.Compute(run)!;
 
@@ -194,7 +194,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void CancelledRun_DiesMidStep_ThatBeatFailed()
     {
-        var run = TerminalRun("fix-bug", "cancelled", Steps(
+        var run = TerminalRun("code", "cancelled", Steps(
             ("s", CommandNames.LoadCatalog), ("s", CommandNames.FetchTicket),
             ("r", CommandNames.AgenticMaster)));
 

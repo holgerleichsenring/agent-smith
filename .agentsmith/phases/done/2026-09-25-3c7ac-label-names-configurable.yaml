@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-3c7ac
+requires: ["2026-09-25-3c7aa", "2026-09-25-3c7ab"]
+goal: "The eight labels this framework writes onto a board take their names from the tracker that owns the board, today's names are the defaults, and a rename leaves no ticket wearing two."
+
+applies_to: "backend (the label vocabulary, the four transitioners and four providers, the tracker configuration and its form)"
+
+scope:
+  in: "The eight names the framework actually WRITES — the approved-set stamp and the seven lifecycle words — taken from the tracker connection wherever one is in hand; predicate-based stripping so a rename cannot leave two lifecycle words on one ticket; the four providers' pending queries reading the configured name; and the whole configuration path so the form can carry it."
+  out: "The three names nothing writes — the person's phase word, the record label, the position prefix — which can only be RECOGNISED and stay global constants; the pull-request trigger word `security-review`, which is a routing word on a PR board rather than bookkeeping and is phase 2026-09-25-d83b; and refusing a name that collides with an operator's routing key, which needs a validator that sees the whole catalog and is phase 2026-09-25-f6c2."
+
+decisions:
+  - key: |
+      EIGHT NAMES ARE WRITTEN, NOT ELEVEN, AND THE DIFFERENCE DECIDES WHAT "RENAME" CAN MEAN. The only
+      framework label any filing passes to CreateAsync is the approved-set stamp; the four transitioners
+      write the seven lifecycle words. The phase word is what a PERSON types and no filing writes it; the
+      record label and the position prefix have no writer left and their own files say so. A name nothing
+      writes cannot be renamed — it can only be additionally recognised — so those three stay constants
+      and this phase does not pretend otherwise.
+  - key: |
+      PER TRACKER WHERE A TRACKER IS IN HAND, AND THE PLACES WHERE IT IS NOT ARE NAMED. The provider and
+      transitioner factories already carry the tracker connection, and so do the discovery query builder
+      and the filing's tagger — that is every WRITER and the server-side query. It is NOT reachable at
+      three readers: the envelope resolver tests the record label before the project loop begins, eight
+      webhook handlers know only a platform, and the filed-ticket gate runs inside a run with neither.
+      Those three keep reading the global constants, which is correct for them: they ask whether a word
+      is one of ours, not what this board calls it.
+  - key: |
+      JIRA AND GITLAB STRIP BY EXACT VALUE AND WOULD ACCUMULATE BOTH WORDS FOR EVER. Azure DevOps and
+      GitHub remove lifecycle labels by PREDICATE, so a renamed tracker self-heals on the next write.
+      Jira and GitLab remove the literal they computed for the state they believe the ticket is in — read
+      back off the board as the HISTORICAL word, removed as the CONFIGURED one, which is not there. The
+      ticket then carries two lifecycle words and the parser takes whichever the array yields first. This
+      is not a migration artefact, it is permanent, so the two strip paths become predicate-based in the
+      same phase that allows a rename.
+  - key: |
+      THE PENDING QUERY IS THE OPERATOR'S HANDLE AND IT READS A LITERAL IN FOUR PLACES. Each provider
+      filters by the pending word's exact value to build the poller's catch-up list. A rename that misses
+      them makes every ticket an operator marked by hand disappear from the poll — the one surface where
+      a lifecycle word is INTENT rather than bookkeeping.
+  - key: |
+      THE CONFIGURATION PATH IS THE BULK OF THE WORK AND HAS A TRIPWIRE. A value is only reachable once it
+      travels the raw entry, the patch, the entity, the descriptor and the field reader; the entity's own
+      note warns that its fields are read positionally and may only be appended. A coverage test walks the
+      raw entry against the descriptor and fails the build when one gains a field the other lacks — which
+      is the guard that makes this safe, and the reason the step list names all five.
+
+steps:
+  - id: the-vocabulary-is-a-value-a-tracker-owns
+    path: "src/backend/AgentSmith.Contracts/Tickets"
+    action:
+      - "Introduce the vocabulary of the eight written names as a value with today's names as defaults, and stop resolving them from static constants where a tracker is in hand."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Tickets/LifecycleLabels.cs"
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs"
+
+  - id: the-writers-take-it-from-their-tracker
+    path: "src/backend/AgentSmith.Infrastructure/Services"
+    action:
+      - "Hand the vocabulary to the four transitioners and the four providers through the factories that already carry the tracker connection."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/TicketStatusTransitionerFactory.cs"
+
+  - id: a-rename-leaves-no-ticket-wearing-two
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Strip lifecycle labels by predicate in the Jira and GitLab transitioners, as Azure DevOps and GitHub already do."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketStatusTransitioner.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketStatusTransitioner.cs"
+
+  - id: the-pending-query-reads-the-configured-word
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Build each provider's pending query from the tracker's own word rather than the constant."
+
+  - id: the-configuration-carries-it
+    path: "src/backend/AgentSmith.Contracts"
+    action:
+      - "Carry the vocabulary through the raw entry, the patch, the entity, the tracker descriptor and the field reader, appending entity fields rather than inserting them."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs"
+      - "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs"
+
+  - id: the-ticket-note-names-what-it-carries
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Render the stamp's configured name in the note a filed ticket carries, rather than a compile-time constant."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/SpecDialog/TicketLabelNote.cs"
+
+  - id: the-vocabulary-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert defaults are today's names, a renamed tracker writes and strips the new word on all four trackers, the pending query follows, and the coverage test stays green."
+
+tests:
+  - "LabelNames_ATrackerConfiguringNothing_WritesExactlyTodaysNames"
+  - "LabelNames_ARenamedLifecycleWord_IsWrittenAndStrippedOnJira"
+  - "LabelNames_ARenamedLifecycleWord_IsWrittenAndStrippedOnGitLab"
+  - "LabelNames_ATicketCarryingTheHistoricalWord_LosesItOnTheNextTransition"
+  - "LabelNames_ARenamedPendingWord_IsWhatEachProviderQueriesFor"
+  - "LabelNames_ARenamedStamp_IsWhatTheFiledTicketsNoteNames"
+  - "LabelNames_TheThreeUnwrittenNames_AreStillRecognisedGlobally"
+  - "Capabilities_TheTrackerDescriptor_CoversEveryRawVocabularyField"
+
+done:
+  - "the eight labels the framework writes can be renamed per tracker, defaulting to today's names"
+  - "a renamed tracker never leaves two lifecycle words on one ticket, on any of the four"
+  - "an operator's hand-marked pending tickets are still found after a rename"
+  - "the three names nothing writes are still recognised, and the spec says why they cannot be renamed"
+  - "build green, full suite green"

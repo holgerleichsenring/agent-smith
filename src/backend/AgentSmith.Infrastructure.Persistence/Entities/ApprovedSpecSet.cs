@@ -40,4 +40,24 @@ public sealed class ApprovedSpecSet : EntityBase
 
     /// <inheritdoc cref="ApprovedAt"/>
     public string ApprovedBy { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 2026-09-25-c1f7: the TRACKER'S OWN ticket id — <c>DPG-1239</c>, not the spec key's
+    /// <c>jira-dpg-1239</c>. A column rather than a derivation: <c>SpecSetKey.For</c> lowercases
+    /// the id and replaces every non-alphanumeric character, so the tracker's spelling cannot be
+    /// read back out of <see cref="SpecKey"/>, and a per-provider parser that guessed it is
+    /// exactly what this repository refused to write for the ticket's label stamp. Empty on a row
+    /// written before this phase — nothing can recover what was never stored, and such a row is
+    /// simply never named in a discovery query.
+    /// </summary>
+    public string TicketId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 2026-09-25-c1f7: when a run FINISHED the ticket this record was written for. Null means
+    /// "still outstanding", which is what bounds the discovery listing — without it the query
+    /// grows with every approval this deployment ever made and re-fetches the tickets the parking
+    /// statuses exist to exclude. It is not an approval instant and never competes with
+    /// <see cref="ApprovedAt"/>: re-approving a ticket clears it, because there is new work.
+    /// </summary>
+    public DateTimeOffset? SatisfiedAt { get; set; }
 }

@@ -429,9 +429,9 @@ trackers:
 # ────────────────────────────────────────────────────────────────────────
 # Applied when a project's trigger block omits `pipeline_from_label`.
 # A populated project-level map wins over this global default.
-# p0393: ONE `code` pipeline ships all code changes (the former fix-bug /
-# fix-no-test / add-feature / phase-execution names still load as aliases of it,
-# but new configuration should say `code`).
+# p0393: ONE `code` pipeline ships all code changes. 2026-09-25-e5b1 deleted the
+# four former names it had been aliased from — a configuration still carrying one
+# names a pipeline that does not exist, and the server says so at startup.
 pipeline_triggers:
   agent-smith:init: init-project
   bug: code
@@ -470,6 +470,10 @@ projects:
       trigger_statuses: ["open"]
       done_status: "closed"
       comment_keyword: "@agent-smith"
+      # 2026-09-25-d83b: the label someone puts on a PULL REQUEST to ask for a review.
+      # Omitted → only "security-review" triggers, as it always has; a word set here is
+      # recognised in ADDITION to it, so a board already labelled keeps working.
+      # pr_trigger_label: "please-review"
       # pipeline_from_label omitted → inherits global pipeline_triggers map
 
   # Azure DevOps project, terse shape (p0281b): only `resolution:` is project-specific —

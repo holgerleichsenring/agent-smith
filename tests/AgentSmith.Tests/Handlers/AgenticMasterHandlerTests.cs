@@ -110,7 +110,7 @@ public sealed class AgenticMasterHandlerTests
         var loop = new SequencedLoopRunner("no verdict here", "still nothing", verdictBlock);
 
         var ctx = MasterHandlerFixture.BuildContext("coding-agent-master");
-        ctx.Pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        ctx.Pipeline.Set(ContextKeys.PipelineName, "code");
 
         await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(ctx, CancellationToken.None);
 
