@@ -75,7 +75,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogOwnership>();
         services.AddScoped<TicketConversationBinder>(); // 8e51b
         services.AddScoped<TicketTextForConversation>(); // 8e51c
-        services.AddScoped<TicketProjectChoice>(); // 8e51a
+        services.AddScoped<TicketProjectChoice>().AddScoped<ApprovedSetForConversation>(); // 8e51a/d
         services.AddScoped<DashboardDialogDispatcher>();
         // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
         // work; the catalog is transient because it re-reads the configuration per call.
