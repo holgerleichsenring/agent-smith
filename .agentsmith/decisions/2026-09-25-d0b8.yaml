@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-d0b8
+
+decisions:
+  - category: Architecture
+    chose: "The read is extracted into EpicParentReader, which takes a provider and a ticket and returns EpicParentRead"
+    over: "Leaving the read in EpicGroundFetcher and letting a non-pipeline caller hand it a throwaway PipelineContext"
+    reason: |
+      The fetcher answered "what epic is this ticket stamped into?" only in pipeline
+      currency: it WROTE its answer into a PipelineContext under ContextKeys.EpicGround and
+      RETURNED a run step's sentence. Both halves of that signature are a run's, so the
+      only way for a server-side caller to ask the question was to build a pipeline it does
+      not have, call AttachAsync, and read a key back out — the wrapper-shim shape this
+      repository forbids, and one that would also inherit the run's step-message
+      punctuation. The reader takes the two things the question actually needs and hands
+      back a value object, so the caller decides what to do with it.
+  - category: Architecture
+    chose: "EpicGroundFetcher stays, reduced to the publish and the step sentence"
+    over: "Deleting it and calling the reader straight from FetchTicketHandler"
+    reason: |
+      Publishing under a context key and appending " — <note>" to a step message IS
+      pipeline work, and it is the only pipeline work left in the file. Moving it into
+      FetchTicketHandler would put it in a class that is already 135 lines against a
+      189-line ratchet baseline and owns four other concerns, and it would make the
+      "publishes exactly what it published before" criterion a property of a handler rather
+      than of a named collaborator that one test can drive directly. The separator lives
+      here and not in the note for the same reason: it is the step output's punctuation, so
+      a later caller that renders the note elsewhere does not inherit an em dash.
+  - category: Implementation
+    chose: "EpicParentRead carries a nullable Ground plus a Note, with Unstamped / Opened / Degraded as its three named answers"
+    over: "Returning EpicGround? alone and letting each caller phrase its own degradation"
+    reason: |
+      There are THREE answers, not two: no stamp (nothing was looked up), a parent that
+      opened, and a stamped parent that could not be opened. A nullable ground collapses
+      the first and the third, which is exactly the distinction a caller must keep — one is
+      silence, the other is a failure that has to be named. Letting each caller phrase the
+      degradation would put the rule in as many places as there are callers; the reason is
+      the run's existing one, stated once, so a second caller cannot invent a second
+      answer to the same question.
+  - category: Scope
+    chose: "Only the extraction ships; the conversation-side caller is left for a later phase"
+    over: "Building the dialog-side read against a ticket record that does not store labels yet"
+    reason: |
+      The parent is addressed off the ticket's LABELS. The phase that stores a bound
+      conversation's ticket text is not in this tree, so nothing a conversation holds
+      carries the stamp — a dialog-side read built now would have nothing to address and
+      would be proven only against a fixture. The spec's requires: edge named that phase
+      and was dropped rather than left dangling, per the repository's rule that requires:
+      names only phases that already exist; the dependency is stated in prose in the spec's
+      decisions instead. The extraction is what makes the later phase small: the question
+      will already be answerable by a caller that owns no pipeline.
+  - category: Testing
+    chose: "One test drives the pipeline-free reader and the pipeline step over the same provider and asserts they agree"
+    over: "Testing the reader alone and trusting the step's existing coverage"
+    reason: |
+      The claim this phase makes is that ONE read serves more than one caller, and a test
+      that exercises one caller cannot fail when they diverge. EpicParentReadTests asserts
+      the same ground from both, the same degradation text from both, and pins the step's
+      published key and exact message string — the note, the em-dash separator and the
+      empty string for a ticket that is nobody's slice — so a refactor that changes what a
+      run reports breaks a test rather than a run.
