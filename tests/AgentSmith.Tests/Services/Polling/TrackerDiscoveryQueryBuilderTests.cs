@@ -12,38 +12,38 @@ public sealed class TrackerDiscoveryQueryBuilderTests
         new(NullLogger<TrackerDiscoveryQueryBuilder>.Instance);
 
     [Fact]
-    public void Build_AllTagProjects_OneBranchPerRoutedTrackerTrigger()
+    public async Task Build_AllTagProjects_OneBranchPerRoutedTrackerTrigger()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var config = Config(tracker,
             JiraProject("alpha", tracker, "alpha-tag", ["To Do"]),
             JiraProject("beta", tracker, "beta-tag", ["In Progress"]));
 
-        var query = Builder.Build(config, tracker);
+        var query = await Builder.BuildAsync(config, tracker, CancellationToken.None);
 
         query.Branches.Should().HaveCount(2);
         query.Branches.Should().OnlyContain(b => b.Criterion!.Strategy == ResolutionStrategy.Tag);
     }
 
     [Fact]
-    public void Build_SelectsThisTrackersTrigger_ByTrackerType()
+    public async Task Build_SelectsThisTrackersTrigger_ByTrackerType()
     {
         var tracker = Tracker("gh", TrackerType.GitHub);
         var config = Config(tracker, GithubProject("p", tracker, "gh-tag", ["Open"]));
 
-        var query = Builder.Build(config, tracker);
+        var query = await Builder.BuildAsync(config, tracker, CancellationToken.None);
 
         query.Branches.Should().ContainSingle()
             .Which.Statuses.Should().BeEquivalentTo(new[] { "Open" });
     }
 
     [Fact]
-    public void Build_EmptyTriggerStatuses_BranchIsStatusUnconstrained()
+    public async Task Build_EmptyTriggerStatuses_BranchIsStatusUnconstrained()
     {
         var tracker = Tracker("gh", TrackerType.GitHub);
         var config = Config(tracker, GithubProject("p", tracker, "gh-tag", []));
 
-        var query = Builder.Build(config, tracker);
+        var query = await Builder.BuildAsync(config, tracker, CancellationToken.None);
 
         query.Branches.Should().ContainSingle().Which.Statuses.Should().BeEmpty();
         query.Branches[0].Criterion!.Value.Should().Be("gh-tag");
@@ -57,25 +57,26 @@ public sealed class TrackerDiscoveryQueryBuilderTests
     /// two keys: the approval stamp every filing writes, and the phase word a person types.
     /// </summary>
     [Fact]
-    public void Build_ALabelGuard_LetsBothPhaseExecutionBindingsThrough()
+    public async Task Build_ALabelGuard_LetsBothPhaseExecutionBindingsThrough()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var project = JiraProject("alpha", tracker, "alpha-tag", ["To Do"]);
         project.JiraTrigger!.PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug" };
 
-        var query = Builder.Build(Config(tracker, project), tracker);
+        var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 
         query.TriggerLabels.Should().BeEquivalentTo(
             ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel]);
     }
 
     [Fact]
-    public void Build_NoLabelGuard_AddsNoBindingKeyOfItsOwn()
+    public async Task Build_NoLabelGuard_AddsNoBindingKeyOfItsOwn()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
 
-        var query = Builder.Build(
-            Config(tracker, JiraProject("alpha", tracker, "alpha-tag", ["To Do"])), tracker);
+        var query = await Builder.BuildAsync(
+            Config(tracker, JiraProject("alpha", tracker, "alpha-tag", ["To Do"])),
+            tracker, CancellationToken.None);
 
         query.TriggerLabels.Should().BeEmpty(
             "a project with no pipeline_from_label filters nothing, and a guard naming only the "
@@ -83,20 +84,20 @@ public sealed class TrackerDiscoveryQueryBuilderTests
     }
 
     [Fact]
-    public void Build_DoneAndFailedStatus_ParkingStatusesUnion()
+    public async Task Build_DoneAndFailedStatus_ParkingStatusesUnion()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var project = JiraProject("alpha", tracker, "alpha-tag", ["To Do"]);
         project.JiraTrigger!.DoneStatus = "In Review";
         project.JiraTrigger!.FailedStatus = "Rejected";
 
-        var query = Builder.Build(Config(tracker, project), tracker);
+        var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 
         query.ParkingStatuses.Should().BeEquivalentTo(new[] { "In Review", "Rejected" });
     }
 
     [Fact]
-    public void Build_NeedsClarificationStatus_IncludedInParkingStatuses()
+    public async Task Build_NeedsClarificationStatus_IncludedInParkingStatuses()
     {
         // p0318: a clarification-parked ticket sits in needs_clarification_status and must
         // be excluded from claimable discovery so it is not re-fetched + re-posted each poll.
@@ -105,20 +106,20 @@ public sealed class TrackerDiscoveryQueryBuilderTests
         project.JiraTrigger!.DoneStatus = "In Review";
         project.JiraTrigger!.NeedsClarificationStatus = "Question";
 
-        var query = Builder.Build(Config(tracker, project), tracker);
+        var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 
         query.ParkingStatuses.Should().Contain("Question");
     }
 
     [Fact]
-    public void Build_OverMaxBranches_CollapsesToSingleBroadBranch()
+    public async Task Build_OverMaxBranches_CollapsesToSingleBroadBranch()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var projects = Enumerable.Range(0, 30)
             .Select(i => JiraProject($"p{i}", tracker, $"tag{i}", ["To Do"]))
             .ToArray();
 
-        var query = Builder.Build(Config(tracker, projects), tracker);
+        var query = await Builder.BuildAsync(Config(tracker, projects), tracker, CancellationToken.None);
 
         query.Branches.Should().ContainSingle();
         query.Branches[0].Statuses.Should().BeEmpty();

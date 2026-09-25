@@ -94,7 +94,7 @@ public sealed class TicketLabelNoteDownstreamTests
         ticket.Description.Should().Contain("Make the widget storable")
             .And.NotContain(TicketLabelNote.BeginIdentifier)
             .And.NotContain(TicketLabelNote.Heading)
-            .And.NotContain("Removing it costs");
+            .And.NotContain("It is a hint, not the binding");
     }
 
     [Fact]

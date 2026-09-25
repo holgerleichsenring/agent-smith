@@ -516,5 +516,13 @@ public sealed class EpicWorkTicketTests
 
         public Task SaveAsync(SpecApprovalRecord record, CancellationToken cancellationToken) =>
             throw error;
+
+        public Task<OutstandingApprovals> ListOutstandingAsync(
+            string tracker, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult(OutstandingApprovals.None);
+
+        public Task MarkSatisfiedAsync(
+            string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

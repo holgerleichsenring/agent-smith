@@ -64,10 +64,14 @@ public sealed class TrackerPoller(
         // p0283b: compose the discovery query from each routed project's per-tracker trigger
         // (status + resolution criterion) so the tracker returns only claimable candidates.
         // Providers that can't push it (GitHub/GitLab) fall back to the broad open query.
-        var query = discoveryQueryBuilder.Build(config, tracker);
+        // 2026-09-25-c1f7: awaited — the query also names the tickets an approved record still
+        // expects work on, and that answer comes from a store rather than from configuration.
+        var query = await discoveryQueryBuilder.BuildAsync(config, tracker, ct);
         var discovered = await provider.ListClaimableAsync(query, ct);
-        logger.LogDebug("poll-discovery: tracker={Tracker} branches={Branches} parking=[{Parking}]",
-            tracker.Name, query.Branches.Count, string.Join(",", query.ParkingStatuses));
+        logger.LogDebug(
+            "poll-discovery: tracker={Tracker} branches={Branches} parking=[{Parking}] approved={Approved}",
+            tracker.Name, query.Branches.Count, string.Join(",", query.ParkingStatuses),
+            query.ApprovedTicketIds.Count);
         // p0262: lifecycle tags no longer gate claimability (the LifecyclePollFilter is
         // gone). Every discovered/pending-tagged ticket is a candidate; the real gates run
         // per-ticket downstream — the native-status check (IsStatusAllowed against

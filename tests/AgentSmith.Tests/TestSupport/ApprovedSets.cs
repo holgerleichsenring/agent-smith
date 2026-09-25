@@ -27,12 +27,17 @@ internal static class ApprovedSets
     internal static SpecApproval Approval(DateTimeOffset at, string conversation = "session-1") =>
         new(at, conversation, "sample.approver");
 
+    /// <param name="ticketId">2026-09-25-c1f7: the tracker's OWN ticket id. Empty by default,
+    /// which is a record no discovery query can name — what every record written before that
+    /// phase looks like.</param>
     internal static SpecApprovalRecord Record(
         string key, DateTimeOffset at, IReadOnlyList<string>? phaseIds = null,
         IReadOnlyList<string>? repositories = null, string conversation = "session-1",
-        string tracker = Tracker) =>
+        string tracker = Tracker, string ticketId = "") =>
         new(key,
             Set(key, [.. (phaseIds ?? ["p0001a"]).Select(id => Phase(id))], Approval(at, conversation)),
             repositories ?? [],
-            tracker);
+            tracker,
+            string.Empty,
+            ticketId);
 }

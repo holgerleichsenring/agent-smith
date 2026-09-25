@@ -26,10 +26,30 @@ public sealed class AzureDevOpsDiscoveryWiqlBuilder : IAzureDevOpsDiscoveryWiqlB
         // and broke AzDO reception. Full-tag CONTAINS (not a bare prefix) is AzDO's reliable
         // tag filter; a label-gated ticket that lacks a trigger label is dropped in-process
         // anyway, so this never hides a claimable ticket.
-        if (query.TriggerLabels.Count == 0) return routing;
+        if (query.TriggerLabels.Count == 0) return Admitting(routing, query.ApprovedTicketIds);
         var labelGuard = string.Join(" OR ",
             query.TriggerLabels.Select(l => $"[System.Tags] CONTAINS '{Escape(l)}'"));
-        return $"({routing}) AND ({labelGuard})";
+        return Admitting($"({routing}) AND ({labelGuard})", query.ApprovedTicketIds);
+    }
+
+    /// <summary>
+    /// 2026-09-25-c1f7: the tickets an approved record still expects work on, OR'd with the WHOLE
+    /// query. It cannot be another entry in the label guard: the guard is AND-ed onto the routing
+    /// clause, so a list that must ADMIT what the guard excludes has to sit beside it. A work item
+    /// whose stamp somebody deleted is fetched because of this clause and nothing else.
+    /// <para>
+    /// NON-NUMERIC IDS ARE DROPPED. <c>[System.Id]</c> is an integer field and WIQL refuses a
+    /// quoted value against it, so one Jira-shaped id carried on a mixed store would make the
+    /// whole poll fail rather than widen it. The stored id is the tracker's own, so on an Azure
+    /// DevOps connection every one of them is already a number.
+    /// </para>
+    /// </summary>
+    private static string Admitting(string guarded, IReadOnlyList<string> approvedTicketIds)
+    {
+        var numeric = approvedTicketIds.Where(id => long.TryParse(id, out _)).ToList();
+        return numeric.Count == 0
+            ? guarded
+            : $"({guarded}) OR [System.Id] IN ({string.Join(", ", numeric)})";
     }
 
     private static string BranchClause(
