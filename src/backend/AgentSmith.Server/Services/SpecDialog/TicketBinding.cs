@@ -16,9 +16,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// be turned back into one.
 /// </para>
 /// </summary>
-public sealed record TicketBinding(string Tracker, string Key, string TicketId, string Title)
+public sealed record TicketBinding(
+    string Tracker, string Key, string TicketId, string Title,
+    IReadOnlyList<string>? Labels = null)
 {
     /// <summary>The binding for a ticket on one tracker connection, keyed as the record is.</summary>
-    public static TicketBinding For(string tracker, string platform, string ticketId, string title) =>
-        new(tracker, SpecSetKey.For(platform, ticketId).Value, ticketId, title);
+    public static TicketBinding For(
+        string tracker, string platform, string ticketId, string title,
+        IReadOnlyList<string>? labels = null) =>
+        new(tracker, SpecSetKey.For(platform, ticketId).Value, ticketId, title, labels);
+
+    /// <summary>2026-09-25-8e51a: the envelope this ticket routes on — labels, id and platform,
+    /// which is everything a ticket read by id can carry.</summary>
+    public global::AgentSmith.Contracts.Models.Triggers.IncomingTicketEnvelope Envelope(string platform) =>
+        new() { TicketId = TicketId, Platform = platform, Labels = Labels ?? [] };
 }

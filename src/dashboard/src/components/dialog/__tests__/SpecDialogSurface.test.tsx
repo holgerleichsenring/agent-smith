@@ -60,6 +60,8 @@ const searchParams = { current: new URLSearchParams() };
 // 2026-09-25-8e51b: what the server answers for a ticket — which conversation it has, and the
 // dialog a running one is living on.
 const readTicketConversation = vi.fn();
+// 2026-09-25-8e51a: the ticket alone — what its own routing names.
+const readTicketProject = vi.fn();
 const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
@@ -110,6 +112,7 @@ vi.mock("@/lib/specDialogApi", () => ({
       : postSpecDialogMessage(dialogId, text, project, ticketId),
   readTicketConversation: (project: string, ticketId: string) =>
     readTicketConversation(project, ticketId),
+  readTicketProject: (ticketId: string) => readTicketProject(ticketId),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
     resumeSpecDialogConversation(sessionId, dialogId),
@@ -3649,6 +3652,7 @@ describe("a page addressed with a ticket", () => {
   afterEach(() => {
     searchParams.current = new URLSearchParams();
     readTicketConversation.mockReset();
+    readTicketProject.mockReset();
   });
 
   it("goes to the conversation the ticket already has", async () => {
@@ -3689,6 +3693,76 @@ describe("a page addressed with a ticket", () => {
         "let us work it out",
         "sample",
         "DPG-1239",
+      ),
+    );
+  });
+});
+
+describe("a page addressed with a ticket and no project", () => {
+  // 2026-09-25-8e51a: the TICKET names the project, from its own routing on its own tracker.
+  beforeEach(() => {
+    readTicketProject.mockReset();
+    searchParams.current = new URLSearchParams("ticket=DPG-1239");
+  });
+
+  afterEach(() => {
+    searchParams.current = new URLSearchParams();
+    readTicketProject.mockReset();
+  });
+
+  it("uses the one project the ticket names", async () => {
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: ["sample"],
+      unanswerable: [],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+    await waitFor(() => expect(readTicketProject).toHaveBeenCalledWith("DPG-1239"));
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "work it out" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.anything(),
+        "work it out",
+        "sample",
+        "DPG-1239",
+      ),
+    );
+  });
+
+  it("says why when a project could not be answered for from a ticket", async () => {
+    // Two configured projects, or there is no choice to make and no reason to give one.
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: [],
+      unanswerable: ["beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    // A project routed by area path is not the operator's configuration being wrong — a ticket
+    // read by its id simply cannot carry one.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-project-choice-reason").textContent).toContain(
+        "routes by area path",
       ),
     );
   });

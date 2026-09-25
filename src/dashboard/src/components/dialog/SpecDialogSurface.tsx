@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
-import { readTicketConversation } from "@/lib/specDialogApi";
+import type { TicketProjectRead } from "@/lib/specDialogApi";
+import { readTicketConversation, readTicketProject } from "@/lib/specDialogApi";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -83,6 +84,9 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
   const [pending, setPending] = useState<{ project: string; ticketId: string } | null>(null);
   const ticketId = params.get(TICKET_PARAM);
   const project = params.get(PROJECT_PARAM);
+  // 2026-09-25-8e51a: an address that names only a ticket lets the TICKET name the project — its
+  // own routing, on its own tracker. Several or none, and the choice stays with the operator.
+  const [reason, setReason] = useState<string | null>(null);
   // The read is IN FLIGHT while the page loads its own fresh conversation, and `open` is a
   // callback over the view — so it is a new function by the time the answer lands. Depending on
   // it would tear this effect down mid-flight and the answer would be dropped, once, silently:
@@ -91,19 +95,40 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
   const latest = useRef(open);
   latest.current = open;
   useEffect(() => {
-    if (!ticketId || !project || taken.current === ticketId) return;
+    // The project is optional: without one the TICKET names it (8e51a).
+    if (!ticketId || taken.current === ticketId) return;
     taken.current = ticketId;
-    void Promise.resolve(readTicketConversation(project, ticketId))
+    void Promise.resolve(
+      project ? readTicketConversation(project, ticketId) : readTicketProject(ticketId),
+    )
       .then((held) => {
-        if (held?.sessionId) latest.current(held.sessionId, held.openDialogId);
-        else setPending({ project, ticketId });
+        if (held?.sessionId) {
+          latest.current(held.sessionId, held.openDialogId);
+          return;
+        }
+        const named = project ? [project] : ((held as TicketProjectRead | null)?.projects ?? []);
+        if (named.length === 1) setPending({ project: named[0], ticketId });
+        else setReason(whyNoProject(named, (held as TicketProjectRead | null)?.unanswerable ?? []));
       })
       // A ticket the tracker does not have, or a read that failed: the page stays usable and the
       // operator is not handed a conversation bound to something that is not there.
       .catch(() => {})
       .finally(() => router.replace("/spec-dialog"));
   }, [ticketId, project, router]);
-  return pending;
+  return { pending, reason };
+}
+
+/** Why the ticket did not name one project — a reason, never an accusation. */
+function whyNoProject(named: string[], unanswerable: string[]): string {
+  if (named.length > 1)
+    return `This ticket's labels name ${named.length} projects (${named.join(", ")}). Choose one.`;
+  if (unanswerable.length > 0)
+    return (
+      `No project matched this ticket's labels. ${unanswerable.join(", ")} ` +
+      "routes by area path, repository or address, which a ticket read by its id cannot carry — " +
+      "so it could not be answered for rather than ruled out. Choose a project."
+    );
+  return "No project's routing names this ticket. Choose one.";
 }
 
 /** How long the pane wears the mark an inspect puts on it. Long enough to be read as an answer
@@ -113,7 +138,7 @@ const MARK_MS = 1400;
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
   useHandover(dialog.open);
-  const pendingTicket = useTicketHandover(dialog.open);
+  const { pending: pendingTicket, reason: ticketReason } = useTicketHandover(dialog.open);
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.
@@ -247,6 +272,7 @@ export function SpecDialogSurface() {
                     read={read}
                     picked={picked}
                     onPicked={setPicked}
+                    reason={ticketReason}
                   />
                 ) : (
                   <>

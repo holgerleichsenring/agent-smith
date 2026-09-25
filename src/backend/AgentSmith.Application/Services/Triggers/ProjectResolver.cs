@@ -48,7 +48,7 @@ public sealed class ProjectResolver(
             foreach (var (kind, trigger) in EnumerateTriggers(project))
             {
                 if (IsBlocked(projectName, kind)) continue;
-                if (!Matches(trigger, project, envelope))
+                if (!TriggerEnvelopeMatch.Matches(trigger, project, envelope))
                 {
                     // Per-project drop reason — so an empty match set is explained ticket-by-ticket.
                     logger?.LogDebug(
@@ -107,42 +107,6 @@ public sealed class ProjectResolver(
     }
 
     private static IEnumerable<(string Kind, WebhookTriggerConfig Trigger)> EnumerateTriggers(ResolvedProject project)
-    {
-        if (project.GithubTrigger is not null) yield return ("github", project.GithubTrigger);
-        if (project.GitlabTrigger is not null) yield return ("gitlab", project.GitlabTrigger);
-        if (project.AzuredevopsTrigger is not null) yield return ("azuredevops", project.AzuredevopsTrigger);
-        if (project.JiraTrigger is not null) yield return ("jira", project.JiraTrigger);
-    }
+        => TriggerEnvelopeMatch.Triggers(project);
 
-    private static bool Matches(WebhookTriggerConfig trigger, ResolvedProject project, IncomingTicketEnvelope envelope)
-    {
-        var resolution = trigger.ProjectResolution;
-        if (resolution is null) return false;
-
-        return resolution.Strategy switch
-        {
-            ResolutionStrategy.Tag       => MatchesTag(envelope, resolution.Value),
-            ResolutionStrategy.AreaPath  => AreaPathNormalizer.IsPrefix(resolution.Value, envelope.AreaPath),
-            ResolutionStrategy.Repo      => MatchesRepo(envelope, project),
-            ResolutionStrategy.ToAddress => MatchesToAddress(envelope, resolution.Value),
-            _ => false,
-        };
-    }
-
-    private static bool MatchesTag(IncomingTicketEnvelope envelope, string value)
-        => envelope.Labels.Any(l => string.Equals(l, value, StringComparison.OrdinalIgnoreCase));
-
-    private static bool MatchesRepo(IncomingTicketEnvelope envelope, ResolvedProject project)
-    {
-        if (string.IsNullOrEmpty(envelope.SourceRepoUrl)) return false;
-        if (project.Repos.Count != 1) return false;
-        var url = project.Repos[0].Url;
-        return !string.IsNullOrEmpty(url)
-            && string.Equals(url, envelope.SourceRepoUrl, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool MatchesToAddress(IncomingTicketEnvelope envelope, string value)
-        => !string.IsNullOrEmpty(envelope.ToAddress)
-            && string.Equals(envelope.ToAddress, value, StringComparison.OrdinalIgnoreCase);
 }
-
