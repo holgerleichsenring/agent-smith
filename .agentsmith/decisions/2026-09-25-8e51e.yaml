@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-8e51e
+
+decisions:
+  - category: Architecture
+    chose: "The rewrite is a capability port of its own, ITicketRewriter, with four implementations beside the providers"
+    over: "A partial of ITicketProvider's file, as the step asked for"
+    reason: |
+      The spec's step reads "add a rewrite member to the port, in a file of its own rather than
+      growing the port's", and the pattern it is pointing at exists — ISourceProvider.BranchWrite.cs
+      is a partial interface. The port's own file could indeed carry it that way. The four
+      PROVIDER classes cannot: AzureDevOpsTicketProvider (218), JiraTicketProvider (206),
+      GitLabTicketProvider (191) and GitHubTicketProvider (189) are all in the file-length
+      baseline and may only get shorter, so a member every provider must implement could land
+      only by making those four classes partial — splitting a type across files to get under a
+      per-file limit, which is the one thing that limit exists to prevent (its own test says so:
+      "one type per file means a file's length IS its class's length"). So the member would have
+      been legal and its implementations would not. Four small classes beside the providers cost
+      nothing and each is readable alone.
+    alternatives:
+      - "A default member answering Unsupported: the providers still have to override it to do anything"
+
+  - category: Architecture
+    chose: "Jira IMPLEMENTS the port and refuses, naming the round trip"
+    over: "Jira not implementing it, so the caller reports that no rewriter exists"
+    reason: |
+      JiraAdfRenderer writes ADF and JiraAdfParser.ExtractText reads back `text` nodes and
+      nothing else: mentions, emoji, media, inline cards and status are dropped, a link keeps its
+      label and loses its target, and every mark, heading level, list marker and table structure
+      is flattened. A rewrite is READ-MODIFY-WRITE by construction, so on Jira it would send back
+      a description with the human half destroyed, silently. That is the decision — and the
+      SENTENCE is the deliverable. A missing implementation can only produce "no rewriter is
+      wired for this tracker", which is a fact about us; what the operator needs is the fact
+      about Jira, and it can only live where the refusal is. It is also what tells them to edit
+      the ticket themselves.
+    alternatives:
+      - "Writing Jira anyway from the rendered region: destroys mentions and media on every amendment"
+
+  - category: Architecture
+    chose: "A ticket with no framework marker pair is REFUSED, and nothing is written"
+    over: "Appending the region, or replacing the whole body"
+    reason: |
+      This is the common case, not the edge: every ticket filed before this phase carries a body
+      the framework rendered whole with no marker saying where its text ends and a person's
+      begins. Appending would leave the ticket saying two things at once; replacing the whole
+      body would delete prose nobody can attribute. The one available inference — that everything
+      up to the label note's own end marker is ours — is exactly the heuristic over operator text
+      that TicketLabelNoteStripper already refuses to make ("a HALF-DELETED note is left alone as
+      ordinary ticket prose, because the alternative is a heuristic over operator text"). The
+      refusal names the remedy and the ticket is untouched; tickets filed from this phase onward
+      carry the markers and amend.
+    alternatives:
+      - "Inferring the region from the label note's end marker: a guess about where a person started typing"
+
+  - category: Architecture
+    chose: "The ORDER is the ticket, then the record, then the branch — and a refused rewrite ends the amendment"
+    over: "Recording the approval first, the way filing does"
+    reason: |
+      Filing creates the ticket first because there is nothing to record against until it exists.
+      An amendment has the opposite hazard: a record moved without the ticket is precisely the
+      incongruence this phase removes, and it cannot be undone from a conversation. A rewrite
+      that does not land therefore leaves the ticket, the record and the branch exactly as they
+      were, which is the only state a refusal may leave behind. The branch is last and its
+      failure is a NOTE rather than an error, because the ticket and the record are already
+      congruent by then — the note says plainly that a run claiming the ticket works the set the
+      branch still carries, which is the one thing a retry-flavoured message would hide.
+    alternatives:
+      - "Rolling the record back when the branch write fails: a second write that can fail the same way"
+
+  - category: Architecture
+    chose: "The refusal sweeps every project sharing the tracker, through FiledWorkClaims"
+    over: "Checking the conversation's own project's lease"
+    reason: |
+      The lease is keyed by (project, ticketId), one ticket may match several projects and a run
+      is spawned per match, so a check in the filing project alone would amend a specification
+      out from under a live sibling run. FiledWorkClaims is reused whole rather than copied: it
+      asks TWICE — the lease, then the run rows — because a claim takes the lease and the run row
+      appears only when a worker dequeues it. Reusing it also refuses a ticket a run has ALREADY
+      worked, which is wider than the spec asked for and deliberate: the branch merge is
+      positional and a set that has executed cannot be rewritten from a conversation without
+      risking the executed head. The refusal names the run either way.
+    alternatives:
+      - "A lease-only check: allows an amendment over an executed head, which no run-side guard sees"
+
+  - category: Implementation
+    chose: "An amend is its own ConfirmationResult, its own arm in the flow and its own member on the sink"
+    over: "An offered shape fed into the edit door the ladder already uses"
+    reason: |
+      A picked shape comes back as ordinary text and SpecDialogOutcomeConfirmer.Interpret turns
+      anything that is not an approval or rejection word into an edit note the master re-proposes
+      against — which is what the ladder is for. An amendment is not a re-proposal: it is the
+      operator saying yes to this proposal, on a ticket that already exists. Read as an edit note
+      it would send the master round again and write nothing. The match order is the contract:
+      approval or rejection word first, the amendment second and only where it was OFFERED (a
+      conversation with no ticket has nothing to amend, so the same words there stay an edit
+      note), everything else an edit note as before. The size ladder is unchanged for every
+      existing kind and a test pins that.
+    alternatives:
+      - "A flag on AcceptAsync: nothing is created and nothing is started, so mayStartRuns is meaningless"
+
+  - category: Implementation
+    chose: "The amend is offered only for a phase and a cut, and only on a bound conversation"
+    over: "Offering it wherever a conversation has a ticket"
+    reason: |
+      A bug ticket is filed from BugTicketRenderer and carries no approved set, so there is no
+      region of ours on the bound ticket for it to replace — offering it would promise a write
+      that cannot be made. The refusal is also in the amendment itself, not only in what is
+      offered, because a reply typed in a thread reaches the same door.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The fingerprint is refreshed by writing the branch from the ticket read back AFTER the rewrite"
+    over: "Patching the fingerprint on the set already on the branch"
+    reason: |
+      The branch set carries a fingerprint of the ticket as the TRACKER stored it, and a changed
+      one reads as a ticket EDIT: ApprovedSetKeptNotice then comments on the ticket telling the
+      operator their edit was ignored. Without a refresh that notice would fire after every
+      amendment, for ever. Writing the whole set through FiledSpecBranch — the same writer filing
+      uses — refreshes it as a by-product of the thing that has to happen anyway: the branch must
+      carry the AMENDED set, because the branch is the only set a run reads, and a branch left
+      holding the old set would make the ticket and the record agree with each other and with
+      nobody's run. FiledSpecBranch also refuses to write at all when the read-back failed,
+      rather than publishing a set with no fingerprint.
+    alternatives:
+      - "Leaving the branch alone: the run would work the old set while the ticket says the new one"
+
+  - category: Implementation
+    chose: "The contradiction is computed as the approved goals the ticket's text does not state"
+    over: "A prompt clause asking the turn to compare the two"
+    reason: |
+      A prompt instruction with no computed input is a hallucination surface: a turn told to
+      compare two texts it was not given invents the comparison, differently every turn. The
+      comparison is deliberately coarse — a goal is one sentence and the filed body carries it
+      verbatim — because nothing finer survives the conversions a description makes on the way
+      back (Azure DevOps returns HTML, Jira a flattened document), and a character diff of two
+      hand-maintained texts is a report nobody reads. It is computed where the ticket text is
+      already read, rides on SeededTicket, and renders nothing when the two agree. The turn is
+      told to put the difference to the person and NOT to choose a side.
+    alternatives:
+      - "A diff of the rendered region against the stored body: three encodings, one of them lossy"
+
+  - category: Implementation
+    chose: "Azure DevOps writes the field the work item's own fields say it reads, through one shared chooser"
+    over: "A table of work-item types, or always System.Description"
+    reason: |
+      p0318 found the read half — a Bug keeps its body in Microsoft.VSTS.TCM.ReproSteps and its
+      System.Description is empty, so reading Description alone handed the planner a title and it
+      invented the scope. The write half is this phase's: writing Description on that Bug gives
+      the work item a SECOND body, and the mapper, which prefers Description, would show that one
+      to every reader instead. So the precedence moved into AzureDevOpsBodyField and BOTH halves
+      call it — a copy of the choice could drift, and the drift would be invisible. It is decided
+      from the work item's own fields rather than from its type, because a process template can
+      put the body anywhere and the populated field is the one that type uses.
+    alternatives:
+      - "A type table: wrong the first time an installation customises its process template"
+
+  - category: Implementation
+    chose: "The prompt's filed-work clause says an amendment is the OPERATOR's to approve, without naming a ticket"
+    over: "Keeping 'you cannot change what was filed', or rewriting it to mention the bound ticket"
+    reason: |
+      The old clause contradicts the feature: filed work CAN now be changed. What stays true is
+      the part that matters — the model never does it, an approval does, and reporting it as done
+      is still false. The word "ticket" is kept out because 2026-09-22-deda's own test refuses it
+      ("naming the unit invites naming the tickets"), and weakening that guard to gain a noun was
+      the worse trade.
+    alternatives: []
+
+  - category: Scope
+    chose: "The amendment makes a correct HUMAN, and says so"
+    over: "Presenting it as keeping runs correct"
+    reason: |
+      SpecSourceResolver makes the branch the only set a run reads, and on a stamped ticket the
+      description is not consulted at all — the filed-ticket gate exists to stop it being read.
+      So a stale body never mis-drives a run; it mis-informs whoever reads the ticket, approves
+      the pull request or judges the result. That is who this is for, and the class doc, the
+      tests and this file all say the smaller thing rather than the sellable one.
+    alternatives: []

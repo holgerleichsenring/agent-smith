@@ -35,7 +35,7 @@ public sealed class SpecDialogOutcomeConfirmer(
         var question = new DialogQuestion(
             Guid.NewGuid().ToString("N"), QuestionType.Approval,
             composer.ComposeConfirmation(proposal).In(SpecDialogMarkup.For(state.Platform)),
-            Context: null, Choices: OutcomeShapes.For(proposal), DefaultAnswer: "",
+            Context: null, Choices: OutcomeShapes.For(proposal, Bound(state)), DefaultAnswer: "",
             ConfirmationTimeout);
 
         // The thread's next text message is the answer (router pending branch);
@@ -97,11 +97,21 @@ public sealed class SpecDialogOutcomeConfirmer(
         // 2026-09-22-355b: the order of matching IS the contract. An approval or rejection word
         // first, then everything else — an offered shape's label included — as an edit note
         // carrying that text, which is what sends the master round again in that shape.
+        // 2026-09-25-8e51e: the amendment is read BETWEEN the two, and only where it was
+        // offered: a conversation that belongs to no ticket has no ticket to amend, so the same
+        // words there are an ordinary edit note.
         return SpecDialogAnswerWords.DecisionIn(answer.Answer) switch
         {
             SpecDialogDecision.Approved => new OutcomeConfirmed(),
             SpecDialogDecision.Rejected => new OutcomeRejected(),
+            _ when Bound(state) && IsAmend(answer.Answer) => new OutcomeAmendRequested(),
             _ => new OutcomeEditRequested(answer.Answer.Trim()),
         };
     }
+
+    /// <summary>The conversation belongs to a ticket — 2026-09-25-8e51b's binding.</summary>
+    private static bool Bound(ConversationState state) => state.TicketKey is not null;
+
+    private static bool IsAmend(string answer) =>
+        string.Equals(answer.Trim(), OutcomeShapes.AmendTheTicket.Label, StringComparison.OrdinalIgnoreCase);
 }
