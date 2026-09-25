@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-d0b8
+goal: "Reading the epic a ticket is stamped into is one service any caller can ask, instead of a step only a pipeline can reach."
+
+applies_to: "backend (the epic ground read and its pipeline step)"
+
+scope:
+  in: "Extracting the parent read — the stamp, the fetch, the degradation note — from the pipeline step that owns it, so a caller that owns no pipeline can ask the same question."
+  out: "Tracker-side relations other than the stamped parent: linked items, child issues and commits are four adapters' worth of relation models and are their own phase."
+
+decisions:
+  - key: |
+      THE FETCHER IS A PIPELINE STEP, NOT A SERVICE, AND THAT IS WHY IT CANNOT BE CALLED. It writes
+      its result into a pipeline context and returns a note shaped for a run's step output; its only
+      caller is the fetch handler. Calling it from the server would mean fabricating a pipeline
+      context and reading a key back out — a shim this repository forbids. So the READ is extracted
+      and the step becomes one caller of it, which is what lets the next one be a design turn.
+  - key: |
+      THE CONVERSATION-SIDE CALLER IS NOT IN THIS PHASE. A bound conversation can only address a
+      parent off the ticket's LABELS, and the phase that stores a bound ticket's text — title, body
+      and comments — is not in this tree, so nothing a conversation holds carries the stamp yet.
+      The extraction stands on its own and ships alone; showing the parent beside what a
+      conversation is grounded on is its own later phase, which stores the labels with the text.
+  - key: |
+      A MISSING PARENT DEGRADES IN THE SERVICE, FOR THE REASON THE RUN ALREADY GIVES. It may be
+      deleted, moved or invisible to this token, and the child's own ticket is still a complete
+      requirement. One rule, one place, so no later caller invents a second answer to the same
+      question. The run's STEP MESSAGE punctuation stays with the step, not with the read.
+
+steps:
+  - id: the-parent-read-becomes-a-service
+    path: "src/backend/AgentSmith.Application/Services/SpecDialog"
+    action:
+      - "Extract the stamp lookup, the fetch and the degradation note into a service, and have the pipeline step call it and publish what it returns."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Handlers/EpicGroundFetcher.cs"
+
+  - id: the-read-is-pinned
+    path: "tests"
+    action: "Assert a pipeline-free caller and the run's step get the same answer and the same degradation, and that a ticket with no stamp reads nothing."
+
+tests:
+  - "EpicParent_ATicketWithAStamp_IsReadTheSameWayByARunAndADirectCaller"
+  - "EpicParent_AParentThatCannotBeOpened_DegradesToANoteInBoth"
+  - "EpicParent_ATicketWithNoStamp_ReadsNothing"
+  - "EpicParent_ThePipelineStep_PublishesExactlyWhatItPublishedBefore"
+
+done:
+  - "the parent read is one service any caller can ask, pipeline or not"
+  - "the pipeline step publishes exactly what it published before"
+  - "build green, full suite green"
