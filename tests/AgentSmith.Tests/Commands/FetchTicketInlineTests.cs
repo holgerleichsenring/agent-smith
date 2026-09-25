@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -29,7 +30,7 @@ public sealed class FetchTicketInlineTests
             Mock.Of<IEventPublisher>(),
             Mock.Of<IRunContextAccessor>(),
             new TicketExtrasFetcher(NullLogger<TicketExtrasFetcher>.Instance),
-            new EpicGroundFetcher(NullLogger<EpicGroundFetcher>.Instance),
+            new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
 
         var pipeline = new PipelineContext();
@@ -60,7 +61,7 @@ public sealed class FetchTicketInlineTests
         var handler = new FetchTicketHandler(
             Mock.Of<ITicketProviderFactory>(), publisher.Object, runContext.Object,
             new TicketExtrasFetcher(NullLogger<TicketExtrasFetcher>.Instance),
-            new EpicGroundFetcher(NullLogger<EpicGroundFetcher>.Instance),
+            new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
 
         var pipeline = new PipelineContext();
