@@ -82,17 +82,23 @@ public sealed class TicketClaimServiceTests
     }
 
     [Fact]
-    public async Task ClaimAsync_StatusTransitionPreconditionFailed_ReturnsAlreadyClaimed()
+    public async Task ClaimAsync_StatusTransitionPreconditionFailed_KeepsTheClaimAndEnqueues()
     {
+        // 2026-09-25-3c7ab: this used to answer AlreadyClaimed and release the lease. A
+        // precondition refusal is an ETag, a rev or a label-lock — somebody else wrote to the
+        // ticket in the same second — and the unique index had already granted this claim.
         var (sut, harness) = BuildHarness();
         harness.SetupLockAcquired().SetupReadCurrent(null)
             .SetupTransition(TransitionOutcome.PreconditionFailed);
 
         var result = await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
 
-        result.Outcome.Should().Be(ClaimOutcome.AlreadyClaimed);
+        result.Outcome.Should().Be(ClaimOutcome.Claimed);
         harness.JobQueue.Verify(q => q.EnqueueAsync(
-            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()), Times.Once);
+        harness.Lease.Verify(l => l.ReleaseAsync(
+            It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -101,9 +107,11 @@ public sealed class TicketClaimServiceTests
         // p0459: the claim region took the lease seconds ago and no run has attached
         // itself to it, so the rollback names no run — a run id here would delete a
         // row this region never owned.
+        // 2026-09-25-3c7ab: driven by a ticket the tracker could not be written to at all,
+        // which still rolls back; a precondition refusal no longer does.
         var (sut, harness) = BuildHarness();
         harness.SetupLockAcquired().SetupReadCurrent(null)
-            .SetupTransition(TransitionOutcome.PreconditionFailed);
+            .SetupTransition(TransitionOutcome.Failed, "upstream 500");
 
         await sut.ClaimAsync(ValidRequest(), ValidConfig(), CancellationToken.None);
 

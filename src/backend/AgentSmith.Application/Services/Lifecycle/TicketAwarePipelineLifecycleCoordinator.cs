@@ -71,6 +71,11 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
             // `from` (that p0237 read existed only to satisfy the now-removed precondition).
             // Pass the expected prior state (InProgress) advisorily; the write lands
             // regardless of the tag's actual current value.
+            // 2026-09-25-3c7ab: a refused write is a LOG LINE and nothing else. It is not an
+            // UnmovedTicket — that records a FINALIZE whose native status did not move, is keyed
+            // on the trigger status, and feeds a gate that REFUSES every later claim of the
+            // ticket. Routing a cosmetic label failure into it would turn "the board is display"
+            // into a permanent block on the work.
             var result = await transitioner.TransitionAsync(
                 ticketId, TicketLifecycleStatus.InProgress, target, CancellationToken.None);
             if (!result.IsSuccess)
