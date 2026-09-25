@@ -84,4 +84,11 @@ EXPOSE 8081
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD dotnet AgentSmith.Cli.dll --help || exit 1
 
+# 2026-09-25-9c4d: the identity this image reports. The local compose build has been PASSING
+# these to an image that declared neither, so a CLI built beside a stamped server carried nothing.
+ARG AGENTSMITH_BUILD_REVISION
+ARG AGENTSMITH_RELEASE_VERSION
+ENV AGENTSMITH_BUILD_REVISION=$AGENTSMITH_BUILD_REVISION
+ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
+
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

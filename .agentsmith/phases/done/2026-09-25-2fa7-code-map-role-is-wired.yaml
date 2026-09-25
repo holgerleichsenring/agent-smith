@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-2fa7
+goal: "Setting codeMapGeneration changes which model reads the repositories, and setting nothing changes nothing — the role was offered everywhere and requested nowhere."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      A ROLE THE CONFIGURATION OFFERS AND NO CODE REQUESTS IS A SETTING THAT SILENTLY DOES NOTHING.
+      TaskType.CodeMapGeneration is declared, carries a default, is mapped by the registry, is
+      rendered and patchable in the Config Studio and is measured by the context-window preflight.
+      Its only appearance in src/ is the registry's own switch. An operator who sets it gets no
+      effect and no word about it.
+  - key: |
+      THIS PHASE DOES NOT MOVE ANY DEFAULT, AND THAT IS THE CORRECTION THE FIRST DRAFT NEEDED.
+      p0374 put the analyzer on SCOUT for a measured reason, written two lines above the call
+      site: the mechanical read-to-JSON sweep was sending 450k+ tokens per run through the
+      flagship model at flagship pricing. That measurement still governs. The wall-clock argument
+      the first draft made against it is not a refutation of a token-cost measurement. So the
+      role resolves, when the operator sets nothing, to exactly what Scout resolves to now — the
+      knob becomes live, the default stays put, and choosing to pay more becomes the operator's
+      to make rather than ours.
+  - key: |
+      THE ROLE MUST JOIN THE TOOL-BEARING SET IN THE SAME COMMIT, AND THIS REPOSITORY ALREADY
+      LEARNED THAT. ChatClientFactory returns before UseFunctionInvocation for a task outside
+      ToolBearingTasks, so binding the analyzer to a task outside it would hand the model a tool
+      list it can never call — and the analyzer, which explores a repository with those tools,
+      would read nothing. Decision 2026-09-23-03b8 says it in one line about the same move:
+      "The two changes are one change." The first draft named only ProjectAnalyzer.cs.
+  - key: |
+      A ROLE THAT NOW RESOLVES ON EVERY PROVIDER MUST NOT DEFAULT TO ONE PROVIDER'S MODEL STRING.
+      The registry's entry for this role is a hard-coded Claude model, and unlike its neighbours it
+      has no fallback to the agent's own primary. Unreached, that was inert. Reached, an OpenAI,
+      Azure, ollama or Copilot agent that sets scout: and not codeMapGeneration: would ask its own
+      provider for a Claude model. Wiring the role is what makes that defect live, so it is fixed
+      here rather than discovered by the first operator who is not on Claude.
+  - key: |
+      A FAKE FACTORY WOULD LET THIS SHIP BROKEN, WHICH IS WHY THE PROOF USES THE REAL ONE. The same
+      03b8 decision records it: a double returns one client for every task and never applies the
+      function-invocation middleware, so role assertions stay green while the middleware is gone.
+      The proof asserts the REAL factory returns a function-invoking client for this task.
+  - key: |
+      THE RULE LOOKS FOR A CALL, NOT FOR THE WORD. A text scan for TaskType.CodeMapGeneration goes
+      green the moment this phase adds it to the tool-bearing set — the token would then be present
+      in a file that requests nothing. So the rule asks whether the task is passed as an ARGUMENT
+      to the chat-client factory, which is what "a production caller" means and needs no allowlist
+      of places to ignore.
+  - key: |
+      NOT IN SCOPE, WITH ITS REASON: which model an operator SHOULD choose here. This phase makes
+      the choice reachable and leaves it where it belongs. Whether a repository sweep deserves a
+      stronger model is answered by a measurement against a real estate, not by this change.
+
+steps:
+  - id: the-role-can-carry-tools
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories"
+    action:
+      - "Admit the code-map role to the tool-bearing set, so the function-invocation middleware is applied to it."
+      - "Resolve the role to the agent's scout assignment when nothing is configured for it, so no provider is handed another provider's model string and no default moves."
+    modify:
+      - "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"
+      - "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ConfigBasedModelRegistry.cs"
+
+  - id: the-generator-asks-for-its-own-role
+    path: "src/backend/AgentSmith.Application/Services"
+    action: "Have the project analyzer request the code-map role for both its client and its output bound, and record why p0374's scout binding is preserved as the default rather than reversed."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/ProjectAnalyzer.cs"
+
+  - id: the-proof-runs-the-real-factory
+    path: "tests/AgentSmith.Tests"
+    action:
+      - "Assert through the real factory that the role returns a function-invoking client, that an unconfigured agent resolves exactly as it does today, and that a configured one is honoured."
+      - "Move the scout context-window coverage onto the role the sweep now asks for."
+    modify:
+      - "tests/AgentSmith.Tests/Sandbox/ScoutContextWindowTests.cs"
+
+  - id: a-role-nobody-calls-is-a-defect
+    path: "tests/AgentSmith.Tests/Architecture"
+    action: "Assert every TaskType is passed to the chat-client factory by at least one production call site."
+
+tests:
+  - "Create_TheCodeMapRole_ReturnsAFunctionInvokingClient"
+  - "Analyze_TheProjectMap_IsGeneratedByTheCodeMapRole"
+  - "Analyze_AnAgentConfiguringNoCodeMapRole_ResolvesExactlyAsScoutDoesToday"
+  - "Analyze_AnAgentConfiguringTheCodeMapRole_IsHonoured"
+  - "Registry_ANonClaudeAgentWithNoCodeMapRole_IsNotHandedAClaudeModel"
+  - "TaskTypes_EveryDeclaredRole_IsPassedToTheFactorySomewhere"
+
+done:
+  - "setting codeMapGeneration changes which model reads the repositories"
+  - "setting nothing resolves exactly as it does today, on every provider"
+  - "the role carries tools, so the analyzer still explores rather than reading nothing"
+  - "a role the configuration offers and no code requests fails the suite"

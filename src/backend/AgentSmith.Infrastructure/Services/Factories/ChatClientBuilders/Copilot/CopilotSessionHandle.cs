@@ -66,9 +66,10 @@ internal sealed class CopilotSessionHandle : ICopilotSessionHandle
     /// deliberate bump, and this is the only site to revisit when it does.
     /// </summary>
 #pragma warning disable GHCP001
-    public Task RespondToToolAsync(
+    public async Task<bool> RespondToToolAsync(
         string requestId, string? result, string? error, CancellationToken cancellationToken) =>
-        _session.Rpc.Tools.HandlePendingToolCallAsync(requestId, result, error, cancellationToken);
+        (await _session.Rpc.Tools.HandlePendingToolCallAsync(
+            requestId, result, error, cancellationToken)).Success;
 #pragma warning restore GHCP001
 
     public ValueTask DisposeAsync() => _session.DisposeAsync();

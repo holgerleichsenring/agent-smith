@@ -74,7 +74,8 @@ public sealed class CopilotSessionChatClient : IChatClient
             // turn, not a new one: the session is mid-answer and wants the results, not a prompt.
             if (_pending.IsContinuation(history))
                 return await _driver.RunAsync(
-                    _lease.Current!, c => _pending.AnswerAsync(_lease.Current!, history, c), cancellationToken);
+                    _lease.Current!, c => _pending.AnswerAsync(_lease.Current!, history, c), cancellationToken,
+                    answersPendingCalls: true);
 
             var digests = history.Select(CopilotHistoryWatermark.Digest).ToList();
             var sent = _lease.SentCount;

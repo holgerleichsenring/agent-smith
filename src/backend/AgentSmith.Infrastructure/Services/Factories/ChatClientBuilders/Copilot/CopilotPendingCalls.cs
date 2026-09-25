@@ -47,19 +47,17 @@ internal sealed class CopilotPendingCalls
         {
             if (!_requestIdByToolCallId.Remove(result.CallId, out var requestId)) continue;
             var (value, error) = Describe(result);
-            await session.RespondToToolAsync(requestId, value, error, cancellationToken);
+            // 2026-09-25-6b2e: the runtime says whether it took the answer. Unread, a refusal was
+            // indistinguishable from the turn simply never resuming.
+            if (!await session.RespondToToolAsync(requestId, value, error, cancellationToken))
+                throw new InvalidOperationException(
+                    $"The Copilot runtime did not accept the answer to external tool request "
+                    + $"{requestId} (tool call {result.CallId}), so this turn cannot resume.");
         }
     }
 
     /// <summary>Forgets everything, for a session that is being replaced.</summary>
     internal void Clear() => _requestIdByToolCallId.Clear();
-
-    /// <summary>
-    /// A request resolved by someone other than us is a call whose result will never arrive; the
-    /// turn would otherwise wait forever.
-    /// </summary>
-    internal bool WasResolvedElsewhere(string requestId) =>
-        _requestIdByToolCallId.ContainsValue(requestId);
 
     private static IEnumerable<FunctionResultContent> Results(IEnumerable<ChatMessage> messages) =>
         messages.SelectMany(m => m.Contents).OfType<FunctionResultContent>();

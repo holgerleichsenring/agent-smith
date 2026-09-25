@@ -84,6 +84,12 @@ RUN mkdir -p /app/config /tmp/agentsmith && \
 # it into every image would move the same weight from the build to the pull, so it is off unless
 # asked for: build with --build-arg COPILOT_CLI_VERSION=1.0.85 to include it. The version must be
 # the one GitHub.Copilot.SDK expects (see build/GitHub.Copilot.SDK.props in the package).
+# 2026-09-25-6b2e: the archive is the npm package @github/copilot under a package/ prefix, whose
+# `copilot` bin entry is a LOADER SCRIPT — there is no file of that name in it, so the previous
+# `find -name copilot` aborted every build that asked for the runtime. What the SDK spawns over
+# stdio is copilot-runtime, and it needs its siblings (runtime.node) beside it, so the whole
+# prebuilds directory for this architecture moves to ONE stable path — stable because the image
+# builds for two architectures while COPILOT_CLI_PATH below is a single literal.
 ARG COPILOT_CLI_VERSION=
 RUN set -eu; \
     if [ -n "${COPILOT_CLI_VERSION}" ]; then \
@@ -95,14 +101,15 @@ RUN set -eu; \
       curl -fsSL "$url" -o /tmp/copilot.tgz; \
       tar -xzf /tmp/copilot.tgz -C /opt/copilot; \
       rm /tmp/copilot.tgz; \
-      bin="$(find /opt/copilot -name copilot -type f | head -1)"; \
-      [ -n "$bin" ] || { echo "the Copilot CLI archive carried no copilot binary" >&2; exit 1; }; \
-      chmod +x "$bin"; \
-      ln -sf "$bin" /opt/copilot/copilot; \
+      src="/opt/copilot/package/prebuilds/${plat}"; \
+      [ -x "$src/copilot-runtime" ] || { \
+        echo "the Copilot CLI archive carried no ${plat}/copilot-runtime" >&2; exit 1; }; \
+      mv "$src" /opt/copilot/runtime; \
+      chmod +x /opt/copilot/runtime/copilot-runtime; \
     fi
 # Deterministic whether or not the layer above ran: an image built without the build-arg simply
 # has no binary there, and the runtime refuses by name instead of failing obscurely.
-ENV COPILOT_CLI_PATH=/opt/copilot/copilot
+ENV COPILOT_CLI_PATH=/opt/copilot/runtime/copilot-runtime
 
 USER dispatcher
 

@@ -11,8 +11,16 @@ namespace AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders.Copilo
 /// the session is then waiting for US, and idle will never come while a call is pending. The
 /// assistant message says how many to expect, so that wait is bounded by the model's own answer
 /// rather than by a timeout.
+/// <para>
+/// 2026-09-25-6b2e: a completion notification does NOT end a turn. The SDK documents it as an
+/// "External tool completion notification signaling UI dismissal", whose id names "the resolved
+/// external tool request; clients should dismiss any UI for this request" — it says nothing about
+/// who resolved it. Read as a resolution race, it killed every turn that answered a tool, because
+/// the runtime dismisses the call WE just answered. It is still an anomaly in a turn that answered
+/// nothing, and there it still fails.
+/// </para>
 /// </summary>
-internal sealed class CopilotTurnCollector
+internal sealed class CopilotTurnCollector(bool answersPendingCalls = false)
 {
     private readonly TaskCompletionSource _done = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly List<string> _deltas = [];
@@ -41,11 +49,13 @@ internal sealed class CopilotTurnCollector
                 CompleteIfAllToolsArrived();
                 break;
             case CopilotSessionEvent.ExternalToolCompleted resolved:
-                // Someone else answered a call we were going to answer: its result will never
-                // reach us, so the turn fails loudly instead of waiting for it.
-                _done.TrySetException(new InvalidOperationException(
-                    $"The Copilot session resolved external tool request {resolved.RequestId} "
-                    + "elsewhere, so its result will never arrive."));
+                // The dismissal of a call this turn answered is the expected echo of our own
+                // answer. In a turn that answered nothing it is a call resolved without us, whose
+                // result will never arrive, so that turn still fails rather than waiting.
+                if (!answersPendingCalls)
+                    _done.TrySetException(new InvalidOperationException(
+                        $"The Copilot session resolved external tool request {resolved.RequestId} "
+                        + "without us, so its result will never arrive."));
                 break;
             case CopilotSessionEvent.Idle:
                 _done.TrySetResult();
