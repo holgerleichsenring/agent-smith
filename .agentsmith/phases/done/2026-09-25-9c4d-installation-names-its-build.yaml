@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-9c4d
+goal: "A locally built image can state the tree it came from, and an unstamped one stays silent instead of inheriting a number nobody meant."
+
+applies_to: "backend"
+
+decisions:
+  - key: |
+      THE DEFECT IS REAL AND MEASURED. The running server reports serverRevision 415bde74 — a sha
+      from 2026-08-27, 496 commits behind main — from an image built minutes earlier. Nothing
+      downstream is at fault: BuildIdentity.FromEnvironment reads exactly what the build passed in.
+      "Is my fix deployed?" is the question a debugging session asks most, and the endpoint built
+      to answer it answered wrongly for a month.
+  - key: |
+      THE FILE WHERE IT HAPPENS CANNOT BE TOUCHED BY THIS PHASE, AND THAT IS NOT A TECHNICALITY.
+      deploy/docker-compose.yml is gitignored as a CLASS — ".gitignore" says a deployment compose
+      file describes ONE estate and names the rules that used to list files after they had already
+      leaked. The local copy carries a host path with a customer identifier. A step that edits it
+      ships nothing and drags a leak toward a commit. The first draft of this spec listed it under
+      modify:, which is how a phase reaches for the file it can see rather than the one it owns.
+  - key: |
+      WHAT SHIPS IS THE EXAMPLE, AND IT HAS NO BUILD ARGS AT ALL. deploy/docker-compose.example.yml
+      declares not one args: block, so every operator who copies it builds unstamped images and
+      then writes their own values in — which is exactly how a literal sha got frozen into one.
+      The fix is to ship the args, so the copied file already has the right shape.
+  - key: |
+      THE NULL-VALUE FORM, NOT ${VAR}. An arg written as `AGENTSMITH_BUILD_REVISION:` with no value
+      is dropped entirely when the variable is unset, and the Dockerfile's own empty ARG stands —
+      which the server already renders as "no revision stamped". Written as ${AGENTSMITH_BUILD_REVISION}
+      an unset variable is forced to an empty STRING that overrides the ARG, and compose warns
+      twice on the way past. Both end unstamped; only one does it without noise, and the
+      difference is invisible until someone measures it.
+  - key: |
+      THE IMAGE TAG IS AN ADDRESS, NOT A STAMP, AND REMOVING ITS DEFAULT BREAKS EVERY OPERATOR.
+      `image: name:${AGENTSMITH_VERSION}` with the variable unset resolves to `name:` and compose
+      refuses it — "invalid reference format" — so build AND up die, and .env.example does not set
+      that variable. The first draft proposed exactly that as "visibly unstamped". A tag has no
+      absent rendering; it is left alone.
+  - key: |
+      NOTHING CAN DERIVE THE REVISION WHERE THE STAMP IS APPLIED. Compose interpolates from the
+      environment and has no command substitution; the Dockerfile cannot read git either, because
+      .dockerignore excludes **/.git from every build context. So the derivation is a documented
+      one-liner in front of the build, and the file's job is only to FORWARD it. Saying that
+      plainly is the phase: a build arg that forwards a variable nobody sets is worse than today
+      unless the place to set it is written down beside it.
+  - key: |
+      ABSENCE ALREADY RENDERS HONESTLY, SO THAT HALF IS NOT WORK. InstallationIdentityReporter
+      blanks a whitespace value to null, BuildIdentity.IsKnown reads the same way, and the
+      dashboard prints "not stated by this build" and "no revision stamped". The first draft
+      planned to modify a 26-line positional record that carries no rendering logic.
+  - key: |
+      NOT IN SCOPE, WITH ITS REASON: kubernetes. Those manifests pin published image TAGS, and the
+      publish workflow stamps published images correctly — a k8s installation reports its true
+      build, which may be old but is not wrong. Only the local build path mis-stamps. Their tags
+      being 20 minors behind is a release-hygiene question, not this defect.
+
+steps:
+  - id: the-example-carries-the-args-it-expects-back
+    path: "deploy"
+    action:
+      - "Give every service the example builds the revision and release args, in the null-value form, so an unset variable leaves the image honestly unstamped."
+      - "Write the command that supplies the revision beside them, since nothing in the build can derive it."
+    modify:
+      - "deploy/docker-compose.example.yml"
+
+  - id: the-cli-image-consumes-what-it-is-passed
+    path: "src/backend/AgentSmith.Cli"
+    action: "Declare the identity ARG/ENV pair the other images declare — the local build has been passing it to an image that reads nothing."
+    modify:
+      - "src/backend/AgentSmith.Cli/Dockerfile"
+
+  - id: the-rule-reaches-the-file-that-ships
+    path: "tests/AgentSmith.Tests/Architecture"
+    action:
+      - "Assert the shipped compose example passes the identity args for every service it builds, in the null-value form and carrying no literal sha."
+    modify:
+      - "tests/AgentSmith.Tests/Architecture/BuildIdentityStampingTests.cs"
+
+tests:
+  - "ComposeExample_EveryBuiltService_PassesTheIdentityArgs"
+  - "ComposeExample_TheIdentityArgs_CarryNoLiteralValue"
+  - "CliDockerfile_DeclaresTheIdentityArgAndEnv"
+
+done:
+  - "an operator who copies the shipped example builds images that stamp what they were given"
+  - "a build given nothing produces an image that says it was given nothing"
+  - "the command that supplies the revision is written where the args are"
+  - "the rule fails if a literal value is ever written into those args"

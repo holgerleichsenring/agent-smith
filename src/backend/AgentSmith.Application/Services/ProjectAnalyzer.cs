@@ -49,7 +49,7 @@ public sealed class ProjectAnalyzer(
         var options = new ChatOptions
         {
             Tools = tools,
-            MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.Scout),
+            MaxOutputTokens = chatClientFactory.GetMaxOutputTokens(agent, TaskType.CodeMapGeneration),
         };
 
         var lastError = string.Empty;
@@ -58,6 +58,10 @@ public sealed class ProjectAnalyzer(
             // p0374: a mechanical read → JSON-ProjectMap task on the SCOUT tool surface
             // routes to the SCOUT model, not PRIMARY — this sent 450k+ tokens per run
             // through the flagship model at flagship input pricing.
+        // 2026-09-25-2fa7: it now asks for the role NAMED for this work, which the configuration
+        // has offered and no code ever requested. p0374's measurement is untouched: unset,
+        // codeMapGeneration resolves to the agent's own scout assignment, so nothing moves
+        // unless an operator decides it should.
             // 2026-08-27-3eb1: a client PER ATTEMPT, and the agent's compaction settings
             // handed to it. The whole sweep is ONE GetResponseAsync in which every tool
             // result is appended to one message list, so it needs the same in-flight
@@ -65,7 +69,7 @@ public sealed class ProjectAnalyzer(
             // absolute index, so a client reused across attempts would meet attempt 2's
             // two-message list holding attempt 1's watermark and summary.
             var chat = chatClientFactory.Create(
-                agent, TaskType.Scout, ExplorationBudget, masterLoopHooks: null, agent.Compaction);
+                agent, TaskType.CodeMapGeneration, ExplorationBudget, masterLoopHooks: null, agent.Compaction);
             var messages = new List<ChatMessage>
             {
                 new(ChatRole.System, systemPrompt),

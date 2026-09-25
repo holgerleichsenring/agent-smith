@@ -23,22 +23,18 @@ namespace AgentSmith.PipelineHarness.Evals;
 [Trait("Category", "LiveLLM")]
 public sealed class CopilotPendingCallLivenessTests(ITestOutputHelper output)
 {
-    private static string? Seat => Environment.GetEnvironmentVariable(AgentEnvKeys.CopilotGitHubToken);
-    private static string? Runtime => Environment.GetEnvironmentVariable(AgentEnvKeys.CopilotCliPath);
+    private static string? Seat => RequiresCopilotSeatFactAttribute.Seat;
 
-    [Fact]
+    /// <summary>How long our loop is pretended to take before the answer goes back. Settable so the
+    /// tolerance can be measured: 2026-09-25-6b2e proved the failure was ours by showing it was the
+    /// same at 2 seconds as at 90, and what the runtime really tolerates is still unmeasured.</summary>
+    private static int DelaySeconds =>
+        int.TryParse(Environment.GetEnvironmentVariable("COPILOT_LIVENESS_DELAY_SECONDS"), out var d)
+            ? d : 90;
+
+    [RequiresCopilotSeatFact]
     public async Task PendingToolCall_SurvivesTheCallReturning_AndResumesWhenAnswered()
     {
-        if (string.IsNullOrWhiteSpace(Seat) || string.IsNullOrWhiteSpace(Runtime))
-        {
-            output.WriteLine(
-                $"SKIPPED — no Copilot seat or runtime. Set {AgentEnvKeys.CopilotGitHubToken} to a "
-                + $"person's token (org-owned PATs are rejected) and {AgentEnvKeys.CopilotCliPath} to "
-                + "the Copilot CLI binary. Until this has run once, 2026-09-23-4722a's pending-call "
-                + "liveness is ASSUMED, not proven.");
-            return;
-        }
-
         var runtime = new CopilotRuntime(NullLoggerFactory.Instance);
         var template = new CopilotSessionRequest(
             Model: null, ReasoningEffort: null,
@@ -62,7 +58,8 @@ public sealed class CopilotPendingCallLivenessTests(ITestOutputHelper output)
         first.FinishReason.Should().Be(ChatFinishReason.ToolCalls);
 
         // The point of the test: our loop takes its time, and the pending call must still be there.
-        await Task.Delay(TimeSpan.FromSeconds(90));
+        output.WriteLine($"answering tool call {call.CallId} after {DelaySeconds}s");
+        await Task.Delay(TimeSpan.FromSeconds(DelaySeconds));
 
         var second = await client.GetResponseAsync(
             [new ChatMessage(ChatRole.Tool, [new FunctionResultContent(call.CallId, "41")])], options);

@@ -138,6 +138,55 @@ public sealed class CopilotToolLoopTests
         first.ConversationId.Should().Be(second.ConversationId).And.NotBeNull();
     }
 
+    /// <summary>
+    /// 2026-09-25-6b2e: the SDK documents this notification as "signaling UI dismissal" — its id
+    /// names "the resolved external tool request; clients should dismiss any UI for this request".
+    /// Read as a resolution race it killed every turn that answered a tool, because the runtime
+    /// dismisses the call WE just answered. Measured on a live seat: the failure was the same
+    /// after 2 seconds as after 90, so it was never a deadline.
+    /// </summary>
+    [Fact]
+    public async Task Answer_TheRuntimeDismissesTheRequest_DoesNotEndTheTurn()
+    {
+        var runtime = new FakeCopilotRuntime();
+        runtime.Script(
+            new CopilotSessionEvent.AssistantMessage("working", ToolRequestCount: 1),
+            Requested("call-1", "read_file"));
+        runtime.Script(new CopilotSessionEvent.AssistantMessage("41"), new CopilotSessionEvent.Idle());
+        var client = NewClient(runtime);
+
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "go")], WithTools("read_file"));
+        var resumed = await client.GetResponseAsync(
+            [new ChatMessage(ChatRole.Tool, [new FunctionResultContent("call-1", "41")])],
+            WithTools("read_file"));
+
+        resumed.Text.Should().Be("41", "the dismissal is the echo of our own answer, not a race");
+        resumed.FinishReason.Should().Be(ChatFinishReason.Stop);
+    }
+
+    [Fact]
+    public async Task Answer_TheRuntimeRefusesTheAnswer_FailsNamingTheRequest()
+    {
+        // The SDK returns HandlePendingToolCallResult.Success. Discarded, a refusal was
+        // indistinguishable from the turn simply never resuming.
+        var runtime = new FakeCopilotRuntime();
+        runtime.Script(
+            new CopilotSessionEvent.AssistantMessage("working", ToolRequestCount: 1),
+            Requested("call-1", "read_file"));
+        var client = NewClient(runtime);
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "go")], WithTools("read_file"));
+        runtime.Sessions[0].AcceptsAnswers = false;
+
+        var act = () => client.GetResponseAsync(
+            [new ChatMessage(ChatRole.Tool, [new FunctionResultContent("call-1", "41")])],
+            WithTools("read_file"));
+
+        (await act.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*did not accept the answer*req-call-1*");
+    }
+
+    /// <summary>A completion in a turn that answered NOTHING is still a call resolved without us,
+    /// whose result will never arrive — the one case the guard was ever right about.</summary>
     [Fact]
     public async Task ExternalToolCompletedElsewhere_FailsTheCallLoudly()
     {

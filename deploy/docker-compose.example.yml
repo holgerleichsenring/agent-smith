@@ -48,6 +48,18 @@ services:
     build:
       context: ..
       dockerfile: src/backend/AgentSmith.Cli/Dockerfile
+      # 2026-09-25-9c4d: the identity the installation page reports. Written with NO VALUE on
+      # purpose: compose then passes the variable only when the environment has it, and an unset
+      # one leaves the image honestly unstamped ("not stated by this build"). Written as
+      # ${AGENTSMITH_BUILD_REVISION} instead, an unset variable is forced to an empty STRING that
+      # overrides the Dockerfile's own ARG, with two warnings on the way past. Nothing inside a
+      # build can derive the sha — compose has no command substitution and .dockerignore keeps
+      # .git out of every context — so supply it in front of the build:
+      #   AGENTSMITH_BUILD_REVISION=$(git rev-parse HEAD) \
+      #   AGENTSMITH_RELEASE_VERSION=$(cat version.txt) docker compose build
+      args:
+        AGENTSMITH_BUILD_REVISION:
+        AGENTSMITH_RELEASE_VERSION:
     image: agentsmith-cli:${AGENTSMITH_VERSION:-0.129.0}
     restart: "no"
     env_file:
@@ -72,6 +84,9 @@ services:
     build:
       context: ..
       dockerfile: src/backend/AgentSmith.Sandbox.Agent/Dockerfile
+      args:
+        AGENTSMITH_BUILD_REVISION:
+        AGENTSMITH_RELEASE_VERSION:
     image: agent-smith-sandbox-agent:${AGENT_VERSION:-${AGENTSMITH_VERSION:-0.129.0}}
     profiles: [build-only]
 
@@ -104,6 +119,9 @@ services:
     build:
       context: ..
       dockerfile: src/backend/AgentSmith.Cli/Dockerfile
+      args:
+        AGENTSMITH_BUILD_REVISION:
+        AGENTSMITH_RELEASE_VERSION:
     image: agentsmith-cli:${AGENTSMITH_VERSION:-0.129.0}
     restart: "no"
     env_file:
@@ -121,6 +139,9 @@ services:
     build:
       context: ..
       dockerfile: src/backend/AgentSmith.Server/Dockerfile
+      args:
+        AGENTSMITH_BUILD_REVISION:
+        AGENTSMITH_RELEASE_VERSION:
     image: agentsmith-server:${AGENTSMITH_VERSION:-0.129.0}
     restart: unless-stopped
     user: root  # docker socket access for SPAWNER_TYPE=docker (local dev)
@@ -179,6 +200,9 @@ services:
     build:
       context: ..
       dockerfile: src/dashboard/Dockerfile
+      args:
+        AGENTSMITH_BUILD_REVISION:
+        AGENTSMITH_RELEASE_VERSION:
     image: agentsmith-dashboard:${AGENTSMITH_VERSION:-0.129.0}
     profiles: [dashboard]
     restart: unless-stopped

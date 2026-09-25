@@ -52,7 +52,10 @@ public sealed class ChatClientFactory(
         new HashSet<TaskType>
         {
             TaskType.Primary, TaskType.Scout, TaskType.Planning, TaskType.Reasoning,
-            TaskType.ContextGeneration
+            // 2026-09-25-2fa7: the code-map sweep explores a repository WITH tools, so binding it
+            // to this task without admitting the task here would return above UseFunctionInvocation
+            // and hand the model a tool list it can never call. 2026-09-23-03b8: one change.
+            TaskType.ContextGeneration, TaskType.CodeMapGeneration
         };
 
     private readonly Dictionary<string, IChatClientBuilder> _builderByType = BuildIndex(builders);
