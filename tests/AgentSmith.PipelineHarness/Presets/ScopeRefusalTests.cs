@@ -32,7 +32,7 @@ public sealed class ScopeRefusalTests
         harness.ChatClient.EnqueueScopeReply(Refusing(DestructionQuote, "irreversible destruction of customer data"));
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue("a refusal parks the run; it is not a failed step");
         result.Message.Should().Contain("awaiting_user_input");
@@ -57,7 +57,7 @@ public sealed class ScopeRefusalTests
         harness.ChatClient.EnqueueScopeReply(Refusing(ExfiltrationQuote, "exfiltrates a production secret"));
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
-        await runner.RunAsync("fix-bug");
+        await runner.RunAsync("code");
 
         var park = tickets.Finalized.Should().ContainSingle().Subject;
         park.Comment.Should().Contain(ExfiltrationQuote, "the person reading the ticket sees WHAT was refused");
@@ -83,7 +83,7 @@ public sealed class ScopeRefusalTests
         harness.ChatClient.EnqueueScopeReply(Refusing(DestructionQuote, "still irreversible"));
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
-        await runner.RunAsync("fix-bug");
+        await runner.RunAsync("code");
 
         harness.ChatClient.InvocationCount.Should().Be(1);
         var shown = harness.ChatClient.LastScriptedMessages.First(m => m.Role == ChatRole.User).Text;
