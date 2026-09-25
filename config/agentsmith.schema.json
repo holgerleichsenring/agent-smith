@@ -333,7 +333,12 @@
           "items": { "type": "string" }
         },
         "done_status": { "type": "string" },
-        "comment_keyword": { "type": "string" }
+        "comment_keyword": { "type": "string" },
+        "pr_trigger_label": {
+          "type": "string",
+          "description": "2026-09-25-d83b: the label an operator puts on a pull request to ask for a review. Omitted → only the historical \"security-review\" triggers; a word set here is recognised in addition to it, never instead of it.",
+          "examples": ["please-review"]
+        }
       }
     },
     "jiraTrigger": {

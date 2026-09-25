@@ -65,4 +65,14 @@ public class WebhookTriggerConfig
     public string? InProgressStatus { get; set; }
 
     public string? CommentKeyword { get; set; }
+
+    /// <summary>
+    /// 2026-09-25-d83b: the label an operator puts on a pull request to ask for a review.
+    /// It was a literal compiled into the GitHub and GitLab PR-label handlers while every
+    /// other routing word on this trigger was the operator's to choose. Unset (null) → only
+    /// the historical word "security-review" triggers, which is exactly what an unconfigured
+    /// deployment does today. Setting it ADDS a word rather than replacing one: the historical
+    /// word keeps triggering for ever, because boards carry it now and nobody will relabel them.
+    /// </summary>
+    public string? PrTriggerLabel { get; set; }
 }
