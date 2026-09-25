@@ -56,25 +56,25 @@ public sealed class BlockedTriggerGatingTests
     }
 
     [Fact]
-    public void Build_ProjectWithBlockingFinding_IsExcludedFromDiscovery()
+    public async Task Build_ProjectWithBlockingFinding_IsExcludedFromDiscovery()
     {
         Block("alpha", TriggerKinds.GitHub);
         var builder = new TrackerDiscoveryQueryBuilder(
             NullLogger<TrackerDiscoveryQueryBuilder>.Instance, _findings);
 
-        var query = builder.Build(TwoProjects(), Tracker);
+        var query = await builder.BuildAsync(TwoProjects(), Tracker, CancellationToken.None);
 
         query.Branches.Should().ContainSingle();
         query.Branches[0].Criterion!.Value.Should().Be("beta");
     }
 
     [Fact]
-    public void Build_NoFindings_KeepsEveryProject()
+    public async Task Build_NoFindings_KeepsEveryProject()
     {
         var builder = new TrackerDiscoveryQueryBuilder(
             NullLogger<TrackerDiscoveryQueryBuilder>.Instance, _findings);
 
-        var query = builder.Build(TwoProjects(), Tracker);
+        var query = await builder.BuildAsync(TwoProjects(), Tracker, CancellationToken.None);
 
         query.Branches.Should().HaveCount(2);
     }

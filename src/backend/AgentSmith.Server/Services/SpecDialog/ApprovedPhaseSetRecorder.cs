@@ -77,9 +77,11 @@ public sealed class ApprovedPhaseSetRecorder(
             SpecSource.Approved,
             Approval: approval);
         var repositories = Repositories(state, project);
+        // 2026-09-25-c1f7: the ticket id is stored as it was GIVEN, because discovery has to name
+        // it in a tracker query and the spec key above has already lowered and re-spelled it.
         var record = new SpecApprovalRecord(
             key.Value, set, repositories, project.Tracker.Name,
-            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories));
+            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty);
         await store.SaveAsync(record, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation "

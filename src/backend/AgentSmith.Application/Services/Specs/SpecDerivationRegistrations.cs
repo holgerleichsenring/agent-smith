@@ -67,6 +67,10 @@ public static class SpecDerivationRegistrations
     services.TryAddSingleton<ISpecApprovalStore, Persistence.InMemorySpecApprovalStore>();
     // 2026-09-25-3c7aa: asked where an incoming envelope is built, on both routed paths.
     services.TryAddSingleton<ApprovedRecordProbe>();
+    // 2026-09-25-c1f7: the other reader of the record — what the poll's query has to ADMIT. It is
+    // registered beside the store rather than beside the query builder, because the builder takes
+    // it optionally and a process with no store must keep resolving the builder.
+    services.TryAddSingleton<Polling.ApprovedTicketAdmission>();
     services.TryAddSingleton<Polling.PolledTicketEnvelope>();
     services.AddTransient<ApprovedSpecSetResolver>();
     services.AddTransient<ApprovedSpecSetCarrier>();

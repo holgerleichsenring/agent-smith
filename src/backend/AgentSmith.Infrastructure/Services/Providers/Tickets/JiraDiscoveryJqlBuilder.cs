@@ -24,10 +24,25 @@ public sealed class JiraDiscoveryJqlBuilder : IJiraDiscoveryJqlBuilder
                 .Distinct());
         // A ticket is only claimable when it carries an agent-smith trigger label. JQL labels=
         // is exact (no prefix), so enumerate the tracker's configured keys; empty = no guard.
-        return query.TriggerLabels.Count == 0
+        var guarded = query.TriggerLabels.Count == 0
             ? routing
             : $"({routing}) AND labels IN ({LabelList(query.TriggerLabels)})";
+        return Admitting(guarded, query.ApprovedTicketIds);
     }
+
+    /// <summary>
+    /// 2026-09-25-c1f7: the tickets an approved record still expects work on, OR'd with the WHOLE
+    /// query. It cannot be another entry in the label guard: the guard is AND-ed onto the routing
+    /// clause, so a list that must ADMIT what the guard excludes has to sit beside it. A ticket
+    /// whose stamp somebody deleted is fetched because of this clause and nothing else.
+    /// </summary>
+    private static string Admitting(string guarded, IReadOnlyList<string> approvedTicketIds) =>
+        approvedTicketIds.Count == 0
+            ? guarded
+            : $"({guarded}) OR key IN ({KeyList(approvedTicketIds)})";
+
+    private static string KeyList(IReadOnlyList<string> ids) =>
+        string.Join(", ", ids.Select(i => $"\"{Escape(i)}\""));
 
     private static string LabelList(IReadOnlyList<string> labels) =>
         string.Join(", ", labels.Select(l => $"\"{Escape(l)}\""));

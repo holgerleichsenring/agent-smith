@@ -22,6 +22,11 @@ public sealed class ApprovedSpecSetConfiguration : IEntityTypeConfiguration<Appr
         builder.Property(a => a.Tracker).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.ApprovedInConversation).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.ApprovedBy).HasMaxLength(PersistenceLimits.IndexedString);
+        builder.Property(a => a.TicketId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(a => new { a.Tracker, a.SpecKey }).IsUnique();
+        // 2026-09-25-c1f7: the discovery listing asks one tracker for its unsatisfied records
+        // every poll cycle, so that is the shape the index has. It orders by the row id, which is
+        // the primary key and needs no column of its own here.
+        builder.HasIndex(a => new { a.Tracker, a.SatisfiedAt });
     }
 }

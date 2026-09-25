@@ -1,5 +1,3 @@
-using AgentSmith.Contracts.Tickets;
-using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -16,27 +14,20 @@ namespace AgentSmith.Application.Services.Polling;
 /// the branches collapse to one broad parking-excluded branch so the emitted JQL/WIQL stays bounded.
 /// </summary>
 public sealed class TrackerDiscoveryQueryBuilder(
-    ILogger<TrackerDiscoveryQueryBuilder> logger, IStartupFindings? findings = null)
+    ILogger<TrackerDiscoveryQueryBuilder> logger,
+    IStartupFindings? findings = null,
+    ApprovedTicketAdmission? admission = null)
     : ITrackerDiscoveryQueryBuilder
 {
     private const int MaxBranches = 25;
 
     private static readonly DiscoveryBranch BroadBranch = new([], Criterion: null);
 
-    /// <summary>The keys ProjectResolver hard-binds on, which the label guard must let through.
-    /// 2026-09-25-3c7ac: the stamp under THIS board's name as well as the historical one — the
-    /// builder holds the tracker, so it is one of the few readers that can ask.</summary>
-    private static string[] PhaseExecutionBindings(TrackerConnection tracker) =>
-        [.. new[]
-            {
-                TicketLabelVocabulary.For(tracker).ApprovedSetStamp,
-                FiledTicketLabels.ApprovedSetStamp,
-                PhaseTicketRenderer.PhaseLabel,
-            }
-            .Distinct(StringComparer.OrdinalIgnoreCase)];
-
-    public DiscoveryQuery Build(AgentSmithConfig config, TrackerConnection tracker)
+    public async Task<DiscoveryQuery> BuildAsync(
+        AgentSmithConfig config, TrackerConnection tracker, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(config);
+        ArgumentNullException.ThrowIfNull(tracker);
         var triggers = config.Projects.Values
             .Where(p => string.Equals(p.Tracker.Name, tracker.Name, StringComparison.Ordinal))
             .Where(p => IsRunnable(p, tracker.Type))
@@ -55,23 +46,7 @@ public sealed class TrackerDiscoveryQueryBuilder(
             .Select(ToBranch)
             .ToList();
 
-        // The union of every routed project's pipeline_from_label trigger keys: a ticket is
-        // only claimable when it carries one, so providers that can express it push the guard
-        // server-side (stops fetching every business-tagged ticket each poll).
-        var triggerLabels = triggers
-            .SelectMany(t => t.PipelineFromLabel?.Keys ?? Enumerable.Empty<string>())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // p0315d: a ticket that hard-binds in ProjectResolver never routes via
-        // pipeline_from_label — when the server-side label guard is active it must not filter
-        // those tickets out of discovery, or such a ticket would never be polled at all.
-        // 2026-09-22-766b: the guard names EXACTLY what binds, which is two keys — the approval
-        // stamp every filing writes, and the phase word a person types.
-        foreach (var binding in PhaseExecutionBindings(tracker))
-            if (triggerLabels.Count > 0
-                && !triggerLabels.Contains(binding, StringComparer.OrdinalIgnoreCase))
-                triggerLabels.Add(binding);
+        var triggerLabels = DiscoveryLabelGuard.For(triggers, tracker);
 
         if (branches.Count > MaxBranches)
         {
@@ -81,7 +56,18 @@ public sealed class TrackerDiscoveryQueryBuilder(
             branches = [BroadBranch];
         }
 
-        return new DiscoveryQuery(branches, parking) { TriggerLabels = triggerLabels };
+        // 2026-09-25-c1f7: the tickets an approved record still expects work on, OR'd with the
+        // whole query by the two builders that filter server-side. A process with no store (the
+        // CLI, a test) has no admission and the query is exactly what it was before this phase.
+        var approved = admission is null
+            ? []
+            : await admission.OutstandingAsync(tracker, cancellationToken);
+
+        return new DiscoveryQuery(branches, parking)
+        {
+            TriggerLabels = triggerLabels,
+            ApprovedTicketIds = approved,
+        };
     }
 
     // p0391a: a trigger carrying a blocking startup finding is not discovered against. The
