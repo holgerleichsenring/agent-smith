@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-c8d5
+goal: "The skills catalog stops declaring the four retired pipeline names, and the pin that carries it moves, so one vocabulary names the pipelines on both sides."
+
+applies_to: "the skills repository's concept vocabulary, and this repository's embedded catalog pin"
+
+scope:
+  in: "Removing fix-bug, fix-no-test, add-feature and phase-execution from the catalog's pipeline_name enum and the sentence that justifies them; releasing the skills repository; bumping the embedded version and hash; and extending the test that already asks whether the catalog agrees."
+  out: "Anything in the product's own code — 2026-09-25-e5b1 removed the last of it. This is the other half of one fact, living in another repository."
+
+decisions:
+  - key: |
+      THE CATALOG'S OWN REASON IS NOW FALSE, AND THAT IS THE WHOLE PHASE. Its comment says the
+      retired names stay because "they remain valid alias names that resolve to code". e5b1 deleted
+      the alias map, so nothing resolves them: a configuration naming one is reported at startup, a
+      run cannot be started under one, and the vocabulary is the last place in the estate that
+      still says otherwise.
+  - key: |
+      IT IS HARMLESS TODAY AND WORTH FIXING ANYWAY. Nothing can reach PipelineNameInitializer under
+      a retired name — TryResolve answers null long before it — so a declared-but-unreachable value
+      costs nothing at runtime. What it costs is a reader: the vocabulary is where somebody looks
+      to learn which pipelines exist, and it currently lists four that do not.
+  - key: |
+      THE ORDER IS THE SKILLS REPOSITORY FIRST, THEN THE PIN. The catalog is pinned by version and
+      hash; dropping the names here and bumping the pin in one commit would leave a window where
+      the pinned tarball and the working tree disagree about what a run may publish.
+  - key: |
+      THE TEST THAT ASKS THIS QUESTION ALREADY EXISTS AND ASKS TOO LITTLE. PipelineNameVocabularyTests
+      checks that the retired PRESETS are not declared; it does not check the retired ALIAS names,
+      because until e5b1 they were legitimately there. Extending it is what keeps this from coming
+      back, and it must be extended in the same phase that makes it true — a red test on a pin
+      nobody has bumped is a broken build, not a finding.
+
+steps:
+  - id: the-catalog-stops-declaring-them
+    path: "skills"
+    action:
+      - "Remove the four retired names from the pipeline_name enum in the skills repository's concept vocabulary, and the sentence that justified keeping them."
+      - "Release the skills repository."
+
+  - id: the-pin-moves
+    path: "src/backend/AgentSmith.Infrastructure.Core"
+    action:
+      - "Bump the embedded catalog version and its hash to the release that drops them."
+
+  - id: the-question-is-asked-of-the-alias-names-too
+    path: "tests/AgentSmith.Tests"
+    action:
+      - "Extend the catalog-agreement test so a retired alias name declared in the vocabulary fails, alongside the retired presets it already checks."
+
+tests:
+  - "PipelineNameVocabulary_ARetiredAliasName_IsNotDeclared"
+  - "PipelineNameVocabulary_EveryPresetThatPublishesItsName_IsStillDeclared"
+
+done:
+  - "the catalog's pipeline_name enum names only pipelines that exist"
+  - "the embedded pin carries that catalog"
+  - "a retired name reintroduced into the vocabulary fails a test in this repository"
+  - "build green, full suite green"
