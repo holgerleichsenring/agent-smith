@@ -59,7 +59,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>();
+        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>(); // 8e51e
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
         // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
@@ -74,7 +74,7 @@ internal static class SpecDialogExtensions
         // the ingestion endpoint's one entry point into the router.
         services.AddScoped<SpecDialogOwnership>();
         services.AddScoped<TicketConversationBinder>(); // 8e51b
-        services.AddScoped<TicketTextForConversation>(); // 8e51c
+        services.AddScoped<TicketTextForConversation>().AddScoped<ApprovedSetDivergence>(); // 8e51c/e
         services.AddScoped<TicketProjectChoice>().AddScoped<ApprovedSetForConversation>(); // 8e51a/d
         services.AddScoped<DashboardDialogDispatcher>();
         // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of

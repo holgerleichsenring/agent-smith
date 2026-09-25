@@ -22,4 +22,13 @@ public interface IOutcomeSink
     Task AcceptAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-09-25-8e51e: the same approval on a DIFFERENT act — the proposal rewrites the ticket
+    /// this conversation belongs to instead of filing a new one. Its own member rather than a flag
+    /// on <see cref="AcceptAsync"/>: nothing is created, nothing is started, and
+    /// <c>mayStartRuns</c> is meaningless because an amendment starts no run.
+    /// </summary>
+    Task AmendAsync(
+        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken);
 }

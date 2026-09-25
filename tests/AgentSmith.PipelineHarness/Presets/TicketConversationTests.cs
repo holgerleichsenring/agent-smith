@@ -100,6 +100,8 @@ public sealed class TicketConversationTests
     private sealed class ConversationTicketProviderFactory : ITicketProviderFactory
     {
         public ITicketProvider Create(TrackerConnection config) => new ConversationTicketProvider();
+
+        public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
     }
 
     private sealed class ConversationTicketProvider : ITicketProvider

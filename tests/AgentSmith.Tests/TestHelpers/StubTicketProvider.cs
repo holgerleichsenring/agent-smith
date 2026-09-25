@@ -34,4 +34,7 @@ internal sealed class StubTicketProvider : ITicketProvider
 internal sealed class StubTicketProviderFactory : ITicketProviderFactory
 {
     public ITicketProvider Create(TrackerConnection config) => new StubTicketProvider();
+
+    /// <summary>2026-09-25-8e51e: nothing here amends, so the rewriter records and answers Ok.</summary>
+    public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
 }
