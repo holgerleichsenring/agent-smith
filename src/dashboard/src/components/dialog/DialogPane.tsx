@@ -67,7 +67,9 @@ export function DialogPane({
   const offered: DialogPaneTab[] = [
     ...(shownProposal ? (["proposal"] as const) : []),
     ...(session || projects.length > 0 ? (["scope"] as const) : []),
-    ...(filed ? (["filed"] as const) : []),
+    // 2026-09-25-c4a6: a conversation BOUND to a ticket filed nothing, so there is no push to
+    // offer the tab on — and its ticket's runs are what the tab is for. The read answers for it.
+    ...(filed || (work?.tickets.length ?? 0) > 0 ? (["filed"] as const) : []),
     // 2026-09-25-8e51d: a conversation BOUND to a ticket has an approved specification to show
     // even when it filed nothing itself, which is the case this tab exists for.
     ...(work?.approved ? (["approved"] as const) : []),
@@ -109,7 +111,7 @@ export function DialogPane({
         tabIndex={-1}
         className="d-body d-panel"
       >
-        {tab === "filed" && filed && <DialogFiledPanel filed={filed} work={work} />}
+        {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
         {tab === "scope" && <DialogScopePanel session={session} projects={projects} />}
         {tab === "approved" && work?.approved && (
