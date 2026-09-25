@@ -1259,6 +1259,57 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("SpecDialogSessions");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.SpecDialogTicketText", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ReadAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(20000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.ToTable("SpecDialogTicketText");
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
                 {
                     b.Property<long>("Id")
