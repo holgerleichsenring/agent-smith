@@ -59,6 +59,10 @@ internal static class DispatcherExtensions
         // the authoritative guard. Registered before TicketClaimService so the
         // claim service resolves it.
         services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
+        // 2026-09-25-b4d9: the record that a ticket was taken up. In-memory is the DB-free
+        // default; AddRelationalPersistence swaps in the store that outlives the process.
+        services.AddSingleton<ITakenTicketStore,
+            AgentSmith.Application.Services.Persistence.InMemoryTakenTicketStore>();
         // p0320c: same shape for the capacity queue — the no-op default keeps a
         // DB-free composition on the stateless defer-and-retry path; AddRelational
         // Persistence swaps in the DbCapacityQueue (persistent FIFO + queued rows).

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -110,7 +111,9 @@ public sealed class BoardRefusalKeepsTheClaimTests
         var factory = new Mock<ITicketStatusTransitionerFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_transitioner.Object);
         var sut = new SingleClaimRegionExecutor(
-            factory.Object, _queue.Object, _lease.Object, NullLogger.Instance);
+            factory.Object, _queue.Object,
+            new ClaimedTicketRegistrar(_lease.Object, new InMemoryTakenTicketStore()),
+            NullLogger.Instance);
         return sut.ExecuteAsync(
             new ClaimRequest("jira", "sample", new TicketId("1"), "code"),
             new TrackerConnection { Name = "tr", Type = TrackerType.Jira },

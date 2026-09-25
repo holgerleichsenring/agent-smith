@@ -1,10 +1,8 @@
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Triggers;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -14,12 +12,12 @@ namespace AgentSmith.Tests.Services.Lifecycle;
 public sealed class EnqueuedReconcilerTests
 {
     [Fact]
-    public async Task EnqueuedWithoutFreshLease_ReEnqueues()
+    public async Task TakenWithoutFreshLease_ReEnqueues()
     {
         // p0252: no fresh lease (default Moq → GetByTicketAsync returns null) means
         // the run never started / died — re-enqueue. Liveness is the lease now.
         var harness = new Harness();
-        harness.SetupEnqueuedTicket("42");
+        await harness.TakeTicketAsync("42");
 
         await harness.BuildSut().RunAsync(OnePass());
 
@@ -29,11 +27,11 @@ public sealed class EnqueuedReconcilerTests
     }
 
     [Fact]
-    public async Task EnqueuedWithFreshLease_NoReEnqueue()
+    public async Task TakenWithFreshLease_NoReEnqueue()
     {
         // p0252: a fresh lease means a claim/run is already in flight — don't re-enqueue.
         var harness = new Harness();
-        harness.SetupEnqueuedTicket("42");
+        await harness.TakeTicketAsync("42");
         harness.Lease.Setup(l => l.GetByTicketAsync(
             "proj", It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new StaleLease("proj", new TicketId("42"), "run-1", null, DateTimeOffset.UtcNow));
@@ -45,16 +43,17 @@ public sealed class EnqueuedReconcilerTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// 2026-09-25-b4d9: p0300c's cross-project re-enqueue cannot happen any more — the record
+    /// NAMES its project, so there is nothing to route. What is left is a record for a project
+    /// the configuration no longer knows: there is nowhere to launch it, and it is skipped
+    /// rather than dropped.
+    /// </summary>
     [Fact]
-    public async Task EnqueuedReconciler_TicketRoutesToOtherProject_NotReEnqueued()
+    public async Task RecordForAProjectTheConfigDoesNotKnow_IsNotReEnqueued()
     {
-        // p0300c: on a shared tracker ListByLifecycleStatusAsync returns EVERY project's
-        // Enqueued tickets. A ticket owned by another project must NOT be re-enqueued for
-        // "proj" — the resolver returns no "proj" match, so the reconciler skips it.
         var harness = new Harness();
-        harness.SetupEnqueuedTicket("42");
-        harness.Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns([new ProjectMatch("other", "fix-bug", "github")]);
+        await harness.Taken.TakeAsync(new TakenTicketFact("gone", "42", "github", "fix-bug"), default);
 
         await harness.BuildSut().RunAsync(OnePass());
 
@@ -72,7 +71,7 @@ public sealed class EnqueuedReconcilerTests
     public async Task Reconciler_OrphanWithARecord_ReEnqueuesItWithTheRecord()
     {
         var harness = new Harness();
-        harness.SetupEnqueuedTicket("42");
+        await harness.TakeTicketAsync("42");
         var key = AgentSmith.Contracts.Specs.SpecSetKey.For("github", "42").Value;
         // The reconciler resolves by the project's tracker CONNECTION, which this bed leaves unnamed.
         await harness.Approvals.SaveAsync(
@@ -94,45 +93,34 @@ public sealed class EnqueuedReconcilerTests
     /// pass and an immediate return — where a hundred-millisecond timer was a bet that the
     /// pass would finish first, and a bet the machine could lose.
     /// </summary>
-    private static CancellationToken OnePass()
+    internal static CancellationToken OnePass()
     {
         var cts = new CancellationTokenSource();
         cts.Cancel();
         return cts.Token;
     }
 
-    private sealed class Harness
+    internal sealed class Harness
     {
         public Mock<IActiveRunLease> Lease { get; } = new();
         public Mock<IRedisJobQueue> JobQueue { get; } = new();
-        public Mock<ITicketProviderFactory> TicketFactory { get; } = new();
-        public Mock<ITicketProvider> Provider { get; } = new();
         public Mock<IConfigurationLoader> ConfigLoader { get; } = new();
-        public Mock<IEnvelopeProjectResolver> Resolver { get; } = new();
+        public InMemoryTakenTicketStore Taken { get; } = new();
         public AgentSmith.Contracts.Specs.ISpecApprovalStore Approvals { get; } =
             AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Store();
 
-        public Harness()
-        {
-            TicketFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Provider.Object);
+        public Harness() =>
             ConfigLoader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
             {
                 Projects = new() { ["proj"] = new ResolvedProject { Pipeline = "fix-bug" } }
             });
-            // Default: the ticket routes to THIS project (the lease tests exercise the
-            // lease gate, not routing). Cross-project routing is overridden per-test.
-            Resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-                .Returns([new ProjectMatch("proj", "fix-bug", "github")]);
-        }
 
-        public void SetupEnqueuedTicket(string id)
-            => Provider.Setup(p => p.ListByLifecycleStatusAsync(
-                TicketLifecycleStatus.Enqueued, It.IsAny<CancellationToken>()))
-                .ReturnsAsync([new Ticket(new TicketId(id), "t", "d", null, "open", "GitHub")]);
+        public Task TakeTicketAsync(string id) =>
+            Taken.TakeAsync(new TakenTicketFact("proj", id, "github", "fix-bug"), default);
 
         public EnqueuedReconciler BuildSut() => new(
-            Lease.Object, JobQueue.Object, TicketFactory.Object,
-            ConfigLoader.Object, Resolver.Object, TestSupport.ApprovedSetDoubles.Carrier(Approvals),
+            Lease.Object, JobQueue.Object, Taken, ConfigLoader.Object,
+            TestSupport.ApprovedSetDoubles.Carrier(Approvals),
             TimeProvider.System, "config.yml",
             NullLogger<EnqueuedReconciler>.Instance);
     }
