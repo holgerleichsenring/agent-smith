@@ -45,6 +45,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             LAST user turn; earlier turns are context you already produced or received.
 
             {RenderTranscript(transcript)}
+            {SpecDialog.SeededTicketSection.Render(pipeline)}
             {SpecDialogRevisionSection.Render(pipeline)}
 
             ## Your reply

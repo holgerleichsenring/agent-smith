@@ -21,5 +21,10 @@ internal static class TicketBinders
 
     internal static IConfigurationLoader NoConfig() => new Mock<IConfigurationLoader>().Object;
 
+    /// <summary>2026-09-25-8e51c: the ticket-text reader a conversation with no ticket never uses.</summary>
+    internal static TicketTextForConversation NoTicketText(SpecDialogTicketTextRepository store) =>
+        new(new Mock<ITicketProviderFactory>().Object, store, TimeProvider.System,
+            NullLogger<TicketTextForConversation>.Instance);
+
     internal static ServerContext NoPath() => new(string.Empty);
 }

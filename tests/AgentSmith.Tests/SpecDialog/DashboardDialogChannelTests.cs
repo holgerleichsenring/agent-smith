@@ -87,6 +87,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
             new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)),
             messenger,
             AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
+                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)),
             AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
             AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
             NullLogger<DashboardDialogDispatcher>.Instance));

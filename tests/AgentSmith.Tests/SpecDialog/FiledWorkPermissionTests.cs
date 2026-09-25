@@ -163,6 +163,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
         var dispatcher = new DashboardDialogDispatcher(
             _router, Conversations(), Messenger(),
             AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoTicketText(
+                new AgentSmith.Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository(_context)),
             AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
             AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
             NullLogger<DashboardDialogDispatcher>.Instance);

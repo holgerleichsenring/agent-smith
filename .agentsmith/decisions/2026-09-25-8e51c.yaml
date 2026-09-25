@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-8e51c
+
+decisions:
+  - category: Architecture
+    chose: "The ticket rides in the design turn's USER prompt"
+    over: "A declared input on the pinned design-partner master"
+    reason: |
+      Every other thing a design turn carries — the transcript, the images, the revision section,
+      the reply contract — is rendered by the spec-dialog prompt factory into the turn's user
+      message. The master's declared inputs are its four body placeholders, and 2026-09-19-4c1f
+      was a different defect: inputs the master DECLARED that the preset failed to fill. The first
+      cut of this phase claimed a declared input was required and would have cost a skills release
+      and a pin bump for nothing; the adversarial review opened the handler and showed otherwise.
+    alternatives:
+      - "A read_ticket tool: the turn would then be grounded on whether the model chose to call it"
+
+  - category: Architecture
+    chose: "A table of its own, keyed on the session"
+    over: "A column on the session row"
+    reason: |
+      The session row is read on every reply — the page refetches its view after each hub message
+      — and a ticket's text is read only when a turn runs. Keyed on the SESSION and not the dialog
+      id for the reason the attachments give: a dialog id is a tab, and a resume moves a
+      conversation onto a new one.
+    alternatives: []
+
+  - category: Architecture
+    chose: "A ceiling of twenty thousand characters, declared once in Contracts"
+    over: "Seeding whatever the ticket holds"
+    reason: |
+      A conversation re-sends its whole prompt every turn, on the one surface with neither a cost
+      fence nor an iteration ceiling, so whatever is seeded is multiplied by the length of the
+      conversation rather than paid once — the reasoning that made the image ceiling four rather
+      than ten. One live ticket thread ran to 147,462 characters. The number lives in Contracts
+      because two layers need it: the composer that enforces it and the column that stores what
+      the composer produced — a column shorter than the cap truncates silently, a cap larger than
+      the column fails the write.
+    alternatives: []
+
+  - category: Design
+    chose: "A moved ticket is COMPUTED from the fingerprint"
+    over: "A re-read the operator has to remember to ask for"
+    reason: |
+      There is already a fingerprint of a ticket's text, built to make "the ticket changed under
+      us" visible. Storing it beside the text lets a turn SAY the ticket moved. A manual re-read
+      is a heuristic around a fact this system can compute, which is the shape this repository has
+      a standing rule against.
+    alternatives: []
+
+  - category: Design
+    chose: "The ticket is framed as a REQUIREMENT, inside the untrusted-data delimiters"
+    over: "Rendering it as more context"
+    reason: |
+      A live run took "adopt the newest versions" and "run lint, test and coverage" off a ticket,
+      turned them into acceptance criteria that were false before the work started, and re-drove
+      the master pass after pass until an operator cancelled it at ten dollars. Ticket text is
+      also third-party input the port itself calls untrusted. So it travels in the same delimiters
+      the run path uses, and the section says in its own words that nothing in it instructs the
+      model and that what the work should BE is settled in the conversation.
+    alternatives: []

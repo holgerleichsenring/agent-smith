@@ -14,6 +14,7 @@ public sealed class DashboardDialogDispatcher(
     SpecDialogConversationResolver conversations,
     SpecDialogMessenger messenger,
     TicketConversationBinder binder,
+    TicketTextForConversation ticketText,
     AgentSmith.Contracts.Services.IConfigurationLoader configLoader,
     AgentSmith.Contracts.Models.Configuration.ServerContext serverContext,
     ILogger<DashboardDialogDispatcher> logger)
@@ -81,21 +82,26 @@ public sealed class DashboardDialogDispatcher(
         string? ticketId)
     {
         if (string.IsNullOrWhiteSpace(project)) return true;
+        // Only a conversation that NAMES a ticket reads the catalog here: a conversation without
+        // one must reach the resolver exactly as it did before this phase, config read included.
+        var resolved = string.IsNullOrWhiteSpace(ticketId) ? null : Resolved(project!);
+        var binding = resolved is null
+            ? null
+            : await binder.BindingForAsync(resolved, ticketId!, cancellationToken);
         var target = await conversations.ResolveOrOpenAsync(
-            dialogId, project, userId, cancellationToken, await BindingAsync(project!, ticketId, cancellationToken));
-        return target.SessionId is not null;
+            dialogId, project, userId, cancellationToken, binding);
+        if (target.SessionId is null) return false;
+        // 2026-09-25-8e51c: the ticket is read ONCE, here, where the conversation has just come
+        // into existence — a turn reads what was kept rather than the tracker.
+        if (binding is not null && resolved is not null)
+            await ticketText.ReadAsync(target.SessionId, resolved, binding.TicketId, cancellationToken);
+        return true;
     }
 
-    /// <summary>The ticket this conversation is to belong to, read once from its tracker.</summary>
-    private async Task<TicketBinding?> BindingAsync(
-        string project, string? ticketId, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(ticketId)) return null;
-        var config = configLoader.LoadConfig(serverContext.ConfigPath);
-        return config.Projects.TryGetValue(project, out var resolved)
-            ? await binder.BindingForAsync(resolved, ticketId!, cancellationToken)
-            : null;
-    }
+    /// <summary>The project this conversation is on, or null when the catalog does not hold it.</summary>
+    private AgentSmith.Contracts.Models.Configuration.ResolvedProject? Resolved(string project) =>
+        configLoader.LoadConfig(serverContext.ConfigPath)?.Projects
+            .TryGetValue(project, out var resolved) == true ? resolved : null;
 
     // The page is the only place this conversation exists, so failing to reach it leaves
     // a person waiting on a reply that will never arrive — worth a warning of its own.
