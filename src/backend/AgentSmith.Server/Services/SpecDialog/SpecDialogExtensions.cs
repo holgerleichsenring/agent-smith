@@ -93,7 +93,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogTurnImages>();
         // 2026-09-17-042ej: the filed-work read and the watch that keeps it live. The registry is
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
-        services.AddScoped<FiledWorkFiling>();
+        services.AddScoped<FiledWorkFiling>().AddScoped<FiledWorkBoundTicket>(); // 2026-09-25-c4a6
         services.AddTransient<FiledWorkTrackerProjects>();
         services.AddTransient<FiledWorkPhaseReviews>();
         services.AddTransient<FiledWorkRunsReader>();

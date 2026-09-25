@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-c4a6
+
+decisions:
+  - category: Architecture
+    chose: "The BINDING is the key where there is no filing"
+    over: "Teaching the runs reader to answer by something other than a ticket id"
+    reason: |
+      FiledWorkRunsReader already answers by (projects, ticket id) and needed no change at all.
+      The only place the key was a filing was the reader above it, which reached its ticket
+      through the conversation's latest filing — a conversation merely BOUND to a ticket has
+      none. So the fallback sits in FiledWorkReader and nowhere else, and a conversation that
+      DID file is shown exactly what it filed: a second row for the ticket it belongs to would
+      be the same work twice.
+    alternatives:
+      - "Union of filed and bound rows: two rows for one ticket whenever they agree"
+
+  - category: Architecture
+    chose: "The tracker-native id comes from the ticket text the binding read (8e51c)"
+    over: "Deriving it from the session row"
+    reason: |
+      The session row keeps the SPEC KEY spelling — lowercased, every non-alphanumeric character
+      collapsed — because that is how the approval record is keyed, and a run's TicketId is what
+      the tracker calls it. The key cannot be turned back into one, and a guess would match
+      another ticket's runs. The ticket text written when the conversation was bound is the only
+      place the raw id is kept, so a conversation whose ticket could not be read shows no row at
+      all rather than an invented id.
+    alternatives:
+      - "A new column on the session row: a second copy of a fact already stored one table over"
+
+  - category: Design
+    chose: "The unfiled row is identified by the tracker's id and states NotFiled"
+    over: "An empty Reference and an absent start state"
+    reason: |
+      The row type is filing-shaped: its Reference is the created ticket's url, and it is the
+      react key, the test id, the tracker link and what a read is matched on. A ticket nobody
+      filed here has none — the domain ticket carries no url field — and an empty string would
+      be one identity shared by every such row. An ABSENT start state already means something
+      else ("a filing written before the states existed"), so the state is stated: NotFiled,
+      minted by the read, never stored, and named in the panel's exhaustive label map so that the
+      next state added to the server fails the dashboard build rather than an operator's reading.
+    alternatives: []
+
+  - category: Architecture
+    chose: "The watch falls back to the binding, still server-side"
+    over: "Letting the page name the ticket it wants to follow"
+    reason: |
+      The read and the watch both start server-side so that a caller names a dialog id and never
+      a ticket — nobody can follow a ticket by asking for it. A bound conversation registered
+      nothing, so a run of its ticket could finish with the pane showing the state it was fetched
+      in. The ids are now the filing's, or the bound ticket's when the filing named none, read
+      off the session row: the invariant survives the feature, and a test reads it off the
+      SIGNATURES rather than off a scenario.
+    alternatives: []
+
+  - category: Design
+    chose: "The ticket row moved into a component of its own"
+    over: "Branching inside the filed panel"
+    reason: |
+      The rows no longer all come from a push: a bound ticket's row is drawn from the read and a
+      filed one from the filing, and they are the same row. Extracting the name, the start line
+      and the work under it leaves one list and one sentence that differs — "these tickets now
+      exist" is a claim about an act a bound conversation never performed. The pane also offers
+      the tab on the read alone, because a conversation with no filing has no push to offer it
+      on. The registration for the new reader is chained onto an existing line: SpecDialogExtensions
+      sits exactly at the 120-line limit, and the reason lives on the class it registers.
+    alternatives: []
