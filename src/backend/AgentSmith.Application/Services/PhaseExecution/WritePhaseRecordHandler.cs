@@ -41,7 +41,7 @@ public sealed partial class WritePhaseRecordHandler(
         WritePhaseRecordContext context, CancellationToken cancellationToken)
     {
         // Absent spec is a composition bug: this step only runs inside the
-        // phase-execution preset, where PhaseSpecGate always publishes it.
+        // code preset, where PhaseSpecGate always publishes it.
         // p0393: the step now runs in the ONE code-changing preset, which handles ordinary
         // tickets too — and an ordinary ticket carries no phase spec. There is nothing to
         // record then, and demanding one would fail every bug and feature run.

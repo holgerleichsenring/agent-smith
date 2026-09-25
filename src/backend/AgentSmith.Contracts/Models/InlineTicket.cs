@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Models;
 /// p0326: a ticket carried inline on the <see cref="PipelineRequest"/> instead
 /// of living in a tracker. FetchTicket materializes it directly and skips the
 /// provider lookup, so a run without any configured tracker (the demo) still
-/// exercises the real fix-bug preset — not a special demo pipeline.
+/// exercises the real code preset — not a special demo pipeline.
 /// </summary>
 public sealed record InlineTicket(
     string Title,
