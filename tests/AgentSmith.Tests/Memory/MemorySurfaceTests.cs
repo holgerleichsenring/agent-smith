@@ -91,7 +91,7 @@ public sealed class MemorySurfaceTests
             new(new FilePath(".agentsmith/memory/MEMORY.md"), "index", "Update")
         };
         Application.Services.Handlers.MasterReengagementPolicy
-            .ShouldDriveApply("fix-bug", memoryOnlyChanges)
+            .ShouldDriveApply("code", memoryOnlyChanges)
             .Should().BeTrue("memory-only writes are not code changes");
     }
 

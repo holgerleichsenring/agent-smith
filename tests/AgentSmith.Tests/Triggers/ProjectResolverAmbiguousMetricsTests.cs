@@ -60,8 +60,8 @@ public sealed class ProjectResolverAmbiguousMetricsTests
 
         labelPairs.Should().BeEquivalentTo(new[]
         {
-            (Project: "alpha", Pipeline: "fix-bug"),
-            (Project: "beta",  Pipeline: "fix-bug"),
+            (Project: "alpha", Pipeline: "code"),
+            (Project: "beta",  Pipeline: "code"),
         });
     }
 
@@ -89,9 +89,9 @@ public sealed class ProjectResolverAmbiguousMetricsTests
 
         labelPairs.Should().BeEquivalentTo(new[]
         {
-            (Project: "alpha", Pipeline: "fix-bug"),
-            (Project: "beta",  Pipeline: "fix-bug"),
-            (Project: "gamma", Pipeline: "fix-bug"),
+            (Project: "alpha", Pipeline: "code"),
+            (Project: "beta",  Pipeline: "code"),
+            (Project: "gamma", Pipeline: "code"),
         });
         labelPairs.Distinct().Should().HaveCount(3,
             "each matched (project, pipeline) must appear exactly once");
@@ -110,7 +110,7 @@ public sealed class ProjectResolverAmbiguousMetricsTests
             {
                 Name = name,
                 Tracker = new TrackerConnection { Name = $"gh-{name}", Type = TrackerType.GitHub },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 GithubTrigger = trigger,
             };
         }
@@ -125,6 +125,6 @@ public sealed class ProjectResolverAmbiguousMetricsTests
                 Strategy = ResolutionStrategy.Tag,
                 Value = tag,
             },
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
         };
 }

@@ -41,7 +41,7 @@ public sealed class MultiRepoEnqueueSmokeTests
                         {
                             Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                         },
-                        DefaultPipeline = "fix-bug"
+                        DefaultPipeline = "code"
                     }
                 }
             }
@@ -91,6 +91,6 @@ public sealed class MultiRepoEnqueueSmokeTests
         captured.Should().NotBeNull();
         captured!.Platform.Should().Be("github");
         captured.TicketId.Value.Should().Be("42");
-        captured.PipelineName.Should().Be("fix-bug");
+        captured.PipelineName.Should().Be("code");
     }
 }

@@ -15,9 +15,9 @@ For Discussion-type pipelines (`legal-analysis`, `mad-discussion`, `init-project
 
 ## Phases
 
-Structured pipelines (`fix-bug`, `add-feature`, `security-scan`, `api-security-scan`) declare three phases: `Plan`, `Review`, `Final`.
+Structured pipelines (`code`, `security-scan`, `api-security-scan`) declare three phases: `Plan`, `Review`, `Final`.
 
-`fix-bug` and `add-feature` run an `AgenticExecute` step between Plan and Review — the developer agent does the actual code-writing work using the plan from Plan-phase Lead. Review-phase Reviewers then check the resulting diff against the same plan via the `{{plan}}` template token.
+`code` runs an `AgenticExecute` step between Plan and Review — the developer agent does the actual code-writing work using the plan from Plan-phase Lead. Review-phase Reviewers then check the resulting diff against the same plan via the `{{plan}}` template token.
 
 `security-scan` and `api-security-scan` have no `AgenticExecute` (read-only scans); the phases run back-to-back.
 

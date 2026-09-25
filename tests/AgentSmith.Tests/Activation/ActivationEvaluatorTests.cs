@@ -80,10 +80,10 @@ public sealed class ActivationEvaluatorTests
     [Fact]
     public void Evaluate_StringEqualsOnEnum_ReturnsCorrectBool()
     {
-        var state = StateWith(EnumConcept("pipeline_name", "fix-bug", "security-scan"));
-        state.SetEnum("pipeline_name", "fix-bug");
+        var state = StateWith(EnumConcept("pipeline_name", "code", "security-scan"));
+        state.SetEnum("pipeline_name", "code");
 
-        var match = _evaluator.Evaluate(_parser.Parse("pipeline_name = \"fix-bug\""), state);
+        var match = _evaluator.Evaluate(_parser.Parse("pipeline_name = \"code\""), state);
         var noMatch = _evaluator.Evaluate(_parser.Parse("pipeline_name = \"security-scan\""), state);
 
         match.Should().BeTrue();
@@ -93,9 +93,9 @@ public sealed class ActivationEvaluatorTests
     [Fact]
     public void Evaluate_OrderedComparisonOnEnum_Throws()
     {
-        var state = StateWith(EnumConcept("pipeline_name", "fix-bug", "security-scan"));
+        var state = StateWith(EnumConcept("pipeline_name", "code", "security-scan"));
 
-        var act = () => _evaluator.Evaluate(_parser.Parse("pipeline_name > \"fix-bug\""), state);
+        var act = () => _evaluator.Evaluate(_parser.Parse("pipeline_name > \"code\""), state);
 
         act.Should().Throw<ActivationExpressionEvaluateException>();
     }

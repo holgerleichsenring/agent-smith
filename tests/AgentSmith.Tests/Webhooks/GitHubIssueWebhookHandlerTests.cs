@@ -63,7 +63,7 @@ public sealed class GitHubIssueWebhookHandlerTests
                     {
                         Strategy = ResolutionStrategy.Tag, Value = "agent-smith"
                     },
-                    DefaultPipeline = "fix-bug"
+                    DefaultPipeline = "code"
                 }
             }
         }
@@ -123,7 +123,7 @@ public sealed class GitHubIssueWebhookHandlerTests
     {
         var (sut, resolver, spawn) = CreateHandler(BuildConfig());
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-api", "fix-bug", "github") });
+            .Returns(new[] { new ProjectMatch("my-api", "code", "github") });
 
         var result = await sut.HandleAsync(LabeledPayload, EmptyHeaders);
 
@@ -131,7 +131,7 @@ public sealed class GitHubIssueWebhookHandlerTests
         spawn.Verify(s => s.ExecuteAsync(
             It.IsAny<AgentSmithConfig>(),
             It.Is<ResolvedProject>(p => p.Name == "my-api"),
-            "fix-bug",
+            "code",
             It.Is<IncomingTicketEnvelope>(e => e.TicketId == "42" && e.Platform == "github"),
             It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(),
@@ -145,7 +145,7 @@ public sealed class GitHubIssueWebhookHandlerTests
         config.Projects["my-api"].GithubTrigger!.TriggerStatuses = new List<string> { "closed" };
         var (sut, resolver, spawn) = CreateHandler(config);
         resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
-            .Returns(new[] { new ProjectMatch("my-api", "fix-bug", "github") });
+            .Returns(new[] { new ProjectMatch("my-api", "code", "github") });
 
         var result = await sut.HandleAsync(LabeledPayload, EmptyHeaders);
 

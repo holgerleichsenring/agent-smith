@@ -28,7 +28,7 @@ public sealed class SandboxSpecBuilderContextImageTests
     {
         // lang "csharp" → table sdk:9.0, but the LLM named sdk:8.0 for a net8 repo.
         var spec = NewSut().Build(
-            new ResolvedProject(), language: "csharp", pipelineName: "fix-bug",
+            new ResolvedProject(), language: "csharp", pipelineName: "code",
             contextImage: "mcr.microsoft.com/dotnet/sdk:8.0");
 
         spec.ToolchainImage.Should().Be("mcr.microsoft.com/dotnet/sdk:8.0");
@@ -39,7 +39,7 @@ public sealed class SandboxSpecBuilderContextImageTests
     {
         // Angular et al. have no table row; the LLM-named git-bearing node image wins.
         var spec = NewSut().Build(
-            new ResolvedProject(), language: "angular", pipelineName: "fix-bug",
+            new ResolvedProject(), language: "angular", pipelineName: "code",
             contextImage: "node:20-bookworm");
 
         spec.ToolchainImage.Should().Be("node:20-bookworm");
@@ -52,7 +52,7 @@ public sealed class SandboxSpecBuilderContextImageTests
     public void InvalidContextImage_FallsBackToLanguageTable(string contextImage)
     {
         var spec = NewSut().Build(
-            new ResolvedProject(), language: "csharp", pipelineName: "fix-bug", contextImage: contextImage);
+            new ResolvedProject(), language: "csharp", pipelineName: "code", contextImage: contextImage);
 
         // 2026-08-25-3804: the csharp table entry, not the rejected LLM image — read from the
         // table rather than repeated as a literal. What this test is about is WHICH LINK of the
@@ -67,7 +67,7 @@ public sealed class SandboxSpecBuilderContextImageTests
     public void ContextImage_InsideTheBoundary_IsUsedWhateverItsTagLooksLike(string contextImage)
     {
         var spec = NewSut().Build(
-            new ResolvedProject(), language: "csharp", pipelineName: "fix-bug", contextImage: contextImage);
+            new ResolvedProject(), language: "csharp", pipelineName: "code", contextImage: contextImage);
 
         spec.ToolchainImage.Should().Be(contextImage);
     }
@@ -81,7 +81,7 @@ public sealed class SandboxSpecBuilderContextImageTests
         };
 
         var spec = NewSut().Build(
-            project, language: "csharp", pipelineName: "fix-bug", contextImage: "mcr.microsoft.com/dotnet/sdk:8.0");
+            project, language: "csharp", pipelineName: "code", contextImage: "mcr.microsoft.com/dotnet/sdk:8.0");
 
         spec.ToolchainImage.Should().Be("my-mirror/dotnet:8.0");
     }

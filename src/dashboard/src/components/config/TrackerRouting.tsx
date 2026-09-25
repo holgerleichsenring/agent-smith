@@ -13,7 +13,7 @@ import type { StudioTracker } from "@/lib/configApi";
 // so each of those three states gets its own sentence rather than one hedge.
 
 /** Kept in step with PipelinePresets.UndeclaredFallbackPipeline (2026-09-16-a4d7). */
-const UNDECLARED_FALLBACK = "fix-bug";
+const UNDECLARED_FALLBACK = "code";
 
 export function TrackerRouting({
   tracker,

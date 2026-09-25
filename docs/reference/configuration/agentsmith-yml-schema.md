@@ -101,8 +101,8 @@ against the same tracker install, define two tracker entries.
 ```yaml
 pipeline_triggers:
   agent-smith:init: init-project
-  bug: fix-bug
-  feature: add-feature
+  bug: code
+  feature: code
   security-review: security-scan
 ```
 
@@ -123,7 +123,7 @@ projects:
     agent: claude-default       # name from agents:
     tracker: acme-github        # name from trackers:
     repos: [acme-app]           # list of names from repos:
-    pipeline: fix-bug
+    pipeline: code
     coding_principles_path: .agentsmith/principles.md
     github_trigger:
       trigger_statuses: ["open"]

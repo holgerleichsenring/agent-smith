@@ -50,9 +50,9 @@ public sealed class ConfigSnapshotMapperTests
             {
                 ["ops"] = new ResolvedProject
                 {
-                    Name = "ops", Pipeline = "fix-bug", Agent = agent, Tracker = tracker,
+                    Name = "ops", Pipeline = "code", Agent = agent, Tracker = tracker,
                     Repos = [repo],
-                    Pipelines = [new PipelineDefinition { Name = "fix-bug" }, new PipelineDefinition { Name = "security-scan" }],
+                    Pipelines = [new PipelineDefinition { Name = "code" }, new PipelineDefinition { Name = "security-scan" }],
                     Polling = new PollingConfig { Enabled = true, IntervalSeconds = 120 },
                     JiraTrigger = new JiraTriggerConfig
                     {
@@ -143,7 +143,7 @@ public sealed class ConfigSnapshotMapperTests
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "claude", "agent"));
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "acme-jira", "tracker"));
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "sample-server", "repo"));
-        snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "fix-bug", "pipeline"));
+        snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "code", "pipeline"));
         snapshot.Edges.Should().ContainEquivalentOf(new ConfigEdge("ops", "security-scan", "pipeline"));
     }
 

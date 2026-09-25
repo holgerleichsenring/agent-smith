@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Pipeline;
 /// </summary>
 public interface IPhaseDataFlow
 {
-    /// <summary>Name of the preset this declaration belongs to (e.g. "fix-bug").</summary>
+    /// <summary>Name of the preset this declaration belongs to (e.g. "code").</summary>
     string PresetName { get; }
 
     /// <summary>The directed edges between phase steps.</summary>

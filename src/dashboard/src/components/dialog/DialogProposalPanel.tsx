@@ -35,7 +35,7 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
     <div data-testid="dialog-proposal" data-kind={proposal.kind} className="flex flex-col gap-3.5">
       {proposal.bug && (
         <div data-testid="dialog-proposal-bug">
-          <Label>A fix-bug ticket</Label>
+          <Label>A bug ticket</Label>
           <h3 className="dsh-h3 font-semibold text-ink">{proposal.bug.title}</h3>
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>

@@ -102,10 +102,10 @@ public sealed class BlockedTriggerGatingTests
     {
         Name = name,
         Tracker = Tracker,
-        DefaultPipeline = "fix-bug",
+        DefaultPipeline = "code",
         GithubTrigger = new WebhookTriggerConfig
         {
-            DefaultPipeline = "fix-bug",
+            DefaultPipeline = "code",
             TriggerStatuses = ["open"],
             NeedsClarificationStatus = "question",
             ProjectResolution = new ProjectResolutionConfig

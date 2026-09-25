@@ -25,7 +25,7 @@ var fixturesRoot = Path.Combine(
 var sample = new RunStartedEvent(
     RunId: "2026-05-20T10-15-30-1a2b",
     Trigger: "github-webhook",
-    Pipeline: "fix-bug",
+    Pipeline: "code",
     Repos: new[] { "sample-repo" },
     StartedAt: DateTimeOffset.Parse("2026-05-20T10:15:30Z"));
 

@@ -13,13 +13,13 @@ The agent on the other end is the `design-partner-master`. It answers questions 
 When the discussion converges, the dialogue resolves to one of four outcomes:
 
 - **An answer.** Sometimes talking it through *is* the work. Nothing gets filed.
-- **A bug ticket.** Something's broken; a `fix-bug` ticket lands in your tracker.
+- **A bug ticket.** Something's broken; a bug ticket lands in your tracker.
 - **A phase.** The partner drafts a schema-valid phase spec (the same YAML shape this project itself is built with — spec-first all the way down).
 - **An epic.** One work ticket for the whole cut. The partner drafts the slices and puts them in an order, and the ticket body lists every one of them with its `requires:` edges — but a cut is one piece of work, so it files one ticket and one approved set, and the single run works the slices in order, a successor never starting before its predecessor verified.
 
 `/create-phase` files the outcome into the active scope's tracker. Before anything is created you get a confirmation prompt as real Slack blocks / Teams cards — only an explicit approval files it, and replying with an edit instead re-runs the design turn with your correction. Ticket creation works on all four trackers (GitHub, GitLab, Azure DevOps, Jira) and comes back with the ticket id and its URL.
 
-`/execute-phase` then runs a phase ticket through a phase-execution pipeline — or you just let the `phase` label trigger it like any other labeled ticket (that label is hard-wired; you don't need to map it in `pipeline_from_label`). Bugs stay on the normal `fix-bug` pipeline. The usual gates apply: the plan gets approved, the keystone still refuses to call a run successful without a real code change and green verification.
+`/execute-phase` then runs a phase ticket through the `code` pipeline — or you just let the `phase` label trigger it like any other labeled ticket (that label is hard-wired; you don't need to map it in `pipeline_from_label`). Bugs run the same `code` pipeline, from an ordinary ticket rather than a phase spec. The usual gates apply: the plan gets approved, the keystone still refuses to call a run successful without a real code change and green verification.
 
 ## The ticket is a conversation, not a string
 

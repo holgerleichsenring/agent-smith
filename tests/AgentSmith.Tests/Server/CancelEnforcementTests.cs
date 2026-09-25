@@ -227,7 +227,7 @@ public sealed class CancelEnforcementTests : IDisposable
         {
             ctx.Runs.Add(new Run
             {
-                Id = "run-overdue", Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+                Id = "run-overdue", Project = "p1", Pipeline = "code", TicketId = "42",
                 Platform = "github", Status = "running",
                 StartedAt = DateTimeOffset.UtcNow.AddMinutes(-90), JobId = "dddd00000000",
             });
@@ -257,7 +257,7 @@ public sealed class CancelEnforcementTests : IDisposable
         {
             ctx.Runs.Add(new Run
             {
-                Id = "run-young", Project = "p1", Pipeline = "fix-bug", TicketId = "7",
+                Id = "run-young", Project = "p1", Pipeline = "code", TicketId = "7",
                 Platform = "github", Status = "running",
                 StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2), JobId = "eeee00000000",
             });
@@ -400,7 +400,7 @@ public sealed class CancelEnforcementTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "42",
             Platform = "github", Status = status, StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
             CancelRequested = cancelRequested, CancelReason = "operator",
             CancelDeadlineAt = deadline, JobId = jobId,

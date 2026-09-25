@@ -21,7 +21,7 @@ public static class ParkedTicketFixture
 
     public static RunCheckpointRecord Checkpoint(DateTimeOffset asked) => new(
         RunId: "2026-08-19T10-00-00-48ca", Project: ProjectName, TicketId: TicketNumber,
-        Platform: "azuredevops", Pipeline: "fix-bug", DialogueJobId: "job-1", QuestionId: "q1",
+        Platform: "azuredevops", Pipeline: "code", DialogueJobId: "job-1", QuestionId: "q1",
         QuestionJson: "{}", RemainingCommandsJson: "[]", ContextJson: "[]", ExecutionCount: 1,
         AskedAt: asked, AnswerDeadlineAt: asked.AddDays(14), ResumedAt: null);
 

@@ -13,13 +13,13 @@ projects:
     azuredevops_trigger:
       pipeline_from_label:
         agent-smith:init:               init-project
-        agent-smith:bug:                fix-bug
-        agent-smith:feature:            add-feature
+        agent-smith:bug:                code
+        agent-smith:feature:            code
         agent-smith:security-scan:      security-scan
         agent-smith:api-security-scan:  api-security-scan
 ```
 
-Tag a work item / issue with `agent-smith:bug`, and the framework runs the `fix-bug` pipeline. Tag with `agent-smith:security-scan`, the `security-scan` pipeline. First match wins — labels are checked in declaration order.
+Tag a work item / issue with `agent-smith:bug`, and the framework runs the `code` pipeline. Tag with `agent-smith:security-scan`, the `security-scan` pipeline. First match wins — labels are checked in declaration order.
 
 The label values themselves are arbitrary; the convention is `agent-smith:{pipeline-name}` because it groups them together in the tracker's label UI and signals which labels are framework-controlled. You can rename them if your team prefers (`smith-fix`, `ai-fix`, whatever) — the YAML key is the label, the YAML value is the pipeline.
 

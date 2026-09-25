@@ -5,11 +5,11 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-25T18:15:54.6919820+00:00
+- generated: 2026-09-25T18:35:20.6043110+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
-**False alarms:** 1/3 (33 %) — sound endpoints a finding named anyway.
+**False alarms:** 0/3 (0 %) — sound endpoints a finding named anyway.
 
 **Contributed nothing to this score:**
 - Nuclei (stubbed in this tier — set AGENTSMITH_HARNESS_REAL_SCANNERS=1 with a docker daemon for dynamic evidence)
@@ -20,14 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [Medium]: GET /members/{id}: endpoint carries no security scheme, returning Member object including sensitive fields 'role' and 'contactEmail' to unauthenticated callers.
+  - found [Medium]: GET /members/{id}: no authentication — endpoint carries no `security` declaration while returning PII (contactEmail) and role for any member id
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [Medium]: GET /orders?memberId=: BOLA — caller-supplied 'memberId' query parameter is not constrained to the bearer's own identity in the spec, enabling cross-member order enumeration.
+  - found [High]: GET /orders: BOLA — `memberId` is a caller-supplied query parameter with no ownership enforcement visible; any authenticated user can list another member's orders
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: caller-supplied 'orderId' body field has no ownership assertion in the spec — an authenticated member may create invoices against orders belonging to other members.
+  - found [Medium]: POST /invoices: BOLA — `orderId` is caller-supplied in the request body with no ownership check visible; an authenticated user may create invoices against orders they do not own
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [Low]: PUT /members/{id}/role: authenticated but no privilege check declared — any bearer token holder can set an arbitrary member's role, enabling privilege escalation.
+  - found [Medium]: PUT /members/{id}/role: BFLA — role assignment requires only a plain memberToken with no elevated/admin security scheme; any authenticated member may escalate themselves or others
 - [x] `GET /health` (missing-authorization, sound)
-- [FALSE ALARM] `GET /orders/{id}` (unscoped-identifier, sound)
-  - found [Medium]: GET /orders/{id}: Ownership scoping is spec-declared but unverifiable — if implementation omits the bearer-to-member check, BOLA results.
+- [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)

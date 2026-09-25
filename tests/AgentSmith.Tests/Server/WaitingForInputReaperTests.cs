@@ -85,7 +85,7 @@ public sealed class WaitingForInputReaperTests : IDisposable
     }
 
     private static RunStartedEvent Started(string runId) => new(
-        runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
+        runId, "ticket", "code", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

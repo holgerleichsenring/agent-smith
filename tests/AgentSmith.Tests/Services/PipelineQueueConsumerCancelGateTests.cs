@@ -28,7 +28,7 @@ public sealed class PipelineQueueConsumerCancelGateTests
     public async Task QueueConsumer_CancelledBeforeStart_ShortCircuitsCancelled()
     {
         var request = new PipelineRequest(
-            "p1", "fix-bug", new TicketId("42"), RunId: "run-cancelled");
+            "p1", "code", new TicketId("42"), RunId: "run-cancelled");
         var consumer = NewConsumer(request, cancelRequested: true);
 
         await consumer.RunAsync(CancellationToken.None);
@@ -46,7 +46,7 @@ public sealed class PipelineQueueConsumerCancelGateTests
     public async Task QueueConsumer_NotCancelled_ProceedsToExecution()
     {
         var request = new PipelineRequest(
-            "p1", "fix-bug", new TicketId("42"), RunId: "run-live");
+            "p1", "code", new TicketId("42"), RunId: "run-live");
         var consumer = NewConsumer(request, cancelRequested: false);
 
         // Proceeding means resolving ExecutePipelineUseCase, which this minimal

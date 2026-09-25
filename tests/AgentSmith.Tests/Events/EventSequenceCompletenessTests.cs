@@ -96,7 +96,7 @@ public sealed class EventSequenceCompletenessTests
     private static async Task ExerciseRunLifecycle(IEventPublisher publisher)
     {
         await publisher.PublishAsync(new RunStartedEvent(
-            RunId, "ticket", "fix-bug", new[] { "repo1" }, DateTimeOffset.UtcNow));
+            RunId, "ticket", "code", new[] { "repo1" }, DateTimeOffset.UtcNow));
         await publisher.PublishAsync(new RunFinishedEvent(
             RunId, "success", null, "ok", DateTimeOffset.UtcNow));
     }

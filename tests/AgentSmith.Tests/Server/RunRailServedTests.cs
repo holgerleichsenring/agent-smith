@@ -54,7 +54,7 @@ public sealed class RunRailServedTests : IDisposable
     public async Task StepsEndpoint_RunningRun_ReturnsEveryStepInIndexOrderWithStatus()
     {
         await ProjectAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(RunId, 0, "Fetch ticket", 3, T, "Fetch ticket", CommandNames.FetchTicket),
             new StepFinishedEvent(RunId, 0, "success", 1000, T),
             new StepStartedEvent(RunId, 1, "Analyze codebase", 3, T, "Analyze codebase", CommandNames.AnalyzeCode),
@@ -75,7 +75,7 @@ public sealed class RunRailServedTests : IDisposable
     public async Task StepsEndpoint_PerStepAggregates_MatchTheAttributedChildRows()
     {
         await ProjectAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(RunId, 0, "Analyze codebase", 2, T),
             LlmCall(0, 0.25m), LlmCall(0, 0.75m),
             SandboxCommand(0), SandboxCommand(0), SandboxCommand(0),
@@ -214,7 +214,7 @@ public sealed class RunRailServedTests : IDisposable
     public async Task StepEventsEndpoint_UnknownStepIndex_ReturnsEmptyPageNot500()
     {
         await ProjectAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(RunId, 0, "Implement", 1, T));
 
         var page = await ReadNewestPageAsync(stepIndex: 99, limit: null);
@@ -302,7 +302,7 @@ public sealed class RunRailServedTests : IDisposable
     public async Task DecisionsEndpoint_ReturnsLatestFirst()
     {
         await ProjectAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new DecisionLoggedEvent(RunId, "tooling", "first", null, "because", T) { OriginStepIndex = 0 },
             new DecisionLoggedEvent(RunId, "tooling", "second", null, "because", T) { OriginStepIndex = 1 },
             new DecisionLoggedEvent(RunId, "tooling", "third", null, "because", T) { OriginStepIndex = 2 });
@@ -319,7 +319,7 @@ public sealed class RunRailServedTests : IDisposable
     public async Task DecisionsEndpoint_ReturnsTheProducersCategory()
     {
         await ProjectAsync(
-            new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"),
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new DecisionLoggedEvent(RunId, "persistence", "sqlite", "postgres", "footprint", T));
 
         var decisions = await ReadDecisionsAsync(limit: 5);
@@ -344,7 +344,7 @@ public sealed class RunRailServedTests : IDisposable
         var events = new List<AgentSmith.Contracts.Events.RunEvent>();
         if (startAt == 0)
         {
-            events.Add(new RunStartedEvent(RunId, "ticket", "fix-bug", ["primary"], T, "claude", "42"));
+            events.Add(new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"));
             events.Add(new StepStartedEvent(RunId, 0, "Implement", 1, T));
         }
         for (var i = startAt; i < startAt + count; i++) events.Add(SandboxCommand(0, $"cmd-{i}"));

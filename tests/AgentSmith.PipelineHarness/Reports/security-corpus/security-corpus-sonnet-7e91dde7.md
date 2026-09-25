@@ -4,11 +4,11 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-25T18:14:30.0024930+00:00
+- generated: 2026-09-25T18:34:20.9394300+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
-**False alarms:** 0/5 (0 %) — sound files a finding named anyway.
+**False alarms:** 1/5 (20 %) — sound files a finding named anyway.
 
 Cited line matched on 4 of 5 detections — a citation sub-metric, not a gate.
 
@@ -16,16 +16,17 @@ Cited line matched on 4 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [High]: src/orders/orderLookup.ts:7: SQL built by concatenating req.params.id directly into a string literal — classic SQL injection (on the declared line)
+  - found [Medium]: src/orders/orderLookup.ts:7: SQL built by string-concatenating the route parameter `id` — classic SQL injection (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:16: removeMember lacks requireAdmin check — any caller can delete any member
+  - found [High]: src/admin/memberAdmin.ts:16: removeMember omits requireAdmin(req) — any caller can delete members without an admin role check
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9: path.join() used without resolve()+containment check — path traversal allows reading arbitrary files (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9: path.join used without resolve+containment check — path traversal escapes STORAGE_ROOT (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [Medium]: src/auth/loginRedirect.ts:7: open redirect — req.query.next is passed unvalidated to res.redirect() after login (on the declared line)
+  - found [High]: src/auth/loginRedirect.ts:7: open redirect — res.redirect(next) with no allowlist check on the caller-supplied `next` query parameter (on the declared line)
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on raw job payload text — arbitrary code execution if payload is attacker-influenced (on the declared line)
-- [x] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [Critical]: src/jobs/jobPayload.ts:7: eval() used to deserialize job payload — arbitrary code execution if a producer or queue storage is compromised (on the declared line)
+- [FALSE ALARM] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [Medium]: src/reports/reportLookup.ts:15: scanner flag dismissed — template literal SQL is safe; table and orderBy derive from a const allowlist, not caller input (on the declared line)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)
 - [x] .agentsmith/contexts/default/context.yaml (project-metadata, clean)

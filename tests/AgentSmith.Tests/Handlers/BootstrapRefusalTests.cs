@@ -130,7 +130,7 @@ public sealed class BootstrapRefusalTests
                     ["server"] = contexts,
                 });
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            PipelineName: "fix-bug", Agent: new AgentConfig(), SkillsPath: "skills",
+            PipelineName: "code", Agent: new AgentConfig(), SkillsPath: "skills",
             CodingPrinciplesPath: null));
 
         await CheckHandler(exists).ExecuteAsync(new BootstrapCheckContext(pipeline), CancellationToken.None);

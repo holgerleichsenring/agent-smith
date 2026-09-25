@@ -57,7 +57,7 @@ public sealed class QueuedRunCancelTests : IDisposable
     public async Task Cancel_QueuedRun_RemovesEntry_MarksCancelled()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "42", "fix-bug", "github",
+            "p1", "42", "code", "github",
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -87,7 +87,7 @@ public sealed class QueuedRunCancelTests : IDisposable
     public async Task CancelQueued_TerminalizesTicket_NoRepoll()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "42", "fix-bug", "github",
+            "p1", "42", "code", "github",
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -111,7 +111,7 @@ public sealed class QueuedRunCancelTests : IDisposable
                 It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("tracker down"));
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "42", "fix-bug", "github",
+            "p1", "42", "code", "github",
             "2026-07-10T12-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -130,7 +130,7 @@ public sealed class QueuedRunCancelTests : IDisposable
         {
             ctx.Runs.Add(new AgentSmith.Infrastructure.Persistence.Entities.Run
             {
-                Id = "run-live", Project = "p1", Pipeline = "fix-bug",
+                Id = "run-live", Project = "p1", Pipeline = "code",
                 TicketId = "42", Status = "running", StartedAt = DateTimeOffset.UtcNow,
             });
             await ctx.SaveChangesAsync();
@@ -199,7 +199,7 @@ public sealed class QueuedRunCancelTests : IDisposable
     public async Task Cancel_QueuedRun_ThroughTheEndpointsOwnPath_FinishesTheRowWithoutTheDrain()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "77", "fix-bug", "github",
+            "p1", "77", "code", "github",
             "2026-08-24T19-46-27-ca23", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 

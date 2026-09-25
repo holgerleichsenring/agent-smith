@@ -1,47 +1,31 @@
-# Fix Bug / Add Feature
+# The code pipeline
 
-The **fix-bug** and **add-feature** pipelines are Agent Smith's core coding workflows. They take a ticket, understand the codebase, write code, run tests, and open a pull request.
+The **code** pipeline is Agent Smith's coding workflow. It takes a ticket, understands the codebase, derives a specification, writes code, verifies it, and opens a pull request.
+
+There used to be four of these — a bug one, a feature one, a no-tests one and a phase one. They differed only in steps a specification now carries, so they were collapsed into this single preset; the ticket's label is an input to the spec rather than a choice of pipeline.
 
 ## Pipeline Steps
 
-=== "fix-bug (14 steps)"
-
-    | # | Command | What It Does |
-    |---|---------|-------------|
-    | 1 | FetchTicket | Reads ticket from GitHub / AzDO / Jira / GitLab |
-    | 2 | CheckoutSource | Clones repo, creates `fix/{id}` branch |
-    | 3 | BootstrapProject | Detects language, framework, build system |
-    | 4 | LoadCodeMap | Generates LLM-navigable code map |
-    | 5 | LoadCodingPrinciples | Loads coding standards from repo |
-    | 6 | LoadContext | Loads `.agentsmith/context.yaml` |
-    | 7 | AnalyzeCode | Scout agent identifies relevant files |
-    | 8 | Triage | Selects specialist roles for the task |
-    | 9 | GeneratePlan | AI generates step-by-step implementation plan |
-    | 10 | Approval | Shows plan, waits for OK (skipped in `--headless`) |
-    | 11 | AgenticExecute | AI writes code in an agentic loop |
-    | 12 | Test | Runs the project's test suite |
-    | 13 | WriteRunResult | Writes `result.md` with token usage and cost |
-    | 14 | CommitAndPR | Commits, pushes, opens PR, closes ticket |
-
-=== "add-feature (16 steps)"
-
-    Same as fix-bug, plus two additional steps after AgenticExecute:
-
-    | # | Command | What It Does |
-    |---|---------|-------------|
-    | 12 | GenerateTests | AI generates tests for the new code |
-    | 13 | Test | Runs the full test suite (including new tests) |
-    | 14 | GenerateDocs | AI generates/updates documentation |
-    | 15 | WriteRunResult | Writes result with cost data |
-    | 16 | CommitAndPR | Commits everything, opens PR |
-
-=== "fix-no-test (13 steps)"
-
-    Same as fix-bug but **skips the Test step**. Useful for documentation changes, config updates, or repos without a test suite.
+| # | Command | What It Does |
+|---|---------|-------------|
+| 1 | FetchTicket | Reads ticket from GitHub / AzDO / Jira / GitLab |
+| 2 | ScopeRepos | Narrows the run to the repos the ticket affects |
+| 3 | CheckoutSource | Clones each repo, creates the work branch |
+| 4 | RunPreflight | Proves the sandbox and branch preconditions |
+| 5 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` |
+| 6 | LoadCodingPrinciples / LoadContext | Loads the repo's standards and context |
+| 7 | AnalyzeCode | Scout agent identifies relevant files |
+| 8 | DeriveSpec | Turns the ticket into an ordered set of phase specs |
+| 9 | SpecHandback | Parks the ticket when the requirement contradicts the repo |
+| 10 | PhaseSpecGate | Validates the spec before a single master token is spent |
+| 11 | EnsurePrerequisites / ProbeTarget | Installs what the work needs, then checks the target answers |
+| 12 | PhaseSequence | One master → verify → record block per derived phase |
+| 13 | WriteRunResult | Writes `result.md` with token usage and cost |
+| 14 | CommitAndPR / PrCrossLink | Commits, pushes, opens PRs and cross-links them |
 
 ## How Skills Collaborate
 
-Fix-bug and add-feature use the **hierarchical pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
+The code pipeline uses the **hierarchical pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
 
 ```mermaid
 graph TD

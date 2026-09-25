@@ -142,7 +142,7 @@ public sealed class RunRecordIdentityTests : IDisposable
     private async Task SeedRunAsync()
     {
         await using var ctx = Context();
-        ctx.Add(new Run { Id = RunId, Pipeline = "fix-bug", Project = "p", TicketId = "t", Status = "running", StartedAt = T0 });
+        ctx.Add(new Run { Id = RunId, Pipeline = "code", Project = "p", TicketId = "t", Status = "running", StartedAt = T0 });
         await ctx.SaveChangesAsync();
     }
 

@@ -7,7 +7,7 @@ namespace AgentSmith.Cli.Commands;
 
 /// <summary>
 /// p0326: `agentsmith demo` — one command proving the whole loop (inline
-/// ticket → fix-bug pipeline → local commit) on a bundled sample project.
+/// ticket → code pipeline → local commit) on a bundled sample project.
 /// The only credential it needs is an LLM key: no tracker, no repo remote,
 /// no Docker, no Redis. Preflight (the p0324 subset) gates the run so a
 /// broken environment fails with fix hints before any pipeline tokens.
@@ -23,7 +23,7 @@ internal static class DemoCommand
 
         var cmd = new Command(
             "demo",
-            "Prove the whole loop on a bundled sample project: inline ticket → fix-bug → local commit. Needs only an LLM key.")
+            "Prove the whole loop on a bundled sample project: inline ticket → code → local commit. Needs only an LLM key.")
         {
             agentOption, workspaceOption, configOption, verboseOption,
         };

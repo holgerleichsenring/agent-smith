@@ -271,14 +271,14 @@ public sealed class TrackerPollerTests
                     Strategy = ResolutionStrategy.Tag,
                     Value = tag,
                 },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 TriggerStatuses = triggerStatuses ?? new List<string>(),
             };
             var project = new ResolvedProject
             {
                 Name = name,
                 Tracker = Tracker,
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 Repos = new[] { new RepoConnection { Name = name + "-repo", Url = $"https://example/{name}" } },
                 GithubTrigger    = actualPlatform == TrackerType.GitHub      ? trigger : null,
                 GitlabTrigger    = actualPlatform == TrackerType.GitLab      ? trigger : null,

@@ -84,7 +84,7 @@ public sealed class EmptyPlanCheckHandlerTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Plan, PlanWith(/* no steps */));
         pipeline.Set(ContextKeys.ResolvedPipeline, new ResolvedPipelineConfig(
-            PipelineName: "fix-bug",
+            PipelineName: "code",
             Agent: new AgentConfig { Type = "claude", Model = "test" },
             SkillsPath: "skills",
             CodingPrinciplesPath: null));
@@ -104,7 +104,7 @@ public sealed class EmptyPlanCheckHandlerTests
         capture.Measurements.Should().HaveCount(1);
 
         var tags = capture.Measurements[0].Tags;
-        TagValue(tags, "pipeline").Should().Be("fix-bug");
+        TagValue(tags, "pipeline").Should().Be("code");
         TagValue(tags, "project").Should().Be("github/acme/app");
         TagValue(tags, "reason").Should().Be("empty_plan");
     }

@@ -72,7 +72,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var repoB = new RepoConnection { Name = "repo-b", Url = "https://example/b" };
         SetupConfig("demo", repoA, repoB);
         var captured = CaptureRepos();
-        var request = new PipelineRequest("demo", "fix-bug");
+        var request = new PipelineRequest("demo", "code");
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
 
@@ -86,7 +86,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var target = new RepoConnection { Name = "repo-a", Url = "https://example/a" };
         SetupConfig("demo", target, new RepoConnection { Name = "repo-b" });
         var captured = CaptureRepos();
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "REPO-A" });
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
@@ -100,7 +100,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         SetupConfig("demo",
             new RepoConnection { Name = "a" },
             new RepoConnection { Name = "b" });
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "bogus" });
 
         var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
@@ -117,7 +117,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         SetupConfig("demo",
             new RepoConnection { Name = "a" },
             new RepoConnection { Name = "b" });
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/repo" });
 
         var act = async () => await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
@@ -135,7 +135,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var target = new RepoConnection { Name = "a", Url = "https://example/a" };
         SetupConfig("demo", target, new RepoConnection { Name = "b" });
         var captured = CaptureRepos();
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object>
             {
                 [ContextKeys.SourceOverrideRepo] = "a",
@@ -153,7 +153,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var only = new RepoConnection { Name = "only", Url = "https://example/only" };
         SetupConfig("demo", only);
         var captured = CaptureRepos();
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object> { [ContextKeys.SourcePath] = "/tmp/repo" });
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
@@ -167,7 +167,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var only = new RepoConnection { Name = "only", Url = "https://example/only" };
         SetupConfig("demo", only);
         var captured = CaptureRepos();
-        var request = new PipelineRequest("demo", "fix-bug",
+        var request = new PipelineRequest("demo", "code",
             Context: new Dictionary<string, object> { [ContextKeys.SourceOverrideRepo] = "only" });
 
         await _sut.ExecuteAsync(request, "config.yml", CancellationToken.None);
@@ -230,7 +230,7 @@ public sealed class ExecutePipelineUseCaseReposTests
         var project = new ResolvedProject
         {
             Name = projectName,
-            Pipeline = "fix-bug",
+            Pipeline = "code",
             Repos = repos
         };
         _config = new AgentSmithConfig

@@ -38,7 +38,7 @@ public sealed class CapacityQueueProjectionTests : IDisposable
         var entry = ctx.QueuedTickets.Single();
         entry.Project.Should().Be("p1");
         entry.TicketId.Should().Be("42");
-        entry.Pipeline.Should().Be("fix-bug");
+        entry.Pipeline.Should().Be("code");
         entry.Platform.Should().Be("github");
         entry.ReservedRunId.Should().Be("run-1");
         entry.InitialContextJson.Should().BeNull("a backstop entry has no envelope — the poller launches it");
@@ -79,7 +79,7 @@ public sealed class CapacityQueueProjectionTests : IDisposable
     }
 
     private static RunStartedEvent Started(string runId) => new(
-        runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
+        runId, "ticket", "code", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

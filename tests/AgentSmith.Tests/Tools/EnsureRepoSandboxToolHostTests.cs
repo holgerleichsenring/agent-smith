@@ -132,7 +132,7 @@ public sealed class EnsureRepoSandboxToolHostTests
         var project = new ResolvedProject { Name = "p", Repos = [server, client] };
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { server });
-        pipeline.Set(ContextKeys.PipelineName, "fix-bug");
+        pipeline.Set(ContextKeys.PipelineName, "code");
 
         var coordinator = new PipelineSandboxCoordinator(
             _factoryMock.Object, _specBuilder, _resolverMock.Object,

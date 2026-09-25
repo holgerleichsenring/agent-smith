@@ -74,7 +74,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "closed"
                     }
@@ -133,7 +133,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "closed"
                     }
@@ -188,7 +188,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "Resolved"
                     }
@@ -248,7 +248,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "Done"
                     }

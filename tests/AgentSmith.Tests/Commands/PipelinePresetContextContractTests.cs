@@ -60,9 +60,7 @@ public sealed class PipelinePresetContextContractTests
     }
 
     [Theory]
-    [InlineData("fix-bug")]
-    [InlineData("fix-no-test")]
-    [InlineData("add-feature")]
+    [InlineData("code")]
     public void PipelinePresetContextContract_CodeTouchingPreset_IncludesEnsurePrerequisites(string presetName)
     {
         // p0202e: EnsurePrerequisites sits AFTER AnalyzeCode (so the

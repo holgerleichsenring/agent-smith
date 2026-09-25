@@ -449,7 +449,7 @@ public sealed class FiledWorkReadTests : IDisposable
 
     private static RunCheckpoint Checkpoint(string questionJson) => new()
     {
-        RunId = "r-1", Project = "alpha", TicketId = Work, Pipeline = "phase-execution",
+        RunId = "r-1", Project = "alpha", TicketId = Work, Pipeline = "code",
         DialogueJobId = "j", QuestionId = "q-1", AskedAt = T, AnswerDeadlineAt = T.AddHours(4),
         QuestionJson = questionJson, RemainingCommandsJson = "[]", ContextJson = "{}",
     };
@@ -512,7 +512,7 @@ public sealed class FiledWorkReadTests : IDisposable
         string status = "success", string? pullRequests = null) =>
         new()
         {
-            Id = id, Project = project, TicketId = ticketId, Pipeline = "phase-execution",
+            Id = id, Project = project, TicketId = ticketId, Pipeline = "code",
             Status = status, StartedAt = startedAt, CostTotalUsd = 1.25m,
             PullRequestsJson = pullRequests,
         };

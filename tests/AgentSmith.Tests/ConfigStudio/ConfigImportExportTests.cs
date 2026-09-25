@@ -36,7 +36,7 @@ public sealed class ConfigImportExportTests : IDisposable
             agent: claude-default
             tracker: test-ado
             repos: [test-repo]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;

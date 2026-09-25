@@ -61,7 +61,7 @@ public sealed class TrackerDiscoveryQueryBuilderTests
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var project = JiraProject("alpha", tracker, "alpha-tag", ["To Do"]);
-        project.JiraTrigger!.PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug" };
+        project.JiraTrigger!.PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "code" };
 
         var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 

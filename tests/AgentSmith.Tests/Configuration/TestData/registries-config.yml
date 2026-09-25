@@ -21,7 +21,7 @@ projects:
     agent: claude-default
     tracker: test-ado
     repos: [test-repo]
-    pipeline: fix-bug
+    pipeline: code
 
 secrets:
   azure_artifacts_token: ${AGENTSMITH_TEST_AZURE_ARTIFACTS_TOKEN}

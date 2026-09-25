@@ -189,7 +189,7 @@ See [Security Scan Configuration](../configuration/security-scan.md#dast-owasp-z
 
 ## Auto-Fix
 
-Critical and High findings can be automatically submitted as fix PRs. After the scan completes, findings are grouped by file and category, and separate fix jobs are spawned. Each fix job runs the fix-bug pipeline with a security-specific system prompt.
+Critical and High findings can be automatically submitted as fix PRs. After the scan completes, findings are grouped by file and category, and separate fix jobs are spawned. Each fix job runs the `code` pipeline with a security-specific system prompt.
 
 Auto-fix is opt-in (`auto_fix.enabled: false` by default) and supports confirmation via [Interactive Dialogue](../concepts/interactive-dialogue.md) before spawning fixes.
 

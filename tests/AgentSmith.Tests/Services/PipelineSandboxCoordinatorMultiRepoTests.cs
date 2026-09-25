@@ -81,7 +81,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
     {
         var harness = new Harness().WithRepo("server").WithDiscoveries("server",
             Csharp("api", memLimit: "3Gi"), Csharp("worker", memLimit: "4Gi"));
-        harness.Pipeline.Set<string>(ContextKeys.PipelineName, "fix-bug"); // code pipeline honours context resources
+        harness.Pipeline.Set<string>(ContextKeys.PipelineName, "code"); // code pipeline honours context resources
 
         var result = await harness.Sut.EnsureSandboxesAsync(
             new ResolvedProject(), harness.Pipeline, CancellationToken.None);
