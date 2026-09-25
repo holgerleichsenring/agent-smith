@@ -233,7 +233,8 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         return new TicketClaimService(
             claimLock.Object, _store, transitionerFactory.Object, _jobQueue.Object,
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
     }
 
     private SpawnPipelineRunsUseCase Funnel() => new(

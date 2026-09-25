@@ -231,7 +231,8 @@ public sealed class SingleRepoRegressionTests
 
         var claimService = new TicketClaimService(
             claimLock.Object, new InMemoryUnmovedTicketStore(), factory.Object, queue.Object,
-            new NoOpActiveRunLease(), NullLogger<TicketClaimService>.Instance);
+            new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
+            NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
             CapacityTestDoubles.StubCalculator(),
