@@ -470,6 +470,10 @@ projects:
       trigger_statuses: ["open"]
       done_status: "closed"
       comment_keyword: "@agent-smith"
+      # 2026-09-25-d83b: the label someone puts on a PULL REQUEST to ask for a review.
+      # Omitted → only "security-review" triggers, as it always has; a word set here is
+      # recognised in ADDITION to it, so a board already labelled keeps working.
+      # pr_trigger_label: "please-review"
       # pipeline_from_label omitted → inherits global pipeline_triggers map
 
   # Azure DevOps project, terse shape (p0281b): only `resolution:` is project-specific —
