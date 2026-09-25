@@ -258,7 +258,10 @@ export interface SpecDialogProposalPush {
  * page — which the panel says is unknown rather than picking one of the words above.
  */
 export interface SpecDialogFiledStart {
-  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | null;
+  /** 2026-09-25-c4a6: `NotFiled` is the ticket this conversation is BOUND to and did not file —
+   *  minted by the read for the row it draws, never stored, because what a ticket became at
+   *  filing time is a question about an act nobody here performed. */
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | "NotFiled" | null;
   reason: string;
 }
 

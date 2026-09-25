@@ -4,6 +4,7 @@ using System.Security.Claims;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -156,6 +157,39 @@ public sealed class FiledWorkWatchTests : IDisposable
         _registry.WatchedBy("c-1").Should().BeEquivalentTo(["1001", "1002"]);
     }
 
+    /// <summary>
+    /// 2026-09-25-c4a6: a bound conversation registered NOTHING, because the ids came off a
+    /// filing it never made — so a run of its ticket could finish with the pane still showing the
+    /// state it was fetched in. It now follows the ticket it belongs to, and the nudge arrives.
+    /// </summary>
+    [Fact]
+    public async Task TicketRuns_ARunMoving_NudgesTheBoundConversation()
+    {
+        await BoundSessionAsync(Owner, "1001");
+        await Watch().WatchAsync(Caller("c-1", Owner), Dialog);
+        var clients = new RecordingClients();
+
+        await new FiledWorkNudge(Hub(clients), _registry).OfAsync(Snapshot("1001"), default);
+
+        _registry.WatchedBy("c-1").Should().Equal("1001");
+        clients.Addressed.Should().ContainSingle().Which.Should().Equal("c-1");
+    }
+
+    /// <summary>
+    /// The invariant 042ej was written for survives the binding: nothing on the path from the hub
+    /// to the registry accepts a ticket, so nobody can follow one by naming it. Read off the
+    /// SIGNATURES, because a scenario can only show that today's callers do not name one.
+    /// </summary>
+    [Fact]
+    public void TicketRuns_ACallerNamingATicket_IsStillRefused()
+    {
+        var hub = typeof(JobsHub).GetMethod(nameof(JobsHub.WatchFiledWork))!;
+        var watch = typeof(FiledWorkWatch).GetMethod(nameof(FiledWorkWatch.WatchAsync))!;
+
+        hub.GetParameters().Select(p => p.Name).Should().Equal("dialogId");
+        watch.GetParameters().Select(p => p.Name).Should().Equal("context", "dialogId");
+    }
+
     [Fact]
     public async Task Watch_Disconnect_RemovesTheEntry()
     {
@@ -262,7 +296,31 @@ public sealed class FiledWorkWatchTests : IDisposable
         new($"https://tracker.test/{id}", $"Work {id}") { TicketId = id, Project = "alpha" };
 
     private FiledWorkWatch Watch() =>
-        new(Ownership(), new FiledWorkFiling(Store()), _registry);
+        new(Ownership(), new FiledWorkFiling(Store()), BoundTicket(), _registry);
+
+    private FiledWorkBoundTicket BoundTicket() =>
+        new(new SpecDialogSessionRepository(_context), new SpecDialogTicketTextRepository(_context));
+
+    /// <summary>
+    /// 2026-09-25-c4a6: a conversation BOUND to a ticket (2026-09-25-8e51b) that filed nothing.
+    /// The tracker's own id lives on the ticket text the binding read (2026-09-25-8e51c); the
+    /// session row keeps only the spec-key spelling.
+    /// </summary>
+    private async Task BoundSessionAsync(string owner, string ticketId)
+    {
+        _context.Add(new SpecDialogSession
+        {
+            SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
+            UserId = owner, Project = "alpha", IsOpen = true, LastActivityAt = T,
+            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", ticketId).Value,
+        });
+        _context.Add(new SpecDialogTicketText
+        {
+            SessionId = "s-1", TicketId = ticketId, Title = $"Work {ticketId}",
+            Text = "what the ticket says", Fingerprint = "f", ReadAt = T,
+        });
+        await _context.SaveChangesAsync();
+    }
 
     private SpecDialogOwnership Ownership() =>
         new(new SpecDialogSessionRepository(_context));

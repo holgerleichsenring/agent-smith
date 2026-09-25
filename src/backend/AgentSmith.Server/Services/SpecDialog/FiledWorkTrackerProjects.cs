@@ -23,18 +23,23 @@ public sealed class FiledWorkTrackerProjects(AgentSmithConfig config)
     {
         var filing = config.Projects
             .FirstOrDefault(p => ConfigNames.AreSame(p.Key, project)).Value;
-        if (filing is null) return [];
-        var tracker = filing.Tracker.Name;
-        return
-        [
-            .. config.Projects
-                // ConfigNames is the repository's ONE rule for matching a configured name;
-                // an ordinal comparison here would answer differently from the catalog that
-                // resolved these projects the moment two spellings differ in case.
-                .Where(p => ConfigNames.AreSame(p.Value.Tracker.Name, tracker))
-                .Select(p => new FiledWorkProject(p.Key, Platform(p.Value))),
-        ];
+        return filing is null ? [] : OnTracker(filing.Tracker.Name);
     }
+
+    /// <summary>
+    /// 2026-09-25-c4a6: the same reach named by the tracker CONNECTION itself, which is what a
+    /// conversation bound to a ticket stores — it never filed a project to start from. Empty for
+    /// a connection the configuration no longer knows, for the reason above.
+    /// </summary>
+    public IReadOnlyList<FiledWorkProject> OnTracker(string tracker) =>
+    [
+        .. config.Projects
+            // ConfigNames is the repository's ONE rule for matching a configured name;
+            // an ordinal comparison here would answer differently from the catalog that
+            // resolved these projects the moment two spellings differ in case.
+            .Where(p => ConfigNames.AreSame(p.Value.Tracker.Name, tracker))
+            .Select(p => new FiledWorkProject(p.Key, Platform(p.Value))),
+    ];
 
     /// <summary>The provider word a spec-set key is minted from, as every writer spells it.</summary>
     private static string Platform(ResolvedProject project) =>
