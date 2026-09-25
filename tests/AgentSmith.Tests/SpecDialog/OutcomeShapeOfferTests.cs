@@ -185,6 +185,107 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             "a result nobody handled must not take the proposal down with it");
     }
 
+    /// <summary>
+    /// 2026-09-25-8e51e: the amendment rides beside the ladder, and the ladder is untouched. A
+    /// picked SHAPE is fed into the edit door — the master re-proposes in that shape — and an
+    /// amendment is not a re-proposal, so it must not change what a size means.
+    /// </summary>
+    [Fact]
+    public void OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind()
+    {
+        OutcomeShapes.For(new PhaseOutcome(Draft("p9001"))).Select(s => s.Label)
+            .Should().Equal("Cut into several phases", "Make it a bug ticket");
+        OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")])).Select(s => s.Label)
+            .Should().Equal("Make it one phase");
+        OutcomeShapes.For(new BugOutcome(new BugTicketDraft("t", "d", null))).Select(s => s.Label)
+            .Should().Equal("Make it a phase");
+    }
+
+    /// <summary>
+    /// A conversation that belongs to no ticket has no ticket to amend, so the door is not shown
+    /// — and the same words typed there stay an ordinary edit note.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_AConversationWithNoTicket_IsNeverOfferedTheAmend()
+    {
+        var asked = await AskedAsync(new PhaseOutcome(Draft("p9001")));
+
+        asked.Choices!.Should().NotContain(OutcomeShapes.AmendTheTicket);
+        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label))
+            .Should().BeOfType<OutcomeEditRequested>();
+    }
+
+    [Fact]
+    public async Task Amendment_AConversationThatBelongsToATicket_IsOfferedIt()
+    {
+        var asked = await AskedAsync(new PhaseOutcome(Draft("p9001")), bound: true);
+
+        asked.Type.Should().Be(QuestionType.Approval, "an amendment is still an approval");
+        asked.Choices!.Should().Contain(OutcomeShapes.AmendTheTicket);
+    }
+
+    /// <summary>A bug carries no approved set, so the bound ticket has no region of ours for it
+    /// to replace and the door is not offered even on a bound conversation.</summary>
+    [Fact]
+    public async Task Amendment_ABugProposalOnABoundConversation_IsNotOfferedIt() =>
+        (await AskedAsync(new BugOutcome(new BugTicketDraft("t", "d", null)), bound: true))
+            .Choices!.Should().NotContain(OutcomeShapes.AmendTheTicket);
+
+    /// <summary>
+    /// The order of matching: an approval word first, the amendment where it was offered, and
+    /// everything else an edit note. Read as an edit note the amendment would send the master
+    /// round again instead of writing the ticket.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_ThePickedAmendOnABoundConversation_IsItsOwnConfirmationResult()
+    {
+        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label, bound: true))
+            .Should().BeOfType<OutcomeAmendRequested>();
+        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "approve", bound: true))
+            .Should().BeOfType<OutcomeConfirmed>("approving still FILES; the amendment is the other door");
+        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "drop the second slice", bound: true))
+            .Should().BeOfType<OutcomeEditRequested>();
+    }
+
+    /// <summary>The flow's own arm: the sink is told to amend, and the stored proposal is cleared
+    /// because it has been acted on — the pane must not offer it again.</summary>
+    [Fact]
+    public async Task OutcomeFlow_AnAmendedConfirmation_ReachesTheSinksAmendDoor()
+    {
+        var sink = new RecordingAmendSink();
+        var (flow, store, state) = await FlowAsync(sink);
+        var proposal = new PhaseOutcome(Draft("p9001"));
+        await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
+
+        var result = await flow.ApplyAsync(
+            state, proposal, new OutcomeAmendRequested(), false, CancellationToken.None);
+
+        result.Should().BeOfType<OutcomeFlowCompleted>();
+        sink.Amended.Should().ContainSingle().Which.Should().Be(proposal);
+        sink.Accepted.Should().BeEmpty("an amendment files nothing");
+        (await store.ReadAsync(Platform, Thread, CancellationToken.None)).Proposal.Should().BeNull();
+    }
+
+    private sealed class RecordingAmendSink : IOutcomeSink
+    {
+        public List<OutcomeProposal> Amended { get; } = [];
+
+        public List<OutcomeProposal> Accepted { get; } = [];
+
+        public Task AcceptAsync(
+            ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
+        {
+            Accepted.Add(proposal);
+            return Task.CompletedTask;
+        }
+
+        public Task AmendAsync(ConversationState state, OutcomeProposal proposal, CancellationToken ct)
+        {
+            Amended.Add(proposal);
+            return Task.CompletedTask;
+        }
+    }
+
     /// <summary>A result added later, standing in for the one nobody remembered to handle.</summary>
     private sealed record UnknownConfirmation : ConfirmationResult;
 
@@ -196,20 +297,21 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     ];
 
     /// <summary>The question the confirmer actually asked, captured while the wait is open.</summary>
-    private static async Task<DialogQuestion> AskedAsync(OutcomeProposal proposal)
+    private static async Task<DialogQuestion> AskedAsync(OutcomeProposal proposal, bool bound = false)
     {
-        var (_, asked) = await RunConfirmerAsync(proposal, "approve");
+        var (_, asked) = await RunConfirmerAsync(proposal, "approve", bound);
         return asked!;
     }
 
-    private static async Task<ConfirmationResult> ConfirmAsync(OutcomeProposal proposal, string reply)
+    private static async Task<ConfirmationResult> ConfirmAsync(
+        OutcomeProposal proposal, string reply, bool bound = false)
     {
-        var (result, _) = await RunConfirmerAsync(proposal, reply);
+        var (result, _) = await RunConfirmerAsync(proposal, reply, bound);
         return result;
     }
 
     private static async Task<(ConfirmationResult Result, DialogQuestion? Asked)> RunConfirmerAsync(
-        OutcomeProposal proposal, string reply)
+        OutcomeProposal proposal, string reply, bool bound = false)
     {
         var pending = new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System));
         DialogQuestion? asked = null;
@@ -229,12 +331,12 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             pending, new SpecDialogOutcomeComposer(),
             NullLogger<SpecDialogOutcomeConfirmer>.Instance);
 
-        var result = await confirmer.ConfirmAsync(State(), proposal, CancellationToken.None);
+        var result = await confirmer.ConfirmAsync(State(bound), proposal, CancellationToken.None);
         return (result, asked);
     }
 
     private async Task<(SpecDialogOutcomeFlow Flow, SpecDialogLatestOutcomeStore Store, ConversationState State)>
-        FlowAsync()
+        FlowAsync(IOutcomeSink? sink = null)
     {
         var repository = new SpecDialogSessionRepository(_context);
         var sessions = new SpecDialogSessionManager(
@@ -252,7 +354,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
                 Mock.Of<IDialogueTransport>(), messenger,
                 new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
-            Mock.Of<IOutcomeSink>(), composer, messenger,
+            sink ?? Mock.Of<IOutcomeSink>(), composer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
@@ -260,8 +362,10 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         return (flow, store, state);
     }
 
-    private static ConversationState State() => new()
+    private static ConversationState State(bool bound = false) => new()
     {
+        Tracker = bound ? "sample-tracker" : null,
+        TicketKey = bound ? "github-4711" : null,
         JobId = "sess-355b",
         ChannelId = "C1",
         ThreadId = Thread,

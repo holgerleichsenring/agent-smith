@@ -24,8 +24,10 @@ public sealed class SpecDialogOutcomeComposer
     public ComposedReply ComposeConfirmation(OutcomeProposal proposal) => new(m =>
         m.Wording(
             $"{Describe(proposal, m)}\n{Findings(proposal, m)}"
-            + "Approve to file this outcome, Reject to drop it — "
-            + "any other reply is an edit note I will revise the proposal with.",
+            // 2026-09-25-8e51e: "or an offered button" — one of them now AMENDS the ticket this
+            // conversation belongs to rather than sending the proposal round again.
+            + "Approve to file this outcome, Reject to drop it, or pick one of the offered "
+            + "buttons — any other reply is an edit note I will revise the proposal with.",
             string.Empty));
 
     /// <summary>

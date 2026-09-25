@@ -27,6 +27,31 @@ public sealed class TicketProviderFactory(
         _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}")
     };
 
+    /// <summary>
+    /// 2026-09-25-8e51e: the same connections, built for the one write that reads first. Jira
+    /// answers with a refusal that names the round trip rather than with nothing — see
+    /// <see cref="JiraTicketRewriter"/>.
+    /// </summary>
+    public ITicketRewriter CreateRewriter(TrackerConnection config) => config.Type switch
+    {
+        TrackerType.AzureDevOps => new AzureDevOpsTicketRewriter(
+            new AzureDevOpsTicketConnection(
+                $"https://dev.azure.com/{config.Organization}", config.Project!,
+                secrets.GetRequired("AZURE_DEVOPS_TOKEN")),
+            loggerFactory.CreateLogger<AzureDevOpsTicketRewriter>()),
+        TrackerType.GitHub => new GitHubTicketRewriter(
+            new GitHubTicketConnection(config.Url!, secrets.GetRequired("GITHUB_TOKEN")),
+            loggerFactory.CreateLogger<GitHubTicketRewriter>()),
+        TrackerType.Jira => new JiraTicketRewriter(),
+        TrackerType.GitLab => new GitLabTicketRewriter(
+            new GitLabTicketConnection(
+                secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl,
+                Uri.EscapeDataString(config.Project ?? secrets.GetRequired("GITLAB_PROJECT")),
+                secrets.GetRequired("GITLAB_TOKEN")),
+            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabTicketRewriter>()),
+        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
+    };
+
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {
         var orgUrl = $"https://dev.azure.com/{config.Organization}";

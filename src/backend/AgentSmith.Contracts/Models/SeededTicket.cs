@@ -13,5 +13,9 @@ namespace AgentSmith.Contracts.Models;
 /// because a short answer must never be mistaken for a short ticket.</param>
 /// <param name="Moved">True when the ticket's text has changed since this conversation read it —
 /// computed from the fingerprint, never asked of the operator.</param>
+/// <param name="Divergence">2026-09-25-8e51e: where this ticket and the specification somebody
+/// approved for it disagree, computed before the turn runs. Null when there is no approved set or
+/// the two already say the same thing.</param>
 public sealed record SeededTicket(
-    string Title, string Text, bool Truncated, string Fingerprint, bool Moved = false);
+    string Title, string Text, bool Truncated, string Fingerprint, bool Moved = false,
+    SetDivergence? Divergence = null);

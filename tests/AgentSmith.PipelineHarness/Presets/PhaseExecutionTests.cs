@@ -201,5 +201,7 @@ public sealed class PhaseExecutionTests
     private sealed class PhaseTicketProviderFactory(PhaseTicketProvider provider) : ITicketProviderFactory
     {
         public ITicketProvider Create(TrackerConnection config) => provider;
+
+        public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
     }
 }
