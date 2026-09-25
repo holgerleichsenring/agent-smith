@@ -12,4 +12,7 @@ public abstract record SpecCommand;
 /// than a bare call because <see cref="SpecDialogConversationResolver"/> CONSTRUCTS it for a
 /// page that already knows its project: it is not a spelling anybody has to type.
 /// </summary>
-public sealed record SpecOpenCommand(string? Project) : SpecCommand;
+/// <param name="Ticket">2026-09-25-8e51b: the ticket this conversation belongs to, when it was
+/// opened to discuss one. Null is a conversation that belongs to no ticket, which is every
+/// conversation that existed before this and every one started from the page's own composer.</param>
+public sealed record SpecOpenCommand(string? Project, TicketBinding? Ticket = null) : SpecCommand;

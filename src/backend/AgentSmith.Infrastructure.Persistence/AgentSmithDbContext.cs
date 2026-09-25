@@ -9,10 +9,9 @@ using Microsoft.EntityFrameworkCore.Storage;
 namespace AgentSmith.Infrastructure.Persistence;
 
 /// <summary>
-/// The relational system-of-record. Doubles as the unit of work: callers stage
-/// entity changes and commit with one SaveChangesAsync, which also stamps the
-/// EntityBase audit columns. Configuration of the load-bearing tables lives in
-/// IEntityTypeConfiguration classes; the uniform Run-child FK length is set here.
+/// The relational system-of-record, doubling as the unit of work: callers stage entity changes
+/// and commit with one SaveChangesAsync, which also stamps the EntityBase audit columns. Tables
+/// are configured in IEntityTypeConfiguration classes; the uniform Run-child FK length is here.
 /// </summary>
 public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> options)
     : DbContext(options), IUnitOfWork
@@ -73,10 +72,11 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
         modelBuilder.ApplyConfiguration(new ObservedCallerConfiguration()); // 2026-08-26-7a51
         new RunChildConfiguration().Apply(modelBuilder);
-        // p0388a: applied AFTER the child loop so the per-step trail index is
-        // added alongside — not instead of — the uniform RunId index.
+        // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.
         modelBuilder.ApplyConfiguration(new RunEventConfiguration());
-        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-25-61f1
+        // Provider-conditional: an entity configuration cannot see the provider name.
+        new RunRecordIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 61f1
+        new TicketConversationIdentityConfiguration(Database.ProviderName).Apply(modelBuilder); // 8e51b
         new MoneyPrecisionConfiguration(Database.ProviderName).Apply(modelBuilder); // 2026-08-28-b883
     }
 

@@ -46,7 +46,35 @@ public sealed class SpecDialogOwnership(SpecDialogSessionRepository sessions)
     {
         var session = await sessions.GetOpenByThreadAsync(
             DispatcherDefaults.PlatformDashboard, dialogId, ct);
-        return session is null || session.UserId == owner;
+        return session is null || MayReach(session, owner);
+    }
+
+    /// <summary>
+    /// 2026-09-25-8e51b: a conversation that belongs to a TICKET is reachable by anyone who may
+    /// reach this surface at all, and an unbound one stays its owner's.
+    /// <para>
+    /// This is a deliberate widening and the reason is that the alternative is worse. A ticket has
+    /// ONE conversation because the approval record it amends is keyed by ticket and upserts in
+    /// place; two per-person conversations about one ticket would be two drafts of one artifact
+    /// with a silent last-writer-wins. Owner-scoping the shared one would instead answer a second
+    /// principal with a 404 for a ticket they can see on the board. The threat the class header
+    /// names is accepted here knowingly: the people who can reach a project's tickets are the
+    /// people who may discuss them. DELETING one is still the owner's alone.
+    /// </para>
+    /// </summary>
+    public static bool MayReach(
+        Infrastructure.Persistence.Entities.SpecDialogSession session, string owner)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return session.UserId == owner || session.TicketKey is not null;
+    }
+
+    /// <inheritdoc cref="MayReach"/>
+    public async Task<bool> MayReachSessionAsync(string sessionId, string owner, CancellationToken ct)
+    {
+        var session = await sessions.GetBySessionOnPlatformAsync(
+            DispatcherDefaults.PlatformDashboard, sessionId, ct);
+        return session is not null && MayReach(session, owner);
     }
 
     /// <summary>

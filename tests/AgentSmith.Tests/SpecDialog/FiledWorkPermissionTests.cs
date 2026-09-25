@@ -161,7 +161,11 @@ public sealed class FiledWorkPermissionTests : IDisposable
     private async Task DispatchAsync(bool mayStartRuns)
     {
         var dispatcher = new DashboardDialogDispatcher(
-            _router, Conversations(), Messenger(), NullLogger<DashboardDialogDispatcher>.Instance);
+            _router, Conversations(), Messenger(),
+            AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
+            NullLogger<DashboardDialogDispatcher>.Instance);
         await dispatcher.DispatchAsync(
             Dialog, "/spec", "U1", mayStartRuns, null, CancellationToken.None);
         await dispatcher.DispatchAsync(

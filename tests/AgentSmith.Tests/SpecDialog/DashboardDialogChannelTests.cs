@@ -85,7 +85,11 @@ public sealed class DashboardDialogChannelTests : IDisposable
         _services = Services(new DashboardDialogDispatcher(
             Router(messenger),
             new SpecDialogConversationResolver(_sessions, _ownership, Commands(messenger)),
-            messenger, NullLogger<DashboardDialogDispatcher>.Instance));
+            messenger,
+            AgentSmith.Tests.TestSupport.TicketBinders.Unused(_repository),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoConfig(),
+            AgentSmith.Tests.TestSupport.TicketBinders.NoPath(),
+            NullLogger<DashboardDialogDispatcher>.Instance));
     }
 
     [Fact]

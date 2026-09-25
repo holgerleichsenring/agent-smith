@@ -13,6 +13,9 @@ public sealed class DashboardDialogDispatcher(
     SpecDialogRouter router,
     SpecDialogConversationResolver conversations,
     SpecDialogMessenger messenger,
+    TicketConversationBinder binder,
+    AgentSmith.Contracts.Services.IConfigurationLoader configLoader,
+    AgentSmith.Contracts.Models.Configuration.ServerContext serverContext,
     ILogger<DashboardDialogDispatcher> logger)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
@@ -36,13 +39,16 @@ public sealed class DashboardDialogDispatcher(
     /// was answered with the tutorial instead of being stored. Both acts now happen here, in one
     /// task, in order.
     /// </para></summary>
+    /// <param name="ticketId">2026-09-25-8e51b: the ticket the page was opened on, when it was.
+    /// It rides with the project for the same reason: a FIRST message is what opens the
+    /// conversation, and a conversation that missed its binding can never be given one.</param>
     public async Task DispatchAsync(
         string dialogId, string text, string userId, bool mayStartRuns,
-        string? project, CancellationToken cancellationToken)
+        string? project, CancellationToken cancellationToken, string? ticketId = null)
     {
         try
         {
-            if (!await OpenedAsync(dialogId, project, userId, cancellationToken)) return;
+            if (!await OpenedAsync(dialogId, project, userId, cancellationToken, ticketId)) return;
             // The dialog id is both channel and thread: a browser page holds exactly one
             // conversation and has no channel above it to group them by.
             if (await router.TryRouteAsync(
@@ -71,12 +77,24 @@ public sealed class DashboardDialogDispatcher(
     /// </para>
     /// </summary>
     private async Task<bool> OpenedAsync(
-        string dialogId, string? project, string userId, CancellationToken cancellationToken)
+        string dialogId, string? project, string userId, CancellationToken cancellationToken,
+        string? ticketId)
     {
         if (string.IsNullOrWhiteSpace(project)) return true;
         var target = await conversations.ResolveOrOpenAsync(
-            dialogId, project, userId, cancellationToken);
+            dialogId, project, userId, cancellationToken, await BindingAsync(project!, ticketId, cancellationToken));
         return target.SessionId is not null;
+    }
+
+    /// <summary>The ticket this conversation is to belong to, read once from its tracker.</summary>
+    private async Task<TicketBinding?> BindingAsync(
+        string project, string? ticketId, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(ticketId)) return null;
+        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        return config.Projects.TryGetValue(project, out var resolved)
+            ? await binder.BindingForAsync(resolved, ticketId!, cancellationToken)
+            : null;
     }
 
     // The page is the only place this conversation exists, so failing to reach it leaves

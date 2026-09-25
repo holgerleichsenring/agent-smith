@@ -123,11 +123,43 @@ export async function postSpecDialogMessage(
   dialogId: string,
   text: string,
   project?: string,
+  /** 2026-09-25-8e51b: the ticket this conversation is to belong to, when the page was opened on
+   *  one. It rides with the project for the same reason: the first message is what OPENS the
+   *  conversation, and a conversation that missed its binding can never be given one. */
+  ticketId?: string,
 ): Promise<void> {
   const res = await apiFetch(MESSAGES_PATH, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dialogId, text, project: project ?? null }),
+    body: JSON.stringify({
+      dialogId,
+      text,
+      project: project ?? null,
+      ticketId: ticketId ?? null,
+    }),
   });
   if (!res.ok) throw await refused(res, MESSAGES_PATH);
+}
+
+/** 2026-09-25-8e51b: which conversation a ticket has, and the dialog a running one is on.
+ *  A page cannot work either out: it opens a conversation by SESSION id, and only the DIALOG id
+ *  sends it to a live conversation instead of queueing a resume the server refuses mid-turn. */
+export async function readTicketConversation(
+  project: string,
+  ticketId: string,
+): Promise<TicketConversationRead | null> {
+  const path = `/api/spec-dialog/tickets/${encodeURIComponent(project)}/${encodeURIComponent(ticketId)}`;
+  const res = await apiFetch(path);
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as TicketConversationRead;
+}
+
+export interface TicketConversationRead {
+  ticketId: string;
+  title: string;
+  /** Null when no conversation has been opened for this ticket yet. */
+  sessionId: string | null;
+  /** Null when the conversation exists but is closed. */
+  openDialogId: string | null;
 }

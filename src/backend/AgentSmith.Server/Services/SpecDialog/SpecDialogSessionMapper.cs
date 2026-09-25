@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models;
@@ -39,12 +40,29 @@ internal static class SpecDialogSessionMapper
         ThreadId = session.ThreadId,
         Transcript = ReadTranscript(session.TranscriptJson),
         Subject = session.Subject,
+        Tracker = session.Tracker,
+        TicketKey = session.TicketKey,
         Scope = new ActiveScope
         {
             Project = session.Project,
             Repos = ReadRepos(session.ReposJson),
         },
     };
+
+    /// <summary>
+    /// 2026-09-25-8e51b: a bound conversation's heading — the ticket's title, trimmed to the
+    /// column. NOT put through the subject admission rule: that rule refuses brackets, quotes and
+    /// leading dashes because it is judging a MODEL's one-line answer, which is minted once and
+    /// never revised, and a real ticket title routinely carries all three. A title is not a guess.
+    /// </summary>
+    internal static string? Heading(string? title)
+    {
+        var trimmed = title?.Trim();
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        return trimmed.Length <= PersistenceLimits.ConversationSubject
+            ? trimmed
+            : trimmed[..PersistenceLimits.ConversationSubject];
+    }
 
     internal static string WriteTranscript(IReadOnlyList<TranscriptTurn> transcript) =>
         JsonSerializer.Serialize(transcript, JsonOptions);

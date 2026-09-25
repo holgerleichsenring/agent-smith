@@ -1224,6 +1224,14 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TicketKey")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tracker")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TranscriptJson")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -1244,6 +1252,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.HasIndex("Platform", "ThreadId");
+
+                    b.HasIndex("Tracker", "TicketKey")
+                        .IsUnique();
 
                     b.ToTable("SpecDialogSessions");
                 });
