@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-d83b
+
+decisions:
+  - category: Architecture
+    chose: "The word lives on the platform trigger (pr_trigger_label), beside the other routing words"
+    over: "A new global block, or a server-level setting"
+    reason: |
+      WebhookTriggerConfig already carries every other word that decides what an event does —
+      pipeline_from_label, comment_keyword, default_pipeline, trigger_statuses — and the
+      handlers of this repository reach configuration through it (TriggerSelectionHelper.ByKind).
+      A second, differently-shaped home for one more routing word would be the only place an
+      operator has to look somewhere else. It also inherits what already works: the tracker-to-
+      trigger merge in EffectiveTriggerBuilder, the studio's raw trigger round-trip, and the
+      per-project scoping a deployment serving several boards needs.
+    alternatives:
+      - "Reuse pipeline_from_label itself (rejected: the example config's global pipeline_triggers already maps bug/feature, so every PR carrying those labels would start a run — a behaviour change, and the spec's out-of-scope line says today's deployment must behave as today)"
+
+  - category: Architecture
+    chose: "Setting the word ADDS it; the historical \"security-review\" never stops triggering"
+    over: "The configured word replacing the literal"
+    reason: |
+      Pull requests carrying the word sit on boards nobody will relabel, so a reader that forgets
+      it misreads live work on the day it ships. This is the posture the framework already takes
+      for a label whose writer is gone, made the rule here rather than one case. The practical
+      consequence is that "unconfigured" needs no special case at all: no configured word means
+      the set is exactly the one literal the two handlers matched before.
+
+  - category: Implementation
+    chose: "One collaborator (PrTriggerLabelResolver) answers both which word triggers and which project owns the repo"
+    over: "Each handler reading config for itself"
+    reason: |
+      The GitLab handler already found its project by matching the payload URL against the
+      configured repo URLs; the GitHub handler now needs the same match to find the trigger the
+      word is declared on. Left in the handlers that is the same loop written twice, and the two
+      copies would answer differently the first time one is touched. Moved into the resolver it
+      is read once, and the GitLab handler got SHORTER rather than longer — the 120-line rule
+      pushes the same way.
+    alternatives:
+      - "Pass the already-resolved WebhookTriggerConfig in, like PrReviewRouteResolver does (rejected: the GitHub PR-label handler resolves no project at all today, so something still has to do the repo match — this way it exists once)"
+
+  - category: TradeOff
+    chose: "The word is scoped to the project owning the pull request's repo; an unconfigured repo gets the historical word only"
+    over: "Accepting any word configured anywhere in the config for that platform"
+    reason: |
+      One deployment serves several boards, and a word one team chose must not start runs on
+      another team's pull requests. Scoping costs nothing in the unconfigured case: a repo no
+      project claims resolves to no configured word, which is the literal-only behaviour the
+      GitHub handler has always had for repos it knows nothing about. PrTrigger_AWordConfigured
+      ForAnotherRepo_DoesNotStartTheReview pins it.
+
+  - category: Scope
+    chose: "Documented the key in config/agentsmith.schema.json and as a comment in the example config"
+    over: "Shipping the model property alone"
+    reason: |
+      The phase's claim is that the word is the OPERATOR's to choose; a configurable word nobody
+      can find is not. Both edits are inert — the schema block has no additionalProperties:false
+      and the example line is commented out — so no deployment's behaviour moves. The config
+      studio's trigger form was left alone: it surfaces project_resolution only, and widening it
+      is a different phase's work.
