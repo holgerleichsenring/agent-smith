@@ -45,19 +45,23 @@ public static class TicketLabelNote
     public const string Heading = "## What these labels bind";
 
     /// <summary>
-    /// 2026-09-22-766b: ONE SENTENCE, because one label now does both jobs — it records that an
-    /// approved specification exists and it is what routes the ticket. What removal COSTS is
-    /// named, never that it is harmless: the guard fails open, and the routing half is the
-    /// MECHANISM rather than an outcome — with pipeline-from-label the resolver hard-binds on
-    /// the stamp; without it this project's own map may match, or a declared default pipeline
-    /// answers, or nothing does and the ticket is dropped. The sentence is true on all of them.
+    /// 2026-09-25-c1f7: A HINT, NOT A WARNING. The note warned what removing the label costs
+    /// because the label was load-bearing twice over: 2026-09-25-3c7aa moved the ROUTING bind onto
+    /// the server's approval record, and this phase moved DISCOVERY onto it as well — the poll
+    /// names an approved ticket by its id beside the label guard on the two trackers that filter
+    /// server-side, and the two that do not never read the guard at all. So the sentence now says
+    /// what the label is FOR, which is a person reading the board.
+    /// <para>
+    /// It stops short of "removing it is free". The approval record is what binds, and the note
+    /// says so; whether one particular deletion changes nothing also depends on how many
+    /// approvals that tracker has open at once, which is not a fact a ticket can carry.
+    /// </para>
     /// </summary>
     private static string StampSentence(string stamp) =>
-        "The `" + stamp + "` label says that an approved "
-        + "specification exists for this ticket, and it is what binds this ticket to phase "
-        + "execution. Removing it costs the ticket its one guard against a lost hand-off being "
-        + "re-derived from a description anyone can edit, and leaves it routed by this project's "
-        + "own rules, or dropped.";
+        "The `" + stamp + "` label marks this ticket as one an approved specification exists for, "
+        + "so a person scanning the board can see which tickets those are. It is a hint, not the "
+        + "binding: the approval the server recorded is what binds this ticket to phase execution, "
+        + "and it is what the poll and the routing both read.";
 
     /// <summary>
     /// The note for the labels a ticket is actually filed with, or null when it carries none the

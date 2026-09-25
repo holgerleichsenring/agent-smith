@@ -3,6 +3,7 @@ using System;
 using AgentSmith.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AgentSmith.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AgentSmithDbContext))]
-    partial class AgentSmithDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260925174315_AddApprovedSpecSetTicketId")]
+    partial class AddApprovedSpecSetTicketId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.17");
@@ -1256,49 +1259,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasIndex("Platform", "ThreadId");
 
                     b.ToTable("SpecDialogSessions");
-                });
-
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TakenTicket", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Pipeline")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Platform")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Project")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("State")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("TicketId")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Project", "TicketId")
-                        .IsUnique();
-
-                    b.ToTable("TakenTickets");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
