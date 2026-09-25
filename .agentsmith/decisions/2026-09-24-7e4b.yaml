@@ -1,0 +1,29 @@
+phase: 2026-09-24-7e4b
+decisions:
+  - what: "Announce the link that decided, at Information, for every link — not only the fallback."
+    alternatives:
+      - "Log only the generic fallback, since that is the one that misleads."
+    why: |
+      An operator debugging a wrong image today cannot tell four different outcomes apart: a
+      project override, a per-language override, a context image the registry policy REFUSED,
+      and a catalog hit. Only the refusal was logged. Naming the deciding link turns four
+      indistinguishable states into one readable sentence, and it costs one line per call.
+
+  - what: "Warn — not fail — when the chain falls through, and say what the image lacks."
+    alternatives:
+      - "Refuse to start a sandbox for an unrecognised language."
+    why: |
+      A toolchain-free container is still right for a checkout, a read-only analysis, or a
+      language this project has no catalog row for; refusing would break those. What was wrong
+      was the silence: the failure surfaced later as a command-not-found inside the sandbox,
+      where it reads as the run's problem rather than the image's. The warning names the
+      unrecognised language, the image, that it carries no language toolchain, the three places
+      an operator may name one, and the languages already known.
+
+  - what: "The message lists the known languages rather than pointing at documentation."
+    alternatives:
+      - "Name the catalog type and let the reader look it up."
+    why: |
+      The list is short, it is the answer to the operator's actual next question ('what should
+      I have written in stack.lang?'), and it is read off the table itself — so a row added
+      later appears in the message without anyone remembering to update it.
