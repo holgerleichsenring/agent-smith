@@ -6,7 +6,7 @@ namespace AgentSmith.PipelineHarness.Composition;
 
 /// <summary>
 /// p0199b operator-facing entry point for the docker-tier flow. p0199c
-/// extended it from the original fix-bug-only gate to the full nine-preset
+/// extended it from the original bug-fix-only gate to the full nine-preset
 /// matrix; p0199f closes out api-security-scan via the passive-mode default
 /// (no source checkout, Kestrel mini-server target). Prints readable
 /// single-line summaries: container lifecycle, pipeline result, WIP-branch
@@ -67,7 +67,9 @@ internal static class DockerPresetRunner
             FixturePaths.For(layout.ConfigYml), SandboxBackend.Docker, session,
             ResolveSkillsBackend(preset),
             PresetDeferrals.ComposeOverrides(preset));
-        DockerPresetScripts.Seed(preset, harness.ChatClient);
+        // The operator names a PRESET on the command line, so the scenario is the one
+        // that preset defaults to; a suite that wants another one names its script.
+        DockerPresetScripts.DefaultFor(preset)(harness.ChatClient);
 
         var runner = BuildRunner(harness, session, layout, apiTarget);
         var result = await runner.RunAsync(preset);

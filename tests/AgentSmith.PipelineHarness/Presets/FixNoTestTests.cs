@@ -4,8 +4,9 @@ using FluentAssertions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0199 fast-tier fix-no-test coverage. Same shape as fix-bug minus the
-/// Test step. The master writes a file; harness asserts the preset runs
+/// p0199 fast-tier coverage for the fix-without-tests scenario: the same shape as
+/// fixing a bug, minus the Test step. It runs the `code` preset like every other
+/// coding scenario. The master writes a file; the harness asserts the preset runs
 /// end-to-end through the real composition.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -20,13 +21,13 @@ public sealed class FixNoTestTests
         // hardens the fast tier to close that gap.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         harness.ChatClient
-            // p0393: fix-no-test was the preset WITHOUT expectation negotiation; it now
+            // p0393: this scenario was the preset WITHOUT expectation negotiation; it now
             // runs `code`, which keeps that step until p0393a gives every run a spec.
             .EnqueueToolCall("write_file", """{"path":"primary/src/Quick.cs","content":"// quick fix"}""")
             .EnqueueText("Done.");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-no-test");
+        var result = await runner.RunAsync("code");
 
         result.Should().NotBeNull("the pipeline must run to a terminal result, not throw");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
@@ -37,7 +38,7 @@ public sealed class FixNoTestTests
     [Fact]
     public async Task FixNoTest_MasterReturnsZeroChanges_FailsKeystone()
     {
-        // p0241: fix-no-test skips the test gate, but it is still a code-changing
+        // p0241: this scenario skips the test gate, but it still runs a code-changing
         // preset — a run that ships nothing is a failure, not a hollow success.
         await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default));
         harness.ChatClient
@@ -47,7 +48,7 @@ public sealed class FixNoTestTests
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-no-test");
+        var result = await runner.RunAsync("code");
 
         // p0421: delivery is judged by the RATIFIED criteria, and this run ratified none
         // — its scripted derivation returns "{}". A gate that failed it anyway would be

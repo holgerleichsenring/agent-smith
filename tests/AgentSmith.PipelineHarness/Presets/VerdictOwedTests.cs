@@ -34,7 +34,7 @@ public sealed class VerdictOwedTests
             harness.ChatClient.EnqueueToolCall("read_file", $$$"""{"path":"{{{ReadPath}}}"}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         ReadsOfThePatch(harness).Should().Be(
             2 * Allowance,
@@ -61,7 +61,7 @@ public sealed class VerdictOwedTests
             """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         harness.ChatClient.CallMessages.Should().Contain(
             call => call.Count > 2

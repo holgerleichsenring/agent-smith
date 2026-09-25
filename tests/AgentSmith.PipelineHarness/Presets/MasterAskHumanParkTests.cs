@@ -13,8 +13,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// p0391 fast-tier proof that the master's way OUT actually works on the ticket-triggered
 /// CODE presets, through the real composition.
 ///
-/// Before this phase ask_human resolved to <c>HumanToolHost</c> on fix-bug / add-feature /
-/// fix-no-test. That host needs a dialogue transport AND a job id, and
+/// Before this phase ask_human resolved to <c>HumanToolHost</c> on every coding preset
+/// there then was. That host needs a dialogue transport AND a job id, and
 /// <c>ContextKeys.DialogueJobId</c> is set in exactly one place in the codebase
 /// (SpecDialogTurnRunner) — so a ticket-triggered coding run never had one and the tool
 /// answered the literal string "Error: Dialogue transport not configured.", while the deployed
@@ -41,7 +41,7 @@ public sealed class MasterAskHumanParkTests
             .EnqueueText("Waiting for the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue("a clarification park is an incomplete run, not a failure");
         result.Message.Should().Contain("awaiting_user_input");
@@ -72,7 +72,7 @@ public sealed class MasterAskHumanParkTests
             .EnqueueText("Parked on the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
-        var result = await runner.RunAsync("add-feature");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue($"a clarification park is an incomplete run, not a failure: {result.Message}");
         result.Message.Should().Contain("awaiting_user_input");
@@ -81,7 +81,7 @@ public sealed class MasterAskHumanParkTests
         park.Status.Should().Be("Question");
         park.Comment.Should().Contain("Which export format is authoritative, CSV or XLSX?");
 
-        // The run ENDS: a parked add-feature ships nothing — no generated tests, no docs, no PR.
+        // The run ENDS: a parked feature run ships nothing — no generated tests, no docs, no PR.
         harness.StubSandboxFactory!.Spawned
             .SelectMany(s => s.Sandbox.RanSteps)
             .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
