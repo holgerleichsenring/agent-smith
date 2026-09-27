@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.150.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.3...v0.150.0) (2026-09-27)
+
+
+### Features
+
+* a design conversation may belong to a ticket, and a ticket has one (2026-09-25-8e51b) ([8cc756e](https://github.com/holgerleichsenring/agent-smith/commit/8cc756ecfcc56b9d39c49174daf636b0de7beaa0))
+* a ticket conversation shows the runs that worked its ticket, filed by it or not (2026-09-25-c4a6) ([e68e43e](https://github.com/holgerleichsenring/agent-smith/commit/e68e43e58fd698f6d15e11c327776196bd3f9e16))
+* a ticket conversation shows the specification a person approved for its ticket (2026-09-25-8e51d) ([7d24a9a](https://github.com/holgerleichsenring/agent-smith/commit/7d24a9ad42cdb7ec7565f0e622f3b7ccd34e5d2f))
+* a ticket names the project its conversation is grounded on (2026-09-25-8e51a) ([f83554c](https://github.com/holgerleichsenring/agent-smith/commit/f83554c409779b745ef89e3eb5a4322b3f997734))
+* an approved amendment leaves the ticket saying what the approved specification says (2026-09-25-8e51e) ([8b36b40](https://github.com/holgerleichsenring/agent-smith/commit/8b36b40a337b99f8280623b1c56992bdc51a721f))
+* the routing form offers the pipelines that exist (2026-09-25-3c7ad) ([1a7b7d9](https://github.com/holgerleichsenring/agent-smith/commit/1a7b7d9bba4b8bcec7af3565d71edff6955b3162))
+* the ticket a conversation belongs to reaches every turn as its requirement (2026-09-25-8e51c) ([019ba02](https://github.com/holgerleichsenring/agent-smith/commit/019ba027033aa14863c201cd669e3941d0c42910))
+* the word that asks for a review from a pull request is the operator's (2026-09-25-d83b) ([50ccab6](https://github.com/holgerleichsenring/agent-smith/commit/50ccab68a07627b2e8e58da7a144c0330d95431e))
+* Work it out can start from a ticket — the conversation a ticket has (2026-09-25-8e51 series) ([e102d01](https://github.com/holgerleichsenring/agent-smith/commit/e102d01ec9f356aa542a3bbd878447428b83abad))
+
+
+### Bug Fixes
+
+* a board write the tracker refuses stops deciding whether a run may proceed (2026-09-25-3c7ab) ([307204f](https://github.com/holgerleichsenring/agent-smith/commit/307204f898bb37443f4626b1bffa0efe533e3bde))
+* a framework label named like an operator's own routing word is refused where it is typed (2026-09-25-f6c2) ([170800d](https://github.com/holgerleichsenring/agent-smith/commit/170800dda6408c7ed1aa16e88b195c384f89fe5c))
+* the approval record binds a ticket, not the label that said so (2026-09-25-3c7aa) ([207a401](https://github.com/holgerleichsenring/agent-smith/commit/207a401784135f2809d1dea67b3aa0924e14a338))
+* the board is display, the database is truth — labels lose their authority (2026-09-25-3c7a series) ([e73bd8e](https://github.com/holgerleichsenring/agent-smith/commit/e73bd8ef929f4624d8daad43954bd7c6db2798b7))
+* the eight labels the framework writes take their names from the tracker (2026-09-25-3c7ac) ([39feb35](https://github.com/holgerleichsenring/agent-smith/commit/39feb3537d1233fbaff8fd4061bb38b620c8895e))
+* the pipeline-name test asks what the handler owes, not what the catalog says ([dbd8be9](https://github.com/holgerleichsenring/agent-smith/commit/dbd8be98bee500edd1c2677b202ff580385d86d8))
+* the poll finds a ticket whose approval stamp was deleted (2026-09-25-c1f7) ([ed2ee0a](https://github.com/holgerleichsenring/agent-smith/commit/ed2ee0ac361022cd6789512a520759cd72ba0c9a))
+* the record that a ticket was taken up outlives the reaper (2026-09-25-b4d9) ([76ac73a](https://github.com/holgerleichsenring/agent-smith/commit/76ac73ad248fe8e74933a2b98366a047d34f1ea9))
+
 ## [0.149.3](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.2...v0.149.3) (2026-09-25)
 
 
