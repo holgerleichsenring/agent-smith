@@ -76,7 +76,7 @@ export function DialogTicketSearch({
           setFound(read.found);
           setMore(read.moreHeldBack);
           setUnsearchable(read.unsearchable);
-          setUnreachable(read.unreachable ?? []);
+          setUnreachable(read.unreachable);
           setFailed(false);
         })
         .catch(() => {
