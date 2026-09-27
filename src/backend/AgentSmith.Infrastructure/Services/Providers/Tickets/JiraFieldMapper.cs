@@ -26,11 +26,21 @@ public sealed class JiraFieldMapper : ITicketFieldMapper<JsonElement>
             "Jira",
             ReadStringArray(fields, "labels"),
             ReadPerson(fields, "assignee"),
-            ReadPerson(fields, "reporter"));
+            ReadPerson(fields, "reporter"),
+            // 2026-09-27-481bf: the project's own word for it — "Bug", "Story", anything an
+            // administrator named. Absent when the fetch did not ask for the field.
+            ReadNested(fields, "issuetype", "name"));
     }
 
     // p0454: accountId, not name — the pre-GDPR [~username] mention form no longer
     // resolves on Jira Cloud, so a person without an accountId cannot be reached.
+    private static string? ReadNested(JsonElement fields, string name, string inner) =>
+        fields.ValueKind != JsonValueKind.Undefined
+        && fields.TryGetProperty(name, out var held) && held.ValueKind == JsonValueKind.Object
+        && held.TryGetProperty(inner, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+
     private static TicketPerson? ReadPerson(JsonElement fields, string name) =>
         fields.ValueKind != JsonValueKind.Undefined
             && fields.TryGetProperty(name, out var person)

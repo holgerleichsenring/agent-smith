@@ -62,7 +62,8 @@ public sealed class TicketSearchAcrossTrackers(
             {
                 if (found.Any(held => held.Tracker == tracker.Name && held.TicketId == hit.Id.Value))
                     continue;
-                found.Add(new TicketSearchFound(hit.Id.Value, hit.Title, tracker.Name, routed));
+                found.Add(new TicketSearchFound(
+                    hit.Id.Value, hit.Title, tracker.Name, routed, Kind: hit.Kind));
             }
         }
 

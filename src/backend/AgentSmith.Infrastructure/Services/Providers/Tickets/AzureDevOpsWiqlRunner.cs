@@ -25,6 +25,9 @@ internal sealed class AzureDevOpsWiqlRunner(
 {
     private static readonly string[] StandardFields =
         ["System.Id", "System.Title", "System.Description",
+         // 2026-09-27-481bf: what the process template calls this item. The WIQL SELECT asks only
+         // for ids; this list is what the hydration fetches, and it serves the poll lister too.
+         "System.WorkItemType",
          "System.State", "System.Tags", "Microsoft.VSTS.Common.AcceptanceCriteria",
          // p0318: a Bug's body lives here, not System.Description — hydrate it on the
          // list/poll path too (not just the single GetWorkItem fetch) so AzureDevOpsFieldMapper

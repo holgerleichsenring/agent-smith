@@ -25,7 +25,7 @@ internal sealed class JiraIssueSearcher(
     JiraTicketConnection connection, ILogger logger)
 {
     private static readonly string[] StandardFields =
-        ["summary", "description", "status", "labels"];
+        ["summary", "description", "status", "labels", "issuetype"];
 
     private const int PageSize = 100;
     private const int MaxPages = 10;   // safety cap → 1000 tickets per query

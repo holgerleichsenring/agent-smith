@@ -25,6 +25,25 @@ const DEBOUNCE_MS = 300;
  *  silent: the page would ask and be refused. */
 export const TICKET_SEARCH_MINIMUM = 3;
 
+// 2026-09-27-481bf: an icon only where every tracker means the same thing by the word; everything
+// else keeps the word with no mark, because Azure DevOps process templates and Jira projects both
+// define their own types and a fixed set over an open vocabulary either mislabels or shows nothing.
+const KIND_ICON: Record<string, string> = {
+  bug: "\u{1F41E}",
+  task: "\u2713",
+  epic: "\u25C6",
+};
+
+function TicketKind({ kind }: { kind: string }) {
+  const icon = KIND_ICON[kind.trim().toLowerCase()];
+  return (
+    <span data-testid={`dialog-ticket-kind-${kind.trim().toLowerCase()}`} className="ec-sub">
+      {icon ? `${icon} ` : ""}
+      {kind}
+    </span>
+  );
+}
+
 export function DialogTicketSearch({
   minimum = TICKET_SEARCH_MINIMUM,
   stranded = false,
@@ -104,6 +123,7 @@ export function DialogTicketSearch({
       {picked ? (
         <p data-testid="dialog-ticket-picked" className="ec-marks ec-sub items-center">
           <span className="ec-mark filed">{picked.ticketId}</span>
+          {picked.kind && <TicketKind kind={picked.kind} />}
           <span className="min-w-0 truncate text-ink">{picked.title}</span>
           <span>on {picked.tracker}</span>
           {stranded && (
@@ -167,6 +187,7 @@ export function DialogTicketSearch({
                 <span className="line-clamp-2 dsh-body font-medium text-ink">{hit.title}</span>
                 <span className="ec-marks ec-sub items-center">
                   <span className="ec-mark given">{hit.ticketId}</span>
+                  {hit.kind && <TicketKind kind={hit.kind} />}
                   {/* 2026-09-27-481bb: the number that was typed, rather than a ticket whose text
                       merely mentions it — it was already first, and now it says so. */}
                   {hit.exact && (

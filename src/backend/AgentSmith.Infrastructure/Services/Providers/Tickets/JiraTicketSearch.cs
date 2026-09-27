@@ -46,10 +46,10 @@ public sealed class JiraTicketSearch(
             logger.LogDebug("Jira ticket search: jql=[{Jql}] maxResults={Max}", jql, limit + 1);
             using var doc = await _http.SendForJsonOrThrowAsync(
                 HttpMethod.Post, url,
-                new { jql, fields = new[] { "summary" }, maxResults = limit + 1 },
+                new { jql, fields = new[] { "summary", "issuetype" }, maxResults = limit + 1 },
                 cancellationToken);
             var hits = mapper.MapSearchResponse(doc.RootElement)
-                .Select(t => new TicketSearchHit(t.Id, t.Title));
+                .Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind));
             return TicketSearchResult.Of(hits, limit);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
