@@ -14,6 +14,8 @@ public sealed class InMemorySpecApprovalStore : ISpecApprovalStore
 {
     private readonly ConcurrentDictionary<string, SpecApprovalRecord> _records = new(StringComparer.Ordinal);
 
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _satisfied = new(StringComparer.Ordinal);
+
     public Task<SpecApprovalRecord?> GetAsync(string tracker, string key, CancellationToken cancellationToken) =>
         Task.FromResult(_records.TryGetValue(Id(tracker, key), out var record) ? record : null);
 
@@ -21,6 +23,37 @@ public sealed class InMemorySpecApprovalStore : ISpecApprovalStore
     {
         ArgumentNullException.ThrowIfNull(record);
         _records[Id(record.Tracker, record.Key)] = record;
+        // 2026-09-25-c1f7: a second approval is new work on the same ticket — it goes back to
+        // outstanding, the same rule the relational row follows.
+        _satisfied.TryRemove(Id(record.Tracker, record.Key), out _);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 2026-09-25-c1f7: oldest first, by the approval instant the record carries — this store has
+    /// no row id to sort on, which is what the relational one uses because SQLite cannot order by
+    /// a DateTimeOffset. The two agree except on a re-approved record. A record with no ticket id
+    /// cannot be named in a tracker query and is skipped.
+    /// </summary>
+    public Task<OutstandingApprovals> ListOutstandingAsync(
+        string tracker, int limit, CancellationToken cancellationToken)
+    {
+        if (limit <= 0) return Task.FromResult(OutstandingApprovals.None);
+        var outstanding = _records.Values
+            .Where(r => string.Equals(r.Tracker, tracker, StringComparison.Ordinal))
+            .Where(r => !string.IsNullOrWhiteSpace(r.TicketId))
+            .Where(r => !_satisfied.ContainsKey(Id(r.Tracker, r.Key)))
+            .OrderBy(r => r.Approval?.At ?? DateTimeOffset.MinValue)
+            .Select(r => r.TicketId)
+            .ToList();
+        return Task.FromResult(new OutstandingApprovals(
+            [.. outstanding.Take(limit)], Math.Max(0, outstanding.Count - limit)));
+    }
+
+    public Task MarkSatisfiedAsync(
+        string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        if (_records.ContainsKey(Id(tracker, key))) _satisfied[Id(tracker, key)] = at;
         return Task.CompletedTask;
     }
 

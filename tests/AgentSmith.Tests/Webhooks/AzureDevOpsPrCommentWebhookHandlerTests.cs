@@ -51,7 +51,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("pr:MyProject/my-api#58");
     }
 
@@ -82,7 +82,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("#77");
         result.TriggerInput.Should().Contain("pr:MyProject/my-api#58");
     }

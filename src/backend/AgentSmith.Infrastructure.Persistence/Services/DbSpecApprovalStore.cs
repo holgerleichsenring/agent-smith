@@ -26,4 +26,20 @@ public sealed class DbSpecApprovalStore(IServiceScopeFactory scopeFactory) : ISp
         await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
             .SaveAsync(record, cancellationToken);
     }
+
+    public async Task<OutstandingApprovals> ListOutstandingAsync(
+        string tracker, int limit, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+            .ListOutstandingAsync(tracker, limit, cancellationToken);
+    }
+
+    public async Task MarkSatisfiedAsync(
+        string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+            .MarkSatisfiedAsync(tracker, key, at, cancellationToken);
+    }
 }

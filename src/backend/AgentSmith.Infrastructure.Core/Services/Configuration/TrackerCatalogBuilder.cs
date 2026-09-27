@@ -43,6 +43,7 @@ public sealed class TrackerCatalogBuilder
                 ZeroMatchComment = entry.ZeroMatchComment,
                 Polling = MapPolling(entry.Polling),
                 LifecycleStatusNames = entry.LifecycleStatusNames ?? new Dictionary<string, string>(),
+                LabelNames = entry.LabelNames ?? new Dictionary<string, string>(),
                 ParentLinkType = entry.ParentLinkType,
                 WorkItemKinds = entry.WorkItemKinds ?? new Dictionary<string, string>(),
             };

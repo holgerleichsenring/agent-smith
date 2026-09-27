@@ -21,7 +21,7 @@ projects:
     agent: claude-default
     tracker: test-ado
     repos: [test-repo]
-    pipeline: fix-bug
+    pipeline: code
     coding_principles_path: ./config/principles.md
 
 secrets:

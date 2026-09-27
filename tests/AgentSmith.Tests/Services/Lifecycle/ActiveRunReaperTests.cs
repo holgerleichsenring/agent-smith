@@ -26,7 +26,9 @@ public sealed class ActiveRunReaperTests
     private readonly MonotonicFakeTimeProvider _clock = new();
 
     private ActiveRunReaper NewReaper() => new(
-        _lease.Object, _registry.Object, _events.Object, _clock, NullLogger<ActiveRunReaper>.Instance);
+        _lease.Object, _registry.Object,
+        TestSupport.StaleLeaseReleases.For(_lease.Object, _registry.Object, _events.Object, _clock),
+        _clock, NullLogger<ActiveRunReaper>.Instance);
 
     private readonly ScanCounter _scans = new();
 

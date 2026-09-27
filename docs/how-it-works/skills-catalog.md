@@ -104,7 +104,7 @@ The `skill-manager` pipeline (in [Reference](../reference/pipelines/skill-manage
 | Lives in the framework | Lives in the skills catalog |
 |---|---|
 | The orchestrator + sandbox-agent binaries | The skill definitions (`SKILL.md` files) |
-| The pipeline presets (`fix-bug`, `add-feature`, …) | The role prompts (`as_lead`, `as_reviewer`, …) |
+| The pipeline presets (`code`, `security-scan`, …) | The role prompts (`as_lead`, `as_reviewer`, …) |
 | The agent tools (`read_file`, `edit`, `grep_in_tree`, `web_fetch`, …) | The activation expressions per skill |
 | The concept-type system | The concept vocabulary (`project_language`, `pipeline`, …) |
 | The plan / review / verify / final phase machinery | Which skills run in which phase |

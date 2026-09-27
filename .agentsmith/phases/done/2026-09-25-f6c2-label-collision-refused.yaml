@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-f6c2
+requires: ["2026-09-25-3c7ac"]
+goal: "A framework label named like one of the operator's own routing words is refused where it is typed, because the two silently overrule each other in three different ways."
+
+applies_to: "backend (the configuration draft rules and the config studio's validation)"
+
+scope:
+  in: "Refusing a configured framework label name that equals an operator routing word — a tracker's or a project's pipeline-from-label key, or a project's resolution value — on the tracker upsert AND on the project upsert, since either side can create the collision."
+  out: "The vocabulary itself (3c7ac). Also out: the framework's own precedence, which stays as it is; this refuses the configuration rather than changing what routing does with it."
+
+decisions:
+  - key: |
+      THE COLLISION DOES NOT PRODUCE TWO ANSWERS; IT PRODUCES ONE WRONG ONE, THREE DIFFERENT WAYS, AND
+      EACH IS SILENT. A ticket binding to phase execution short-circuits before the operator's map is ever
+      consulted, so their key never runs. The pipeline resolver STRIPS lifecycle words from the labels it
+      matches on, so an operator key equal to one of them can never satisfy their own map — the key simply
+      stops existing. And a project whose resolution value equals a framework word matches every
+      framework-labelled ticket on that tracker. Naming the mechanism matters, because it decides which
+      fields the refusal has to cover.
+  - key: |
+      NO EXISTING UPSERT SEES BOTH SIDES, WHICH IS WHY THIS IS ITS OWN PHASE. The tracker validation sees
+      one tracker entity and the project validation sees one project; the routing words live on both, and
+      a project changed later can create a collision a tracker upsert already passed. So the check belongs
+      where a rule is given the whole catalog, and it must fire from both doors.
+  - key: |
+      IT REFUSES RATHER THAN WARNS, BECAUSE THE FAILURE IS INVISIBLE AT RUNTIME. None of the three
+      mechanisms logs anything an operator would find: a key that stops existing looks exactly like a
+      ticket nobody labelled. A configuration that cannot be diagnosed afterwards is one that must not be
+      accepted.
+
+steps:
+  - id: the-rule-sees-the-whole-catalog
+    path: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration"
+    action:
+      - "Express the collision as a draft rule given the whole catalog, covering a tracker's and a project's pipeline-from-label keys and a project's resolution value."
+
+  - id: both-doors-fire-it
+    path: "src/backend/AgentSmith.Contracts/Services"
+    action:
+      - "Run the rule on the tracker upsert and on the project upsert, so a collision created from either side is refused."
+
+  - id: the-refusal-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert each of the three collision shapes is refused from both doors, and that a non-colliding vocabulary passes."
+
+tests:
+  - "Collision_AVocabularyNameEqualToATrackersRoutingKey_IsRefused"
+  - "Collision_AVocabularyNameEqualToAProjectsRoutingKey_IsRefused"
+  - "Collision_AVocabularyNameEqualToAProjectsResolutionValue_IsRefused"
+  - "Collision_AProjectUpsertCreatingTheCollisionLater_IsRefused"
+  - "Collision_ADistinctVocabulary_PassesBothDoors"
+
+done:
+  - "a framework label name equal to an operator routing word is refused from either upsert"
+  - "the refusal names which routing word it collided with"
+  - "a configuration with distinct names is accepted unchanged"
+  - "build green, full suite green"

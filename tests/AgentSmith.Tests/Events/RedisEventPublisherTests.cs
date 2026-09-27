@@ -29,7 +29,7 @@ public sealed class RedisEventPublisherTests
     public async Task PublishRunStarted_AppendsToPerRunStreamAndAddsToActiveSet()
     {
         var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
-        var ev = new RunStartedEvent("run-1", "ticket", "fix-bug",
+        var ev = new RunStartedEvent("run-1", "ticket", "code",
             new[] { "repo" }, DateTimeOffset.UtcNow);
 
         await sut.PublishAsync(ev);

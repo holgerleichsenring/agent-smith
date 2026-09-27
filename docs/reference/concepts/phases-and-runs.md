@@ -203,7 +203,7 @@ Real numbers from actual pipeline runs. Costs depend on model choice, codebase s
 |---|---|---|---|---|
 | security-scan | 9 | $0.35 | 52k / 13k | 16 confirmed findings |
 | api-scan | ~12 | ~$0.45 | ~60k / 15k | SARIF + findings report |
-| fix-bug | 8--12 | $0.07--0.40 | varies | PR with code change |
+| code | 8--12 | $0.07--0.40 | varies | PR with code change |
 | legal-analysis | ~6 | ~$0.25 | ~35k / 10k | German legal analysis |
 | mad-discussion | ~15 | ~$0.55 | ~80k / 20k | Discussion document + PR |
 

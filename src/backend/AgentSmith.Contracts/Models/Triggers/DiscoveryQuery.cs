@@ -18,4 +18,18 @@ public sealed record DiscoveryQuery(
     /// empty = no guard (broad). Populated by <c>TrackerDiscoveryQueryBuilder</c>.
     /// </summary>
     public IReadOnlyList<string> TriggerLabels { get; init; } = [];
+
+    /// <summary>
+    /// 2026-09-25-c1f7: the tracker's own ids of tickets an approved record still expects work
+    /// on. They are OR'd with the WHOLE rest of the query, never added to
+    /// <see cref="TriggerLabels"/>: the label guard is AND-ed onto the routing clause, so a list
+    /// that must ADMIT what the guard excludes cannot live inside it. A ticket whose stamp
+    /// somebody deleted is fetched because of this and nothing else.
+    /// <para>
+    /// Only providers that filter SERVER-SIDE read it — Jira and Azure DevOps. GitHub and GitLab
+    /// narrow by the branch tag or list open issues and never read the label guard either, so
+    /// there is nothing there for this to widen.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<string> ApprovedTicketIds { get; init; } = [];
 }

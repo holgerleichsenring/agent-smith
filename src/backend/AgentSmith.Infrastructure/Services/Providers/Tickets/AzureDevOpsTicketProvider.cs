@@ -14,10 +14,8 @@ using Microsoft.VisualStudio.Services.WebApi.Patch.Json;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>
-/// Thin Azure DevOps WorkItemTracking orchestrator. Field mapping in <see cref="AzureDevOpsFieldMapper"/>;
-/// cached VssConnection in <see cref="AzureDevOpsConnectionCache"/>; WIQL in <see cref="AzureDevOpsWorkItemLister"/>.
-/// </summary>
+/// <summary>Thin Azure DevOps WorkItemTracking orchestrator: field mapping in
+/// <see cref="AzureDevOpsFieldMapper"/>, connection in <see cref="AzureDevOpsConnectionCache"/>.</summary>
 public sealed class AzureDevOpsTicketProvider : ITicketProvider
 {
     private readonly string _project;
@@ -27,6 +25,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly AzureDevOpsFieldMapper _mapper;
     private readonly AzureDevOpsCommentMapper _commentMapper = new();
     private readonly AzureDevOpsConnectionCache _connections;
+    private readonly TicketLabelVocabulary _labels;
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
     private readonly TrackerParentLink _parentLink;
@@ -46,6 +45,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     {
         _project = connection.Project;
         _organizationUrl = connection.OrganizationUrl;
+        _labels = connection.ResolvedLabels;
         _doneStatus = doneStatus ?? "Closed";
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
@@ -103,7 +103,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken) =>
         _lister.ListAsync(
-            $"[System.Tags] CONTAINS '{LifecycleLabels.For(status)}'", $"lifecycle={status}", cancellationToken);
+            $"[System.Tags] CONTAINS '{_labels.For(status)}'", $"lifecycle={status}", cancellationToken);
 
     public Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(
         TicketId ticketId, CancellationToken cancellationToken)

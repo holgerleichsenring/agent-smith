@@ -81,7 +81,7 @@ public sealed class MasterReengagementContinuityTests
     {
         var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var context = MasterHandlerFixture.BuildContext("coding-agent-master");
-        context.Pipeline.Set(ContextKeys.PipelineName, "add-feature");
+        context.Pipeline.Set(ContextKeys.PipelineName, "code");
         const string yaml = """
             phase: p1
             goal: migrate the consumer registration

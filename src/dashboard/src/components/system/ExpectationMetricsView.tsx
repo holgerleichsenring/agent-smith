@@ -59,7 +59,7 @@ function EmptyCriteria() {
         ✓
       </div>
       No ratification outcomes recorded yet. Expectation negotiation writes one outcome
-      per fix-bug / add-feature run — metrics appear after the first negotiated run
+      per code run — metrics appear after the first negotiated run
       completes.
     </div>
   );

@@ -29,7 +29,7 @@ public sealed class ReplayedRunTests
             "every provider call is its own entry — analyzer, derivation and each tool round");
 
         await using var replay = ReplayedRun.Of(recorded);
-        var result = await replay.Runner.RunAsync("fix-bug");
+        var result = await replay.Runner.RunAsync("code");
 
         result.Should().NotBeNull("the replayed run must reach a terminal result");
         replay.Client.Served.Should().Be(recorded.Answers.Count,
@@ -52,7 +52,7 @@ public sealed class ReplayedRunTests
             "the committed scenario must still carry the shape that ended run 27");
 
         await using var replay = ReplayedRun.Of(trace);
-        var result = await replay.Runner.RunAsync("fix-bug");
+        var result = await replay.Runner.RunAsync("code");
 
         result.Should().NotBeNull(
             "before p0426 this recording ended the run at the parse boundary; it must now finish");
@@ -86,7 +86,7 @@ public sealed class ReplayedRunTests
         var cut = RecordedTrace.Of(complete.Entries.Take(2));
 
         await using var replay = ReplayedRun.Of(cut);
-        var result = await replay.Runner.RunAsync("fix-bug");
+        var result = await replay.Runner.RunAsync("code");
 
         result.IsSuccess.Should().BeFalse(
             "a run whose recording stops mid-flight cannot be reported as a success");
@@ -108,7 +108,7 @@ public sealed class ReplayedRunTests
             .EnqueueText(GreenVerdict);
 
         var runner = new PipelineRunner(harness.Services);
-        await runner.RunAsync("fix-bug");
+        await runner.RunAsync("code");
 
         var trace = await TracedHarness.ReadAsync(harness.Services, runner.LastRunId!);
         await RecordedRunFixtures.ExportIfRequestedAsync(trace);

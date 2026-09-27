@@ -58,7 +58,7 @@ Defines all interfaces, commands, DTOs, and configuration models. This is the "c
 | `ICommandContext` | Base context passed through the pipeline |
 | `PipelineContext` | Shared state bag for the entire pipeline run |
 | `CommandNames` | Constants for all command names |
-| `PipelinePresets` | Pipeline step definitions (fix-bug, security-scan, etc.) |
+| `PipelinePresets` | Pipeline step definitions (code, security-scan, etc.) |
 
 ### Provider Interfaces
 

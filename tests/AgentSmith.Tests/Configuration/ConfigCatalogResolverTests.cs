@@ -34,13 +34,13 @@ public sealed class ConfigCatalogResolverTests : IDisposable
             trackers:
               demo: { type: GitHub, url: https://github.com/x/y, auth: token }
             pipeline_triggers:
-              bug: fix-bug
+              bug: code
             projects:
               demo:
                 agent: claude
                 tracker: demo
                 repos: [demo]
-                pipeline: fix-bug
+                pipeline: code
             secrets: {}
             """);
 
@@ -174,12 +174,12 @@ public sealed class ConfigCatalogResolverTests : IDisposable
                 tracker: t
                 repos: [r]
                 pipelines:
-                  - { name: fix-bug, agent: big, skills_path: skills/heavy }
+                  - { name: code, agent: big, skills_path: skills/heavy }
             """);
 
         var config = Load();
 
-        var pipeline = config.Projects["demo"].Pipelines.Single(p => p.Name == "fix-bug");
+        var pipeline = config.Projects["demo"].Pipelines.Single(p => p.Name == "code");
         pipeline.AgentName.Should().Be("big");
         pipeline.Agent.Should().NotBeNull();
         pipeline.Agent!.Model.Should().Be("claude-opus-4-7");
@@ -202,12 +202,12 @@ public sealed class ConfigCatalogResolverTests : IDisposable
                 tracker: t
                 repos: [r]
                 pipelines:
-                  - { name: fix-bug, agent: ghost-agent }
+                  - { name: code, agent: ghost-agent }
             """);
 
         var act = () => Load();
         act.Should().Throw<ConfigurationException>()
-            .WithMessage("*pipeline 'fix-bug' references agent 'ghost-agent'*");
+            .WithMessage("*pipeline 'code' references agent 'ghost-agent'*");
     }
 
     private void Write(string yaml) => File.WriteAllText(_tempFile, yaml);

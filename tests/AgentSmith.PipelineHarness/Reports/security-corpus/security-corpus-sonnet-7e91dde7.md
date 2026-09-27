@@ -4,7 +4,7 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-23T22:53:43.2494580+00:00
+- generated: 2026-09-27T15:41:07.2677760+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
@@ -16,15 +16,15 @@ Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [High]: src/orders/orderLookup.ts:7: SQL built by string concatenation of req.params.id — "SELECT … WHERE id = '" + orderId + "'" is a textbook SQL injection sink. (on the declared line)
+  - found [High]: src/orders/orderLookup.ts:7: SQL query built by string-concatenating req.params.id — SQL injection (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [Critical]: src/admin/memberAdmin.ts:16: removeMember performs no authorization check — requireAdmin is called in listMembers (line 6) and suspendMember (line 11) but is absent from removeMember, letting any caller delete any member.
+  - found [High]: src/admin/memberAdmin.ts:16: removeMember omits the requireAdmin() check present on every other admin handler
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9: Path traversal — join(STORAGE_ROOT, name) is called with caller-supplied name without containment check, allowing reads of arbitrary server files via ../../ sequences. (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9: path built with join() but not resolved/contained — path traversal (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [High]: src/auth/loginRedirect.ts:6: Open redirect — next parameter is taken verbatim from the query string and passed to res.redirect() with no allowlist validation, enabling phishing redirects after login.
+  - found [Medium]: src/auth/loginRedirect.ts:6: open redirect — req.query.next is reflected into res.redirect() without validation
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: eval() executes raw job payload text — eval('(' + raw + ')') runs arbitrary JavaScript from the job record, enabling remote code execution if any queue producer is compromised or attacker-controlled. (on the declared line)
+  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on untrusted job payload — arbitrary code execution (on the declared line)
 - [x] src/reports/reportLookup.ts (sql-injection, clean)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)

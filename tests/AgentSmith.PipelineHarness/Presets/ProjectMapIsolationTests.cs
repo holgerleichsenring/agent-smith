@@ -32,7 +32,7 @@ public sealed class ProjectMapIsolationTests
                 .EnqueueText("{}")
                 .EnqueueText(SpecDerivationFixture.DerivationJson)
                 .EnqueueText("No changes needed.");
-            await new PipelineRunner(poisoner.Services).RunAsync("fix-bug");
+            await new PipelineRunner(poisoner.Services).RunAsync("code");
         }
 
         // Harness 2 stubs the analyzer with a csharp map carrying `dotnet build`. Its
@@ -46,7 +46,7 @@ public sealed class ProjectMapIsolationTests
             .EnqueueToolCall("update_progress", """{"items":[{"id":"guard","activity":"Answer an empty request body with 400","status":"done"}]}""")
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
-        var result = await new PipelineRunner(harness.Services).RunAsync("fix-bug");
+        var result = await new PipelineRunner(harness.Services).RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(
             $"the second harness must verify against its OWN analyzer's map, not the first "

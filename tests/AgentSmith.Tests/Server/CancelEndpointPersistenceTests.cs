@@ -132,7 +132,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "42",
             Status = "running", StartedAt = DateTimeOffset.UtcNow, JobId = jobId,
         });
         await ctx.SaveChangesAsync();

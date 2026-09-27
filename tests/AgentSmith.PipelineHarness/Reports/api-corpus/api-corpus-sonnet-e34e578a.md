@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-23T22:54:43.3097710+00:00
+- generated: 2026-09-27T15:47:05.6064000+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [Medium]: GET /members/{id}: no authentication required — endpoint returns Member object including sensitive fields role and contactEmail without any bearer token
+  - found [High]: GET /members/{id}: no security scheme declared — any unauthenticated caller can read a member record including the sensitive fields role and contactEmail
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [Medium]: GET /orders: BOLA — client-supplied memberId query parameter allows an authenticated caller to list any member's orders
+  - found [Medium]: GET /orders: BOLA — memberId query parameter is caller-controlled with no spec indication that it is bound to the authenticated bearer's identity
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: potential BOLA — orderId is caller-supplied with no visible ownership check, allowing invoice creation against another member's order
+  - found [Medium]: POST /invoices: BOLA — orderId in the request body is caller-controlled; no spec-level indication that ownership of the referenced order is verified before invoice creation
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [Low]: PUT /members/{id}/role: broken function-level authorization — any authenticated member can set any member's role, including escalating to admin
+  - found [High]: PUT /members/{id}/role: BFLA — any authenticated member can set any other member's role; no admin or elevated-privilege scope is declared
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)

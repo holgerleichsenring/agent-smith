@@ -134,7 +134,7 @@ public sealed partial class SpecDialogOutcomeTests
         bug.Ticket.Title.Should().Be("Add a null check to AppendTurnAsync");
         bug.Ticket.Description.Should().Contain("null check");
         sink.Accepted.Should().ContainSingle().Which.Should().BeOfType<BugOutcome>(
-            "the confirmed fix-bug ticket shape is what routes down the fix-bug path");
+            "the confirmed bug ticket shape is what routes down the bug path");
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed partial class SpecDialogOutcomeTests
         created.Body.Should().Contain("without a null check")
             .And.Contain("## Acceptance criteria").And.Contain("Returns early");
         created.Labels.Should().BeEmpty(
-            "the fix-bug shape mirrors the existing create-ticket path: title + body, no phase label");
+            "the bug shape mirrors the existing create-ticket path: title + body, no phase label");
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"),
             "the ticket URL is posted back to the thread");
         (await bed.TrailAsync("th-bug")).Should().Contain(t => t.Contains("https://tracker.test/1"),

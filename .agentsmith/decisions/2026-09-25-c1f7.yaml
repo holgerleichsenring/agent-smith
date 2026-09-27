@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-c1f7
+
+decisions:
+  - category: Architecture
+    chose: "The tracker's own ticket id is a COLUMN on the approval record"
+    over: "Recovering it from the spec key with a per-provider parser"
+    reason: |
+      SpecSetKey.For lowercases the ticket id and replaces every non-alphanumeric character, so
+      DPG-1239 becomes jira-dpg-1239 and no query can ask Jira for that. Parsing it back needs a
+      rule per provider — the exact thing this repository refused to write for the parent stamp
+      (FiledTicketLabels), for the same reason: a parser that guesses wrong names a DIFFERENT
+      ticket in the query, which is worse than naming none. The column backfills nothing: a row
+      written before this phase has an empty id and is simply never named, because nothing here
+      can recover what was never stored.
+    alternatives:
+      - "A second key format that preserves the id: two identities for one record"
+
+  - category: Architecture
+    chose: "A SatisfiedAt instant on the record, set where a run finalizes its ticket"
+    over: "Listing every approved record the tracker ever accumulated"
+    reason: |
+      Without satisfaction the list is every ticket this deployment ever approved, forever —
+      including the ones already done or failed that the parking statuses exist to exclude — and
+      it grows monotonically until it outruns any cap. TicketLifecycle.FinalizeAsync is the ONE
+      place both success paths move a ticket into its done status, so it is where "a run finished
+      this" is known. The store and the clock are optional there: a CLI run and the handler tests
+      construct the class with neither, and a process that never reads a record has none to
+      satisfy. A second approval clears the mark, because an amendment is new work.
+    alternatives:
+      - "Marking it in CommitAndPRHandler: a 434-line handler and only one of the two paths"
+
+  - category: Architecture
+    chose: "The ids are OR'd with the WHOLE query, in the two builders that filter server-side"
+    over: "Adding them to DiscoveryQuery.TriggerLabels"
+    reason: |
+      The label guard is AND-ed onto the routing clause. A list whose job is to ADMIT tickets the
+      guard excludes cannot live inside the thing that excludes them — it is a disjunction with
+      the rest of the query. Jira gets `key IN (...)`, Azure DevOps `[System.Id] IN (...)`, and
+      the WIQL side drops non-numeric ids because [System.Id] is an integer field and one
+      Jira-shaped id would fail the whole poll rather than widen it.
+    alternatives:
+      - "A second query per poll cycle: two round trips and two result sets to merge"
+
+  - category: Architecture
+    chose: "GitHub and GitLab are left exactly as they are, and the phase says so"
+    over: "Adding the same clause for symmetry"
+    reason: |
+      Both narrow by the branch criterion's tag (DiscoveryQuery.AllTagLabelsOrNull) or fall back
+      to listing open issues, and neither reads DiscoveryQuery.TriggerLabels at all. The stamp is
+      therefore not in their filter, nothing there is broken, and an id clause would widen a query
+      that already fetches the ticket. It is asserted as a test rather than left to a comment, so
+      a later reader meets the reason instead of the asymmetry.
+    alternatives:
+      - "Narrowing those two by the ids as well: a filter where none exists today"
+
+  - category: Architecture
+    chose: "A cap of the id list's own, above which the oldest are named and the rest reported"
+    over: "Reusing the builder's MaxBranches ceiling"
+    reason: |
+      MaxBranches bounds the BRANCH list and collapses above it to one broad branch — it WIDENS
+      the query, which is right for branches and wrong here, where the list is what a tracker is
+      asked to match by id. It also never bounded triggerLabels. So ApprovedTicketAdmission
+      carries MaxTicketIds and logs what did not fit: a ticket silently left out of the query is a
+      ticket that never runs, and the operator can act on a line that names the number.
+    alternatives:
+      - "No cap: a JQL clause that grows with every approval the deployment ever made"
+
+  - category: Architecture
+    chose: "ITrackerDiscoveryQueryBuilder.Build became BuildAsync"
+    over: "Reading the store synchronously, or caching the ids beside the poller"
+    reason: |
+      Every input was configuration until this phase, which is why the method was synchronous.
+      One input is now a store read. Blocking on it inside a poll cycle is the shape the codebase
+      avoids everywhere else, and a cache would answer with records a run has since satisfied.
+      The cost is one await in TrackerPoller and an async signature in four test call sites.
+    alternatives:
+      - "A separate synchronous query plus an async id lookup: two builders to keep in step"
+
+  - category: Implementation
+    chose: "The relational listing orders by the ROW ID"
+    over: "Ordering by ApprovedAt"
+    reason: |
+      SQLite refuses ORDER BY on a DateTimeOffset, and the ordering has to happen in the database
+      because ordering after the take would bound the wrong set — the same reason RunRepository
+      sorts by its sortable id. The row id is the insertion order, so the two agree except on a
+      record whose second approval upserted in place, which keeps the position its first approval
+      gave it. The in-memory store has no row id and sorts by the approval instant the record
+      carries.
+    alternatives:
+      - "A second, sortable approval column: a duplicate of a fact the row already holds"
+
+  - category: Architecture
+    chose: "The ticket's label note now describes a HINT"
+    over: "Keeping the sentence that named what removing the label costs"
+    reason: |
+      That sentence was true while the label was load-bearing twice over. 2026-09-25-3c7aa moved
+      the routing bind onto the approval record and this phase moved discovery onto it, so the
+      note would now warn of a cost nobody pays. It stops short of "removing it is free": whether
+      one deletion changes nothing also depends on how many approvals that tracker has open at
+      once, which is not a fact a ticket can carry.
+    alternatives:
+      - "Leaving the warning: a note that is wrong is worse than a note that is vague"
+
+  - category: Implementation
+    chose: "DiscoveryLabelGuard extracted out of TrackerDiscoveryQueryBuilder"
+    over: "Letting the builder grow past the 120-line ceiling"
+    reason: |
+      The builder reached the ceiling when the query also had to name approved tickets. Composing
+      the label guard and composing the branches were always two jobs; the guard's two rules moved
+      out unchanged and are now asserted directly instead of only through the builder.
+    alternatives:
+      - "A baseline entry: the ratchet exists so that is never the answer"

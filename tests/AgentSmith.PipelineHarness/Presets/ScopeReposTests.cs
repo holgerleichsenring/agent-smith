@@ -7,7 +7,7 @@ using FluentAssertions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0331 fast-tier end-to-end: fix-bug on a TWO-repo project where the scripted
+/// p0331 fast-tier end-to-end: a coding run on a TWO-repo project where the scripted
 /// classifier narrows the run to one repo BEFORE any sandbox exists. Proves the
 /// whole ticket-scoped provisioning chain through the real composition:
 /// ScopeRepos → narrowed ContextKeys.Repos → ONE sandbox spawned → master edits
@@ -40,7 +40,7 @@ public sealed class ScopeReposTests
             .EnqueueText("""Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(
             $"narrowed scope + real change + green verdict must pass the keystone: {result.Message}");
@@ -84,7 +84,7 @@ public sealed class ScopeReposTests
             .EnqueueText("No changes needed.");
 
         var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
 
         result.Should().NotBeNull("the pipeline must run to a terminal result");
         harness.StubSandboxFactory!.Spawned.Should().HaveCount(2,

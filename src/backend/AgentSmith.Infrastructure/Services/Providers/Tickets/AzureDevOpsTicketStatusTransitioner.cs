@@ -11,11 +11,8 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
-/// <summary>
-/// Azure DevOps lifecycle transitioner. Uses JSON Patch on /workitems/{id} with the
-/// work item's `rev` as If-Match for optimistic concurrency — 412 on rev mismatch.
-/// Lifecycle is carried in System.Tags (semicolon-separated tag list).
-/// </summary>
+/// <summary>Azure DevOps lifecycle transitioner: JSON Patch on /workitems/{id} with the item's
+/// `rev` as If-Match (412 on mismatch); lifecycle rides in the System.Tags list.</summary>
 public sealed class AzureDevOpsTicketStatusTransitioner(
     AzureDevOpsTicketConnection connection,
     HttpClient httpClient,
@@ -24,6 +21,7 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
     private readonly string _orgUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
     private readonly string _personalAccessToken = connection.PersonalAccessToken;
+    private readonly TicketLabelVocabulary _labels = connection.ResolvedLabels;
 
     public string ProviderType => "AzureDevOps";
 
@@ -131,17 +129,17 @@ public sealed class AzureDevOpsTicketStatusTransitioner(
         return TransitionResult.Succeeded();
     }
 
-    private static string[] BuildTags(string[] current, TicketLifecycleStatus to)
+    private string[] BuildTags(string[] current, TicketLifecycleStatus to)
     {
-        var filtered = current.Where(t => !LifecycleLabels.IsLifecycleLabel(t)).ToList();
-        filtered.Add(LifecycleLabels.For(to));
+        var filtered = current.Where(t => !_labels.IsLifecycleLabel(t)).ToList();
+        filtered.Add(_labels.For(to));
         return [.. filtered];
     }
 
-    private static TicketLifecycleStatus? ParseLifecycle(string[] tags)
+    private TicketLifecycleStatus? ParseLifecycle(string[] tags)
     {
         foreach (var tag in tags)
-            if (LifecycleLabels.TryParse(tag, out var status))
+            if (_labels.TryParse(tag, out var status))
                 return status;
         return null;
     }

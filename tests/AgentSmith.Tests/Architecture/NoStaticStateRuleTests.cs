@@ -35,6 +35,10 @@ public sealed class NoStaticStateRuleTests
     private static readonly Type[] DataTableHolders =
     [
         typeof(MasterPromptTokens),
+        // 2026-09-25-e5b1: retired preset name -> the preset that replaced it. A fixed table
+        // of literals, read only to rewrite a stored configuration once and to tell an
+        // operator what their old word became — nothing routes a run through it.
+        typeof(AgentSmith.Application.Services.Configuration.RetiredPipelineNames),
         // p0424: the markers that identify agent-smith's OWN ticket comments — a fixed
         // list of literals, so the thread can render what the operator said rather than
         // our echo of twenty-four runs.

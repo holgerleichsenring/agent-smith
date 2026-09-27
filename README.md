@@ -104,7 +104,7 @@ export OPENAI_API_KEY=sk-...
 agent-smith demo
 ```
 
-That materializes a small sample project with a seeded bug, runs the real `fix-bug` pipeline against it, and leaves you a local commit plus the diff. No tracker, no Docker, no Redis — if this works, the loop works.
+That materializes a small sample project with a seeded bug, runs the real `code` pipeline against it, and leaves you a local commit plus the diff. No tracker, no Docker, no Redis — if this works, the loop works.
 
 For your real systems, drop an `agentsmith.yml` in a working directory:
 
@@ -150,11 +150,10 @@ agent-smith fix --ticket 54 --project todolist
 
 `doctor` actually probes everything — it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox — and names what's broken with a fix hint, before a run spends tokens on it. The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
 
-## More than fix-bug
+## More than the code pipeline
 
-`fix-bug` is the headline because it's the one most people show up for. The rest of the box:
+`code` is the headline because shipping a change is the one most people show up for — one pipeline for bug, feature and phase tickets alike, because what differs between them is the specification it derives, not the steps it runs. The rest of the box:
 
-- `add-feature` — same flow plus generated tests and docs.
 - `pr-review` — reviews a PR diff and posts line-anchored findings as comments; re-review on push replaces them.
 - `security-scan` — multi-role code security review, including git-history secrets.
 - `api-security-scan` — Nuclei + Spectral + an AI panel against a live API.

@@ -57,10 +57,9 @@ projects:
         strategy: tag
         value: agentsmith-backend
       pipeline_from_label:
-        bug: fix-bug
-        feature: add-feature
-      default_pipeline: fix-bug
-
+        bug: code
+        feature: code
+      default_pipeline: code
   agentsmith-frontend:
     agent: claude-default
     tracker: shared-jira
@@ -71,9 +70,8 @@ projects:
         strategy: tag
         value: agentsmith-frontend
       pipeline_from_label:
-        bug: fix-bug
-      default_pipeline: fix-bug
-
+        bug: code
+      default_pipeline: code
   agentsmith-sdk:
     agent: claude-default
     tracker: shared-jira
@@ -84,8 +82,8 @@ projects:
         strategy: tag
         value: agentsmith-sdk
       pipeline_from_label:
-        bug: fix-bug
-      default_pipeline: fix-bug
+        bug: code
+      default_pipeline: code
 ```
 
 ### Worked example
@@ -94,7 +92,7 @@ A Jira issue is filed in the shared install with the labels `bug` + `agentsmith-
 
 1. Jira webhook arrives at `/webhook/jira`. `JiraAssigneeWebhookHandler` confirms the assignee is `Agent Smith` and builds an envelope with `Labels = ["bug", "agentsmith-backend"]`.
 2. `ProjectResolver.Resolve` finds one match: project `agentsmith-backend` (its `project_resolution.value` is in the label list). The other two projects don't match.
-3. `SpawnPipelineRunsUseCase` enqueues one `PipelineRequest` for `agentsmith-backend / fix-bug / backend-repo`.
+3. `SpawnPipelineRunsUseCase` enqueues one `PipelineRequest` for `agentsmith-backend / code / backend-repo`.
 
 If the issue had been labelled `bug + agentsmith-backend + agentsmith-sdk`, two projects would have matched. Both would have spawned. The `agent_smith_ambiguous_resolution_total` counter would have incremented twice (once per matched (project, pipeline)). Each run's Plan phase then decides whether the work is genuinely relevant for that repo.
 
@@ -135,8 +133,8 @@ projects:
         strategy: area-path
         value: 'ContosoMain\\Billing'
       pipeline_from_label:
-        bug: fix-bug
-      default_pipeline: fix-bug
+        bug: code
+      default_pipeline: code
 ```
 
 ### Worked example
@@ -145,7 +143,7 @@ Work item filed under `ContosoMain\Billing\Invoicing` (a child of the configured
 
 1. ADO `workitem.updated` webhook arrives. `AzureDevOpsWorkItemWebhookHandler` builds an envelope with `AreaPath = "ContosoMain\\Billing\\Invoicing"`.
 2. `ProjectResolver.Resolve` calls `AreaPathNormalizer.IsAtOrUnder(envelopePath, projectValue)`. `ContosoMain\Billing\Invoicing` is under `ContosoMain\Billing` → match.
-3. `contoso-billing` claims the ticket and spawns its `fix-bug` pipeline against `billing-repo`.
+3. `contoso-billing` claims the ticket and spawns its `code` pipeline against `billing-repo`.
 
 A work item filed directly at `ContosoMain\Billing` (not a sub-path) also matches — exact-match is included in the hierarchical match.
 
@@ -194,9 +192,9 @@ projects:
         strategy: repo
         value: https://github.com/acme/cli
       pipeline_from_label:
-        bug: fix-bug
-        feature: add-feature
-      default_pipeline: fix-bug
+        bug: code
+        feature: code
+      default_pipeline: code
 ```
 
 ### Worked example
@@ -205,7 +203,7 @@ A GitHub issue is filed on `https://github.com/acme/cli` and labelled `bug`.
 
 1. `issues` webhook arrives. `GitHubIssueWebhookHandler` builds an envelope with `SourceRepoUrl = "https://github.com/acme/cli"`.
 2. `ProjectResolver.Resolve` matches `acme-cli` (URL identity, case-insensitive on scheme/host, trailing `.git` stripped).
-3. `acme-cli` claims and spawns `fix-bug` against itself.
+3. `acme-cli` claims and spawns `code` against itself.
 
 > **Pitfall**: `https://github.com/acme/cli` and `https://github.com/acme/cli.git` are normalised to the same value, but `git@github.com:acme/cli.git` (SSH form) is **not** — keep the `value` in HTTPS form, the same form the webhook payload carries.
 
@@ -238,8 +236,8 @@ projects:
         strategy: to_address
         value: support@example.com
       pipeline_from_label:
-        bug: fix-bug
-      default_pipeline: fix-bug
+        bug: code
+      default_pipeline: code
 ```
 
 ### How it will work

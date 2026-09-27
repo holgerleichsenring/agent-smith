@@ -117,7 +117,7 @@ public sealed class RunDeleteTests : IDisposable
     public async Task Delete_QueuedRun_RemovesQueueEntryAndReservation_ThenDeletes()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "42", "fix-bug", "github",
+            "p1", "42", "code", "github",
             "2026-07-14T10-00-00-a1b2", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -138,7 +138,7 @@ public sealed class RunDeleteTests : IDisposable
     public async Task RunDeleter_AQueuedRun_TerminalizesItsTicket()
     {
         var reserved = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "42", "fix-bug", "github",
+            "p1", "42", "code", "github",
             "2026-07-14T10-00-00-c3d4", "waiting for sandbox capacity",
             ["repo-a"], InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -220,7 +220,7 @@ public sealed class RunDeleteTests : IDisposable
         await SeedTerminalRunWithSatellitesAsync("run-terminal");
         await SeedRunningRunAsync("run-running", jobId: "cccc00000000");
         var queued = await _queue.EnqueueAsync(new CapacityQueueCandidate(
-            "p1", "99", "fix-bug", "github",
+            "p1", "99", "code", "github",
             "2026-07-14T10-00-00-e5f6", "waiting", ["repo-a"],
             InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
@@ -312,7 +312,7 @@ public sealed class RunDeleteTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "42",
             Platform = "github", Status = "waiting_for_input",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-9),
         });
@@ -324,7 +324,7 @@ public sealed class RunDeleteTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "42",
             Platform = "github", Status = "running", StartedAt = DateTimeOffset.UtcNow.AddMinutes(-2),
             JobId = jobId,
         });
@@ -341,7 +341,7 @@ public sealed class RunDeleteTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "fix-bug", TicketId = "7",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "7",
             Platform = "github", Status = "failed",
             StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5), FinishedAt = DateTimeOffset.UtcNow,
         });
@@ -358,7 +358,7 @@ public sealed class RunDeleteTests : IDisposable
         });
         ctx.QueuedTickets.Add(new QueuedTicket
         {
-            Project = "p1", TicketId = "7", Pipeline = "fix-bug", Platform = "github",
+            Project = "p1", TicketId = "7", Pipeline = "code", Platform = "github",
             ReservedRunId = runId, Reason = "x", EnqueuedAt = DateTimeOffset.UtcNow,
         });
         await ctx.SaveChangesAsync();

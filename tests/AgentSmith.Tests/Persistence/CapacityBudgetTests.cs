@@ -97,7 +97,7 @@ public sealed class CapacityBudgetTests : IDisposable
         {
             ctx.Runs.Add(new Run
             {
-                Id = "run1", Project = "p1", Pipeline = "fix-bug", TicketId = "7",
+                Id = "run1", Project = "p1", Pipeline = "code", TicketId = "7",
                 Status = "running", StartedAt = DateTimeOffset.UtcNow,
             });
             await ctx.SaveChangesAsync();
@@ -124,7 +124,7 @@ public sealed class CapacityBudgetTests : IDisposable
         {
             ctx.Runs.Add(new Run
             {
-                Id = "run2", Project = "p1", Pipeline = "fix-bug", TicketId = "8",
+                Id = "run2", Project = "p1", Pipeline = "code", TicketId = "8",
                 Status = "running", StartedAt = DateTimeOffset.UtcNow,
             });
             await ctx.SaveChangesAsync();
