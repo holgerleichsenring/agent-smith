@@ -1852,11 +1852,12 @@ describe("SpecDialogSurface", () => {
 
     const at = new Date().toISOString();
     act(() => {
-      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "opening", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "opening", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "ready", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "failed", at });
-      readings.emit({ dialogId: "someone-else", repo: "foreign", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "repo-a", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "template-repo", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "repo-a", state: "ready", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "template-repo", state: "failed", at });
+      readings.emit({
+        dialogId: "someone-else", kind: "repository", name: "foreign", state: "opening", at });
     });
 
     const lines = await screen.findAllByTestId("dialog-reading");
@@ -2600,12 +2601,54 @@ describe("SpecDialogSurface", () => {
     const working = await screen.findByTestId("dialog-working");
 
     act(() => readings.emit({
-      dialogId: heldDialogId(), repo: "repo-a@v2", state: "opening", at: new Date().toISOString(),
+      dialogId: heldDialogId(), kind: "repository", name: "repo-a@v2",
+      state: "opening", at: new Date().toISOString(),
     }));
 
     expect(working).toHaveTextContent("Opening the repositories it needs");
     expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("repo-a@v2");
     expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
+  });
+
+
+  // 2026-09-27-481be: a bound conversation makes TWO tracker reads — the one that grounds it and a
+  // per-turn check for whether the ticket has moved — and both were pauses with nothing on screen.
+  it("DialogWorking_ATicketBeingRead_SaysSoAndTheHeaderAnswersForIt", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    const working = await screen.findByTestId("dialog-working");
+
+    act(() => readings.emit({
+      dialogId: heldDialogId(), kind: "ticket", name: "DPG-1239",
+      state: "opening", at: new Date().toISOString(),
+    }));
+
+    // The line above the readings used to say "the repositories it needs" whatever was open.
+    expect(working).toHaveTextContent("Reading the ticket…");
+    expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("DPG-1239");
+  });
+
+  it("DialogWorking_ATicketNamedLikeARepository_DoesNotOverwriteItsLine", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    const working = await screen.findByTestId("dialog-working");
+    const at = new Date().toISOString();
+
+    // Identical names, different kinds. A line was found and keyed by its NAME alone.
+    act(() => {
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "billing", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "ticket", name: "billing", state: "ready", at });
+    });
+
+    expect(within(working).getAllByTestId("dialog-reading")).toHaveLength(2);
+    // And the header answers for both rather than for the repositories alone.
+    expect(working).toHaveTextContent("Opening the repositories it needs");
   });
 
   // 2026-09-22-b3d7: this line is the one place the card counts what the button files, and the

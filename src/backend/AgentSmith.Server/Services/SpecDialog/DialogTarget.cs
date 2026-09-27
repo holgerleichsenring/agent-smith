@@ -27,4 +27,9 @@ internal static class DialogTarget
         return string.Equals(
             state.Platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>2026-09-27-481be: the dialog a read may report to, or null on any other platform —
+    /// whose thread id is a dialog id nobody has joined.</summary>
+    public static string? Reporting(ConversationState state) =>
+        IsDashboard(state) ? Of(state) : null;
 }

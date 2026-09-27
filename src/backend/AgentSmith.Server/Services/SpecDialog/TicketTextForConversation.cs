@@ -31,22 +31,28 @@ public sealed class TicketTextForConversation(
     SpecDialogTicketTextRepository store,
     ApprovedSetDivergence divergence,
     TicketMovedCheck movedCheck,
+    TicketReadReports reports,
+    TicketDiscussion discussion,
     TimeProvider timeProvider,
     ILogger<TicketTextForConversation> logger)
 {
     /// <summary>Reads the ticket and stores what the conversation may be grounded on.</summary>
     public async Task<SeededTicket?> ReadAsync(
-        string sessionId, ResolvedProject project, string ticketId, CancellationToken ct)
+        string sessionId, ResolvedProject project, string ticketId, string? reportTo,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
         try
         {
             var provider = providers.Create(project.Tracker);
-            var ticket = await provider.GetTicketAsync(new TicketId(ticketId), ct);
+            // The LONG pause before a bound conversation's first reply: the whole ticket and its
+            // discussion, off the tracker, reported where a repository read is.
+            var ticket = await reports.AroundAsync(
+                reportTo, ticketId, () => provider.GetTicketAsync(new TicketId(ticketId), ct), ct);
             // 2026-09-27-481ba: the comment read is its OWN try. It used to share this one, so a
             // tracker that served the ticket and refused its comments left the conversation with no
             // ticket at all — a whole grounding lost to the part of it that matters least.
-            var seeded = TicketTextComposer.Compose(ticket, await CommentsAsync(provider, ticket, ct));
+            var seeded = TicketTextComposer.Compose(ticket, await discussion.OfAsync(provider, ticket, ct));
             await store.SaveAsync(
                 new Infrastructure.Persistence.Entities.SpecDialogTicketText
                 {
@@ -81,30 +87,16 @@ public sealed class TicketTextForConversation(
     /// </para>
     /// </summary>
     public async Task<SeededTicket?> HeldAsync(
-        string sessionId, ResolvedProject? project, CancellationToken ct)
+        string sessionId, ResolvedProject? project, string? reportTo, CancellationToken ct)
     {
         if (await store.GetAsync(sessionId, ct) is not { } held) return null;
+        // The SMALLER pause, before every reply after the first: the moved-check is the one tracker
+        // round trip a turn of a bound conversation makes.
+        var moved = await reports.AroundAsync(
+            reportTo, held.TicketId, () => movedCheck.ForAsync(held, project, ct), ct);
         return new SeededTicket(
-            held.Title, held.Text, held.Truncated, held.Fingerprint,
-            await movedCheck.ForAsync(held, project, ct),
+            held.Title, held.Text, held.Truncated, held.Fingerprint, moved,
             await divergence.ForAsync(project, held.TicketId, held.Text, ct));
-    }
-
-    private async Task<IReadOnlyList<TicketComment>> CommentsAsync(
-        ITicketProvider provider, Ticket ticket, CancellationToken ct)
-    {
-        if (!provider.SupportsComments) return [];
-        try
-        {
-            return await provider.GetCommentsAsync(ticket.Id, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex,
-                "The discussion on ticket {Ticket} could not be read; the conversation is grounded "
-                + "in the ticket itself", ticket.Id.Value);
-            return [];
-        }
     }
 
     private static string Trimmed(string title) =>
