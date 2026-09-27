@@ -37,4 +37,7 @@ internal sealed class StubTicketProviderFactory : ITicketProviderFactory
 
     /// <summary>2026-09-25-8e51e: nothing here amends, so the rewriter records and answers Ok.</summary>
     public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
+
+    /// <summary>2026-09-27-5c1ea: nothing here searches, so the search records and matches nothing.</summary>
+    public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
 }

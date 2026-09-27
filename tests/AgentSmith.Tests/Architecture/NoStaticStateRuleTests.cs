@@ -35,6 +35,10 @@ public sealed class NoStaticStateRuleTests
     private static readonly Type[] DataTableHolders =
     [
         typeof(MasterPromptTokens),
+        // 2026-09-27-5c1ea: the states Azure DevOps calls open when an operator configured none —
+        // three literals, read by the discovery lister and by the ticket search so the two cannot
+        // disagree on what "open" means. Nothing routes through it; a configured list wins.
+        typeof(AgentSmith.Infrastructure.Services.Providers.Tickets.AzureDevOpsOpenScope),
         // 2026-09-25-e5b1: retired preset name -> the preset that replaced it. A fixed table
         // of literals, read only to rewrite a stored configuration once and to tell an
         // operator what their old word became — nothing routes a run through it.
