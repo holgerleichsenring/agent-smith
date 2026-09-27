@@ -15,6 +15,7 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -340,6 +341,8 @@ public sealed class TicketAmendmentTests : IDisposable
         public ITicketProvider Create(TrackerConnection config) => new Provider(this);
 
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new Rewriter(this);
+
+        public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
 
         private sealed class Rewriter(FakeTracker owner) : ITicketRewriter
         {

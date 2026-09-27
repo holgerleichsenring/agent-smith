@@ -19,3 +19,13 @@ internal sealed class HarnessTicketRewriter : ITicketRewriter
         return Task.FromResult(TicketRewriteResult.Ok);
     }
 }
+
+/// <summary>
+/// 2026-09-27-5c1ea: the harness never searches a tracker, so the search answers "no matches"
+/// rather than a refusal — a refusal would be a claim about a tracker nobody asked.
+/// </summary>
+internal sealed class HarnessTicketSearch : ITicketSearch
+{
+    public Task<TicketSearchResult> SearchAsync(string text, int limit, CancellationToken cancellationToken) =>
+        Task.FromResult(TicketSearchResult.None);
+}

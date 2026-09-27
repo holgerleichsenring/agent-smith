@@ -1,5 +1,3 @@
-using AgentSmith.Contracts.Tickets;
-using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
@@ -10,7 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
-/// Creates the appropriate ITicketProvider based on configuration type.
+/// Creates the appropriate ITicketProvider based on configuration type. The connection records
+/// themselves come from <see cref="TrackerConnections"/>, which all three capabilities share.
 /// </summary>
 public sealed class TicketProviderFactory(
     SecretsProvider secrets,
@@ -18,6 +17,7 @@ public sealed class TicketProviderFactory(
     ILoggerFactory loggerFactory) : ITicketProviderFactory
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<TicketProviderFactory>();
+    private readonly TrackerConnections _connections = new(secrets);
 
     public ITicketProvider Create(TrackerConnection config) => config.Type switch
     {
@@ -36,85 +36,80 @@ public sealed class TicketProviderFactory(
     public ITicketRewriter CreateRewriter(TrackerConnection config) => config.Type switch
     {
         TrackerType.AzureDevOps => new AzureDevOpsTicketRewriter(
-            new AzureDevOpsTicketConnection(
-                $"https://dev.azure.com/{config.Organization}", config.Project!,
-                secrets.GetRequired("AZURE_DEVOPS_TOKEN")),
-            loggerFactory.CreateLogger<AzureDevOpsTicketRewriter>()),
+            _connections.AzureDevOps(config), loggerFactory.CreateLogger<AzureDevOpsTicketRewriter>()),
         TrackerType.GitHub => new GitHubTicketRewriter(
-            new GitHubTicketConnection(config.Url!, secrets.GetRequired("GITHUB_TOKEN")),
-            loggerFactory.CreateLogger<GitHubTicketRewriter>()),
+            _connections.GitHub(config), loggerFactory.CreateLogger<GitHubTicketRewriter>()),
         TrackerType.Jira => new JiraTicketRewriter(),
         TrackerType.GitLab => new GitLabTicketRewriter(
-            new GitLabTicketConnection(
-                secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl,
-                Uri.EscapeDataString(config.Project ?? secrets.GetRequired("GITLAB_PROJECT")),
-                secrets.GetRequired("GITLAB_TOKEN")),
-            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabTicketRewriter>()),
+            _connections.GitLab(config), httpClientFactory.CreateClient(),
+            loggerFactory.CreateLogger<GitLabTicketRewriter>()),
+        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
+    };
+
+    /// <summary>
+    /// 2026-09-27-5c1ea: the same connections, built for the one read a person drives by typing.
+    /// GitHub's search takes the Octokit client as its interface so the request it builds is
+    /// assertable; the others take the shared HttpClient as their siblings do.
+    /// </summary>
+    public ITicketSearch CreateSearch(TrackerConnection config) => config.Type switch
+    {
+        TrackerType.AzureDevOps => new AzureDevOpsTicketSearch(
+            _connections.AzureDevOps(config), TrackerConnections.OpenStates(config),
+            TrackerConnections.ExtraFields(config),
+            loggerFactory.CreateLogger<AzureDevOpsTicketSearch>()),
+        TrackerType.GitHub => new GitHubTicketSearch(
+            _connections.GitHubClient(config), _connections.GitHub(config),
+            loggerFactory.CreateLogger<GitHubTicketSearch>()),
+        TrackerType.Jira => new JiraTicketSearch(
+            _connections.Jira(config), httpClientFactory.CreateClient(), new JiraFieldMapper(),
+            loggerFactory.CreateLogger<JiraTicketSearch>()),
+        TrackerType.GitLab => new GitLabTicketSearch(
+            _connections.GitLab(config), httpClientFactory.CreateClient(), new GitLabFieldMapper(),
+            loggerFactory.CreateLogger<GitLabTicketSearch>()),
         _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
     };
 
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {
-        var orgUrl = $"https://dev.azure.com/{config.Organization}";
         _logger.LogDebug("CreateAzureDevOps: org={Org} project={Project}", config.Organization, config.Project);
-        var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
-        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token, TicketLabelVocabulary.For(config));
+        var connection = _connections.AzureDevOps(config);
         var loader = new AzureDevOpsAttachmentLoader(
-            connection,
-            httpClientFactory.CreateClient(),
+            connection, httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<AzureDevOpsAttachmentLoader>());
         return new AzureDevOpsTicketProvider(
-            connection, loader,
-            new AzureDevOpsFieldMapper(),
+            connection, loader, new AzureDevOpsFieldMapper(),
             loggerFactory.CreateLogger<AzureDevOpsTicketProvider>(),
-            openStates: config.OpenStates.Count > 0 ? config.OpenStates : null,
+            openStates: TrackerConnections.OpenStates(config),
             doneStatus: config.DoneStatus,
-            extraFields: config.ExtraFields.Count > 0 ? config.ExtraFields : null);
+            extraFields: TrackerConnections.ExtraFields(config));
     }
 
     private GitHubTicketProvider CreateGitHub(TrackerConnection config)
     {
         _logger.LogDebug("CreateGitHub: url={Url}", config.Url);
-        var token = secrets.GetRequired("GITHUB_TOKEN");
-        var connection = new GitHubTicketConnection(config.Url!, token, TicketLabelVocabulary.For(config));
         var loader = new GitHubAttachmentLoader(
-            httpClientFactory.CreateClient(),
-            loggerFactory.CreateLogger<GitHubAttachmentLoader>());
-        return new GitHubTicketProvider(connection, loader,
-            new GitHubFieldMapper(),
-            loggerFactory.CreateLogger<GitHubTicketProvider>());
+            httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitHubAttachmentLoader>());
+        return new GitHubTicketProvider(_connections.GitHub(config), loader,
+            new GitHubFieldMapper(), loggerFactory.CreateLogger<GitHubTicketProvider>());
     }
 
     private JiraTicketProvider CreateJira(TrackerConnection config)
     {
-        var url = config.Url ?? secrets.GetRequired("JIRA_URL");
-        _logger.LogDebug("CreateJira: url={Url} project={Project}", url, config.Project);
-        var email = secrets.GetRequired("JIRA_EMAIL");
-        var token = secrets.GetRequired("JIRA_TOKEN");
-        var connection = new JiraTicketConnection(
-            url, email, token, config.Project, config.Endpoints,
-            ParentLinkType: config.ParentLinkType, Labels: TicketLabelVocabulary.For(config));
-        return new JiraTicketProvider(connection, httpClientFactory.CreateClient(),
-            new JiraFieldMapper(),
+        _logger.LogDebug("CreateJira: url={Url} project={Project}", config.Url, config.Project);
+        return new JiraTicketProvider(
+            _connections.Jira(config), httpClientFactory.CreateClient(), new JiraFieldMapper(),
             loggerFactory.CreateLogger<JiraTicketProvider>(),
-            doneStatus: config.DoneStatus,
-            closeTransitionName: config.CloseTransitionName);
+            doneStatus: config.DoneStatus, closeTransitionName: config.CloseTransitionName);
     }
 
     private GitLabTicketProvider CreateGitLab(TrackerConnection config)
     {
-        var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
-        var projectPath = config.Project ?? secrets.GetRequired("GITLAB_PROJECT");
-        _logger.LogDebug("CreateGitLab: baseUrl={BaseUrl} project={Project}", baseUrl, projectPath);
-        var token = secrets.GetRequired("GITLAB_TOKEN");
-        var escapedPath = Uri.EscapeDataString(projectPath);
+        _logger.LogDebug("CreateGitLab: project={Project}", config.Project);
+        var connection = _connections.GitLab(config);
         var httpClient = httpClientFactory.CreateClient();
-        var connection = new GitLabTicketConnection(baseUrl, escapedPath, token, TicketLabelVocabulary.For(config));
         var loader = new GitLabAttachmentLoader(
-            connection, httpClient,
-            loggerFactory.CreateLogger<GitLabAttachmentLoader>());
+            connection, httpClient, loggerFactory.CreateLogger<GitLabAttachmentLoader>());
         return new GitLabTicketProvider(connection, httpClient, loader,
-            new GitLabFieldMapper(),
-            loggerFactory.CreateLogger<GitLabTicketProvider>());
+            new GitLabFieldMapper(), loggerFactory.CreateLogger<GitLabTicketProvider>());
     }
 }
