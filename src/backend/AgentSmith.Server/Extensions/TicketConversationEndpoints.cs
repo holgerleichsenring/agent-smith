@@ -55,6 +55,9 @@ internal static class TicketConversationEndpoints
             tracker = answer.Binding.Tracker,
             projects = answer.Projects,
             unanswerable = answer.Unanswerable,
+            // 2026-09-27-1bd9: named by the labels, but on another tracker — which cannot hold
+            // this ticket, and is why the choice is being put to a person at all.
+            elsewhere = answer.Elsewhere,
             sessionId = existing?.SessionId,
             openDialogId = existing?.OpenDialogId,
         });

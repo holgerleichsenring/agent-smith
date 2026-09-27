@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-27-481bf
+goal: "A ticket says what kind the tracker calls it, in the tracker's own word, so a picker shows a bug as a bug without a table of types nobody agreed on."
+
+applies_to: "backend (what the ticket mappers read and what a search hit carries) and dashboard (the ticket field and the scope pane)"
+
+requires: ["2026-09-27-481bb"]
+
+scope:
+  in: "Reading the kind each tracker gives a ticket, carrying it where a ticket and a search hit already travel, and drawing it as that word with an icon only where every tracker means the same thing."
+  out: "Filing BY kind, which is the outbound role and already decided elsewhere. Any behaviour that reads the kind — this phase shows it and nothing routes on it."
+
+decisions:
+  - key: |
+      NOTHING INBOUND CARRIES A KIND TODAY. No ticket field mapper reads a work item type or an
+      issue type; the only kind handling in this tree is OUTBOUND, on the two creators that file
+      tickets. One nearby decision even chose to read a body field from what is populated "rather
+      than from a table of work-item types" — so this is a new read, not a field that exists and is
+      dropped.
+  - key: |
+      THE WORD IS THE TRACKER'S, BECAUSE THE VOCABULARY IS NOT OURS. Azure DevOps process templates
+      and Jira projects both define their own types, so a fixed set of ours would either mislabel
+      something or silently show nothing. The tracker's word is always correct. An icon is drawn
+      only where the meaning is the same everywhere — and GitHub gives no kind at all, so a GitHub
+      row shows none rather than a guessed one.
+  - key: |
+      THIS IS THE INBOUND READ TYPE AND NOT THE FILING ROLE, AND SAYS SO BECAUSE A DONE PHASE
+      REFUSED THE OTHER ONE. 2026-09-24-f962 deliberately did not carry a type onto the dialog's
+      filed-ticket pane, because that would have been a new field on a filed ticket, on the wire and
+      on the dashboard, better decided after use. That refusal stands: this phase reads what a
+      tracker CALLS an existing ticket, for a person choosing one to discuss. The two words must not
+      collide on one field.
+  - key: |
+      THE SEARCH HIT WIDENS BY ONE NULLABLE FIELD, AND THAT IS AFFORDABLE HERE. The capability port
+      says a hit is an identifier and a title, and the reason was that the four PROVIDER classes are
+      at their baseline and may only shrink. The four search classes are new and small, and each
+      already asks its tracker for a field set it controls — so the kind rides the read each of them
+      already performs. What it costs is named: Jira adds one field to its request, Azure DevOps one
+      column to its hydration, GitLab reads one it already receives, GitHub sends nothing.
+  - key: |
+      A KIND IS SHOWN AND NEVER ACTED ON. Nothing routes, filters or decides by it in this phase. A
+      picker that hid tickets by kind would be guessing which types matter on an estate it has never
+      seen, and that is the mistake the closed icon set would have been.
+
+steps:
+  - id: a-ticket-has-a-kind
+    path: "src/backend/AgentSmith.Domain/Entities, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Carry a kind on the ticket, absent where a tracker gives none."
+      - "Read it in the four field mappers, and ask for it where a tracker must be asked — the four provider classes are at their baseline and may not grow."
+
+  - id: a-search-hit-carries-it
+    path: "src/backend/AgentSmith.Domain/Models, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets, src/backend/AgentSmith.Server/Services/SpecDialog"
+    action: "Carry the kind on a search hit and on what the sweep answers, and mirror the field by hand."
+
+  - id: the-kind-is-drawn
+    path: "src/dashboard/src/components/dialog"
+    action: "Show the kind as the tracker's own word on a result row, on the picked row and in the scope pane, with an icon only for the kinds every tracker means the same by, and nothing at all where there is none."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests, src/dashboard/src/components/dialog/__tests__"
+    action: "Assert each tracker's kind is read, that a tracker-specific type survives as its own word, that GitHub shows none, and that no row is ever drawn as a kind it is not."
+
+tests:
+  - "TicketKind_AzureDevOps_ReadsTheWorkItemType"
+  - "TicketKind_Jira_ReadsTheIssueType"
+  - "TicketKind_GitLab_ReadsTheTypeItAlreadyReturns"
+  - "TicketKind_GitHub_HasNoneAndSaysNothing"
+  - "TicketKind_ATrackerSpecificType_SurvivesAsItsOwnWord"
+  - "TicketSearch_AHit_CarriesTheKindItsTrackerGaveIt"
+  - "SpecDialogSurface_AKindWithNoSharedMeaning_IsDrawnAsAWordWithNoIcon"
+
+done:
+  - "each tracker's own word for a ticket's kind reaches the picker, the picked row and the scope pane"
+  - "a type nobody else has is shown as itself, and GitHub shows no kind rather than a guessed one"
+  - "nothing filters, routes or decides by kind"
+  - "build green, full suite green, dashboard tests green"

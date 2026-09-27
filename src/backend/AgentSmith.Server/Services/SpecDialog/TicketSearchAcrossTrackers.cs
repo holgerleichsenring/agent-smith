@@ -56,7 +56,7 @@ public sealed class TicketSearchAcrossTrackers(
             }
 
             more |= result.MoreHeldBack;
-            var routed = RoutedTo(config, tracker.Name);
+            var routed = TrackerProjects.RoutedTo(config, tracker.Name);
             foreach (var hit in result.Hits)
             {
                 if (found.Any(held => held.Tracker == tracker.Name && held.TicketId == hit.Id.Value))
@@ -75,11 +75,12 @@ public sealed class TicketSearchAcrossTrackers(
     {
         var answer = await choice.ForAsync(config, typed, ct);
         if (answer is null) return null;
-        var routed = RoutedTo(config, answer.Binding.Tracker);
-        var named = answer.Projects.Intersect(routed, StringComparer.Ordinal).ToList();
+        // 2026-09-27-1bd9: the choice narrows to the answering tracker itself now, so there is
+        // nothing left to intersect here — only the fall-back when its labels named nothing.
+        var routed = TrackerProjects.RoutedTo(config, answer.Binding.Tracker);
         return new TicketSearchFound(
             answer.Binding.TicketId, answer.Binding.Title, answer.Binding.Tracker,
-            named.Count > 0 ? named : routed);
+            answer.Projects.Count > 0 ? answer.Projects : routed);
     }
 
     private async Task<TicketSearchResult> SearchAsync(
@@ -97,11 +98,6 @@ public sealed class TicketSearchAcrossTrackers(
             return TicketSearchResult.Failed(ex.Message.Split('\n', 2)[0].Trim());
         }
     }
-
-    private static IReadOnlyList<string> RoutedTo(AgentSmithConfig config, string tracker) =>
-        [.. config.Projects
-            .Where(p => string.Equals(p.Value.Tracker.Name, tracker, StringComparison.Ordinal))
-            .Select(p => p.Key)];
 }
 
 /// <summary>One ticket a person may pick, the tracker it is on, and the projects routed to it.</summary>

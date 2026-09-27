@@ -172,6 +172,9 @@ export interface TicketProjectRead extends TicketConversationRead {
   /** Projects routed by area path, repository or address — which a ticket read by id cannot
    *  carry, so they are unanswerable rather than unmatched. Shown as a reason, not a fault. */
   unanswerable: string[];
+  /** 2026-09-27-1bd9: projects this ticket's labels DO name, on trackers that do not hold it.
+   *  Binding through one would re-fetch the number on that tracker — a different board. */
+  elsewhere: string[];
 }
 
 /**

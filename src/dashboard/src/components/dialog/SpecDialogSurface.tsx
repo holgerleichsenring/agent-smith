@@ -109,7 +109,14 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
         }
         const named = project ? [project] : ((held as TicketProjectRead | null)?.projects ?? []);
         if (named.length === 1) setPending({ project: named[0], ticketId });
-        else setReason(whyNoProject(named, (held as TicketProjectRead | null)?.unanswerable ?? []));
+        else
+          setReason(
+            whyNoProject(
+              named,
+              (held as TicketProjectRead | null)?.unanswerable ?? [],
+              (held as TicketProjectRead | null)?.elsewhere ?? [],
+            ),
+          );
       })
       // A ticket the tracker does not have, or a read that failed: the page stays usable and the
       // operator is not handed a conversation bound to something that is not there.
@@ -127,9 +134,17 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
-function whyNoProject(named: string[], unanswerable: string[]): string {
+function whyNoProject(named: string[], unanswerable: string[], elsewhere: string[]): string {
   if (named.length > 1)
     return `This ticket's labels name ${named.length} projects (${named.join(", ")}). Choose one.`;
+  // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
+  // Without this sentence the routing looks broken when it is merely pointed elsewhere.
+  if (named.length === 0 && elsewhere.length > 0)
+    return (
+      `This ticket's labels name ${elsewhere.join(", ")}, which ${elsewhere.length === 1 ? "is" : "are"} ` +
+      "on another tracker — a project there would open a different board's ticket of this number. " +
+      "Choose a project on this one."
+    );
   if (unanswerable.length > 0)
     return (
       `No project matched this ticket's labels. ${unanswerable.join(", ")} ` +
