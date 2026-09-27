@@ -48,7 +48,7 @@ public sealed class AzureDevOpsTicketSearch : ITicketSearch
         {
             var tickets = await _runner.RunAsync(where, limit + 1, cancellationToken);
             return TicketSearchResult.Of(
-                tickets.Select(t => new TicketSearchHit(t.Id, t.Title)), limit);
+                tickets.Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind)), limit);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

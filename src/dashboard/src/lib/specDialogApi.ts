@@ -200,6 +200,9 @@ export interface TicketSearchFound {
   /** 2026-09-27-481bb: the ticket whose NUMBER was typed, rather than one whose text mentions it.
    *  Already the first row — this is what lets it SAY so. */
   exact?: boolean;
+  /** 2026-09-27-481bf: what the tracker calls it, in the tracker's OWN word — the vocabulary is
+   *  not ours, so a fixed set would mislabel. Null where a tracker gives none. */
+  kind?: string | null;
 }
 
 /**

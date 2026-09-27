@@ -4,9 +4,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <param name="Exact">2026-09-27-481bb: this is the ticket whose NUMBER was typed, not one whose
 /// text mentions it. Already first in the answer — it is added before the text sweep and the cap
 /// keeps it — so what this adds is the ability to SAY so.</param>
+/// <param name="Kind">2026-09-27-481bf: the tracker's own word for what this is, so a picker shows
+/// a bug as a bug. Null where the tracker gives none, and shown as nothing rather than guessed.</param>
 public sealed record TicketSearchFound(
     string TicketId, string Title, string Tracker, IReadOnlyList<string> Projects,
-    bool Exact = false);
+    bool Exact = false, string? Kind = null);
 
 /// <summary>
 /// What the sweep found, whether the cap bit, and which trackers could not be searched — the last

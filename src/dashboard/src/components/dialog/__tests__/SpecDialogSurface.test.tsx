@@ -443,6 +443,7 @@ function found(
     tracker: string;
     projects: string[];
     exact?: boolean;
+    kind?: string;
   }[],
   overrides: { moreHeldBack?: boolean; unsearchable?: string[]; unreachable?: string[] } = {},
 ) {
@@ -4300,6 +4301,45 @@ describe("The ticket search", () => {
     await waitFor(() =>
       expect(screen.queryByTestId("dialog-scope-project-sample")).not.toBeInTheDocument());
     expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
+  });
+
+
+  // 2026-09-27-481bf: the tracker's own word. A fixed set of ours would either mislabel a process
+  // template's type or show nothing for it, so the word is always the tracker's and only the few
+  // every tracker means the same by get an icon.
+  it("SpecDialogSurface_AKindWithNoSharedMeaning_IsDrawnAsAWordWithNoIcon", async () => {
+    searchTickets.mockResolvedValue(
+      found([
+        { ...JIRA_HIT, kind: "Bug" },
+        {
+          ticketId: "DPG-1300",
+          title: "a backlog item",
+          tracker: "jira-main",
+          projects: ["sample"],
+          kind: "Produktrückstandselement",
+        },
+        { ticketId: "7", title: "a github issue", tracker: "gh-main", projects: ["sample"] },
+      ]),
+    );
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), {
+      target: { value: "cannot log in" },
+    });
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-kind-bug")).toBeInTheDocument());
+
+    // A type nobody else has survives as itself.
+    expect(screen.getByTestId("dialog-ticket-kind-produktrückstandselement").textContent)
+      .toContain("Produktrückstandselement");
+    // And GitHub, whose SDK carries none, draws NO kind rather than a guessed one.
+    expect(
+      within(screen.getByTestId("dialog-ticket-hit-7"))
+        .queryAllByTestId(/^dialog-ticket-kind-/),
+    ).toHaveLength(0);
+    expect(
+      within(screen.getByTestId("dialog-ticket-hit-DPG-1239"))
+        .queryAllByTestId(/^dialog-ticket-kind-/),
+    ).toHaveLength(1);
   });
 
   it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {

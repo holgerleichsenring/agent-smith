@@ -1,7 +1,10 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>2026-09-27-5c1ea: what one ticket search is allowed to reveal — an identifier and a title.</summary>
-public sealed record TicketSearchHit(TicketId Id, string Title);
+/// <param name="Kind">2026-09-27-481bf: what the tracker calls it, in the tracker's own word.
+/// One nullable field, riding a read each search already performs — affordable where a whole-ticket
+/// read per hit would not be. Null where a tracker gives none, which is every GitHub issue.</param>
+public sealed record TicketSearchHit(TicketId Id, string Title, string? Kind = null);
 
 /// <summary>Whether the tracker ran the query at all.</summary>
 public enum TicketSearchOutcome

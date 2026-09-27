@@ -84,7 +84,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
 
     public async Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
-        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,labels,attachment,assignee,reporter";
+        var url = $"{_baseUrl}{_endpoints.IssueFor(ticketId.Value)}?fields=summary,description,status,labels,attachment,assignee,reporter,issuetype";
         _logger.LogDebug("Jira GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
