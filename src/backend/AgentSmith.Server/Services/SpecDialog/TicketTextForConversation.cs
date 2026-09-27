@@ -30,6 +30,7 @@ public sealed class TicketTextForConversation(
     ITicketProviderFactory providers,
     SpecDialogTicketTextRepository store,
     ApprovedSetDivergence divergence,
+    TicketMovedCheck movedCheck,
     TimeProvider timeProvider,
     ILogger<TicketTextForConversation> logger)
 {
@@ -42,10 +43,10 @@ public sealed class TicketTextForConversation(
         {
             var provider = providers.Create(project.Tracker);
             var ticket = await provider.GetTicketAsync(new TicketId(ticketId), ct);
-            var comments = provider.SupportsComments
-                ? await provider.GetCommentsAsync(ticket.Id, ct)
-                : [];
-            var seeded = TicketTextComposer.Compose(ticket, comments);
+            // 2026-09-27-481ba: the comment read is its OWN try. It used to share this one, so a
+            // tracker that served the ticket and refused its comments left the conversation with no
+            // ticket at all — a whole grounding lost to the part of it that matters least.
+            var seeded = TicketTextComposer.Compose(ticket, await CommentsAsync(provider, ticket, ct));
             await store.SaveAsync(
                 new Infrastructure.Persistence.Entities.SpecDialogTicketText
                 {
@@ -85,27 +86,24 @@ public sealed class TicketTextForConversation(
         if (await store.GetAsync(sessionId, ct) is not { } held) return null;
         return new SeededTicket(
             held.Title, held.Text, held.Truncated, held.Fingerprint,
-            await MovedAsync(held, project, ct),
+            await movedCheck.ForAsync(held, project, ct),
             await divergence.ForAsync(project, held.TicketId, held.Text, ct));
     }
 
-    private async Task<bool> MovedAsync(
-        Infrastructure.Persistence.Entities.SpecDialogTicketText held,
-        ResolvedProject? project, CancellationToken ct)
+    private async Task<IReadOnlyList<TicketComment>> CommentsAsync(
+        ITicketProvider provider, Ticket ticket, CancellationToken ct)
     {
-        if (project is null) return false;
+        if (!provider.SupportsComments) return [];
         try
         {
-            var ticket = await providers.Create(project.Tracker)
-                .GetTicketAsync(new TicketId(held.TicketId), ct);
-            return !string.Equals(
-                TicketTextFingerprint.Of(ticket), held.Fingerprint, StringComparison.Ordinal);
+            return await provider.GetCommentsAsync(ticket.Id, ct);
         }
-        // A tracker this turn could not reach says nothing about whether the ticket moved.
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogDebug(ex, "Could not tell whether ticket {Ticket} has moved", held.TicketId);
-            return false;
+            logger.LogWarning(ex,
+                "The discussion on ticket {Ticket} could not be read; the conversation is grounded "
+                + "in the ticket itself", ticket.Id.Value);
+            return [];
         }
     }
 

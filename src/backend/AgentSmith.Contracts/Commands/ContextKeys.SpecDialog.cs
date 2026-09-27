@@ -71,4 +71,8 @@ public static partial class ContextKeys
     /// moved since. Absent for a conversation that belongs to no ticket, which renders nothing.
     /// </summary>
     public const string SpecDialogTicket = "SpecDialogTicket";
+
+    /// <summary>2026-09-27-481ba: reading that ticket from its tracker when the seeded copy was
+    /// capped. Seeded only by a BOUND conversation's turn, so an unbound one carries no tool.</summary>
+    public const string SpecDialogTicketReader = "SpecDialogTicketReader";
 }

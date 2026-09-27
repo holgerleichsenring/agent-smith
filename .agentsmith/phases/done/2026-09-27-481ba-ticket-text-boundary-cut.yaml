@@ -29,12 +29,14 @@ decisions:
       already-filtered, already-rendered comments and a REMAINING budget, and answers which of them
       fit. Filtering and rendering never move.
   - key: |
-      THE NEWEST COMMENT IS TAKEN EVEN IF IT ALONE EXCEEDS THE BUDGET — AND NOW IT SAYS SO. The
-      existing fit keeps the newest unconditionally, which is right: a conversation that dropped the
-      most recent thing anybody said would be worse than one that shows part of it. But that is the
-      one case where a comment IS cut, and today it is cut in silence. The rule becomes: whole
-      comments, newest first, and if the newest alone does not fit it is cut and REPORTED as cut.
-      The run path's output is unchanged in length by this; what it gains is the report.
+      THE OVERSIZE NEWEST COMMENT IS WHERE THE TWO PATHS MUST DIFFER, AND THE FIT TAKES THAT AS A
+      POLICY. The existing fit keeps the newest unconditionally, blowing its own cap — and a run
+      path test tolerates exactly that overshoot, by name. It can: that cap is advisory, bounding a
+      prompt. The design path's cannot: its text is stored in a column bounded at the same number,
+      so an unbounded comment is a write that fails. Making them one rule would either shrink the
+      run path's prompt in precisely the 147,000-character case this phase family exists for, or
+      break the design path's write. So the caller says whether overshooting is allowed, the run
+      path keeps today's answer exactly, and only the design path cuts — and says it cut.
   - key: |
       A COMMENT IS DROPPED WHOLE, AND ONLY THE HEAD MAY EVER BE CUT MID-CHARACTER. Title,
       description and acceptance criteria are what the ticket IS; a conversation that lost them
@@ -88,7 +90,8 @@ steps:
   - id: the-fit-is-shared
     path: "src/backend/AgentSmith.Application/Services/Prompts, src/backend/AgentSmith.Application/Services/SpecDialog"
     action:
-      - "Extract the sort-and-fit the run path already performs into a collaborator both paths call."
+      - "Extract the FIT the run path already performs — take from the end until the budget is spent — into a collaborator both paths call, with overshooting as the caller's choice."
+      - "Sort in the design path's composer, where nothing filters by adjacency and the order is the defect being fixed."
       - "Compose the design path's text as head first, then whole comments newest-first into what remains."
 
   - id: the-ticket-read-survives-its-comments
@@ -104,7 +107,8 @@ steps:
   - id: the-ticket-can-be-read
     path: "src/backend/AgentSmith.Contracts/Dialogue, src/backend/AgentSmith.Contracts/Commands, src/backend/AgentSmith.Application/Services/Tools, src/backend/AgentSmith.Application/Services/Handlers, src/backend/AgentSmith.Server/Services/SpecDialog"
     action:
-      - "Add a port that reads the bound ticket, keyed beside the withdrawal in the spec-dialog partial of the context keys, and built into a tool where the withdrawal's is — the handler holding it has forty lines under its baseline, which is the only slack this phase has."
+      - "Add a port that reads the bound ticket, keyed beside the withdrawal in the spec-dialog partial of the context keys, and built into a tool where the withdrawal's is — the handler holding it has forty-one lines under its baseline, which is the only slack this phase has."
+      - "Seed it with the project and the ticket id it needs: the stored row carries neither, and the turn that seeds it is the only place both are already resolved."
       - "Answer a slice from a caller-given position and say what remains after it."
       - "Move the per-turn reads out of SpecDialogTurnRunner first — it is at the limit exactly, it is not in the baseline, and the port must join both its constructor and the seed call."
       - "Take the registration line by chaining onto an existing one: the spec-dialog registrations sit in a file that is also at the limit."
@@ -117,6 +121,7 @@ tests:
   - "TicketText_CommentsReturnedOutOfOrder_AreSeededNewestFirstRegardless"
   - "TicketText_ACommentThatDoesNotFit_IsDroppedEntireNotSliced"
   - "TicketText_ANewestCommentTooBigForWhatRemains_IsCutAndSaysSo"
+  - "TicketConversation_ANewestCommentTooBigForItsCap_IsStillTakenWhole"
   - "TicketText_AHeadLongerThanTheCap_IsCutAndSaysTheTicketCanBeRead"
   - "TicketText_CommentsThatCouldNotBeRead_LeaveTheTicketItselfGrounded"
   - "TicketText_TheSharedFit_IsTheOneTheRunPathUses"

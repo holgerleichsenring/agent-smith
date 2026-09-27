@@ -4,7 +4,7 @@ goal: "A ticket says what kind the tracker calls it, in the tracker's own word, 
 
 applies_to: "backend (what the ticket mappers read and what a search hit carries) and dashboard (the ticket field and the scope pane)"
 
-requires: ["2026-09-27-481bb"]
+requires: ["2026-09-27-481bb", "2026-09-27-481bc"]
 
 scope:
   in: "Reading the kind each tracker gives a ticket, carrying it where a ticket and a search hit already travel, and drawing it as that word with an icon only where every tracker means the same thing."
@@ -56,11 +56,10 @@ decisions:
       would otherwise answer differently from the search; GitHub's SDK version in this tree exposes
       no issue type at all; GitLab is the one that must be checked against a real board first.
   - key: |
-      THE SWEEP HAS FOUR LINES AND THE PHASE BEFORE THIS ONE SPENDS THEM. TicketSearchAcrossTrackers
-      is at 116 of 120 and is not in the baseline, and 2026-09-27-481bb adds a failure list and an
-      exact-hit flag to it first. So this phase names its own extraction before it adds a field: the
-      by-id lookup and its project reconciliation are a separable concern from sweeping the trackers
-      for text, and that is what leaves.
+      THE SWEEP HAS ROOM, BECAUSE THE PHASE BEFORE THIS ONE MADE SOME. 2026-09-27-481bb added a
+      failure list and an exact-hit flag and, to fit them, moved its answer records into a file of
+      their own — so the sweep SHRANK rather than filling up, and a nullable field costs it nothing.
+      No extraction is needed here, and claiming one would be work with no reason behind it.
   - key: |
       A KIND IS SHOWN AND NEVER ACTED ON. Nothing routes, filters or decides by it in this phase. A
       picker that hid tickets by kind would be guessing which types matter on an estate it has never
@@ -71,14 +70,14 @@ steps:
     path: "src/backend/AgentSmith.Domain/Entities, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
     action:
       - "Carry a kind on the ticket, absent where a tracker gives none."
-      - "Read it in the four field mappers, which is where it is free: they are stateless and the payload already reaches them."
+      - "Read it in the three field mappers whose input carries one — the fourth's SDK type has no such member, which is why GitHub shows no kind."
       - "Ask for it where a tracker must be asked: the WIQL hydration, the Jira search request and the Jira poll field set. Azure DevOps's single fetch and all four provider classes need no line — three of them have none to give."
 
   - id: a-search-hit-carries-it
     path: "src/backend/AgentSmith.Domain/Models, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets, src/backend/AgentSmith.Server/Services/SpecDialog"
     action:
-      - "Move the by-id lookup and its project reconciliation out of the sweep first: it is four lines under the limit and the phase before this one spends them."
       - "Carry the kind on a search hit and on what the sweep answers, and mirror the field by hand."
+      - "Thread it onto the binding, which is what the by-id and resolve paths answer with."
       - "Thread it through the ticket's own copy-with method, which rewrites every fetched ticket positionally and would drop a new field in silence."
 
   - id: the-kind-is-drawn
@@ -93,6 +92,7 @@ tests:
   - "TicketKind_AzureDevOps_ReadsTheWorkItemType"
   - "TicketKind_Jira_ReadsTheIssueType"
   - "TicketKind_GitLab_ReadsWhicheverTypeFieldIsPresentAndNoneWhenNeitherIs"
+  - "TicketKind_JiraByIdFetch_AsksForTheIssueTypeToo"
   - "TicketKind_GitHub_CarriesNoneBecauseTheSdkExposesNone"
   - "TicketKind_ATicketRewrittenByTheFetchDoor_KeepsItsKind"
   - "TicketKind_ATrackerSpecificType_SurvivesAsItsOwnWord"

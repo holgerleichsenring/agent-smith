@@ -275,6 +275,14 @@ public sealed class AgenticMasterHandler(
                 ContextKeys.SpecDialogWithdrawal, out var withdrawal) && withdrawal is not null
             ? new WithdrawFiledTicketToolHost(withdrawal, dialogueJobId)
             : null;
+        // 2026-09-27-481ba: the way out of a bounded seed, on the same gate the withdrawal is on
+        // — a dialogue identity and a port the turn runner seeded, so a run with no conversation
+        // behind it constructs neither.
+        var readTicket = dialogueJobId is not null
+            && context.Pipeline.TryGet<ITicketReader>(
+                ContextKeys.SpecDialogTicketReader, out var ticketReader) && ticketReader is not null
+            ? new ReadTicketToolHost(ticketReader)
+            : null;
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
@@ -356,7 +364,7 @@ public sealed class AgenticMasterHandler(
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-            progress, recall, remember, withdraw, context);
+            progress, recall, remember, withdraw, readTicket, context);
         var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
 
         var request = new AgenticLoopRequest(
