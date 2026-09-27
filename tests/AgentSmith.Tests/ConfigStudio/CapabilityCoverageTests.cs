@@ -92,12 +92,13 @@ public sealed class CapabilityCoverageTests
     }
 
     [Fact]
-    public void Capabilities_PipelinesOffered_ExcludeRetiredAliases()
+    public void Capabilities_PipelinesOffered_ExcludeRetiredNames()
     {
-        // p0393's distinction, which p0392 must preserve: a stored `fix-bug` keeps
-        // validating (IsAcceptedName) and is never presented as a choice (Names).
+        // p0393 offered `fix-bug` nowhere while still accepting it in storage. 2026-09-25-e5b1
+        // closed that gap from the other side: it is not accepted either, so the two answers
+        // agree and the form's offer IS the set of names a configuration may carry.
         Capabilities.Pipelines.Should().NotContain("fix-bug");
-        AgentSmith.Contracts.Commands.PipelinePresets.IsAcceptedName("fix-bug").Should().BeTrue();
+        AgentSmith.Contracts.Commands.PipelinePresets.IsAcceptedName("fix-bug").Should().BeFalse();
         Capabilities.Pipelines.Should().BeEquivalentTo(AgentSmith.Contracts.Commands.PipelinePresets.Names);
     }
 

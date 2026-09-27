@@ -35,12 +35,26 @@ namespace AgentSmith.Contracts.Specs;
 /// the carrier.
 /// </para>
 /// </param>
+/// <param name="TicketId">
+/// 2026-09-25-c1f7: the TRACKER'S OWN id of the ticket this approval filed — <c>DPG-1239</c>,
+/// not the spec key's <c>jira-dpg-1239</c>. It is carried because discovery has to NAME the
+/// ticket in a JQL or WIQL clause, and <see cref="SpecSetKey.For"/> lowercases the id and
+/// replaces every non-alphanumeric character, so the tracker's spelling cannot be recovered from
+/// the key. Empty on a record written before this phase, which reads as "this record cannot be
+/// named in a query" — the honest answer, because nothing here can invent the id it never stored.
+/// <para>
+/// Like <paramref name="CarryingRepo"/> it is appended LAST: the construction site is positional
+/// and every one of these is a string, so an earlier insertion would compile in silence and write
+/// the wrong value.
+/// </para>
+/// </param>
 public sealed record SpecApprovalRecord(
     string Key,
     SpecSet Set,
     IReadOnlyList<string> Repositories,
     string Tracker = "",
-    string CarryingRepo = "")
+    string CarryingRepo = "",
+    string TicketId = "")
 {
     /// <summary>The approval the set carries — null only on a record built without one.</summary>
     public SpecApproval? Approval => Set.Approval;

@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
 /// Generates unit tests for code changes via the agentic LLM loop.
-/// Runs between AgenticExecute and Test in the add-feature pipeline.
+/// Runs between AgenticExecute and Test in the code pipeline.
 /// </summary>
 public sealed class GenerateTestsHandler(
     IChatClientFactory chatClientFactory,

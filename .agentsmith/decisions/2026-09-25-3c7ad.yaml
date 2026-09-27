@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-3c7ad
+
+decisions:
+  - category: Architecture
+    chose: "Allowed values ride BESIDE the field's kind, as their own property"
+    over: "A `choice` field kind"
+    reason: |
+      A field carries ONE kind and the routing field is a map. Setting it to a choice destroys the
+      map-ness; leaving it a map gives the values nowhere to live. As a separate property the same
+      declaration serves a map's value side and a scalar, and a field that declares none is free
+      text — which is every field that existed before this.
+    alternatives:
+      - "A second descriptor list: the one-source rule the capability table exists for"
+
+  - category: Architecture
+    chose: "The offered set is derived from what makes a preset unroutable"
+    over: "The preset names minus a hand-written exclusion"
+    reason: |
+      Two presets cannot be reached from a ticket: the design conversation, whose run is seeded
+      with a transcript and a reply slot, and project initialisation, launched with an init
+      context. A minus-one list would drift from that reason and the next such preset would join
+      the offer silently. The adversarial review found the second one — the first cut named only
+      spec-dialog.
+    alternatives: []
+
+  - category: Architecture
+    chose: "An unknown routing pipeline is an ADVISORY finding in a collaborator of its own"
+    over: "A line in the config validator"
+    reason: |
+      A blocking finding covering a project disables every one of its triggers, so a typo in one
+      label rule would take a running deployment off the air. The severity is the opposite of
+      everything the validator emits, which is why it is a separate check rather than a case
+      inside one — and the validator sits at its file-length baseline besides. Nothing checked
+      these names before: the validator covers the global trigger map and a project's pipelines
+      list, and the normalizer says out loud that a trigger's label values may route anywhere.
+    alternatives:
+      - "Blocking: correct-looking and operationally reckless"
+
+  - category: Design
+    chose: "A stored value outside the offer stays selectable"
+    over: "Coercing it to the first offered value"
+    reason: |
+      The live configuration names three values that are no longer presets. A select that drops
+      what it cannot show would rewrite the operator's routing on the next save — the failure mode
+      p0499 already had once with this exact field, when a textarea split their colon-bearing keys.
+    alternatives: []
+
+  - category: Correctness
+    chose: "Routable is assigned in the static constructor"
+    over: "A field initializer in the partial file that documents it"
+    reason: |
+      Field initialization order across partial files is unspecified by the C# spec, and this one
+      reads Names, which the static constructor fills. The initializer form compiled and threw a
+      TypeInitializationException on first use. The main file's own comment already said this
+      about All; it now says it about both.
+    alternatives: []

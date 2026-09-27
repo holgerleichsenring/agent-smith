@@ -1,5 +1,6 @@
 using AgentSmith.Domain.Models;
 using AgentSmith.PipelineHarness.Composition;
+using AgentSmith.PipelineHarness.Llm;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 
@@ -21,6 +22,7 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         return true;
     }
 
+    /// <summary>Runs <paramref name="preset"/> under the script that preset defaults to.</summary>
     public Task<DockerPresetRun> StartAsync(
         string preset, Action<IServiceCollection>? overrides = null)
         => StartAsync(preset, SkillsBackend.Stub, overrides);
@@ -30,8 +32,26 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         Action<IServiceCollection>? overrides = null)
         => StartAsync(preset, skillsBackend, DockerPresetLayout.For(preset), overrides);
 
-    public async Task<DockerPresetRun> StartAsync(
+    public Task<DockerPresetRun> StartAsync(
         string preset, SkillsBackend skillsBackend, DockerPresetLayout layout,
+        Action<IServiceCollection>? overrides = null)
+        => StartAsync(preset, DockerPresetScripts.DefaultFor(preset), skillsBackend, layout, overrides);
+
+    /// <summary>
+    /// 2026-09-25-a7e8: preset and scenario are two arguments because they are two
+    /// things. Several scenarios run the same preset — <c>code</c> carries the
+    /// bug-fix, fix-without-tests and add-a-feature conversations — and the scenario
+    /// is what decides which script the master is answered with.
+    /// </summary>
+    public Task<DockerPresetRun> StartAsync(
+        string preset, Action<ScriptedChatClient> script,
+        SkillsBackend skillsBackend = SkillsBackend.Stub,
+        Action<IServiceCollection>? overrides = null)
+        => StartAsync(preset, script, skillsBackend, DockerPresetLayout.For(preset), overrides);
+
+    public async Task<DockerPresetRun> StartAsync(
+        string preset, Action<ScriptedChatClient> script,
+        SkillsBackend skillsBackend, DockerPresetLayout layout,
         Action<IServiceCollection>? overrides = null)
     {
         var session = await DockerHarnessSession.CreateAsync(layout.FixtureSourceDir);
@@ -39,7 +59,7 @@ internal sealed class DockerPresetHarness(ITestOutputHelper output)
         var harness = RealCompositionHarness.Build(
             FixturePaths.For(layout.ConfigYml),
             SandboxBackend.Docker, session, skillsBackend, overrides);
-        DockerPresetScripts.Seed(preset, harness.ChatClient);
+        script(harness.ChatClient);
         var runner = new PipelineRunner(harness.Services)
         {
             RepoOverride = DockerHarnessRepo.For(session),

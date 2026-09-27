@@ -1,18 +1,34 @@
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Webhooks;
 
 public sealed class GitHubPrLabelWebhookHandlerTests
 {
+    private const string ConfigPath = "test-config.yml";
+
     private static readonly IDictionary<string, string> EmptyHeaders =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    // 2026-09-25-d83b: the trigger word comes from the config the handler reads, so the
+    // handler needs a loader even for the deployment that configures nothing.
+    private static GitHubPrLabelWebhookHandler CreateHandler()
+    {
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(new AgentSmithConfig());
+        return new GitHubPrLabelWebhookHandler(
+            loader.Object, new ServerContext(ConfigPath), new PrTriggerLabelResolver(),
+            NullLogger<GitHubPrLabelWebhookHandler>.Instance);
+    }
 
     [Fact]
     public async Task HandleAsync_LabeledSecurityReview_ReturnsSecurityScan()
     {
-        var sut = new GitHubPrLabelWebhookHandler(NullLogger<GitHubPrLabelWebhookHandler>.Instance);
+        var sut = CreateHandler();
         var payload = """
         {
             "action": "labeled",
@@ -32,7 +48,7 @@ public sealed class GitHubPrLabelWebhookHandlerTests
     [Fact]
     public void CanHandle_CorrectPlatform()
     {
-        var sut = new GitHubPrLabelWebhookHandler(NullLogger<GitHubPrLabelWebhookHandler>.Instance);
+        var sut = CreateHandler();
 
         sut.CanHandle("github", "pull_request").Should().BeTrue();
         sut.CanHandle("github", "issues").Should().BeFalse();

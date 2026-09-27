@@ -75,9 +75,8 @@ projects:
       trigger_statuses: [New, Active]
       done_status: Resolved
       pipeline_from_label:
-        agent-smith:bug:                fix-bug
-        agent-smith:feature:            add-feature
-
+        agent-smith:bug:                code
+        agent-smith:feature:            code
 secrets:
   azure_openai_api_key: ${AZURE_OPENAI_API_KEY}
   azure_devops_token:   ${AZURE_DEVOPS_TOKEN}

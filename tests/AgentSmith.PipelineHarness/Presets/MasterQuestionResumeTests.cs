@@ -39,7 +39,7 @@ public sealed class MasterQuestionResumeTests
 {
     private const string Fixture = "agentsmith-dialogue.yml";
     private const string Project = "fixture-fix-bug";
-    private const string Pipeline = "fix-bug";
+    private const string Pipeline = "code";
     private const string TicketNumber = "1";
     private const string Question = "Should the refresh window be 5 or 15 minutes?";
     private const string Answer = "15 minutes: the session must survive one full refresh.";

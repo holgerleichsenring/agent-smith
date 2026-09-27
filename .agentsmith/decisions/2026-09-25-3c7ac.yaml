@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-3c7ac
+
+decisions:
+  - category: Architecture
+    chose: "A vocabulary value carried on the four ticket CONNECTIONS"
+    over: "A constructor parameter on eight providers and transitioners"
+    reason: |
+      Both factories already build a connection record per tracker, and the connections already
+      carry an optional value with a Resolved* accessor for exactly this shape — Jira's endpoints
+      and its native-status map. Adding a ninth optional parameter there reaches every reader with
+      no new construction site, and a test can hand one in by naming it.
+    alternatives:
+      - "A static registry updated at config load: global mutable state, and wrong the moment a
+         deployment serves two boards"
+
+  - category: Architecture
+    chose: "Eight names are configurable; three are recognise-only"
+    over: "Renaming every label the framework knows"
+    reason: |
+      Only the approved-set stamp and the seven lifecycle words are WRITTEN. The phase word is
+      what a person types, and the record label and the position prefix have no writer left —
+      their own files say so. A name nothing writes cannot be renamed, only additionally
+      recognised, and pretending otherwise would have produced three configuration keys that
+      change nothing. Found by the adversarial review, which enumerated the writers.
+    alternatives: []
+
+  - category: Architecture
+    chose: "Jira and GitLab strip lifecycle labels by PREDICATE"
+    over: "Leaving the two remove-by-literal paths as they were"
+    reason: |
+      They removed the literal computed for the state they believed the ticket was in — read off
+      the board as the HISTORICAL word and removed as the CONFIGURED one, which is not there. The
+      result is a ticket carrying both words, permanently, with the parser taking whichever the
+      array yields first. Azure DevOps and GitHub already stripped by predicate and self-heal. The
+      fix has to land in the same phase that allows a rename, or the rename ships a defect.
+    alternatives: []
+
+  - category: Architecture
+    chose: "Writing is configured, reading is the union of configured and historical"
+    over: "Reading only what the tracker configures"
+    reason: |
+      Tickets carrying the old words sit on boards nobody will migrate, and a reader that forgets
+      them misreads history on the day it ships. This is the posture the epic-record label already
+      documents for a label whose writer is gone; here it becomes the rule.
+    alternatives: []
+
+  - category: Scope
+    chose: "The three readers with no tracker in hand keep the global constants"
+    over: "Making every reader per-tracker"
+    reason: |
+      The envelope resolver tests the record label before the project loop begins, eight webhook
+      handlers know only a platform, and the filed-ticket gate runs inside a run with neither. All
+      three ask whether a word is one of OURS rather than what this board calls it, so the
+      historical set is the right answer for them. The discovery query builder DOES hold the
+      tracker and was made per-tracker. Saying which is which is part of the phase.
+    alternatives: []

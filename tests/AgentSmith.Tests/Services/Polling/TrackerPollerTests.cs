@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestSupport;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Metrics;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Polling;
@@ -245,6 +247,10 @@ public sealed class TrackerPollerTests
         // p0283b: the composed query the poller handed the provider, for assertions.
         public DiscoveryQuery? CapturedQuery { get; private set; }
 
+        /// <summary>2026-09-25-3c7aa: the approval probe the poller asks per discovered ticket.
+        /// Unset means an empty store, which is what every ticket saw before this phase.</summary>
+        public ApprovedRecordProbe? Approvals { get; set; }
+
         public Harness WithSharedTracker(TrackerType type)
         {
             Tracker = Tracker with { Type = type };
@@ -265,14 +271,14 @@ public sealed class TrackerPollerTests
                     Strategy = ResolutionStrategy.Tag,
                     Value = tag,
                 },
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 TriggerStatuses = triggerStatuses ?? new List<string>(),
             };
             var project = new ResolvedProject
             {
                 Name = name,
                 Tracker = Tracker,
-                DefaultPipeline = "fix-bug",
+                DefaultPipeline = "code",
                 Repos = new[] { new RepoConnection { Name = name + "-repo", Url = $"https://example/{name}" } },
                 GithubTrigger    = actualPlatform == TrackerType.GitHub      ? trigger : null,
                 GitlabTrigger    = actualPlatform == TrackerType.GitLab      ? trigger : null,
@@ -354,6 +360,7 @@ public sealed class TrackerPollerTests
                 Lease.Object,
                 new NoOpSystemEventPublisher(),
                 new TrackerDiscoveryQueryBuilder(NullLogger<TrackerDiscoveryQueryBuilder>.Instance),
+                new PolledTicketEnvelope(Approvals ?? ApprovedRecordProbes.None()),
                 NullLogger<TrackerPoller>.Instance);
         }
     }

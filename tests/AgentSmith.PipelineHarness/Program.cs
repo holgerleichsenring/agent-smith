@@ -1,6 +1,6 @@
 // p0199 console runner. Invoke without xUnit:
-//   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug
-//   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset fix-bug --docker
+//   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset code
+//   dotnet run --project tests/AgentSmith.PipelineHarness -- --preset code --docker
 //
 // Without --docker: scripts a minimal LLM response per preset and runs
 // through the stub-sandbox fast tier (same flow the xUnit fast-tier tests

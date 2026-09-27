@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Models.Configuration;
@@ -16,6 +17,7 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
+    ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
     ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger) : IWebhookHandler
 {
@@ -45,6 +47,13 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
                 fields, workItemId.ToString(), ticketUrl);
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-09-25-3c7aa: a webhook route is per PLATFORM, so the record is looked for on
+            // every connection of that type; a ticket whose stamp is gone still binds.
+            envelope = envelope with
+            {
+                HasApprovedRecord = await approvals.ExistsForPlatformAsync(
+                    config, envelope.Platform, envelope.TicketId, cancellationToken),
+            };
             var matches = envelopeResolver.Resolve(config, envelope);
             var filtered = FilterByKeywordOrAnswers(config, matches, commentText, planAnswers.Count > 0);
 

@@ -49,8 +49,8 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
-        result.TriggerInput.Should().Contain("fix-bug");
+        result.Pipeline.Should().Be("code");
+        result.TriggerInput.Should().Contain("code");
         result.TriggerInput.Should().Contain("pr:org/my-api#42");
     }
 
@@ -78,7 +78,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("#123");
         result.TriggerInput.Should().Contain("pr:org/my-api#42");
     }
@@ -238,7 +238,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         var result = await sut.HandleAsync(payload, EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("fix-bug");
+        result.Pipeline.Should().Be("code");
         result.TriggerInput.Should().Contain("pr:org/my-api#10");
     }
 

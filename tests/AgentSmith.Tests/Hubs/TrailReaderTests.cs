@@ -75,7 +75,7 @@ public sealed class TrailReaderTests : IDisposable
     {
         StubEmptyRedis();
         SeedDbTrail(
-            new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow),
+            new RunStartedEvent(_runId, "ticket", "code", new[] { "server" }, DateTimeOffset.UtcNow),
             new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow),
             new RunFinishedEvent(_runId, "success", null, "ok", DateTimeOffset.UtcNow));
 
@@ -95,7 +95,7 @@ public sealed class TrailReaderTests : IDisposable
                 (RedisKey)EventStreamKeys.RunStream(_runId), "-", "+", null, Order.Ascending, CommandFlags.None))
             .ReturnsAsync(new[] { EntryFor(new RunStartedEvent(_runId, "t", "p", new[] { "r" }, DateTimeOffset.UtcNow)) });
         SeedDbTrail(
-            new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow),
+            new RunStartedEvent(_runId, "ticket", "code", new[] { "server" }, DateTimeOffset.UtcNow),
             new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow),
             new StepStartedEvent(_runId, 2, "AnalyzeCode", 20, DateTimeOffset.UtcNow),
             new RunFinishedEvent(_runId, "success", null, "ok", DateTimeOffset.UtcNow));
@@ -148,7 +148,7 @@ public sealed class TrailReaderTests : IDisposable
         // the structural skeleton — without touching the DB.
         var entries = new[]
         {
-            EntryFor(new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow)),
+            EntryFor(new RunStartedEvent(_runId, "ticket", "code", new[] { "server" }, DateTimeOffset.UtcNow)),
             EntryFor(new SandboxOutputEvent(_runId, "server", "stdout", "line 1", 0, DateTimeOffset.UtcNow)),
             EntryFor(new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow)),
             EntryFor(new SandboxOutputEvent(_runId, "server", "stdout", "line 2", 1, DateTimeOffset.UtcNow)),
@@ -170,7 +170,7 @@ public sealed class TrailReaderTests : IDisposable
     {
         StubEmptyRedis();
         SeedDbTrail(
-            new RunStartedEvent(_runId, "ticket", "fix-bug", new[] { "server" }, DateTimeOffset.UtcNow),
+            new RunStartedEvent(_runId, "ticket", "code", new[] { "server" }, DateTimeOffset.UtcNow),
             new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow));
 
         var sut = new TrailReader(_redis.Object, _scopes, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
@@ -185,7 +185,7 @@ public sealed class TrailReaderTests : IDisposable
     {
         var entries = new[]
         {
-            EntryFor(new RunStartedEvent(_runId, "ticket", "fix-bug",
+            EntryFor(new RunStartedEvent(_runId, "ticket", "code",
                 new[] { "server" }, DateTimeOffset.UtcNow)),
             EntryFor(new StepStartedEvent(_runId, 1, "CheckoutSource", 10, DateTimeOffset.UtcNow)),
             EntryFor(new RunFinishedEvent(_runId, "success", null, "ok", DateTimeOffset.UtcNow)),

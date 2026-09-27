@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// p0315e: parses a `kind: bug` outcome block into the fix-bug ticket shape.
-/// Title and description are the fields the existing fix-bug pipeline reads
+/// Title and description are the fields the existing code pipeline reads
 /// off a ticket, so both are required; missing fields fail with their name.
 /// </summary>
 public sealed class BugOutcomeParser

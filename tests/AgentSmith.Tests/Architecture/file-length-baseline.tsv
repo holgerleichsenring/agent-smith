@@ -131,7 +131,6 @@
 134	AgentSmith.Infrastructure/Services/Tools/DockerToolRunner.cs
 133	AgentSmith.Application/Services/Handlers/SecuritySnapshotWriter.cs
 133	AgentSmith.Cli/Commands/ConfigCommand.cs
-132	AgentSmith.Application/Services/Lifecycle/ActiveRunReaper.cs
 131	AgentSmith.Server/Services/LlmIntentParser.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs

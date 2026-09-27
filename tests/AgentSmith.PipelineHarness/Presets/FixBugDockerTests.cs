@@ -6,7 +6,7 @@ using Xunit.Abstractions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0199b docker-tier fix-bug coverage. Five end-to-end assertions
+/// p0199b docker-tier coverage for the bug-fix scenario. Five end-to-end assertions
 /// against the production DockerSandboxFactory + a per-test bare git
 /// remote + real dotnet tooling:
 ///   A: green path — pipeline succeeds, container removed on dispose
@@ -37,7 +37,7 @@ public sealed class FixBugDockerTests(ITestOutputHelper output)
         // tree fails `git commit` as designed.
         EnqueueWriteEdit(harness);
 
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
         LogResult(result);
         result.IsSuccess.Should().BeTrue($"green path must complete: {result.Message}");
         harness.DockerSandboxFactory!.Spawned.Should().NotBeEmpty("at least one container spawned");
@@ -51,7 +51,7 @@ public sealed class FixBugDockerTests(ITestOutputHelper output)
         var (harness, session, runner) = await StartAsync(FixturePaths.Docker);
         EnqueueWriteEdit(harness);
 
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
         LogResult(result);
         var branches = session.BareBranches();
         output.WriteLine("bare branches: " + string.Join(", ", branches));
@@ -69,7 +69,7 @@ public sealed class FixBugDockerTests(ITestOutputHelper output)
         {
             var (harness, session, runner) = await StartAsync(FixturePaths.Docker);
             EnqueueWriteEdit(harness);
-            var result = await runner.RunAsync("fix-bug");
+            var result = await runner.RunAsync("code");
             LogResult(result);
             var branches = session.BareBranches();
             output.WriteLine("bare branches: " + string.Join(", ", branches));
@@ -91,7 +91,7 @@ public sealed class FixBugDockerTests(ITestOutputHelper output)
             FixturePaths.DockerNoRegistries, includePrivateFeed: true);
         EnqueueWriteEdit(harness);
 
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
         LogResult(result);
         result.IsSuccess.Should().BeFalse(
             "registries-empty + private feed in nuget.config must trip NU1301 in `dotnet restore`");
@@ -118,7 +118,7 @@ public sealed class FixBugDockerTests(ITestOutputHelper output)
         var (harness, session, runner) = await StartAsync(FixturePaths.Docker);
         harness.ChatClient.EnqueueText("No changes needed.");
 
-        var result = await runner.RunAsync("fix-bug");
+        var result = await runner.RunAsync("code");
         LogResult(result);
         result.IsSuccess.Should().BeTrue(
             "registries-configured + valid token must let SetupRegistryAuth stage creds and restore go green");

@@ -61,7 +61,7 @@ public sealed class SystemEventSequenceCompletenessTests
                 TicketSkipReason.ZeroMatch, "no project trigger matched", DateTimeOffset.UtcNow),
         SystemEventType.TicketTriggered =>
             new TicketTriggeredEvent("tracker:jira/sample", "sample", "TICKET-1",
-                "sample-project", "fix-bug", "Claimed", DateTimeOffset.UtcNow),
+                "sample-project", "code", "Claimed", DateTimeOffset.UtcNow),
         SystemEventType.WebhookReceived =>
             new WebhookReceivedEvent("webhook:github", "issues", "/webhooks/github",
                 Actioned: true, SkipReason: null, Timestamp: DateTimeOffset.UtcNow),

@@ -112,14 +112,14 @@ public sealed class SettingsRoundTripTests
         h.Store.SaveSetting("pipeline_cost_cap", Doc("""
             {
               "default": { "usd": 6.0, "tokens": 600000 },
-              "perPipeline": { "fix-bug": { "usd": 3.0, "tokens": 300000 } },
+              "perPipeline": { "code": { "usd": 3.0, "tokens": 300000 } },
               "perTier": { "Large": { "usd": 40.0, "tokens": 8000000 } }
             }
             """), new ChangeAttribution("op"));
 
         var cap = h.Assembler.Assemble(h.DocStore.LoadAll()).PipelineCostCap;
         cap.Default.Usd.Should().Be(6.0m);
-        cap.PerPipeline["fix-bug"].Tokens.Should().Be(300_000);
+        cap.PerPipeline["code"].Tokens.Should().Be(300_000);
         cap.PerTier[ComplexityTier.Large].Usd.Should().Be(40.0m);
     }
 

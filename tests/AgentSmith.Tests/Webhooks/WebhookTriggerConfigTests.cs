@@ -41,7 +41,7 @@ public sealed class WebhookTriggerConfigTests
         {
             GithubTrigger = new WebhookTriggerConfig
             {
-                PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "fix-bug" },
+                PipelineFromLabel = new Dictionary<string, string> { ["bug"] = "code" },
                 TriggerStatuses = ["open"],
                 DoneStatus = "closed"
             },

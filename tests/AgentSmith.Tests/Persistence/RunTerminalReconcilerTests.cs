@@ -136,7 +136,7 @@ public sealed class RunTerminalReconcilerTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = RunId, Project = "p1", Pipeline = "fix-bug", TicketId = "42",
+            Id = RunId, Project = "p1", Pipeline = "code", TicketId = "42",
             Status = status, StartedAt = DateTimeOffset.UtcNow, FinishedAt = finishedAt,
         });
         foreach (var seq in trailSeqs)

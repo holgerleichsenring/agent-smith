@@ -31,7 +31,7 @@ public sealed class LlmIntentParser(
 
         Respond with valid JSON only, no markdown, no explanation.
         {
-          "pipeline": "fix-bug|add-feature|init-project|security-scan|api-security-scan|legal-analysis|mad-discussion",
+          "pipeline": "one of the available pipelines named in the user message",
           "project": "project-name",
           "ticket_id": "123 or null if not applicable",
           "confidence": 0.0-1.0
@@ -98,7 +98,7 @@ public sealed class LlmIntentParser(
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            var pipeline = root.GetProperty("pipeline").GetString() ?? "fix-bug";
+            var pipeline = root.GetProperty("pipeline").GetString() ?? PipelinePresets.CodeName;
             var project = root.GetProperty("project").GetString() ?? "";
             var ticketStr = root.TryGetProperty("ticket_id", out var tid) ? tid.GetString() : null;
             var confidence = Json.JsonValueReader.Double(root, "confidence");
@@ -119,7 +119,7 @@ public sealed class LlmIntentParser(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to parse LLM intent response, falling back to fix-bug");
+            logger.LogWarning(ex, "Failed to parse LLM intent response");
             throw new ConfigurationException(
                 $"Could not parse intent from '{originalInput}'. LLM response was not valid JSON.");
         }

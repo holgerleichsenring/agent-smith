@@ -20,7 +20,7 @@ public sealed class RunSnapshotMetadataTests
         // Arrange: a ticket run started, but the FetchTicket step has not yet
         // published a TicketFetchedEvent — so TicketTitle is still null.
         var snapshot = RunSnapshot.Empty(RunId).Apply(new RunStartedEvent(
-            RunId, Trigger: "ticket", Pipeline: "fix-bug",
+            RunId, Trigger: "ticket", Pipeline: "code",
             Repos: new[] { "backend" }, StartedAt: DateTimeOffset.UtcNow,
             AgentName: "claude/claude-sonnet-4", TicketId: "18803"));
 
@@ -29,7 +29,7 @@ public sealed class RunSnapshotMetadataTests
 
         // Assert
         snapshot.TicketTitle.Should().BeNull();
-        title.Should().Be("fix-bug #18803");
+        title.Should().Be("code #18803");
         title.Should().NotBe("unknown");
     }
 
@@ -39,7 +39,7 @@ public sealed class RunSnapshotMetadataTests
         // Arrange
         var snapshot = RunSnapshot.Empty(RunId)
             .Apply(new RunStartedEvent(
-                RunId, "ticket", "fix-bug", new[] { "backend" },
+                RunId, "ticket", "code", new[] { "backend" },
                 DateTimeOffset.UtcNow, "claude/claude-sonnet-4", "18803"))
             .Apply(new TicketFetchedEvent(
                 RunId, TicketId: "18803", Title: "Login button misaligned",
@@ -75,7 +75,7 @@ public sealed class RunSnapshotMetadataTests
         // Arrange: every trigger path funnels through the single RunStartedEvent
         // producer (ExecutePipelineUseCase), which always derives repos + agent.
         var started = new RunStartedEvent(
-            RunId, Trigger: trigger, Pipeline: "fix-bug",
+            RunId, Trigger: trigger, Pipeline: "code",
             Repos: new[] { "backend", "frontend" },
             StartedAt: DateTimeOffset.UtcNow,
             AgentName: "claude/claude-sonnet-4", TicketId: "42");
@@ -87,7 +87,7 @@ public sealed class RunSnapshotMetadataTests
         snapshot.Trigger.Should().Be(trigger);
         snapshot.Repos.Should().BeEquivalentTo(new[] { "backend", "frontend" });
         snapshot.AgentName.Should().Be("claude/claude-sonnet-4");
-        snapshot.Pipeline.Should().Be("fix-bug");
+        snapshot.Pipeline.Should().Be("code");
     }
 
     [Fact]
@@ -95,7 +95,7 @@ public sealed class RunSnapshotMetadataTests
     {
         // Arrange
         var snapshot = RunSnapshot.Empty(RunId).Apply(new RunStartedEvent(
-            RunId, "ticket", "fix-bug", new[] { "backend" },
+            RunId, "ticket", "code", new[] { "backend" },
             DateTimeOffset.UtcNow, "claude/claude-sonnet-4", "18803"));
 
         // Act / Assert: the snapshot carries the real repo, not an empty list.
@@ -111,7 +111,7 @@ public sealed class RunSnapshotMetadataTests
         // first seeds the back-compat primary PrUrl. A no_changes outcome adds none.
         var t = DateTimeOffset.UtcNow;
         var snapshot = RunSnapshot.Empty(RunId)
-            .Apply(new RunStartedEvent(RunId, "ticket", "add-feature", new[] { "server", "bgw" }, t, "azure_openai", "19106"))
+            .Apply(new RunStartedEvent(RunId, "ticket", "code", new[] { "server", "bgw" }, t, "azure_openai", "19106"))
             .Apply(new PullRequestOutcomeEvent(RunId, "server", "opened", t, "https://az/server/pr/1"))
             .Apply(new PullRequestOutcomeEvent(RunId, "bgw", "opened", t, "https://az/bgw/pr/2"))
             .Apply(new PullRequestOutcomeEvent(RunId, "client", "no_changes", t));
@@ -133,7 +133,7 @@ public sealed class RunSnapshotMetadataTests
         var started = DateTimeOffset.UtcNow;
         RunEvent?[] stream =
         {
-            new RunStartedEvent(RunId, "ticket", "fix-bug",
+            new RunStartedEvent(RunId, "ticket", "code",
                 new[] { "server", "client" }, started, "azure_openai", "18836"),
             new TicketFetchedEvent(RunId, "18836", "Korrigieren der Antwort-Typen",
                 "desc", "Open", System.Array.Empty<string>(), 0, "AzureDevOps", started),
@@ -143,7 +143,7 @@ public sealed class RunSnapshotMetadataTests
 
         var snapshot = JobsBroadcaster.RebuildSnapshot(RunId, stream);
 
-        snapshot.Pipeline.Should().Be("fix-bug");
+        snapshot.Pipeline.Should().Be("code");
         snapshot.Repos.Should().BeEquivalentTo(new[] { "server", "client" });
         snapshot.AgentName.Should().Be("azure_openai");
         snapshot.Status.Should().Be("success");

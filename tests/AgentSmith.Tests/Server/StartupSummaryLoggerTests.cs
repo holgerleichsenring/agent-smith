@@ -68,7 +68,7 @@ public sealed class StartupSummaryLoggerTests
             Tracker = tracker,
             Agent = new AgentConfig { Type = "Claude", Model = "sonnet" },
             Repos = new[] { new RepoConnection { Name = name + "-repo", Url = $"https://example/{name}", Type = RepoType.GitHub } },
-            Pipeline = "fix-bug",
+            Pipeline = "code",
             Polling = polling ?? new PollingConfig(),
         };
 

@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-e5b1
+
+decisions:
+  - category: Architecture
+    chose: "The callers moved, then the stored configuration, then the map"
+    over: "Deleting the alias map first and fixing whatever fell over"
+    reason: |
+      A pipeline name that stops resolving is not merely unknown — it is RECLASSIFIED, in
+      silence. PipelinePresets keyed its type map, its code-changing map and its master map off
+      the name, so a stale `fix-bug` would have been typed as a CONVERSATION, sized as a sandbox
+      that builds nothing with no master to re-drive, and left out of the clarification park a
+      whole phase exists to provide. None of that throws. So every framework caller was moved
+      onto `code` first, the startup migration that rewrites stored configuration was written
+      second, and the map was deleted third.
+    alternatives:
+      - "Delete first and let the suite find the callers: the suite is green for a run classified as the wrong kind"
+
+  - category: Architecture
+    chose: "The three pull-request comment allow-lists were merged into one PrCommentPipelines"
+    over: "Editing `fix-bug` to `code` in each of the three handlers"
+    reason: |
+      GitHub, GitLab and Azure DevOps each held their own copy of the list, and every copy named
+      the alias. Removing that entry without adding the preset it resolved to would have made the
+      code pipeline unreachable from a pull-request comment on ALL THREE hosts — a capability
+      lost while the diff read like a rename, with nothing in the suite to say so. Three copies
+      of one list is the shape in which that can happen; one list is the shape in which it cannot.
+      It is deliberately not PipelinePresets.Routable: a comment is a lower-trust surface than an
+      operator's configuration, so what it may start stays enumerated.
+    alternatives:
+      - "Three edits and three assertions: the assertions drift apart exactly as the lists did"
+
+  - category: Architecture
+    chose: "A one-shot startup migration over IConfigDocumentStore, beside RoleMappingMigration"
+    over: "A persistence-layer migration, or leaving stored configuration to the operator"
+    reason: |
+      Configuration has lived in the entity-document store since p0349 and there was already a
+      startup migration to copy the shape from. Leaving it was not an option: the validator
+      rejects an unknown name in `pipeline_triggers` and in a project's `pipelines` list as
+      BLOCKING, so an installation carrying one would come up with its triggers disabled. It
+      runs before the listener serves anything, because a request answered in between would be
+      routed by a name that no longer resolves.
+    alternatives:
+      - "An EF migration: the doc is opaque JSON the persistence layer does not interpret, and the CLI stays file-based"
+
+  - category: Implementation
+    chose: "The rewrite NAMES every field, across THREE document types"
+    over: "A blind string replace over each document"
+    reason: |
+      A config document holds repository names, labels and secret ids that may legitimately read
+      `fix-bug`; only the pipeline fields may move. The spec named five fields over two types;
+      the code carries eight groups over three. `pipeline_trigger` is a document per LABEL whose
+      whole body IS the pipeline name — the global map an operator is most likely to have — and a
+      project's four per-platform trigger blocks carry their own label map and default, which is
+      exactly what RoutingPipelineNames reads. Omitting either would have left a name behind in
+      the two places that report it, one of them blocking.
+    alternatives:
+      - "The five fields the spec named: leaves the global trigger map and the per-platform blocks naming a dead pipeline"
+
+  - category: TradeOff
+    chose: "Re-saving a rewritten document, and accepting that it clears that project's standing UnmovedTicket records"
+    over: "Rewriting without a version bump, or re-saving every document"
+    reason: |
+      The document repository bumps a version on save, and an unmoved-ticket record is dropped
+      once the configuration it was recorded against has moved. Every document that carries a
+      retired name pays that once. The cost is one repeated attempt per affected ticket — the
+      refusal is re-recorded by the next run that meets it — and it is paid only where the
+      rewrite was needed: a document naming no retired name is NOT re-saved, which is why the
+      rewrite answers null instead of always returning a document.
+    alternatives:
+      - "Write the row without a version: the audit feed would stop explaining how the value changed"
+
+  - category: Architecture
+    chose: "ProjectResolver binds to `code`, and ClaimPreChecker's exemption moved with it"
+    over: "Moving the bind and leaving the claim check on PhaseExecutionName"
+    reason: |
+      A bound phase ticket is hard-bound BEFORE pipeline_from_label and is therefore in nobody's
+      label map — which is why the claim exempts the bind target from the label-triggered check.
+      Move one without the other and a project whose trigger declares any other default resolves
+      a pipeline its own claim then refuses: the ticket resolves, and sits. The pair is pinned end
+      to end in BoundTicketClaimTests. It does follow that a claim naming `code` is never refused
+      as un-routed; it still has to name a real project with a trigger for the platform.
+    alternatives:
+      - "Thread a `bound` flag through ProjectMatch and ClaimRequest: a new field on two contracts to say what the bind target already says"
+
+  - category: Architecture
+    chose: "RetiredPipelineNames keeps the four names, in Application, as a message table"
+    over: "Hard-coding them in the migration, or keeping them in PipelinePresets"
+    reason: |
+      The migration needs them and so does the startup finding — 2026-09-25-3c7ad's advisory said
+      only "offered: code, security-scan, …", which leaves an operator to guess which of those
+      their old word became. One table serves both, and it is NOT a resolver: TryResolve and
+      IsAcceptedName do not consult it, so a name in it does not run. Keeping it inside
+      PipelinePresets would have put the retired names back within reach of the maps this phase
+      took them out of.
+    alternatives:
+      - "Two hard-coded lists: they disagree the first time one of them is edited"
+
+  - category: Implementation
+    chose: "PipelinePresets.Canonical and PipelinePresets.PhaseExecution.cs were deleted with the map"
+    over: "Keeping Canonical as the identity and the constant as a name"
+    reason: |
+      Canonical existed to resolve an alias before classification; with no aliases it is the
+      identity, and an identity function whose entire doc comment explains a deleted mechanism is
+      a seam that lies about what it does. PhaseExecutionName had no caller left in the product
+      once the bind moved. Deleting both is what makes "one vocabulary" true rather than stated.
+    alternatives:
+      - "Keep Canonical for a future rename: a hop nothing needs today, documented for a mechanism that no longer exists"
+
+  - category: Scope
+    chose: "RetiredPresets is untouched, and its two known defects are reported rather than fixed"
+    over: "Folding skill-manager/autonomous into this phase"
+    reason: |
+      A retired PRESET has no replacement, so there is nothing to rewrite a configuration to —
+      a different mechanism from a retired NAME, which is the same pipeline said differently.
+      Two facts found while reading it and deliberately left alone: IsAcceptedName has never
+      accepted them, so a configuration naming one already produces a blocking finding rather
+      than the graceful validation the class doc claims; and RetiredReason has exactly one caller,
+      in the harness, and none in the product.
+    alternatives: []
+
+  - category: Scope
+    chose: "Docs lose the retired names; the pre-p0393 step lists they sit in were corrected only where they named one"
+    over: "Rewriting the pipeline reference pages, or leaving the names in prose"
+    reason: |
+      Pages like fix-and-feature.md described three pipelines with Triage/GeneratePlan/Approval
+      steps that p0393 and p0394a had already removed — stale for reasons this phase did not
+      cause. The step tables those pages showed were rewritten from PipelinePresets.Code because
+      leaving a corrected NAME on top of a wrong list would have been worse than either. The run
+      logs under docs/reference/run-logs keep their names: they record what actually ran.
+    alternatives: []

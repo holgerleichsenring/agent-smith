@@ -77,7 +77,7 @@ public sealed class RunBudgetResolvedTests : IDisposable
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Runs.Add(new Run
         {
-            Id = runId, Project = "p1", Pipeline = "add-feature", TicketId = "19106",
+            Id = runId, Project = "p1", Pipeline = "code", TicketId = "19106",
             Status = "running", StartedAt = DateTimeOffset.UtcNow,
         });
         await ctx.SaveChangesAsync();

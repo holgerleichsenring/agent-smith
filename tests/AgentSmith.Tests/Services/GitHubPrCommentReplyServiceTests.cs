@@ -45,7 +45,7 @@ public sealed class GitHubPrCommentReplyServiceTests
                 "42",
                 "100",
                 "dev-user",
-                "fix-bug",
+                "code",
                 null,
                 null,
                 "/agent-smith fix");
@@ -80,7 +80,7 @@ public sealed class GitHubPrCommentReplyServiceTests
                 "42",
                 "100",
                 "dev-user",
-                "fix-bug",
+                "code",
                 null,
                 null,
                 "/agent-smith fix");

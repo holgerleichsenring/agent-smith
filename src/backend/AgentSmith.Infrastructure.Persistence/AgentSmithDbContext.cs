@@ -51,6 +51,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     // person picked from a list rather than to an identifier typed from a console.
     public DbSet<ObservedCallerEntity> ObservedCallers => Set<ObservedCallerEntity>();
     public DbSet<UnmovedTicket> UnmovedTickets => Set<UnmovedTicket>(); // 2026-09-18-c1a7
+    public DbSet<TakenTicket> TakenTickets => Set<TakenTicket>(); // 2026-09-25-b4d9
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -58,9 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ActiveRunConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogSessionConfiguration());
         modelBuilder.ApplyConfiguration(new SpecDialogAttachmentConfiguration()); // 2026-09-20-3af8
-        modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
-        modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
-        modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7
+        new TicketRecordConfigurations().Apply(modelBuilder); // 2026-09-25-b4d9
         modelBuilder.ApplyConfiguration(new ApprovedSpecSetConfiguration()); // 2026-09-17-0e79a
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());

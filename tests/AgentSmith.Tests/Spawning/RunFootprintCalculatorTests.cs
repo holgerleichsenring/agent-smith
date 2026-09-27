@@ -29,7 +29,7 @@ public sealed class RunFootprintCalculatorTests
             .ReturnsAsync([Discovery("default")]);
 
         var footprint = await Calculator(language, orchestrator: null)
-            .CalculateAsync(project, "fix-bug", CancellationToken.None);
+            .CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().HaveCount(4, "server splits sdk8 + sdk9 (distinct images); client + api one each");
         footprint.Pods.Select(p => p.Repo).Should().Equal("server", "server", "client", "api");
@@ -48,7 +48,7 @@ public sealed class RunFootprintCalculatorTests
                 Discovery("client-api-generator"), Discovery("okta")]);
 
         var footprint = await Calculator(language, orchestrator: null)
-            .CalculateAsync(project, "fix-bug", CancellationToken.None);
+            .CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle("all five contexts share one toolchain image");
         footprint.Pods[0].Contexts.Should().HaveCount(5);
@@ -69,7 +69,7 @@ public sealed class RunFootprintCalculatorTests
         var calc = new RunFootprintCalculator(
             language.Object, resource.Object, NoOrchestrator(), NullLogger<RunFootprintCalculator>.Instance);
 
-        var footprint = await calc.CalculateAsync(project, "fix-bug", CancellationToken.None);
+        var footprint = await calc.CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle();
         footprint.Pods[0].MemLimit.Should().Be("4Gi", "the merged pod is sized to the heaviest member");
@@ -85,7 +85,7 @@ public sealed class RunFootprintCalculatorTests
         var orchestrator = new ResourceLimits("100m", "500m", "128Mi", "1Gi");
 
         var footprint = await Calculator(language, orchestrator)
-            .CalculateAsync(project, "fix-bug", CancellationToken.None);
+            .CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().HaveCount(2, "one sandbox + the orchestrator");
         footprint.Pods.Should().ContainSingle(p => p.Repo == "orchestrator");

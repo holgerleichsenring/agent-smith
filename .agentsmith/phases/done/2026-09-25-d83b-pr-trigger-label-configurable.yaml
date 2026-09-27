@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-d83b
+goal: "The word that triggers a review from a pull request is the operator's to choose, like every other routing word, instead of a literal compiled into two webhook handlers."
+
+applies_to: "backend (the pull-request label webhook handlers and the trigger configuration)"
+
+scope:
+  in: "Taking `security-review` out of two handlers' source and into configuration, with today's word as the default, and recognising the historical word so a board already using it keeps working."
+  out: "The bookkeeping vocabulary of 3c7ac — this is a ROUTING word an operator puts on a pull request to ask for work, not a fact the framework records about a ticket."
+
+decisions:
+  - key: |
+      IT IS A ROUTING WORD WEARING BOOKKEEPING'S CLOTHES. The GitHub and GitLab pull-request label handlers
+      match a hard-coded `security-review` case-insensitively against the label a person put on a pull
+      request, and start a pipeline from it. Every other way of asking this framework for work is
+      configured; this one is compiled in, on the operator's own pull-request board.
+  - key: |
+      THE DEFAULT IS THE WORD IT IS TODAY AND THE OLD WORD KEEPS WORKING. Boards carry it now and nobody
+      will relabel them, so the configured word is what a handler LOOKS for and the historical word is
+      still recognised — the same posture the bookkeeping vocabulary takes for names nothing writes.
+
+steps:
+  - id: the-word-comes-from-configuration
+    path: "src/backend/AgentSmith.Server/Services/Webhooks"
+    action:
+      - "Read the pull-request trigger word from configuration in both handlers, defaulting to today's literal and still recognising it."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs"
+      - "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs"
+
+  - id: the-word-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert a configured word triggers, the historical word still triggers, and an unconfigured deployment behaves exactly as today."
+
+tests:
+  - "PrTrigger_AConfiguredWord_StartsTheReview"
+  - "PrTrigger_TheHistoricalWord_StillStartsTheReview"
+  - "PrTrigger_AnUnconfiguredDeployment_BehavesExactlyAsToday"
+
+done:
+  - "the pull-request trigger word is configurable on both hosts"
+  - "a board using the historical word is unaffected"
+  - "build green, full suite green"

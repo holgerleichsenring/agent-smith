@@ -29,7 +29,7 @@ public sealed class UnconfiguredBootTests : IDisposable
             agent: a1
             tracker: t1
             repos: [c1/App]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           gh: ${AGENTSMITH_TEST_GH}
         """;

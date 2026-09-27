@@ -3,7 +3,7 @@
 The `init-project` pipeline runs exactly one **bootstrap skill** against the
 analyzed repository. That skill writes `.agentsmith/context.yaml` and
 `.agentsmith/principles.md` — the two files every code-touching
-pipeline (`fix-bug`, `add-feature`, `security-scan`, ...) requires.
+pipeline (`code`, `security-scan`, ...) requires.
 
 `principles.md` is named for what it holds. Rules about the **environment** count
 as much as rules about code, and their home is its **Project Specifics** section

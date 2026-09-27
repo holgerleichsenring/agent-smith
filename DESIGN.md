@@ -270,15 +270,10 @@ components:
     padding: "{spacing.3xl} {spacing.xl}"
 
   # ─── Pipeline-taxonomy tint mapping (Agent Smith) ───
-  pipeline-fix-bug:
-    description: "fix-bug pipeline card. Cream chrome — the default pipeline."
+  pipeline-code:
+    description: "code pipeline card. Cream chrome — the default pipeline."
     backgroundColor: "{colors.canvas-soft}"
     textColor: "{colors.ink}"
-  pipeline-add-feature:
-    description: "add-feature pipeline. Cream-bold (canvas-soft with stronger border)."
-    backgroundColor: "{colors.canvas-soft}"
-    textColor: "{colors.ink}"
-    borderColor: "{colors.ink}"
   pipeline-security-scan:
     description: "security-scan pipeline. Polarity-flipped dark for severity signal."
     backgroundColor: "{colors.ink}"
@@ -541,8 +536,7 @@ Deterministic tint mapping — the same card chrome means the same pipeline acro
 
 | Pipeline | Component | Polarity |
 |---|---|---|
-| `fix-bug` | `pipeline-fix-bug` | Cream |
-| `add-feature` | `pipeline-add-feature` | Cream + outline |
+| `code` | `pipeline-code` | Cream |
 | `security-scan` | `pipeline-security-scan` | Dark |
 | `api-security-scan` | `pipeline-api-security-scan` | Dark |
 | `legal-analysis` | `pipeline-legal-analysis` | Cream |

@@ -94,7 +94,7 @@ public class YamlConfigurationLoaderTests
         project.Tracker.Organization.Should().Be("testorg");
         project.Agent.Type.Should().Be("claude");
         project.Agent.Model.Should().Be("sonnet-4");
-        project.Pipeline.Should().Be("fix-bug");
+        project.Pipeline.Should().Be("code");
     }
 
     // Loads the bundled operator-facing example end-to-end. Regression guard for
@@ -161,7 +161,7 @@ public class YamlConfigurationLoaderTests
                 agent: claude-default
                 tracker: test-ado
                 repos: [test-repo]
-                pipeline: fix-bug
+                pipeline: code
 
             pipeline_cost_cap:
               default:
@@ -182,14 +182,14 @@ public class YamlConfigurationLoaderTests
 
             // p0270a: resolution lives in ConfigResolutionPass now; this loader
             // test asserts the per_pipeline override BOUND from YAML (Raw → Compose
-            // → AgentSmithConfig). "fix-bug" has no entry, so it resolves to Default.
+            // → AgentSmithConfig). "code" has no entry, so it resolves to Default.
             var perPipeline = config.PipelineCostCap.PerPipeline["api-security-scan"];
             perPipeline.Usd.Should().Be(5m,
                 "per_pipeline.api-security-scan override must bind, not fall back to the default");
             perPipeline.Tokens.Should().Be(2_000_000,
                 "per_pipeline.api-security-scan.tokens override must propagate through Raw → Compose → AgentSmithConfig");
 
-            config.PipelineCostCap.PerPipeline.ContainsKey("fix-bug").Should().BeFalse(
+            config.PipelineCostCap.PerPipeline.ContainsKey("code").Should().BeFalse(
                 "pipelines without a per_pipeline entry resolve to pipeline_cost_cap.default");
         }
         finally

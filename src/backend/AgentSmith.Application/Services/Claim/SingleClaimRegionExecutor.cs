@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Claim;
 internal sealed class SingleClaimRegionExecutor(
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
-    IActiveRunLease lease,
+    ClaimedTicketRegistrar registrar,
     ILogger logger)
 {
     public async Task<ClaimResult> ExecuteAsync(
@@ -32,8 +32,9 @@ internal sealed class SingleClaimRegionExecutor(
         // p0246b: the AUTHORITATIVE single-run guard — INSERT the ActiveRun lease.
         // The UNIQUE(Project,TicketId) index rejects a duplicate as AlreadyClaimed
         // by construction (survives a label edit AND a flushed Redis). DB-free
-        // composition binds NoOpActiveRunLease.
-        var leaseOutcome = await lease.TryClaimAsync(request.ProjectName, request.TicketId, ct);
+        // composition binds NoOpActiveRunLease. 2026-09-25-b4d9: the registrar writes
+        // the durable taken-ticket record beside it, before any tracker call.
+        var leaseOutcome = await registrar.TakeAsync(request, ct);
         if (leaseOutcome == LeaseClaimOutcome.AlreadyClaimed)
             return ClaimResult.AlreadyClaimed();
         if (leaseOutcome == LeaseClaimOutcome.Error)
@@ -45,11 +46,31 @@ internal sealed class SingleClaimRegionExecutor(
         return transition.Outcome switch
         {
             TransitionOutcome.Succeeded => await EnqueueAsync(request, ct),
-            TransitionOutcome.PreconditionFailed => await ReleaseAndAsync(
-                request, ClaimResult.AlreadyClaimed(), ct),
+            // 2026-09-25-3c7ab: a CONCURRENCY refusal is not a statement about the work. Its
+            // three sources are a GitHub ETag mismatch, an Azure DevOps rev mismatch or 409, and
+            // a Redis label-lock already held — every one of them means somebody else wrote to
+            // this ticket in the same second, and an operator typing a comment is enough. The
+            // index granted this claim; reporting it as AlreadyClaimed was a lie about it, and
+            // releasing the lease handed the ticket back over a label nobody reads as authority.
+            TransitionOutcome.PreconditionFailed => await ProceedUnwrittenAsync(request, transition, ct),
             _ => await ReleaseAndAsync(
                 request, ClaimResult.Failed(transition.Error ?? transition.Outcome.ToString()), ct)
         };
+    }
+
+    /// <summary>
+    /// The claim stands and the board simply does not say so. NotFound and a failed write keep
+    /// releasing: a ticket that is not there produces work nobody can deliver, and a tracker that
+    /// cannot be written to at all will not take this run's result either.
+    /// </summary>
+    private async Task<ClaimResult> ProceedUnwrittenAsync(
+        ClaimRequest request, TransitionResult transition, CancellationToken ct)
+    {
+        logger.LogWarning(
+            "Ticket {Ticket} could not be marked enqueued ({Reason}) — the lease is held and the "
+            + "run proceeds; the board is display, not the guard",
+            request.TicketId.Value, transition.Error ?? nameof(TransitionOutcome.PreconditionFailed));
+        return await EnqueueAsync(request, ct);
     }
 
     private async Task<ClaimResult> EnqueueAsync(ClaimRequest request, CancellationToken ct)
@@ -59,8 +80,8 @@ internal sealed class SingleClaimRegionExecutor(
             // p0252: the Enqueued→InProgress queue window is covered by the DB lease
             // (TryClaimAsync INSERTed it just above with a fresh HeartbeatAt) — no
             // Redis "claimed" bridge anymore. ExecutePipelineUseCase renews the lease
-            // heartbeat once the job dequeues; a never-started run goes stale and is
-            // re-enqueued by EnqueuedReconciler / reaped, all off the one lease.
+            // heartbeat once the job dequeues; a never-started run goes stale, is reaped off
+            // that lease and re-enqueued by EnqueuedReconciler off the taken-ticket record.
             await jobQueue.EnqueueAsync(ToPipelineRequest(request), ct);
             return ClaimResult.Claimed();
         }
@@ -73,13 +94,11 @@ internal sealed class SingleClaimRegionExecutor(
         }
     }
 
-    // Roll the lease back when the claim region fails AFTER taking it, so a failed
-    // claim leaves no orphan lease behind.
+    // Roll what the claim wrote back when the region fails AFTER taking it, so a failed
+    // claim leaves neither an orphan lease nor a record of work nobody is doing.
     private async Task<ClaimResult> ReleaseAndAsync(ClaimRequest request, ClaimResult result, CancellationToken ct)
     {
-        // p0459: runId null — the claim was taken moments ago and no run has attached
-        // to it, so the rollback only drops an UNATTACHED row.
-        await lease.ReleaseAsync(request.ProjectName, request.TicketId, runId: null, ct);
+        await registrar.RollBackAsync(request, ct);
         return result;
     }
 

@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0315d fast-tier phase-execution coverage through the REAL composition:
+/// p0315d fast-tier coverage for the phase-driven scenario, through the REAL composition:
 /// the ticket boundary is a recording fake returning a genuine p0315c phase
 /// ticket (markdown summary + ONE fenced yaml spec, rendered by the
 /// production PhaseTicketRenderer); the LLM is scripted; the sandbox is the
@@ -60,10 +60,10 @@ public sealed class PhaseExecutionTests
             .EnqueueText("""All done criteria verified. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"widget endpoint shipped","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""");
 
         var runner = new PipelineRunner(harness.Services);
-        var result = await runner.RunAsync("phase-execution");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue(
-            $"a real change + green verdict must pass the phase-execution keystone: {result.Message}");
+            $"a real change + green verdict must pass the coding keystone: {result.Message}");
 
         // The spec drove the run: the user prompt carries the validated spec
         // verbatim (the yaml IS the requirement record) plus the spec-first
@@ -81,7 +81,7 @@ public sealed class PhaseExecutionTests
         promptText.Should().Contain("GET /widget returns the widget",
             "the master must be told exactly which done criteria to verify");
         promptText.Should().Contain("Ticket conversation",
-            "the hydrated comment thread must render into the phase-execution prompt");
+            "the hydrated comment thread must render into the phase prompt");
         promptText.Should().Contain("use bearer-token auth for the widget endpoint",
             "an answer commented while the ticket was parked must reach the re-triggered run");
 
@@ -116,7 +116,7 @@ public sealed class PhaseExecutionTests
             .EnqueueText("Waiting for the operator's answer.");
 
         var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "Question" };
-        var result = await runner.RunAsync("phase-execution");
+        var result = await runner.RunAsync("code");
 
         result.IsSuccess.Should().BeTrue("a clarification park is an incomplete run, not a failure");
         result.Message.Should().Contain("awaiting_user_input",

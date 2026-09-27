@@ -58,7 +58,7 @@ public sealed class FileConfigStoreTests : IDisposable
             agent: claude-default
             tracker: test-ado
             repos: [test-repo]
-            pipeline: fix-bug
+            pipeline: code
         secrets:
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
@@ -75,7 +75,7 @@ public sealed class FileConfigStoreTests : IDisposable
             && t.Organization == "testorg" && t.Project == "TestProject" && t.AuthSecret == "token");
         catalog.Repos.Should().ContainSingle(r => r.Id == "test-repo" && r.Name == "https://github.com/test/repo");
         catalog.Projects.Should().ContainSingle(p => p.Id == "testproject" && p.Agent == "claude-default"
-            && p.Tracker == "test-ado" && p.Repos.Single() == "test-repo" && p.Pipeline == "fix-bug");
+            && p.Tracker == "test-ado" && p.Repos.Single() == "test-repo" && p.Pipeline == "code");
         catalog.Secrets.Should().ContainSingle(s => s.Id == "github_token");
     }
 
