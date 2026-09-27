@@ -38,7 +38,8 @@ internal static class SpecDialogTurnSeeds
     internal static Dictionary<string, object> Build(
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
-        IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null)
+        IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null,
+        AgentSmith.Contracts.Dialogue.ITicketReader? ticketReader = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -69,6 +70,9 @@ internal static class SpecDialogTurnSeeds
         // 2026-09-25-8e51c: the ticket a bound conversation is grounded on. Only a bound one
         // carries it, so an unbound conversation renders exactly the prompt it rendered before.
         if (ticket is not null) seeds[ContextKeys.SpecDialogTicket] = ticket;
+        // 2026-09-27-481ba: and the way to read the rest of it. Seeded only where the ticket is,
+        // so an unbound conversation carries neither the text nor the tool.
+        if (ticketReader is not null) seeds[ContextKeys.SpecDialogTicketReader] = ticketReader;
         return seeds;
     }
 

@@ -82,15 +82,16 @@ steps:
     path: "src/dashboard/src/components/dialog"
     action:
       - "Replace the transcript's empty state with a greeting for the reader's time of day, naming them only where the name is neither absent nor opaque."
-      - "Read the identity where the header already does, guarded the same way — an installation with no authority configured must fire no request."
-      - "Compute the time of day after mount: this route is prerendered, and a greeting decided during render would not survive hydration."
+      - "Read the identity behind the same STRUCTURAL guard the header uses — the hook that acquires a token fetches runtime settings unconditionally, so mounting it without the guard fires an unmocked request in every existing surface test."
+      - "Compute the time of day after mount rather than during render, so the first paint does not disagree with the second."
       - "Make the composer's placeholder say what an empty conversation is for, and keep what it says today once something has been said."
 
   - id: one-order-of-choosing
     path: "src/dashboard/src/components/dialog"
     action:
-      - "Remove the ticket SEARCH INPUT once the operator has picked a project by hand AND no ticket is picked — that is the order where a project comes first."
-      - "Where a ticket is already picked, a hand-picked project completes it: the picked row, the reason and the unbind control all stay."
+      - "Remove the ticket SEARCH INPUT once the operator has picked a project by hand AND no ticket is in play — neither picked nor asking a question on screen."
+      - "Where a ticket is in play, a hand-picked project completes it: the picked row, the reason and the unbind control all stay."
+      - "A ticket whose tracker has no configured project offers NO project choice: falling back to every project is the cross-board binding 2026-09-27-481bb refuses on the row above."
 
   - id: the-pane-follows-the-choice
     path: "src/dashboard/src/components/dialog"
@@ -104,6 +105,7 @@ tests:
   - "SpecDialogSurface_AnEmptyConversation_GreetsAndSaysNothingElse"
   - "SpecDialogSurface_AnOpaqueOrAbsentName_GreetsTheTimeOfDayAlone"
   - "SpecDialogSurface_AProjectPickedByHandWithNoTicket_RemovesTheSearchInput"
+  - "SpecDialogSurface_AProjectPickedByHandWhileATicketAsksWhich_KeepsTheField"
   - "SpecDialogSurface_AProjectPickedByHandForAPickedTicket_KeepsTheRowAndTheUnbind"
   - "SpecDialogSurface_AProjectMerelyResolved_KeepsTheField"
   - "SpecDialogScopePanel_AProjectSettledWithoutASession_ShowsThatOneNotAllOfThem"
@@ -111,6 +113,7 @@ tests:
 
 done:
   - "an empty conversation shows a greeting and no instructions, and never greets the default opaque claim"
+  - "the empty-state test that pinned the filing sentence is replaced rather than left asserting deleted words"
   - "picking a project by hand with no ticket removes the search input; picking one FOR a ticket keeps the row, the reason and the unbind"
   - "no ticket ever rides a message while being invisible"
   - "the pane names the project a new conversation will be grounded in, and the ticket it starts from"

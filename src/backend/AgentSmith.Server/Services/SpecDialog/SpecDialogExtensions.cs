@@ -72,18 +72,20 @@ internal static class SpecDialogExtensions
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>();
-        services.AddScoped<TicketConversationBinder>().AddScoped<TicketSearchAcrossTrackers>();
-        services.AddScoped<TicketTextForConversation>().AddScoped<ApprovedSetDivergence>(); // 8e51c/e
+        services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>()
+            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb
+        services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()
+            .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb
         services.AddScoped<ApprovedSetForConversation>();  // 8e51d
         services.AddScoped<DashboardDialogDispatcher>();
-        // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
-        // work; the catalog is transient because it re-reads the configuration per call.
+        // 2026-09-15-cb3e: the dialog page's read — scoped for the session manager's unit of work,
+        // the catalog transient because it re-reads the configuration per call.
         services.AddTransient<SpecDialogProjectCatalog>();
         services.AddScoped<SpecDialogViewReader>();
         services.AddScoped<SpecDialogConversationList>();
-        // 2026-09-18-7a05: and the delete of one, over the same scoped unit of work — the
-        // transaction the session row and its durable answers are swept in is that unit's.
+        // 2026-09-18-7a05: and the delete of one, over the same scoped unit of work that sweeps
+        // the session row and its durable answers in one transaction.
         services.AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>();
         // 2026-09-20-3af8: the images an operator attaches — bounded before the body is read,
         // read for their kind, stored against the conversation, and seeded into its next turn.
@@ -107,14 +109,12 @@ internal static class SpecDialogExtensions
             sp.GetRequiredService<IServiceScopeFactory>(), sp.GetRequiredService<AgentSmithConfig>(),
             sp.GetRequiredService<ITicketProviderFactory>(), sp.GetRequiredService<FiledWorkTrackerProjects>(),
             sp.GetService<Events.FiledWorkNudge>(), sp.GetRequiredService<ILogger<FiledTicketWithdrawal>>()));
-        // 2026-09-15-6d9c: the proposal pane's own delivery — what a turn would file, and
-        // what filing it actually created.
+        // 2026-09-15-6d9c: the proposal pane — what a turn would file, and what filing created.
         services.AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
         services.AddSingleton<DashboardReadingChannel>();
-        // 2026-09-17-042ee: what that turn is doing between the reads and the answer.
-        services.AddSingleton<DashboardActivityChannel>();
+        services.AddSingleton<DashboardActivityChannel>();  // 042ee: between reads and answer
         return services;
     }
 }

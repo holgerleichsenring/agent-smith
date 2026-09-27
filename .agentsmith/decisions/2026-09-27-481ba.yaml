@@ -1,0 +1,108 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481ba
+
+decisions:
+  - category: Implementation
+    chose: "The defect is that the seeded thread has NO ORDER, not that the newest is lost first"
+    over: "Reversing the comment order so the newest survives"
+    reason: |
+      The composer iterated the comments as given, and nothing upstream sorts: not one of the four
+      providers, not one of the four comment mappers, and Azure DevOps is asked without a sort
+      order at all. So which end of a discussion the cap took was a per-tracker accident, and
+      "the newest is lost" would have been a claim about four external APIs this repository makes
+      nowhere else. The run path already distrusts that order and sorts for itself.
+    alternatives:
+      - "Asking each tracker for a sorted read: four API surfaces to agree, for an order we can impose in one place"
+
+  - category: Architecture
+    chose: "Only the FIT is shared; ordering, filtering and rendering stay with the callers"
+    over: "Extracting the whole sort-filter-fit that the run path already performs"
+    reason: |
+      Four things around the fit genuinely differ. The run path stamps each comment with a
+      timestamp and the design path does not. The run path KEEPS two kinds of our own comments —
+      a question that was answered and one still waiting — while the design path drops all of
+      them. The run path spends its whole budget on comments while the design path has already
+      spent part of it on the head. And ordering cannot move into the fit at all: the run path's
+      filter reads each comment's NEIGHBOUR to decide whether one of ours was answered, so it must
+      sort before it filters, and a fit that sorted afterwards would be sorting what the filter had
+      already consumed. So the collaborator takes an ordered list of rendered entries and a
+      remaining budget, and answers which fit from the end.
+    alternatives:
+      - "A second copy of the fit in the design path: two answers to one question, and they would diverge"
+
+  - category: Implementation
+    chose: "Overshooting the budget is the caller's choice, and the two paths choose differently"
+    over: "One rule for both"
+    reason: |
+      The existing fit takes the newest entry whole however large it is, blowing its own cap — and
+      a run path test tolerates exactly that overshoot by name. It can: that budget bounds a
+      PROMPT. The design path's cannot: its text is stored in a column bounded at the same number,
+      so an oversize entry is a write that fails. One rule would either have shrunk the run path's
+      prompt in precisely the 147,000-character case this phase family exists for, or broken the
+      design path's write. So the run path keeps today's answer exactly, and only the design path
+      cuts — and reports that it cut.
+    alternatives:
+      - "Making both cut: changes every coding run's prompt for a reason that belongs to the other path"
+
+  - category: Implementation
+    chose: "No new column, and the note points at the read instead of counting what was dropped"
+    over: "Persisting how many comments were held back"
+    reason: |
+      A count would be a new column in two migration assemblies, two model snapshots and the
+      archive goldens, because the note is rebuilt from the stored row on every turn. Once the
+      model can simply LOOK, the number is not worth that: one sentence saying the ticket is longer
+      than the conversation carries and can be read in full is as actionable, and it is the same
+      sentence whether the head was cut or comments were dropped. The old wording had to go
+      regardless — it called the text "the beginning of it", which stopped being true the moment
+      the head and the newest comments stopped being contiguous.
+    alternatives:
+      - "Appending the count into the stored text: it would ride inside the untrusted-data delimiters as if the ticket had said it"
+
+  - category: Architecture
+    chose: "The read RE-READS the tracker, and the spec says what that changes"
+    over: "Storing the ticket uncapped so the dropped part can be served"
+    reason: |
+      "The rest" is stored nowhere: the ticket is read once when the conversation comes into
+      existence and what is kept is the already-capped text in a column bounded at the same number.
+      An uncapped column would persist 147,000 characters per conversation to answer a question
+      nobody may ask. A re-read costs only when asked and returns the ticket AS IT STANDS NOW —
+      which is not the same as what the cap dropped, and the difference is real rather than
+      theoretical: the fingerprint that decides whether a ticket has "moved" covers title,
+      description and acceptance criteria only, so a comment posted after the read never marks it
+      moved and would surface in a read although it was never dropped.
+    alternatives:
+      - "Serving only what the cap dropped: requires the uncapped column, and answers a staler question"
+
+  - category: Implementation
+    chose: "The reader is built per turn from the project and the ticket id, in a collaborator of its own"
+    over: "A reader that takes a session id and looks the rest up"
+    reason: |
+      The stored row carries the ticket id and no tracker, and the turn carries the project —
+      neither alone can reach a board. The pairing happens in a small class rather than in the turn
+      runner because that file sits at the per-file limit exactly and is not in the baseline, where
+      an entry may not be added.
+    alternatives:
+      - "Storing the tracker on the row: a column for something the turn already holds"
+
+  - category: Implementation
+    chose: "The ticket read and the comment read are two try blocks"
+    over: "Leaving them as one, as they were"
+    reason: |
+      They shared one, so a tracker that served the ticket and refused its comments left the
+      conversation with NO ticket at all — a whole grounding lost to the part of it that matters
+      least. What this does not do is tell the model which of the two happened: the row has no
+      field for it and adding one would be the column this phase declined, so a refused comment
+      read and a ticket with no discussion still look alike. That is a smaller lie than an
+      ungrounded conversation, and it is said in the spec rather than discovered later.
+    alternatives:
+      - "A field distinguishing them: the migration this phase is built to avoid"
+
+  - category: Implementation
+    chose: "The moved-check moved out of TicketTextForConversation"
+    over: "Squeezing the split read into the four lines that file had"
+    reason: |
+      It is self-contained, it is the ONLY tracker round trip a bound conversation's turn makes —
+      worth being able to point at when the cost of a turn is counted — and moving it is what
+      bought the room for the split read without touching the baseline.
+    alternatives:
+      - "Extracting the trimming helper instead: four lines, and it would not have been enough"

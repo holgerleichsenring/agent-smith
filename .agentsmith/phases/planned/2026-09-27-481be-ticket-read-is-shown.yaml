@@ -12,12 +12,14 @@ scope:
 
 decisions:
   - key: |
-      THE CHANNEL NEEDS NO OBSERVER TO BE TOLD, AND THIS PHASE'S FIRST CUT WAS WRONG ABOUT THAT.
-      Pushing a reading line is a public call that takes the dialog id; the observer exists only
-      because SANDBOXES are created down more than one route and neither route's signature names an
-      observer, which its own port says in writing. A ticket read has a direct caller holding the
-      session id. So nothing is reordered and nothing is installed — the reads report where they
-      already happen.
+      THE CHANNEL NEEDS NO OBSERVER TO BE TOLD, BUT IT NEEDS TWO THINGS THE READ DOES NOT HAVE.
+      Pushing a reading line is a public call; the observer exists only because SANDBOXES are
+      created down more than one route and neither signature names one. But the push is addressed by
+      the DIALOG id, and the ticket read carries the SESSION id, which is a different value; and the
+      check that this conversation is a dashboard one lives in the observer rather than in the push,
+      so a direct push would emit for a Slack or Teams session into a group nobody joined. Both
+      travel from the callers, which hold the conversation's whole state, rather than being
+      rediscovered by a collaborator that was given one identifier for another purpose.
   - key: |
       THE PAYLOAD IS NOT GENERATED, SO THE MIRROR IS THE WHOLE GUARD. The reading push is a server
       model, not an event contract, and the generator that checks the dashboard's mirror walks the
@@ -50,7 +52,7 @@ steps:
   - id: both-ticket-reads-report
     path: "src/backend/AgentSmith.Server/Services/SpecDialog"
     action:
-      - "Report the grounding read and the per-turn moved-check from the collaborator that performs them, pushing directly to the reading channel."
+      - "Report the grounding read and the per-turn moved-check from wherever each is performed, taking the dialog id and the dashboard-only decision from the caller rather than deriving either."
       - "Say what is being read and of what kind, keeping today's repository lines reading exactly as they do."
 
   - id: the-dashboard-tells-them-apart

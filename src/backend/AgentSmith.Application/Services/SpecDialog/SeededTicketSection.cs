@@ -58,9 +58,13 @@ public static class SeededTicketSection
     private static string Notes(SeededTicket ticket)
     {
         var notes = string.Empty;
+        // 2026-09-27-481ba: no longer "the beginning of it" — the head is whole and the comments
+        // are the newest that fit, so what is above is not contiguous. And the model can now GET
+        // the rest instead of being told to mention that it cannot.
         if (ticket.Truncated)
-            notes += "\n\n[This ticket is longer than the conversation carries; the text above is "
-                + "the beginning of it. Say so if the answer depends on the rest.]";
+            notes += "\n\n[This ticket is longer than the conversation carries: its description is "
+                + "whole and the discussion above is the most recent that fits. Read the ticket if "
+                + "the answer depends on the rest.]";
         if (ticket.Moved)
             notes += "\n\n[The ticket has CHANGED on the tracker since this conversation read it. "
                 + "The text above is what the conversation has been working from — say so before "

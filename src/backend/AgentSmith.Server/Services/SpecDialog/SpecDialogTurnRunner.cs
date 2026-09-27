@@ -34,7 +34,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTurnImages images,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
-    SpecDialogTurnGate gate, TicketTextForConversation ticketText,
+    SpecDialogTurnGate gate, TicketTextForConversation ticketText, BoundTicketReaders readers,
     DashboardReadingChannel reading,
     DashboardActivityChannel activity, AgentSmith.Contracts.Dialogue.IFiledTicketWithdrawal withdrawal,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
@@ -53,18 +53,18 @@ public sealed class SpecDialogTurnRunner(
         var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
             state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
-            withdrawal, await ticketText.HeldAsync(state.JobId, project, cancellationToken));
+            withdrawal, await ticketText.HeldAsync(state.JobId, project, cancellationToken),
+            await readers.ForAsync(state.JobId, project, cancellationToken));
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);
 
         using var pumpCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = questionPump.PumpAsync(state, pumpCts.Token);
-        // Set before the pipeline runs, so the scope repos and the templates it opens both
-        // report through the flow; a run that sets none reports nothing. 2026-09-17-042ee: and
-        // what it DOES with them. 2026-09-18-2f8b: the turn COMPUTES from here to the finally
-        // below, its steps kept on it for a page arriving mid-turn; the activity scope opens
-        // INSIDE the try, so a throw there cannot leave the span open with nothing to close it.
+        // Set before the pipeline runs, so the scope repos and the templates it opens both report
+        // through the flow, and 2026-09-17-042ee what it DOES with them. 2026-09-18-2f8b: the turn
+        // COMPUTES from here to the finally below, its steps kept on it for a page arriving
+        // mid-turn; the activity scope opens INSIDE the try, so a throw cannot orphan the span.
         using var observing = reading.Observe(state);
         var computing = gate.Begin(state.JobId);
         try
