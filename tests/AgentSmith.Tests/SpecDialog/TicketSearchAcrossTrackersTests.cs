@@ -122,6 +122,37 @@ public sealed class TicketSearchAcrossTrackersTests
         trackers.Searching(Jira).Asked.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// 2026-09-27-481bb: through the ROUTE, not the service. Both halves of this phase's reporting
+    /// were asserted on the service and on a mocked page, and the wire between them carried neither
+    /// — the list was computed, rendered, and never serialised. A shape assertion here is what
+    /// makes the sentence reachable at all.
+    /// </summary>
+    [Fact]
+    public async Task TicketSearchRoute_EveryFailureList_ReachesTheWire()
+    {
+        var trackers = new FakeTrackers { Unreachable = GitLab };
+        trackers.Searching(Jira).Answer = Hits(1);
+        trackers.Searching(GitLab).Answer = Hits(0);
+        trackers.Searching(Ado).Answer = TicketSearchResult.Failed("the organisation is unreachable");
+
+        var answered = await TicketSearchEndpoints.SearchTicketsAsync(
+            "412", new FixedLoader(Config()), new ServerContext("unused"), Sut(trackers),
+            CancellationToken.None);
+
+        var body = System.Text.Json.JsonSerializer.Serialize(
+            answered.Should().BeAssignableTo<IValueHttpResult>().Subject.Value);
+        body.Should().Contain("\"unreachable\":[\"gitlab-main\"]")
+            .And.Contain("\"unsearchable\":[\"ado-main\"]");
+    }
+
+    private sealed class FixedLoader(AgentSmithConfig config) : IConfigurationLoader
+    {
+        public AgentSmithConfig LoadConfig(string configPath) => config;
+
+        public ConfigFileReadFact? LastRead => null;
+    }
+
     private static TicketSearchAcrossTrackers Sut(FakeTrackers trackers) =>
         new(trackers,
             new TicketProjectChoice(trackers, NullLogger<TicketProjectChoice>.Instance),

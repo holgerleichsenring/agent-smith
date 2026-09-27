@@ -83,6 +83,7 @@ internal static class TicketSearchEndpoints
                 found = Array.Empty<object>(),
                 moreHeldBack = false,
                 unsearchable = Array.Empty<string>(),
+                unreachable = Array.Empty<string>(),
                 minimum = TicketSearchAcrossTrackers.MinimumText,
             });
 
@@ -93,6 +94,7 @@ internal static class TicketSearchEndpoints
             found = answer.Found,
             moreHeldBack = answer.MoreHeldBack,
             unsearchable = answer.Unsearchable,
+            unreachable = answer.Unreachable,
             minimum = TicketSearchAcrossTrackers.MinimumText,
         });
     }
