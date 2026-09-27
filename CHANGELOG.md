@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.151.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.150.0...v0.151.0) (2026-09-27)
+
+
+### Features
+
+* a conversation can be started from a ticket found by typing (2026-09-27-5c1eb) ([2bbb4c7](https://github.com/holgerleichsenring/agent-smith/commit/2bbb4c712d6681f09864b314439ee486e225f9a9))
+* a design conversation can start from a ticket you search for (2026-09-27-5c1ea, 2026-09-27-5c1eb) ([bb2b4c6](https://github.com/holgerleichsenring/agent-smith/commit/bb2b4c6cb02090411e29f6050cd0e07176bb643d))
+* a tracker can be asked for the tickets whose text matches typed words (2026-09-27-5c1ea) ([29073ef](https://github.com/holgerleichsenring/agent-smith/commit/29073ef1b625b40ebec77e85bd5c7277a86e1628))
+
 ## [0.150.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.149.3...v0.150.0) (2026-09-27)
 
 
