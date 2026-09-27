@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-25T18:35:20.6043110+00:00
+- generated: 2026-09-27T15:47:05.6064000+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [Medium]: GET /members/{id}: no authentication — endpoint carries no `security` declaration while returning PII (contactEmail) and role for any member id
+  - found [High]: GET /members/{id}: no security scheme declared — any unauthenticated caller can read a member record including the sensitive fields role and contactEmail
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [High]: GET /orders: BOLA — `memberId` is a caller-supplied query parameter with no ownership enforcement visible; any authenticated user can list another member's orders
+  - found [Medium]: GET /orders: BOLA — memberId query parameter is caller-controlled with no spec indication that it is bound to the authenticated bearer's identity
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: BOLA — `orderId` is caller-supplied in the request body with no ownership check visible; an authenticated user may create invoices against orders they do not own
+  - found [Medium]: POST /invoices: BOLA — orderId in the request body is caller-controlled; no spec-level indication that ownership of the referenced order is verified before invoice creation
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [Medium]: PUT /members/{id}/role: BFLA — role assignment requires only a plain memberToken with no elevated/admin security scheme; any authenticated member may escalate themselves or others
+  - found [High]: PUT /members/{id}/role: BFLA — any authenticated member can set any other member's role; no admin or elevated-privilege scope is declared
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)

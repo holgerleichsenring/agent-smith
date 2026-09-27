@@ -36,7 +36,7 @@ public sealed class EpicGroundFetchTests
             Mock.Of<IEventPublisher>(),
             Mock.Of<IRunContextAccessor>(),
             new TicketExtrasFetcher(NullLogger<TicketExtrasFetcher>.Instance),
-            new EpicGroundFetcher(NullLogger<EpicGroundFetcher>.Instance),
+            new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLogger<FetchTicketHandler>.Instance);
     }
 

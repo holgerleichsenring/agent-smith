@@ -29,26 +29,28 @@ public sealed class SpecDialogConversationResolver(
 
     /// <summary>For a caller that arrives as a principal — an HTTP route with the request in hand.</summary>
     public Task<SpecDialogConversationTarget> ResolveOrOpenAsync(
-        string dialogId, string? project, ClaimsPrincipal? caller, CancellationToken ct) =>
-        ResolveOrOpenAsync(dialogId, project, ownership.OwnerOf(caller), ct);
+        string dialogId, string? project, ClaimsPrincipal? caller, CancellationToken ct,
+        TicketBinding? ticket = null) =>
+        ResolveOrOpenAsync(dialogId, project, ownership.OwnerOf(caller), ct, ticket);
 
     /// <summary>
     /// For a caller that already holds the owner — a dispatched task, which runs after the
     /// request that resolved the principal has ended.
     /// </summary>
     public async Task<SpecDialogConversationTarget> ResolveOrOpenAsync(
-        string dialogId, string? project, string owner, CancellationToken ct)
+        string dialogId, string? project, string owner, CancellationToken ct,
+        TicketBinding? ticket = null)
     {
         var open = await sessions.GetOpenByThreadAsync(Platform, dialogId, ct);
         if (open is not null)
-            return open.UserId == owner
+            return open.MayBeReachedBy(owner)
                 ? SpecDialogConversationTarget.On(open.JobId)
                 : SpecDialogConversationTarget.Foreign;
 
         // The dialog id is both channel and thread here, as it is for every message the page
         // sends: a browser page holds one conversation and has no channel above it.
         await commands.HandleAsync(
-            new SpecOpenCommand(project), owner, dialogId, dialogId, Platform, ct);
+            new SpecOpenCommand(project, ticket), owner, dialogId, dialogId, Platform, ct);
         var opened = await sessions.GetOpenByThreadAsync(Platform, dialogId, ct);
         return opened is null
             ? SpecDialogConversationTarget.Unopened

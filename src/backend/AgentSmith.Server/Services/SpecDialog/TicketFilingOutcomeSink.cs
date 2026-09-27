@@ -15,6 +15,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class TicketFilingOutcomeSink(
     SpecDialogOutcomeStore outcomeStore,
     OutcomeTicketFiler filer,
+    TicketAmendment amendment,
     SpecDialogSessionManager sessions,
     SpecDialogMessenger messenger,
     SpecDialogOutcomeComposer composer,
@@ -52,6 +53,29 @@ public sealed class TicketFilingOutcomeSink(
             ? composer.ComposeFiled(proposal, report)
             : composer.ComposeFilingFailure(report))
             .In(SpecDialogMarkup.For(state.Platform));
+        await messenger.SendAsync(
+            state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
+        await sessions.AppendTurnAsync(
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice,
+            SpecDialogTurnKind.Filing, null, cancellationToken);
+    }
+
+    /// <summary>
+    /// 2026-09-25-8e51e: the amendment. Nothing is stored as CONFIRMED first — the durable-first
+    /// dance above exists so a tracker failure keeps an unfiled outcome retryable, while an
+    /// amendment that fails has changed nothing and the proposal is still on the session.
+    /// <para>
+    /// It is recorded as a FILING turn: the conversation has now changed work on a tracker, which
+    /// is exactly the fact the prompt's filed-work clause reads off the transcript.
+    /// </para>
+    /// </summary>
+    public async Task AmendAsync(
+        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        var notice = await amendment.ApplyAsync(state, proposal, cancellationToken);
+        logger.LogInformation(
+            "Amendment for spec-dialog session {SessionId}: {Notice}", state.JobId, notice);
         await messenger.SendAsync(
             state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
         await sessions.AppendTurnAsync(

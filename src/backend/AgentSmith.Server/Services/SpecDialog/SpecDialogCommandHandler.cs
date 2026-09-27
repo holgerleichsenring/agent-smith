@@ -20,13 +20,14 @@ public sealed class SpecDialogCommandHandler(
         SpecCommand command, string userId, string channelId, string threadId,
         string platform, CancellationToken ct) => command switch
     {
-        SpecOpenCommand open => HandleOpenAsync(open.Project, userId, channelId, threadId, platform, ct),
+        SpecOpenCommand open => HandleOpenAsync(
+            open.Project, userId, channelId, threadId, platform, ct, open.Ticket),
         _ => throw new InvalidOperationException($"Unhandled spec command {command.GetType().Name}"),
     };
 
     private async Task HandleOpenAsync(
         string? project, string userId, string channelId, string threadId,
-        string platform, CancellationToken ct)
+        string platform, CancellationToken ct, TicketBinding? ticket = null)
     {
         var existing = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
         if (existing is not null)
@@ -38,7 +39,8 @@ public sealed class SpecDialogCommandHandler(
         var reply = scopeResolver.Resolve(project) switch
         {
             ScopeResolved resolved => composer.ComposeOpened(
-                await sessions.OpenAsync(platform, channelId, threadId, userId, resolved.Scope, ct)),
+                await sessions.OpenAsync(
+                    platform, channelId, threadId, userId, resolved.Scope, ct, ticket)),
             ScopeChoiceRequired choice => composer.ComposeChoiceRequired(choice.Projects),
             ScopeUnknownProject unknown => composer.ComposeUnknownProject(unknown.Requested, unknown.Projects),
             var other => throw new InvalidOperationException($"Unhandled scope resolution {other.GetType().Name}"),

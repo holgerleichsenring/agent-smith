@@ -23,17 +23,26 @@ export function DialogProjectChoice({
   read,
   picked,
   onPicked,
+  reason,
 }: {
   projects: SpecDialogProject[];
   read: ProjectsRead;
   picked: string;
   onPicked: (project: string) => void;
+  /** 2026-09-25-8e51a: why a ticket did not name one project — several, none, or one that could
+   *  not be answered for from a ticket at all. A reason, shown where the choice is made. */
+  reason?: string | null;
 }) {
   return (
     <div
       data-testid="dialog-project-choice"
       className="flex flex-col items-center gap-3 py-12 text-center"
     >
+      {reason && (
+        <p data-testid="dialog-project-choice-reason" className="dsh-body text-body">
+          {reason}
+        </p>
+      )}
       {read === "pending" && (
         <p data-testid="dialog-project-choice-loading" className="dsh-body text-body">
           Reading the configured projects…

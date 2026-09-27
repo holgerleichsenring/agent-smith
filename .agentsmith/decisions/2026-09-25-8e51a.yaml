@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-8e51a
+
+decisions:
+  - category: Architecture
+    chose: "The trigger-matches-envelope PREDICATE is extracted; the four decisions around it stay"
+    over: "A flag on the run-side resolver"
+    reason: |
+      The resolver refuses a record-labelled ticket before every other rule, skips a trigger
+      carrying a blocking startup finding, drops a ticket whose labels satisfy no
+      pipeline-from-label entry, and emits an ambiguity metric. Each is right for a RUN and wrong
+      for a conversation — a person may discuss any ticket on the board, including one nothing
+      would route and one whose poller is disabled. A flag would put two policies in one function
+      and let a change to one move the other silently. The extraction also paid off debt: the
+      resolver dropped under the line limit and left the length baseline.
+    alternatives: []
+
+  - category: Correctness
+    chose: "A match is kept only when its trigger's platform is the ticket's own"
+    over: "Taking every project whose tag matches"
+    reason: |
+      The predicate never reads the platform, so two projects on different trackers carrying one
+      tag both match — and the project decides which tracker the conversation will file into. The
+      run side already guards this by requiring the match kind to equal the platform. Without it a
+      Jira ticket could open its conversation on a GitHub-tracker project.
+    alternatives: []
+
+  - category: Design
+    chose: "A project a ticket CANNOT answer for is reported as such, not as unmatched"
+    over: "One 'no project matched' for every shape of miss"
+    reason: |
+      An envelope built from a ticket read by its id carries labels, id and platform — a ticket
+      has no area path and no source repository, and this repository already says so where it
+      explains why a polled envelope cannot satisfy them. Telling the operator "nothing matched"
+      about a project routed by area path reads as an accusation about their configuration. It is
+      unanswerable from a ticket, which is a different sentence.
+    alternatives: []
+
+  - category: Architecture
+    chose: "A ticket id alone is resolved by asking every configured tracker"
+    over: "Requiring the caller to name the project"
+    reason: |
+      A ticket id says nothing about which tracker holds it. The sweep is bounded by the number of
+      configured trackers, which is a handful, and it is what lets a link carry a ticket and
+      nothing else. Each tracker's answer stays its own: a ticket number that exists on two
+      trackers is different work.
+    alternatives:
+      - "Guessing from the id's shape: a parser per tracker, and wrong on the first custom scheme"

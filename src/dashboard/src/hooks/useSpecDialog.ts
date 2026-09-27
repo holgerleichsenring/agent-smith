@@ -106,7 +106,12 @@ export interface SpecDialogState {
   /** What the running turn did, oldest first. Cleared with the readings. */
   activity: SpecDialogActivityPush[];
   /** A decision is posted as its word and shown as a decision entry rather than echoed. */
-  send: (text: string, project?: string, decision?: SpecDialogDecision) => Promise<void>;
+  send: (
+    text: string,
+    project?: string,
+    decision?: SpecDialogDecision,
+    ticketId?: string,
+  ) => Promise<void>;
   /** 2026-09-22-2a86: a fresh tab. The conversation itself is opened by the first message,
    *  which carries the picked project. */
   startNew: () => Promise<void>;
@@ -253,6 +258,7 @@ export function useSpecDialog(): SpecDialogState {
     text: string,
     echo: boolean | SpecDialogDecision,
     project?: string,
+    ticketId?: string,
   ) => {
     // Cleared before the post: the turn starts on the server before the post returns, and its
     // first repository may be announced before this line would otherwise run.
@@ -263,7 +269,7 @@ export function useSpecDialog(): SpecDialogState {
       // 2026-09-20-4b0aa: the project the page holds. The server opens the conversation with it
       // when none is open and routes this message after, in one task — so there is no second post
       // to be ordered against. A post that names none is answered exactly as it always was.
-      await postSpecDialogMessage(id, text, project);
+      await postSpecDialogMessage(id, text, project, ticketId);
       if (echo === true) append("user", text, new Date().toISOString());
       else if (echo)
         append("decision", text, new Date().toISOString(), {
@@ -484,12 +490,12 @@ export function useSpecDialog(): SpecDialogState {
   /// there is no second post here and nothing to reseed around — the two remaining armings, a
   /// switch to another conversation and an attachment, are untouched. The echo keeps its place.
   const send = useCallback(
-    async (text: string, project?: string, decision?: SpecDialogDecision) => {
+    async (text: string, project?: string, decision?: SpecDialogDecision, ticketId?: string) => {
       const said = text.trim();
       if (!dialogId || said.length === 0) return;
       // Nothing to open a conversation on, and nothing open: the page does not guess a project.
       if (!view?.session && !project) return;
-      await post(dialogId, said, decision ?? true, project);
+      await post(dialogId, said, decision ?? true, project, ticketId);
     },
     [dialogId, view, post],
   );

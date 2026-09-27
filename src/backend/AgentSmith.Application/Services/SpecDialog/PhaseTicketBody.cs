@@ -1,6 +1,7 @@
 using System.Text;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -32,14 +33,21 @@ internal static class PhaseTicketBody
     /// 2026-09-18-d518: the label note, when the filer passes one, is LAST in the body — after
     /// everything the ticket is about, wrapped in its own marker pair.
     /// </para>
+    /// <para>
+    /// 2026-09-25-8e51e: the WHOLE rendering is wrapped in <see cref="FramedTicketRegion"/>'s
+    /// pair, so an amendment replaces exactly what the framework wrote and leaves a person's own
+    /// prose — above it, below it, anywhere outside the markers — untouched. The note keeps its
+    /// own inner pair: the stripper that removes it at the ticket-fetch door matches that one,
+    /// and the region says nothing about which parts of itself a model may read.
+    /// </para>
     /// </summary>
     public static string Requirement(
         PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null) =>
-        Done(Shared(draft, ScopeLines, (body, map) =>
+        FramedTicketRegion.Wrap(Done(Shared(draft, ScopeLines, (body, map) =>
         {
             AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
             AppendLines(body, "## Preconditions", draft.Requires);
-        }, sb => { extraSections(sb); sb.Append(labelNote); }));
+        }, sb => { extraSections(sb); sb.Append(labelNote); })));
 
     private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
         (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));

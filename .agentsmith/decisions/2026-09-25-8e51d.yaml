@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-8e51d
+
+decisions:
+  - category: Architecture
+    chose: "The approved set rides the FILED-WORK read"
+    over: "The dialog view the page issues after every message"
+    reason: |
+      The dialog view is refetched after every hub message, and the filed-work read exists
+      precisely because run lookups on that view would run on every reply. An approval record
+      changes only when somebody approves, so it belongs on the read with the slower cadence —
+      and on the read that already answers "what stands behind this conversation".
+    alternatives:
+      - "A route of its own: a third read on a surface that already has two"
+
+  - category: Design
+    chose: "The pane labels it as the APPROVAL it is"
+    over: "Showing the phases as what the work is"
+    reason: |
+      The branch is the only set a RUN reads; the record is what a person ratified and is never
+      consumed. For a ticket already worked the two can differ — the branch may be several
+      revisions and a positional merge ahead. A reader invited to take this for what the run is
+      doing would be misled at exactly the moment it matters.
+    alternatives: []
+
+  - category: Architecture
+    chose: "The ticket is read off the session row, never off the request"
+    over: "A read addressed by ticket"
+    reason: |
+      Every read on this surface is addressed by dialog id so that nobody can follow a ticket by
+      asking for it — the filed-work reader says so in as many words. The binding lives on the
+      session, so the caller still names only the dialog. The record is keyed by the
+      conversation's own project's tracker connection, because the spec key carries only the
+      tracker TYPE and a guessed instance would hand the conversation another organisation's
+      record.
+    alternatives: []
+
+  - category: Architecture
+    chose: "The tablist moved into a file of its own"
+    over: "Growing the pane by a fourth tab"
+    reason: |
+      The pane sits over the line limit and may only get shorter, so a fourth tab could not be
+      added to it at all. The tablist and its eyebrow are a separate responsibility from the panel
+      the pane chooses, and lifting them out is the rule doing its job rather than something to
+      work around. The phase view is shared with the proposal pane, so an approved phase is drawn
+      exactly as a proposed one and there is one TypeScript mirror to keep in step.
+    alternatives: []
