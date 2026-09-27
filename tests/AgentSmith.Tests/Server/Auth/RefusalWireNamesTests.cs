@@ -37,7 +37,10 @@ public sealed class RefusalWireNamesTests(RoleMappingAuthorityFixture fixture)
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         (await FieldsOf(response)).Should().BeEquivalentTo(
             "authenticated", "subject", "issuer", "roleClaim", "groupClaim",
-            "roleClaimValues", "groupClaimValues", "roles", "permissions", "findings");
+            "roleClaimValues", "groupClaimValues", "roles", "permissions", "findings",
+            // 2026-09-27-481bd: whether `subject` is a name a person recognises, so a page that
+            // greets somebody never greets a directory identifier.
+            "nameIsReadable");
     }
 
     // 2026-09-14-c72e: the requirements body's own names are pinned by

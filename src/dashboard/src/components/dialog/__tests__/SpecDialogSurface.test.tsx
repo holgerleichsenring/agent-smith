@@ -3460,14 +3460,18 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument();
   });
 
-  it("SpecDialog_TheEmptyTranscript_SaysTheConversationFollowsWhatItFiles", async () => {
+  // 2026-09-27-481bd: this used to assert four paragraphs of instruction — how to phrase a
+  // request, how long the first reply takes, and what the proposal card does, shown before any
+  // card exists to somebody who came here on purpose. Replaced rather than repaired: the words it
+  // pinned are deliberately gone.
+  it("SpecDialogSurface_AnEmptyConversation_GreetsAndSaysNothingElse", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null }));
 
     render(<SpecDialogSurface />);
 
     const empty = await screen.findByTestId("dialog-transcript-empty");
-    expect(empty).toHaveTextContent("Filing is not where this ends");
-    expect(empty).toHaveTextContent("follows the work it filed");
+    expect(empty.textContent).toMatch(/^Good (morning|afternoon|evening)\.$/);
+    expect(empty).not.toHaveTextContent("Filing is not where this ends");
   });
 
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {
@@ -4180,6 +4184,79 @@ describe("The ticket search", () => {
     fireEvent.click(screen.getByTestId("dialog-tab-scope"));
     expect(screen.queryByTestId("dialog-scope-ticket")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
+  });
+
+
+  // 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but only when no ticket
+  // is in play. The field is ONE component holding the search input, the sentence saying why a
+  // ticket named no project, the picked row and the control that unbinds it; removing it while a
+  // ticket is picked would delete all three while the composer went on sending the ticket.
+  it("SpecDialogSurface_AProjectPickedByHandWithNoTicket_RemovesTheSearchInput", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    await renderSurface();
+
+    expect(screen.getByTestId("dialog-ticket-query")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("dialog-ticket-search")).not.toBeInTheDocument());
+  });
+
+  it("SpecDialogSurface_AProjectPickedByHandForAPickedTicket_KeepsTheRowAndTheUnbind", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [
+          SAMPLE_SCOPE,
+          { name: "beta", repos: ["repo-b"], templates: [] },
+          { name: "gamma", repos: ["repo-c"], templates: [] },
+        ],
+      }),
+    );
+    searchTickets.mockResolvedValue(
+      found([{ ...JIRA_HIT, projects: ["sample", "beta"] }]),
+    );
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), {
+      target: { value: "cannot log in" },
+    });
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-picked")).toBeInTheDocument());
+
+    // The pick COMPLETES the ticket rather than replacing it.
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    expect(screen.getByTestId("dialog-ticket-picked")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-ticket-clear")).toBeInTheDocument();
+  });
+
+  // 2026-09-27-481bd: the pane branched on whether a session was open and on nothing else, so it
+  // offered every project as a candidate while the composer said one had been settled.
+  it("SpecDialogScopePanel_AProjectSettledWithoutASession_ShowsThatOneNotAllOfThem", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.getByTestId("dialog-scope-project-sample")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("dialog-scope-project-sample")).not.toBeInTheDocument());
+    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
   });
 
   it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {

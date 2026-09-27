@@ -22,6 +22,7 @@ import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTicketSearch } from "./DialogTicketSearch";
+import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
 import { DialogWorking } from "./DialogWorking";
 
@@ -217,6 +218,10 @@ export function SpecDialogSurface() {
   const strandedTicket = pickedTicket !== null && pickedTicket.projects.length === 0;
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
+  // 2026-09-27-481bd: the pane branched on whether a SESSION was open and on nothing else, so
+  // between picking and sending it offered every project as a candidate while the composer, which
+  // appears only once a project is resolved, said the opposite.
+  const settled = !session && project !== "";
   // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
   // all three states, so the VIEW is what tells them apart: a read that has not answered leaves
   // it null, and a read that failed leaves the same null for ever with a failure beside it.
@@ -345,7 +350,12 @@ export function SpecDialogSurface() {
                     the moment a project is picked. The reason a ticket did not name one project
                     moved here with it: it used to be passed only into that choice, so on a
                     single-project installation it was computed and silently discarded. */}
-                {!session && (
+                {/* 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but
+                    only when no ticket is in play. With one picked, or with one asking which
+                    project it belongs to, the pick COMPLETES it, and removing the field here would
+                    delete the sentence being answered, the row showing the choice, and the only
+                    way to undo it, while the composer went on sending the ticket. */}
+                {!session && !(picked !== "" && pickedTicket === null && !ticketReason) && (
                   <DialogTicketSearch
                     key={dialog.dialogId ?? "new"}
                     stranded={strandedTicket}
@@ -367,6 +377,7 @@ export function SpecDialogSurface() {
                     <DialogTranscript
                       entries={dialog.entries}
                       onInspect={inspect}
+                      greeting={<DialogGreeting />}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -411,7 +422,7 @@ export function SpecDialogSurface() {
             </section>
             <DialogPane
               session={session}
-              projects={projects}
+              projects={settled ? projects.filter((held) => held.name === project) : offered}
               proposal={dialog.proposal}
               filed={dialog.filed}
               work={work}
