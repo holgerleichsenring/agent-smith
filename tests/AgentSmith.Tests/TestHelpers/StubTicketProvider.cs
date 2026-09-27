@@ -6,8 +6,15 @@ using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Tests.TestHelpers;
 
-/// <summary>p0196: ITicketProvider stub. Returns a canned ticket; finalize is no-op.</summary>
-internal sealed class StubTicketProvider : ITicketProvider
+/// <summary>
+/// p0196: ITicketProvider stub. Returns a canned ticket; finalize is no-op.
+/// <para>
+/// 2026-09-27-5c1eb: optionally WHAT IT HOLDS, so a fixture can have a tracker that does not have
+/// a given ticket — which is how the by-id sweep across trackers asks, and a stub that always
+/// answers would make every tracker hold every number.
+/// </para>
+/// </summary>
+internal sealed class StubTicketProvider(Func<TicketId, Ticket>? holds = null) : ITicketProvider
 {
     public string ProviderType => "stub";
 
@@ -15,7 +22,9 @@ internal sealed class StubTicketProvider : ITicketProvider
         Task.FromResult(ConnectionProbeResult.Reachable(0));
 
     public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
-        Task.FromResult(new Ticket(ticketId, "Stub ticket", "Stub description", null, "Open", "Stub"));
+        Task.FromResult(holds is null
+            ? new Ticket(ticketId, "Stub ticket", "Stub description", null, "Open", "Stub")
+            : holds(ticketId));
 
     public Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, string? kind,

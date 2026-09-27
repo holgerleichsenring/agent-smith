@@ -174,6 +174,38 @@ export interface TicketProjectRead extends TicketConversationRead {
   unanswerable: string[];
 }
 
+/**
+ * 2026-09-27-5c1eb: the tickets matching a few typed characters, over every configured tracker.
+ * Each hit names the TRACKER it came from and the projects routed to that tracker, because the
+ * wire that opens a conversation carries a project and no tracker — a hit sent with a project
+ * routed elsewhere would bind a different board's ticket of the same number.
+ */
+export async function searchTickets(
+  q: string,
+  signal?: AbortSignal,
+): Promise<TicketSearchRead> {
+  const path = `/api/spec-dialog/tickets/search?q=${encodeURIComponent(q)}`;
+  return getJson<TicketSearchRead>(path, signal);
+}
+
+export interface TicketSearchFound {
+  ticketId: string;
+  title: string;
+  tracker: string;
+  /** The projects routed to this hit's tracker. Any one of them binds the ticket that was picked. */
+  projects: string[];
+}
+
+export interface TicketSearchRead {
+  found: TicketSearchFound[];
+  /** More matched than the answer holds — the newest are here, and this says so. */
+  moreHeldBack: boolean;
+  /** Trackers that could not run the query. NOT the same as a board with no such ticket. */
+  unsearchable: string[];
+  /** How many characters the server asks for before it asks any tracker. */
+  minimum: number;
+}
+
 export interface TicketConversationRead {
   ticketId: string;
   title: string;
