@@ -44,7 +44,8 @@ public sealed class TicketSearchAcrossTrackers(
         var unsearchable = new List<string>();
         var more = false;
 
-        if (await ById(config, typed, ct) is { } exact) found.Add(exact);
+        var byId = await ById(config, typed, ct);
+        if (byId.Found is { } exact) found.Add(exact);
 
         foreach (var tracker in config.Trackers.Values)
         {
@@ -66,21 +67,22 @@ public sealed class TicketSearchAcrossTrackers(
         }
 
         return new TicketSearchAnswer(
-            [.. found.Take(Cap)], more || found.Count > Cap, unsearchable);
+            [.. found.Take(Cap)], more || found.Count > Cap, unsearchable, byId.Unreachable);
     }
 
     // The by-id sweep answers for ONE tracker — it returns on the first that has the number — so a
     // number on two boards resolves by configuration order; the text search is what shows both.
-    private async Task<TicketSearchFound?> ById(AgentSmithConfig config, string typed, CancellationToken ct)
+    private async Task<(TicketSearchFound? Found, IReadOnlyList<string> Unreachable)> ById(
+        AgentSmithConfig config, string typed, CancellationToken ct)
     {
-        var answer = await choice.ForAsync(config, typed, ct);
-        if (answer is null) return null;
+        var lookup = await choice.LookupAsync(config, typed, ct);
+        if (lookup.Answer is not { } answer) return (null, lookup.Unreachable);
         // 2026-09-27-1bd9: the choice narrows to the answering tracker itself now, so there is
         // nothing left to intersect here — only the fall-back when its labels named nothing.
         var routed = TrackerProjects.RoutedTo(config, answer.Binding.Tracker);
-        return new TicketSearchFound(
+        return (new TicketSearchFound(
             answer.Binding.TicketId, answer.Binding.Title, answer.Binding.Tracker,
-            answer.Projects.Count > 0 ? answer.Projects : routed);
+            answer.Projects.Count > 0 ? answer.Projects : routed, Exact: true), lookup.Unreachable);
     }
 
     private async Task<TicketSearchResult> SearchAsync(
@@ -99,14 +101,3 @@ public sealed class TicketSearchAcrossTrackers(
         }
     }
 }
-
-/// <summary>One ticket a person may pick, the tracker it is on, and the projects routed to it.</summary>
-public sealed record TicketSearchFound(
-    string TicketId, string Title, string Tracker, IReadOnlyList<string> Projects);
-
-/// <summary>
-/// What the sweep found, whether the cap bit, and which trackers could not be searched — the last
-/// of which is the difference between an empty board and an unanswered question.
-/// </summary>
-public sealed record TicketSearchAnswer(
-    IReadOnlyList<TicketSearchFound> Found, bool MoreHeldBack, IReadOnlyList<string> Unsearchable);

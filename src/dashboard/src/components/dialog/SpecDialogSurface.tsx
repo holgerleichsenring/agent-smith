@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import type { TicketProjectRead, TicketSearchFound } from "@/lib/specDialogApi";
-import { readTicketConversation, readTicketProject } from "@/lib/specDialogApi";
+import {
+  readTicketConversation,
+  readTicketProject,
+  resolveTicketProjects,
+} from "@/lib/specDialogApi";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -174,20 +178,43 @@ export function SpecDialogSurface() {
   // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
   // the component that offers it is unmounted the moment a project is resolved.
   const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
+  // 2026-09-27-481bb: a hit carries an id and a title by contract, so the sweep could only offer
+  // the projects ROUTED to its tracker. Picking one reads that ticket on that tracker and matches
+  // its own labels, so a ticket found by typing its title resolves what the same ticket found by
+  // its number does. The request is cancelled when another is picked: a late answer would rewrite
+  // a newer pick's project.
+  const [resolved, setResolved] = useState<TicketProjectRead | null>(null);
+  useEffect(() => {
+    setResolved(null);
+    if (!pickedTicket) return;
+    const controller = new AbortController();
+    void resolveTicketProjects(pickedTicket.tracker, pickedTicket.ticketId, controller.signal)
+      .then((answer) => {
+        if (!controller.signal.aborted) setResolved(answer);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [pickedTicket]);
   // 2026-09-25-8e51b: a page opened on a ticket already knows its project — it had to, to ask
   // which conversation that ticket has — so there is nothing left to pick.
   // A ticket routed to exactly one project resolves it: send is a no-op with no project, the
   // dispatcher returns early and DROPS the ticket, and with several projects configured there is no
   // composer to type into — so a picked ticket that did not resolve a project could not be discussed.
-  const fromTicket = pickedTicket?.projects.length === 1 ? pickedTicket.projects[0] : "";
+  // The ticket's own labels where they have been read, the tracker's routed set until then.
+  const ticketProjects = resolved?.projects.length ? resolved.projects : pickedTicket?.projects ?? [];
+  const fromTicket = ticketProjects.length === 1 ? ticketProjects[0] : "";
   const project =
     picked || pendingTicket?.project || fromTicket || (projects.length === 1 ? projects[0].name : "");
   // Several routed projects: the choice is narrowed to them, because the others are on trackers
   // that do not hold this ticket and would bind a different board's ticket of the same number.
   const offered =
-    pickedTicket && pickedTicket.projects.length > 1
-      ? projects.filter((held) => pickedTicket.projects.includes(held.name))
+    pickedTicket && ticketProjects.length > 1
+      ? projects.filter((held) => ticketProjects.includes(held.name))
       : projects;
+  // 2026-09-27-481bb: NO configured project is routed to this ticket's tracker. Falling back to
+  // every project would let a pick bind that number on another board, silently — the trap the
+  // narrowing above exists to close, entered from its empty side.
+  const strandedTicket = pickedTicket !== null && pickedTicket.projects.length === 0;
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
   // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
@@ -320,6 +347,8 @@ export function SpecDialogSurface() {
                     single-project installation it was computed and silently discarded. */}
                 {!session && (
                   <DialogTicketSearch
+                    key={dialog.dialogId ?? "new"}
+                    stranded={strandedTicket}
                     bound={boundTickets}
                     picked={pickedTicket}
                     onPicked={setPickedTicket}

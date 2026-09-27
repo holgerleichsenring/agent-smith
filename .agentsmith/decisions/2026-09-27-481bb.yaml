@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481bb
+
+decisions:
+  - category: Architecture
+    chose: "A route that resolves ONE ticket on ONE named tracker, asked when a hit is picked"
+    over: "Widening the search hit so every row carries the projects its labels name"
+    reason: |
+      A search hit is an identifier and a title by contract, and the reason is recorded: the
+      provider classes are at their file-length baseline and may only shrink. So the sweep can only
+      offer the projects ROUTED to a hit's tracker, while the by-id lookup, which reads a whole
+      ticket, matches its labels — the same ticket answered differently depending on what was
+      typed. Reading a whole ticket per hit would multiply the per-keystroke cost by the size of
+      the result set; reading one when a person has committed to one is a single round trip. The
+      tracker is GIVEN rather than swept for, because sweeping again could answer for a different
+      board that happens to hold the same number — which is the trap the pick exists to avoid.
+    alternatives:
+      - "Reusing the existing by-id route: it sweeps every tracker and returns on the first, so it cannot answer for the one the hit came from"
+
+  - category: Implementation
+    chose: "The tracker travels as a query parameter on a literal segment"
+    over: "A path segment, /api/spec-dialog/tickets/{tracker}/{ticketId}"
+    reason: |
+      That shape puts two single-segment parameters where /api/spec-dialog/tickets/{project}/
+      {ticketId} already has them. ASP.NET would match one of the two ambiguously at request time
+      rather than failing to compile, so the defect would appear as a wrong answer in production
+      and not as a red build. A literal segment cannot be read as a ticket id, and no tracker's id
+      grammar produces the word.
+    alternatives:
+      - "A separate route prefix: a second place to look for the same family of reads"
+
+  - category: Implementation
+    chose: "A tracker that could not be ASKED for a number is a list of its own, beside the one for trackers that could not be SEARCHED"
+    over: "One list of trackers that did not answer"
+    reason: |
+      The existing sentence says nothing here tells you whether the ticket is on that tracker,
+      which is true of a failed text search and false of a failed number read on a tracker whose
+      text search worked. One list could only produce one sentence, and it would be wrong half the
+      time. The distinction needed the read itself to tell a board WITHOUT the ticket from a board
+      we never reached: a not-found now answers, everything else reports. The bound is stated
+      rather than discovered — the lookup returns on the first tracker that answers, so the list
+      holds those asked before it.
+    alternatives:
+      - "Reporting every tracker that did not answer: the commonest case by far is a board that simply has no such ticket"
+
+  - category: Implementation
+    chose: "The exact hit gains a FLAG; nothing about the ordering changes"
+    over: "Pinning it to the top, as the phase's first cut said"
+    reason: |
+      It was already first: the by-id hit is added before the tracker loop, text matches are
+      deduped against it and the cap keeps index zero. The live symptom that prompted this — a
+      search for a work item number returning five tickets that MENTION it with the ticket itself
+      nowhere — was therefore never an ordering fault. It was the swallowed lookup above. Writing
+      an ordering step would have been work that changed nothing while the real defect stayed.
+    alternatives:
+      - "Sorting exact hits first: a sort that can never reorder anything"
+
+  - category: Implementation
+    chose: "A ticket whose tracker has NO configured project is said, and offers no binding"
+    over: "Falling back to every configured project, which is what the surface did"
+    reason: |
+      The narrowing only applied when a ticket named MORE than one project; with none it fell
+      through to the whole list, so an operator could pick a project on another tracker and the
+      first message would bind that other board's ticket of the same number — the exact trap the
+      narrowing exists to close, entered from its empty side. Two zeros had to be told apart: no
+      project routed to this tracker is a refusal, while no project's labels matching is a choice
+      the page already draws with its own sentence, as 2026-09-27-1bd9 settled in writing.
+    alternatives:
+      - "Refusing both zeros: a ticket whose labels match nothing is ordinary and must stay pickable"
+
+  - category: Implementation
+    chose: "The field is remounted on the dialog id rather than reset field by field"
+    over: "Clearing the typed text from the surface when a new conversation starts"
+    reason: |
+      The text is the field's own state and the field is not unmounted by starting a conversation,
+      so the surface clearing the picked project, the picked ticket and the address left the number
+      on screen offering results for the conversation before last. A key that changes with the
+      conversation clears everything the field holds — text, results, cap and failure lists, and
+      any request in flight — rather than clearing the one remembered thing we noticed and leaving
+      the next to be found later.
+    alternatives:
+      - "Lifting the text to the surface: the surface would then own the debounce and the abort too"
+
+  - category: Implementation
+    chose: "Four types moved into files of their own to make room"
+    over: "Growing the files that hold them"
+    reason: |
+      Adding the lookup, the failure list and the exact flag pushed TicketProjectChoice to 133 and
+      TicketSearchAcrossTrackers and SpecDialogExtensions past 120, all three outside the baseline
+      where an entry may not be added. The answer records and the tracker-scoped resolution each
+      became a file, which is the shape the ratchet is asking for — one type per file means a
+      file's length is its class's length.
+    alternatives:
+      - "A baseline entry: forbidden, and the test says so in its own failure message"

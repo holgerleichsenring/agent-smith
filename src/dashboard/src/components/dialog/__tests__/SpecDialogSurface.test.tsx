@@ -66,6 +66,11 @@ const readTicketProject = vi.fn();
 // cancelling the request in flight is a requirement and not an optimisation: every query costs one
 // round trip per configured tracker.
 const searchTickets = vi.fn<(q: string, signal?: AbortSignal) => Promise<unknown>>();
+// 2026-09-27-481bb: the per-PICK resolution. A hit carries only an id and a title, so picking one
+// reads that ticket on its own tracker and matches its labels — the answer that makes a ticket
+// found by title resolve what the same ticket found by number does.
+const resolveTicketProjects =
+  vi.fn<(tracker: string, ticketId: string, signal?: AbortSignal) => Promise<unknown>>();
 const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
@@ -118,6 +123,8 @@ vi.mock("@/lib/specDialogApi", () => ({
     readTicketConversation(project, ticketId),
   readTicketProject: (ticketId: string) => readTicketProject(ticketId),
   searchTickets: (q: string, signal?: AbortSignal) => searchTickets(q, signal),
+  resolveTicketProjects: (tracker: string, ticketId: string, signal?: AbortSignal) =>
+    resolveTicketProjects(tracker, ticketId, signal),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
     resumeSpecDialogConversation(sessionId, dialogId),
@@ -420,18 +427,23 @@ beforeEach(() => {
   resumeSpecDialogConversation.mockResolvedValue(undefined);
   searchTickets.mockReset();
   searchTickets.mockResolvedValue(found([]));
+  resolveTicketProjects.mockReset();
+  // Answering null keeps the hit's own routed set, which is what every case that predates the
+  // per-pick read asserts.
+  resolveTicketProjects.mockResolvedValue(null);
 });
 
 /** 2026-09-27-5c1eb: what the search route answers — the hits, the cap, and the trackers that
  *  could not be asked, which is never the same as a board with no such ticket. */
 function found(
   hits: { ticketId: string; title: string; tracker: string; projects: string[] }[],
-  overrides: { moreHeldBack?: boolean; unsearchable?: string[] } = {},
+  overrides: { moreHeldBack?: boolean; unsearchable?: string[]; unreachable?: string[] } = {},
 ) {
   return {
     found: hits,
     moreHeldBack: overrides.moreHeldBack ?? false,
     unsearchable: overrides.unsearchable ?? [],
+    unreachable: overrides.unreachable ?? [],
     minimum: 3,
   };
 }
@@ -4039,5 +4051,102 @@ describe("The ticket search", () => {
     await waitFor(() => expect(screen.getByTestId("dialog-ticket-more")).toBeInTheDocument());
     // NOT an empty board: nothing here says whether the ticket is on that tracker.
     expect(screen.getByTestId("dialog-ticket-unsearchable").textContent).toContain("ado-main");
+  });
+
+  // 2026-09-27-481bb: the same ticket must resolve the same project whichever way it was found.
+  it("SpecDialogSurface_ALabelledTicketFoundByTitle_ResolvesTheSameProjectAsByNumber", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    // The SWEEP can only offer both projects on the tracker — a hit is an id and a title.
+    searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, projects: ["sample", "beta"] }]));
+    // The PICK reads the ticket and matches its labels, which name one.
+    resolveTicketProjects.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: JIRA_HIT.title,
+      tracker: JIRA_HIT.tracker,
+      projects: ["sample"],
+      unanswerable: [],
+      elsewhere: [],
+      sessionId: null,
+      openDialogId: null,
+    });
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    expect(resolveTicketProjects.mock.calls[0].slice(0, 2)).toEqual(["jira-main", "DPG-1239"]);
+    // One project after the read, so there is nothing left to choose and the composer opens.
+    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_AnExactHit_IsMarkedAsTheNumberThatWasTyped", async () => {
+    searchTickets.mockResolvedValue(
+      found([
+        { ...JIRA_HIT, exact: true },
+        { ticketId: "DPG-1300", title: "mentions DPG-1239", tracker: "jira-main", projects: ["sample"] },
+      ]),
+    );
+    await renderSurface();
+
+    await type("DPG-1239");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-exact-DPG-1239")).toBeInTheDocument());
+    // The row that merely MENTIONS the number carries no mark.
+    expect(screen.queryByTestId("dialog-ticket-exact-DPG-1300")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ANumberLookupThatFailed_IsSaidApartFromAnUnsearchableTracker", async () => {
+    searchTickets.mockResolvedValue(
+      found([JIRA_HIT], { unsearchable: ["ado-main"], unreachable: ["gitlab-main"] }),
+    );
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-unreachable").textContent).toContain("gitlab-main"));
+    // Two different failures: one board was never searched, the other never asked for a number.
+    expect(screen.getByTestId("dialog-ticket-unsearchable").textContent).toContain("ado-main");
+    expect(screen.getByTestId("dialog-ticket-unreachable").textContent).not.toContain("ado-main");
+  });
+
+  it("SpecDialogSurface_ATicketOnATrackerWithNoProject_SaysSoAndOffersNoBinding", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    // No configured project routes to this hit's tracker.
+    searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, projects: [] }]));
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    // Falling back to every project would let the first message bind this number on another board.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-stranded").textContent).toContain("jira-main"));
+  });
+
+  it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {
+    searchTickets.mockResolvedValue(found([JIRA_HIT]));
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("dialog-new"));
+
+    // The field holds its own text, so the surface clearing its state was never enough.
+    await waitFor(() =>
+      expect((screen.getByTestId("dialog-ticket-query") as HTMLInputElement).value).toBe(""));
+    expect(screen.queryByTestId("dialog-ticket-hit-DPG-1239")).not.toBeInTheDocument();
   });
 });
