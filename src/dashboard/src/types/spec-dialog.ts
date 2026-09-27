@@ -170,7 +170,11 @@ export type SpecDialogReadingState = "opening" | "ready" | "failed";
 /** 2026-09-17-c7aec: one repository a running design turn opened, pushed as it happens. */
 export interface SpecDialogReadingPush {
   dialogId: string;
-  repo: string;
+  /** 2026-09-27-481be: a repository or a TICKET. A line used to be found and keyed by its NAME
+   *  alone, so a ticket whose id matched a repository name would have overwritten that
+   *  repository's line. Hand-written mirror: nothing checks this file. */
+  kind: "repository" | "ticket";
+  name: string;
   state: SpecDialogReadingState;
   at: string;
 }

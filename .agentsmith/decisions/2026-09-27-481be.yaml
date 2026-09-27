@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481be
+
+decisions:
+  - category: Implementation
+    chose: "The reads report from where they happen, with the dialog and the platform passed in"
+    over: "Installing an observer, or deriving the dialog from the session id"
+    reason: |
+      The first cut of this phase claimed a ticket read had nobody to tell and had to be reordered
+      below an observer install. Both were wrong. Pushing a line is a public call; the observer
+      exists only because SANDBOXES are created down more than one route and neither signature
+      names one. But two things a reader does NOT have had to travel: the push is addressed by the
+      DIALOG id while the ticket read carries the SESSION id, a different value, and the
+      dashboard-only check lives in the observer rather than in the push — so a direct push from a
+      Slack or Teams conversation would have emitted into a group nobody joined. Both come from the
+      callers, which hold the conversation's whole state.
+    alternatives:
+      - "Storing the dialog id beside the ticket text: a column for something every caller already holds"
+
+  - category: Implementation
+    chose: "BOTH reads report — the one that grounds the conversation and the per-turn moved-check"
+    over: "Reporting only the first"
+    reason: |
+      The first is the long pause before a bound conversation's first reply: the whole ticket and
+      its discussion, off the tracker. The second is a smaller one before EVERY reply after it, and
+      it is the only tracker round trip a turn of a bound conversation makes. Reporting only the
+      first would have left the recurring pause unexplained, which is the complaint this phase
+      exists to answer.
+    alternatives:
+      - "Reporting only the moved-check: the long pause is the one a person notices"
+
+  - category: Implementation
+    chose: "A reading line carries its KIND, and is keyed by kind and name together"
+    over: "Sending a ticket id in the field that held a repository name"
+    reason: |
+      The dashboard found a line to update by name alone and keyed its list by it, so a ticket
+      whose id matched a repository name would have overwritten that repository's line. And the
+      sentence above the lines said "opening the repositories it needs" whatever was being read —
+      the one place a person looks while waiting, saying something false. Both follow from the kind
+      rather than being patched separately.
+    alternatives:
+      - "A second push type: two shapes for one list, and two renderers to keep in step"
+
+  - category: Architecture
+    chose: "Reporting extracted into TicketReadReports, and the comment read into TicketDiscussion"
+    over: "Adding the pushes where the reads are"
+    reason: |
+      Three files on this path sit at the per-file limit exactly and none is in the baseline, where
+      an entry may not be added. A wrapper that says "opening", runs the read and says "ready" or
+      "failed" collapses three lines per site into one, and the comment read — which 2026-09-27-481ba
+      gave its own try block so a refused discussion could not unground a whole conversation — was
+      always a separate concern from composing the text.
+    alternatives:
+      - "Trimming comments to fit: buying room with the reasoning the next reader needs"

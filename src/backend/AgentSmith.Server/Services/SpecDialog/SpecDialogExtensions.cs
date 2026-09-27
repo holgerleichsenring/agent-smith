@@ -113,7 +113,7 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton<DashboardOutcomeChannel>();
         // 2026-09-17-c7aec: which repositories a dashboard design turn opens, as it opens them.
-        services.AddSingleton<DashboardReadingChannel>();
+        services.AddSingleton<DashboardReadingChannel>().AddScoped<TicketReadReports>().AddScoped<TicketDiscussion>();
         services.AddSingleton<DashboardActivityChannel>();  // 042ee: between reads and answer
         return services;
     }
