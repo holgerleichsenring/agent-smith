@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -34,7 +35,7 @@ public sealed class FetchTicketHandlerTests
             _eventPublisher.Object,
             _runContext.Object,
             new TicketExtrasFetcher(NullLogger<TicketExtrasFetcher>.Instance),
-            new EpicGroundFetcher(NullLogger<EpicGroundFetcher>.Instance),
+            new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
     }
 

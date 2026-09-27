@@ -58,6 +58,12 @@ public sealed class SpecDialogOutcomeFlow(
             case OutcomeConfirmed:
                 await outcomeSink.AcceptAsync(state, proposal, mayStartRuns, cancellationToken);
                 return new OutcomeFlowCompleted();
+            // 2026-09-25-8e51e: an approval of a different act. The stored proposal is cleared
+            // like an approval's, because it has been acted on — the pane must not offer it again.
+            case OutcomeAmendRequested:
+                await outcomeSink.AmendAsync(state, proposal, cancellationToken);
+                await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
+                return new OutcomeFlowCompleted();
             case OutcomeEditRequested edit:
                 await SendAsync(state, composer.ComposeEditAck(edit.Note), cancellationToken);
                 return new OutcomeFlowEditRequested(edit.Note);

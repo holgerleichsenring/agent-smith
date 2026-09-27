@@ -64,4 +64,11 @@ public static partial class ContextKeys
     /// to run at all. Absent → the withdrawal tool is not on the turn's surface.
     /// </summary>
     public const string SpecDialogWithdrawal = "SpecDialogWithdrawal";
+
+    /// <summary>
+    /// 2026-09-25-8e51c: the ticket a bound conversation is grounded on — its title, the text as
+    /// the conversation read it, whether the cap dropped part of it, and whether the ticket has
+    /// moved since. Absent for a conversation that belongs to no ticket, which renders nothing.
+    /// </summary>
+    public const string SpecDialogTicket = "SpecDialogTicket";
 }

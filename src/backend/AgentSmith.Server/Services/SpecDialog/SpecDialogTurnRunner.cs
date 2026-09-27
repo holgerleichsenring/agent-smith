@@ -34,7 +34,7 @@ public sealed class SpecDialogTurnRunner(
     SpecDialogTurnImages images,
     SpecDialogQuestionPump questionPump,
     SpecDialogPendingQuestions pendingQuestions,
-    SpecDialogTurnGate gate,
+    SpecDialogTurnGate gate, TicketTextForConversation ticketText,
     DashboardReadingChannel reading,
     DashboardActivityChannel activity, AgentSmith.Contracts.Dialogue.IFiledTicketWithdrawal withdrawal,
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
@@ -52,7 +52,8 @@ public sealed class SpecDialogTurnRunner(
 
         var slot = new SpecDialogReplySlot();
         var seeds = SpecDialogTurnSeeds.Build(
-            state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken), withdrawal);
+            state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
+            withdrawal, await ticketText.HeldAsync(state.JobId, project, cancellationToken));
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);
@@ -99,9 +100,8 @@ public sealed class SpecDialogTurnRunner(
             $"Spec-dialog session is scoped to project '{projectName}', which is not in the config catalog.");
     }
 
-    // The active scope's repo names filter the project's repo set; an empty
-    // scope list means the whole project (the resolver stored all repos at
-    // session start, but stay tolerant of older rows).
+    // The active scope's repo names filter the project's repo set; an empty scope list means the
+    // whole project (the resolver stored all repos at session start; older rows may carry none).
     private static IReadOnlyList<RepoConnection> ResolveScopeRepos(
         ResolvedProject project, ActiveScope? scope)
     {

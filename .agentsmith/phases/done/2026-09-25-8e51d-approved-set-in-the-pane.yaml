@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-8e51d
+requires: ["2026-09-25-8e51b"]
+goal: "A ticket conversation shows the specification a person approved for that ticket, labelled as the approval it is rather than as what a run is working."
+
+applies_to: "backend (the approval record's reader and the dialog view) and dashboard (the pane)"
+
+scope:
+  in: "Loading the approved record for a bound ticket, projecting it into a view the pane can draw, a tab of its own on the pane, and saying plainly when there is none."
+  out: "The ticket's runs and their pull requests, which need the filed-work watch to register from a bound ticket rather than from a filing — phase 2026-09-25-c4a6. The epic parent, which needs the run pipeline's fetcher extracted into a service — phase 2026-09-25-d0b8. And anything that reaches the TURN: the pane is a read."
+
+decisions:
+  - key: |
+      THE LOADER IS READY AND ITS OWN FILE SAYS IT HAS NO CALLER. The recorder describes itself as
+      the amendment entry, takes the project and the ticket id, and is registered scoped. This phase
+      is that caller and changes nothing about the storage.
+  - key: |
+      THE PANE SHOWS THE RECORD AND SAYS SO, BECAUSE THE RUN READS SOMETHING ELSE. The branch is the
+      only set a run reads; the record is what a person approved and is never consumed. For a ticket
+      already worked they can differ — the branch may be several revisions and a positional merge
+      ahead. So the tab is labelled with the approval's instant and principal, and a reader is never
+      invited to take it for what the run is doing.
+  - key: |
+      THE RAW RECORD CANNOT BE SHIPPED, SO IT IS PROJECTED THROUGH THE SHAPE THAT ALREADY CROSSES
+      THIS WIRE. A record carries a whole spec set: accounting, revisions, executed ids, handback,
+      fingerprint, and a full spec YAML per phase. The proposal pane already renders phases through
+      a view with a TypeScript mirror; its projector is private to the proposal composer and becomes
+      shareable, so the conversation shows approved phases in the same shape it shows proposed ones.
+  - key: |
+      AN ABSENT RECORD IS A STATE, NOT A FAILURE. A hand-written ticket has none and that is the
+      ordinary case: the pane says so and the conversation proceeds. Only a ticket that CLAIMS one
+      and has none is a broken hand-off, and that judgement belongs to a run's gate, not to a pane.
+  - key: |
+      THE REACH IS THE CONVERSATION'S OWN PROJECT'S TRACKER, AND THE TICKET IS READ OFF THE SESSION
+      ROW. The record is keyed by tracker connection precisely so a guessed instance cannot hand a
+      conversation another organisation's record, and the read is addressed by the dialog id whose
+      owner check already guards this surface. A caller never names a ticket to this read.
+
+steps:
+  - id: the-conversation-loads-what-was-approved
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Load the approved record for a bound conversation through the recorder, keyed by its own project's tracker, and say when there is none."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs"
+
+  - id: it-crosses-the-wire-as-a-view
+    path: "src/backend/AgentSmith.Server"
+    action:
+      - "Project the record into a view — its approval instant, principal, conversation, tracker, repositories and its phases in the shape the proposal pane already draws — and make the phase projector shareable."
+    modify:
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs"
+      - "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs"
+      - "src/backend/AgentSmith.Server/Models/SpecDialogView.cs"
+
+  - id: the-pane-gains-a-tab
+    path: "src/dashboard/src"
+    action:
+      - "Add the approved specification as a pane tab, offered only for a conversation that has one, labelled with the approval it shows."
+    modify:
+      - "src/dashboard/src/components/dialog/DialogPane.tsx"
+      - "src/dashboard/src/components/dialog/SpecDialogSurface.tsx"
+      - "src/dashboard/src/types/spec-dialog.ts"
+
+  - id: the-reading-is-pinned
+    path: "tests"
+    action: "Assert a record is loaded and drawn, a ticket with none says so, the tab is absent without one, and that no read names a ticket from the client."
+
+tests:
+  - "TicketSpecs_ABoundTicketWithAnApprovedSet_ShowsItsPhasesAndItsApproval"
+  - "TicketSpecs_ABoundTicketWithNoSet_SaysThereIsNoneAndProceeds"
+  - "TicketSpecs_TheTab_IsNotOfferedWithoutARecord"
+  - "TicketSpecs_TheRecord_IsLabelledAsTheApprovalAndNotAsWhatTheRunWorks"
+  - "TicketSpecs_TheRead_IsAddressedByDialogIdAndNeverByATicketFromTheClient"
+  - "TicketSpecs_AConversationWithNoTicket_ShowsExactlyWhatItShowsToday"
+
+done:
+  - "a ticket conversation shows the specification a person approved for that ticket"
+  - "the pane says whose approval it is and when, so it is never read as what a run is working"
+  - "a ticket with no approved specification is stated as such and discussed anyway"
+  - "no client can ask this surface for a ticket it was not already bound to"
+  - "build green, dashboard tests green, full suite green"

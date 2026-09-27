@@ -54,16 +54,11 @@ public sealed class AzureDevOpsFieldMapper : ITicketFieldMapper<IDictionary<stri
 
     // p0318: a Bug work item stores its body in Microsoft.VSTS.TCM.ReproSteps, not
     // System.Description (empty for Bugs) — reading Description only handed the planner
-    // a title and it invented scope. Prefer System.Description, fall back to ReproSteps
-    // then SystemInfo so non-Bug types that legitimately use Description are unchanged.
-    private static string ReadDescription(IDictionary<string, object> fields)
-    {
-        var description = Read(fields, "System.Description");
-        if (!string.IsNullOrWhiteSpace(description)) return description;
-        var reproSteps = Read(fields, "Microsoft.VSTS.TCM.ReproSteps");
-        if (!string.IsNullOrWhiteSpace(reproSteps)) return reproSteps;
-        return Read(fields, "Microsoft.VSTS.TCM.SystemInfo");
-    }
+    // a title and it invented scope. 2026-09-25-8e51e: the precedence moved into
+    // AzureDevOpsBodyField, because the AMENDMENT writes the field this read picks and two
+    // copies of that choice would let a rewrite give the work item a second, invisible body.
+    private static string ReadDescription(IDictionary<string, object> fields) =>
+        AzureDevOpsBodyField.Read(fields, AzureDevOpsBodyField.Of(fields));
 
     private static string Read(IDictionary<string, object> fields, string key) =>
         fields.TryGetValue(key, out var value) ? value?.ToString() ?? "" : "";
