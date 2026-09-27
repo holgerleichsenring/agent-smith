@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
@@ -56,6 +57,37 @@ public sealed class DialogConversationListTests : IDisposable
         var listed = await ListAsync();
 
         listed.Select(summary => summary.SessionId).Should().BeEquivalentTo([closed, open]);
+    }
+
+    /// <summary>
+    /// 2026-09-27-5c1eb: the bound ticket the way the TRACKER spells it. The session row carries a
+    /// tracker and a ticket key for free, but that key is the spec-key spelling — lowercased with
+    /// every non-alphanumeric collapsed — so a row marked with it would read "dpg1239". The native
+    /// id lives in the ticket-text table, and it is read for the WHOLE PAGE at once: a page holds up
+    /// to two hundred rows and this list is already the expensive read on the surface.
+    /// </summary>
+    [Fact]
+    public async Task ConversationSummary_ABoundSession_CarriesTheTrackerNativeIdInOneReadForThePage()
+    {
+        var bound = await OpenAsync("d-1");
+        var unbound = await OpenAsync("d-2");
+        await new SpecDialogTicketTextRepository(_context).SaveAsync(
+            new SpecDialogTicketText
+            {
+                SessionId = bound,
+                TicketId = "DPG-1239",
+                Title = "Cannot log in",
+                Text = "the reset link expires too early",
+                Fingerprint = "f1",
+                ReadAt = DateTimeOffset.UtcNow,
+            },
+            CancellationToken.None);
+
+        var listed = await ListAsync();
+
+        listed.Single(row => row.SessionId == bound).Ticket.Should().Be("DPG-1239");
+        listed.Single(row => row.SessionId == unbound).Ticket.Should().BeNull(
+            "a conversation bound to no ticket has no row in that table");
     }
 
     [Fact]
@@ -164,7 +196,7 @@ public sealed class DialogConversationListTests : IDisposable
             null,
             new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Owner)], "test")),
             new SpecDialogOwnership(_repository),
-            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)), CancellationToken.None);
+            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)), CancellationToken.None);
 
         result.Should().BeOfType<Ok<SpecDialogConversationPage>>()
             .Which.Value!.Conversations.Select(summary => summary.SessionId).Should().Equal(mine);
@@ -385,7 +417,7 @@ public sealed class DialogConversationListTests : IDisposable
     /// <summary>2026-09-21-f237b: the rows AND the owner's whole count, which is what the
     /// conversations page says "the 20 most recent of 63" from.</summary>
     private Task<SpecDialogConversationPage> PageAsync(int? limit = null) =>
-        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)).ListAsync(Owner, limit, CancellationToken.None);
+        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)).ListAsync(Owner, limit, CancellationToken.None);
 
     public void Dispose()
     {

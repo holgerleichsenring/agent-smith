@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-5c1eb
+
+decisions:
+  - category: Architecture
+    chose: "The ticket field lives on the surface, above the branch that swaps the project choice for the transcript"
+    over: "Beside the project choice, as the phase's first cut specified"
+    reason: |
+      An installation with exactly one configured project resolves it without a choice and never
+      renders DialogProjectChoice — its own header says so and a test asserts the choice is absent —
+      so a field inside it would have been invisible to most installations. On a multi-project one
+      the choice unmounts the instant a project is picked, which a second test asserts, taking any
+      typed text, results and in-flight request with it. Above the branch the field renders in both
+      states, and the picked ticket lives beside the picked project for the reason 2026-09-23-6e3f
+      gave for putting the pick there: sending needs it, and the component that offered it is gone.
+    alternatives:
+      - "Rendering the field twice, once in each arm: two copies of the state, and the pick lost on the transition"
+
+  - category: Implementation
+    chose: "Every hit carries the projects routed to its own tracker, and picking a hit with exactly one picks that project"
+    over: "A picked ticket sent with whatever project the operator picks separately"
+    reason: |
+      The wire carries a project and a ticket id and no tracker, and the binder re-fetches the ticket
+      on the picked project's tracker from the id alone. Search every tracker, pick number 412 from
+      one, then pick a project routed to another, and the first message binds that other board's 412
+      — different work, no error; and if it has no 412 the conversation opens unbound behind a log
+      line. Resolving the project FROM the hit closes that, and it is also what makes the feature
+      usable at all: send is a no-op without a project, the dispatcher returns early and DROPS the
+      ticket, and with several projects configured there is no composer to type into.
+    alternatives:
+      - "Adding a tracker to the message contract: a wider change to the one path that opens a conversation"
+      - "Scoping the search to the picked project's tracker: a person has to pick a project before they know which ticket they want"
+
+  - category: Implementation
+    chose: "The number lookup runs beside the text search, and the spec says what it costs"
+    over: "A rule that decides from the typed text's shape whether it could be an id"
+    reason: |
+      A Jira key or a work-item number is in no title and no body, so a text search alone would never
+      find a ticket by its number. The first cut called running both cheaper than a shape rule; it is
+      the opposite — the by-id sweep costs one round trip per configured tracker. It is chosen anyway
+      because a shape rule would have to know four trackers' id grammars and a wrong guess reads as
+      "no such ticket" for a ticket that exists. The debounce is therefore a requirement rather than
+      a polish, and the request in flight is aborted on the next keystroke.
+    alternatives:
+      - "Only searching text, and letting a number be pasted into the address instead: the address is what this phase exists to replace"
+
+  - category: Implementation
+    chose: "A bound row is marked with the tracker-native id, read for the whole page in one query"
+    over: "The session row's own ticket key, which is free"
+    reason: |
+      The session carries a tracker and a ticket key without any extra read, but the key is the
+      spec-key spelling — lowercased with every non-alphanumeric collapsed — so a row marked with it
+      reads "dpg1239" rather than "DPG-1239". The native id lives in the ticket-text table whose only
+      reader was per-session, and a page holds up to two hundred conversations on a read that is
+      already the expensive one, so a bulk method keyed by the page's sessions was the only shape
+      that did not multiply it. A bound conversation whose text read never landed carries no mark,
+      which is stated rather than guessed at.
+    alternatives:
+      - "A new column on the session: a migration for something one join already answers"
+      - "Marking presence only, with no id: a row that says a ticket exists without saying which"
+
+  - category: Implementation
+    chose: "The reason a ticket named no project moved out of the project choice onto the ticket field"
+    over: "Leaving it where 2026-09-25-8e51a put it"
+    reason: |
+      It was passed only into DialogProjectChoice, which a single-project installation never renders
+      — so the sentence explaining why a ticket's labels named no project was computed and silently
+      discarded exactly where an operator has no choice to make and most needs the explanation.
+      Moving the field above that branch fixes the new case and this old one in the same place, which
+      is why it is here rather than in a phase of its own.
+    alternatives:
+      - "A separate phase for the reason: two changes to the same six lines, landing apart"
+
+  - category: Architecture
+    chose: "The sweep is a service, and the route is a file of its own"
+    over: "Both inside TicketConversationEndpoints"
+    reason: |
+      That file had thirty lines of headroom under the hard 120-line limit and the handler alone
+      needed more than that, so the route moved to TicketSearchEndpoints and the endpoints file
+      chains it. SpecDialogExtensions was also at the limit, so the registration chained onto the
+      binder's line rather than taking one of its own.
+    alternatives:
+      - "A baseline entry for the endpoints file: the ratchet forbids adding one, and rightly"
+
+  - category: Implementation
+    chose: "The search path narrows project candidates by tracker; the ?ticket= address path is left alone and specced as 2026-09-27-1bd9"
+    over: "Fixing both here, or fixing neither"
+    reason: |
+      TicketProjectMatch keeps a project whose trigger KIND equals the ticket's platform, and two
+      Jira trackers are both "jira" — so the address path can match a ticket swept from one tracker
+      to a project routed to another, and then bind a different board's ticket of the same number.
+      That is the same defect this phase closes on its own path, but the behaviour is a recorded
+      decision of 2026-09-25-8e51a, so changing it belongs in a phase that says so rather than
+      inside one about a search field. Named rather than left: 2026-09-27-1bd9.
+    alternatives:
+      - "Changing TicketProjectMatch here: a silent reversal of another phase's stated decision"

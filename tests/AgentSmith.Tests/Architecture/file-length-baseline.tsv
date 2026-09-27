@@ -143,7 +143,6 @@
 124	AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs
 124	AgentSmith.Server/Services/Adapters/SlackErrorBlockBuilder.cs
 124	AgentSmith.Server/Services/Adapters/TeamsAdapter.cs
-123	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWorkItemLister.cs
 123	AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs
 121	AgentSmith.Application/Services/Handlers/ObservationParser.cs
 121	AgentSmith.Application/Services/Triggers/InboxPollingService.cs

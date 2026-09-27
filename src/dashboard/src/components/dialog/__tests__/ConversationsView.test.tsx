@@ -20,7 +20,7 @@ vi.mock("@/lib/specDialogApi", () => ({
 function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
   return {
     sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: new Date().toISOString(),
-    title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null,
+    title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null, ticket: null,
     ...overrides,
   };
 }
@@ -78,6 +78,22 @@ describe("The conversations page", () => {
       .toHaveAttribute("href", "/spec-dialog?open=s-1");
     expect(screen.getByTestId("conversations-open-s-2"))
       .toHaveAttribute("href", "/spec-dialog?open=s-2&on=d-7");
+  });
+
+  // 2026-09-27-5c1eb: a conversation bound to a ticket says which one, the way the TRACKER spells
+  // it — the session row's own ticket key is the collapsed spec-key spelling and would read
+  // "dpg1239". Built separately from the panel's row, which is a button rather than a link and
+  // shares only its label helpers with this one.
+  it("ConversationsPage_ABoundConversation_IsMarkedInTheRow", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(listing([
+      conversation({ sessionId: "s-1", ticket: "DPG-1239" }),
+      conversation({ sessionId: "s-2", ticket: null }),
+    ]));
+
+    render(<ConversationsView />);
+
+    expect((await screen.findByTestId("conversations-ticket-s-1")).textContent).toBe("DPG-1239");
+    expect(screen.queryByTestId("conversations-ticket-s-2")).not.toBeInTheDocument();
   });
 
   it("ConversationHref_AnOpenConversation_CarriesTheDialogItLivesOn", () => {

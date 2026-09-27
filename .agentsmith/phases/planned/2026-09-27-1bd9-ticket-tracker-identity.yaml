@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-27-1bd9
+goal: "A conversation opened from a ticket binds the ticket that was read, not another board's ticket of the same number on a second tracker of the same kind."
+
+applies_to: "backend (the ticket-to-project match a design conversation uses, and the by-id route on it)"
+
+scope:
+  in: "The project candidates a ticket read by its id may name, narrowed to the tracker that actually answered for it; and what the page is told when its labels name a project on another tracker of the same kind."
+  out: "The RUN side's matching, which reaches a ticket through a tracker it was already routed from rather than by sweeping for a number. The text search path, which 2026-09-27-5c1eb already narrows this way."
+
+decisions:
+  - key: |
+      THE PLATFORM IS NOT THE TRACKER, AND THE EXISTING MATCH ONLY KNOWS THE PLATFORM. The ticket
+      match keeps a project whose trigger's KIND equals the ticket's platform — its own header says
+      so, and says the project then decides which tracker the conversation files into. Two Jira
+      trackers are both "jira", so a ticket swept up from the first tracker that has the number can
+      be matched to a project routed to the second. The binding is then re-fetched by that project's
+      tracker from the id alone, which is a different board: a different piece of work, bound
+      silently, or no ticket at all and a conversation that opens unbound behind a log line.
+  - key: |
+      2026-09-27-5c1eb NARROWED ITS OWN PATH AND DELIBERATELY LEFT THIS ONE. Its search intersects
+      every hit's project candidates with the projects routed to the tracker the hit came from, and
+      does the same for the number lookup it runs itself. It did not change the match that the
+      ?ticket= address uses, because that behaviour is a recorded decision of 2026-09-25-8e51a and
+      changing it belongs in a phase that says so rather than in a phase about a search field.
+  - key: |
+      A NARROWING IS NOT THE SAME AS A REFUSAL. A ticket whose labels name only projects on other
+      trackers currently resolves to one of them; narrowed, it names none — which is the "choose a
+      project" case the page already draws, with the reason it already has. So the fix removes a
+      wrong answer rather than adding a new failure, and the reason a person reads has to say which
+      of the two happened.
+
+steps:
+  - id: the-match-knows-which-tracker-answered
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action: "Narrow the projects a ticket read by its id may name to those routed to the tracker that answered for it, and say in the reason when that is what removed them."
+
+  - id: the-narrowing-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert that two trackers of the same kind holding the same number resolve to their own projects only, and that a ticket whose labels name only another tracker's projects is asked about rather than bound."
+
+tests:
+  - "TicketProjectChoice_TwoTrackersOfOneKind_NamesOnlyTheAnsweringTrackersProjects"
+  - "TicketProjectChoice_LabelsNamingAnotherTrackersProject_IsAskedAboutRatherThanBound"
+
+done:
+  - "a conversation opened from a ticket id binds the ticket that was read"
+  - "a ticket whose labels name only another tracker's projects is put to the person with a reason"
+  - "build green, full suite green"

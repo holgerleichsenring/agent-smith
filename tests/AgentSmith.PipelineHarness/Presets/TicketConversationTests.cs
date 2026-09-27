@@ -102,6 +102,8 @@ public sealed class TicketConversationTests
         public ITicketProvider Create(TrackerConnection config) => new ConversationTicketProvider();
 
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
+
+        public ITicketSearch CreateSearch(TrackerConnection config) => new HarnessTicketSearch();
     }
 
     private sealed class ConversationTicketProvider : ITicketProvider

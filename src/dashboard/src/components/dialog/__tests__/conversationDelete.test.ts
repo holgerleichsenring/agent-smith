@@ -13,7 +13,7 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
   return {
     sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z",
-    title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null,
+    title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null, ticket: null,
     ...overrides,
   };
 }

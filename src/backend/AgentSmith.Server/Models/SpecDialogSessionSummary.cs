@@ -16,6 +16,10 @@ namespace AgentSmith.Server.Models;
 /// closed. An open conversation is already somewhere, so the page goes there instead of resuming
 /// it — a resume is refused while its turn runs, and a person who left mid-turn could otherwise
 /// not get back to the reply, or to an approval that is waiting for them.</param>
+/// <param name="Ticket">2026-09-27-5c1eb: the TRACKER-NATIVE id of the ticket this conversation is
+/// bound to, or null when it is bound to none. Read from the ticket-text table rather than from the
+/// session's own ticket key, which is the collapsed spec-key spelling and unreadable as an id.</param>
 public sealed record SpecDialogSessionSummary(
     string SessionId, string Project, int Turns, DateTimeOffset LastActivityAt,
-    string? Title, string? Subject, SpecDialogConversationOutcome? Outcome, string? OpenDialogId);
+    string? Title, string? Subject, SpecDialogConversationOutcome? Outcome, string? OpenDialogId,
+    string? Ticket = null);

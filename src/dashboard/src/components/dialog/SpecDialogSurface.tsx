@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
-import type { TicketProjectRead } from "@/lib/specDialogApi";
+import type { TicketProjectRead, TicketSearchFound } from "@/lib/specDialogApi";
 import { readTicketConversation, readTicketProject } from "@/lib/specDialogApi";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
@@ -17,6 +17,7 @@ import { DialogConversations } from "./DialogConversations";
 import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogQuestionCard } from "./DialogQuestionCard";
+import { DialogTicketSearch } from "./DialogTicketSearch";
 import { DialogTranscript } from "./DialogTranscript";
 import { DialogWorking } from "./DialogWorking";
 
@@ -115,7 +116,14 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
       .catch(() => {})
       .finally(() => router.replace("/spec-dialog"));
   }, [ticketId, project, router]);
-  return { pending, reason };
+  // 2026-09-27-5c1eb: the address is consumed ONCE. Nothing cleared `pending` before, so every
+  // message carried the ticket and the dispatcher re-read it from its tracker on each one; and a
+  // new conversation started from this page would have inherited the last one's ticket.
+  const forget = useCallback(() => {
+    setPending(null);
+    setReason(null);
+  }, []);
+  return { pending, reason, forget };
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
@@ -138,16 +146,33 @@ const MARK_MS = 1400;
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
   useHandover(dialog.open);
-  const { pending: pendingTicket, reason: ticketReason } = useTicketHandover(dialog.open);
+  const {
+    pending: pendingTicket,
+    reason: ticketReason,
+    forget: forgetAddressedTicket,
+  } = useTicketHandover(dialog.open);
   // The picked project lives here rather than in the list, because SENDING needs it too: a
   // message typed with no session open has to open one, and the project is what opens it.
   // With a single configured project there is no picker and no choice to make.
   const projects = dialog.view?.projects ?? [];
   const [picked, setPicked] = useState("");
+  // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
+  // the component that offers it is unmounted the moment a project is resolved.
+  const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
   // 2026-09-25-8e51b: a page opened on a ticket already knows its project — it had to, to ask
   // which conversation that ticket has — so there is nothing left to pick.
+  // A ticket routed to exactly one project resolves it: send is a no-op with no project, the
+  // dispatcher returns early and DROPS the ticket, and with several projects configured there is no
+  // composer to type into — so a picked ticket that did not resolve a project could not be discussed.
+  const fromTicket = pickedTicket?.projects.length === 1 ? pickedTicket.projects[0] : "";
   const project =
-    picked || pendingTicket?.project || (projects.length === 1 ? projects[0].name : "");
+    picked || pendingTicket?.project || fromTicket || (projects.length === 1 ? projects[0].name : "");
+  // Several routed projects: the choice is narrowed to them, because the others are on trackers
+  // that do not hold this ticket and would bind a different board's ticket of the same number.
+  const offered =
+    pickedTicket && pickedTicket.projects.length > 1
+      ? projects.filter((held) => pickedTicket.projects.includes(held.name))
+      : projects;
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
   // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
@@ -206,6 +231,11 @@ export function SpecDialogSurface() {
     ? dialog.conversations.find((held) => held.sessionId === session.sessionId)?.title ?? null
     : null;
   const title = session?.subject ?? listed;
+  // Which tickets already have a conversation, from the list this page already holds — so a result
+  // row says so instead of offering to open a second one the unique index would refuse anyway.
+  const boundTickets = new Set(
+    dialog.conversations.map((held) => held.ticket).filter((id): id is string => id !== null),
+  );
 
   return (
     <div className="mock-shell mock-dialog" data-testid="spec-dialog">
@@ -234,6 +264,8 @@ export function SpecDialogSurface() {
                 // new conversation that kept the last one's project would open on it without
                 // ever having asked.
                 setPicked("");
+                setPickedTicket(null);
+                forgetAddressedTicket();
                 void dialog.startNew();
               }}
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
@@ -266,13 +298,25 @@ export function SpecDialogSurface() {
                 </span>
               </div>
               <div className="d-body flex flex-col gap-4">
+                {/* 2026-09-27-5c1eb: ABOVE the branch, so it renders in both states — the project
+                    choice is not rendered at all on a single-project installation, and it unmounts
+                    the moment a project is picked. The reason a ticket did not name one project
+                    moved here with it: it used to be passed only into that choice, so on a
+                    single-project installation it was computed and silently discarded. */}
+                {!session && (
+                  <DialogTicketSearch
+                    bound={boundTickets}
+                    picked={pickedTicket}
+                    onPicked={setPickedTicket}
+                    reason={ticketReason}
+                  />
+                )}
                 {mustPick ? (
                   <DialogProjectChoice
-                    projects={projects}
+                    projects={offered}
                     read={read}
                     picked={picked}
                     onPicked={setPicked}
-                    reason={ticketReason}
                   />
                 ) : (
                   <>
@@ -308,7 +352,14 @@ export function SpecDialogSurface() {
                   onSend={(text) =>
                     // 2026-09-25-8e51b: the first message on a ticket-addressed page carries the
                     // binding, because that message is what opens the conversation.
-                    void dialog.send(text, project, undefined, pendingTicket?.ticketId)
+                    // 2026-09-27-5c1eb: or a ticket that was searched for. The ADDRESS wins: it is
+                    // consumed once and the operator did not type it.
+                    void dialog.send(
+                      text,
+                      project,
+                      undefined,
+                      pendingTicket?.ticketId ?? pickedTicket?.ticketId,
+                    )
                   }
                   onAttach={(file) => void dialog.attach(file, project)}
                 />

@@ -643,6 +643,8 @@ public sealed partial class SpecDialogOutcomeTests
         public ITicketProvider Create(TrackerConnection config) => provider;
 
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
+
+        public ITicketSearch CreateSearch(TrackerConnection config) => new HarnessTicketSearch();
     }
 
     /// <summary>
