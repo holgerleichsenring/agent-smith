@@ -11,8 +11,6 @@ namespace AgentSmith.Server.Services.Access;
 /// </summary>
 internal sealed class AccessViewComposer(AccessPeopleComposer people)
 {
-    private const string OpaqueSubjectClaim = "sub";
-
     public AccessView Compose(ResolvedRoleMapping current, IReadOnlyList<ObservedCaller> observed)
     {
         ArgumentNullException.ThrowIfNull(current);
@@ -22,7 +20,7 @@ internal sealed class AccessViewComposer(AccessPeopleComposer people)
         return new AccessView(
             current.Mapping.RoleClaim, current.Mapping.GroupClaim, current.NameClaim,
             current.Mapping,
-            !string.Equals(current.NameClaim, OpaqueSubjectClaim, StringComparison.Ordinal),
+            Security.ReadableName.Is(current.NameClaim),
             current.Mapping.ObservationRetentionDays,
             rows, groups, Roles(current, rows, groups),
             Security.Permissions.All,

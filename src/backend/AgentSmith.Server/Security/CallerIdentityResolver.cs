@@ -48,7 +48,8 @@ internal sealed class CallerIdentityResolver(
             roleValues, groups,
             held, Permissions(current, caller, held),
             [.. current.Catalog.Findings.Concat(grant.Findings).Concat(current.Persons.Findings)
-                .Concat(GroupOverageDetector.Findings(caller))]);
+                .Concat(GroupOverageDetector.Findings(caller))],
+            ReadableName.Is(current.NameClaim));
     }
 
     private IReadOnlyList<string> Held(
@@ -106,5 +107,5 @@ internal sealed class CallerIdentityResolver(
     private static CallerIdentity Anonymous(ResolvedRoleMapping current) => new(
         Authenticated: false, Subject: null, Issuer: null,
         current.Mapping.RoleClaim, current.Mapping.GroupClaim, [], [], [], [],
-        current.Catalog.Findings);
+        current.Catalog.Findings, ReadableName.Is(current.NameClaim));
 }

@@ -53,7 +53,7 @@ const identity = (over: Partial<CallerIdentity> = {}): CallerIdentity => ({
   groupClaimValues: [],
   roles: [],
   permissions: ["identity.read"],
-  findings: [],
+  findings: [], nameIsReadable: true,
   ...over,
 });
 
