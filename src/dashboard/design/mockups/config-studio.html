@@ -195,7 +195,7 @@
 (function(){
   var DB = {
     projects: [
-      { id:'portal-migration', agent:'azure_openai', tracker:'sample-azdo', repos:['portal-server','portal-worker','portal-client'], trigger:'label: agent-smith', pipelines:['add-feature','fix-bug'] }
+      { id:'portal-migration', agent:'azure_openai', tracker:'sample-azdo', repos:['portal-server','portal-worker','portal-client'], trigger:'label: agent-smith', pipelines:['code'] }
     ],
     agents: [
       { id:'azure_openai', provider:'Azure OpenAI', coding:'gpt-5.1', scan:'gpt-5.1-mini', key:'AZURE_OPENAI_KEY' },
@@ -339,7 +339,7 @@
       selRef('agent','Agent','agents',true)+ selRef('tracker','Tracker','trackers',true)+
       multiRef('repos','Repositories','repos')+
       txt('trigger','Trigger',false,'label: agent-smith','what starts a run')+
-      multiVals('pipelines','Pipelines',['add-feature','fix-bug','api-scan','security-scan'])+
+      multiVals('pipelines','Pipelines',['code','api-scan','security-scan'])+
       '<div class="preview-wire"><div class="pw-h">Wiring preview</div><div id="pw"></div></div>'+
       '<div class="integrity" id="integ"></div>'; },
     agents:function(){ return txt('id','Agent name',true,'e.g. anthropic_prod',null,true)+ sel('provider','Provider',['Azure OpenAI','Anthropic','OpenAI'])+

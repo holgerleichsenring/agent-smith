@@ -69,7 +69,7 @@ public sealed class MultiRepoBootstrapTests
             .WithRepo("client", contextYaml: false, principles: false);
         await harness.RunCheckAsync();
 
-        var result = await harness.RunGateAsync(pipelineName: "fix-bug");
+        var result = await harness.RunGateAsync(pipelineName: "code");
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("client");

@@ -84,7 +84,7 @@ public sealed class WaitingRunHarness : IDisposable
     /// <summary>A project name is what lets a "queued" terminal event mint a queue entry at
     /// all, so a test that denies one must first make one possible.</summary>
     public Task PublishStartAsync(string? project = null) => _publisher.PublishAsync(new RunStartedEvent(
-        RunId, "ticket", "add-feature", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42",
+        RunId, "ticket", "code", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42",
         Project: project, Platform: project is null ? null : "tracker"));
 
     /// <summary>Start a run and prove the drain discovered it before anything else happens.</summary>
@@ -131,7 +131,7 @@ public sealed class WaitingRunHarness : IDisposable
         {
             var tracer = $"{RunId}-pass-{pass}";
             await _publisher.PublishAsync(new RunStartedEvent(
-                tracer, "ticket", "add-feature", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+                tracer, "ticket", "code", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
             if (!await TestWaits.ReachedAsync(() => drain.Active.ContainsKey(tracer))) return false;
         }
         return true;

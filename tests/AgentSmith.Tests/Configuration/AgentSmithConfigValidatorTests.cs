@@ -20,7 +20,7 @@ public sealed class AgentSmithConfigValidatorTests
         var config = new AgentSmithConfig
         {
             PipelineTriggers = new PipelineTriggerMap(
-                new Dictionary<string, string> { ["bug"] = "fix-bug" }),
+                new Dictionary<string, string> { ["bug"] = "code" }),
         };
 
         _sut.Validate(config).Should().BeEmpty();
@@ -142,7 +142,7 @@ public sealed class AgentSmithConfigValidatorTests
                 {
                     new PipelineDefinition
                     {
-                        Name = "fix-bug",
+                        Name = "code",
                         AgentName = "missing-agent",
                         Agent = null,
                     },
@@ -153,7 +153,7 @@ public sealed class AgentSmithConfigValidatorTests
         var errors = _sut.Validate(config);
 
         errors.Should().Contain(e =>
-            e.Contains("pipelines['fix-bug']") &&
+            e.Contains("pipelines['code']") &&
             e.Contains("missing-agent"));
     }
 

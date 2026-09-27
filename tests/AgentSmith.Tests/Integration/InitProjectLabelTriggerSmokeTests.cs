@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Metrics;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triggers;
@@ -73,7 +74,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "closed"
                     }
@@ -83,7 +84,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var (dispatcher, spawn) = BuildDispatcher();
         var sut = new GitHubIssueWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
-            Resolver(), dispatcher,
+            Resolver(), dispatcher, ApprovedRecordProbes.None(),
             NullLogger<GitHubIssueWebhookHandler>.Instance);
 
         var payload = $$"""
@@ -132,7 +133,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "closed"
                     }
@@ -142,7 +143,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var (dispatcher, spawn) = BuildDispatcher();
         var sut = new GitLabIssueWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
-            Resolver(), dispatcher,
+            Resolver(), dispatcher, ApprovedRecordProbes.None(),
             NullLogger<GitLabIssueWebhookHandler>.Instance);
 
         var payload = $$"""
@@ -187,7 +188,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "Resolved"
                     }
@@ -197,7 +198,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var (dispatcher, spawn) = BuildDispatcher();
         var sut = new AzureDevOpsWorkItemWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
-            Resolver(), dispatcher,
+            Resolver(), dispatcher, ApprovedRecordProbes.None(),
             NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
 
         var payload = $$"""
@@ -247,7 +248,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
                         PipelineFromLabel = new Dictionary<string, string>
                         {
                             [InitLabel] = InitPipeline,
-                            ["bug"] = "fix-bug"
+                            ["bug"] = "code"
                         },
                         DoneStatus = "Done"
                     }
@@ -257,7 +258,7 @@ public sealed class InitProjectLabelTriggerSmokeTests
         var (dispatcher, spawn) = BuildDispatcher();
         var sut = new JiraAssigneeWebhookHandler(
             ConfigLoader(config).Object, new ServerContext(ConfigPath),
-            Resolver(), dispatcher,
+            Resolver(), dispatcher, ApprovedRecordProbes.None(),
             NullLogger<JiraAssigneeWebhookHandler>.Instance);
 
         var labelsJson = JsonSerializer.Serialize(new[] { InitLabel });

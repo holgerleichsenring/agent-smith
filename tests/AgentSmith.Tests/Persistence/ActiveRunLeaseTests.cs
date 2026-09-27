@@ -44,12 +44,14 @@ public sealed class ActiveRunLeaseTests : IDisposable
 
     // p0262: the reaper now also cancels the stale lease's run (registry + event).
     // These tests assert release/reclaimability, so the cancel deps are no-op mocks.
-    private ActiveRunReaper NewReaper(IActiveRunLease lease) => new(
-        lease,
-        new Mock<IRunCancellationRegistry>().Object,
-        new Mock<IEventPublisher>().Object,
-        _clock,
-        NullLogger<ActiveRunReaper>.Instance);
+    private ActiveRunReaper NewReaper(IActiveRunLease lease)
+    {
+        var registry = new Mock<IRunCancellationRegistry>().Object;
+        return new(
+            lease, registry,
+            TestSupport.StaleLeaseReleases.For(lease, registry, new Mock<IEventPublisher>().Object, _clock),
+            _clock, NullLogger<ActiveRunReaper>.Instance);
+    }
 
     private sealed class RepositoryLease(
         IDbContextFactory<AgentSmithDbContext> factory,
@@ -351,7 +353,9 @@ public sealed class ActiveRunLeaseTests : IDisposable
         var registry = new Mock<IRunCancellationRegistry>();
         var events = new Mock<IEventPublisher>();
         var reaper = new ActiveRunReaper(
-            lease, registry.Object, events.Object, _clock, NullLogger<ActiveRunReaper>.Instance);
+            lease, registry.Object,
+            TestSupport.StaleLeaseReleases.For(lease, registry.Object, events.Object, _clock),
+            _clock, NullLogger<ActiveRunReaper>.Instance);
         await reaper.RunOnceAsync(TimeSpan.FromMinutes(5), CancellationToken.None);
 
         registry.Verify(r => r.TryCancel("run-7", "stale-lease-reaped"), Times.Once);

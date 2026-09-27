@@ -822,6 +822,12 @@ public sealed class FiledWorkStartTests
             LabelsWhenSaved.Add(labelsSoFar?.Invoke() ?? 0);
             return Task.CompletedTask;
         }
+
+        public Task<OutstandingApprovals> ListOutstandingAsync(string tracker, int limit, CancellationToken ct) =>
+            Task.FromResult(OutstandingApprovals.None);
+
+        public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
+            Task.CompletedTask;
     }
 
     /// <summary>Records how many labels were on the ticket at the moment the resolution ran, over
@@ -846,5 +852,11 @@ public sealed class FiledWorkStartTests
 
         public Task SaveAsync(SpecApprovalRecord record, CancellationToken ct) =>
             throw new InvalidOperationException("the approvals table is gone");
+
+        public Task<OutstandingApprovals> ListOutstandingAsync(string tracker, int limit, CancellationToken ct) =>
+            Task.FromResult(OutstandingApprovals.None);
+
+        public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
+            Task.CompletedTask;
     }
 }

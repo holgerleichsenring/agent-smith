@@ -24,6 +24,7 @@ public sealed class GitLabTicketStatusTransitioner(
     private readonly string _baseUrl = connection.BaseUrl.TrimEnd('/');
     private readonly string _projectPath = connection.ProjectPath;
     private readonly string _privateToken = connection.PrivateToken;
+    private readonly TicketLabelVocabulary _labels = connection.ResolvedLabels;
 
     public string ProviderType => "GitLab";
 
@@ -51,10 +52,10 @@ public sealed class GitLabTicketStatusTransitioner(
         }
 
         // p0262: lifecycle tags are pure markers — set `to` unconditionally, no `from`
-        // precondition. `current` is still read to strip the old lifecycle label from the
-        // set; `from` is advisory. Run-level single-run is the lease's job (p0246b).
-        var current = ParseLifecycle(labels);
-        var result = await UpdateLabelsAsync(ticketId, current, to, cancellationToken);
+        // precondition; `from` is advisory. Run-level single-run is the lease's job (p0246b).
+        // 2026-09-25-3c7ac: the LABELS travel, not the state read off them, so the strip can be a
+        // predicate over what is actually on the ticket.
+        var result = await UpdateLabelsAsync(ticketId, labels, to, cancellationToken);
         logger.LogInformation(
             "GitLab Transition #{Ticket}: {Outcome}", ticketId.Value, result.Outcome);
         return result;
@@ -77,15 +78,23 @@ public sealed class GitLabTicketStatusTransitioner(
     }
 
     private async Task<TransitionResult> UpdateLabelsAsync(
-        TicketId ticketId, TicketLifecycleStatus? current, TicketLifecycleStatus to, CancellationToken ct)
+        TicketId ticketId, string[] labels, TicketLifecycleStatus to, CancellationToken ct)
     {
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/issues/{ticketId.Value}";
         using var req = new HttpRequestMessage(HttpMethod.Put, url);
         req.Headers.Add("PRIVATE-TOKEN", _privateToken);
+        // 2026-09-25-3c7ac: removal by PREDICATE over the labels the ticket carries. Removing the
+        // literal computed for the state we believe it is in reads the historical word and removes
+        // the configured one, which is not there — a renamed board kept both, for ever.
+        var target = _labels.For(to);
+        var stale = string.Join(",", labels
+            .Where(l => _labels.IsLifecycleLabel(l))
+            .Where(l => !string.Equals(l, target, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         req.Content = JsonContent.Create(new
         {
-            add_labels = LifecycleLabels.For(to),
-            remove_labels = current is null ? null : LifecycleLabels.For(current.Value)
+            add_labels = target,
+            remove_labels = stale.Length == 0 ? null : stale
         });
 
         using var resp = await httpClient.SendAsync(req, ct);
@@ -99,10 +108,10 @@ public sealed class GitLabTicketStatusTransitioner(
     }
 
 
-    private static TicketLifecycleStatus? ParseLifecycle(string[] labels)
+    private TicketLifecycleStatus? ParseLifecycle(string[] labels)
     {
         foreach (var label in labels)
-            if (LifecycleLabels.TryParse(label, out var status))
+            if (_labels.TryParse(label, out var status))
                 return status;
         return null;
     }

@@ -8,12 +8,12 @@ The explicit, no-webhook way. Useful for testing the config, for dev iteration, 
 agent-smith fix --ticket 54 --project todolist
 ```
 
-Reads `agentsmith.yml` from the current directory, looks up `todolist` under `projects:`, fetches ticket `54` from that project's tracker, runs the `fix-bug` pipeline. Output streams to stdout; exit code is zero on success.
+Reads `agentsmith.yml` from the current directory, looks up `todolist` under `projects:`, fetches ticket `54` from that project's tracker, runs the `code` pipeline. Output streams to stdout; exit code is zero on success.
 
 The other pipelines have their own verbs:
 
 ```bash
-agent-smith feature --ticket 62 --project todolist        # add-feature
+agent-smith feature --ticket 62 --project todolist        # the same code pipeline
 agent-smith init --project todolist                       # init-project bootstrap
 agent-smith security-scan --agent claude-default          # security scan
 agent-smith api-scan --agent claude-parallel \

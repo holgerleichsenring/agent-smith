@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-a7e8
+
+decisions:
+  - category: Architecture
+    chose: "Preset and scenario became two arguments of two types"
+    over: "One string that means both, with scenario-shaped values"
+    reason: |
+      The alias name did two jobs: it was the preset PipelineRunner resolves AND the key
+      DockerPresetScripts switched on to pick one of three scripted conversations. Renaming
+      the string would have collapsed SeedFixBug, SeedFixNoTest and SeedAddFeature into one
+      case and lost two scenarios against a green suite. A docker suite now passes its script
+      in — `StartAsync("code", DockerPresetScripts.FixWithoutTests)` — so the preset is named
+      as a preset and the scenario is named as a script, and no later rename of one can
+      silently eat the other.
+    alternatives:
+      - "A HarnessScenario enum plus a scenario->preset map: a second name-space to keep in step, and the generic fallback script has no preset to map to"
+      - "Scenario-shaped strings (bug-fix, no-test-fix): convention only, and a preset passed where a scenario belongs still compiles"
+
+  - category: Architecture
+    chose: "PipelineNameConceptMap is deleted, not repointed"
+    over: "Pointing it at `code`"
+    reason: |
+      It existed for one entry — fix-no-test was not a declared concept value, so it borrowed
+      fix-bug's — and its own doc warned that production does NOT apply it: PipelineNameInitializer
+      publishes the resolved name verbatim. p0393 collapsed both onto `code`, so repointing it
+      yields `code => code`, an identity map that still differs from production in shape while
+      agreeing in value. That is the fidelity gap the class documented, kept alive with nothing
+      left to justify it. The harness now seeds the preset name directly, exactly as production does.
+    alternatives:
+      - "Keep it as a home for a future divergence: an identity map is a lie in waiting"
+
+  - category: Scope
+    chose: "Suite file names, class names and fixture project ids stay"
+    over: "Renaming FixBugTests, fixture-fix-bug and the rest onto `code`"
+    reason: |
+      A file called FixBugDockerTests is named for the SCENARIO it proves, not for a preset, and
+      so is the `fixture-fix-bug` project in the config fixtures. Renaming them would make the
+      diff unreadable and would claim the three scenarios are one thing, which is the opposite of
+      what this phase establishes. The pinning test therefore matches an alias only when it stands
+      alone (not inside `fixture-fix-bug`), and its message says so.
+    alternatives: []
+
+  - category: Scope
+    chose: "The harness catalog fixture keeps declaring the alias names"
+    over: "Trimming concept-vocabulary.yaml's pipeline_name enum to the live presets"
+    reason: |
+      That fixture mirrors the SHIPPED catalog, which must keep accepting a configuration that
+      names an alias for as long as PipelinePresets.PresetAliases resolves one. Trimming it here
+      would assert something about the catalog that is not yet true and belongs to the deletion
+      phase, not to this one.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The pin reads its forbidden names from PipelinePresets.PresetAliases"
+    over: "A hand-written list of the four retired names in the test"
+    reason: |
+      A copied list outlives its subject: when the deletion phase empties the map, a hand-written
+      list would go on forbidding names nothing defines any more. Derived, the test guards exactly
+      the window it is for — from here until the map is gone — and then falls silent on its own.
+    alternatives: []
+
+  - category: TradeOff
+    chose: "Harness_EverySuite_ResolvesThePresetItAsksFor exempts a RETIRED preset"
+    over: "Failing on AutonomousDockerTests, or naming it in an exclusion list"
+    reason: |
+      The scan found that AutonomousDockerTests asks for `autonomous`, which p0312a retired: it
+      does not resolve, so PipelineRunner would throw, and only the docker gate would ever see it.
+      That is a real defect and a different one — deleting the suite is not a rename. The exemption
+      reads PipelinePresets.RetiredReason rather than listing the name, so the finding stays visible
+      in the test's own comment instead of being laundered into a green verdict.
+    alternatives: []
+
+  - category: Implementation
+    chose: "`code` inherits the coding default script in both console seeders"
+    over: "Leaving `code` on the generic `{}` fallback the aliases never used"
+    reason: |
+      PresetDeferrals.SeedDefaultScript and DockerPresetScripts keyed their coding scripts on the
+      alias names, and `--list` offers only `code` — so the one coding preset the phase gate
+      actually exercises was falling through to the generic `{}` seed. Moving the script onto
+      `code` is the same move as the rest of the phase and makes the gate's coding run script the
+      conversation it was written for. The four alias cases in SeedDefaultScript shared one body,
+      so collapsing them costs no coverage; the docker tier is where the three differ.
+    alternatives: []

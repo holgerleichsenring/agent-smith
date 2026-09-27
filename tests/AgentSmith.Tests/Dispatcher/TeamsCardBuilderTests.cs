@@ -112,11 +112,11 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void ProgressCard_ContainsStepInfo()
     {
-        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildProgressCard(3, 10, "fix-bug");
+        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildProgressCard(3, 10, "code");
         var json = card.ToJsonString();
 
         json.Should().Contain("[3/10]");
-        json.Should().Contain("fix-bug");
+        json.Should().Contain("code");
         json.Should().Contain("AdaptiveCard");
     }
 

@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-f6c2
+
+decisions:
+  - category: Architecture
+    chose: "The collision produces ONE wrong answer, three ways, and each is silent"
+    over: "Describing it as a resolver that answers both meanings"
+    reason: |
+      Verified in the code before building, because the mechanism decides which fields the
+      refusal covers. (1) ProjectResolver.Resolve short-circuits a ticket that binds to phase
+      execution — FiledTicketLabels.BindsPhaseExecution — and hands back PhaseExecutionName
+      BEFORE PipelineResolver.Resolve is called, so a routing key equal to the approved-set
+      stamp never runs at all. (2) PipelineResolver filters lifecycle words out of the labels
+      it matches on, so a routing key equal to one of them cannot satisfy its own map: the key
+      stops existing. (3) ProjectResolver.MatchesTag compares the resolution value against
+      every label on the ticket, so a value equal to a framework word matches EVERY
+      framework-labelled ticket on that tracker. Nothing logs any of the three — a key that
+      stopped existing looks exactly like a ticket nobody labelled.
+    alternatives: []
+
+  - category: Architecture
+    chose: "A rule of its own, given the whole catalog, fired from both upserts"
+    over: "An addition to ValidateTracker or to ValidateProjectResolution"
+    reason: |
+      No existing per-entity validator can see the other side. TrackerCapabilityFields is a
+      pure descriptor table with no validation in it at all; ConfigStudioCapabilities.
+      ValidateTracker sees ONE tracker entity and cannot reach a project's resolution value;
+      ConfigDraftRules.ForTracker is not given the catalog either (only ForProject is). So the
+      rule sits beside ConfigReferentialValidator in Contracts/Services — the one existing
+      whole-catalog write-side rule, shared by every IConfigStore — and DbConfigStore calls it
+      from UpsertTracker and from UpsertProject. Both doors, because a project changed later
+      creates a collision a tracker upsert already passed, and a tracker renamed later lands on
+      a project saved long before.
+    alternatives:
+      - "Only the tracker door: a later project upsert would walk straight past it"
+
+  - category: Architecture
+    chose: "A word is the framework's if the TRACKER'S VOCABULARY recognises it"
+    over: "Comparing against the configured eight names only"
+    reason: |
+      Reading is the union of the configured name and every name the framework has ever
+      written (3c7ac), and it is the union that bites: PipelineResolver still strips by the
+      historical LifecycleLabels constants, so a routing key equal to a HISTORICAL word is
+      silently stripped even on a renamed tracker, while a key equal to a RENAMED word is
+      matched by the operator's map and also written onto every ticket in that state. Both
+      halves are live, for different mechanisms. TicketLabelVocabulary.TryParse and
+      IsApprovedSetStamp already answer exactly that union, so nothing is restated.
+    alternatives: []
+
+  - category: Scope
+    chose: "Only the TAG strategy's resolution value is judged"
+    over: "Every project_resolution.value regardless of strategy"
+    reason: |
+      An area path, a source-repo URL and a to-address are never compared against the board's
+      labels — ProjectResolver reads the label list only under ResolutionStrategy.Tag. A
+      framework word sitting in an area path collides with nothing, and refusing it would be a
+      refusal with no defect behind it. Pinned by a test that accepts exactly that.
+    alternatives: []
+
+  - category: Scope
+    chose: "It REFUSES at the upsert; it does not also report as a draft finding"
+    over: "Adding a finding to ConfigDraftRules so the form names the field first"
+    reason: |
+      None of the three mechanisms leaves anything an operator could diagnose afterwards, so
+      the configuration must not be accepted at all — a warning would be a configuration that
+      still cannot be diagnosed. Reporting it on the draft as well would need ForTracker to be
+      given the catalog, which is a signature change on a door that is not the refusal. The
+      phase's done list asks for a refusal from either upsert, and that is what shipped.
+    alternatives: []
+
+  - category: Scope
+    chose: "The spec's 'a project's pipeline-from-label key' does not exist and was not built"
+    over: "Inventing a project-level label map to satisfy the wording"
+    reason: |
+      ProjectEntity carries no PipelineFromLabel. The studio's project surface is Id, Agent,
+      Tracker, Repos, Pipeline, Pipelines, Resolution, DefaultPipeline, Templates and Sandbox;
+      the label map lives on TrackerEntity and on the raw WebhookTriggerConfig that
+      EffectiveTriggerBuilder merges down from the tracker. So the project's only routing word
+      is its resolution value, and the spec's test name
+      Collision_AVocabularyNameEqualToAProjectsRoutingKey_IsRefused ships as
+      Collision_ATrackerRenamingALabelOntoAnExistingProjectsRoutingValue_IsRefused, which is
+      the real second shape: the tracker door catching a project that was already stored.
+    alternatives: []
+
+  - category: Architecture
+    chose: "Two one-line helpers in DbConfigStore joined onto one line each"
+    over: "Raising its file-length baseline entry"
+    reason: |
+      DbConfigStore is a ratcheted file at 161 lines and may only get shorter, while both doors
+      needed a call. Delete(...) and Existing<T>(...) are trivial expression bodies and the
+      file already writes its other one-liners on a single line, so joining them pays for the
+      two call lines with no responsibility moved and no behaviour touched. The file stays at
+      161.
+    alternatives:
+      - "A guard type composing the three upsert validators: a facade over rules that already
+         have names, and it would have moved UpsertAgent's call site for nothing"

@@ -93,7 +93,7 @@ projects:
             output_per_million: 4.0
             cache_read_per_million: 0.08
 
-    pipeline: fix-bug               # Default pipeline for this project
+    pipeline: code                  # Default pipeline for this project
     skills_path: skills/coding      # Relative to config/ directory
     coding_principles_path: .agentsmith/principles.md
 
@@ -102,9 +102,9 @@ projects:
     # All four shapes are identical (Jira adds assignee_name).
     github_trigger:
       pipeline_from_label:
-        agent-smith: fix-bug
+        agent-smith: code
         security-review: security-scan
-      default_pipeline: fix-bug
+      default_pipeline: code
       trigger_statuses: []          # empty = all states allowed
       done_status: "In Review"      # post-PR transition
 
@@ -133,7 +133,7 @@ agent:
 
 # ─── Pipelines ───────────────────────────────────────────────────────
 pipelines:
-  fix-bug:
+  code:
     commands:
       - FetchTicketCommand
       - CheckoutSourceCommand
@@ -195,7 +195,7 @@ Each key under `projects` defines a project. Use `--project <key>` on the CLI to
 
 #### Multiple pipelines per project (p0106)
 
-A project that runs more than one pipeline (e.g. both `fix-bug` and `security-scan` on the same repo) declares them under `pipelines:`. Per-pipeline overrides shadow the project-level defaults; missing fields inherit:
+A project that runs more than one pipeline (e.g. both `code` and `security-scan` on the same repo) declares them under `pipelines:`. Per-pipeline overrides shadow the project-level defaults; missing fields inherit:
 
 ```yaml
 projects:
@@ -204,15 +204,15 @@ projects:
     tickets: { type: GitHub, url: ..., auth: token }
     agent: { type: Claude, model: claude-sonnet-4-20250514 }
     pipelines:
-      - name: fix-bug                       # uses project agent, skills/coding default
+      - name: code                       # uses project agent, skills/coding default
       - name: security-scan                 # uses project agent, skills/security default
         skills_path: skills/my-custom-security
       - name: api-security-scan
         agent: { type: OpenAI, model: gpt-4.1 }   # different model just for this pipeline
-    default_pipeline: fix-bug               # picked by CLI when --pipeline is omitted
+    default_pipeline: code                  # picked by CLI when --pipeline is omitted
 ```
 
-**Skills-path resolution chain:** `pipelines[].skills_path` → preset default for the pipeline name (`fix-bug` → `skills/coding`, `security-scan` → `skills/security`, `api-security-scan` → `skills/api-security`, `legal-analysis` → `skills/legal`, `mad-discussion` → `skills/mad`) → `skills/coding`.
+**Skills-path resolution chain:** `pipelines[].skills_path` → preset default for the pipeline name every preset resolves its skills from the catalog root `skills/`) → `skills`.
 
 **Pipeline-name selection chain (CLI / fallback):** explicit `--pipeline` flag → `default_pipeline` → single-element shortcut (only when `pipelines:` has exactly one entry) → error listing declared pipelines.
 
@@ -286,7 +286,7 @@ Per-project trigger configuration. Both webhooks and polling read this. The shap
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `pipeline_from_label` | map | `{}` | Trigger label → pipeline name, matched in config order |
-| `default_pipeline` | string | `fix-bug` | Used when no label entry matches |
+| `default_pipeline` | string | `code` | Used when no label entry matches |
 | `trigger_statuses` | list | `[]` | Allowed native ticket states (empty = all — discouraged, see note). The trigger decision rests on this, not on lifecycle tags. |
 | `done_status` | string | `"In Review"` | Native status set after a successful run (PR created) |
 | `failed_status` | string? | falls back to `done_status` | Native status a **failed** run moves the ticket to, so a processed ticket never stays in a trigger state. Must be **outside** `trigger_statuses` (validated at load) or the ticket would be re-claimed in a loop. |

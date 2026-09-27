@@ -7,7 +7,7 @@ Everything Agent Smith does is a pipeline — an ordered list of commands execut
 Each pipeline step is a **command** with a matching **handler**. The command defines what needs to happen. The handler does it.
 
 ```
-Pipeline: fix-bug
+Pipeline: code
 ├── FetchTicketCommand       → FetchTicketHandler
 ├── CheckoutSourceCommand    → CheckoutSourceHandler
 ├── BootstrapProjectCommand  → BootstrapProjectHandler
@@ -31,9 +31,7 @@ Agent Smith ships with nine presets defined in `PipelinePresets.*.cs`. Step coun
 
 | Preset | Steps | Use case |
 |--------|-------|----------|
-| `fix-bug` | 22 | Ticket → code → review → verify → test → PR (multi-repo cross-linked) |
-| `add-feature` | 24 | Same flow + GenerateTests + GenerateDocs |
-| `fix-no-test` | 21 | Like fix-bug but skips Test |
+| `code` | 22 | Ticket → spec → code → verify → PR (multi-repo cross-linked) |
 | `init-project` | 6 | Bootstrap `.agentsmith/` per repo (cross-linked via PrCrossLink) |
 | `security-scan` | 14 | Static patterns + git history + dependency audit + AI panel (read-only) |
 | `api-security-scan` | 9 | Nuclei + Spectral + AI panel against a live API |

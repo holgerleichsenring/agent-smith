@@ -77,7 +77,7 @@ public sealed class DashboardAdapterTests
     {
         var adapter = NewAdapter();
 
-        await adapter.SendProgressAsync(Dialog, 1, 4, "fix-bug", CancellationToken.None);
+        await adapter.SendProgressAsync(Dialog, 1, 4, "code", CancellationToken.None);
         await adapter.SendDoneAsync(Dialog, "done", null, CancellationToken.None);
         await adapter.SendErrorAsync(Dialog, new ErrorContext(
             "j-1", Dialog, "T-1", "sample", 1, 4, "Analyze", "raw", "friendly", null), CancellationToken.None);

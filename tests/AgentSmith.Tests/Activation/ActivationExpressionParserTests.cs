@@ -70,12 +70,12 @@ public sealed class ActivationExpressionParserTests
     [Fact]
     public void Parse_StringLiteralEqual_ParsesCorrectly()
     {
-        var result = _sut.Parse("pipeline_name = \"fix-bug\"");
+        var result = _sut.Parse("pipeline_name = \"code\"");
 
         var cmp = result.Should().BeOfType<ComparisonExpression>().Which;
         cmp.Operator.Should().Be(ComparisonOperator.Equals);
         cmp.Left.Should().BeOfType<IdentifierExpression>().Which.Name.Should().Be("pipeline_name");
-        cmp.Right.Should().BeOfType<StringLiteralExpression>().Which.Value.Should().Be("fix-bug");
+        cmp.Right.Should().BeOfType<StringLiteralExpression>().Which.Value.Should().Be("code");
     }
 
     [Fact]

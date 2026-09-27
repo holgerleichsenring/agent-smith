@@ -15,11 +15,11 @@ public sealed class MasterVerdictNudgeTests
 
     [Fact]
     public void ShouldNudge_GreenTestsPipeline_NoVerdict_True()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("fix-bug", null, verdictDemandedInPass: false).Should().BeTrue();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", null, verdictDemandedInPass: false).Should().BeTrue();
 
     [Fact]
     public void ShouldNudge_VerdictAlreadyPresent_False()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("fix-bug", Verdict(), verdictDemandedInPass: false).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", Verdict(), verdictDemandedInPass: false).Should().BeFalse();
 
     [Fact]
     public void ShouldNudge_NonGreenTestsPipeline_NoVerdict_False()
@@ -34,5 +34,5 @@ public sealed class MasterVerdictNudgeTests
     // re-drive; the handler does not ask a second time.
     [Fact]
     public void ShouldNudgeForVerdict_DemandedInPass_False()
-        => MasterReengagementPolicy.ShouldNudgeForVerdict("fix-bug", null, verdictDemandedInPass: true).Should().BeFalse();
+        => MasterReengagementPolicy.ShouldNudgeForVerdict("code", null, verdictDemandedInPass: true).Should().BeFalse();
 }

@@ -1,4 +1,3 @@
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -34,7 +33,7 @@ namespace AgentSmith.Application.Services.Lifecycle;
 public sealed class ActiveRunReaper(
     IActiveRunLease lease,
     IRunCancellationRegistry cancellationRegistry,
-    IEventPublisher eventPublisher,
+    StaleLeaseRelease staleLeaseRelease,
     TimeProvider timeProvider,
     ILogger<ActiveRunReaper> logger)
 {
@@ -55,8 +54,9 @@ public sealed class ActiveRunReaper(
                 await RefreshLaggingHeartbeatAsync(candidate, cancellationToken);
                 continue;
             }
-            await ReapAsync(candidate, cancellationToken);
-            released++;
+            // 2026-09-25-b4d9: the release refuses a ticket another pass already holds,
+            // and an unreaped candidate is not a released one.
+            if (await staleLeaseRelease.ReapAsync(candidate, cancellationToken)) released++;
         }
         return released;
     }
@@ -92,27 +92,6 @@ public sealed class ActiveRunReaper(
             "Spared stale lease {Project}/{Ticket}: run {Run} is alive in this process — "
             + "heartbeat refreshed instead of reaped (the heartbeat pump is behind)",
             candidate.Project, candidate.TicketId.Value, candidate.RunId);
-    }
-
-    private async Task ReapAsync(StaleLease candidate, CancellationToken cancellationToken)
-    {
-        // p0262: cancel the run BEFORE releasing the lease (moved here from the deleted
-        // StaleJobDetector). A stale heartbeat means the owning replica is gone, so this
-        // is mostly a formality for THIS replica, but the cross-process
-        // RunCancelRequestedEvent marks the run cancelled for any live consumer and the
-        // projection. p0459: the release names the lease's OWN run, never just the ticket.
-        if (candidate.RunId is { Length: > 0 } runId)
-        {
-            cancellationRegistry.TryCancel(runId, "stale-lease-reaped");
-            await eventPublisher.PublishAsync(
-                new RunCancelRequestedEvent(runId, "stale-lease-reaped", timeProvider.GetUtcNow()),
-                cancellationToken);
-        }
-        await lease.ReleaseAsync(candidate.Project, candidate.TicketId, candidate.RunId, cancellationToken);
-        logger.LogWarning(
-            "Reaped crashed lease {Project}/{Ticket} (run={Run}, job={Job}) — DB heartbeat stale, "
-            + "owning replica gone: run cancelled + lease released; the ticket is reclaimable",
-            candidate.Project, candidate.TicketId.Value, candidate.RunId ?? "—", candidate.JobId ?? "—");
     }
 
     // p0383: a monotonic gap far beyond the scan interval means the process (or its

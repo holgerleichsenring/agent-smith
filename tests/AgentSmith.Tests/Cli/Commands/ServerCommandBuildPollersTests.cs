@@ -91,22 +91,22 @@ public sealed class ServerCommandBuildPollersTests
                 agent: a
                 tracker: gh-tr
                 repos: [gh-repo]
-                pipeline: fix-bug
+                pipeline: code
               azdo:
                 agent: a
                 tracker: azdo-tr
                 repos: [azdo-repo]
-                pipeline: fix-bug
+                pipeline: code
               gl:
                 agent: a
                 tracker: gl-tr
                 repos: [gl-repo]
-                pipeline: fix-bug
+                pipeline: code
               jr:
                 agent: a
                 tracker: jr-tr
                 repos: [gh-repo]
-                pipeline: fix-bug
+                pipeline: code
             """;
 
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-dry-{Guid.NewGuid():N}.yml");
@@ -189,6 +189,10 @@ public sealed class ServerCommandBuildPollersTests
         // p0283b: the poller resolves the discovery-query builder.
         services.AddSingleton<ITrackerDiscoveryQueryBuilder>(
             new TrackerDiscoveryQueryBuilder(NullLogger<TrackerDiscoveryQueryBuilder>.Instance));
+        // 2026-09-25-3c7aa: and the envelope builder that asks whether a ticket has an approved
+        // specification recorded for it.
+        services.AddSingleton(new AgentSmith.Application.Services.Polling.PolledTicketEnvelope(
+            AgentSmith.Tests.TestSupport.ApprovedRecordProbes.None()));
         services.AddSingleton<Microsoft.Extensions.Logging.ILoggerFactory>(NullLoggerFactory.Instance);
         return services.BuildServiceProvider();
     }

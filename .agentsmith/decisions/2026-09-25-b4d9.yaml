@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-25-b4d9
+
+decisions:
+  - category: Architecture
+    chose: "One new table — TakenTickets — for the ticket the framework took up"
+    over: "A column on the ActiveRun lease, or a longer-lived lease"
+    reason: |
+      The lease is DELETED on purpose and by several paths (run end, rollback, cancel, delete,
+      the reaper), and its deletion is the mechanism rather than an accident. Hanging durability
+      on that row would mean teaching every one of those paths a new rule, and the reaper's
+      three-minute verdict is a LIVENESS fact that is rightly transient. A record with its own
+      lifetime is smaller than that, and it can carry what the lease has no column for.
+    alternatives:
+      - "Keeping the label as the record and only reading it better: the board is somebody
+         else's, and 3c7ac had just established that what it shows is display"
+
+  - category: Architecture
+    chose: "The record carries project, ticket, platform and PIPELINE"
+    over: "Re-deriving the pipeline from the ticket's labels through the envelope resolver"
+    reason: |
+      Re-enqueueing needs a pipeline name and the lease has none, so the reconciler read it back
+      out of the labels — the one thing this phase set out to stop depending on. With the
+      pipeline in the record a rebuild needs the tracker for nothing at all, and the
+      cross-project routing the resolver was there for disappears: the record NAMES its project.
+    alternatives: []
+
+  - category: Architecture
+    chose: "Cleared by completion, in RunFinalizationProjection"
+    over: "Clearing it in ExecutePipelineUseCase beside the lease release, or on a timer"
+    reason: |
+      A record deleted on a timer is the same disappearing act one layer down. The projection is
+      the single choke point every terminal status flows through (success/failed/cancelled/
+      enforced) and it already decides what a terminal run stops holding — the compute
+      reservation — so what the run stops OWING is decided in the same place. It also has the
+      run row, hence the project and ticket, in hand.
+    alternatives:
+      - "ExecutePipelineUseCase: it releases the lease on every terminal exit, but it is a
+         655-line file the ratchet allows only to shrink, and a waiting state (queued,
+         waiting_for_input) would have had to be excluded there a second time"
+
+  - category: Architecture
+    chose: "The record's own state separates the reaper from the reconciler"
+    over: "Leaving the lease-freshness check to do it, or leader-electing the reaper"
+    reason: |
+      The reaper scans every sixty seconds and the reconciler every ten minutes, and both act on
+      a ticket whose lease went stale. Between the reaper's DELETE and the end of its cancel the
+      reconciler sees no lease at all and would re-launch the ticket underneath it. Two loops
+      over one ticket is how the label thrash of p0260 happened. The transitions are single
+      UPDATE statements with the old state in the WHERE clause, so two replicas cannot both
+      believe they hold it.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The record is written immediately after the lease INSERT that won"
+    over: "Writing it first, or writing both in one transaction"
+    reason: |
+      Written first, a claim the index then refuses would overwrite the true holder's pipeline,
+      and a lease error would leave a record for work nobody took. Written after, the crash
+      window is one local write instead of the tracker round-trip and the Redis enqueue it used
+      to span. One transaction would need the lease and the record to share a unit of work; both
+      are singleton facades opening their own scope, and that is a larger change than this
+      phase. A record store that cannot be written to now fails the claim: a ticket this
+      framework cannot write down is a ticket it cannot recover.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Reconciliation leaves the record in place"
+    over: "Deleting it once the orphan has been re-enqueued, as the spec's wording allows"
+    reason: |
+      Deleting it there would make recovery one-shot: a re-enqueued run that crashes again
+      before it starts would leave nothing behind, which is the defect this phase closes. The
+      record still has exactly one removal — completion — and a re-enqueued run that runs at all
+      reaches a terminal status and clears it.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Two collaborators extracted rather than three files grown"
+    over: "Adding the new calls to ActiveRunReaper, SingleClaimRegionExecutor and the context"
+    reason: |
+      ActiveRunReaper (132 lines) may only shrink, the claim region and AgentSmithDbContext were
+      at the 120-line ceiling. StaleLeaseRelease owns what reaping ONE lease does, including the
+      hold; ClaimedTicketRegistrar owns both halves of what taking a ticket up writes down, and
+      rolls both back in one place; TicketRecordConfigurations lifts the ticket-keyed tables out
+      of the context, as RunChildConfiguration did before it. The reaper now sits at 111 lines
+      and left the length baseline.
+    alternatives: []

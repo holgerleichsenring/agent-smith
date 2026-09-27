@@ -15,7 +15,7 @@ Every claim a role makes is a typed observation, not free text. Each observation
 
 ## How a coding run flows
 
-The coding pipelines (`fix-bug`, `add-feature`) used to be a fixed chain of separate phases. Today they're a master-based loop with the gates pulled out where you can see them:
+The coding pipeline (`code`) used to be a fixed chain of separate phases, under four names. Today they're a master-based loop with the gates pulled out where you can see them:
 
 **Expectation before plan.** After the agent has analyzed (and where possible reproduced) the problem, it writes down what the fix must achieve — observed behavior, expected assertions, constraints — and you ratify or edit it. That ratified expectation is the run's acceptance contract; see [Expectations](expectations.md).
 

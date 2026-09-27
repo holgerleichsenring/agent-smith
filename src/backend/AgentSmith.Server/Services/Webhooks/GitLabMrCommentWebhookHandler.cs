@@ -17,13 +17,6 @@ public sealed class GitLabMrCommentWebhookHandler(
     ServerContext serverContext,
     ILogger<GitLabMrCommentWebhookHandler> logger) : IWebhookHandler
 {
-    private static readonly HashSet<string> AllowedPipelines = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "fix-bug",
-        "security-scan",
-        "pr-review",
-    };
-
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "note hook";
 
@@ -59,7 +52,7 @@ public sealed class GitLabMrCommentWebhookHandler(
             {
                 case CommentIntentType.NewJob:
                     var pipeline = parsed.Request!.PipelineName;
-                    if (!AllowedPipelines.Contains(pipeline))
+                    if (!PrCommentPipelines.Allowed.Contains(pipeline))
                     {
                         logger.LogInformation(
                             "Ignoring MR comment from {Author} on {Repo}!{Mr}: pipeline={Pipeline} is not allowed",

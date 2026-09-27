@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Services.Resume;
 /// </summary>
 public sealed class ResumedCostCapTests
 {
-    private const string Pipeline = "phase-execution";
+    private const string Pipeline = "code";
     private readonly RecordingEventPublisher _events = EventTestStubs.Recording();
 
     [Fact]

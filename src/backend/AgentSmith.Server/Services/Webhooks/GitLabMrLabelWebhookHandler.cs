@@ -6,16 +6,17 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles GitLab Merge Request Hook events. Triggers security-scan pipeline
-/// when "security-review" label is added to a merge request.
+/// Handles GitLab Merge Request Hook events. Triggers the security-scan pipeline when the merge
+/// request carries the review-request label — the word the owning project's gitlab_trigger
+/// configures, or the historical "security-review" (2026-09-25-d83b: PrTriggerLabelResolver owns
+/// the word and the project match, both of which used to live in this file).
 /// </summary>
 public sealed class GitLabMrLabelWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
+    PrTriggerLabelResolver triggerLabels,
     ILogger<GitLabMrLabelWebhookHandler> logger) : IWebhookHandler
 {
-    private const string TriggerLabel = "security-review";
-
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "merge_request";
 
@@ -33,24 +34,21 @@ public sealed class GitLabMrLabelWebhookHandler(
             if (action != "update")
                 return Task.FromResult(new WebhookResult(false, null, null));
 
-            var labels = root.GetProperty("labels");
-            var hasLabel = labels.EnumerateArray()
-                .Any(l => TriggerLabel.Equals(l.GetProperty("title").GetString(),
-                    StringComparison.OrdinalIgnoreCase));
-
-            if (!hasLabel)
-                return Task.FromResult(new WebhookResult(false, null, null));
-
-            var mrIid = attrs.GetProperty("iid").GetInt32();
+            var labels = root.GetProperty("labels").EnumerateArray()
+                .Select(l => l.GetProperty("title").GetString());
             var repoUrl = root.GetProperty("project").GetProperty("web_url").GetString() ?? "";
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
-            var projectName = FindProjectBySourceUrl(config, repoUrl);
+            if (triggerLabels.Match(config, "gitlab", repoUrl, labels) is not { } match)
+                return Task.FromResult(new WebhookResult(false, null, null));
 
-            logger.LogInformation("GitLab MR !{MrIid} labeled for security review, project '{Project}'", mrIid, projectName);
+            var mrIid = attrs.GetProperty("iid").GetInt32();
+            logger.LogInformation(
+                "GitLab MR !{MrIid} labeled for security review, project '{Project}'",
+                mrIid, match.ProjectName);
             return Task.FromResult(new WebhookResult(
                 true, null, "security-scan",
-                ProjectName: projectName,
+                ProjectName: match.ProjectName,
                 TicketId: mrIid.ToString()));
         }
         catch (Exception ex)
@@ -58,15 +56,5 @@ public sealed class GitLabMrLabelWebhookHandler(
             logger.LogWarning(ex, "Failed to parse GitLab merge_request webhook");
             return Task.FromResult(new WebhookResult(false, null, null));
         }
-    }
-
-    private static string? FindProjectBySourceUrl(AgentSmithConfig config, string repoUrl)
-    {
-        foreach (var (name, project) in config.Projects)
-            foreach (var repo in project.Repos)
-                if (repo.Url is not null
-                    && repoUrl.Contains(repo.Url, StringComparison.OrdinalIgnoreCase))
-                    return name;
-        return null;
     }
 }

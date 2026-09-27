@@ -106,8 +106,8 @@ public interface ITicketProvider : ITypedProvider
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Lists tickets whose lifecycle label matches the given status. Used by
-    /// EnqueuedReconciler and StaleJobDetector to enumerate Enqueued/InProgress tickets.
+    /// Lists tickets whose lifecycle label matches the given status. 2026-09-25-b4d9: the
+    /// POLLER's Pending catch-up is what is left of this — reconciliation reads its own record.
     /// Default: empty list — providers that don't support lifecycle search don't participate.
     /// </summary>
     Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(

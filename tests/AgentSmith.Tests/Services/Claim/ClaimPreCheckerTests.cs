@@ -12,7 +12,7 @@ public sealed class ClaimPreCheckerTests
     public void Check_UnknownProject_ReturnsUnknownProject()
     {
         var config = new AgentSmithConfig();
-        var request = NewRequest("GitHub", "missing-project", "fix-bug");
+        var request = NewRequest("GitHub", "missing-project", "code");
 
         var rejection = ClaimPreChecker.Check(request, config);
 
@@ -22,7 +22,7 @@ public sealed class ClaimPreCheckerTests
     [Fact]
     public void Check_UnknownPipeline_ReturnsUnknownPipeline()
     {
-        var config = ConfigWithTrigger(pipeline: "fix-bug");
+        var config = ConfigWithTrigger(pipeline: "code");
         var request = NewRequest("GitHub", "my-project", "nonexistent-pipeline");
 
         var rejection = ClaimPreChecker.Check(request, config);
@@ -33,7 +33,7 @@ public sealed class ClaimPreCheckerTests
     [Fact]
     public void Check_PipelineNotLabelTriggered_ReturnsThatReason()
     {
-        var config = ConfigWithTrigger(pipeline: "fix-bug");
+        var config = ConfigWithTrigger(pipeline: "code");
         // security-scan exists in PipelinePresets but is not in the trigger config
         var request = NewRequest("GitHub", "my-project", "security-scan");
 
@@ -45,8 +45,8 @@ public sealed class ClaimPreCheckerTests
     [Fact]
     public void Check_ValidRequest_ReturnsNull()
     {
-        var config = ConfigWithTrigger(pipeline: "fix-bug");
-        var request = NewRequest("GitHub", "my-project", "fix-bug");
+        var config = ConfigWithTrigger(pipeline: "code");
+        var request = NewRequest("GitHub", "my-project", "code");
 
         var rejection = ClaimPreChecker.Check(request, config);
 
@@ -64,7 +64,7 @@ public sealed class ClaimPreCheckerTests
                 {
                     GithubTrigger = new WebhookTriggerConfig
                     {
-                        DefaultPipeline = "fix-bug",
+                        DefaultPipeline = "code",
                         PipelineFromLabel = new() { ["secscan"] = "security-scan" }
                     }
                 }
@@ -78,10 +78,23 @@ public sealed class ClaimPreCheckerTests
     }
 
     [Fact]
+    public void Check_TheCodePresetOnAProjectThatDeclaresSomethingElse_IsStillClaimable()
+    {
+        // 2026-09-25-e5b1: ProjectResolver binds a phase-bound ticket to `code`, and a bound
+        // ticket is in NOBODY's label map — so `code` is exempt from the label-triggered check,
+        // exactly as its old name `phase-execution` was. Without this the bind would resolve a
+        // pipeline the claim then refuses, and the ticket would sit there.
+        var config = ConfigWithTrigger(pipeline: "security-scan");
+        var request = NewRequest("GitHub", "my-project", "code");
+
+        ClaimPreChecker.Check(request, config).Should().BeNull();
+    }
+
+    [Fact]
     public void Check_UnknownPlatform_ReturnsNotLabelTriggered()
     {
-        var config = ConfigWithTrigger(pipeline: "fix-bug");
-        var request = NewRequest("MySpacePlatform", "my-project", "fix-bug");
+        var config = ConfigWithTrigger(pipeline: "code");
+        var request = NewRequest("MySpacePlatform", "my-project", "code");
 
         var rejection = ClaimPreChecker.Check(request, config);
 

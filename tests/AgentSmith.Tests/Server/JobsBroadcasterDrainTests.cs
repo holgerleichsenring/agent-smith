@@ -184,7 +184,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
             .UseSqlite($"Data Source={_dbPath}").Options;
 
     private Task PublishStartAsync() => _publisher.PublishAsync(new RunStartedEvent(
-        RunId, "ticket", "fix-bug", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+        RunId, "ticket", "code", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
 
     private async Task PublishGatesAsync(int count)
     {
@@ -213,7 +213,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
         {
             var tracer = $"{RunId}-pass-{pass}";
             await _publisher.PublishAsync(new RunStartedEvent(
-                tracer, "ticket", "fix-bug", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
+                tracer, "ticket", "code", new[] { "repo" }, DateTimeOffset.UtcNow, "claude", "42"));
             if (!await TestWaits.ReachedAsync(() => drain.Active.ContainsKey(tracer))) return false;
         }
         return true;

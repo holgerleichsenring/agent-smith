@@ -26,7 +26,7 @@ public sealed class ToolKitCompositionTests
     {
         var kit = new ToolKit(new AllHostsActivePolicy());
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Plan, null, DefaultHosts()));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Plan, null, DefaultHosts()));
 
         // p0154: read-side filesystem surface + directory_tree + log_decision + ask_human.
         // Deprecated aliases (grep/glob/list_files) removed with the catalogue rename.
@@ -42,7 +42,7 @@ public sealed class ToolKitCompositionTests
     {
         var kit = new ToolKit(new AllHostsActivePolicy());
 
-        var tools = NamesOf(kit.GetToolsFor("fix-bug", SkillExecutionPhase.Implementation, null, DefaultHosts()));
+        var tools = NamesOf(kit.GetToolsFor("code", SkillExecutionPhase.Implementation, null, DefaultHosts()));
 
         // p0154: 11 filesystem-host primitives + log_decision + ask_human = 13. Deprecated aliases gone.
         tools.Should().HaveCount(13);
@@ -95,7 +95,7 @@ public sealed class ToolKitCompositionTests
             .Returns([]);
         var kit = new ToolKit(new AllHostsActivePolicy());
 
-        _ = kit.GetToolsFor("fix-bug", SkillExecutionPhase.Verify, "verify_diff", new[] { host.Object });
+        _ = kit.GetToolsFor("code", SkillExecutionPhase.Verify, "verify_diff", new[] { host.Object });
 
         receivedPhase.Should().Be(SkillExecutionPhase.Verify);
         receivedMode.Should().Be("verify_diff");

@@ -5,7 +5,8 @@ namespace AgentSmith.Contracts.Services;
 /// <summary>
 /// Durable handoff of PipelineRequests between receiver (webhook/poller) and worker (consumer).
 /// Redis-backed list with RPUSH on enqueue, BRPOP on consume.
-/// Queue itself is ephemeral — ticket status is the source of truth; recovery via EnqueuedReconciler.
+/// Queue itself is ephemeral — 2026-09-25-b4d9: the taken-ticket record is what survives it,
+/// and EnqueuedReconciler re-enqueues from that record rather than from a label on a board.
 /// </summary>
 public interface IRedisJobQueue
 {

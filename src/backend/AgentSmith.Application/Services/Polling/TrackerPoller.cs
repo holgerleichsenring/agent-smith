@@ -27,6 +27,7 @@ public sealed class TrackerPoller(
     IActiveRunLease activeRunLease,
     ISystemEventPublisher systemEvents,
     ITrackerDiscoveryQueryBuilder discoveryQueryBuilder,
+    PolledTicketEnvelope envelopes,
     ILogger<TrackerPoller> logger) : IEventPoller
 {
     public string PlatformName => tracker.Type.ToString();
@@ -63,10 +64,14 @@ public sealed class TrackerPoller(
         // p0283b: compose the discovery query from each routed project's per-tracker trigger
         // (status + resolution criterion) so the tracker returns only claimable candidates.
         // Providers that can't push it (GitHub/GitLab) fall back to the broad open query.
-        var query = discoveryQueryBuilder.Build(config, tracker);
+        // 2026-09-25-c1f7: awaited — the query also names the tickets an approved record still
+        // expects work on, and that answer comes from a store rather than from configuration.
+        var query = await discoveryQueryBuilder.BuildAsync(config, tracker, ct);
         var discovered = await provider.ListClaimableAsync(query, ct);
-        logger.LogDebug("poll-discovery: tracker={Tracker} branches={Branches} parking=[{Parking}]",
-            tracker.Name, query.Branches.Count, string.Join(",", query.ParkingStatuses));
+        logger.LogDebug(
+            "poll-discovery: tracker={Tracker} branches={Branches} parking=[{Parking}] approved={Approved}",
+            tracker.Name, query.Branches.Count, string.Join(",", query.ParkingStatuses),
+            query.ApprovedTicketIds.Count);
         // p0262: lifecycle tags no longer gate claimability (the LifecyclePollFilter is
         // gone). Every discovered/pending-tagged ticket is a candidate; the real gates run
         // per-ticket downstream — the native-status check (IsStatusAllowed against
@@ -101,7 +106,7 @@ public sealed class TrackerPoller(
 
     private async Task DispatchTicketAsync(Ticket ticket, TrackerPollCounts counts, CancellationToken ct)
     {
-        var envelope = BuildEnvelope(ticket);
+        var envelope = await envelopes.ForAsync(tracker, ticket, ct);
         await TryPublishSystemAsync(new TicketScannedEvent(
             Source, tracker.Name, ticket.Id.Value,
             (IReadOnlyList<string>)(ticket.Labels?.ToArray() ?? Array.Empty<string>()),
@@ -184,13 +189,6 @@ public sealed class TrackerPoller(
             logger.LogDebug(ex, "Failed to publish system event {Type} from {Source}", ev.Type, ev.Source);
         }
     }
-
-    private IncomingTicketEnvelope BuildEnvelope(Ticket ticket) => new()
-    {
-        Labels = ticket.Labels,
-        TicketId = ticket.Id.Value,
-        Platform = tracker.Type.ToString().ToLowerInvariant(),
-    };
 
     private static bool IsStatusAllowed(WebhookTriggerConfig trigger, string status) =>
         trigger.TriggerStatuses.Count == 0
