@@ -31,12 +31,12 @@ pipeline_cost_cap:
     api-security-scan:
       usd: 10
       tokens: 1000000
-    fix-bug:
+    code:
       usd: 2
       tokens: 200000
 ```
 
-Resolution falls back to `default` when the active pipeline name is not in `per_pipeline`. Names match the values registered in `PipelinePresets` (`api-security-scan`, `security-scan`, `fix-bug`, etc.).
+Resolution falls back to `default` when the active pipeline name is not in `per_pipeline`. Names match the values registered in `PipelinePresets` (`api-security-scan`, `security-scan`, `code`, etc.).
 
 ## Behavior at the cap
 

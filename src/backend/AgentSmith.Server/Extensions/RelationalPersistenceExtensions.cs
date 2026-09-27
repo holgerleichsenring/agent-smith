@@ -86,7 +86,7 @@ internal static class RelationalPersistenceExtensions
 
         services.RemoveAll<IActiveRunLease>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>();
-        services.AddSingleton<ActiveRunReaper>();
+        services.AddSingleton<StaleLeaseRelease>().AddSingleton<ActiveRunReaper>();
 
         // p0330: cancel is persistent state — the DB-backed flag reader feeds the pre-start
         // gates (queue consumer + capacity pump); the enforcer, under the housekeeping leader,
@@ -124,8 +124,7 @@ internal static class RelationalPersistenceExtensions
         services.RemoveAll<ISpecSetPointerStore>().RemoveAll<ISpecApprovalStore>();
         services.AddSingleton<ISpecSetPointerStore, DbSpecSetPointerStore>();
         services.AddSingleton<ISpecApprovalStore, DbSpecApprovalStore>();
-        services.AddScoped<UnmovedTicketRepository>().RemoveAll<IUnmovedTicketStore>(); // c1a7
-        services.AddSingleton<IUnmovedTicketStore, DbUnmovedTicketStore>();
+        services.AddTicketFactStores(); // c1a7 + 2026-09-25-b4d9
         services.AddScoped<Services.Lifecycle.NotImplementableRetryService>();
         services.AddScoped<RunCheckpointRepository>().AddScoped<DialogueAnswerRepository>();
         services.RemoveAll<IRunCheckpointStore>();

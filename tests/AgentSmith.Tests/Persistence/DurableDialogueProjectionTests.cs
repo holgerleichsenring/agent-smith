@@ -40,7 +40,7 @@ public sealed class DurableDialogueProjectionTests : IDisposable
         row.RunId.Should().Be("run-1");
         row.Project.Should().Be("p1");
         row.TicketId.Should().Be("42");
-        row.Pipeline.Should().Be("fix-bug");
+        row.Pipeline.Should().Be("code");
         row.DialogueJobId.Should().Be("job-1");
         row.QuestionId.Should().Be("q1");
         row.RemainingCommandsJson.Should().Contain("ApprovalCommand");
@@ -115,11 +115,11 @@ public sealed class DurableDialogueProjectionTests : IDisposable
     }
 
     private static RunStartedEvent Started(string runId) => new(
-        runId, "ticket", "fix-bug", ["repo-a"], T, "claude", "42",
+        runId, "ticket", "code", ["repo-a"], T, "claude", "42",
         Project: "p1", Platform: "github");
 
     private static RunCheckpointedEvent Checkpointed(string runId) => new(
-        runId, "p1", "42", "github", "fix-bug", "job-1", "q1",
+        runId, "p1", "42", "github", "code", "job-1", "q1",
         QuestionJson: """{"QuestionId":"q1","Type":3,"Text":"Approve?","Context":null,"Choices":null,"DefaultAnswer":"reject","Timeout":"3.00:00:00"}""",
         RemainingCommandsJson: """[{"Name":"CheckoutSourceCommand"},{"Name":"ApprovalCommand"},{"Name":"AgenticMasterCommand"}]""",
         ContextJson: "[]", ExecutionCount: 14,

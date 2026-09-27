@@ -158,7 +158,7 @@ public sealed class RunStoreRepairTests : IDisposable
         $"""
          INSERT INTO Runs (Id, Project, Pipeline, TicketId, Status, StartedAt, CostTotalUsd,
                            TokensIn, TokensOut, CancelRequested, CreatedAt, UpdatedAt)
-         VALUES ('{RunId}', 'p', 'fix-bug', 't', 'success', '{Stamp(T0)}', '{cost}',
+         VALUES ('{RunId}', 'p', 'code', 't', 'success', '{Stamp(T0)}', '{cost}',
                  0, 0, 0, '{Stamp(T0)}', '{Stamp(T0)}');
          """;
 

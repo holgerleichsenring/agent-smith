@@ -110,7 +110,7 @@ public sealed class PredecessorRetirementTests
                     Repos = [new RepoConnection { Name = "repo-a" }],
                     GithubTrigger = new WebhookTriggerConfig { TriggerStatuses = [Open] },
                 },
-                "fix-bug", envelope, new WebhookTriggerConfig { TriggerStatuses = [Open] },
+                "code", envelope, new WebhookTriggerConfig { TriggerStatuses = [Open] },
                 CancellationToken.None);
     }
 }

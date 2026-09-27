@@ -28,11 +28,11 @@ public sealed class PipelineNameInitializerHandler(
     {
         var resolved = context.Pipeline.Get<ResolvedPipelineConfig>(ContextKeys.ResolvedPipeline);
         var concepts = conceptsFactory(context.Pipeline);
-        // p0393: publish the CANONICAL name. An alias run executes `code`, so activation
-        // and every concept-keyed rule must see `code`; publishing the raw alias would also
-        // throw here, because SetEnum rejects a value the catalog does not declare and a
-        // retired name is deliberately absent from the vocabulary.
-        var published = PipelinePresets.Canonical(resolved.PipelineName);
+        // 2026-09-25-e5b1: the resolved name IS the published name. p0393 had aliases to
+        // canonicalise here; with the alias map gone a run can only have been started under a
+        // name the presets declare, and SetEnum still rejects anything the catalog vocabulary
+        // does not — a typo fails loudly rather than mis-keying every downstream rule.
+        var published = resolved.PipelineName;
         concepts.SetEnum("pipeline_name", published);
         logger.LogDebug("Published pipeline_name={Name}", published);
         return Task.FromResult(CommandResult.Ok($"pipeline_name={published}"));

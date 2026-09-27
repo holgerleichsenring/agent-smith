@@ -52,7 +52,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
     {
         var projector = NewProjector();
         await projector.ProjectAsync(
-            new RunStartedEvent(runId, "ticket", "fix-bug", new[] { "primary" }, startedAt, "claude", "42"),
+            new RunStartedEvent(runId, "ticket", "code", new[] { "primary" }, startedAt, "claude", "42"),
             CancellationToken.None);
         foreach (var cost in llmCosts)
             await projector.ProjectAsync(
@@ -95,7 +95,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
         var projector = NewProjector();
         var t = DateTimeOffset.Parse("2026-06-07T12:00:00Z");
         await projector.ProjectAsync(
-            new RunStartedEvent("run-live", "ticket", "fix-bug", new[] { "primary" }, t, "claude", "42"),
+            new RunStartedEvent("run-live", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
         foreach (var cost in new[] { 0.05m, 0.07m })
             await projector.ProjectAsync(

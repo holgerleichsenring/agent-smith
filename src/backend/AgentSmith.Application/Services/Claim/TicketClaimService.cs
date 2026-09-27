@@ -17,6 +17,7 @@ public sealed class TicketClaimService(
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
     IActiveRunLease lease,
+    ITakenTicketStore takenTickets, // 2026-09-25-b4d9: the record that outlives the reaper
     ILogger<TicketClaimService> logger) : ITicketClaimService
 {
     private static readonly TimeSpan ClaimLockTtl = TimeSpan.FromSeconds(30);
@@ -45,7 +46,8 @@ public sealed class TicketClaimService(
         try
         {
             var tracker = config.Projects[request.ProjectName].Tracker;
-            var executor = new SingleClaimRegionExecutor(transitionerFactory, jobQueue, lease, logger);
+            var registrar = new ClaimedTicketRegistrar(lease, takenTickets);
+            var executor = new SingleClaimRegionExecutor(transitionerFactory, jobQueue, registrar, logger);
             return LogOne(request, await executor.ExecuteAsync(request, tracker, ct));
         }
         finally

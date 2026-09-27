@@ -85,19 +85,17 @@ public sealed class PipelineRunner(IServiceProvider services)
     public string? ApiTargetOverride { get; set; }
 
     /// <summary>
-    /// p0199f: parallel override for ContextKeys.SwaggerPath. LoadSwagger
-    /// resolves URLs via the stubbed ISwaggerProvider in the harness, so
-    /// the test still parses the synthetic spec; the override keeps the
-    /// context value honest (a real URL, not a stub.test placeholder).
+    /// p0199f: parallel override for ContextKeys.SwaggerPath. LoadSwagger resolves URLs
+    /// via the stubbed ISwaggerProvider in the harness, so the test still parses the
+    /// synthetic spec; the override keeps the context value honest (a real URL).
     /// </summary>
     public string? SwaggerPathOverride { get; set; }
 
     /// <summary>
     /// p0315d: mirrors the ContextKeys.NeedsClarificationStatus seed
-    /// SpawnPipelineRunsUseCase performs from the trigger config, so a
-    /// phase-execution test can assert the clarification park moves the
-    /// ticket into this native status. Unset → not seeded (production's
-    /// "park not configured" degrade).
+    /// SpawnPipelineRunsUseCase performs from the trigger config, so a test driving a
+    /// phase can assert the clarification park moves the ticket into this native
+    /// status. Unset → not seeded (production's "park not configured" degrade).
     /// </summary>
     public string? NeedsClarificationStatus { get; set; }
 
@@ -114,7 +112,7 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// p0326: seeds ContextKeys.InlineTicket INSTEAD of the stub TicketId,
     /// mirroring the demo's PipelineRequest shape (trackerless run) so the
     /// harness proves FetchTicket's inline materialization drives the real
-    /// fix-bug preset end-to-end.
+    /// coding preset end-to-end.
     /// </summary>
     public Contracts.Models.InlineTicket? InlineTicket { get; set; }
 
@@ -166,15 +164,19 @@ public sealed class PipelineRunner(IServiceProvider services)
     private PipelineContext BuildContext(string presetName, ResolvedProject project)
     {
         var pipeline = new PipelineContext();
-        var conceptValue = PipelineNameConceptMap.ToConceptValue(presetName);
-        // p0199c: CodingPrinciplesPath left null so LoadCodingPrinciplesHandler
-        // resolves the default (.agentsmith/principles.md) AND keeps the
-        // nested per-context fallback active for fixtures that ship principles
-        // only under .agentsmith/contexts/<name>/. A non-default value disables
-        // the fallback path — that's how add-feature failed on the docker tier
-        // until this seed was relaxed.
+        // p0199c: CodingPrinciplesPath left null so LoadCodingPrinciplesHandler resolves
+        // the default (.agentsmith/principles.md) AND keeps the nested per-context fallback
+        // active for fixtures that ship principles only under .agentsmith/contexts/<name>/.
+        // A non-default value disables the fallback path — that is how the add-a-feature
+        // scenario failed on the docker tier until this seed was relaxed.
+        // 2026-09-25-a7e8: the preset name IS the concept value, exactly as in production,
+        // where PipelineNameInitializer publishes the resolved name verbatim. The harness
+        // translated it through a map of its own that existed for one entry — the preset
+        // without a declared concept value borrowed another's — and p0393 collapsed both
+        // onto `code`, leaving nothing to translate — and a map production does not apply
+        // is a fidelity gap waiting to reopen.
         var resolved = new ResolvedPipelineConfig(
-            conceptValue, project.Agent,
+            presetName, project.Agent,
             PipelinePresets.GetDefaultSkillsPath(presetName),
             CodingPrinciplesPath: null);
 
@@ -188,15 +190,13 @@ public sealed class PipelineRunner(IServiceProvider services)
         ResolvedPipelineConfig resolved, string presetName)
     {
         pipeline.Set(ContextKeys.ResolvedPipeline, resolved);
-        // p0239: ContextKeys.PipelineName mirrors production's
-        // ExecutePipelineUseCase, which sets it to request.PipelineName — the
-        // PRESET name ("add-feature"), NOT the concept-vocabulary value. The
-        // keystone (CommitAndPRHandler → PipelinePresets.ExpectsCodeChanges/
-        // ExpectsGreenTests) keys off the preset name; seeding the concept value
-        // here (the pre-rename concept value) silently bypassed the add-feature
-        // keystone in the fast tier — the fidelity gap this phase closes. The
-        // pipeline_name CONCEPT is a separate channel, written by
-        // PipelineNameInitializerHandler from ResolvedPipelineConfig.PipelineName.
+        // p0239: ContextKeys.PipelineName mirrors production's ExecutePipelineUseCase,
+        // which sets it to request.PipelineName — the PRESET name, NOT the concept-
+        // vocabulary value. The keystone (CommitAndPRHandler → ExpectsCodeChanges /
+        // ExpectsGreenTests) keys off the preset name; seeding a translated value here
+        // once bypassed the coding keystone in the fast tier. The pipeline_name CONCEPT
+        // is a separate channel, written by PipelineNameInitializerHandler from
+        // ResolvedPipelineConfig.PipelineName.
         pipeline.Set(ContextKeys.PipelineName, presetName);
         pipeline.Set(ContextKeys.AgentConfig, project.Agent);
         pipeline.Set(ContextKeys.Headless, true);

@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-25-e5b1
+requires: ["2026-09-25-a7e8", "2026-09-25-3c7ad"]
+goal: "The retired preset names leave the code, the stored configuration and the samples, so one vocabulary names the pipelines and nothing resolves a word twice."
+
+applies_to: "backend (the preset registry and its eleven framework callers, the config store migration) and docs"
+
+scope:
+  in: "Moving every framework use of a retired alias onto the preset it resolves to — including the three pull-request comment allow-lists, which gain the preset rather than losing the alias; rewriting stored configuration once; deleting the alias map; and saying so in the samples and docs that still teach the old names."
+  out: "The harness, which is 2026-09-25-a7e8 and must land first. Also out: RetiredPresets, which is a different mechanism — those names have no replacement and their reason is currently unreachable."
+
+decisions:
+  - key: |
+      ELEVEN FRAMEWORK USES, NOT THREE, AND THREE OF THEM ARE THE SHARP ONES. The pull-request
+      comment handlers for GitHub, GitLab and Azure DevOps each hold an allow-list containing
+      `fix-bug`. Delete the alias and that entry resolves to nothing while `code` is not in the
+      list — the code preset becomes unreachable from a pull-request comment on all three hosts.
+      That is a capability lost, so those three GAIN the preset name rather than losing the alias.
+      The rest are a chat intent parser, a Slack modal, the demo runner, two CLI dry-run
+      fallbacks, an execute-use-case fallback, a fixture tool and a mockup.
+  - key: |
+      A NAME THAT STOPS RESOLVING IS RECLASSIFIED IN SILENCE, WHICH IS WHY THE ORDER IS ABSOLUTE.
+      Every per-preset classification goes through one canonicalising call, and the registry says
+      in as many words that a half-real alias is worse than no alias. With the map gone, a stale
+      name misses the type map and is classified as a CONVERSATION, misses the code-changing map
+      and is sized as a sandbox that builds nothing, and misses the parking map — which turns off
+      the clarification park that a whole phase exists to provide. So: move the callers, rewrite
+      the configuration, then delete.
+  - key: |
+      THE REWRITE IS A STARTUP MIGRATION OVER THE DOCUMENT STORE, BESIDE THE ONE THAT ALREADY
+      EXISTS. Configuration has lived in the entity-document store since p0349 and there is
+      already a role-mapping migration in the server's startup path to copy the shape from. It
+      must name the document types it touches — the tracker's label map and default pipeline, the
+      project's pipeline, pipelines list and default — because a partial rewrite is worse than
+      none: a default pipeline missing from the pipelines list disables the whole project.
+  - key: |
+      RE-SAVING EVERY CONFIG DOCUMENT CLEARS THE STANDING UNMOVED-TICKET FACTS, AND THAT IS
+      ACCEPTABLE ONLY BECAUSE IT IS SAID. The document repository bumps a version on save, and an
+      unmoved-ticket record is dropped once the configuration it was recorded against has moved.
+      The migration therefore clears those records once. They are re-recorded by the next run that
+      hits the same refusal, so the cost is one repeated attempt per affected ticket.
+  - key: |
+      THE CLI KEEPS ITS FILES, SO THE REFUSAL HAS TO SPEAK — AND IT CANNOT SPEAK AT RUN TIME
+      TODAY. A migration cannot reach a file-based CLI configuration, and the run path does not
+      consult startup findings: it dies with "pipeline not found". The finding 2026-09-25-3c7ad
+      adds is what names the replacement, and it is what this phase leans on rather than inventing
+      a second door.
+
+steps:
+  - id: the-framework-stops-naming-an-alias
+    path: "src/backend"
+    action:
+      - "Move every framework use of a retired alias onto the preset it resolves to."
+      - "Add the code preset to the three pull-request comment allow-lists rather than removing the alias from them."
+      - "Bind a phase-execution ticket to the code preset by its own name, and keep the claim pre-check that short-circuits on it working."
+    modify:
+      - "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs"
+      - "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs"
+
+  - id: stored-configuration-is-rewritten-once
+    path: "src/backend/AgentSmith.Server/Services/Startup"
+    action:
+      - "Rewrite every retired pipeline name in the stored configuration documents to its target, once, naming the document types touched and reporting what changed."
+
+  - id: the-alias-map-is-deleted
+    path: "src/backend/AgentSmith.Contracts/Commands"
+    action:
+      - "Delete the alias map, leaving the retired-preset list and its reason alone."
+    modify:
+      - "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs"
+
+  - id: the-samples-and-docs-stop-teaching-it
+    path: "config"
+    action:
+      - "Update the sample configurations, the readme and the design document where they name a retired preset."
+
+  - id: the-removal-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert no source names a retired alias, that a bound ticket still resolves and is still claimable, that the pull-request comment route still reaches the code preset, and that the migration rewrites each document type."
+
+tests:
+  - "Presets_NoSourceInTheTree_NamesARetiredAlias"
+  - "Routing_ABoundTicket_ResolvesToTheCodePresetAndIsClaimable"
+  - "PrComment_TheCodePreset_IsReachableOnAllThreeHosts"
+  - "Migration_EachConfigDocumentType_IsRewrittenOnce"
+  - "Migration_ADocumentNamingNoAlias_IsNotReSaved"
+  - "Presets_RetiredPresets_AreUntouched"
+
+done:
+  - "no preset alias remains in the code, the stored configuration, the samples or the docs"
+  - "a ticket that binds to phase execution still resolves to the code preset and is still claimable"
+  - "the code preset is still reachable from a pull-request comment on all three hosts"
+  - "a configuration document naming no alias is not re-saved, so standing facts survive where they can"
+  - "build green, full suite green"

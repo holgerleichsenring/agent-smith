@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Webhooks;
 /// operators rely on ("this is a command, not chatter"). What used to be a hardcoded
 /// PipelineAliases table plus cmd/args split is now delegated to <see cref="IIntentParser"/>,
 /// so the body after the slash prefix can be free-form text in any language (e.g.
-/// "/agent-smith fixe den Bug von gestern" routes to the fix-bug pipeline).
+/// "/agent-smith fixe den Bug von gestern" routes to the code pipeline).
 /// /help, /approve, /reject stay structural — no LLM call.
 /// </summary>
 public sealed partial class CommentIntentParser(IIntentParser intentParser)

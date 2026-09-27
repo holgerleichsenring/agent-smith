@@ -22,6 +22,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly TicketProviderHttpClient _http;
     private readonly GitLabAttachmentLoader _attachmentLoader;
     private readonly GitLabFieldMapper _mapper;
+    private readonly TicketLabelVocabulary _labels;
     private readonly GitLabCommentMapper _commentMapper = new();
     private readonly GitLabIssueLister _lister;
     private readonly ILogger _logger;
@@ -37,6 +38,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
     {
         _baseUrl = connection.BaseUrl.TrimEnd('/');
         _projectPath = connection.ProjectPath;
+        _labels = connection.ResolvedLabels;
         _privateToken = connection.PrivateToken;
         _httpClient = httpClient;
         _http = TicketProviderHttpClient.WithPrivateToken(httpClient, connection.PrivateToken);
@@ -92,7 +94,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
 
     public Task<IReadOnlyList<Ticket>> ListByLifecycleStatusAsync(
         TicketLifecycleStatus status, CancellationToken cancellationToken)
-        => _lister.SearchAsync([LifecycleLabels.For(status)], $"lifecycle={status}", cancellationToken);
+        => _lister.SearchAsync([_labels.For(status)], $"lifecycle={status}", cancellationToken);
 
     public async Task<IReadOnlyList<AttachmentRef>> GetAttachmentRefsAsync(TicketId ticketId, CancellationToken cancellationToken)
     {
@@ -112,8 +114,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // GitLab has no work-item kind: an issue accepts exactly two state events, close and
-    // reopen, so the kind the port carries never reaches its payload.
+    // GitLab has no work-item kind: an issue accepts two state events, so the kind never lands.
     public async Task<CreatedTicket> CreateAsync(
         string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)
     {
@@ -148,8 +149,7 @@ public sealed class GitLabTicketProvider : ITicketProvider
             await GetAttachmentRefsAsync(ticketId, cancellationToken),
             _attachmentLoader.DownloadAsync, cancellationToken);
 
-    // p0317: the ticket conversation — the same notes endpoint UpdateStatusAsync
-    // posts to. Transport failures propagate — FetchTicketHandler owns fail-soft.
+    // p0317: the ticket conversation, on the notes endpoint UpdateStatusAsync posts to.
     public async Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken)
     {

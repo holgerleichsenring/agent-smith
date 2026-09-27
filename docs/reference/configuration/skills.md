@@ -18,7 +18,7 @@ Skills declare specialist AI roles that participate in pipeline runs. Each skill
 │   ├── coding.yaml
 │   └── security.yaml
 ├── concept-vocabulary.yaml       # operator-extensible vocabulary
-├── coding/                       # used by fix-bug, add-feature
+├── coding/                       # used by the code pipeline
 │   ├── architect/
 │   │   ├── SKILL.md
 │   │   └── references/...

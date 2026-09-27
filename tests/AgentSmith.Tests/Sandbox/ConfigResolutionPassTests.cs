@@ -96,7 +96,7 @@ public sealed class ConfigResolutionPassTests
         resolved.Value.Should().BeSameAs(over);
         resolved.Source.Should().Be(ResolutionSource.ProjectOverride);
 
-        var fallback = pass.ResolveCostCap("fix-bug");
+        var fallback = pass.ResolveCostCap("code");
         fallback.Value.Should().BeSameAs(config.PipelineCostCap.Default);
         fallback.Source.Should().Be(ResolutionSource.GlobalDefault);
     }

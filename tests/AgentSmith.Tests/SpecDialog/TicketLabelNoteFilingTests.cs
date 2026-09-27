@@ -34,11 +34,15 @@ public sealed class TicketLabelNoteFilingTests
             + "2026-09-22-766b leaves it carrying one")
             .And.OnlyContain(line => !line.StartsWith('-') && !line.StartsWith('*'),
                 "bare prose, because a bulleted line under a heading can be read as a criterion");
+        // 2026-09-25-c1f7: a HINT, not a warning. 3c7aa moved the routing bind onto the approval
+        // record and this phase moved discovery onto it too, so the sentence that named what
+        // removing the label costs is no longer true and says what the label is FOR instead.
         lines[0].Should().Contain(FiledTicketLabels.ApprovedSetStamp)
             .And.Contain("binds this ticket to phase execution")
-            .And.Contain("routed by this project's own rules, or dropped",
-                "the MECHANISM is true on every routing shape; an outcome is not")
-            .And.Contain("Removing it costs", "the stamp is the guard that fails open");
+            .And.Contain("It is a hint, not the binding",
+                "the record binds; the label is what a person scanning the board reads")
+            .And.NotContain("Removing it costs",
+                "the cost the note warned of was paid by 3c7aa and this phase");
     }
 
     [Fact]

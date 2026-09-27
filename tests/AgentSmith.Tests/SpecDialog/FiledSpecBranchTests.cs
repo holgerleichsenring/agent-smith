@@ -569,5 +569,13 @@ public sealed class FiledSpecBranchTests
             journal.Add("set stored");
             return _inner.SaveAsync(record, cancellationToken);
         }
+
+        public Task<OutstandingApprovals> ListOutstandingAsync(
+            string tracker, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult(OutstandingApprovals.None);
+
+        public Task MarkSatisfiedAsync(
+            string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

@@ -210,7 +210,7 @@ export interface SpecDialogPhaseProposal {
   yaml: string;
 }
 
-/** The fix-bug ticket a bug outcome would file — body exactly as the filer composes it. */
+/** The bug ticket a bug outcome would file — body exactly as the filer composes it. */
 export interface SpecDialogBugProposal {
   title: string;
   body: string;

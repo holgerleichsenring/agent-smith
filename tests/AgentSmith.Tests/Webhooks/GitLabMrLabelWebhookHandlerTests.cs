@@ -18,7 +18,8 @@ public sealed class GitLabMrLabelWebhookHandlerTests
     {
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config ?? BuildConfig());
-        return new GitLabMrLabelWebhookHandler(loader.Object, new ServerContext(ConfigPath),
+        return new GitLabMrLabelWebhookHandler(
+            loader.Object, new ServerContext(ConfigPath), new PrTriggerLabelResolver(),
             NullLogger<GitLabMrLabelWebhookHandler>.Instance);
     }
 

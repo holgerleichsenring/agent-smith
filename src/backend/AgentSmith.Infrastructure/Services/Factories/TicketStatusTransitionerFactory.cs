@@ -36,7 +36,7 @@ public sealed class TicketStatusTransitionerFactory(
         var token = secrets.GetRequired("GITHUB_TOKEN");
         var connection = new GitHubTicketConnection(
             config.Url ?? throw new ArgumentException("GitHub URL required"),
-            token);
+            token, TicketLabelVocabulary.For(config));
         return new GitHubTicketStatusTransitioner(
             connection,
             httpClientFactory.CreateClient(),
@@ -49,7 +49,7 @@ public sealed class TicketStatusTransitionerFactory(
         var token = secrets.GetRequired("GITLAB_TOKEN");
         var projectPath = Uri.EscapeDataString(
             config.Project ?? secrets.GetRequired("GITLAB_PROJECT"));
-        var connection = new GitLabTicketConnection(baseUrl, projectPath, token);
+        var connection = new GitLabTicketConnection(baseUrl, projectPath, token, TicketLabelVocabulary.For(config));
         return new GitLabTicketStatusTransitioner(
             connection,
             httpClientFactory.CreateClient(),
@@ -60,7 +60,7 @@ public sealed class TicketStatusTransitionerFactory(
     {
         var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
         var orgUrl = $"https://dev.azure.com/{config.Organization}";
-        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token);
+        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token, TicketLabelVocabulary.For(config));
         return new AzureDevOpsTicketStatusTransitioner(
             connection,
             httpClientFactory.CreateClient(),
@@ -74,7 +74,9 @@ public sealed class TicketStatusTransitionerFactory(
         var token = secrets.GetRequired("JIRA_TOKEN");
         var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
         var lifecycleMap = BuildLifecycleMap(config.LifecycleStatusNames, projectKey);
-        var connection = new JiraTicketConnection(url, email, token, projectKey, config.Endpoints, lifecycleMap);
+        var connection = new JiraTicketConnection(
+            url, email, token, projectKey, config.Endpoints, lifecycleMap,
+            Labels: TicketLabelVocabulary.For(config));
         return new JiraTicketStatusTransitioner(
             connection, jiraCatalog,
             httpClientFactory.CreateClient(),

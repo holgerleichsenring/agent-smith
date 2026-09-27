@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Services;
@@ -94,8 +95,8 @@ internal static class RunCommand
         IPipelineConfigResolver resolver)
     {
         if (!string.IsNullOrWhiteSpace(pipelineOverride)) return pipelineOverride;
-        if (project is null) return "fix-bug";
+        if (project is null) return PipelinePresets.CodeName;
         try { return resolver.ResolveDefaultPipelineName(project); }
-        catch (InvalidOperationException) { return "fix-bug"; }
+        catch (InvalidOperationException) { return PipelinePresets.CodeName; }
     }
 }

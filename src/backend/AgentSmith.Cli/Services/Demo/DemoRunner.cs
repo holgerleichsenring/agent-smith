@@ -9,7 +9,7 @@ namespace AgentSmith.Cli.Services.Demo;
 
 /// <summary>
 /// p0326: the demo's pipeline leg. Materializes the embedded sample into a
-/// local git workspace, then runs the REAL fix-bug preset against it headless
+/// local git workspace, then runs the REAL code preset against it headless
 /// and in-process — inline ticket instead of a tracker, RepoType.Local
 /// ephemeral project (the p0281d --agent seam) instead of a projects: entry,
 /// local commit instead of a PR.
@@ -29,7 +29,7 @@ internal sealed class DemoRunner(
         var workspace = await materializer.MaterializeAsync(
             invocation.WorkspaceDir ?? DefaultWorkspaceDir(), cancellationToken);
         output.WriteLine($"Demo workspace (local git repo, seeded bug): {workspace}");
-        output.WriteLine($"Running the fix-bug pipeline with agent '{agentName}' — this takes a few minutes ...");
+        output.WriteLine($"Running the code pipeline with agent '{agentName}' — this takes a few minutes ...");
 
         var result = await useCase.ExecuteAsync(
             BuildRequest(agentName, workspace), invocation.ConfigPath, cancellationToken);
@@ -53,7 +53,7 @@ internal sealed class DemoRunner(
 
     private static PipelineRequest BuildRequest(string agentName, string workspace) => new(
         ProjectName: "demo",
-        PipelineName: "fix-bug",
+        PipelineName: PipelinePresets.CodeName,
         Headless: true,
         AgentName: agentName,
         InlineTicket: DemoTicket.Create(),

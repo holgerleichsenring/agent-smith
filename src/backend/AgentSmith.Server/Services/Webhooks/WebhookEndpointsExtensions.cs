@@ -17,6 +17,9 @@ internal static class WebhookEndpointsExtensions
     {
         services.AddSingleton<WebhookSpawnDispatcher>();
         services.AddSingleton<IWebhookDeliveryTracker, WebhookDeliveryTracker>();
+        // 2026-09-25-d83b: the PR-label handlers ask this for the review-request word
+        // instead of carrying a literal each.
+        services.AddSingleton<PrTriggerLabelResolver>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

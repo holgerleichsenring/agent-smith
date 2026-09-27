@@ -46,7 +46,7 @@ secrets:
   claude_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-Prompt caching reuses the system prompt + tool definitions + coding principles between iterations of the same run. Typical cost saving on a `fix-bug` run is 40-60%. The cached share is recorded per LLM call and visible in the dashboard's cost breakdown — a caching-enabled run showing 0% cached means the cache is dead, treat that as an alarm. See [Cost tracking](../reference/concepts/cost-tracking.md).
+Prompt caching reuses the system prompt + tool definitions + coding principles between iterations of the same run. Typical cost saving on a `code` run is 40-60%. The cached share is recorded per LLM call and visible in the dashboard's cost breakdown — a caching-enabled run showing 0% cached means the cache is dead, treat that as an alarm. See [Cost tracking](../reference/concepts/cost-tracking.md).
 
 ## Rate limits and timeouts (all providers)
 
