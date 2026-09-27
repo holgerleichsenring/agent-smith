@@ -26,7 +26,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class SpecDialogConversationList(
-    SpecDialogSessionRepository repository, SpecDialogLatestOutcomeStore latestOutcome)
+    SpecDialogSessionRepository repository, SpecDialogLatestOutcomeStore latestOutcome,
+    SpecDialogTicketTextRepository ticketText)
 {
     /// <summary>What a caller that names no limit reads — the panel beside the conversation.</summary>
     internal const int Cap = 50;
@@ -53,10 +54,15 @@ public sealed class SpecDialogConversationList(
         var rows = await repository.ListByOwnerAsync(
             Platform, owner, ClampLimit(limit), cancellationToken);
         var total = await repository.CountByOwnerAsync(Platform, owner, cancellationToken);
-        return new SpecDialogConversationPage([.. rows.Select(Summary)], total);
+        // 2026-09-27-5c1eb: one read for the whole page, so a bound row can name its ticket the way
+        // the tracker does without turning this list into one query per row.
+        var tickets = await ticketText.TicketIdsForAsync(
+            [.. rows.Select(r => r.SessionId)], cancellationToken);
+        return new SpecDialogConversationPage([.. rows.Select(r => Summary(r, tickets))], total);
     }
 
-    private SpecDialogSessionSummary Summary(SpecDialogSession session)
+    private SpecDialogSessionSummary Summary(
+        SpecDialogSession session, IReadOnlyDictionary<string, string> tickets)
     {
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         return new SpecDialogSessionSummary(
@@ -64,7 +70,10 @@ public sealed class SpecDialogConversationList(
             SpecDialogConversationTitle.Of(transcript),
             session.Subject,
             Outcome(latestOutcome.Of(session)),
-            session.IsOpen ? session.ThreadId : null);
+            session.IsOpen ? session.ThreadId : null,
+            // A conversation bound to no ticket has no row here, and a bound one whose text read
+            // never landed has none either — then the row simply carries no ticket.
+            tickets.TryGetValue(session.SessionId, out var ticket) ? ticket : null);
     }
 
     /// <summary>

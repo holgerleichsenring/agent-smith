@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-5c1ea
+
+decisions:
+  - category: Architecture
+    chose: "A second capability port, ITicketSearch, with four implementations beside the providers"
+    over: "A search member on ITicketProvider, which the phase's first cut asked for"
+    reason: |
+      This repository refused the same shape two days ago and wrote the reason into
+      ITicketRewriter's own header. Measured again for this phase and unchanged: ITicketProvider.cs
+      (147), GitHubTicketProvider (189), GitLabTicketProvider (191), AzureDevOpsTicketProvider (218)
+      and AzureDevOpsWorkItemLister (123) all sat at exactly their file-length baseline — zero
+      headroom — and JiraIssueSearcher and GitHubIssueLister were at 114 against the hard 120. A
+      member every provider must implement could only have landed by making those classes partial,
+      which is the one thing the per-file limit exists to prevent. The quartet the rewriter already
+      is — port, result, factory member, four siblings — cost nothing and each file reads alone.
+    alternatives:
+      - "Growing one provider and letting the others throw: the picker would then be silently per-tracker"
+
+  - category: Architecture
+    chose: "The search path owns its own result type and its own error handling"
+    over: "Routing the search through the four existing list helpers, which already build tracker queries"
+    reason: |
+      The first cut claimed three adapters already held the machinery. They hold the query building;
+      what they throw away is exactly what this phase is for. All four LOG their truncation and
+      return no flag, and all four swallow a failed query into an empty list. A picker built on them
+      could not tell "your board has no such ticket" from "this tracker could not run the query",
+      nor "here is a screenful" from "here is all of it" — and the first of those two confusions
+      tells a person their ticket does not exist.
+    alternatives:
+      - "Reading the truncation back out of the logs: a log line is not an answer to a caller"
+
+  - category: Architecture
+    chose: "The Azure DevOps WIQL run extracted into AzureDevOpsWiqlRunner, which throws"
+    over: "Calling AzureDevOpsWorkItemLister.ListAsync(extraWhere, ...) with the text clause"
+    reason: |
+      The review correctly identified the lister's extraWhere as the seam — it already ANDs the team
+      project and the open states. But the lister ANSWERS A FAILURE WITH AN EMPTY LIST, which is
+      right for its callers (they poll; an empty cycle is recoverable) and fatal for a person's
+      search. The two readers could not share one method, so the running and the hydration moved
+      into a class that throws and both compose on top of it. The lister shrank from 123 to 67 and
+      LEFT the file-length baseline, which is the direction that ratchet allows.
+    alternatives:
+      - "A boolean flag on ListAsync selecting whether to throw: a parameter that changes the meaning of the return"
+
+  - category: Implementation
+    chose: "CONTAINS on System.Title and CONTAINS WORDS on the two long-text fields"
+    over: "CONTAINS WORDS everywhere, which the first cut specified"
+    reason: |
+      CONTAINS WORDS is the full-text, whole-word operator and needs the field indexed, so a typed
+      "auth" does not reach "authentication" — which is most of what a person types into a picker.
+      System.Title is String-typed and takes plain CONTAINS, a substring match. The long-text fields
+      support only the full-text operator, so the clause mixes both deliberately. The third field is
+      Microsoft.VSTS.TCM.ReproSteps, because a Bug's body lives there rather than in
+      System.Description and a Description-only clause would match no Bug's body on the board.
+    alternatives:
+      - "Title only: a picker that cannot find a ticket by a phrase from its body is half a picker"
+
+  - category: Implementation
+    chose: "Each implementation escapes the typed text for its own query language, and a hostile string is driven through all four in one test"
+    over: "Interpolating the typed text as every existing query in this tree does"
+    reason: |
+      This is the first caller to put OPERATOR-TYPED text into these builders; every input they took
+      before was configuration — labels, statuses, project keys — and their escaping is one
+      character wide. A typed quote, backslash or Lucene operator would have reached Jira or Azure
+      DevOps as a malformed query, come back a 400, and — through the helpers this port refuses to
+      reuse — been rendered as an empty board. On Jira and GitHub the reserved characters become
+      whitespace rather than being escaped, because an escaped Lucene operator is still an operator
+      and a picker's text is words; WIQL doubles its delimiter; GitLab needs only the URL encoding
+      it already had. Text that is nothing but operators asks no tracker at all.
+    alternatives:
+      - "Rejecting text containing reserved characters: a person typing an apostrophe would be told their query is invalid"
+
+  - category: Implementation
+    chose: "Every implementation asks for most-recently-updated first, and over-asks by one"
+    over: "Taking each API's default order and capping whatever arrives"
+    reason: |
+      The four default differently — one by last change, one by relevance, two by nothing in
+      particular — so one cap would have discarded a different screenful per tracker, which is a
+      lottery rather than a contract. With one ordering the cap means "the newest matches". The
+      extra row (or, on GitHub, the reported total) is what makes "more existed" measured rather
+      than guessed; the seeded ticket text is the precedent for carrying that flag rather than
+      logging it.
+    alternatives:
+      - "Reporting the tracker's total only where the API gives one: three trackers would then never report a cap"
+
+  - category: Implementation
+    chose: "Jira searches summary and description; with no configured project key it searches the whole site"
+    over: "Jira's text super-field, and refusing to search an unscoped connection"
+    reason: |
+      text ~ also spans comments, environment and every custom text field, while a hit is shown as a
+      title — so a match could contain none of the typed words anywhere a person can see. Two
+      explicit fields keep the match visible, and title-and-body is then the same promise on all
+      four trackers. The project key is optional by configuration, and an unscoped search is
+      site-wide; that is not a new exposure but the same scope the by-id fetch on that connection
+      already has, and the cap bounds it. Refusing would have made the picker unavailable on
+      installations that are configured exactly as the framework allows.
+    alternatives:
+      - "Requiring a project key for search only: one capability disagreeing with the rest about the same connection"
+
+  - category: Implementation
+    chose: "TrackerConnections extracted; the GitHub search takes IGitHubClient"
+    over: "Building each connection record inline in the factory for the third time"
+    reason: |
+      Adding CreateSearch pushed TicketProviderFactory to 156 lines, over the hard 120, and the
+      reason it grew was that the provider, the rewriter and now the search each re-derived the same
+      URLs, tokens and escaping. One builder per tracker collapsed all three and brought the factory
+      to 115. The search takes the Octokit client as its interface rather than constructing one, so
+      the qualifiers, the sort and the page size it composes are assertable without a network — the
+      ticket side had no such seam, which is why its listing behaviour was never pinned.
+    alternatives:
+      - "A second factory for search connections: a second copy of the same credential resolution"

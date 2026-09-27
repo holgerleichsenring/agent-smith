@@ -16,4 +16,13 @@ public interface ITicketProviderFactory
     /// one, Jira's included: refusing is an answer, and it carries the reason.
     /// </summary>
     ITicketRewriter CreateRewriter(TrackerConnection config);
+
+    /// <summary>
+    /// 2026-09-27-5c1ea: the text-search capability of the same tracker connection. Built here for
+    /// the reason the rewriter is — this is where a tracker's credentials and endpoints are already
+    /// resolved. Every tracker answers with one; each reports a failed query as a refusal, because
+    /// a picker that answers "no such ticket" for a query that never ran is worse than one that
+    /// says it could not look.
+    /// </summary>
+    ITicketSearch CreateSearch(TrackerConnection config);
 }

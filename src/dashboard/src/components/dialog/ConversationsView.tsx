@@ -163,6 +163,15 @@ function Row({
         <span className="block dsh-body font-medium text-ink">{name}</span>
         <span className="ec-marks ec-sub items-center">
           <span className="ec-mark given">{conversation.project}</span>
+          {/* 2026-09-27-5c1eb: the same mark as the panel's row, built separately — see there. */}
+          {conversation.ticket && (
+            <span
+              data-testid={`conversations-ticket-${conversation.sessionId}`}
+              className="ec-mark filed"
+            >
+              {conversation.ticket}
+            </span>
+          )}
           <span>{conversation.turns} turn{conversation.turns === 1 ? "" : "s"}</span>
           <span>{lastActive(conversation.lastActivityAt)}</span>
           {conversation.openDialogId && <span data-testid="conversations-open-mark">open</span>}
