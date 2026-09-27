@@ -62,6 +62,10 @@ const searchParams = { current: new URLSearchParams() };
 const readTicketConversation = vi.fn();
 // 2026-09-25-8e51a: the ticket alone — what its own routing names.
 const readTicketProject = vi.fn();
+// 2026-09-27-5c1eb: the typed search. The SIGNAL is passed through to the double, because
+// cancelling the request in flight is a requirement and not an optimisation: every query costs one
+// round trip per configured tracker.
+const searchTickets = vi.fn<(q: string, signal?: AbortSignal) => Promise<unknown>>();
 const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
@@ -113,6 +117,7 @@ vi.mock("@/lib/specDialogApi", () => ({
   readTicketConversation: (project: string, ticketId: string) =>
     readTicketConversation(project, ticketId),
   readTicketProject: (ticketId: string) => readTicketProject(ticketId),
+  searchTickets: (q: string, signal?: AbortSignal) => searchTickets(q, signal),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
     resumeSpecDialogConversation(sessionId, dialogId),
@@ -413,7 +418,23 @@ beforeEach(() => {
   deleteSpecDialogConversation.mockResolvedValue(undefined);
   resumeSpecDialogConversation.mockReset();
   resumeSpecDialogConversation.mockResolvedValue(undefined);
+  searchTickets.mockReset();
+  searchTickets.mockResolvedValue(found([]));
 });
+
+/** 2026-09-27-5c1eb: what the search route answers — the hits, the cap, and the trackers that
+ *  could not be asked, which is never the same as a board with no such ticket. */
+function found(
+  hits: { ticketId: string; title: string; tracker: string; projects: string[] }[],
+  overrides: { moreHeldBack?: boolean; unsearchable?: string[] } = {},
+) {
+  return {
+    found: hits,
+    moreHeldBack: overrides.moreHeldBack ?? false,
+    unsearchable: overrides.unsearchable ?? [],
+    minimum: 3,
+  };
+}
 
 afterEach(() => cleanup());
 
@@ -811,7 +832,7 @@ describe("SpecDialogSurface", () => {
   function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDialogSessionSummary {
     return {
       sessionId: "s-9", project: "sample", turns: 3, lastActivityAt: "2026-09-15T09:00:00Z",
-      title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null,
+      title: "a widget that reads the ledger", subject: null, outcome: null, openDialogId: null, ticket: null,
       ...overrides,
     };
   }
@@ -3760,10 +3781,230 @@ describe("a page addressed with a ticket and no project", () => {
 
     // A project routed by area path is not the operator's configuration being wrong — a ticket
     // read by its id simply cannot carry one.
+    // 2026-09-27-5c1eb: the reason is read off the TICKET FIELD now, not off the project choice.
+    // It was passed only into that choice, which a single-project installation never renders — so
+    // the sentence was computed and silently discarded exactly where it was most needed.
     await waitFor(() =>
-      expect(screen.getByTestId("dialog-project-choice-reason").textContent).toContain(
+      expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain(
         "routes by area path",
       ),
     );
+  });
+
+  // 2026-09-27-5c1eb: and the same sentence on a SINGLE-project installation, which renders no
+  // project choice at all.
+  it("SpecDialogSurface_SingleConfiguredProject_StillSaysWhyTheTicketNamedNoProject", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null, projects: [SAMPLE_SCOPE] }));
+    readTicketProject.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: "Cannot log in",
+      tracker: "jira",
+      projects: [],
+      unanswerable: ["sample"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain(
+        "routes by area path",
+      ),
+    );
+  });
+});
+
+// 2026-09-27-5c1eb: starting a conversation FROM a ticket that was searched for rather than
+// arrived with. The field is on the SURFACE, above the branch that swaps the project choice for the
+// transcript, for two reasons the tests below are the proof of: a single-project installation never
+// renders that choice at all, and a multi-project one unmounts it the instant a project is picked.
+describe("The ticket search", () => {
+  const JIRA_HIT = {
+    ticketId: "DPG-1239",
+    title: "Cannot log in after the password reset",
+    tracker: "jira-main",
+    projects: ["sample"],
+  };
+
+  // The field belongs to a conversation that does not exist yet: with one OPEN there is nothing
+  // left to bind, and the ticket it already has is shown by the pane.
+  beforeEach(() => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+  });
+
+  async function type(text: string) {
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), { target: { value: text } });
+  }
+
+  it("SpecDialogSurface_SingleConfiguredProject_StillShowsTheTicketField", async () => {
+    // One project: the page opens straight into the composer and DialogProjectChoice is never
+    // rendered, so a field inside it would be invisible to most installations.
+    await renderSurface();
+
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-ticket-search")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ThreeCharacters_SearchesOnceAfterTheDebounce", async () => {
+    await renderSurface();
+
+    // Two characters ask NOTHING: two characters match most of a board.
+    await type("wi");
+    expect(screen.getByTestId("dialog-ticket-minimum")).toBeInTheDocument();
+    expect(searchTickets).not.toHaveBeenCalled();
+
+    // Three keystrokes, one sweep — the debounce collapses them, and the sweep costs one round
+    // trip per configured tracker.
+    await type("wid");
+    await type("widg");
+    await waitFor(() => expect(searchTickets).toHaveBeenCalledTimes(1));
+    expect(searchTickets.mock.calls[0][0]).toBe("widg");
+  });
+
+  it("SpecDialogSurface_TypingOnwards_CancelsTheSearchInFlight", async () => {
+    let release: ((value: unknown) => void) | null = null;
+    searchTickets.mockImplementation(() => new Promise((resolve) => (release = resolve)));
+    await renderSurface();
+
+    await type("wid");
+    await waitFor(() => expect(searchTickets).toHaveBeenCalledTimes(1));
+    const first = searchTickets.mock.calls[0][1]!;
+    expect(first.aborted).toBe(false);
+
+    await type("widget");
+    // The older answer must not land on top of the newer one, so the request itself is aborted.
+    await waitFor(() => expect(first.aborted).toBe(true));
+    release?.(found([]));
+  });
+
+  it("SpecDialogSurface_PickedTicketOnOneRoutedProject_PicksThatProjectAndOpensTheComposer", async () => {
+    // Two projects, so the page would otherwise be on the choice with no composer at all.
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    searchTickets.mockResolvedValue(found([JIRA_HIT]));
+    await renderSurface();
+
+    expect(screen.getByTestId("dialog-project-choice")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-composer-text")).not.toBeInTheDocument();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    // One routed project IS the project: send is a no-op without one and the server drops the
+    // ticket without a word, so a pick that did not resolve one could not be discussed at all.
+    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-ticket-picked").textContent).toContain("DPG-1239");
+  });
+
+  it("SpecDialogSurface_PickedTicketOnSeveralRoutedProjects_NarrowsTheChoice", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [
+          SAMPLE_SCOPE,
+          { name: "beta", repos: ["repo-b"], templates: [] },
+          { name: "gamma", repos: ["repo-c"], templates: [] },
+        ],
+      }),
+    );
+    // Two projects route to the tracker this ticket is on; gamma routes elsewhere, and offering it
+    // would bind a different board's ticket of the same number.
+    searchTickets.mockResolvedValue(
+      found([{ ...JIRA_HIT, projects: ["sample", "beta"] }]),
+    );
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    const options = await waitFor(() =>
+      within(screen.getByTestId("dialog-choice-project")).getAllByRole("option"),
+    );
+    expect(options.map((option) => option.textContent)).toEqual([
+      "pick a project…",
+      "sample",
+      "beta",
+    ]);
+  });
+
+  it("SpecDialogSurface_PickedTicket_RidesTheFirstMessageAndIsClearedOnStartNew", async () => {
+    searchTickets.mockResolvedValue(found([JIRA_HIT]));
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "the reset link expires too early" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    // The binding rides the FIRST message, because that message is what opens the conversation.
+    await waitFor(() =>
+      expect(postSpecDialogMessage).toHaveBeenCalledWith(
+        expect.any(String),
+        "the reset link expires too early",
+        "sample",
+        "DPG-1239",
+      ),
+    );
+
+    // A new conversation that kept the last one's ticket would open on it without ever asking.
+    fireEvent.click(screen.getByTestId("dialog-new"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("dialog-ticket-picked")).not.toBeInTheDocument());
+  });
+
+  it("SpecDialogSurface_ABoundConversation_IsMarkedInTheDialogList", async () => {
+    fetchSpecDialogConversations.mockResolvedValue(
+      listing([
+        {
+          sessionId: "s-7",
+          project: "sample",
+          turns: 2,
+          lastActivityAt: "2026-09-27T09:00:00Z",
+          title: "cannot log in",
+          subject: null,
+          outcome: null,
+          openDialogId: null,
+          ticket: "DPG-1239",
+        },
+      ]),
+    );
+    searchTickets.mockResolvedValue(found([JIRA_HIT]));
+    await renderSurface();
+
+    // The row names the ticket the way the TRACKER spells it, not the collapsed spec key.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-conversation-ticket-s-7").textContent).toBe("DPG-1239"));
+
+    // And a result for a ticket that already has one says so, rather than offering to open a
+    // second the unique index would refuse anyway.
+    await type("cannot log in");
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-bound-DPG-1239")).toBeInTheDocument());
+  });
+
+  it("SpecDialogSurface_ACappedAnswerAndAnUnsearchableTracker_BothSaySo", async () => {
+    searchTickets.mockResolvedValue(
+      found([JIRA_HIT], { moreHeldBack: true, unsearchable: ["ado-main"] }),
+    );
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-more")).toBeInTheDocument());
+    // NOT an empty board: nothing here says whether the ticket is on that tracker.
+    expect(screen.getByTestId("dialog-ticket-unsearchable").textContent).toContain("ado-main");
   });
 });

@@ -85,6 +85,11 @@ export interface SpecDialogSessionSummary {
   outcome: SpecDialogConversationOutcome | null;
   /** The dialog id an open conversation lives on; null once it is closed. */
   openDialogId: string | null;
+  /** 2026-09-27-5c1eb: the tracker-native id of the ticket this conversation is bound to, or null
+   *  when it is bound to none. Not the session's own ticket key, which is the collapsed spec-key
+   *  spelling and would read "dpg1239". This mirror is kept BY HAND — the generator that guards the
+   *  event contracts walks their namespace only — so the dashboard tests are the whole guard. */
+  ticket: string | null;
 }
 
 /**

@@ -69,11 +69,11 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogSubjectMinter>();
         services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
-        // 2026-09-15-9033: the dashboard channel. The ownership guard rides the same
-        // scoped unit of work as the session manager it reads through; the dispatcher is
-        // the ingestion endpoint's one entry point into the router.
+        // 2026-09-15-9033: the dashboard channel. The ownership guard rides the session
+        // manager's own scoped unit of work; the dispatcher is the ingestion endpoint's one
+        // entry point into the router.
         services.AddScoped<SpecDialogOwnership>();
-        services.AddScoped<TicketConversationBinder>(); // 8e51b
+        services.AddScoped<TicketConversationBinder>().AddScoped<TicketSearchAcrossTrackers>();
         services.AddScoped<TicketTextForConversation>().AddScoped<ApprovedSetDivergence>(); // 8e51c/e
         services.AddScoped<TicketProjectChoice>().AddScoped<ApprovedSetForConversation>(); // 8e51a/d
         services.AddScoped<DashboardDialogDispatcher>();

@@ -29,7 +29,8 @@ internal static class TicketConversationEndpoints
         // projects routed to the one that has it are matched from its own labels.
         app.MapGet("/api/spec-dialog/tickets/{ticketId}", (Delegate)ProjectForTicketAsync)
            .Needs(Security.Permissions.DialogWrite);
-        return app;
+        // 2026-09-27-5c1eb: typed text rather than an id in hand, in a file of its own.
+        return app.MapTicketSearchEndpoints();
     }
 
     internal static async Task<IResult> ProjectForTicketAsync(

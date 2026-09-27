@@ -161,6 +161,18 @@ function Conversation({
         <span className="line-clamp-2 dsh-body font-medium text-ink">{title}</span>
         <span className="ec-marks ec-sub items-center">
           <span className="ec-mark given">{conversation.project}</span>
+          {/* 2026-09-27-5c1eb: a conversation bound to a ticket says which one, the way the
+              tracker spells it. Built twice, here and on the conversations page, because the two
+              rows share their label helpers and nothing else — one is a button that opens in
+              place, the other a link. */}
+          {conversation.ticket && (
+            <span
+              data-testid={`dialog-conversation-ticket-${conversation.sessionId}`}
+              className="ec-mark filed"
+            >
+              {conversation.ticket}
+            </span>
+          )}
           <span>
             {conversation.turns} turn{conversation.turns === 1 ? "" : "s"}
           </span>
