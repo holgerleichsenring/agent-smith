@@ -1,6 +1,10 @@
 "use client";
 
-import type { SpecDialogProject, SpecDialogSession } from "@/types/spec-dialog";
+import type {
+  SpecDialogProject,
+  SpecDialogSession,
+  SpecDialogSessionTicket,
+} from "@/types/spec-dialog";
 
 // 2026-09-15-cb3e: WHAT THE AGENT IS GROUNDED IN — the project, the repositories and the
 // templates a turn of this conversation may read. It is what decides whether the agent's
@@ -28,6 +32,11 @@ export function DialogScopePanel({
       {session ? (
         <>
           <p className="ec-sub mb-2">What this conversation may read.</p>
+          {/* 2026-09-27-481bc: the ticket comes FIRST, because it is the requirement the rest is
+              read against — and because it was the one thing the model read that a person could
+              not. It is the SEEDED copy: the conversation reasons from what it was given, and a
+              ticket that has since changed is exactly where the two differ. */}
+          {session.ticket && <BoundTicket ticket={session.ticket} />}
           <Grounding project={session.scope} />
         </>
       ) : (
@@ -44,6 +53,31 @@ export function DialogScopePanel({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function BoundTicket({ ticket }: { ticket: SpecDialogSessionTicket }) {
+  return (
+    <div data-testid="dialog-scope-ticket" className="mb-3">
+      <div className="fl">Ticket</div>
+      <div className="ec-marks ec-sub items-center">
+        <span className="ec-mark filed">{ticket.ticketId}</span>
+        <span className="min-w-0 truncate text-ink">{ticket.title}</span>
+      </div>
+      <div className="ec-sub mt-1">
+        read {new Date(ticket.readAt).toLocaleString()}
+        {ticket.truncated && " · longer than this conversation carries"}
+      </div>
+      {/* The text the turn was actually seeded with, whitespace kept: a ticket body is written
+          with line breaks that carry meaning, and collapsing them would show a different text
+          than the one the model read. */}
+      <pre
+        data-testid="dialog-scope-ticket-text"
+        className="ec-sub mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words"
+      >
+        {ticket.text}
+      </pre>
     </div>
   );
 }

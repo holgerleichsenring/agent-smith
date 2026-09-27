@@ -146,6 +146,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
     turn: { computing: false, elapsedSeconds: 0, steps: [], turnStartedAt: null },
     session: {
       sessionId: "s-1",
+      ticket: null,
       scope: SAMPLE_SCOPE,
       transcript: [],
       lastActivityAt: "2026-09-15T10:00:00Z",
@@ -436,7 +437,13 @@ beforeEach(() => {
 /** 2026-09-27-5c1eb: what the search route answers — the hits, the cap, and the trackers that
  *  could not be asked, which is never the same as a board with no such ticket. */
 function found(
-  hits: { ticketId: string; title: string; tracker: string; projects: string[] }[],
+  hits: {
+    ticketId: string;
+    title: string;
+    tracker: string;
+    projects: string[];
+    exact?: boolean;
+  }[],
   overrides: { moreHeldBack?: boolean; unsearchable?: string[]; unreachable?: string[] } = {},
 ) {
   return {
@@ -4133,6 +4140,46 @@ describe("The ticket search", () => {
     // Falling back to every project would let the first message bind this number on another board.
     await waitFor(() =>
       expect(screen.getByTestId("dialog-ticket-stranded").textContent).toContain("jira-main"));
+  });
+
+
+  // 2026-09-27-481bc: what the model reads, a person can read. The ticket text is seeded into
+  // EVERY turn of a bound conversation and no surface showed it — so when an answer looked wrong,
+  // the first question had no answer.
+  it("SpecDialogScopePanel_ABoundConversation_ShowsTheTextItWasSeededWith", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: {
+          ...view().session!,
+          ticket: {
+            ticketId: "DPG-1239",
+            title: "Cannot log in",
+            text: "Title: Cannot log in\n\nthe reset link expires too early",
+            readAt: "2026-09-27T09:00:00Z",
+            truncated: true,
+          },
+        },
+      }),
+    );
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.getByTestId("dialog-scope-ticket").textContent).toContain("DPG-1239");
+    expect(screen.getByTestId("dialog-scope-ticket-text").textContent).toContain(
+      "the reset link expires too early",
+    );
+    // A capped ticket says so where its text is shown, not only in the prompt.
+    expect(screen.getByTestId("dialog-scope-ticket").textContent).toContain(
+      "longer than this conversation carries",
+    );
+  });
+
+  it("SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisPhase", async () => {
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.queryByTestId("dialog-scope-ticket")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
   });
 
   it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {

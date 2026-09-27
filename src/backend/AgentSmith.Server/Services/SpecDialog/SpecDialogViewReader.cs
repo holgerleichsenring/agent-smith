@@ -15,7 +15,7 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    SpecDialogAttachmentRepository attachments)
+    SpecDialogAttachmentRepository attachments, SpecDialogTicketTextRepository ticketText)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -30,9 +30,12 @@ public sealed class SpecDialogViewReader(
         var images = state is null
             ? []
             : await Images(state.JobId, cancellationToken);
+        // 2026-09-27-481bc: one indexed row, and only for a conversation that HAS one — an unbound
+        // conversation pays nothing, which matters because this read is issued after every message.
+        var ticket = state is null ? null : Ticket(await ticketText.GetAsync(state.JobId, cancellationToken));
         return new SpecDialogView(
             dialogId,
-            state is null ? null : Session(dialogId, state, latest, images),
+            state is null ? null : Session(dialogId, state, latest, images, ticket),
             projects.All(),
             asked,
             state is null || asked is not null
@@ -67,7 +70,7 @@ public sealed class SpecDialogViewReader(
 
     private SpecDialogSessionView Session(
         string dialogId, ConversationState state, SpecDialogLatestOutcome latest,
-        IReadOnlyList<SpecDialogImageView> images)
+        IReadOnlyList<SpecDialogImageView> images, SpecDialogTicketView? ticket)
     {
         var card = latest.Proposal is null ? null : SpecDialogShownTranscript.CardTurn(state.Transcript);
         return new(state.JobId,
@@ -85,6 +88,14 @@ public sealed class SpecDialogViewReader(
                 ? null
                 : new SpecDialogFilingPush(dialogId, latest.Filing.Filed, latest.Filing.Error,
                     latest.Filing.At, latest.Filing.Notes ?? []),
-            card);
+            card,
+            ticket);
     }
+
+    /// <summary>The stored row as the pane reads it; a conversation bound to no ticket has none.</summary>
+    private static SpecDialogTicketView? Ticket(
+        Infrastructure.Persistence.Entities.SpecDialogTicketText? held) =>
+        held is null
+            ? null
+            : new SpecDialogTicketView(held.TicketId, held.Title, held.Text, held.ReadAt, held.Truncated);
 }

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481bc
+
+decisions:
+  - category: Architecture
+    chose: "The seeded text rides the per-dialog view the page already reads"
+    over: "A route of its own"
+    reason: |
+      That view is fetched after every message and is guarded by the same watch check every read of
+      a conversation applies. A new route would have needed its own guard, its own entry in the
+      route-permission golden, and a justification for returning CONTENT where its neighbours
+      return an identifier and say so in writing. Riding the existing read needs none of that, and
+      the cost is one indexed row — paid only for a conversation that has one.
+    alternatives:
+      - "A route under the ticket family: a second guard to keep in step with the first"
+
+  - category: Implementation
+    chose: "The pane shows the SEEDED copy, from the stored row, with no tracker call"
+    over: "Re-reading the ticket when the pane is opened"
+    reason: |
+      The conversation reasons from what it was given. A ticket that has since changed is exactly
+      the case where the two differ, and that is the case worth seeing — so a fresh read would
+      answer a different question than the one a person asks when an answer looks wrong. It is also
+      the only way opening a pane stays free: the seeding path's moved-check is the one tracker
+      round trip on that side, and a pane must not pay it.
+    alternatives:
+      - "Showing both: two texts and no statement about which the answer came from"
+
+  - category: Architecture
+    chose: "It goes in the SCOPE pane, not a tab of its own"
+    over: "A fifth tab beside proposal, scope, filed and approved"
+    reason: |
+      The pane already says what the conversation is grounded in — the project, the repositories
+      and the templates a turn may read — and a bound ticket is exactly that. There are already
+      FOUR tabs, and the tablist was extracted to make room for the fourth rather than for an
+      open-ended row of them; a fifth that is empty for every unbound conversation teaches a person
+      to stop looking at the row.
+    alternatives:
+      - "The filed pane: it shows what this conversation CREATED, which is the opposite direction"
+
+  - category: Implementation
+    chose: "A link to the ticket is NOT in this phase, and the reason is recorded"
+    over: "Composing one from the configured tracker"
+    reason: |
+      Every seam is shut. The ticket entity carries no web address; the four field mappers are
+      stateless by contract and constructed with no arguments at some twenty-five sites, so no base
+      url can reach them; three of the four providers are at their file-length baseline exactly; the
+      composer Azure DevOps already has is internal to another assembly and takes an integer id; and
+      the CONFIGURED tracker does not hold what a link needs — a GitLab url and a Jira url may both
+      come from secrets, so a link composed from configuration alone would send a self-managed
+      GitLab installation to gitlab.com. A wrong link that opens is worse than no link. Named as
+      2026-09-27-481bg rather than dropped.
+    alternatives:
+      - "Reading it off the payload: it exists only at fetch time, so answering later would need a column"
