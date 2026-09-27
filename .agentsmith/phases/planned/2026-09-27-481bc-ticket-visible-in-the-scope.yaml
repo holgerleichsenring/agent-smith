@@ -8,7 +8,7 @@ requires: ["2026-09-27-481ba"]
 
 scope:
   in: "A web address on the ticket a conversation is bound to, and the composed text it was seeded with shown in the pane that already says what the conversation may read."
-  out: "Showing the ticket read while it happens, which needs a channel this one does not have — 2026-09-27-481be. Editing the ticket, which is the amendment 2026-09-25-8e51e. A kind, which is 2026-09-27-481bf."
+  out: "Showing the ticket read while it happens — 2026-09-27-481be. Editing the ticket, which is the amendment 2026-09-25-8e51e. A kind, which is 2026-09-27-481bf. The filed pane's reference, whose identity is a react key, a test id and a row match, so changing it is its own phase."
 
 decisions:
   - key: |
@@ -32,42 +32,51 @@ decisions:
       a database read — opening it must not cost a tracker round trip, which is what the seeding
       path does because it also computes whether the ticket moved.
   - key: |
-      THE ADDRESS IS TAKEN WHERE THE TRACKER GIVES ONE AND COMPOSED ONLY WHERE IT DOES NOT. GitHub
-      and GitLab both return a browser url in the payload already fetched and both mappers discard
-      it; Azure DevOps has a composer for it already, written for the tickets this framework
-      creates; Jira's is its base url and the issue key. What must NOT happen is composing GitLab's
-      from the connection: that project path is URL-escaped at construction for the API route, so a
-      browser link built from it would be broken. The webhook path's url is no help either — it is
-      the REST resource, not a page a person can open.
+      THE ADDRESS IS COMPOSED FROM THE CONFIGURED TRACKER, NOT READ OUT OF A PAYLOAD AND NOT PUT ON
+      THE TICKET. Every seam that could carry it off a fetch is closed. The four field mappers are
+      stateless and pure BY CONTRACT and each is constructed with no arguments at some twenty-five
+      sites, so neither Jira's base url nor Azure DevOps's organization url can reach them — and
+      those are the two that must be composed, because GitHub's and GitLab's browser url is only in
+      a payload the mapper would have to be trusted to keep. The four provider classes could hold
+      it, but three of them are at their file-length baseline exactly and may only shrink. So: a
+      stateless composer over the CONFIGURED tracker and a ticket id, called where a conversation
+      already resolves a tracker. That also avoids the trap the escaped path sets — the connection's
+      project path is URL-escaped for the API route and a browser link built from it is broken,
+      while the configuration it came from is not escaped at all.
   - key: |
-      THE ADDRESS RIDES THE TICKET, NOT THE SEARCH HIT. A search hit is an id and a title by
-      contract, and widening that port is the expensive direction. Carrying it on the ticket the
-      port already returns gives it to everything that fetches one — the binding, the pane, and, as
-      a consequence rather than a goal, the filed pane's reference, which already renders a link
-      whenever that reference is a url and today receives a bare ticket id. So the link appears
-      once a ticket is picked or bound, and not on every row of a search.
+      COMPOSING MEANS NO COLUMN AND NO MIGRATION. An address read off a payload would exist only at
+      fetch time, so answering it for a bound conversation later would need a column on the stored
+      row — and that is two migration assemblies, two model snapshots and the archive goldens, for a
+      string derivable from configuration and an id the row already holds. Composed, the pane reads
+      the row for the TEXT and derives the link beside it.
+  - key: |
+      THE ADDRESS IS NOT ON THE SEARCH HIT. A hit is an id and a title by contract. The link appears
+      once a ticket is picked or bound — which is where a person wants to open it — and not on
+      every row of a search.
 
 steps:
-  - id: a-ticket-carries-its-address
-    path: "src/backend/AgentSmith.Domain/Entities, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+  - id: a-tracker-composes-its-own-address
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
     action:
-      - "Carry a web address on the ticket, absent where a tracker gives none."
-      - "Read it from the payload on GitHub and GitLab, reuse the existing Azure DevOps composer, and compose Jira's from its base url and the issue key."
+      - "Compose a ticket's browser address from the configured tracker and the ticket id, in a stateless helper of its own, answering nothing where a tracker's shape is unknown."
+      - "Reuse the Azure DevOps composer that already exists for created tickets rather than writing a second one."
 
   - id: the-binding-carries-it-on
     path: "src/backend/AgentSmith.Server/Services/SpecDialog"
-    action: "Carry the address with the binding and with what a bound conversation answers, and let the filed pane's reference take it where it has one."
+    action: "Carry the address with the binding and with what a bound conversation answers."
 
   - id: the-seeded-text-is-answerable
     path: "src/backend/AgentSmith.Server"
     action:
-      - "Answer, for a bound conversation, the composed text it holds with when it was read and whether it was capped — from the stored row, with no tracker call."
-      - "Serve it under the same permission its neighbours carry and regenerate the route-permission baseline."
+      - "Answer, for a bound conversation, the composed text it holds with when it was read and whether it was capped — from the stored row, with no tracker call; the moved-check is the only tracker round trip on that path and must not be on this one."
+      - "Take the room from the extraction 2026-09-27-481ba already makes in that file, which has four lines under the limit."
+      - "Serve it under dialog.write, as every route on this surface does, and regenerate the route-permission baseline after 2026-09-27-481bb has regenerated it."
 
   - id: the-scope-pane-shows-the-ticket
     path: "src/dashboard/src"
     action:
-      - "Draw the bound ticket at the head of the scope pane: its id, its title, a link to the tracker, and the text the turn was seeded with."
+      - "Draw the bound ticket at the head of the scope pane's OPEN-CONVERSATION branch: its id, its title, a link to the tracker, and the text the turn was seeded with."
+      - "Leave the no-session branch alone — 2026-09-27-481bd owns it, and the two land independently."
       - "Say when it was read, and say when the cap held part of it back."
       - "Mirror the new fields by hand — the mirror has no drift check."
 
@@ -76,19 +85,19 @@ steps:
     action: "Assert the address each tracker yields, that GitLab's is a browser route and not the escaped API path, that the pane answers from the row without a tracker call, and that an unbound conversation's pane is unchanged."
 
 tests:
-  - "TicketWebAddress_GitHubAndGitLab_TakeTheUrlTheTrackerAlreadyReturned"
+  - "TicketWebAddress_EachTracker_IsComposedFromItsConfiguredShape"
   - "TicketWebAddress_GitLab_IsABrowserRouteNotTheEscapedApiPath"
-  - "TicketWebAddress_JiraAndAzureDevOps_AreComposedFromTheConnection"
-  - "TicketWebAddress_ATrackerThatGivesNone_LeavesItAbsent"
+  - "TicketWebAddress_ATrackerWhoseShapeIsUnknown_AnswersNone"
   - "BoundTicketText_ABoundConversation_AnswersTheStoredTextWithoutCallingTheTracker"
   - "SpecDialogScopePanel_ABoundConversation_ShowsTheTicketTextAndLinksToIt"
   - "SpecDialogScopePanel_ACappedTicket_SaysPartOfItIsNotCarried"
-  - "SpecDialogScopePanel_AnUnboundConversation_IsUnchanged"
+  - "SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisPhase"
 
 done:
   - "a bound conversation links to its ticket on the tracker, and the link is one a browser opens"
+  - "no column, no migration, no mapper made stateful and no provider grown"
   - "the text the turn was seeded with is readable in the scope pane, with when it was read"
   - "a capped ticket says so where its text is shown"
   - "opening the pane costs no tracker call"
-  - "an unbound conversation's pane is byte for byte what it was"
+  - "the pane's no-session branch is untouched by this phase, so 2026-09-27-481bd may change it in either order"
   - "route-permission baseline regenerated, build green, full suite green, dashboard tests green"

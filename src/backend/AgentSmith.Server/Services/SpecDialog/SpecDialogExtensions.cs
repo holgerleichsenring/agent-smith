@@ -69,13 +69,13 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogSubjectMinter>();
         services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
-        // 2026-09-15-9033: the dashboard channel. The ownership guard rides the session
-        // manager's own scoped unit of work; the dispatcher is the ingestion endpoint's one
-        // entry point into the router.
+        // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
+        // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>();
         services.AddScoped<TicketConversationBinder>().AddScoped<TicketSearchAcrossTrackers>();
         services.AddScoped<TicketTextForConversation>().AddScoped<ApprovedSetDivergence>(); // 8e51c/e
-        services.AddScoped<TicketProjectChoice>().AddScoped<ApprovedSetForConversation>(); // 8e51a/d
+        services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb
+        services.AddScoped<ApprovedSetForConversation>();  // 8e51d
         services.AddScoped<DashboardDialogDispatcher>();
         // 2026-09-15-cb3e: the dialog page's read. Scoped for the session manager's unit of
         // work; the catalog is transient because it re-reads the configuration per call.

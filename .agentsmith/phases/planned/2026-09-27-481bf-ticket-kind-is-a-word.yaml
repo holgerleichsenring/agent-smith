@@ -21,22 +21,46 @@ decisions:
       THE WORD IS THE TRACKER'S, BECAUSE THE VOCABULARY IS NOT OURS. Azure DevOps process templates
       and Jira projects both define their own types, so a fixed set of ours would either mislabel
       something or silently show nothing. The tracker's word is always correct. An icon is drawn
-      only where the meaning is the same everywhere — and GitHub gives no kind at all, so a GitHub
-      row shows none rather than a guessed one.
+      only where the meaning is the same everywhere.
   - key: |
-      THIS IS THE INBOUND READ TYPE AND NOT THE FILING ROLE, AND SAYS SO BECAUSE A DONE PHASE
-      REFUSED THE OTHER ONE. 2026-09-24-f962 deliberately did not carry a type onto the dialog's
-      filed-ticket pane, because that would have been a new field on a filed ticket, on the wire and
-      on the dashboard, better decided after use. That refusal stands: this phase reads what a
-      tracker CALLS an existing ticket, for a person choosing one to discuss. The two words must not
-      collide on one field.
+      GITHUB SHOWS NO KIND BECAUSE THE SDK IN THIS TREE CARRIES NONE — A FACT ABOUT OUR OCTOKIT
+      VERSION, NOT ABOUT GITHUB, WHICH HAS SHIPPED ISSUE TYPES. Saying it the other way round would
+      be a claim about a product that has moved on, and it would make the next reader think the
+      field is unavailable rather than unreachable from here.
+  - key: |
+      GITLAB IS NOT YET EVIDENCE. Nothing in this tree reads a type off a GitLab issue, so "it
+      already returns one" is a guess about an API version. Its payload has carried a lowercase
+      issue type for longer than an uppercase enum, a self-managed instance below the version that
+      added the latter returns neither, and an uppercase enum token is not "the tracker's own word"
+      in the sense this phase promises. So GitLab is read defensively — whichever of the two is
+      present, absent meaning no kind — and never rendered raw.
+  - key: |
+      THIS IS THE INBOUND READ TYPE AND NOT THE FILING ROLE — AND THE COST ARGUMENT THAT REFUSED THE
+      OTHER ONE IS ANSWERED, NOT JUST DISTINGUISHED. 2026-09-24-f962 deliberately did not carry a
+      type onto the dialog's filed-ticket pane: a new field on a filed ticket, on the wire and on the
+      dashboard, for a fact the log line and the refusal already carried — better decided after use.
+      The subject differs here, the ticket being one that already exists rather than one being
+      filed. So does the argument: there is no other carrier of this fact, a person choosing between
+      a bug and a task in a list of twenty has nowhere else to read it, and the phase that produced
+      that list is the use f962 said to wait for. The two remain separate fields on separate types,
+      and nothing in this phase writes either.
   - key: |
       THE SEARCH HIT WIDENS BY ONE NULLABLE FIELD, AND THAT IS AFFORDABLE HERE. The capability port
-      says a hit is an identifier and a title, and the reason was that the four PROVIDER classes are
-      at their baseline and may only shrink. The four search classes are new and small, and each
-      already asks its tracker for a field set it controls — so the kind rides the read each of them
-      already performs. What it costs is named: Jira adds one field to its request, Azure DevOps one
-      column to its hydration, GitLab reads one it already receives, GitHub sends nothing.
+      says a hit is an identifier and a title, and the reason was that the PROVIDER classes are at
+      their baseline. Three of them are — Azure DevOps, GitLab and GitHub exactly; JIRA'S IS NOT,
+      it has seven lines. The search classes are new and small and each controls its own field set,
+      so the kind rides a read each already performs. What it costs, per tracker and measured:
+      Azure DevOps adds one column to the WIQL hydration and needs NOTHING for its single fetch,
+      which asks for no field list and therefore already receives the type; Jira adds one field to
+      the search request and one to the poll path's field set, which serves the same mapper and
+      would otherwise answer differently from the search; GitHub's SDK version in this tree exposes
+      no issue type at all; GitLab is the one that must be checked against a real board first.
+  - key: |
+      THE SWEEP HAS FOUR LINES AND THE PHASE BEFORE THIS ONE SPENDS THEM. TicketSearchAcrossTrackers
+      is at 116 of 120 and is not in the baseline, and 2026-09-27-481bb adds a failure list and an
+      exact-hit flag to it first. So this phase names its own extraction before it adds a field: the
+      by-id lookup and its project reconciliation are a separable concern from sweeping the trackers
+      for text, and that is what leaves.
   - key: |
       A KIND IS SHOWN AND NEVER ACTED ON. Nothing routes, filters or decides by it in this phase. A
       picker that hid tickets by kind would be guessing which types matter on an estate it has never
@@ -47,11 +71,15 @@ steps:
     path: "src/backend/AgentSmith.Domain/Entities, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
     action:
       - "Carry a kind on the ticket, absent where a tracker gives none."
-      - "Read it in the four field mappers, and ask for it where a tracker must be asked — the four provider classes are at their baseline and may not grow."
+      - "Read it in the four field mappers, which is where it is free: they are stateless and the payload already reaches them."
+      - "Ask for it where a tracker must be asked: the WIQL hydration, the Jira search request and the Jira poll field set. Azure DevOps's single fetch and all four provider classes need no line — three of them have none to give."
 
   - id: a-search-hit-carries-it
     path: "src/backend/AgentSmith.Domain/Models, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets, src/backend/AgentSmith.Server/Services/SpecDialog"
-    action: "Carry the kind on a search hit and on what the sweep answers, and mirror the field by hand."
+    action:
+      - "Move the by-id lookup and its project reconciliation out of the sweep first: it is four lines under the limit and the phase before this one spends them."
+      - "Carry the kind on a search hit and on what the sweep answers, and mirror the field by hand."
+      - "Thread it through the ticket's own copy-with method, which rewrites every fetched ticket positionally and would drop a new field in silence."
 
   - id: the-kind-is-drawn
     path: "src/dashboard/src/components/dialog"
@@ -64,14 +92,15 @@ steps:
 tests:
   - "TicketKind_AzureDevOps_ReadsTheWorkItemType"
   - "TicketKind_Jira_ReadsTheIssueType"
-  - "TicketKind_GitLab_ReadsTheTypeItAlreadyReturns"
-  - "TicketKind_GitHub_HasNoneAndSaysNothing"
+  - "TicketKind_GitLab_ReadsWhicheverTypeFieldIsPresentAndNoneWhenNeitherIs"
+  - "TicketKind_GitHub_CarriesNoneBecauseTheSdkExposesNone"
+  - "TicketKind_ATicketRewrittenByTheFetchDoor_KeepsItsKind"
   - "TicketKind_ATrackerSpecificType_SurvivesAsItsOwnWord"
   - "TicketSearch_AHit_CarriesTheKindItsTrackerGaveIt"
   - "SpecDialogSurface_AKindWithNoSharedMeaning_IsDrawnAsAWordWithNoIcon"
 
 done:
   - "each tracker's own word for a ticket's kind reaches the picker, the picked row and the scope pane"
-  - "a type nobody else has is shown as itself, and GitHub shows no kind rather than a guessed one"
+  - "a type nobody else has is shown as itself; GitHub shows no kind, and the reason recorded is the SDK and not the product"
   - "nothing filters, routes or decides by kind"
   - "build green, full suite green, dashboard tests green"
