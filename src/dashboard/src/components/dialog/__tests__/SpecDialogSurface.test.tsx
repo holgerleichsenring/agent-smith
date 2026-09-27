@@ -3738,6 +3738,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: ["sample"],
       unanswerable: [],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });
@@ -3773,6 +3774,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: [],
       unanswerable: ["beta"],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });
@@ -3791,6 +3793,36 @@ describe("a page addressed with a ticket and no project", () => {
     );
   });
 
+  // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
+  // Binding through it would re-fetch this number on that tracker, which is a different board.
+  it("SpecDialogSurface_LabelsNamingAnotherTrackersProject_SaysSoRatherThanBinding", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    readTicketProject.mockResolvedValue({
+      ticketId: "412",
+      title: "Widget drops",
+      tracker: "jira-one",
+      projects: [],
+      unanswerable: [],
+      elsewhere: ["beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain(
+        "on another tracker",
+      ),
+    );
+    expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain("beta");
+  });
+
   // 2026-09-27-5c1eb: and the same sentence on a SINGLE-project installation, which renders no
   // project choice at all.
   it("SpecDialogSurface_SingleConfiguredProject_StillSaysWhyTheTicketNamedNoProject", async () => {
@@ -3801,6 +3833,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: [],
       unanswerable: ["sample"],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });

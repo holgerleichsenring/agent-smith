@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-27-481bc
+goal: "The ticket a conversation is grounded on is readable where its repositories already are — linked to its tracker, and showing the text the turn was actually seeded with."
+
+applies_to: "dashboard (the scope pane) and backend (a ticket's web address and the text a bound conversation holds)"
+
+requires: ["2026-09-27-481ba"]
+
+scope:
+  in: "A web address on the ticket a conversation is bound to, and the composed text it was seeded with shown in the pane that already says what the conversation may read."
+  out: "Showing the ticket read while it happens, which needs a channel this one does not have — 2026-09-27-481be. Editing the ticket, which is the amendment 2026-09-25-8e51e. A kind, which is 2026-09-27-481bf."
+
+decisions:
+  - key: |
+      IT GOES IN THE SCOPE PANE, NOT A TAB OF ITS OWN. The pane is already "what the agent is
+      grounded in — the project, the repositories and the templates a turn may read", and a bound
+      ticket is exactly that; it is also the pane 2026-09-27-481bd is already changing. A new tab
+      would be the FIFTH — proposal, scope, filed and approved exist, and the tablist was extracted
+      to make room for the fourth, not for an open-ended row of them. A fifth that is empty for
+      every unbound conversation teaches a person to stop looking at the row.
+  - key: |
+      THE MODEL READS SOMETHING THE PERSON CANNOT. The composed text is seeded into EVERY turn of a
+      bound conversation — capped, stripped of our own comments, inside the untrusted-data
+      delimiters — and no dashboard surface shows it. The filed pane shows a ticket's title and id,
+      so it is the TEXT that is invisible, not the ticket. When an answer looks wrong the first
+      question is what it read, and that question has no answer today.
+  - key: |
+      THE PANE SHOWS THE SEEDED TEXT AND DOES NOT RE-READ THE TRACKER. Showing a fresh read would
+      answer a different question: the conversation reasons from what it was seeded with, and a
+      ticket that has since changed is precisely the case where the two differ. The stored row
+      already holds the composed text, whether it was capped, and when it was read, so the pane is
+      a database read — opening it must not cost a tracker round trip, which is what the seeding
+      path does because it also computes whether the ticket moved.
+  - key: |
+      THE ADDRESS IS TAKEN WHERE THE TRACKER GIVES ONE AND COMPOSED ONLY WHERE IT DOES NOT. GitHub
+      and GitLab both return a browser url in the payload already fetched and both mappers discard
+      it; Azure DevOps has a composer for it already, written for the tickets this framework
+      creates; Jira's is its base url and the issue key. What must NOT happen is composing GitLab's
+      from the connection: that project path is URL-escaped at construction for the API route, so a
+      browser link built from it would be broken. The webhook path's url is no help either — it is
+      the REST resource, not a page a person can open.
+  - key: |
+      THE ADDRESS RIDES THE TICKET, NOT THE SEARCH HIT. A search hit is an id and a title by
+      contract, and widening that port is the expensive direction. Carrying it on the ticket the
+      port already returns gives it to everything that fetches one — the binding, the pane, and, as
+      a consequence rather than a goal, the filed pane's reference, which already renders a link
+      whenever that reference is a url and today receives a bare ticket id. So the link appears
+      once a ticket is picked or bound, and not on every row of a search.
+
+steps:
+  - id: a-ticket-carries-its-address
+    path: "src/backend/AgentSmith.Domain/Entities, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Carry a web address on the ticket, absent where a tracker gives none."
+      - "Read it from the payload on GitHub and GitLab, reuse the existing Azure DevOps composer, and compose Jira's from its base url and the issue key."
+
+  - id: the-binding-carries-it-on
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action: "Carry the address with the binding and with what a bound conversation answers, and let the filed pane's reference take it where it has one."
+
+  - id: the-seeded-text-is-answerable
+    path: "src/backend/AgentSmith.Server"
+    action:
+      - "Answer, for a bound conversation, the composed text it holds with when it was read and whether it was capped — from the stored row, with no tracker call."
+      - "Serve it under the same permission its neighbours carry and regenerate the route-permission baseline."
+
+  - id: the-scope-pane-shows-the-ticket
+    path: "src/dashboard/src"
+    action:
+      - "Draw the bound ticket at the head of the scope pane: its id, its title, a link to the tracker, and the text the turn was seeded with."
+      - "Say when it was read, and say when the cap held part of it back."
+      - "Mirror the new fields by hand — the mirror has no drift check."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests, src/dashboard/src/components/dialog/__tests__"
+    action: "Assert the address each tracker yields, that GitLab's is a browser route and not the escaped API path, that the pane answers from the row without a tracker call, and that an unbound conversation's pane is unchanged."
+
+tests:
+  - "TicketWebAddress_GitHubAndGitLab_TakeTheUrlTheTrackerAlreadyReturned"
+  - "TicketWebAddress_GitLab_IsABrowserRouteNotTheEscapedApiPath"
+  - "TicketWebAddress_JiraAndAzureDevOps_AreComposedFromTheConnection"
+  - "TicketWebAddress_ATrackerThatGivesNone_LeavesItAbsent"
+  - "BoundTicketText_ABoundConversation_AnswersTheStoredTextWithoutCallingTheTracker"
+  - "SpecDialogScopePanel_ABoundConversation_ShowsTheTicketTextAndLinksToIt"
+  - "SpecDialogScopePanel_ACappedTicket_SaysPartOfItIsNotCarried"
+  - "SpecDialogScopePanel_AnUnboundConversation_IsUnchanged"
+
+done:
+  - "a bound conversation links to its ticket on the tracker, and the link is one a browser opens"
+  - "the text the turn was seeded with is readable in the scope pane, with when it was read"
+  - "a capped ticket says so where its text is shown"
+  - "opening the pane costs no tracker call"
+  - "an unbound conversation's pane is byte for byte what it was"
+  - "route-permission baseline regenerated, build green, full suite green, dashboard tests green"

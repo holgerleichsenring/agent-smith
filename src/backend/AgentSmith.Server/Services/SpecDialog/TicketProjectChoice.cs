@@ -21,6 +21,14 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// because a project routed by area path or repository is not the operator's configuration being
 /// wrong.
 /// </para>
+/// <para>
+/// 2026-09-27-1bd9: and only projects ON THE TRACKER THAT ANSWERED. The match keeps a project
+/// whose trigger KIND equals the ticket's platform, and two Jira trackers are both "jira" — so a
+/// ticket swept up from the first tracker holding its number could be matched to a project routed
+/// to the second, and the binding, which re-fetches by id on THAT project's tracker, would bind a
+/// different board's ticket of the same number. A project matched elsewhere is reported rather
+/// than dropped in silence: it is the reason a ticket that looked answerable is being asked about.
+/// </para>
 /// </summary>
 public sealed class TicketProjectChoice(
     ITicketProviderFactory providers,
@@ -38,7 +46,12 @@ public sealed class TicketProjectChoice(
             var binding = TicketBinding.For(
                 tracker.Name, platform, ticket.Id.Value, ticket.Title, ticket.Labels);
             var matches = TicketProjectMatch.Of(config, binding.Envelope(platform));
-            return new TicketProjectAnswer(binding, matches.Matched, matches.Unanswerable);
+            var here = TrackerProjects.RoutedTo(config, tracker.Name);
+            return new TicketProjectAnswer(
+                binding,
+                [.. matches.Matched.Intersect(here, StringComparer.Ordinal)],
+                [.. matches.Unanswerable.Intersect(here, StringComparer.Ordinal)],
+                [.. matches.Matched.Except(here, StringComparer.Ordinal)]);
         }
 
         return null;
@@ -63,7 +76,11 @@ public sealed class TicketProjectChoice(
 }
 
 /// <summary>The ticket, the projects it names, and the ones a ticket cannot answer for.</summary>
+/// <param name="Elsewhere">2026-09-27-1bd9: projects this ticket's labels DO name, on other
+/// trackers — which cannot hold it. Carried so the person is told why they are being asked about a
+/// ticket whose routing looks unambiguous, rather than left to conclude the labels are wrong.</param>
 public sealed record TicketProjectAnswer(
     TicketBinding Binding,
     IReadOnlyList<string> Projects,
-    IReadOnlyList<string> Unanswerable);
+    IReadOnlyList<string> Unanswerable,
+    IReadOnlyList<string> Elsewhere);
