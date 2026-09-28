@@ -10,6 +10,10 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// other role patches an entry of the <c>models:</c> registry. Split out of
 /// <see cref="RawConfigPatch"/> (2026-08-27-3eb1) — role routing is its own reason to
 /// change, and it changed the moment a role gained a stated input window.
+/// <para>
+/// A role saved with an empty model is UNSET: it is removed and inherits again, which is
+/// how an operator clears a role. Nothing here writes a model the operator did not name.
+/// </para>
 /// </summary>
 internal static class RawAgentModelPatch
 {
@@ -30,23 +34,20 @@ internal static class RawAgentModelPatch
 
     private static void PatchAssignment(ModelRegistryConfig registry, string role, AgentModelAssignment source)
     {
-        var target = role switch
+        if (!StudioModelRoles.IsKnown(role))
+            throw new ConfigurationException(
+                $"Unknown agent model role '{role}' (known: coding, {string.Join(", ", StudioModelRoles.Names)}).");
+        if (string.IsNullOrWhiteSpace(source.Model))
         {
-            "scout" => registry.Scout,
-            "primary" => registry.Primary,
-            "planning" => registry.Planning,
-            "reasoning" => registry.Reasoning ??= new ModelAssignment(),
-            "summarization" => registry.Summarization,
-            "contextGeneration" => registry.ContextGeneration ??= new ModelAssignment(),
-            "codeMapGeneration" => registry.CodeMapGeneration ??= new ModelAssignment(),
-            _ => throw new ConfigurationException(
-                $"Unknown agent model role '{role}' (known: coding, scout, primary, planning, " +
-                "reasoning, summarization, contextGeneration, codeMapGeneration)."),
-        };
+            StudioModelRoles.Set(registry, role, null);
+            return;
+        }
+        var target = StudioModelRoles.Get(registry, role) ?? new ModelAssignment();
         target.Model = source.Model;
         target.Deployment = source.Deployment;
         if (source.MaxTokens is { } maxTokens) target.MaxTokens = maxTokens;
         // 2026-08-27-3eb1: same patch semantics as MaxTokens — null keeps what is stored.
         if (source.ContextWindowTokens is { } window) target.ContextWindowTokens = window;
+        StudioModelRoles.Set(registry, role, target);
     }
 }

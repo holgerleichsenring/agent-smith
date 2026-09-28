@@ -87,14 +87,15 @@ export function AgentForm({
         testId="agent-section-models"
       >
         {/* p0351: the roles are the fixed TaskType set from capabilities, not a
-            free-text add-role box — only these keys route to a model. Optional
-            roles (reasoning) are offered as a seed until added. */}
+            free-text add-role box — only these keys route to a model. Every role
+            but coding is optional and offered as a seed until added: an unset role
+            inherits (primary from coding, the others from primary). */}
         {(capabilities?.roles ?? roles.map((key) => ({ key, optional: true }))).map((r) => {
           if (!(r.key in draft.models) && r.optional) {
             return (
               <SectionSeed
                 key={r.key}
-                text={`No ${r.key} model — the backend default applies.`}
+                text={`No ${r.key} model — it inherits ${inheritsFrom(r.key)}.`}
                 action={`Add ${r.key} role`}
                 testId={`agent-add-role-${r.key}`}
                 onAdd={() => onChange({ ...draft, models: { ...draft.models, [r.key]: { model: "" } } })}
@@ -219,7 +220,6 @@ export function AgentForm({
                   thresholdIterations: 0,
                   maxContextTokens: 0,
                   keepRecentIterations: 0,
-                  summaryModel: "",
                 },
               })
             }
@@ -249,12 +249,6 @@ export function AgentForm({
               value={draft.compaction.keepRecentIterations}
               testId="form-field-compaction-keepRecentIterations"
               onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, keepRecentIterations: v ?? 0 } })}
-            />
-            <TextField
-              label="summary model"
-              value={draft.compaction.summaryModel}
-              testId="form-field-compaction-summaryModel"
-              onChange={(v) => onChange({ ...draft, compaction: { ...draft.compaction!, summaryModel: v } })}
             />
             <ClearSection testId="agent-clear-compaction" onClear={() => onChange({ ...draft, compaction: undefined })} />
           </>
@@ -551,4 +545,11 @@ function ClearSection({ onClear, testId }: { onClear: () => void; testId: string
       </button>
     </div>
   );
+}
+
+/** Where an unset role takes its model from — the backend's role chain, in words. */
+function inheritsFrom(role: string): string {
+  if (role === "primary") return "the coding model";
+  if (role === "codeMapGeneration") return "scout, then primary";
+  return "primary";
 }

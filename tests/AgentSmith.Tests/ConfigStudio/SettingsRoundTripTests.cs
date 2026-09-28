@@ -25,7 +25,7 @@ public sealed class SettingsRoundTripTests
             "orchestrator", "limits", "pipeline_cost_cap", "skills", "sandbox", "queue",
             "dialogue", "deployment", "registries", "primary_provider", "pipeline_storage",
             // 2026-08-25-1806: what a role name means is application configuration too.
-            "pipeline_data_flow", "role_mapping",
+            "pipeline_data_flow", "role_mapping", "trace",
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }

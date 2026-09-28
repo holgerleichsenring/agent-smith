@@ -40,6 +40,9 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Persistence, r => r.Persistence, (r, v) => r.Persistence = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PipelineCostCap, r => r.PipelineCostCap,
             (r, v) => r.PipelineCostCap = v),
+        // A server reads its configuration from the store, so a switch the store cannot hold
+        // is one only the environment could flip. AGENTSMITH_TRACE still wins (TraceSwitch).
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.Trace, r => r.Trace, (r, v) => r.Trace = v),
         // 2026-08-25-1806: the role mapping is a singleton doc like any other, which is
         // what gives it the studio form, the attributed change row and the live epoch
         // without a second mechanism being written for it.

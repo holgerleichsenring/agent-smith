@@ -45,6 +45,7 @@ public sealed class TrackerCatalogBuilder
                 LifecycleStatusNames = entry.LifecycleStatusNames ?? new Dictionary<string, string>(),
                 LabelNames = entry.LabelNames ?? new Dictionary<string, string>(),
                 WorkItemKinds = entry.WorkItemKinds ?? new Dictionary<string, string>(),
+                Endpoints = entry.Endpoints ?? new JiraEndpoints(),
             };
         }
 

@@ -53,14 +53,13 @@ public sealed record AgentCacheSettings(bool IsEnabled, string Strategy);
 
 /// <summary>
 /// Context-compaction settings (the studio-editable subset of <c>compaction:</c>;
-/// the token-ratio trigger and deployment override are preserved untouched by upsert).
+/// the token-ratio trigger is preserved untouched by upsert).
 /// </summary>
 public sealed record AgentCompactionSettings(
     bool IsEnabled,
     int ThresholdIterations,
     int MaxContextTokens,
-    int KeepRecentIterations,
-    string SummaryModel);
+    int KeepRecentIterations);
 
 /// <summary>Transient-failure retry settings (mirrors <c>retry:</c> on the raw agent).</summary>
 public sealed record AgentRetrySettings(

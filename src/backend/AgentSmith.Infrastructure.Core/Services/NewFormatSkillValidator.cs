@@ -10,10 +10,9 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// </summary>
 internal sealed class NewFormatSkillValidator
 {
-    private static readonly HashSet<string> AllowedRoles = new(StringComparer.Ordinal)
-    {
-        "producer", "investigator", "judge", "filter", "master",
-    };
+    /// <summary>In the order a refusal lists them.</summary>
+    private static readonly IReadOnlyList<string> AllowedRoles =
+        ["producer", "investigator", "judge", "filter", "master"];
 
     private static readonly HashSet<string> AllowedOutputSchemas = new(StringComparer.Ordinal)
     {
@@ -51,9 +50,9 @@ internal sealed class NewFormatSkillValidator
     {
         if (string.IsNullOrWhiteSpace(meta.Role))
             throw new SkillFormatException(path, "role is required and must be non-empty");
-        if (!AllowedRoles.Contains(meta.Role))
+        if (!AllowedRoles.Contains(meta.Role, StringComparer.Ordinal))
             throw new SkillFormatException(
-                path, $"role must be one of {{producer, investigator, judge, filter}}; got '{meta.Role}'");
+                path, $"role must be one of {{{string.Join(", ", AllowedRoles)}}}; got '{meta.Role}'");
     }
 
     // p0518: the cap and the shape both come from SkillDescriptionRule, the same

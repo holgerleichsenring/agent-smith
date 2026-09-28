@@ -87,7 +87,16 @@ Jira-specific things to notice:
 - **`lifecycle_status_names`** — by default the run lifecycle (pending / enqueued / in-progress / done / failed) is carried as labels. Add a `lifecycle_status_names:` map on the tracker to move issues through native Jira workflow statuses instead; labels remain the always-available carrier.
 - **`label_names`** — renames the labels the framework writes, for a board with its own vocabulary. The keys are `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall` and `approved-set`; a key you leave out keeps its default word. Labels written under an older name are still recognised.
 - **`work_item_kinds`** — which Jira issue type a ticket Agent Smith files is created as, per filing role: `work` (an approved cut's work ticket), `phase` (a single phase filed from a design conversation), `bug`, and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway. The trail of the filing names the type it used. The lifecycle statuses have to exist in the workflow of that issue type; if they don't, the issue can't be moved and the refusal says the issue type is the usual cause.
-- **`endpoints:`** — an override block on the tracker for individual REST paths, for the day Atlassian moves one. You should never need it until you do.
+- **`endpoints:`** — an override block on the tracker for individual REST paths, for the day Atlassian moves one. You should never need it until you do. The keys are `search` (default `/rest/api/3/search/jql`), `issue` (`/rest/api/3/issue/{id}`), `comment` (`/rest/api/3/issue/{id}/comment`), `transitions` (`/rest/api/3/issue/{id}/transitions`) and `create` (`/rest/api/3/issue`); `{id}` is replaced with the issue key, and a path you leave out keeps its default. In the studio it's the tracker's **REST path overrides** map, which shows only the paths you changed.
+
+  ```yaml
+  trackers:
+    acme-jira:
+      type: jira
+      # ...
+      endpoints:
+        search: /rest/api/2/search      # a Jira Data Center that has no v3 search
+  ```
 - **`polling.enabled: false`** — Atlassian Cloud webhooks are reliable; use them. Polling is per-tracker and is the fallback for Jira Server / Data Center behind a firewall.
 
 The tracker owns the workflow: `open_states`, `done_status`, `failed_status` (where a failed run parks the issue), `needs_clarification_status`, `trigger_statuses` (falls back to `open_states`), `pipeline_from_label` and `default_pipeline` can all live on the tracker block, inherited by every project routed to it. When the label map has entries, a ticket matching none of them isn't routed; when it has none, every ticket runs the default pipeline, and if neither the project's trigger nor the tracker declares one it runs `code` and the startup findings say so. A project then only declares its resolution:

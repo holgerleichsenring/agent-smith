@@ -23,6 +23,7 @@ const FIXTURES: Record<string, unknown> = {
     },
   },
   registries: [],
+  trace: { enabled: false },
   sandbox: {
     agentRegistry: "ghcr.io/x",
     agentVersion: "0.48.0",
@@ -252,5 +253,15 @@ describe("SettingsStudio", () => {
     expect(saveSetting).toHaveBeenCalledWith("registries", [
       expect.objectContaining({ host: "pkgs.dev.azure.com" }),
     ]);
+  });
+
+  it("TraceForm_Toggle_SavesTheStoredSwitch", async () => {
+    render(<SettingsStudio settingKey="trace" />);
+    const enabled = await screen.findByTestId("setting-trace-enabled");
+    expect(enabled).toHaveAttribute("data-selected", "false");
+    fireEvent.click(enabled);
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith("trace", { enabled: true });
   });
 });

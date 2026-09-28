@@ -31,6 +31,7 @@ internal static class ConfigTransferEndpoints
         // (read from file/env before the DB), so it is never imported.
         app.MapPost("/api/config/import",
             async (HttpRequest req, [FromServices] IConfigDocumentStore docStore, IConfigStore store,
+                [FromServices] ConfigImportPlanner planner,
                 [FromServices] IConfigReloadSignal reload, [FromServices] ISystemEventPublisher events, HttpContext ctx) =>
             {
                 var force = req.Query["force"] == "true";
@@ -43,15 +44,14 @@ internal static class ConfigTransferEndpoints
                     });
                 return await GuardSignalingAsync(ctx, reload, events, () =>
                 {
-                    var raw = new RawConfigYaml().Deserialize(yaml);
-                    var writes = new ConfigDocumentAssembler().Decompose(raw)
-                        .Where(d => d.Type != ConfigDocTypes.Persistence)
+                    var plan = planner.Plan(yaml, "the imported file");
+                    var writes = plan.Docs
                         .Select(d => new ConfigDocWrite(
                             d.Type, d.Id, d.Doc, ExpectedVersion: null, d.Edges, Attribution(ctx).Actor))
                         .ToList();
                     docStore.Import(writes, force);
                     store.Load();
-                    return Results.Ok(new { imported = writes.Count });
+                    return Results.Ok(new { imported = writes.Count, dropped = plan.Dropped });
                 });
             }).Needs(Permissions.ConfigImport, Permissions.SecretsWrite);
 

@@ -10,7 +10,8 @@ namespace AgentSmith.Tests.Configuration;
 /// p0312d: <c>agent.parallelism.max_concurrent_skill_rounds</c> fanned out consecutive
 /// same-(Name, Round) skill rounds. p0312a removed the last batchable command family and
 /// this phase removed the batch path itself, so the knob has no reader left. It is gone
-/// from the schema rather than kept as a setting that silently does nothing.
+/// from the model and from agentsmith.schema.json (ConfigSchemaCoverageTests keeps the two
+/// level), and a file that still sets it gets a retired-key advisory (RetiredConfigKeys).
 ///
 /// Two things must hold together, and they pull in opposite directions: the key must be
 /// ABSENT from the model (nothing can read it, nothing can pretend to), and a deployed

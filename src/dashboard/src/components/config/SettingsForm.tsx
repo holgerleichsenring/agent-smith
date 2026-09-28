@@ -9,6 +9,7 @@ import type {
   OrchestratorSetting,
   PipelineCostCapSetting,
   PipelineDataFlowSetting,
+  TraceSetting,
   PipelineStorageSetting,
   PrimaryProviderSetting,
   QueueSetting,
@@ -85,6 +86,8 @@ export function SettingsForm({
       return <PipelineStorageForm value={value as PipelineStorageSetting} onChange={onChange} />;
     case "pipeline_data_flow":
       return <PipelineDataFlowForm value={value as PipelineDataFlowSetting} onChange={onChange} />;
+    case "trace":
+      return <TraceForm value={value as TraceSetting} onChange={onChange} />;
   }
 }
 
@@ -477,6 +480,20 @@ function PipelineDataFlowForm({
   return (
     <CheckField label="Enforce data-flow gating" value={value.enforce}
       onChange={(v) => set({ enforce: v })} testId="setting-dataflow-enforce" />
+  );
+}
+
+function TraceForm({
+  value,
+  onChange,
+}: {
+  value: TraceSetting;
+  onChange: (v: SettingValue) => void;
+}) {
+  const set = patcher(value, onChange);
+  return (
+    <CheckField label="Record each run's conversation (AGENTSMITH_TRACE, when set, wins)"
+      value={value.enabled} onChange={(v) => set({ enabled: v })} testId="setting-trace-enabled" />
   );
 }
 

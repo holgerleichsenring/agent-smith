@@ -16,8 +16,8 @@ public sealed class AgentModelWindowPatchTests
     {
         var agent = RawConfigPatch.Agent(Entity(new AgentModelAssignment("m", null, 4096, 128000)), null);
 
-        agent.Models!.Scout.ContextWindowTokens.Should().Be(128000);
-        agent.Models.Scout.MaxTokens.Should().Be(4096);
+        agent.Models!.Scout!.ContextWindowTokens.Should().Be(128000);
+        agent.Models.Scout!.MaxTokens.Should().Be(4096);
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public sealed class AgentModelWindowPatchTests
 
         var agent = RawConfigPatch.Agent(Entity(new AgentModelAssignment("m")), existing);
 
-        agent.Models!.Scout.ContextWindowTokens.Should().Be(200000);
+        agent.Models!.Scout!.ContextWindowTokens.Should().Be(200000);
     }
 
     [Fact]

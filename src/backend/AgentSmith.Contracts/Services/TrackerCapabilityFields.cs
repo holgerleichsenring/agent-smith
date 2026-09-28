@@ -48,6 +48,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("authSecret", "Auth secret", Required: true),
             .. WorkflowFields,
             WorkItemKinds,
+            new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map),
         ],
         _ => throw new ConfigurationException(
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),

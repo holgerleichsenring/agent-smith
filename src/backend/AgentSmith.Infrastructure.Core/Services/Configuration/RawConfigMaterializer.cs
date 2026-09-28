@@ -18,8 +18,10 @@ public sealed class RawConfigMaterializer(
     ConfigCatalogResolver resolver,
     IAgentSmithPaths paths,
     IStartupFindings? findings = null,
-    ConfigSecretReferences? secretReferences = null)
+    ConfigSecretReferences? secretReferences = null,
+    ModelRoleFindings? modelRoles = null)
 {
+    private readonly ModelRoleFindings _modelRoles = modelRoles ?? new ModelRoleFindings();
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
     private readonly ConfigSecretResolver _secrets = new(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
@@ -45,6 +47,8 @@ public sealed class RawConfigMaterializer(
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
         var config = resolver.Resolve(raw);
+        // Advisory, so recorded but never part of what the one-shot loader refuses on.
+        foreach (var finding in _modelRoles.For(config.Agents)) _findings.Record(finding);
         LastResolutionFindings = [.. _unmaterializable, .. resolver.LastFindings];
         return config;
     }
