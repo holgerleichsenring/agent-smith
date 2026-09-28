@@ -79,11 +79,28 @@ public sealed class CodeMapRoleBindingTests
         // The registry entry used to be a hard-coded Claude model with no fallback. Inert while
         // nothing requested the role; the moment something does, an OpenAI or ollama agent would
         // ask its own provider for a model that provider has never heard of.
-        var registry = new ConfigBasedModelRegistry(
-            Agent(codeMap: null).Models!, NullLogger.Instance);
+        var registry = new ConfigBasedModelRegistry(Agent(codeMap: null), NullLogger.Instance);
 
         registry.GetModel(TaskType.CodeMapGeneration).Model
             .Should().Be(ScoutModel).And.NotContain("claude");
+    }
+
+    [Fact]
+    public async Task Probe_PartialModels_UsesAgentsOwnModel()
+    {
+        // The probe asks the cheapest role. A models block that does not name it used to hand
+        // the probe a built-in Claude id, so a correctly configured non-Claude agent failed it.
+        var builder = new RecordingBuilder();
+        var agent = new AgentConfig
+        {
+            Type = "stub", Model = "own-model",
+            Models = new ModelRegistryConfig { Planning = new() { Model = "planning-model" } },
+        };
+
+        var result = await RealFactory(builder).ProbeAsync(agent, CancellationToken.None);
+
+        result.Ok.Should().BeTrue();
+        builder.Models.Should().Equal(["own-model"]);
     }
 
     private static AgentConfig Agent(ModelAssignment? codeMap) => new()

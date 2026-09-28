@@ -3,8 +3,10 @@
 # Agent Smith — Example Configuration (p0139 catalog-first schema)
 #
 # ── p0349: what the SERVER reads from this file ─────────────────────────
-# At BOOT the server reads ONLY `persistence:` + `secrets:` (the bootstrap
-# slice). Everything else in this document is the IMPORT/EXPORT format for
+# At BOOT the server reads ONLY `persistence:`, `secrets:`, `auth:` and
+# `tool_runner:` from this file (the bootstrap slice) — those four are never
+# stored in the database. Everything else in this document is the IMPORT/EXPORT
+# format for
 #   agentsmith config import <yaml>    # seed an empty DB (guarded; --force)
 #   agentsmith config export           # DB -> YAML, for backup/DR
 # and is edited in the Config Studio (dashboard). The one-shot CLI pipelines
@@ -13,12 +15,17 @@
 #
 # Top-level catalogs (`agents:`, `repos:`, `trackers:`, `pipeline_triggers:`)
 # are defined once. Each project under `projects:` references catalog entries
-# by name and adds its own trigger blocks. This replaces the pre-p0139 form
-# where every project carried inline source/tickets/agent blocks (see
-# docs/configuration/migration-from-pre-p0139.md if you're migrating).
+# by name and adds its own trigger blocks.
+#
+# The loader ignores a key it does not know, so an old file keeps loading. That
+# makes agentsmith.schema.json (line 1) the place a misspelt key is caught: an
+# editor that validates against it reports the typo, and `agentsmith config import`
+# names every key it did not store.
 #
 # Supported providers (canonical YAML values are snake_case):
-#   - AI agents: claude | openai | azure_openai | gemini | ollama
+#   - AI agents: claude | openai | azure_openai | gemini | ollama | copilot | external_worker
+#                (anthropic and google are aliases of claude and gemini; openai with an
+#                endpoint talks to any OpenAI-compatible server)
 #   - Repos:     github | gitlab | azure_devops | local
 #   - Trackers:  github | gitlab | azure_devops | jira
 
@@ -56,7 +63,7 @@ deployment:
 # Inject credentials into the sandbox pod from operator-created k8s Secrets. The
 # VALUES live in the Secret (never in this file or context.yaml); only the
 # references are sent to the pod. The consuming auth command lives in the repo's
-# .agentsmith/context.yaml `prerequisites` as an `sh -c "…"` line, e.g. a
+# .agentsmith/contexts/<name>/context.yaml `prerequisites` as an `sh -c "…"` line, e.g. a
 # Salesforce JWT login. Create the Secret first:
 #   kubectl create secret generic sf-creds \
 #     --from-literal=client-id=... --from-literal=username=... \
@@ -74,7 +81,7 @@ deployment:
 #           - mount: "/secrets/server.key"
 #             secret: "sf-creds"
 #             key: "jwt-key"
-# context.yaml prerequisites (in the repo, not here):
+# .agentsmith/contexts/<name>/context.yaml prerequisites (in the repo, not here):
 #   prerequisites: 'sh -c "sf org login jwt --client-id $SF_CLIENT_ID --jwt-key-file /secrets/server.key --username $SF_USERNAME --alias devhub"'
 
 # --- What TYPE of work item a filing creates (2026-09-18-b4f0) ---
@@ -163,8 +170,9 @@ persistence:
 # and you find out whether your issuer works before anyone can be locked out.
 #
 # WHO holds a role is decided at the identity provider — an app-role assignment or a
-# group membership. WHAT a role means is decided here. Nothing in agent-smith grants a
-# person a role, and there is no screen for it.
+# group membership — and, in addition, on the dashboard's Access -> Permissions page
+# (People), where an administrator can grant one person a role against their claim.
+# WHAT a role means is decided in the role mapping.
 #
 # A directory that nests its roles (realm roles under realm_access.roles) cannot be read
 # by a flat claim name at all; map its groups instead. AGENTSMITH_ADMIN_GRANT is the way
@@ -177,8 +185,8 @@ persistence:
 #
 #   # 2026-08-25-1806: the four keys below are the migration SEED, not what runs. What a
 #   # role MEANS is application configuration — it changes when a team does — so it lives
-#   # in the config store and is edited under Settings -> Roles & claims, applying without
-#   # a restart. An installation that still declares them here has them imported ONCE, on
+#   # in the config store and is edited on Access -> Permissions (/config/access), applying
+#   # without a restart. An installation that still declares them here has them imported ONCE, on
 #   # the first boot after the upgrade; after that the store is the only answer.
 #   role_claim: roles                 # the claim carrying role NAMES, read verbatim
 #   group_claim: groups               # the claim carrying group values, mapped below
@@ -188,14 +196,21 @@ persistence:
 #     platform-admins:                # a group PATH's leading slash is normalised away
 #       - admin
 #   roles:                            # roles this installation adds to the built-in three
-#     config-viewer:                  # additive: a built-in name is never replaced, and a
-#       - config.read                 # permission outside the catalog is dropped, not granted
+#     config-viewer:                  # additive: a built-in name is never replaced. A permission
+#       - config.read                 # outside the catalog is refused on the Access page; from
+#                                     # this seed it is dropped with a startup finding, never granted
 
 # ────────────────────────────────────────────────────────────────────────
 #  Agents catalog
 # ────────────────────────────────────────────────────────────────────────
 # Each named entry is the full AgentConfig that projects can reference by name.
 # Same agent reused across projects → defined once, edited once.
+#
+# `models:` routes each role (primary, scout, planning, reasoning, summarization,
+# context_generation, code_map_generation) to its own model. No role has a built-in
+# model: an unset primary is the agent's own `model`, every other unset role is
+# primary (code_map_generation is scout, then primary), with primary's max_tokens.
+# Name a role only to send it somewhere else — a cheaper scout, say.
 agents:
   claude-default:
     type: claude
@@ -211,8 +226,7 @@ agents:
     compaction:
       is_enabled: true
       max_context_tokens: 200000
-      keep_recent_iterations: 3
-      summary_model: claude-haiku-4-5-20251001
+      keep_recent_iterations: 3          # compaction summarizes with the summarization role
     models:
       scout:
         model: claude-haiku-4-5-20251001
@@ -233,9 +247,9 @@ agents:
           output_per_million: 15.0
           cache_read_per_million: 0.30
         claude-haiku-4-5-20251001:
-          input_per_million: 0.80
-          output_per_million: 4.0
-          cache_read_per_million: 0.08
+          input_per_million: 1.0
+          output_per_million: 5.0
+          cache_read_per_million: 0.10
 
   # GitHub Copilot (2026-09-07-d5f2). Answers on an operator's Copilot seat instead of a
   # per-provider API key. Three things differ from the providers above and none of them are
@@ -252,20 +266,17 @@ agents:
   #     event publishing — stays agent-smith's (2026-09-23-4722a, proven live in 2026-09-25-6b2e).
   # copilot-seat:
   #   type: copilot
-  #   model: gpt-5
+  #   model: gpt-5                     # every role inherits it; no models: block needed
   #   api_key_secret: COPILOT_GITHUB_TOKEN
-  #   models:
-  #     summarization:
-  #       model: gpt-5
-  #       max_tokens: 2048
   #   pricing:
   #     models:
   #       gpt-5:
   #         input_per_million: 0.0
   #         output_per_million: 0.0
 
-  # Required for api-security-scan to hit Anthropic's 5-min prompt-cache TTL.
-  claude-parallel:
+  # A second Claude agent — the api-security project below runs on it. It names only
+  # primary and planning, so scout and summarization inherit primary (and its max_tokens).
+  claude-scan:
     type: claude
     model: claude-sonnet-4-20250514
     cache:
@@ -289,6 +300,8 @@ agents:
   #   type: azure_openai
   #   endpoint: https://your-instance.openai.azure.com
   #   api_version: 2025-01-01-preview
+  #   api_key_secret: AZURE_OPENAI_API_KEY   # the env var holding the key
+  #   # scout and summarization are unset, so they run on primary's deployment.
   #   models:
   #     primary:
   #       model: gpt-4.1
@@ -301,11 +314,26 @@ agents:
 
   # gemini-default:
   #   type: gemini
-  #   model: gemini-2.5-flash
+  #   model: gemini-2.5-pro              # every role runs on it
+
+  # An OpenAI-COMPATIBLE server (vLLM, LM Studio, an internal gateway): type openai plus
+  # the server's endpoint. The key comes only from the variable api_key_secret names —
+  # never from OPENAI_API_KEY, so an OpenAI key is not sent to someone else's host; with
+  # no api_key_secret, no real key is sent. Declare rate_limit and context_window_tokens
+  # when the server's differ from OpenAI's, and pricing for a model the built-in table
+  # does not know.
+  # local-llm:
+  #   type: openai
+  #   endpoint: http://vllm.internal:8000/v1
+  #   model: qwen2.5-coder-32b
+  #   api_key_secret: LOCAL_LLM_KEY
+  #   rate_limit:
+  #     requests_per_minute: 60
+  #     input_tokens_per_minute: 200000
   #   models:
   #     primary:
-  #       model: gemini-2.5-pro
-  #       max_tokens: 8192
+  #       model: qwen2.5-coder-32b
+  #       context_window_tokens: 32768
 
 # ────────────────────────────────────────────────────────────────────────
 #  Connections catalog (p0281a)
@@ -385,8 +413,9 @@ trackers:
     # ticket, or a question the master raises mid-run). It must sit OUTSIDE
     # trigger_statuses — you moving the ticket back into one IS the re-trigger.
     # REQUIRED for any project that runs a pipeline able to park (code,
-    # spec-dialog); the loader refuses to start without it, because a park with
-    # nowhere to go leaves the ticket claimable and the run repeats forever.
+    # spec-dialog): without it the server reports a blocking finding and leaves
+    # that trigger disabled, because a park with nowhere to go leaves the ticket
+    # claimable and the run repeats forever.
     needs_clarification_status: "Question"
 
   acme-ado:
@@ -417,12 +446,14 @@ trackers:
     close_transition_name: "Done"
     # Optional: override Jira REST paths when Atlassian changes an API (e.g.
     # CHANGE-2046 removed /rest/api/3/search → /rest/api/3/search/jql). Defaults
-    # shown; set only what differs. '{id}' is replaced with the issue key.
+    # shown; set only what differs — a key left out keeps its default. '{id}' is
+    # replaced with the issue key.
     # endpoints:
     #   search:      /rest/api/3/search/jql
     #   issue:       /rest/api/3/issue/{id}
     #   comment:     /rest/api/3/issue/{id}/comment
     #   transitions: /rest/api/3/issue/{id}/transitions
+    #   create:      /rest/api/3/issue
 
 # ────────────────────────────────────────────────────────────────────────
 #  Global pipeline_triggers — label → pipeline default
@@ -450,16 +481,12 @@ projects:
     tracker: acme-github
     repos: [acme-app]
     pipeline: code
-    coding_principles_path: .agentsmith/principles.md
+    coding_principles_path: .agentsmith/contexts/default/principles.md
     # Per-pipeline overrides. Each entry: name + optional agent / skills_path /
-    # coding_principles_path / confidence_threshold. confidence_threshold
-    # (p0167b, default 70, range 0-100): a blocking observation whose
-    # confidence is below the threshold is downgraded to non-blocking before
-    # it can gate the run — lower it to let more findings block, raise it to
-    # keep only high-confidence blockers.
+    # coding_principles_path.
     # pipelines:
-    #   - name: pr-review
-    #     confidence_threshold: 70
+    #   - name: security-scan
+    #     agent: claude-scan
     github_trigger:
       project_resolution:
         # p0140a: GitHub single-repo dispatch — match by the source-repo URL on the
@@ -504,9 +531,7 @@ projects:
     # azuredevops_trigger:
     #   in_progress_status: "Active"     # with open_states: ["New"] on the tracker
 
-  # Multi-repo Jira project — one ticket can spawn N pipeline runs once
-  # p0140 lands. Today the loader accepts the list shape; only Repos[0] is
-  # used by consumers via the transitional single-repo accessor.
+  # Multi-repo Jira project — one ticket's run works across every repo in the list.
   acme-rules:
     agent: claude-default
     tracker: acme-jira
@@ -529,24 +554,25 @@ projects:
   # api-security project (p0102) — local source enables code-aware skills;
   # remote clone via repos: [acme-app] also works.
   # A webhook/poll-triggered api-security project. For a one-off CLI scan you do NOT
-  # need a project at all (p0281d): `agentsmith api-scan --agent claude-parallel
+  # need a project at all (p0281d): `agentsmith api-scan --agent claude-scan
   # --source-path . --swagger ... --target ...` builds an ephemeral project from the
   # named agent + the source path. --project still works for back-compat.
   api-security:
-    agent: claude-parallel
+    agent: claude-scan
     tracker: acme-github
     repos: [api-source-local]
     pipeline: api-security-scan
 
 # How a run waits for a person, and where that person answers it.
-dialogue:
-  # p0461: this deployment's dashboard address. A ticket comment that asks a question
-  # links to the run's page here, so the reader is not left with the tracker as their
-  # only guess. There is deliberately no default — only you know your own address, and a
-  # guessed one printed into a work item is a broken link, so unset means no link at all.
-  # dashboard_url: https://agentsmith.example.com
+# This deployment's dashboard address: a ticket comment that asks a question links
+# to the run's page here, so the reader is not left with the tracker as their only
+# guess. There is deliberately no default — only you know your own address, and a
+# guessed one printed into a work item is a broken link, so unset means no link at all.
+# dialogue:
+#   dashboard_url: https://agentsmith.example.com
 
-# Tool runner for security scanning tools (Nuclei, Spectral).
+# Tool runner for security scanning tools (Nuclei, Spectral). Bootstrap, like auth:
+# the server reads it from this file at start; it is never stored or imported.
 tool_runner:
   type: auto
   images:
@@ -554,15 +580,16 @@ tool_runner:
     spectral: stoplight/spectral:6
 
 # Skill catalog source. The server ships with the catalog EMBEDDED in the
-# image (pinned v4.0.0) — normally you need no skills block at all. Set
-# source/version only to OVERRIDE the embedded catalog: an airgap mirror pin,
-# or catalog development against a local checkout (source: path). See
-# docs/skills/source-modes.md.
-skills:
-  source: default
-  version: v4.7.0
-  # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
-  # cache_dir: /var/lib/agentsmith/skills
+# image — the skills release it was built and tested with — so normally you need no
+# skills block at all. Set source/version only to OVERRIDE the embedded catalog: an
+# airgap mirror pin, or catalog development against a local checkout (source: path).
+# A pin OLDER than the embedded release downgrades every skill. See
+# docs/reference/configuration/skills.md.
+# skills:
+#   source: default
+#   version: v5.7.3
+#   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
+#   cache_dir: /var/lib/agentsmith/skills
 
 # Hard limits for the per-skill agentic loop.
 limits:
@@ -574,8 +601,8 @@ limits:
   max_output_tokens_per_skill_call: 16000
   max_seconds_per_skill_call: 300
   max_concurrent_skill_calls: 10
-  # p0177: sub-agent limits — soft defaults, hard caps live in
-  # SubAgentBudget + SubAgentRunner. spawn_agents is opt-in per pipeline.
+  # Sub-agent limits. Every run's master gets spawn_agents while
+  # max_sub_agents_per_run is above 0; set it to 0 to take fan-out away.
   max_concurrent_sub_agents: 4
   max_sub_agents_per_run: 20
   # 2026-09-22-5891: a design turn is a run of its own, so it fans out under its own
@@ -585,10 +612,11 @@ limits:
   # this times the count above is what bounds one turn's fan-out.
   max_dialog_sub_agent_loop_iterations: 20
 
-# p0151d: per-pipeline cost cap. When cumulative USD or tokens cross the cap,
-# remaining LLM-driven skill calls short-circuit with a `cost-cap-exhausted`
-# observation and the pipeline proceeds to Compile + Deliver. Defaults shown.
-# See docs/configuration/pipeline-cost-cap.md.
+# Per-run cost cap. When cumulative USD or tokens cross the cap, the remaining
+# model calls short-circuit with a `cost-cap-exhausted` observation and the run
+# delivers what it has. Defaults shown. per_tier (defaults $1 / $2 / $8 / $25 for
+# Trivial / Small / Medium / Large) is the ceiling a run's estimated size may RAISE
+# its cap to — never lower it. See docs/reference/configuration/pipeline-cost-cap.md.
 pipeline_cost_cap:
   default:
     usd: 5
@@ -600,6 +628,10 @@ pipeline_cost_cap:
   #   code:
   #     usd: 2
   #     tokens: 200000
+  # per_tier:
+  #   Large:
+  #     usd: 40
+  #     tokens: 8000000
 
 # In-flight pipeline-storage settings.
 pipeline_storage:

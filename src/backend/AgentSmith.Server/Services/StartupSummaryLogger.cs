@@ -66,7 +66,7 @@ public static class StartupSummaryLogger
 
     private static string FormatAgent(AgentConfig agent)
     {
-        var primary = agent.Models?.Primary?.Model ?? agent.Model;
+        var primary = new ModelRoleChain(agent).For(AgentSmith.Contracts.Providers.TaskType.Primary).Model;
         return string.IsNullOrEmpty(primary) ? agent.Type : $"{agent.Type} [{primary}]";
     }
 

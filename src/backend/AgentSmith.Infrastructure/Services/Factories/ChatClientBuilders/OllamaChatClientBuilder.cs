@@ -17,7 +17,7 @@ public sealed class OllamaChatClientBuilder : IChatClientBuilder
 
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
-        var endpoint = !string.IsNullOrEmpty(agent.Endpoint) ? agent.Endpoint : DefaultEndpoint;
+        var endpoint = assignment.EffectiveEndpoint(agent) ?? DefaultEndpoint;
         return new OllamaApiClient(new Uri(endpoint), assignment.Model);
     }
 }

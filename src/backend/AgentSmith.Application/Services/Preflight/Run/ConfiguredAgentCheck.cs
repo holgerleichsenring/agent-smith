@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Preflight.Run;
@@ -43,19 +44,13 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
     }
 
     /// <summary>
-    /// p0436: an agent carries its model in ONE OF TWO shapes, and the gate has to know
-    /// both. <c>Model</c> is a single model; <c>Models</c> is the per-role registry that
-    /// <c>ConfigBasedModelRegistry</c> resolves per TaskType. Reading only the first
-    /// refused a fully configured azure_openai agent — the operator's only agent — two
-    /// seconds into their first real run after this check shipped.
-    /// <para>
-    /// This mirrors the registry's own Primary path rather than inventing a second opinion
-    /// about what a configured agent is: a shape the runtime accepts must not be one the
-    /// gate refuses.
-    /// </para>
+    /// p0436: an agent carries its model as <c>model</c>, as <c>models.primary.model</c>, or
+    /// both. The gate asks the one chain the runtime resolves through, so a shape the
+    /// runtime accepts is never one the gate refuses, and the model it names is the one
+    /// that will answer.
     /// </summary>
-    private static string? ResolvedModel(AgentConfig agent) =>
-        !string.IsNullOrWhiteSpace(agent.Model) ? agent.Model : agent.Models?.Primary.Model;
+    private static string ResolvedModel(AgentConfig agent) =>
+        new ModelRoleChain(agent).For(TaskType.Primary).Model;
 
     private static IReadOnlyList<string> MissingFields(AgentConfig agent, string? model)
     {

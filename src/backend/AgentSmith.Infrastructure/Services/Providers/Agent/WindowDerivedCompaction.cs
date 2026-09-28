@@ -29,8 +29,6 @@ public sealed class WindowDerivedCompaction
             MaxContextTokensTriggerRatio = requested.MaxContextTokensTriggerRatio,
             KeepRecentIterations = requested.KeepRecentIterations,
             ThresholdIterations = requested.ThresholdIterations,
-            SummaryModel = requested.SummaryModel,
-            DeploymentName = requested.DeploymentName,
         };
     }
 }

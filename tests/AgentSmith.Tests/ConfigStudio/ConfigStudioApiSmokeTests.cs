@@ -451,6 +451,11 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigDocJson>();
         builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml>();
         builder.Services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigYamlExporter>();
+        builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Retired.RawConfigTreeReader>();
+        builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Retired.ConfigKeyPathMatcher>();
+        builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Retired.RetiredConfigKeyDetector>();
+        builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.StoredKeyDiff>();
+        builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigImportPlanner>();
         builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
         // p0353: the write endpoints emit a config-reload signal; mirror the server's
         // CLI/no-Redis baseline so [FromServices] resolves.

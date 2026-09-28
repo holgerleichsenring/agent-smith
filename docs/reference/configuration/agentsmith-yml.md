@@ -1,11 +1,13 @@
 # agentsmith.yml reference
 
 !!! note "Which surface reads this"
-    This page documents the file format. A **server** reads only the bootstrap slice (`persistence:`, `secrets:`, `auth:`) from it and keeps everything else in its database, edited in the [Config studio](../../configure-it/config-studio.md). The **CLI** reads the whole file. Same shape either way, and `agent-smith config import` takes exactly this document. See [Where configuration lives](../../configure-it/index.md).
+    This page documents the file format. A **server** reads only the bootstrap slice (`persistence:`, `secrets:`, `auth:`, `tool_runner:`) from it and keeps everything else in its database, edited in the [Config studio](../../configure-it/config-studio.md). The **CLI** reads the whole file. Same shape either way, and `agent-smith config import` takes exactly this document. See [Where configuration lives](../../configure-it/index.md).
 
 The file is a set of named **catalogs** (agents, trackers, connections, repos, MCP servers, secrets) plus **projects** that wire catalog entries together by name, plus a handful of global settings blocks. Names are matched without regard to case, so `TodoList` and `todolist` are the same project; two entries of one catalog that differ only in case are refused.
 
 The annotated `config/agentsmith.example.yml` in the repo is the fullest worked example, and `config/agentsmith.schema.json` gives your editor completion (see [agentsmith.yml](../../configure-it/yaml.md#editor-support)).
+
+The loader ignores a key it doesn't know, so an older file keeps loading after an upgrade. The schema is therefore where a misspelt key is caught: it declares exactly the keys the loader reads, and every block refuses any other. `agent-smith config import` names each key of the file it doesn't store, with the reason: retired, bootstrap-only, or no such setting. A retired key in a loaded configuration is also reported as an advisory startup finding.
 
 ## A complete small example
 
@@ -64,27 +66,33 @@ One entry per LLM configuration. A project names one with `agent:`.
 
 | Key | Description |
 |-----|-------------|
-| `type` | `claude`, `openai`, `azure_openai`, `gemini`, `ollama`, `copilot`. See [AI providers](../../connect-your-stuff/ai-providers.md) |
-| `endpoint`, `api_version` | provider endpoint (Azure OpenAI, Ollama, OpenAI-compatible) |
-| `api_key_secret` | which entry of `secrets:` holds the key, when the provider default isn't it |
+| `type` | `claude` (alias `anthropic`), `openai`, `azure_openai`, `gemini` (alias `google`), `ollama`, `copilot`, `external_worker`. See [AI providers](../../connect-your-stuff/ai-providers.md) |
+| `endpoint`, `api_version` | provider endpoint: Azure OpenAI, Ollama, or with `type: openai` any OpenAI-compatible server (see [OpenAI-compatible servers](../../connect-your-stuff/ai-providers.md#openai-compatible-servers)) |
+| `api_key_secret` | the name of the environment variable holding the key, when the provider default isn't it. With `type: openai` and an `endpoint` there is no default |
 | `model`, `deployment` | the agent's own model, used for writing code (the studio shows it as the `coding` role) |
 | `models.<role>` | the model per role, see below |
 | `pricing.models.<model>` | `input_per_million`, `output_per_million`, `cache_read_per_million` in USD |
 | `cache` | `is_enabled` (default `true`), `strategy` (default `automatic`), prompt caching |
 | `retry` | `max_retries` (5), `initial_delay_ms` (2000), `backoff_multiplier` (2.0), `max_delay_ms` (60000) |
 | `network_timeout_seconds` | how long one provider call may take, default 300 |
+| `rate_limit` | `requests_per_minute`, `input_tokens_per_minute`; unset takes the provider's default budget |
+| `compaction` | `is_enabled` (true), `max_context_tokens` (200000), `max_context_tokens_trigger_ratio` (0.7), `keep_recent_iterations` (3). It summarizes with the `summarization` role |
+| loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3), `ledger_reminder_every_n_iterations` (10), `reminder_drift_editless_iterations` (8), `verdict_owed_after_iterations` (3), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |
+| scan tuning | `scan_min_source_reads` (6), `scan_master_max_output_tokens` (32000), `scan_master_loop_iterations` (100), `scan_context_window_tokens` (200000) |
 
 ### agents.models
 
+No role has a built-in model. An unset role inherits, `max_tokens` included:
+
 | Role | Used for | Unset means |
 |------|----------|-------------|
-| `scout` | code analysis, file discovery | |
-| `primary` | the agentic work | |
-| `planning` | cutting the work into phases | |
-| `summarization` | condensing long histories | |
+| `primary` | the agentic work | the agent's `model` and `deployment` |
+| `scout` | code analysis, file discovery | `primary` |
+| `planning` | cutting the work into phases | `primary` |
+| `summarization` | condensing long histories | `primary` |
 | `reasoning` | extended thinking | `primary` |
 | `context_generation` | discovering components and writing each `context.yaml` | `primary` |
-| `code_map_generation` | the repo analyzer | `scout` |
+| `code_map_generation` | the repo analyzer | `scout`, then `primary` |
 
 Each role takes:
 
@@ -93,6 +101,9 @@ model: claude-sonnet-4-6
 max_tokens: 8192               # the OUTPUT cap
 deployment: gpt4-1-deployment  # Azure OpenAI deployment name, when it differs from the model
 context_window_tokens: 200000  # optional: the INPUT window the deployment accepts
+provider_type: openai          # optional: answer this role on another provider than the agent's
+endpoint: https://…            # optional: this role's own host; unset takes the agent's endpoint
+                               #   when the role runs on the agent's provider
 ```
 
 `context_window_tokens` is unset by default, because the model name doesn't imply it. State it and the tool loop for that role folds its history and finishes before the provider refuses; preflight reports a compaction threshold that could never fire below a stated window.
@@ -155,7 +166,7 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | `extra_fields` | additional work-item fields to fetch |
 | `zero_match_comment` | comment on a ticket no project matched |
 | `polling` | `enabled` (false), `interval_seconds` (60), `jitter_percent` (10). See [Polling](../../trigger-it/polling.md) |
-| `endpoints` | Jira: override individual REST paths |
+| `endpoints` | Jira: override individual REST paths — `search`, `issue`, `comment`, `transitions`, `create`. A path left out keeps its Jira Cloud v3 default. See [Jira](../../connect-your-stuff/tracker-jira.md) |
 
 A label the framework writes may not be spelled like one of your routing words (a `pipeline_from_label` key or a project's resolution value); that configuration is refused. The tracker pages under [Connect your stuff](../../connect-your-stuff/tracker-azure-devops.md) show each type in context.
 
@@ -263,6 +274,9 @@ These blocks apply to every project unless a project overrides them. On a server
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_storage` | how long in-flight run artifacts stay in Redis |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
+| `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |
+| `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `observation_retention_days`. Edited on the Access page |
+| `mcp_servers` | the studio's MCP server catalog: `transport`, `url`, `auth` |
 
 ## Bootstrap and file-only blocks
 
@@ -270,5 +284,4 @@ These blocks apply to every project unless a project overrides them. On a server
 |-------|-------------|
 | `persistence` | `provider` (`sqlite`, `postgresql`, `mysql`, `sqlserver`) and `connection_string`. Replaced by `AGENTSMITH_PERSISTENCE_PROVIDER` + `AGENTSMITH_PERSISTENCE_CONNECTION` when both are set |
 | `auth` | the token authority dashboard sign-in validates against |
-| `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE` overrides it, and on a server it's the only switch |
-| `tool_runner` | how the api-scan tools run, see [Tool configuration](tools.md) |
+| `tool_runner` | how the api-scan tools run, see [Tool configuration](tools.md). Read from the file at start, never stored or imported |

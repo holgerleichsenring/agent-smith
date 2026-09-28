@@ -1,6 +1,6 @@
 # Settings
 
-Below the catalogs in the studio rail sit twelve global settings groups. Each one is a typed form over a top level block of `agentsmith.yml`, and each one applies to every project unless a project overrides it.
+Below the catalogs in the studio rail sit thirteen global settings groups. Each one is a typed form over a top level block of `agentsmith.yml`, and each one applies to every project unless a project overrides it.
 
 ![Pipeline cost cap, with a default, four tier caps, and per pipeline overrides](../assets/screenshots/config-settings-costcap.png)
 
@@ -67,8 +67,14 @@ How long in flight run artifacts stay in Redis.
 
 Whether the data flow gate warns or enforces.
 
-## Two things the settings rail leaves out
+### Trace
+
+Whether a run records its conversation (every prompt as sent, every answer, every tool result as the model received it), not only its numbers. Off by default, because a traced run's record grows fast. The `AGENTSMITH_TRACE` environment variable, when it is set, wins over this switch in both directions, so a deployment that sets it in its manifest keeps what the manifest says. See [Recording what the model was told](../connect-your-stuff/ai-providers.md#recording-what-the-model-was-told).
+
+## What the settings rail leaves out
 
 `persistence:` is absent on purpose. It's bootstrap only, read from the file before the server can talk to a database, so making it editable in a UI backed by that database would be a circle. Change it in `agentsmith.yml` and restart.
+
+`auth:` and `tool_runner:` are bootstrap as well: the token authority is wired before the database is reachable, and the scanners' runner is built at start. Both stay in the server's own `agentsmith.yml`. An import doesn't store them and says so, as it does for every other key of the file it doesn't keep.
 
 `secrets:` is absent because it has its own catalog. The studio holds names, and values stay in the environment.

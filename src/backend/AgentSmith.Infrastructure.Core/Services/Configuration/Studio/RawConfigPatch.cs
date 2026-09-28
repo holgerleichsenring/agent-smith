@@ -44,7 +44,6 @@ public static class RawConfigPatch
             agent.Compaction.ThresholdIterations = compaction.ThresholdIterations;
             agent.Compaction.MaxContextTokens = compaction.MaxContextTokens;
             agent.Compaction.KeepRecentIterations = compaction.KeepRecentIterations;
-            agent.Compaction.SummaryModel = compaction.SummaryModel;
         }
         if (entity.Retry is { } retry)
         {
@@ -86,6 +85,7 @@ public static class RawConfigPatch
         // written back here would persist on the first unrelated save and end "changes nothing".
         if (entity.WorkItemKinds is { } kinds)
             tracker.WorkItemKinds = kinds.ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (entity.Endpoints is { } endpoints) tracker.Endpoints = JiraEndpointsMap.From(endpoints);
         if (entity.Polling is { } polling)
             tracker.Polling = new RawPollingEntry
             {

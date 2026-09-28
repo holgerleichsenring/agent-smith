@@ -69,6 +69,12 @@ public sealed class RawTrackerEntry
     /// only.
     /// </summary>
     public Dictionary<string, string>? WorkItemKinds { get; set; }
+
+    /// <summary>
+    /// Jira only (YAML key <c>endpoints</c>): REST path overrides. A key left out keeps its
+    /// Jira Cloud v3 default, so an operator sets only the path Atlassian moved.
+    /// </summary>
+    public JiraEndpoints? Endpoints { get; set; }
 }
 
 /// <summary>

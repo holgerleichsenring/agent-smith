@@ -24,12 +24,15 @@ Agent Smith uses different models at different points in a run. Each agent block
 | `code_map_generation` | Drives the repository analyzer, which explores the repo with tools and writes the code map. Optional. | Cheap. |
 | `context_generation` | Drives the two `init-project` rounds that read the repository through tools: discover its components, then write each `.agentsmith/contexts/<name>/context.yaml`. Optional. | The good one. Same as `primary`. |
 
-How a role you leave out is resolved:
+No role has a built-in model. A role you leave out inherits:
 
-- With no `models:` block at all, every role runs on the agent's own `model`.
-- `reasoning` and `context_generation` fall back to `primary`.
-- `code_map_generation` falls back to `scout`, so the repository sweep stays on the cheap model unless you say otherwise.
-- `scout`, `planning` and `summarization` do not fall back to `primary`. Left out of a `models:` block, they get built-in Claude model names. On any other provider, set all four of `scout`, `primary`, `planning` and `summarization`.
+- `primary` falls back to the agent's own `model` (and `deployment`).
+- Every other role falls back to `primary`, output cap (`max_tokens`) included.
+- `code_map_generation` falls back to `scout` first, then `primary`, so the repository sweep stays on the cheap model when you have named one.
+
+So an agent needs only `model`; name a role under `models:` when you want it somewhere else, like a cheaper `scout`. A role left out of a Claude agent's `models:` block runs on its primary model, not on a cheaper Claude model; name `scout` and `summarization` when you want those on Haiku. The server's startup findings list, per agent, the roles that inherit.
+
+A configuration imported or saved in the studio before this worked this way carries the old built-in Claude model names in its stored roles. For an agent of another provider the startup findings name those roles; clear them in the studio (an empty model) or remove them from the file, and they inherit again. Nothing rewrites them for you.
 
 A run needs a provider `type` and a model, either as `model` or as `models.primary.model`. The run preflight refuses to start without them.
 
@@ -40,7 +43,7 @@ Every provider reads its key from an environment variable. `api_key_secret` on t
 | `type` | Fallback variable |
 |---|---|
 | `claude` (alias `anthropic`) | `ANTHROPIC_API_KEY` |
-| `openai` | `OPENAI_API_KEY` |
+| `openai` | `OPENAI_API_KEY`, but never with an `endpoint` (see [OpenAI-compatible servers](#openai-compatible-servers)) |
 | `azure_openai` | `AZURE_OPENAI_API_KEY` |
 | `gemini` (alias `google`) | `GEMINI_API_KEY`, then `GOOGLE_API_KEY` |
 | `copilot` | `COPILOT_GITHUB_TOKEN`, then `GH_TOKEN`, then `GITHUB_TOKEN` |
@@ -107,6 +110,37 @@ agents:
       summarization: { model: gpt-4.1-mini, max_tokens: 2048 }
 
 ```
+
+## OpenAI-compatible servers
+
+vLLM, LM Studio, llama.cpp's server, LiteLLM and most internal gateways speak the OpenAI chat API. Point an `openai` agent at one with `endpoint`:
+
+```yaml
+agents:
+  local-llm:
+    type: openai
+    endpoint: http://vllm.internal:8000/v1
+    model: qwen2.5-coder-32b
+    api_key_secret: LOCAL_LLM_KEY      # optional
+    rate_limit:
+      requests_per_minute: 60
+      input_tokens_per_minute: 200000
+    models:
+      primary: { model: qwen2.5-coder-32b, context_window_tokens: 32768 }
+    pricing:
+      models:
+        qwen2.5-coder-32b: { input_per_million: 0.0, output_per_million: 0.0 }
+```
+
+With an `endpoint`, the key comes only from the variable `api_key_secret` names. It never falls back to `OPENAI_API_KEY`, so an OpenAI key is not sent to someone else's host. If `api_key_secret` names a variable that is empty, the call fails and names the variable. With no `api_key_secret` at all, no real key is sent, which is what a server without authentication expects.
+
+Three things are OpenAI's unless you say otherwise:
+
+- `rate_limit` defaults to OpenAI's 60 requests and 60k input tokens per minute. Set your server's.
+- `context_window_tokens` is unset, so nothing folds the history before the server refuses. State it per role.
+- A model the built-in price table doesn't know is counted in tokens only. Add a `pricing` row, zero for a local model.
+
+The endpoint belongs to the agent's provider. A role that runs on another provider through `provider_type` doesn't inherit it; give that role its own `endpoint`.
 
 ## Azure OpenAI
 
@@ -177,10 +211,8 @@ A 70B model on a 24GB GPU does the job. Smaller models (8B) work for scout / sum
 agents:
   copilot-seat:
     type: copilot
-    model: gpt-5
+    model: gpt-5                        # every role inherits it
     api_key_secret: COPILOT_GITHUB_TOKEN
-    models:
-      summarization: { model: gpt-5, max_tokens: 2048 }
     pricing:
       models:
         gpt-5: { input_per_million: 0.0, output_per_million: 0.0 }
@@ -234,7 +266,7 @@ Whichever provider you pick, every run records token usage and (if pricing is co
 
 ## Recording what the model was told
 
-The numbers of a run are always recorded. The conversation itself is not, because it gets big fast. Switch it on with `trace.enabled: true` in `agentsmith.yml`, or with `AGENTSMITH_TRACE=true` in the environment, which wins over the file (handy for a compose service or a k8s Job whose config is a read-only mount).
+The numbers of a run are always recorded. The conversation itself is not, because it gets big fast. Switch it on under **Settings → Trace** in the Config studio (`trace.enabled: true` in `agentsmith.yml` for the CLI or an import), or with `AGENTSMITH_TRACE=true` in the environment. The environment wins over the stored setting in both directions (handy for a compose service or a k8s Job whose config is a read-only mount).
 
 A traced run stores every model call's prompt as sent, the answer with its tool calls, and every tool result as the model received it. The entries go to the database next to the run's record, not to the container's filesystem, and every entry passes the secret masker first. Recording never fails a run.
 

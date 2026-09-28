@@ -39,15 +39,14 @@ public static class ConfigStudioCapabilities
 
     /// <summary>
     /// The fixed model-role set the agent form renders — the reserved 'coding'
-    /// (required) plus every <see cref="TaskType"/> role (reasoning and context
-    /// generation optional).
+    /// (required) plus every <see cref="TaskType"/> role, each optional: an unset role
+    /// inherits (primary from coding, the others from primary, code-map from scout).
     /// Keys are camelCased TaskType names, matching ConfigCatalogMapper's models map.
     /// </summary>
     public static IReadOnlyList<ModelRoleCapability> RoleCapabilities { get; } =
         new[] { new ModelRoleCapability(ReservedCodingRole, Optional: false) }
             .Concat(Enum.GetValues<TaskType>()
-                .Select(t => new ModelRoleCapability(
-                    RoleKey(t), Optional: t is TaskType.Reasoning or TaskType.ContextGeneration)))
+                .Select(t => new ModelRoleCapability(RoleKey(t), Optional: true)))
             .ToList();
 
     /// <summary>The valid model-role keys (coding + the TaskType roles).</summary>

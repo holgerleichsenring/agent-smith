@@ -49,9 +49,27 @@ public sealed class RawRepoRefYamlConverter : IYamlTypeConverter
         return new RawRepoRef(repo, defaultBranch, consumes);
     }
 
+    /// <summary>The scalar form when the ref is all there is, else the mapping — an export
+    /// that wrote only the ref lost a repo's branch override and its consumed interface.</summary>
     public void WriteYaml(IEmitter emitter, object? value, Type type, ObjectSerializer serializer)
     {
         var repoRef = (RawRepoRef)value!;
-        emitter.Emit(new Scalar(repoRef.Ref));
+        if (repoRef.DefaultBranch is null && repoRef.Consumes is null)
+        {
+            emitter.Emit(new Scalar(repoRef.Ref));
+            return;
+        }
+        emitter.Emit(new MappingStart());
+        EmitPair(emitter, RepoKey, repoRef.Ref);
+        EmitPair(emitter, DefaultBranchKey, repoRef.DefaultBranch);
+        EmitPair(emitter, ConsumesKey, repoRef.Consumes);
+        emitter.Emit(new MappingEnd());
+    }
+
+    private static void EmitPair(IEmitter emitter, string key, string? value)
+    {
+        if (value is null) return;
+        emitter.Emit(new Scalar(key));
+        emitter.Emit(new Scalar(value));
     }
 }

@@ -213,7 +213,7 @@ public sealed class YamlSkillLoader(
                 if (!ValidateStrict(role, dir, out var error))
                 {
                     logger.LogError(
-                        "Skill '{Skill}' at {Dir} rejected: {Error}. See docs/configuration/skills/migration.md",
+                        "Skill '{Skill}' at {Dir} rejected: {Error}. See docs/reference/configuration/skills.md",
                         role.Name, dir, error);
                     dropped++;
                     continue;

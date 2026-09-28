@@ -93,12 +93,12 @@ internal static class ConfigCommand
             Console.Error.WriteLine($"Import file not found: {yamlPath}");
             return 1;
         }
-        var raw = new RawConfigYaml().Deserialize(await File.ReadAllTextAsync(yamlPath));
-        // persistence is bootstrap-only (read from the file/env before the DB), so it is
-        // never imported into the DB it describes — the same exclusion the UI import applies.
-        var writes = new ConfigDocumentAssembler().Decompose(raw)
-            .Where(d => d.Type != ConfigDocTypes.Persistence)
-            .Select(ToWrite).ToList();
+        using var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
+        // The planner leaves out persistence (bootstrap-only) and names every key it drops.
+        var plan = services.GetRequiredService<ConfigImportPlanner>().Plan(await File.ReadAllTextAsync(yamlPath), yamlPath);
+        var writes = plan.Docs.Select(ToWrite).ToList();
+        foreach (var dropped in plan.Dropped)
+            Console.Error.WriteLine($"Not imported: {dropped.Path} — {dropped.Reason}");
         await using var db = BuildContext(configPath, verbose);
         try
         {
