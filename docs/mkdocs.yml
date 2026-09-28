@@ -131,8 +131,6 @@ nav:
       - The context file:            reference/concepts/context-file.md
       - Self-documentation:          reference/concepts/self-documentation.md
       - Multi-agent orchestration:   reference/concepts/multi-agent-orchestration.md
-      - Multi-skill architecture:    reference/concepts/multi-skill.md
-      - Triage:                      reference/concepts/triage.md
       - Context compaction:          reference/concepts/context-compaction.md
       - Decision logging:            reference/concepts/decisions.md
       - Cost tracking:               reference/concepts/cost-tracking.md
@@ -150,8 +148,6 @@ nav:
       - First API scan walkthrough: reference/getting-started/first-api-scan.md
       - Legal analysis:        reference/pipelines/legal-analysis.md
       - MAD discussion:        reference/pipelines/mad-discussion.md
-      - Skill manager:         reference/pipelines/skill-manager.md
-      - Autonomous:            reference/pipelines/autonomous.md
     - Configuration:
       - reference/configuration/index.md
       - agentsmith.yml reference: reference/configuration/agentsmith-yml.md
@@ -161,7 +157,6 @@ nav:
       - Pipeline cost cap:        reference/configuration/pipeline-cost-cap.md
       - Security scan config:     reference/configuration/security-scan.md
       - Skills reference:         reference/configuration/skills.md
-      - SKILL.md migration:       reference/configuration/skills/migration.md
       - Tool configuration:       reference/configuration/tools.md
       - Webhooks:                 reference/configuration/webhooks.md
       - Access control:            reference/security/access-control.md

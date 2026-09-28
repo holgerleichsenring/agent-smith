@@ -1,62 +1,31 @@
 # GitLab CI/CD
 
-## Binary Download + API Scan
+The examples assume the repository carries `ci/agentsmith.yml` with an agent named `ci-scan`, as described on the [CI/CD overview](index.md#what-a-ci-run-needs).
+
+## Security scan (code analysis)
+
+Run the security-scan pipeline with static pattern matching, git history scanning, dependency auditing and the security master's review. The SARIF file is published as a SAST report.
 
 ```yaml
 # .gitlab-ci.yml
 stages:
   - security
 
-api-scan:
-  stage: security
-  image: debian:bookworm-slim
-  variables:
-    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq curl jq > /dev/null
-    - curl -fsSL -o /usr/local/bin/agent-smith
-        https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
-    - chmod +x /usr/local/bin/agent-smith
-  script:
-    - agent-smith api-scan
-        --repo $CI_PROJECT_DIR
-        --output console,sarif,summary,markdown
-        --output-dir ./results
-  artifacts:
-    paths:
-      - results/
-    reports:
-      sast:
-        - results/results.sarif
-    when: always
-    expire_in: 30 days
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-```
-
-!!! info "SARIF as SAST Report"
-    GitLab recognizes SARIF files under `reports:sast`. Findings appear in the **Security** dashboard and as inline annotations on merge requests.
-
-## Security Scan (Code Analysis)
-
-Run the full security-scan pipeline with static pattern matching, git history scanning, dependency auditing, and AI specialist panel. Results are published as SAST reports in the GitLab Security dashboard.
-
-```yaml
 security-scan:
   stage: security
   image: debian:bookworm-slim
   variables:
-    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
-    GIT_DEPTH: 500  # Required for git history scanning
+    GIT_DEPTH: 500  # history for the git history scan
   before_script:
-    - apt-get update -qq && apt-get install -y -qq curl > /dev/null
+    - apt-get update -qq && apt-get install -y -qq curl ca-certificates git > /dev/null
     - curl -fsSL -o /usr/local/bin/agent-smith
         https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
     - chmod +x /usr/local/bin/agent-smith
   script:
     - agent-smith security-scan
-        --repo $CI_PROJECT_DIR
+        --config ci/agentsmith.yml
+        --agent ci-scan
+        --source-path $CI_PROJECT_DIR
         --output console,sarif,markdown
         --output-dir ./results
   artifacts:
@@ -72,52 +41,50 @@ security-scan:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 ```
 
+`ANTHROPIC_API_KEY` comes from the project's CI/CD variables; a job sees them without being listed.
+
 !!! tip "Git history scanning"
-    Set `GIT_DEPTH: 500` so the `GitHistoryScan` step can scan commit history for leaked secrets. The default shallow clone depth in GitLab CI may not include enough history.
+    Set `GIT_DEPTH` so the `GitHistoryScan` step has commits to read. It scans the last 500. GitLab's default shallow clone may not include enough history.
 
-## ARM64 Runners
+!!! info "Dependency audit"
+    The dependency audit runs the ecosystem's own tool (`npm audit`, `pip-audit`, `dotnet list package --vulnerable`) on the runner, because the CLI runs its sandbox in-process. Use a job image that has the toolchain of the scanned repository.
 
-For ARM64 GitLab runners (e.g., AWS Graviton):
+## API scan
+
+`api-scan` probes a running API, so it needs the OpenAPI description (`--swagger`, a path or URL) and the base URL (`--target`). Point it at a test or staging deployment. Without a Docker socket in the job, Nuclei, Spectral and ZAP run as local processes and must be on `PATH`; see [Tool configuration](../configuration/tools.md) and the Docker variant below.
 
 ```yaml
 api-scan:
-  tags:
-    - arm64
-  before_script:
-    - curl -fsSL -o /usr/local/bin/agent-smith
-        https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-arm64
-    - chmod +x /usr/local/bin/agent-smith
-```
-
-## Quality Gate
-
-Fail the pipeline on critical findings:
-
-```yaml
-check-findings:
   stage: security
-  needs: [api-scan]
   image: debian:bookworm-slim
   before_script:
-    - apt-get update -qq && apt-get install -y -qq jq > /dev/null
+    - apt-get update -qq && apt-get install -y -qq curl ca-certificates > /dev/null
+    - curl -fsSL -o /usr/local/bin/agent-smith
+        https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
+    - chmod +x /usr/local/bin/agent-smith
   script:
-    - |
-      if [ -f results/results.sarif ]; then
-        CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' results/results.sarif)
-        echo "Critical findings: $CRITICAL"
-        if [ "$CRITICAL" -gt 0 ]; then
-          echo "ERROR: $CRITICAL critical security findings detected"
-          exit 1
-        fi
-      fi
+    - agent-smith api-scan
+        --config ci/agentsmith.yml
+        --agent ci-scan
+        --swagger https://api.staging.example.com/swagger/v1/swagger.json
+        --target https://api.staging.example.com
+        --output console,sarif,markdown
+        --output-dir ./results
   artifacts:
     paths:
       - results/
+    reports:
+      sast:
+        - results/findings.sarif
+    when: always
 ```
 
-## Docker Variant
+!!! info "SARIF as SAST report"
+    GitLab reads the file under `reports:sast` and shows the findings in its security views, where your GitLab tier supports them.
 
-When you need tool containers (Nuclei, Spectral) and have Docker-in-Docker available:
+## Docker variant
+
+With Docker-in-Docker available, run the CLI image and let the scanner tools start their own containers:
 
 ```yaml
 api-scan-docker:
@@ -127,28 +94,67 @@ api-scan-docker:
     - docker:27-dind
   variables:
     DOCKER_TLS_CERTDIR: "/certs"
-    ANTHROPIC_API_KEY: $ANTHROPIC_API_KEY
   script:
     - docker run --rm
-        -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
-        -v $CI_PROJECT_DIR:/app/repo
+        -e ANTHROPIC_API_KEY
+        -v $CI_PROJECT_DIR:/repo
+        -v $CI_PROJECT_DIR/results:/output
         -v /var/run/docker.sock:/var/run/docker.sock
-        holgerleichsenring/agent-smith:latest
-        api-scan --repo /app/repo --output console,sarif --output-dir /app/repo/results
+        holgerleichsenring/agent-smith-cli:latest
+        api-scan --config /repo/ci/agentsmith.yml --agent ci-scan
+          --swagger https://api.staging.example.com/swagger/v1/swagger.json
+          --target https://api.staging.example.com
+          --output console,sarif --output-dir /output
   artifacts:
     paths:
       - results/
     reports:
       sast:
-        - results/results.sarif
+        - results/findings.sarif
     when: always
 ```
 
-## Variables Setup
+## ARM64 runners
 
-Add these in **Settings > CI/CD > Variables** (mask and protect them):
+For ARM64 GitLab runners, download the ARM64 binary:
 
-| Variable            | Required | Description              |
-|--------------------|----------|--------------------------|
-| `ANTHROPIC_API_KEY`| Yes      | Claude API key           |
-| `GITLAB_TOKEN`     | No       | For cross-project access |
+```yaml
+security-scan:
+  tags:
+    - arm64
+  before_script:
+    - curl -fsSL -o /usr/local/bin/agent-smith
+        https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-arm64
+    - chmod +x /usr/local/bin/agent-smith
+```
+
+## Quality gate
+
+Fail the pipeline when Critical or High findings are present. They carry the SARIF level `error`:
+
+```yaml
+check-findings:
+  stage: security
+  needs: [security-scan]
+  image: debian:bookworm-slim
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq jq > /dev/null
+  script:
+    - |
+      if [ -f results/findings.sarif ]; then
+        CRITICAL=$(jq '[.runs[].results[] | select(.level == "error")] | length' results/findings.sarif)
+        echo "Critical or high findings: $CRITICAL"
+        if [ "$CRITICAL" -gt 0 ]; then
+          echo "ERROR: $CRITICAL critical or high security findings detected"
+          exit 1
+        fi
+      fi
+```
+
+## Variables setup
+
+Add this in **Settings > CI/CD > Variables** and mask it:
+
+| Variable            | Required | Description                                |
+|---------------------|----------|--------------------------------------------|
+| `ANTHROPIC_API_KEY` | Yes      | Key for the `claude` agent; use your provider's variable for another agent type |

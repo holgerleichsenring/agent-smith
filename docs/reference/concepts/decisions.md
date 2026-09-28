@@ -1,33 +1,32 @@
-# Decision Logging
+# Decision logging
 
 Every architectural choice, tooling decision, and trade-off the agent makes gets logged. Not *what* it did, but *why*.
 
-## decisions.md
+## The log_decision tool
 
-During execution, the agent writes decisions to `.agentsmith/decisions.md` in the target repository:
+The agent records a decision by calling its `log_decision` tool with a category and a one-line description of the choice and its reasoning. The category is one of `Architecture`, `Tooling`, `Implementation` or `TradeOff`. The tool is available in every phase of a run.
 
-```markdown
-## Architecture
+Each decision goes to two places:
 
-### DuckDB over direct OneLake access
-RBAC setup via abfss:// too complex for first run. DuckDB gives us local
-query capability without infrastructure dependencies. Revisit when RBAC
-is configured.
+- The run's event stream, as a `DecisionLogged` event. This is the record the dashboard reads, and you can filter a run's trail down to it.
+- A YAML file in the target repository, `.agentsmith/decisions/<run-id>.yaml`, which travels with the code on the run's branch.
 
-### Repository pattern instead of direct EF Core calls
-The codebase already uses this pattern in 3 other modules. Consistency
-over convenience.
+The repository file has one entry per decision:
 
-## Testing
-
-### Integration test against real database
-Mocking the repository would hide the actual SQL generation. The bug was
-in the query, not the business logic.
+```yaml
+run: 2026-05-20T22-27-43-8a3f
+decisions:
+  - category: Architecture
+    chose: "Used the existing ITodoRepository instead of a new service: the module already follows that pattern"
+  - category: Implementation
+    chose: "Return an empty array instead of 404: a collection endpoint with no results is not an error"
 ```
 
-## Why Not What
+If the repository copy cannot be written, the decision is still recorded on the run and the agent carries on. A decision log never ends a run.
 
-The code diff shows *what* changed. The commit message summarizes *what* was done. Decisions capture *why* — the reasoning that isn't visible in the code:
+## Why, not what
+
+The code diff shows *what* changed. The commit message summarizes *what* was done. Decisions capture *why*, the reasoning that isn't visible in the code:
 
 - Why this pattern over another
 - Why a dependency was added or avoided
@@ -36,29 +35,24 @@ The code diff shows *what* changed. The commit message summarizes *what* was don
 
 ## Decisions in result.md
 
-Run results include a Decisions section grouped by category:
+The run's `result.md` includes a Decisions section grouped by category:
 
-```yaml
----
-ticket: "#57 — GET /todos returns 500 when database is empty"
-result: success
----
-
+```markdown
 ## Decisions
 
 ### Architecture
-- Used existing `ITodoRepository` instead of creating a new service — consistency with the rest of the module
+- Used the existing ITodoRepository instead of a new service: the module already follows that pattern
 
-### Error Handling
-- Return empty array instead of 404 — RESTful convention for collection endpoints with no results
+### Implementation
+- Return an empty array instead of 404: a collection endpoint with no results is not an error
 ```
 
-## Why This Matters
+## Why this matters
 
 When the agent's code breaks six months later, you need to know what it was thinking. Was the decision a shortcut that should be revisited? Or a deliberate trade-off with good reasoning?
 
 Decisions turn AI-generated code from a black box into something a team can maintain.
 
-## Decisions in the Knowledge Base
+## Decisions in the knowledge base
 
-When the [Project Knowledge Base](knowledge-base.md) is enabled, decisions from all runs are compiled into `.agentsmith/wiki/decisions.md` -- a structured, cross-referenced wiki article. The compiler identifies patterns (e.g., three independent runs choosing the same architectural pattern) and warns when a previous decision was reversed.
+The [knowledge base](knowledge-base.md) compiles the run records under `.agentsmith/runs/`, including the Decisions section of each `result.md`, into `.agentsmith/wiki/decisions.md`, and notes when a later run superseded an earlier decision.

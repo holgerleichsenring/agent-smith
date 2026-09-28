@@ -1,10 +1,9 @@
 # Event Schema Policy
 
 Every record under `src/backend/AgentSmith.Contracts/Events/` is part of an
-on-the-wire contract — written into Redis Streams today, eligible for
-re-transport (Redis Streams replicas, Kafka, an HTTP fan-out, …) tomorrow.
-Three rules govern its evolution. They are enforced by tests, not by review
-discipline.
+on-the-wire contract. Run events are written into Redis Streams, and the
+dashboard reads them through a TypeScript mirror of the records. Three rules
+govern how a record may change. Tests enforce them, not review discipline.
 
 ## Rule (a) — New field = optional with explicit default
 
@@ -28,7 +27,7 @@ public sealed record LlmCallStartedEvent(
 
 This rule is enforced by `EventSchemaCompatibilityTests` — it deserialises
 every frozen JSON fixture under `tests/AgentSmith.Tests/Events/fixtures/events/`
-against the current types and prints the offending field path on failure.
+against the current types and names the offending fixture file on failure.
 
 ## Rule (b) — Deprecate via `[DeprecatedField]`, keep readable
 
@@ -74,20 +73,24 @@ only after consumers no longer reference it.
 - `DomainEventCoverageTests` — reflection-asserts that every public record
   under `Events/` implements `IDomainEvent`. A new record without the
   marker fails the build.
-- `EventSchemaCompatibilityTests` — frozen JSON fixtures under
+- `EventSchemaCompatibilityTests` — every frozen JSON fixture under
   `tests/AgentSmith.Tests/Events/fixtures/events/<tier>/<EventName>.json`
-  deserialise against the current types. One fixture per record minimum.
-- `tools/build-hub-event-types.mjs --check` — walks every record under
-  `Events/` and fails when the TypeScript mirror in
-  `src/dashboard/src/types/` is missing a record or stale on a record that
-  no longer exists in C#.
+  must deserialise against the current types. The test covers the records
+  that have a fixture; a record without one is not checked, so seed a
+  fixture when you add a record.
+- `tools/build-hub-event-types.mjs --check` (`pnpm gen:hub-events` in
+  `src/dashboard`) — walks every record under `Events/` and fails when the
+  TypeScript mirror (`src/dashboard/src/types/hub-events.ts` and
+  `system-events.ts`) is missing a record or still carries one that no
+  longer exists in C#.
 
-The CI gate runs all three. The convention is the test; the test is the
-convention.
+CI runs all three: the two test classes with the .NET suite, the mirror
+check in the dashboard workflow.
 
 ## Seeding the fixture set
 
-`tools/freeze-event-fixtures.cs` is a one-shot local seeder that emits a
-minimal example fixture per record. Run it once when adding a new record;
+`tools/freeze-event-fixtures.cs` is a local starting point for seeding a
+fixture: adapt its example to the new record and write the serialised form
+into the fixture directory. Run it once when adding a new record;
 **never** wire it into CI — regenerated samples drift with the code and
 defeat the purpose of frozen fixtures.

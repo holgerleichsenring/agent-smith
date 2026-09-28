@@ -19,12 +19,12 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 │   ├── done/             # Completed phase documents
 │   ├── active/           # Currently executing (max 1)
 │   └── planned/          # Upcoming phases
-├── wiki/                 # LLM-compiled knowledge base
-│   ├── index.md          # Master index with backlinks
-│   ├── decisions.md      # Compiled decisions across runs
-│   ├── known-issues.md   # Recurring problems and solutions
-│   ├── patterns.md       # Detected code patterns
-│   └── concepts/         # Domain-specific articles
+├── wiki/                 # LLM-compiled knowledge base, written by compile-wiki
+│   ├── index.md          # Table of contents for the wiki
+│   ├── decisions.md      # Decisions synthesized from the run records
+│   ├── known-issues.md   # Bugs, limitations and workarounds found in runs
+│   ├── patterns.md       # Conventions the runs established
+│   └── ...               # Further topic pages where the content warrants them
 ├── security/             # SARIF snapshots for trend analysis
 └── runs/
     ├── 2026-05-20T22-27-43-8a3f/
@@ -34,7 +34,7 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
         └── result.md
 ```
 
-The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki that accumulates knowledge from all runs, decisions, and security scans.
+The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki. The `compile-wiki` command reads each run's `plan.md` and `result.md` under `runs/`, plus the wiki as it stands, and asks the model to update the pages. It does not read `decisions/` or `security/`.
 
 ## Phases
 

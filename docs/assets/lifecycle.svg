@@ -312,6 +312,6 @@
     <circle cx="66" cy="472" r="9" class="lc-accent"/>
     <path d="M61.5 472 l3 3 l6 -7" stroke="#fffefb" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
     <text x="86" y="469" class="lc-text" font-size="14" font-weight="600">ticket #4471 — resolved</text>
-    <text x="86" y="486" class="lc-mute" font-size="12">3 pull requests open (server · client · worker), all on branch agentsmith/ticket-4471, links commented on the ticket</text>
+    <text x="86" y="486" class="lc-mute" font-size="12">3 pull requests open (server · client · worker), all on branch agent-smith/4471, links commented on the ticket</text>
   </g>
 </svg>

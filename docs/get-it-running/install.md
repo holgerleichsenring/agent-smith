@@ -42,7 +42,7 @@ repos:
 trackers:
   acme-issues:
     type: github
-    organization: acme-org
+    url: https://github.com/acme-org/todolist-api    # the repo whose issues are the tickets
     auth: github_token
 
 projects:
