@@ -26,36 +26,22 @@ import { DialogProposalCard } from "./DialogProposalCard";
 export function DialogTranscript({
   entries,
   onInspect,
+  greeting,
 }: {
   entries: DialogEntry[];
   onInspect: (proposal: SpecDialogProposalPush) => void;
+  /** 2026-09-27-481bd: what an empty conversation says. Computed by the surface, which is where
+   *  the identity is read — a greeting decided here would put a fetch in every test that renders
+   *  a transcript. */
+  greeting?: ReactNode;
 }) {
   if (entries.length === 0) {
-    // Nobody arrives wanting an epic. They arrive wanting something to be true of the
-    // system, and the spec is the TRANSITION to it — so the question comes first and the
-    // shapes it can end in are a footnote, not the headline. What is offered is the shape
-    // of a good opening, not invented examples: this page does not know the work, and a
-    // plausible-sounding suggestion about somebody's own estate is worse than none.
+    // 2026-09-27-481bd: 154 words of instruction used to stand here — how to phrase a request, how
+    // long the first reply takes, and what the proposal card does, shown before any card exists,
+    // to somebody who came to this page on purpose. The composer already says work can begin.
     return (
-      <div data-testid="dialog-transcript-empty" className="dsh-body text-body">
-        <p className="dsh-h3 text-ink">What do you want to be true, and where?</p>
-        <p className="mt-2">
-          Say the outcome you are after, the part of the system it touches, and anything
-          that has to stay true while getting there. You do not need to know the steps —
-          working those out is what this conversation is for.
-        </p>
-        <p className="mt-2">
-          The design partner reads the repositories on the right before it answers, so the
-          first reply takes about a minute. It will ask when something is ambiguous.
-        </p>
-        <p className="fl mt-3">Where it leads</p>
-        <p className="mt-1">
-          When you have converged, it proposes what to file — an answer and nothing filed,
-          one bug, one phase, or an epic with its slices in the order they will be filed. You
-          approve it or you keep talking. Filing is not where this ends: the conversation then
-          follows the work it filed — which phase the run is on, what it opened, what the
-          review still finds, and anything handed back for you to settle here.
-        </p>
+      <div data-testid="dialog-transcript-empty" className="dsh-h3 text-ink">
+        {greeting}
       </div>
     );
   }

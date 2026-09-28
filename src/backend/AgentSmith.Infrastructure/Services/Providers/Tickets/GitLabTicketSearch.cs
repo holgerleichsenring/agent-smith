@@ -37,7 +37,7 @@ public sealed class GitLabTicketSearch(
             logger.LogDebug("GitLab ticket search: GET {Url}", url);
             using var doc = await _http.SendForJsonOrThrowAsync(
                 HttpMethod.Get, url, null, cancellationToken);
-            var hits = mapper.MapMany(doc.RootElement).Select(t => new TicketSearchHit(t.Id, t.Title));
+            var hits = mapper.MapMany(doc.RootElement).Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind));
             return TicketSearchResult.Of(hits, limit);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)

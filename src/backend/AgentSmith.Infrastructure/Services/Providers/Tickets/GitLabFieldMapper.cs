@@ -22,7 +22,27 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
             "GitLab",
             ReadStringArray(issue, "labels"),
             ReadPerson(issue, "assignee"),
-            ReadPerson(issue, "author"));
+            ReadPerson(issue, "author"),
+            // 2026-09-27-481bf: GitLab carries an issue type under TWO names across versions —
+            // the older lowercase one and a newer uppercase enum — and a self-managed instance
+            // below the version that added the second returns neither. Whichever is present, and
+            // never rendered raw: an enum token is not a word a person recognises.
+            Kind(issue));
+
+    private static string? Kind(JsonElement issue) =>
+        ReadOrNull(issue, "issue_type") ?? Spoken(ReadOrNull(issue, "type"));
+
+    /// <summary>An uppercase enum token as the word it stands for: TEST_CASE reads "Test case".</summary>
+    private static string? Spoken(string? token) =>
+        string.IsNullOrWhiteSpace(token)
+            ? null
+            : char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant().Replace('_', ' ');
+
+    private static string? ReadOrNull(JsonElement issue, string name) =>
+        issue.TryGetProperty(name, out var held) && held.ValueKind == JsonValueKind.String
+        && !string.IsNullOrWhiteSpace(held.GetString())
+            ? held.GetString()
+            : null;
 
     /// <summary>
     /// Maps an array of GitLab issues. Filters out entries without a valid

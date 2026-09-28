@@ -34,7 +34,7 @@ const identity: CallerIdentity = {
   groupClaimValues: [],
   roles: ["operator"],
   permissions: ["identity.read"],
-  findings: [],
+  findings: [], nameIsReadable: true,
 };
 
 function renderHeader(authority = "") {

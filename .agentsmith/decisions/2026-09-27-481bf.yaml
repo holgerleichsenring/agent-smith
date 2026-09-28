@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481bf
+
+decisions:
+  - category: Implementation
+    chose: "The kind is the TRACKER'S OWN WORD, with an icon only for the few every tracker means the same by"
+    over: "A set of kinds of ours, drawn as icons"
+    reason: |
+      Azure DevOps process templates and Jira projects both define their own types — a German
+      template's "Produktrückstandselement" is as real as "Bug" — so a closed set over an open
+      vocabulary either mislabels something or silently shows nothing. The tracker's word is always
+      correct. This is the operator's own objection, raised before the work started, and it is the
+      reason the icon is the exception rather than the rule.
+    alternatives:
+      - "Mapping unknown types onto the nearest known one: guessing about somebody else's process"
+
+  - category: Implementation
+    chose: "Nothing inbound carried a kind, so this is a new read in three mappers"
+    over: "Surfacing a field that was being dropped"
+    reason: |
+      The only kind handling in this tree was OUTBOUND, on the two creators that file tickets, and
+      a nearby decision deliberately read a body field from what is populated "rather than from a
+      table of work-item types". The mappers are where it is free: they are stateless and the
+      payload already reaches them. The fourth reads nothing because its SDK type has no such
+      member — a fact about the Octokit version pinned here, not about GitHub, which has shipped
+      issue types.
+    alternatives:
+      - "Upgrading Octokit for GitHub's types: a dependency move inside a phase about showing a word"
+
+  - category: Implementation
+    chose: "Four field lists must ASK for it, and the third Jira one is the load-bearing one"
+    over: "Adding it to the search request alone"
+    reason: |
+      Azure DevOps needs it in the HYDRATION call — its WIQL select asks only for ids — and its
+      single fetch needs nothing, because that fetch asks for no field list and therefore already
+      receives the type. Jira has THREE: the search request, the poll searcher's standard fields,
+      and the provider's own by-id fetch. The last is the read behind the exact hit, the picked row
+      and the binding, so omitting it would have left the kind missing on exactly the paths this
+      phase promises. None of the four provider classes needed a line, which matters because three
+      of them are at their file-length baseline exactly.
+    alternatives:
+      - "Asking for all fields: a wider payload on every poll to spare one list"
+
+  - category: Implementation
+    chose: "GitLab is read under both field names, and an enum token is spoken rather than shown"
+    over: "Reading the one the current API documents"
+    reason: |
+      GitLab carries an issue type under an older lowercase name and a newer uppercase enum, and a
+      self-managed instance below the version that added the second returns neither. Nothing in
+      this tree read either, so "it already returns one" was a guess about an API version — it is
+      read defensively instead, absence meaning no kind. And TEST_CASE is not a word a person
+      recognises, so the token is spoken as one.
+    alternatives:
+      - "Rendering the token raw: the goal promises the tracker's word, and an enum is not one"
+
+  - category: Implementation
+    chose: "One nullable field on the search hit, threaded through the ticket's own copy-with method"
+    over: "Leaving the hit at an id and a title"
+    reason: |
+      The port says a hit is an identifier and a title, and the reason was that the PROVIDER
+      classes may only shrink. The search classes are new and small and each controls its own field
+      set, so the kind rides a read each already performs — affordable where a whole-ticket read per
+      hit would not be. The copy-with rewrites EVERY fetched ticket positionally, so a field left
+      out of it is one silently dropped everywhere; it is threaded and pinned.
+    alternatives:
+      - "Reading the kind again when a hit is picked: a round trip for a word already in hand"

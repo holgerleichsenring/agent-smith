@@ -58,6 +58,8 @@ export interface SpecDialogSession {
   proposalTurn: number | null;
   /** The images attached to this conversation, oldest first. */
   images: SpecDialogImage[];
+  /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
+  ticket: SpecDialogSessionTicket | null;
 }
 
 /** What a conversation's latest filing created. Only a filing produces one. */
@@ -67,6 +69,23 @@ export interface SpecDialogConversationOutcome {
   tickets: number;
   /** The filing stopped with an error after creating some of the tickets. */
   partial: boolean;
+}
+
+/**
+ * 2026-09-27-481bc: the ticket text this conversation was GROUNDED ON — what every one of its
+ * turns is seeded with. The SEEDED copy, not a fresh read: the conversation reasons from what it
+ * was given, and when an answer looks wrong the first question is what it read.
+ *
+ * This mirror is kept BY HAND and nothing checks it.
+ */
+export interface SpecDialogSessionTicket {
+  ticketId: string;
+  title: string;
+  text: string;
+  readAt: string;
+  /** Longer than the conversation carries: the description is whole and the discussion is the
+   *  most recent that fit. A turn can read the rest from the tracker. */
+  truncated: boolean;
 }
 
 /** One of the caller's conversations, open or closed, addressed by its session id. */
@@ -151,7 +170,11 @@ export type SpecDialogReadingState = "opening" | "ready" | "failed";
 /** 2026-09-17-c7aec: one repository a running design turn opened, pushed as it happens. */
 export interface SpecDialogReadingPush {
   dialogId: string;
-  repo: string;
+  /** 2026-09-27-481be: a repository or a TICKET. A line used to be found and keyed by its NAME
+   *  alone, so a ticket whose id matched a repository name would have overwritten that
+   *  repository's line. Hand-written mirror: nothing checks this file. */
+  kind: "repository" | "ticket";
+  name: string;
   state: SpecDialogReadingState;
   at: string;
 }

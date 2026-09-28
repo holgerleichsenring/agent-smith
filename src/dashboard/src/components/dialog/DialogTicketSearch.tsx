@@ -25,14 +25,37 @@ const DEBOUNCE_MS = 300;
  *  silent: the page would ask and be refused. */
 export const TICKET_SEARCH_MINIMUM = 3;
 
+// 2026-09-27-481bf: an icon only where every tracker means the same thing by the word; everything
+// else keeps the word with no mark, because Azure DevOps process templates and Jira projects both
+// define their own types and a fixed set over an open vocabulary either mislabels or shows nothing.
+const KIND_ICON: Record<string, string> = {
+  bug: "\u{1F41E}",
+  task: "\u2713",
+  epic: "\u25C6",
+};
+
+function TicketKind({ kind }: { kind: string }) {
+  const icon = KIND_ICON[kind.trim().toLowerCase()];
+  return (
+    <span data-testid={`dialog-ticket-kind-${kind.trim().toLowerCase()}`} className="ec-sub">
+      {icon ? `${icon} ` : ""}
+      {kind}
+    </span>
+  );
+}
+
 export function DialogTicketSearch({
   minimum = TICKET_SEARCH_MINIMUM,
+  stranded = false,
   bound,
   picked,
   onPicked,
   reason,
 }: {
   minimum?: number;
+  /** 2026-09-27-481bb: the picked ticket's tracker has no configured project, so nothing here can
+   *  bind it correctly. Said rather than papered over with a list of projects on other boards. */
+  stranded?: boolean;
   /** The ticket ids that already have a conversation, so a row can say so rather than opening a
    *  second one the unique index would refuse anyway. */
   bound: ReadonlySet<string>;
@@ -46,6 +69,7 @@ export function DialogTicketSearch({
   const [found, setFound] = useState<TicketSearchFound[] | null>(null);
   const [more, setMore] = useState(false);
   const [unsearchable, setUnsearchable] = useState<string[]>([]);
+  const [unreachable, setUnreachable] = useState<string[]>([]);
   const [asking, setAsking] = useState(false);
   const [failed, setFailed] = useState(false);
   const typed = text.trim();
@@ -71,6 +95,7 @@ export function DialogTicketSearch({
           setFound(read.found);
           setMore(read.moreHeldBack);
           setUnsearchable(read.unsearchable);
+          setUnreachable(read.unreachable);
           setFailed(false);
         })
         .catch(() => {
@@ -98,8 +123,14 @@ export function DialogTicketSearch({
       {picked ? (
         <p data-testid="dialog-ticket-picked" className="ec-marks ec-sub items-center">
           <span className="ec-mark filed">{picked.ticketId}</span>
+          {picked.kind && <TicketKind kind={picked.kind} />}
           <span className="min-w-0 truncate text-ink">{picked.title}</span>
           <span>on {picked.tracker}</span>
+          {stranded && (
+            <span data-testid="dialog-ticket-stranded" className="ec-mark">
+              no project is configured on {picked.tracker}
+            </span>
+          )}
           <button
             type="button"
             data-testid="dialog-ticket-clear"
@@ -156,6 +187,14 @@ export function DialogTicketSearch({
                 <span className="line-clamp-2 dsh-body font-medium text-ink">{hit.title}</span>
                 <span className="ec-marks ec-sub items-center">
                   <span className="ec-mark given">{hit.ticketId}</span>
+                  {hit.kind && <TicketKind kind={hit.kind} />}
+                  {/* 2026-09-27-481bb: the number that was typed, rather than a ticket whose text
+                      merely mentions it — it was already first, and now it says so. */}
+                  {hit.exact && (
+                    <span data-testid={`dialog-ticket-exact-${hit.ticketId}`} className="ec-mark filed">
+                      this number
+                    </span>
+                  )}
                   <span>{hit.tracker}</span>
                   {bound.has(hit.ticketId) && (
                     <span data-testid={`dialog-ticket-bound-${hit.ticketId}`} className="ec-mark filed">
@@ -173,6 +212,14 @@ export function DialogTicketSearch({
       {!picked && more && (
         <p data-testid="dialog-ticket-more" className="ec-sub">
           More matched than are shown. These are the most recently updated.
+        </p>
+      )}
+      {/* A tracker whose TEXT search worked and whose NUMBER read failed is not one nothing is
+          known about — two failures, two sentences. */}
+      {!picked && unreachable.length > 0 && (
+        <p data-testid="dialog-ticket-unreachable" className="ec-sub">
+          {unreachable.join(", ")} could not be asked for a ticket by number, so a ticket of that
+          number there would not be found here.
         </p>
       )}
       {!picked && unsearchable.length > 0 && (

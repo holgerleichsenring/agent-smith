@@ -70,7 +70,7 @@ public sealed class SpecDialogHoldTests
         [.. _hub.Pushes
             .Where(p => p.Method == "SpecDialogReading")
             .Select(p => (SpecDialogReadingPush)p.Args[0]!)
-            .Select(p => (p.Repo, p.State))];
+            .Select(p => (p.Name, p.State))];
 
     private static async Task ReadingTurnAsync(
         RealCompositionHarness harness, ConversationState state, string answer)

@@ -74,19 +74,13 @@ public static class TicketConversationPromptSection
         return kept;
     }
 
+    // 2026-09-27-481ba: the fit is shared with the design path now. This caller MAY overshoot —
+    // its budget bounds a prompt rather than a column — so its answer is unchanged.
     private static (string Thread, int Dropped) Fit(IReadOnlyList<TicketComment> comments)
     {
-        var taken = new List<string>();
-        var length = 0;
-        var dropped = 0;
-        foreach (var comment in comments.Reverse())
-        {
-            var text = Format(comment);
-            if (length + text.Length > MaxChars && taken.Count > 0) { dropped++; continue; }
-            taken.Insert(0, text);
-            length += text.Length;
-        }
-        return (string.Join("\n\n", taken), dropped);
+        var fitted = NewestFirstFit.Of(
+            [.. comments.Select(Format)], MaxChars, mayOvershoot: true);
+        return (string.Join("\n\n", fitted.Kept), fitted.Dropped);
     }
 
     private static string Format(TicketComment comment) =>

@@ -42,7 +42,8 @@ public sealed class MasterToolComposition(
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         WebToolHost? web, ProgressLedgerToolHost progress,
         MemoryRecallToolHost recall, MemoryWriteToolHost remember,
-        WithdrawFiledTicketToolHost? withdraw, AgenticMasterContext context)
+        WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
+        AgenticMasterContext context)
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
@@ -51,7 +52,10 @@ public sealed class MasterToolComposition(
         // what this method decides.
         IList<AITool> BaseSurface() => isSpecDialog
             ? [.. toolSurface.SpecDialog(fs, human, web, recall, remember),
-               .. withdraw?.GetTools(null, null) ?? []]
+               .. withdraw?.GetTools(null, null) ?? [],
+               // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
+               // gate — only a BOUND design turn carries the port this is built from.
+               .. readTicket?.GetTools(null, null) ?? []]
             : isScanMaster
                 ? toolSurface.Review(fs, log, web, recall, remember)
                 : toolSurface.ReadWriteWithHuman(

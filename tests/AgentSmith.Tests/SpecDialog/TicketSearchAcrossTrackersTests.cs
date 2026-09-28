@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.SpecDialog;
@@ -60,6 +61,34 @@ public sealed class TicketSearchAcrossTrackersTests
         hit.Title.Should().Be("Cannot log in");
         // The tracker is on the hit because one number is different work on two boards.
         hit.Tracker.Should().Be(Jira);
+        hit.Exact.Should().BeTrue("this is the number that was typed, not a ticket mentioning it");
+        answer.Found.Should().StartWith(hit, "the exact hit is added before the text sweep");
+    }
+
+    [Fact]
+    public async Task TicketSearch_ANumberLookupThatFailed_IsListedApartFromAnUnsearchableTracker()
+    {
+        // GitLab cannot be ASKED for a number; Azure DevOps cannot run the TEXT query. Two
+        // different failures: one sentence cannot say both, and neither is an empty board.
+        var tracker = new FakeTrackers { Unreachable = GitLab };
+        tracker.Searching(Jira).Answer = Hits(1);
+        tracker.Searching(GitLab).Answer = Hits(0);
+        tracker.Searching(Ado).Answer = TicketSearchResult.Failed("the organisation is unreachable");
+
+        var answer = await Sut(tracker).ForAsync(Config(), "412", CancellationToken.None);
+
+        answer.Unreachable.Should().BeEquivalentTo([GitLab]);
+        answer.Unsearchable.Should().BeEquivalentTo([Ado]);
+    }
+
+    [Fact]
+    public async Task TicketSearch_ATrackerWithoutTheNumber_IsNotCalledUnreachable()
+    {
+        // The commonest case by far: the board simply has no such ticket. It must not be reported
+        // as a board nothing is known about.
+        var answer = await Sut(new FakeTrackers()).ForAsync(Config(), "412", CancellationToken.None);
+
+        answer.Unreachable.Should().BeEmpty();
     }
 
     [Fact]
@@ -91,6 +120,37 @@ public sealed class TicketSearchAcrossTrackersTests
 
         answered.Should().BeAssignableTo<IStatusCodeHttpResult>().Which.StatusCode.Should().Be(200);
         trackers.Searching(Jira).Asked.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// 2026-09-27-481bb: through the ROUTE, not the service. Both halves of this phase's reporting
+    /// were asserted on the service and on a mocked page, and the wire between them carried neither
+    /// — the list was computed, rendered, and never serialised. A shape assertion here is what
+    /// makes the sentence reachable at all.
+    /// </summary>
+    [Fact]
+    public async Task TicketSearchRoute_EveryFailureList_ReachesTheWire()
+    {
+        var trackers = new FakeTrackers { Unreachable = GitLab };
+        trackers.Searching(Jira).Answer = Hits(1);
+        trackers.Searching(GitLab).Answer = Hits(0);
+        trackers.Searching(Ado).Answer = TicketSearchResult.Failed("the organisation is unreachable");
+
+        var answered = await TicketSearchEndpoints.SearchTicketsAsync(
+            "412", new FixedLoader(Config()), new ServerContext("unused"), Sut(trackers),
+            CancellationToken.None);
+
+        var body = System.Text.Json.JsonSerializer.Serialize(
+            answered.Should().BeAssignableTo<IValueHttpResult>().Subject.Value);
+        body.Should().Contain("\"unreachable\":[\"gitlab-main\"]")
+            .And.Contain("\"unsearchable\":[\"ado-main\"]");
+    }
+
+    private sealed class FixedLoader(AgentSmithConfig config) : IConfigurationLoader
+    {
+        public AgentSmithConfig LoadConfig(string configPath) => config;
+
+        public ConfigFileReadFact? LastRead => null;
     }
 
     private static TicketSearchAcrossTrackers Sut(FakeTrackers trackers) =>
@@ -130,6 +190,10 @@ public sealed class TicketSearchAcrossTrackersTests
 
         public (string Tracker, string TicketId, string Title)? Holding { get; init; }
 
+        /// <summary>2026-09-27-481bb: a tracker that cannot be ASKED, which is not a tracker
+        /// without the ticket — the distinction the number lookup swallowed until now.</summary>
+        public string? Unreachable { get; init; }
+
         public RecordingTicketSearch Searching(string tracker)
         {
             if (!_searches.TryGetValue(tracker, out var search))
@@ -140,12 +204,14 @@ public sealed class TicketSearchAcrossTrackersTests
         public ITicketSearch CreateSearch(TrackerConnection config) => Searching(config.Name);
 
         public ITicketProvider Create(TrackerConnection config) =>
-            Holding is { } held && held.Tracker == config.Name
-                ? new StubTicketProvider(id => id.Value == held.TicketId
-                    ? new Ticket(id, held.Title, string.Empty, null, "Open", "Jira")
-                    : throw new InvalidOperationException($"no ticket {id.Value}"))
-                // A tracker that does not have the number does not answer for it.
-                : new StubTicketProvider(id => throw new InvalidOperationException($"no ticket {id.Value}"));
+            config.Name == Unreachable
+                ? new StubTicketProvider(_ => throw new HttpRequestException("the organisation is unreachable"))
+                : Holding is { } held && held.Tracker == config.Name
+                    ? new StubTicketProvider(id => id.Value == held.TicketId
+                        ? new Ticket(id, held.Title, string.Empty, null, "Open", "Jira")
+                        : throw new TicketNotFoundException(id))
+                    // A tracker that does not have the number answers for it, with nothing.
+                    : new StubTicketProvider(id => throw new TicketNotFoundException(id));
 
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
     }

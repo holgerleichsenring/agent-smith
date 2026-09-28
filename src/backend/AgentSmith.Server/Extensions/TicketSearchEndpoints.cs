@@ -21,7 +21,43 @@ internal static class TicketSearchEndpoints
         // "search", so nothing real is shadowed either.
         app.MapGet("/api/spec-dialog/tickets/search", (Delegate)SearchTicketsAsync)
            .Needs(Security.Permissions.DialogWrite);
+        // 2026-09-27-481bb: the tracker is a QUERY parameter, not a segment. As a segment it would
+        // sit where tickets/{project}/{ticketId} already has one, and two single-segment parameters
+        // in the same position match ambiguously at request time rather than failing to compile.
+        app.MapGet("/api/spec-dialog/tickets/resolve", (Delegate)ResolveTicketAsync)
+           .Needs(Security.Permissions.DialogWrite);
         return app;
+    }
+
+    /// <summary>
+    /// 2026-09-27-481bb: which projects a ticket names on the tracker it was FOUND on. A search hit
+    /// carries an id and a title by contract, so the sweep can only offer the projects routed to
+    /// its tracker; this reads the one ticket a person committed to and matches its labels. Asked
+    /// on the pick, never per keystroke.
+    /// </summary>
+    internal static async Task<IResult> ResolveTicketAsync(
+        string tracker,
+        string ticketId,
+        IConfigurationLoader configLoader,
+        ServerContext serverContext,
+        TicketProjectForTracker resolver,
+        CancellationToken cancellationToken)
+    {
+        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        var answer = await resolver.ForTrackerAsync(config, tracker, ticketId, cancellationToken);
+        if (answer is null)
+            return Results.NotFound(
+                new { reason = $"Tracker '{tracker}' does not have a ticket '{ticketId}'." });
+
+        return Results.Ok(new
+        {
+            ticketId = answer.Binding.TicketId,
+            title = answer.Binding.Title,
+            tracker = answer.Binding.Tracker,
+            projects = answer.Projects,
+            unanswerable = answer.Unanswerable,
+            elsewhere = answer.Elsewhere,
+        });
     }
 
     /// <summary>
@@ -47,6 +83,7 @@ internal static class TicketSearchEndpoints
                 found = Array.Empty<object>(),
                 moreHeldBack = false,
                 unsearchable = Array.Empty<string>(),
+                unreachable = Array.Empty<string>(),
                 minimum = TicketSearchAcrossTrackers.MinimumText,
             });
 
@@ -57,6 +94,7 @@ internal static class TicketSearchEndpoints
             found = answer.Found,
             moreHeldBack = answer.MoreHeldBack,
             unsearchable = answer.Unsearchable,
+            unreachable = answer.Unreachable,
             minimum = TicketSearchAcrossTrackers.MinimumText,
         });
     }

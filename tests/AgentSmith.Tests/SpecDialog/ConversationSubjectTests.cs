@@ -239,7 +239,8 @@ public sealed class ConversationSubjectTests : IDisposable
             new SpecDialogLatestOutcomeStore(
                 _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-            _turnGate, new SpecDialogAttachmentRepository(_context));
+            _turnGate, new SpecDialogAttachmentRepository(_context),
+            new SpecDialogTicketTextRepository(_context));
 
     private SpecDialogRouter Router()
     {

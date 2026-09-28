@@ -172,6 +172,9 @@ export interface TicketProjectRead extends TicketConversationRead {
   /** Projects routed by area path, repository or address — which a ticket read by id cannot
    *  carry, so they are unanswerable rather than unmatched. Shown as a reason, not a fault. */
   unanswerable: string[];
+  /** 2026-09-27-1bd9: projects this ticket's labels DO name, on trackers that do not hold it.
+   *  Binding through one would re-fetch the number on that tracker — a different board. */
+  elsewhere: string[];
 }
 
 /**
@@ -194,6 +197,32 @@ export interface TicketSearchFound {
   tracker: string;
   /** The projects routed to this hit's tracker. Any one of them binds the ticket that was picked. */
   projects: string[];
+  /** 2026-09-27-481bb: the ticket whose NUMBER was typed, rather than one whose text mentions it.
+   *  Already the first row — this is what lets it SAY so. */
+  exact?: boolean;
+  /** 2026-09-27-481bf: what the tracker calls it, in the tracker's OWN word — the vocabulary is
+   *  not ours, so a fixed set would mislabel. Null where a tracker gives none. */
+  kind?: string | null;
+}
+
+/**
+ * 2026-09-27-481bb: the projects one ticket names on the tracker it was FOUND on. A search hit is
+ * an id and a title by contract, so the sweep can only offer the projects routed to its tracker;
+ * this reads the ticket a person committed to and matches its own labels. One round trip, on the
+ * pick — never per keystroke.
+ */
+export async function resolveTicketProjects(
+  tracker: string,
+  ticketId: string,
+  signal?: AbortSignal,
+): Promise<TicketProjectRead | null> {
+  const path =
+    `/api/spec-dialog/tickets/resolve?tracker=${encodeURIComponent(tracker)}` +
+    `&ticketId=${encodeURIComponent(ticketId)}`;
+  const res = await apiFetch(path, signal ? { signal } : undefined);
+  if (res.status === 404) return null;
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as TicketProjectRead;
 }
 
 export interface TicketSearchRead {
@@ -202,6 +231,10 @@ export interface TicketSearchRead {
   moreHeldBack: boolean;
   /** Trackers that could not run the query. NOT the same as a board with no such ticket. */
   unsearchable: string[];
+  /** 2026-09-27-481bb: trackers the NUMBER lookup could not ask. Apart from `unsearchable`: a
+   *  tracker whose text search worked and whose number read failed is not one nothing is known
+   *  about, and one sentence cannot say both. */
+  unreachable: string[];
   /** How many characters the server asks for before it asks any tracker. */
   minimum: number;
 }

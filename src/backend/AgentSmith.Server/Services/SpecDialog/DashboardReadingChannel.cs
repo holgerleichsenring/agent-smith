@@ -38,22 +38,31 @@ public sealed class DashboardReadingChannel(
     /// Pushes one report to the dialog. Never throws unless the caller cancelled: a progress
     /// line that failed would fail the read it announces.
     /// </summary>
+    public Task PushAsync(
+        string dialogId, string repoName, SourceScopeProgress progress, CancellationToken ct) =>
+        PushAsync(dialogId, SpecDialogReadingKinds.Repository, repoName,
+            progress.ToString().ToLowerInvariant(), ct);
+
+    /// <summary>
+    /// 2026-09-27-481be: the same line for a ticket. A bound conversation makes TWO tracker reads
+    /// — the one that grounds it and a per-turn check for whether the ticket has moved — and both
+    /// were pauses with nothing on screen to account for them.
+    /// </summary>
     public async Task PushAsync(
-        string dialogId, string repoName, SourceScopeProgress progress, CancellationToken ct)
+        string dialogId, string kind, string name, string state, CancellationToken ct)
     {
         if (hub is null) return;
         try
         {
-            var push = new SpecDialogReadingPush(
-                dialogId, repoName, progress.ToString().ToLowerInvariant(), DateTimeOffset.UtcNow);
+            var push = new SpecDialogReadingPush(dialogId, kind, name, state, DateTimeOffset.UtcNow);
             await hub.Clients.Group(HubGroups.SpecDialog(dialogId))
                 .SendAsync(ReadingMethod, push, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex,
-                "Could not tell spec-dialog {DialogId} that '{Repo}' is {Progress}",
-                dialogId, repoName, progress);
+                "Could not tell spec-dialog {DialogId} that '{Name}' is {State}",
+                dialogId, name, state);
         }
     }
 }

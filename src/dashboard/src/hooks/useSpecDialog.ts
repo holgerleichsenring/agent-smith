@@ -621,7 +621,10 @@ function upsertReading(
   held: SpecDialogReadingPush[],
   reading: SpecDialogReadingPush,
 ): SpecDialogReadingPush[] {
-  const at = held.findIndex((line) => line.repo === reading.repo);
+  // A line is identified by WHAT it is and what it is called, together: a ticket and a repository
+  // of the same name are two reads, not one.
+  const at = held.findIndex(
+    (line) => line.kind === reading.kind && line.name === reading.name);
   if (at < 0) return [...held, reading];
   return held.map((line, index) => (index === at ? reading : line));
 }

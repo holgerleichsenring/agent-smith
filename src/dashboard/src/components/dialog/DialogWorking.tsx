@@ -51,7 +51,17 @@ export function DialogWorking({
   /** The moment on this browser's clock to count up from; null while nothing measured one. */
   since: number | null;
 }) {
-  const opening = readings.some((reading) => reading.state === "opening");
+  const opening = readings.filter((reading) => reading.state === "opening");
+  // 2026-09-27-481be: the line above the readings answers for WHAT is being read. It said
+  // "the repositories it needs" whatever was open, and a bound conversation reads a ticket too.
+  const openingWhat =
+    opening.length === 0
+      ? "Working it out…"
+      : opening.every((reading) => reading.kind === "ticket")
+        ? "Reading the ticket…"
+        : opening.some((reading) => reading.kind === "ticket")
+          ? "Reading the ticket and the repositories it needs…"
+          : "Opening the repositories it needs…";
   // What the TURN has taken, not what this page still holds: the kept list is bounded, so a
   // count of it would freeze past that bound and one of the two liveness cues would die.
   const taken = stepCount(activity);
@@ -65,7 +75,7 @@ export function DialogWorking({
             aria-hidden="true"
             className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none"
           />
-          {opening ? "Opening the repositories it needs…" : "Working it out…"}
+          {openingWhat}
           <span data-testid="dialog-working-pulse" className="font-mono dsh-mono text-mute">
             {since !== null && (
               <>
@@ -80,12 +90,12 @@ export function DialogWorking({
           <ul data-testid="dialog-readings" className="flex flex-col gap-0.5 font-mono dsh-mono">
             {readings.map((reading) => (
               <li
-                key={reading.repo}
+                key={`${reading.kind}/${reading.name}`}
                 data-testid="dialog-reading"
                 data-state={reading.state}
                 className={READING_MARK[reading.state]}
               >
-                {reading.repo}: {READING_WORDS[reading.state]}
+                {reading.name}: {READING_WORDS[reading.state]}
               </li>
             ))}
           </ul>
