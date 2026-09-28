@@ -27,9 +27,25 @@ public static class RoutingPipelineNames
     {
         ArgumentNullException.ThrowIfNull(config);
         foreach (var (name, project) in config.Projects)
+        {
             foreach (var finding in Unknown(Named(project), $"project '{name}'"))
                 yield return finding;
+            foreach (var finding in HostOnly(name, project))
+                yield return finding;
+        }
     }
+
+    // The studio refuses these at save; a file, an import or a store written before that refusal
+    // still carries them. Deduplicated because one tracker's map reaches every trigger block.
+    private static IEnumerable<StartupFinding> HostOnly(string name, ResolvedProject project) =>
+        Triggers(project)
+            .SelectMany(t => HostOnlyRoutingRule.Violations(
+                $"Project '{name}'", t.PipelineFromLabel, t.DefaultPipeline))
+            .Select(v => v.Reason)
+            .Distinct(StringComparer.Ordinal)
+            .Select(reason => new StartupFinding(
+                StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
+                reason + " A ticket routed to it fails when it starts.", Project: name));
 
     private static IEnumerable<string> Named(ResolvedProject project) =>
         Triggers(project)

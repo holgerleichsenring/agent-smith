@@ -56,14 +56,6 @@ public interface ITicketProvider : ITypedProvider
         string title, string description, IReadOnlyList<string> labels, string? kind,
         CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Links a created child ticket to its parent through the tracker's own relation. No default,
-    /// for the reason <see cref="CreateAsync"/> has none. A relation the tracker lacks is
-    /// Unsupported, and one it refuses is Failed with its reason — neither throws.
-    /// </summary>
-    Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken);
-
     /// <summary>Posts a status comment to the ticket.</summary>
     Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         => Task.CompletedTask;

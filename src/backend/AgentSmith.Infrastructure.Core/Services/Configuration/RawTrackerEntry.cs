@@ -57,10 +57,6 @@ public sealed class RawTrackerEntry
     /// </summary>
     public Dictionary<string, string>? LifecycleStatusNames { get; set; }
 
-    /// <summary>Jira-only (YAML key <c>parent_link_type</c>): the issue link type a filed child
-    /// is linked to its parent with.</summary>
-    public string? ParentLinkType { get; set; }
-
     /// <summary>2026-09-25-3c7ac (YAML key <c>label_names</c>): what this board calls the eight
     /// labels the framework writes — the seven lifecycle states by name, and the approved-set
     /// stamp under <c>approved-set</c>. Unset keeps today's words.</summary>

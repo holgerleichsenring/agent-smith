@@ -53,10 +53,6 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
         return Task.FromResult(new CreatedTicket(new TicketId($"{id}"), $"https://tracker.test/{id}"));
     }
 
-    public Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-        Task.FromResult(ParentLinkResult.Linked);
-
     public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(comments ?? []);

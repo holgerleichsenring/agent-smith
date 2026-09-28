@@ -374,10 +374,6 @@ public sealed class TicketAmendmentTests : IDisposable
                 string title, string description, IReadOnlyList<string> labels, string? kind,
                 CancellationToken cancellationToken) => throw new NotSupportedException(Inert);
 
-            public Task<ParentLinkResult> LinkToParentAsync(
-                CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-                throw new NotSupportedException(Inert);
-
             public Task<TicketFinalizeResult> FinalizeAsync(
                 TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
                 throw new NotSupportedException(Inert);

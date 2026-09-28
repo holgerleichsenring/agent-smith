@@ -50,6 +50,9 @@ public static class ServiceCollectionExtensions
         // p0349: the shared raw->typed pipeline both the file loader and the
         // server's DB loader run over a RawAgentSmithConfig.
         services.AddSingleton<RawConfigMaterializer>();
+        services.AddTransient<Services.Configuration.Retired.RawConfigTreeReader>();
+        services.AddTransient<Services.Configuration.Retired.ConfigKeyPathMatcher>();
+        services.AddTransient<Services.Configuration.Retired.RetiredConfigKeyDetector>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
         // p0345/p0349: config studio — the catalog behind IConfigStore. The
         // read-only file store keeps the CLI/pipelines running purely from

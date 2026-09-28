@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
@@ -25,9 +26,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// all three exactly as they were, which is the only state a refusal may leave behind.
 /// </para>
 /// <para>
-/// Its own class because <see cref="OutcomeTicketFiler"/> is at the file-length limit, and
-/// because this answers a different question: not what to create, but what one existing ticket
-/// may be made to say.
+/// Not part of <see cref="OutcomeTicketFiler"/>: this answers what one existing ticket may be
+/// made to say, not what to create.
 /// </para>
 /// </summary>
 public sealed class TicketAmendment(
@@ -54,7 +54,8 @@ public sealed class TicketAmendment(
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })
             return "This conversation never recorded which ticket it belongs to, so there is "
                 + "nothing to amend. Nothing was changed.";
-        var amended = AmendedSpecification.Of(proposal, state.JobId, renderer, orderer);
+        var amended = AmendedSpecification.Of(
+            proposal, state.JobId, renderer, orderer, TicketLabelVocabulary.For(project.Tracker));
         if (amended.Error is { } refused) return $"{refused} Nothing was changed.";
 
         using var scope = scopeFactory.CreateScope();

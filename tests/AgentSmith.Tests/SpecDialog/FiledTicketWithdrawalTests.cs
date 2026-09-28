@@ -330,10 +330,6 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
             string title, string description, IReadOnlyList<string> labels, string? kind,
             CancellationToken cancellationToken) => throw new NotSupportedException();
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-            Task.FromResult(ParentLinkResult.Unsupported("this fake has no relations"));
-
         public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
             Task.FromResult(TicketFinalizeResult.Moved());

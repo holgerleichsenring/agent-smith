@@ -69,8 +69,8 @@ public sealed class DeriveSpecHandler(
 
         var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
         var previous = onBranch.Read;
-        var decision = sourceResolver.Decide(
-            onBranch, context.Ticket, pointer, context.Pipeline, key.Value, approval);
+        var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
+            Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
         if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
         if (decision.Error is not null)
             return await gate.RefuseSpecAsync(

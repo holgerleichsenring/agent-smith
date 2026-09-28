@@ -303,10 +303,6 @@ public sealed class TicketProviderCreateTests
             string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken ct) =>
             throw new NotSupportedException();
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken ct) =>
-            Task.FromResult(ParentLinkResult.Unsupported("no relation"));
-
         public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId id, string comment, string? doneStatus, CancellationToken ct) =>
             Task.FromResult(TicketFinalizeResult.Moved());

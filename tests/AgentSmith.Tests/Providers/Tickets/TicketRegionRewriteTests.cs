@@ -153,7 +153,8 @@ public sealed class TicketRegionRewriteTests
             .RenderPhase(
                 new Contracts.Models.PhaseDraft("p9001", "goal", "phase: p9001", []), "job-1",
                 AgentSmith.Application.Services.SpecDialog.TicketLabelNote.For(
-                    [AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp])).Body;
+                    [AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp],
+                    AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp)).Body;
 
         body.Should().Contain(AgentSmith.Application.Services.SpecDialog.TicketLabelNote.BeginIdentifier);
         AgentSmith.Application.Services.Specs.TicketLabelNoteStripper.Strip(body)

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -52,8 +53,8 @@ public sealed class SpecSourceResolver(
         SpecHandback? Handback = null, SpecApproval? Approval = null);
 
     public Decision Decide(
-        SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer,
-        PipelineContext pipeline, string key, SpecApprovalRecord? record = null)
+        SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer, PipelineContext pipeline,
+        string key, TicketLabelVocabulary vocabulary, SpecApprovalRecord? record = null)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(branch);
@@ -79,7 +80,7 @@ public sealed class SpecSourceResolver(
         // BEFORE the description, not after it: a ticket the framework filed from an approved set
         // has no spec of its own, so a fenced block in its description is a paste, and reading it
         // would hand the run the one editable truth this phase exists to remove.
-        if (filedGate.MissingSet(ticket, new SpecSetKey(key), record, branch.State) is { } missing)
+        if (filedGate.MissingSet(ticket, new SpecSetKey(key), record, branch.State, vocabulary) is { } missing)
             return new Decision(SpecSource.Approved, null, false, Cause: cause, Handback: missing);
 
         var extraction = specFromTicket.Extract(ticket.Description);

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
@@ -49,15 +50,18 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
 {
     /// <summary>The park, or null when this ticket may derive its own spec.</summary>
+    /// <param name="vocabulary">The ticket's own tracker's label names: a renamed stamp holds the
+    /// ticket exactly as the default one does.</param>
     public SpecHandback? MissingSet(
-        Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state)
+        Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state,
+        TicketLabelVocabulary vocabulary)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var labels = ticket.Labels ?? [];
         // 2026-09-25-3c7aa: the RECORD or the stamp. A record is the durable half — a label can be
         // taken off a board by anyone — and the stamp is still read because a run in a process that
         // binds the in-memory store is handed no record at all.
-        if (record is null && !FiledTicketLabels.CarriesApprovedSet(labels)) return null;
+        if (record is null && !FiledTicketLabels.CarriesApprovedSet(labels, vocabulary)) return null;
         if (FiledTicketLabels.ParentId(labels) is { } parent)
         {
             logger.LogInformation(
@@ -67,6 +71,6 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
         }
         return new SpecHandback(
             SpecHandbackCase.SpecificationMissingFromBranch,
-            MissingSpecReason.For(ticket, key, record, state));
+            MissingSpecReason.For(ticket, key, record, state, vocabulary));
     }
 }

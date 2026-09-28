@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Application.Services.SpecDialog;
 
@@ -65,11 +66,13 @@ public static class FiledTicketLabels
     public static bool IsEpicRecord(IncomingTicketEnvelope envelope) =>
         Carries(envelope, PhaseTicketRenderer.EpicLabel);
 
-    /// <summary>True when the framework filed this ticket from a set a person approved.</summary>
-    public static bool CarriesApprovedSet(IEnumerable<string> labels)
+    /// <summary>True when the framework filed this ticket from a set a person approved — the stamp
+    /// read under THIS tracker's name for it and every name it has ever had, never another board's.</summary>
+    public static bool CarriesApprovedSet(IEnumerable<string> labels, TicketLabelVocabulary vocabulary)
     {
         ArgumentNullException.ThrowIfNull(labels);
-        return labels.Any(l => string.Equals(l, ApprovedSetStamp, StringComparison.OrdinalIgnoreCase));
+        ArgumentNullException.ThrowIfNull(vocabulary);
+        return labels.Any(vocabulary.IsApprovedSetStamp);
     }
 
     /// <summary>
@@ -85,17 +88,14 @@ public static class FiledTicketLabels
     /// a documented trigger an operator chooses, and dropping it would remove a way of starting a
     /// run that nobody asked to lose.
     /// </summary>
-    public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope) =>
-        Carries(envelope, ApprovedSetStamp) || Carries(envelope, PhaseTicketRenderer.PhaseLabel)
+    public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope, TicketLabelVocabulary vocabulary) =>
+        CarriesApprovedSet(envelope.Labels, vocabulary) || Carries(envelope, PhaseTicketRenderer.PhaseLabel)
         || envelope.HasApprovedRecord;
 
     /// <summary>
-    /// 2026-09-17-0e79d: NO PRODUCTION CALLER LEFT. The framework stamps no POSITION on anything
-    /// it files any more — an epic's work ticket cuts from its own base and its slice records
-    /// carry no position stamp at all. This writer stays because the reader below must be held to
-    /// the format something actually writes: the tickets that carry this stamp are the legacy
-    /// children already on a tracker and the ones an operator stamps by hand, and the tests that
-    /// stand in for both build their envelopes here rather than repeating the prefix.
+    /// No production caller: the framework stamps no position on anything it files. It holds the
+    /// reader below to one format — the legacy children on a tracker and hand-stamped tickets —
+    /// and the tests that stand in for both build their envelopes here.
     /// </summary>
     public static string ParentStamp(string ticketId) => ParentPrefix + ticketId;
 
