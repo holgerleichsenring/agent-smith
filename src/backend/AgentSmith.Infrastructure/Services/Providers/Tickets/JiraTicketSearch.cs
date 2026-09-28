@@ -38,6 +38,12 @@ public sealed class JiraTicketSearch(
         var match = $"(summary ~ {operand} OR description ~ {operand}) AND statusCategory != Done";
         // The project key is optional by configuration; with none the search runs site-wide,
         // exactly as the by-id fetch on this connection already does.
+        // 2026-09-28-1da5a: a typed NUMBER also names keys. Jira has no prefix operator on a key,
+        // but it takes an enumerated list — a shape this tree already sends — so the prefix is the
+        // keys it stands for. It needs a project key to build one: without a configured project
+        // there is no prefix to put the number on.
+        if (connection.ProjectKey is { } project && TicketNumberPrefix.Of(text) is { } prefix)
+            match = $"({match}) OR key IN ({Keys(project, prefix)})";
         var scoped = connection.ProjectKey is { } key ? $"project = \"{key}\" AND ({match})" : match;
         var jql = $"{scoped} ORDER BY updated DESC";
         var url = $"{connection.BaseUrl.TrimEnd('/')}{connection.ResolvedEndpoints.Search}";
@@ -58,6 +64,9 @@ public sealed class JiraTicketSearch(
             return TicketSearchResult.Failed(ex.Message.Split('\n', 2)[0].Trim());
         }
     }
+
+    private static string Keys(string project, string prefix) =>
+        string.Join(", ", TicketNumberPrefix.Ids(prefix).Select(id => $"\"{project}-{id}\""));
 
     /// <summary>
     /// The typed text as a quoted JQL operand with a trailing wildcard, or null when nothing

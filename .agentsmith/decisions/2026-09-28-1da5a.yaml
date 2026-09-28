@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-1da5a
+
+decisions:
+  - category: Implementation
+    chose: "A prefix is the SET OF IDS it covers, named in each tracker's own way"
+    over: "A substring match on the id"
+    reason: |
+      There is no LIKE in WIQL, and its substring operator is defined only on text fields while
+      System.Id is an integer — this tree's own discovery builder records that refusal in writing.
+      What the language does have is comparison, so a prefix becomes ranges. Jira has no prefix
+      operator on a key either, but it takes an enumerated list, a shape this codebase already
+      sends in production; GitLab takes an enumerated iid list. One mechanism in three spellings.
+      Calling the enumeration "exact only" and the ranges "a prefix" would have been the same trick
+      accepted once and refused twice.
+    alternatives:
+      - "Fetching the open set and filtering in memory: shallower than the query it replaces, and a listing per keystroke"
+
+  - category: Implementation
+    chose: "Two extra digits, the same depth on all three"
+    over: "A configured id width"
+    reason: |
+      Ranges scale and enumeration does not: a third extra digit is one more disjunct on Azure
+      DevOps and a thousand more named ids on the other two. Holding all three to the same depth is
+      what makes the feature behave alike rather than merely exist alike — three disjuncts against a
+      hundred and eleven values. The cost is stated rather than hidden: a board whose ids run three
+      digits past what was typed is one this does not help with.
+    alternatives:
+      - "Per-tracker depth: the same typed text would then answer differently per board, which is the thing being fixed"
+
+  - category: Implementation
+    chose: "The prefix is a SECOND query, ordered by id, merged with the text result"
+    over: "Or-ing it into the existing clause"
+    reason: |
+      The existing query is capped at twenty and ordered by last change. A disjunct would have put
+      prefix rows and genuine title matches into one competition decided by RECENCY — so the wanted
+      row could be absent while the query "worked", and a real title hit could be evicted by prefix
+      noise. This phase would then have made search worse. Two queries, each with its own ranking,
+      cost one more round trip on a keystroke that is already debounced.
+    alternatives:
+      - "Ordering the combined query by id: title matches would then be ranked by a number nobody typed"
+
+  - category: Implementation
+    chose: "Each adapter decides whether the typed text is a number"
+    over: "Widening the search port with a second parameter"
+    reason: |
+      The port takes one string, and widening it would touch the interface, all four adapters and
+      their test doubles — for a question each adapter can answer for itself in one call. It is
+      also not the shape rule 2026-09-27-5c1ea refused: that one would have had to know four id
+      grammars to decide WHICH TRACKER could own a typed id. "Is this text entirely digits" knows
+      none of them.
+    alternatives:
+      - "Deciding in the sweep: the sweep would then hold a fact about id grammars, which is what the port exists to keep out"
+
+  - category: Implementation
+    chose: "GitHub answers exactly as before, and the reason is recorded"
+    over: "Uniformity by listing and filtering"
+    reason: |
+      Its issue search matches TEXT and an issue number is not a searchable text field; the SDK
+      pinned here exposes no qualifier for one. The only uniform alternative would be to list the
+      open issues and filter in memory, which is both a different cost class and shallower — it
+      searches only what it listed. Recording the absence is more useful than a worse answer that
+      looks the same.
+    alternatives:
+      - "Leaving the asymmetry unmentioned: the next reader would treat a missing row as a defect"
