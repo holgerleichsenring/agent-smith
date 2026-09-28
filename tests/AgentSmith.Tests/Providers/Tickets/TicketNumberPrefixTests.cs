@@ -50,4 +50,13 @@ public sealed class TicketNumberPrefixTests
         // integer field, so CONTAINS is not available here at all.
         clause.Should().NotContain("CONTAINS");
     }
+
+    [Fact]
+    public void TicketNumberPrefix_AzureDevOps_IsScopedToTheProjectAndNotToItsOpenStates()
+    {
+        // The scope a number-prefix query carries is the team project alone: a ticket somebody
+        // typed the number of is one they already have in mind, finished or not.
+        AzureDevOpsOpenScope.Project("Contoso").Should().Be("[System.TeamProject] = \'Contoso\'");
+        AzureDevOpsOpenScope.Project("Contoso").Should().NotContain("System.State");
+    }
 }
