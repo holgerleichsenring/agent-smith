@@ -1,14 +1,16 @@
 # Sandbox Architecture
 
-The Server-Pod orchestrates an ephemeral Sandbox-Pod per pipeline run. The
-Sandbox-Pod runs an upstream toolchain image (e.g. `mcr.microsoft.com/dotnet/sdk:8.0`)
-with `AgentSmith.Sandbox.Agent` injected as the entry-point via an init container.
-The Server and Agent communicate via Redis — no `kubectl exec`, no SSH.
+The server orchestrates ephemeral sandboxes for each pipeline run: one per repo and
+toolchain image. A sandbox runs an upstream toolchain image (e.g.
+`mcr.microsoft.com/dotnet/sdk:8.0`) with `AgentSmith.Sandbox.Agent` injected as the
+entry-point via an init container. Server and agent communicate via Redis — no
+`kubectl exec`, no SSH.
 
 ## Pieces
 
 - **Server-Pod** — `AgentSmith.Server` orchestrates the pipeline. Creates the
-  Sandbox-Pod at pipeline-start, pushes Steps to Redis, reads Results.
+  sandboxes after `ScopeRepos` has decided which repos the run touches, pushes Steps
+  to Redis, reads Results.
 - **Sandbox-Pod** — runs the user-selected toolchain image with the agent binary
   mounted via shared `emptyDir`. The agent polls Redis, executes Steps, streams
   events back.
@@ -25,7 +27,12 @@ The Server and Agent communicate via Redis — no `kubectl exec`, no SSH.
 | `WriteFile` | Atomic temp+rename write | 10 MB cap |
 | `ListFiles` | Enumerate file-system entries | 1000-entry cap, MaxDepth supported |
 | `Grep` | Regex search across a directory | 200-match cap default, ripgrep when present + managed fallback |
+| `DirectoryTree` | Nested listing of a directory | Standard noisy directories skipped |
 | `Shutdown` | Graceful agent termination | Server pushes on Sandbox dispose |
+
+An agent that receives a kind it doesn't know (an older agent, a newer server)
+answers with a result naming the protocol mismatch instead of exiting, so the
+server can report the skew.
 
 Limits live in `AgentSmith.Sandbox.Wire/SizeLimits.cs` so Agent and InProcessSandbox
 enforce identical numbers.
@@ -34,16 +41,24 @@ enforce identical numbers.
 
 ```text
 Pod (RestartPolicy=Never)
-├── initContainer agent-loader     image: agent-smith-sandbox-agent:latest
+│   labels: app, pipeline-id, owner (this deployment), run-id, conversation-id
+│   imagePullSecrets: sandbox.image_pull_secrets
+├── initContainer agent-loader     image: <agent_registry>/agent-smith-sandbox-agent:<tag>
 │   args: --inject /shared/agent
 │   volumeMounts: /shared
-└── container toolchain            image: <user toolchain>
+└── container toolchain            image: <toolchain image>
     command: [/shared/agent]
-    args: --redis-url $REDIS_URL --job-id $JOB_ID
-    env: REDIS_URL, JOB_ID, GIT_TOKEN (from secretKeyRef when configured)
-    volumeMounts: /shared (ro), /work
+    args: --redis-url $REDIS_URL --job-id $JOB_ID [--run-id $RUN_ID]
+    env: REDIS_URL, JOB_ID, GIT_TOKEN and sandbox.secrets.env (secretKeyRef)
+    volumeMounts: /shared (ro), /work, sandbox.secrets.files (ro)
     workingDir: /work
 ```
+
+The agent image tag is derived from the release the server is, unless
+`sandbox.agent_version` (or `deployment.version`) pins one. A pin is reported as an
+advisory finding, never refused, and the installation page shows per project whether
+the tag was derived or pinned. Image pull secrets and `sandbox.secrets` are
+Kubernetes-only; see [Kubernetes](../../host-it/kubernetes.md#sandbox-pods).
 
 The pod-level `securityContext.fsGroup=1000` makes `/shared/agent` group-readable
 + executable from non-root toolchain images (e.g. `node:20`). Operators with
@@ -57,8 +72,8 @@ unusual UIDs override via `SandboxSpec.SecurityContext`.
 2. `SANDBOX_TYPE=docker` or `/var/run/docker.sock` exists → `DockerSandboxFactory`
    (mirrors the K8s shape: `agent-loader` container exits, then a `toolchain`
    container starts with two named volumes — shared agent binary RO, work tree RW)
-3. Otherwise → `InProcessSandbox` (CLI mode, no container isolation — single-tenant
-   developer machine)
+3. Otherwise → `InProcessSandbox` (no container isolation — single-tenant
+   developer machine). The CLI always uses this backend.
 
 `DOCKER_HOST` overrides the default socket URI when set.
 
@@ -68,17 +83,48 @@ unusual UIDs override via `SandboxSpec.SecurityContext`.
 
 ## Lifecycle
 
-1. `PipelineExecutor.ExecuteAsync` checks whether the pipeline contains
-   `CheckoutSource / AgenticExecute / Test / GenerateTests / GenerateDocs`.
-2. If yes, `SandboxSpecBuilder` resolves the toolchain image from
-   `ProjectMap.PrimaryLanguage` (or `ProjectConfig.Sandbox.ToolchainImage`).
-3. `ISandboxFactory.CreateAsync` creates the pod and waits for it to be Ready.
-4. `CheckoutSourceHandler` (V1 hybrid) clones server-side AND pushes a `git clone`
-   Step into the sandbox so `/work` is populated.
-5. `AgenticExecuteHandler` / `TestHandler` push their Steps via the sandbox.
-6. `await using` triggers `DisposeAsync` at pipeline-end → Shutdown step + 10 s
-   grace + `DeleteNamespacedPodAsync`. Belt-and-suspenders: `OwnerReference`
-   triggers K8s GC if the Server crashes mid-pipeline.
+1. `ScopeRepos` narrows the project to the repos the ticket touches.
+2. For each repo the coordinator reads its contexts and resolves a toolchain image per
+   context, in this order: `projects.<name>.sandbox.toolchain_image`,
+   `projects.<name>.sandbox.images.<language>`, the context's `stack.image` (only if it
+   passes `sandbox.allowed_registries`), a built-in per-language table, and a generic
+   image with git and no toolchain. One log line names the link that decided.
+3. Contexts of one repo that resolve to the same image share one sandbox, sized to the
+   largest resource envelope among them. A different image means a separate sandbox.
+   The capacity footprint is computed from the same grouping.
+4. `ISandboxFactory.CreateAsync` creates the sandbox and waits for it to be ready.
+5. `CheckoutSource` clones inside the sandbox. An image without git fails here with
+   an error saying so.
+6. Before a declared `verify` stage runs, its binary is looked up on the image's
+   `PATH`; a missing one is a warning naming image, binary, stage and context.
+7. Handlers push their Steps through the sandbox. A `run_command` without its own
+   timeout gets `run_command_timeout_seconds` (default 300); a command may ask for
+   more, up to `step_timeout_seconds` (default 900), which caps every step. A command
+   killed at the cap is reported as timed out.
+8. `await using` triggers `DisposeAsync` at pipeline end → Shutdown step + 10 s
+   grace + pod delete.
+
+A server crash can leave sandboxes behind. On Kubernetes a corpse reaper deletes this
+deployment's pods whose run is no longer live, on a timer and at admission; on Docker
+the orphan reaper does the same for containers. Both select by an owner label, whose
+value is derived from the Redis endpoint (or set with `SANDBOX_OWNER_ID`), so two
+deployments sharing a host or namespace never touch each other's sandboxes.
+
+## Read-only source sandboxes
+
+A design conversation in the dashboard, and a project template a run reads, reach
+repositories through read-only source sandboxes instead of run sandboxes. One is
+created lazily on the first read, on a generic git-bearing image, and clones one branch
+at one commit (or a named revision). Content reads (`ReadFile`, `ListFiles`, `Grep`,
+`DirectoryTree`) are served. A process step is served only when the server itself built
+it (the clone, a file search, an HTTP transfer); a model-authored command never reaches
+a shell. Writes are refused everywhere.
+
+A design conversation holds its source sandboxes between turns for `sandbox.hold_seconds`
+(default 180, `0` holds nothing; per project `projects.<name>.sandbox.hold_seconds`;
+`SANDBOX_HOLD_SECONDS` when the configuration store names none), so only the first
+message pays for the spawn and clone. The reapers spare a held sandbox, and every
+capacity check releases holds before it probes, so a hold never costs a run its slot.
 
 ## RBAC
 
@@ -90,21 +136,6 @@ The Server's `ServiceAccount` needs:
 
 `pods/exec` is **not required**. See [`deploy/k8s/2-rbac.yaml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/k8s/2-rbac.yaml).
 
-## What runs where (post p0117b)
-
-| Operation | Runs in | Note |
-| --------- | ------- | ---- |
-| Source clone | Sandbox-only via `Step{Kind=Run, Command=git}` | `CheckoutSourceHandler` is pure-Step. `Local` provider relies on operator bind-mounting basePath as `/work`. `KubernetesSandbox + LocalSourceProvider` throws `NotSupportedException`. |
-| Source-provider metadata (default branch, clone URL) | Server-side API (Octokit / GitLab REST / AzDO REST) | `CheckoutAsync` is metadata-only; no git plumbing |
-| File reads/writes for ~19 handlers (Bootstrap*/Load*/Compile*/Analyze*/SecurityTrend/SecuritySnapshotWriter/SpawnFix/WriteRunResult/QueryKnowledge/TryCheckoutSource) | Sandbox via `SandboxFileReader` | `Repository.LocalPath` is the constant `"/work"`; `Path.Combine(repo.LocalPath, …)` reads fluently |
-| AI tool calls (read/write/list/grep/run) | Sandbox via `SandboxToolHost` | Mirrors the K8s/Docker `/work` view |
-| Project detection / repo snapshot / context generation | Sandbox via `SandboxFileReader` | `IProjectDetector`, `IRepoSnapshotCollector`, `IContextGenerator`, all 3 `ILanguageDetector` impls, `MetaFileBootstrapper` are sandbox-routed |
-| Security scanners (`StaticPatternScanner` / `GitHistoryScanner` / `DependencyAuditor`) | Sandbox via `ISandboxFileReader` (file IO) and `Step{Kind=Run}` (`git log` / `npm audit` / `pip-audit` / `dotnet list package`) | `ScanAsync` no longer takes a path argument |
-| Test execution | Sandbox via `dotnet test --logger trx --results-directory /work/test-results` | TRX result-files parsed via `TrxResultParser` into structured `TrxSummary` |
-| Commit + push | Sandbox via `SandboxGitOperations` | Captures the `/work` modifications. `CommitAndPRHandler`, `PersistWorkBranchHandler`, `InitCommitHandler` all migrated |
-| PR creation | Server-side via Octokit / GitLab REST / AzDO API | API call, no git plumbing |
-| Stream cleanup on dispose | Server-side `SandboxRedisChannel.DisposeAsync` | DELs `sandbox:{jobId}:in/events/results`. Best-effort: never throws |
-
 ## Stream bounds
 
 `StreamLimits.EventStreamMaxLength = 10_000` (Wire). Agent's `RedisEventChannel`
@@ -114,16 +145,10 @@ verbose builds) cannot balloon a stream past ~10500 events. Combined with
 
 ## Known limitations
 
-- **Mid-step cancellation** — pod-delete works as a hammer; granular cancel
-  comes later.
-- **`LocalSourceProvider` in Kubernetes** — throws `NotSupportedException`
-  with operator-facing message. The Sandbox-Pod runs on a different node /
-  filesystem so a host-disk source is unreachable. Use `DockerSandbox` with a
-  bind-mount (`-v /local/path:/work`) or a remote source provider instead.
-- **Helm chart** — deployment still via `deploy/k8s/` flat YAMLs. Helm-ifying
-  the manifests is a separate phase (deferred to p0117c).
-- **Crash-time Redis-key reaper** — if the Server-Pod crashes mid-pipeline,
-  the K8s `OwnerReference` deletes the Sandbox-Pod but the Redis keys for
-  that job remain until a `SCAN`-based reaper hosted-service ships.
+- **Mid-step cancellation** — pod-delete works as a hammer; there is no granular
+  cancel of a running step.
+- **`LocalSourceProvider` in Kubernetes** — throws `NotSupportedException` with an
+  operator-facing message. The sandbox pod runs on a different node / filesystem, so
+  a host-disk source is unreachable. Use a remote source provider instead.
 
 See [sandbox-agent.md](./sandbox-agent.md) for the Agent-side view.

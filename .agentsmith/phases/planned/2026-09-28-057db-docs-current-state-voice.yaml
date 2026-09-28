@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-057db
+goal: "A docs page tells a reader how the product works today, not which phase made it so, and the pages untouched since May are checked against the code."
+
+applies_to: "docs"
+
+requires: ["2026-09-28-057da"]
+
+scope:
+  in: "Phase ids and phase-history phrasing out of the user pages, the 21 in-scope pages last changed in May re-checked and corrected or deleted, the Copilot provider on the AI providers page."
+  out: "Pages where phase ids ARE the content: how-it-works/built-by-the-method.md, reference/run-logs/, reference/concepts/phases-and-runs.md, reference/architecture/phase-workflow.md, reference/concepts/self-documentation.md."
+
+decisions:
+  - key: |
+      A PHASE ID IS OUR BOOKKEEPING, NOT THE READER'S. "Since the p0315 series", "(p0316)" and "refused
+      (p0318)" send a reader to a directory they have no reason to open. The sentence keeps what the
+      behaviour is and drops when it arrived; the id lives on in the spec and the decision file. Pages
+      that explain the method use ids as its examples and keep them.
+  - key: |
+      A PAGE UNTOUCHED FOR FOUR MONTHS IS SUSPECT, NOT WRONG. 22 pages were last changed on 2026-05-23 or
+      2026-05-26; one is a run log and out of scope. Each of the other 21 is opened against the code it
+      describes and confirmed, corrected, or deleted with its inbound links repointed. Dropping a page
+      from the nav alone would keep it built and linked.
+  - key: |
+      THE COPILOT PROVIDER IS A PROVIDER. It shipped on 2026-09-24 (d5f2, 4722a; 6b2e ran it on a real
+      seat) and the docs do not name it. It belongs where a reader picks a model.
+
+steps:
+  - id: history-out
+    action: "Remove phase ids (regex \\bp0[0-9]{3,5}[a-z]?\\b and \\b20[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9a-f]{4}[a-z]?\\b) and history phrasing from every page outside the scope's exempt list."
+  - id: may-pages
+    action: "Check each in-scope May page against the code; correct it, or delete it and repoint every inbound link. phase-workflow.md:7 (ids numbered sequentially) is corrected to the date-minted rule."
+  - id: copilot
+    action: "Describe the Copilot provider on connect-your-stuff/ai-providers.md from the d5f2, 4722a and 6b2e specs: what it needs, what it bills against, what it cannot do."
+
+tests:
+  - "no automated test: this phase changes documentation. mkdocs build --strict is the gate."
+
+done:
+  - "the id regex over docs/ hits only the exempt pages"
+  - "every in-scope May page is confirmed, corrected or deleted, and no link points at a deleted page"
+  - "mkdocs build --strict is green"

@@ -88,8 +88,14 @@ Point it at the **layered** root's `skills/` directory, not at your overlay
 alone — that way your `activates_when` expressions resolve against the official
 concept vocabulary you did not ship.
 
-It checks: SKILL.md frontmatter, the declared role, a non-empty description and
-its length cap, the `output_schema` value, and every `activates_when` expression
+It checks: SKILL.md frontmatter, the declared role, a non-empty description on
+a single line of at most 200 characters, the `output_schema` value, and every `activates_when` expression
 against the concept vocabulary. It does **not** check that your master's prose
 is any good, that it agrees with the pinned masters it runs alongside, or that
 replacing a master was a sensible thing to do. Those stay yours.
+
+Take the description cap seriously. A master whose description is longer than 200
+characters, or written as a YAML block scalar, is dropped when the catalog loads: the
+loader logs the violation and reports it as a catalog issue on the run, and the run
+then fails once it asks for that master by name. Around 180 characters leaves room
+for an edit.

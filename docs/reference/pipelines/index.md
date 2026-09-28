@@ -12,131 +12,102 @@ Each box is one step. Green means a model runs there, and it names which one and
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith ships with **a dozen pipeline presets** — pre-built sequences of command handlers that cover the most common AI orchestration workflows.
+Agent Smith ships eight pipeline presets. Each one is a fixed list of steps defined in code, and each one that needs judgement hands it to a single master skill at its `AgenticMaster` step.
 
-## Pipeline Overview
+## Pipeline overview
 
-| Pipeline | Trigger | What It Does |
-|----------|------------|-------------|
-| **code** | `agent-smith fix --ticket N --project P` / label | Ticket → spec → branch → code → verified green → PR |
-| **pr-review** | label / PR comment | Reviews a PR diff, posts line-anchored findings as comments |
-| **security-scan** | `agent-smith security-scan --agent A` / label | Multi-role code security review with SARIF output |
-| **api-security-scan** | `agent-smith api-scan --agent A --swagger … --target …` / label | Nuclei + Spectral + AI specialist panel on live APIs |
-| **legal-analysis** | `agent-smith legal --source F --project P` | Contract review with 5 legal specialist roles |
-| **mad-discussion** | `agent-smith mad --ticket N --project P` / label | Multi-agent design discussion with convergence |
-| **skill-manager** | label / chat | Author, lint, and validate skills |
-| **autonomous** | `agent-smith autonomous --project P` | Observe project, write tickets autonomously |
-| **init-project** | `agent-smith init --project P` / `agent-smith:init` label | Bootstrap `.agentsmith/` in every repo of a project |
-| **spec-dialog** | chat thread | The conversational design partner; a `phase` label routes the ticket it files to **code** — see [Spec dialogue](../../how-it-works/spec-dialogue.md) |
+| Pipeline | Started by | What it does | Master |
+|----------|------------|--------------|--------|
+| **code** | `agent-smith code --ticket N --project P`, a ticket label, a PR comment | Ticket → phase specs → code → verified green → PR | `coding-agent-master` |
+| **pr-review** | a PR being opened or updated, a PR comment | Reviews the PR diff and posts line-anchored comments | `pr-review-master` |
+| **security-scan** | `agent-smith security-scan --agent A`, a ticket label, the review label on a PR, a PR comment | Code security review with SARIF output | `security-master` |
+| **api-security-scan** | `agent-smith api-scan --swagger … --target …`, a ticket label | Nuclei, Spectral and ZAP against a running API, triaged by a master | `api-security-master` |
+| **legal-analysis** | `agent-smith legal --source F` | Reads a contract and writes a clause-level analysis | `legal-analyst-master` |
+| **mad-discussion** | `agent-smith mad --ticket N --project P`, a ticket label | Five-perspective design discussion, committed as a PR | `mad-discussion-master` |
+| **init-project** | `agent-smith init --project P`, a ticket label | Bootstraps `.agentsmith/` in every repo of a project | — |
+| **spec-dialog** | a design conversation in the dashboard or a chat thread | The conversational design partner, see [Spec dialogue](../../how-it-works/spec-dialogue.md) | `design-partner-master` |
+
+A PR comment can start `code`, `security-scan` and `pr-review`, and nothing else.
+
+These eight names are the whole vocabulary. The retired names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer resolve anywhere: write `code` instead. A configuration that still routes to one gets a startup advisory naming the replacement, and a run routed to it fails when it starts. `skill-manager` and `autonomous` were removed without a replacement.
 
 All pipeline commands support `--dry-run` to preview the execution plan without running it. Utility commands (`compile-wiki`, `security-trend`) also support `--dry-run`.
 
 Two init-project behaviors worth knowing: re-running init preserves your manual `context.yaml` edits and only backfills missing auto-detectable fields, and an init run that produces no changes closes its ticket cleanly ("already bootstrapped") instead of leaving the poller looping on it. Re-init by moving the ticket back into a trigger status.
 
-## How Pipelines Work
+## How pipelines work
 
-Every pipeline is an ordered list of **commands**. Each command has a matching **handler** that does the actual work. Commands share a `PipelineContext` — a key-value store that flows data between steps.
+Every pipeline is an ordered list of **commands**. Each command has a matching **handler** that does the actual work. Commands share a `PipelineContext`, a key-value store that carries data between steps.
 
 ```
 Pipeline: code
 ├── LoadCatalog            → loads the skills catalog (embedded by default)
+├── PipelineNameInitializer→ stamps the pipeline name for master routing
 ├── FetchTicket            → reads ticket + comments + attachments from the tracker
 ├── ScopeRepos             → narrows the run to the repos the ticket touches
 ├── CheckoutSource         → clones repos, creates branches
+├── RunPreflight           → checks the sandbox and branch preconditions
 ├── SetupRegistryAuth      → pre-stages private-feed credentials
 ├── BootstrapCheck/Gate    → aborts early if the repo was never initialized
-├── LoadCodingPrinciples   → loads coding standards from repo
-├── LoadContext            → loads .agentsmith/context.yaml
+├── LoadCodingPrinciples   → loads the coding principles from the repo
+├── LoadMemoryIndex        → loads the project's recorded memory index
+├── LoadContext            → loads .agentsmith/ context files
 ├── AnalyzeCode            → scout agent maps relevant files
-├── NegotiateExpectation   → ratified acceptance contract (the "Soll" block)
+├── DeriveSpec             → derives the phase specs from the ticket
+├── SpecHandback           → hands the ticket back when it cannot be implemented as written
+├── PhaseSpecGate          → validates the phase specs before the master starts
 ├── EnsurePrerequisites    → installs dependencies
-├── GeneratePlan           → AI generates implementation plan
-├── PlanOpenQuestions      → parks the ticket if clarification is needed
-├── Approval               → waits for human OK (or runs headless)
-├── AgenticMaster          → the coding master writes code + runs the tests
+├── ProbeTarget            → asks the target the questions its context declares
+├── PhaseSequence          → splices one master → verify → record block per phase
 ├── WriteRunResult         → writes result.md with cost/token data
 ├── CommitAndPR            → commits, pushes, opens PR (secret-scanned)
 └── PrCrossLink            → cross-links sibling PRs (multi-repo)
 ```
 
-## Dynamic Pipeline Expansion
+The per-pipeline pages list the steps of the other presets.
 
-Some commands insert follow-up steps at runtime. The **Triage** step inspects the problem and inserts `SkillRound` commands for each specialist role it selects. The **ConvergenceCheck** step evaluates whether all roles have met their convergence criteria — if not, it inserts another round.
+## Steps added while the run is going
 
-```
-Static pipeline:
-  ... → Triage → ConvergenceCheck → CompileDiscussion → ...
+Two steps grow the pipeline at runtime. In **code**, `PhaseSequence` inserts one master, verify and record block for each derived phase, in order; a phase whose verification fails stops the pipeline there, and the finalizing steps still run. In **init-project**, `BootstrapDispatch` fans out one bootstrap round per repository component that `BootstrapDiscover` found.
 
-After Triage expands:
-  ... → Triage → SkillRound(vuln-analyst, r1) → SkillRound(auth-reviewer, r1)
-      → ConvergenceCheck → CompileDiscussion → ...
+The scan, review and discussion pipelines do not grow. Their master decides its own fan-out inside the `AgenticMaster` step, by delegating to sub-agents.
 
-After ConvergenceCheck finds objections:
-  ... → ConvergenceCheck → SkillRound(auth-reviewer, r2)
-      → ConvergenceCheck → CompileDiscussion → ...
-```
+## Per-project pipeline settings
 
-## Custom Pipelines
-
-You can define custom pipelines in `agentsmith.yml`:
-
-```yaml
-pipelines:
-  my-custom-pipeline:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - AgenticExecuteCommand
-      - CommitAndPRCommand
-```
-
-Then reference it in your project config:
+A project lists the pipelines it hosts. An entry is either a name or an object that overrides a few settings for that one pipeline:
 
 ```yaml
 projects:
-  my-project:
-    pipeline: my-custom-pipeline
+  todolist:
+    pipelines:
+      - code
+      - name: pr-review
+        agent: claude-review          # a different agent from the agents: catalog
+      - name: security-scan
+        skills_path: skills           # a different skills root
+        coding_principles_path: .agentsmith/security-principles.md
 ```
 
-## Pipeline Types
+The step lists themselves are not configurable. There is no way to define a custom pipeline in `agentsmith.yml`; the presets are defined in code.
 
-Since Phase 64, Agent Smith classifies every pipeline into one of three **orchestration types**. The type determines how skills are selected, how they communicate, and whether convergence rounds apply.
+## Pipeline types
 
-| Type | Triage | Skill Runs | Handoffs | Convergence |
-|------|--------|------------|----------|-------------|
-| **discussion** | LLM selects skills | Multiple rounds possible | Free-text accumulation | Yes -- rounds until consensus |
-| **structured** | Deterministic graph (`SkillGraphBuilder`) | Single call per skill | Typed JSON (`SkillOutputs`) | No -- skipped |
-| **hierarchical** | Deterministic graph (`SkillGraphBuilder`) | Lead then contributors then gates | Typed JSON | No -- gate veto instead |
+Every preset carries an interaction type, used to classify the run:
 
-### Discussion pipelines
+| Type | Pipelines |
+|------|-----------|
+| **hierarchical** | code |
+| **structured** | security-scan, api-security-scan, pr-review |
+| **discussion** | legal-analysis, mad-discussion, init-project, spec-dialog |
 
-**mad-discussion**, **legal-analysis**. LLM-based triage selects relevant skills. Skills run in rounds with free-text accumulation. `ConvergenceCheck` evaluates whether all skills agree; if not, objecting skills re-run until consensus or the max round limit. Skills without an orchestration block default to contributor role in discussion mode.
+Structured pipelines emit findings rather than code changes. The type does not choose skills or rounds: every preset runs its fixed step list, and the judgement happens inside its master.
 
-### Structured pipelines
+## Next steps
 
-**security-scan**, **api-security-scan**. `SkillGraphBuilder` builds a deterministic execution graph from `runs_after`/`runs_before` declarations in skill metadata. No LLM triage. Skills are topologically sorted into stages: contributors (parallel, category-sliced) run first, then a gate (e.g., false-positive-filter) that can veto findings, then an executor. Each skill runs exactly once with typed JSON handoffs. The gate produces typed `List<Finding>` output that flows directly to `DeliverFindings`, bypassing raw text extraction. This achieves approximately 80% token reduction compared to discussion mode.
-
-### Hierarchical pipelines
-
-**code**. A lead skill drives the workflow, delegating to contributor skills and validating through gate skills. The execution graph is deterministic (built by `SkillGraphBuilder`), but the lead has authority to direct contributors. No convergence rounds -- gates provide pass/fail verdicts.
-
-### Context keys
-
-The pipeline type is stored in `PipelineContext` under the `PipelineType` key. Additional context keys introduced in Phase 64:
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `PipelineType` | `string` | `discussion`, `structured`, or `hierarchical` |
-| `SkillGraph` | `ExecutionGraph` | The topologically sorted skill graph |
-| `SkillOutputs` | `Dictionary<string, object>` | Typed outputs from each skill, keyed by skill name |
-
-## Next Steps
-
-- [Fix Bug / Add Feature](fix-and-feature.md) — the coding pipelines
+- [Fix Bug / Add Feature](fix-and-feature.md) — the code pipeline
+- [PR review](pr-review.md) — review a pull request
 - [Security Scan](security-scan.md) — code security review
 - [API Scan](api-scan.md) — live API scanning
 - [Legal Analysis](legal-analysis.md) — contract review
 - [MAD Discussion](mad-discussion.md) — multi-agent design debate
-- [Skill Manager](skill-manager.md) — autonomous skill discovery and installation
-- [Autonomous](autonomous.md) — agent-driven project improvement tickets
+- [Skill Manager](skill-manager.md) — retired

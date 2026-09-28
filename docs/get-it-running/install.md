@@ -23,7 +23,7 @@ sudo mv agent-smith /usr/local/bin/
 agent-smith --help
 ```
 
-The CLI reads its whole configuration from `agentsmith.yml`. It looks in the current directory, then `./config/agentsmith.yml`, then your home directory, and `--config /path/to/agentsmith.yml` overrides all of it. (A *server* is different. It keeps its configuration in the database and reads only two blocks from this file, as [Where configuration lives](../configure-it/index.md) explains. For the CLI, the file is everything.) Minimal shape, and the [first run](first-run.md) page walks you through it:
+The CLI reads its whole configuration from `agentsmith.yml`. It looks for `./.agentsmith/agentsmith.yml`, then `./config/agentsmith.yml`, then `~/.agentsmith/agentsmith.yml`, and `--config /path/to/agentsmith.yml` overrides all of it. (A *server* is different. It keeps its configuration in the database and reads only two blocks from this file, as [Where configuration lives](../configure-it/index.md) explains. For the CLI, the file is everything.) Minimal shape, and the [first run](first-run.md) page walks you through it:
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
@@ -31,8 +31,7 @@ The CLI reads its whole configuration from `agentsmith.yml`. It looks in the cur
 agents:
   default-openai:
     type: openai
-    models:
-      primary: { model: gpt-4.1 }
+    model: gpt-4.1        # every role on one model; see AI providers for a model per role
 
 repos:
   todolist-api:
@@ -53,23 +52,22 @@ projects:
     repos: [todolist-api]
 
 secrets:
-  openai_api_key: ${OPENAI_API_KEY}
-  github_token:   ${GITHUB_TOKEN}
+  github_token: ${GITHUB_TOKEN}
 ```
 
-Set the secrets in your shell, then let the preflight tell you whether the wiring holds before you spend a single pipeline token:
+The OpenAI agent reads `OPENAI_API_KEY` from the environment on its own. Set the secrets in your shell, then let the preflight tell you whether the wiring holds before you spend a single pipeline token:
 
 ```bash
 export OPENAI_API_KEY=sk-...
 export GITHUB_TOKEN=ghp_...
 
 agent-smith doctor          # active preflight: config, LLM, tracker, repo, skills, sandbox, infra
-agent-smith fix --ticket 54 --project todolist
+agent-smith code --ticket 54 --project todolist
 ```
 
 `doctor` probes every configured dependency for real (it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox) and prints one named check per known silent-failure class, each with a fix hint. Exit 0 means green; `--json` gives you a CI-gateable report. Run it after every config change — it's much cheaper than finding out twenty minutes into a run.
 
-For CLI mode, the sandbox runs in-process by default (no Docker required, no isolation between repos). If you want the same multi-sandbox routing that Docker / k8s give you, set `SANDBOX_TYPE=docker` and have a Docker daemon running — Agent Smith will spin up real toolchain containers per repo.
+The CLI runs its sandbox in-process: no Docker required, no isolation between repos, and the toolchain a repo needs has to be installed on your machine. Per-repo toolchain containers come with the server, on Docker or Kubernetes.
 
 ## Docker / docker-compose
 
@@ -99,7 +97,7 @@ The server needs:
 
 ## Pinning versions
 
-Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI and sandbox-agent images ship from the same release, so there is exactly one pin to keep. **Configuration → Deployment** in the studio for a server, or the `deployment:` block for the CLI:
+Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI, dashboard and sandbox-agent images ship from the same release. Pin the tag of the images you run, and name the same number once more as **Configuration → Deployment** in the studio (the `deployment:` block in a file):
 
 ```yaml
 deployment:
@@ -107,7 +105,7 @@ deployment:
   version: 0.108.0
 ```
 
-That one pin feeds both the orchestrator container and the sandbox-agent image. Bump it together with the image tag in your compose file / k8s manifest — that's the whole upgrade contract. Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. The Skills setting (or a `skills:` block for the CLI) is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
+That pin feeds the spawned orchestrator container. The sandbox-agent image needs none: its tag is derived from the release the running server is, so the two can't drift apart. Set `sandbox.agent_version` only to run a different tag on purpose, say from an air-gapped mirror; a pin is reported as an advisory finding and never refused. Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. The Skills setting (or a `skills:` block for the CLI) is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
 
 ## Next
 

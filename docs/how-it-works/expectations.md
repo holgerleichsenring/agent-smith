@@ -1,44 +1,55 @@
 # Expectations & durable dialogue
 
-Two capabilities that belong together: the run negotiates *what counts as done* with you before it writes code, and it can wait for your answer for days without holding a single pod.
+Two capabilities that belong together: the run writes down *what counts as done* before it writes code, and it can wait for your answer for days without holding a single pod.
 
-## The Soll block: negotiate the WHAT before planning
+## The done-list is the expectation
 
-Every `code` run has a `NegotiateExpectation` step between analysis and planning (p0328). After the agent has actually reproduced and analyzed the problem — this is the point: the draft is grounded in the analysis, not in the raw ticket text — it writes a capped expectation block:
+Every `code` run works from a specification. `DeriveSpec` reads the ticket after the code has been analyzed and cuts it into an ordered set of phases; each phase carries a goal, its steps and a "done when" list. That list is the run's acceptance contract. It goes into the master's prompt, it renders into the pull request as a reviewer checklist, and it is what the [delivery account](delivery-account.md) judges the branch against, criterion by criterion. When you review the PR you review it against those sentences, not against your memory of what the ticket kind of meant.
 
-- **observed** — what actually happens today.
-- **expected** — verifiable assertions about what must be true afterwards.
-- **constraints** — what must not change.
-- at most **one A-or-B question**, when the analysis surfaced a genuine fork.
+The cut is posted to the ticket as "this is how I understood the ticket": per phase the done-when criteria, the facts it established (each from a look it took at the code, with what it looked at), and the assumptions it made without one — the ones to correct if they are wrong. The run doesn't wait for you to ratify it. Blocking on a person who isn't there is what this replaces; a correction is the way back in.
 
-That block (the "Soll" — German for "target state", the term stuck) is posted to the ticket and the dialogue channels. Implementation starts once you ratify it or edit it. Your edits are parsed back into the same schema and validated against the same caps as the model's draft — an operator can't smuggle a novel through the gate either.
+How you correct it depends on where the specification came from.
 
-The ratified expectation is the run's **acceptance contract**. It's rendered into the plan prompt, into the master's execution prompt, and into the PR body. When you review the PR you review it against the expectation you signed off on, not against your memory of what the ticket kind of meant.
+**A cut the run derived.** Comment on the ticket, or edit the ticket text, and the next run re-cuts the phases that haven't started yet. Phases that already ran are kept. You can also edit a phase spec directly on the ticket branch under `.agentsmith/specs/`; the next run treats your commit as a correction and builds on it.
 
-Headless and timeout behavior is honest rather than convenient: an unanswered ratification times out to approve (default), but the run is stamped `unratified` — visible in the record, same as a headless run. A model that can't produce a valid draft after three validation-feedback retries fails the run loudly.
+**A specification a person approved.** A ticket filed from an approved design conversation — in the dashboard's [Work it out](work-it-out.md) page or in chat — carries the `phase-spec:approved` label and its set is already on the ticket branch ([Spec dialogue](spec-dialogue.md) covers that side). The run works that set and never re-cuts it on its own: a comment or a ticket edit is reported once on the ticket as not acted on. Edit a phase that hasn't started on the branch and the next run works your edit; a phase that already ran is never edited, so a correction to one becomes a new phase. If you can't reach the branch at all, write a comment whose first line says nothing but `cut this specification again`, and the next run cuts the unstarted phases again from the ticket. If the approved set is not on the branch when the run starts, the run parks the ticket and says which path it looked at.
 
-There's an eval harness behind this (p0329): anonymized historical tickets with human acceptance criteria are replayed against the drafting step, and two metrics fall out — expectation-hit-rate (drafts ratified verbatim) and first-PR-acceptance. The judge LLM only matches draft items to gold items; the scores are computed deterministically. If you run Agent Smith seriously, seed it with your own tickets.
+### Declined criteria
+
+Sometimes a criterion asks for something no work in this repository can make true. The master can decline it, with what not doing it means. Declined criteria are never silently dropped: they show in the completion comment on the ticket, in the PR body under "Declined by the run", in `result.md`, and in the run's Verify card. The delivery account still judges the branch on its own.
+
+## When the run hands the ticket back
+
+Some tickets shouldn't be built as written, and the run says so instead of guessing. These hand-backs happen at derivation, before a single line is written; each one comments on the ticket and parks it.
+
+- **The ticket reads two ways.** The comment lists both readings and names the one the run would take. Reply with the one you mean and move the ticket back to a trigger status. If nobody answers and the ticket comes back anyway, the next run proceeds on the reading it named and says so.
+- **The requirement contradicts the repository.** Reply with what changes the picture and move the ticket back. A second contradiction with no reply in between ends the run as a failure rather than parking forever.
+- **Not implementable as specified.** A verdict, not a question: it parks in your `not_implementable_status` (or `needs_clarification_status` when you have none), and a comment doesn't restart it. Change the ticket and use Retry on the run.
+
+A ticket that asks for something that must not be done is refused even earlier, by the scope call; see [Lifecycle](lifecycle.md#in-seven-steps).
 
 ## Durable dialogue: checkpoint at the ask, resume on the answer
 
-Any question a run asks — the Soll ratification, a mid-run clarification, an approval — used to mean a process waiting on stdin or a chat timeout. Now it means a checkpoint (p0327):
+When the master needs a person mid-run, asking doesn't mean a process waiting on stdin. It means a checkpoint:
 
-1. The run serializes its pipeline context, releases its lease and its compute, and gets the status **`waiting_for_input`**. Pods gone, cost stopped. The question sits on the ticket / in the chat with its deadline.
-2. A background sweeper (leader-elected, every 15 seconds) watches for answers and expired deadlines.
-3. When your answer arrives — hours or days later — the run re-enters *at the asking step*, with the answer staged for exactly that consumer, under the same run id. It queues through the normal capacity queue like any other run; nothing jumps the line.
+1. The run posts its question on the ticket, moves the ticket to `needs_clarification_status`, labels it `agent-smith:waiting`, and mentions the assignee (or the reporter when nobody is assigned, or says plainly that nobody was notified). With `dialogue.dashboard_url` set, the comment links to the run's page in the dashboard.
+2. The run serializes its pipeline context, releases its lease and its compute, and gets the status **`waiting_for_input`**. Pods gone, cost stopped. A mid-run question has no deadline.
+3. You answer. In the dashboard the question card has a **Send & resume run** button. On Azure DevOps, a comment on the ticket works too: the first comment after the question by anyone but Agent Smith is taken as the answer.
+4. A background sweeper (leader-elected, every 15 seconds) picks up answered checkpoints. The run re-enters at the asking step with your answer handed to the master, under the same run id. It queues through the normal capacity queue like any other run; nothing jumps the line.
 
-Approvals get a 3-day default deadline (configurable), and the default answer on expiry is **reject** — a run you never approved doesn't sneak into execution because you were on vacation.
+On GitHub, GitLab and Jira, answering on the ticket and moving it back to a trigger status starts a fresh run, which reads your reply as part of the ticket.
 
-The practical consequence: asking the human stops being expensive. A run that would rather ask than guess doesn't block a sandbox slot for two days, so the system can afford to ask whenever the ticket is genuinely ambiguous. That's the same philosophy as the [clarification gate](spec-dialogue.md#the-clarification-gate), applied mid-run.
+The practical consequence: asking the human stops being expensive. A run that would rather ask than guess doesn't block a sandbox slot for two days, so the system can afford to ask whenever the ticket is genuinely ambiguous.
 
 ## What you see
 
-- Runs list: `waiting_for_input` runs are visibly parked, with the open question; queued resumes show like any queued run with their position.
-- The ticket: the question as a comment, the ticket parked in `needs_clarification_status` where that applies.
-- `result.md`: the ratified (or `unratified`) expectation, and any `ignored_instructions`.
+- Runs list: `waiting_for_input` runs are visibly parked; a resumed run waiting for capacity shows like any queued run, with its position.
+- The ticket: the question or hand-back as a comment, the ticket parked in `needs_clarification_status` where that applies.
+- `result.md`: the delivery account, declined criteria, and any ticket instructions the run chose to ignore.
 
 ## Next
 
+- [The delivery account](delivery-account.md) — how the done-list is judged.
 - [Spec dialogue](spec-dialogue.md) — the conversational front door.
 - [Lifecycle](lifecycle.md) — where these steps sit in the run.
 - [Capacity & queueing](../reference/operations/capacity.md) — the queue a resumed run rides.

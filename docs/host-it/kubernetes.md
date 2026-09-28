@@ -24,8 +24,8 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 
 ## What this gets you
 
-- The server survives node failures because Kubernetes reschedules it, and the run history survives everything because it lives in a relational database (SQLite on a PVC by default; point `persistence:` at Postgres / MySQL for anything shared — the same init-container migrates either).
-- Sandbox pods created per repo per run, then deleted. The server's `ServiceAccount` has permission to create / delete pods in its own namespace — that's the whole RBAC story.
+- The server survives node failures because Kubernetes reschedules it, and the run history survives everything because it lives in a relational database (SQLite on a PVC by default; point `persistence:` at PostgreSQL, MySQL or SQL Server for anything shared, and the same init-container migrates it). To keep the database password out of the ConfigMap, set `AGENTSMITH_PERSISTENCE_PROVIDER` and `AGENTSMITH_PERSISTENCE_CONNECTION` as environment variables on both the server and the migrate init-container, for example from the Secret. Set together, they replace the `persistence:` block; one without the other is refused with a startup finding.
+- Sandbox pods created per repo and toolchain image per run, then deleted. The server's `ServiceAccount` has permission to create / delete pods in its own namespace — that's the whole RBAC story.
 - Real capacity control: a `ResourceQuota` on the namespace turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
 - The dashboard as its own Deployment + Service, port 3000 behind the Service.
 
@@ -34,11 +34,11 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 The load-bearing details from `8-deployment-server.yaml`, so you know what you're looking at:
 
 - **An init-container runs `agentsmith database migrate --config /app/config/agentsmith.yml`** before the server starts. Migrations are applied exactly there — the server never migrates its own database on startup, deliberately. It shares the persistence volume with the server (and for an external DB it migrates over the connection string instead).
-- The server container listens on **8081** (`/health` liveness, `/health/ready` readiness). The startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports on `/health`; a degraded tracker shows up there instead of blocking startup.
+- The server container listens on **8081** (`/health`, which answers for liveness and readiness alike). The startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports on `/health`; a degraded tracker shows up there instead of blocking startup.
 - The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
-- `SPAWNER_TYPE` is `kubernetes` by default in-cluster: each triggered run is spawned as its own short-lived orchestrator pod (the CLI image), which in turn creates the per-repo sandbox pods. That's why the quota math below counts "orchestrator + one sandbox per repo" per run.
-- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli`, `holgerleichsenring/agent-smith-sandbox-agent`, `holgerleichsenring/agentsmith-dashboard` — pin the same tag everywhere, and put the same number into **Configuration → Deployment** in the studio.
+- `SPAWNER_TYPE` is `kubernetes` by default in-cluster: each triggered run is spawned as its own short-lived orchestrator pod (the CLI image), which in turn creates the sandbox pods. That's why the quota math below counts "orchestrator + its sandboxes" per run.
+- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli` and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests, and the same number goes into **Configuration → Deployment** in the studio (`deployment.version`), which the spawned orchestrator pod's image is built from. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
 
@@ -60,15 +60,57 @@ The Ingress (`9-ingress.yaml`) routes your public hostname to the server Service
 
 ## Sandbox pods
 
-The server creates a pod per repo per run. Each pod has an init-container that copies the sandbox-agent binary into a shared `emptyDir`, then the main toolchain container starts and the agent binary takes over the entrypoint. The toolchain image comes from the repo's stack (declared in its `.agentsmith/context.yaml`, or pinned per language via `projects.X.sandbox.images`).
+The server creates one pod per repo and toolchain image per run. Contexts of one repo that share an image share one pod, sized to the largest resource envelope among them; a repo whose contexts need two different images gets two pods. Each pod has an init-container that copies the sandbox-agent binary into a shared `emptyDir`, then the main toolchain container starts and the agent binary takes over the entrypoint. The toolchain image comes from, in order: `projects.<name>.sandbox.toolchain_image`, `projects.<name>.sandbox.images.<language>`, the context's `stack.image` in `.agentsmith/contexts/<name>/context.yaml`, a built-in per-language table, and finally a generic image that carries git and no toolchain (with a warning that nothing can be built there).
 
-You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes — success, failure, cancel — the pods are deleted; a force-killed cancel releases them immediately.
+A repository is cloned inside its own sandbox, so the image has to carry git. One that doesn't fails the checkout with an error that says so, instead of a bare exit code.
 
-Since p0331 a run doesn't even provision every repo in the project: the `ScopeRepos` step reads the ticket first and spawns sandboxes only for the affected repos. Fewer pods times shorter lifetimes is the biggest cost lever in this setup.
+You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines use the repo's declared `stack.resources` (clamped to a hard ceiling), scans and other non-build pipelines get a light fixed profile. When a run finishes (success, failure, cancel) the pods are deleted; a force-killed cancel releases them immediately. A run doesn't provision every repo in the project either: the `ScopeRepos` step reads the ticket first and spawns sandboxes only for the affected repos.
+
+Pods are labelled with the deployment that owns them. The owner identity is derived from the Redis endpoint; `SANDBOX_OWNER_ID` names it explicitly. A corpse reaper deletes this deployment's pods whose run is no longer live, on a timer and again at admission, so a crashed server doesn't leave pods holding quota. Two deployments in one namespace never touch each other's pods.
+
+### Which registries a toolchain image may come from
+
+The context's `stack.image` is written by a model, so it is held to a registry boundary before it is used:
+
+```yaml
+sandbox:
+  allowed_registries: ["mcr.microsoft.com/", "ghcr.io/", "registry.acme-org.example/"]
+  allow_docker_hub_library: false
+```
+
+`allowed_registries` is a list of image-reference prefixes. Left empty it means the built-in default, `mcr.microsoft.com/` and `ghcr.io/`. `allow_docker_hub_library` decides whether an official Docker Hub image with no namespace (`node:20-bookworm`) is trusted. Unset, it follows the list: trusted while you name no registries, refused once you do, because a named list is a narrowing. A `stack.image` outside the boundary is skipped with a warning and the chain falls through to the next source. An image you name yourself in `toolchain_image` or `images` is your choice and is not checked.
+
+### Pulling from a private registry
+
+```yaml
+sandbox:
+  image_pull_secrets: [acme-registry-pull]
+```
+
+`image_pull_secrets` names Kubernetes image pull secrets you created in the namespace. They go on every sandbox pod, init container included, so the agent image and the toolchain image can come from different credentialed registries. The list is global; a project cannot name its own. Kubernetes only: the Docker backend pulls without credentials and says so when a pull fails.
+
+### Credentials inside the sandbox
+
+A build step that needs a credential (a private feed, a CLI login) gets it from a Kubernetes Secret you own. The project names the reference; the value never passes through Agent Smith, Redis, the context file or the model:
+
+```yaml
+projects:
+  todolist:
+    sandbox:
+      secrets:
+        env:
+          FEED_TOKEN: "todolist-build:feed-token"     # secretName:key
+        files:
+          - mount: /secrets/signing.key
+            secret: todolist-build
+            key: signing-key
+```
+
+`env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
 
 ## Updating
 
-Bump the tag in the Deployment images and the Deployment setting in the studio together, then:
+Bump the tag in the manifests' images (server, the migrate init-container, the dashboard, `AGENTSMITH_IMAGE`) and the Deployment setting in the studio together, then:
 
 ```bash
 kubectl apply -f deploy/k8s/
@@ -79,7 +121,7 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 
 ## Resources
 
-The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and orphans the run's sandbox pods — which then hold your quota. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
+The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and leaves the run's sandbox pods to the corpse reaper. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
 
 The interesting sizing is per run:
 
@@ -88,7 +130,7 @@ The interesting sizing is per run:
 
 ## Capacity quota: count requests, not limits
 
-The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (orchestrator pod + one sandbox per repo) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
+The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (orchestrator pod + one sandbox per repo and toolchain image) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
 
 Quota the namespace on **requests**, not limits. Requests are what the scheduler packs nodes by — i.e. what the cluster actually provisions and what costs money. A quota on `limits.memory` reserves the theoretical worst case for a pod's whole runtime: five default pods "use" 20Gi of quota while their real reservation is a fraction of that, and runs queue behind capacity nobody is consuming.
 

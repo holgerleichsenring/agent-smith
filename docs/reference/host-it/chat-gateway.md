@@ -1,154 +1,101 @@
 # Chat Gateway (Slack / Teams)
 
-The Dispatcher acts as a gateway between chat platforms and Agent Smith. Users trigger pipelines from Slack or Teams, and progress streams back in real time.
+The server doubles as a gateway between chat platforms and Agent Smith. Users trigger pipelines from Slack or Teams, and progress streams back into the thread. There is no separate process for it: `AgentSmith.Server` receives the chat events on the same port as the webhooks (8081).
 
 ## Architecture
 
 ```
-┌─────────┐    HTTP     ┌─────────────┐   Redis    ┌──────────┐
-│  Slack   │───────────▶│ Dispatcher   │◀──────────▶│  Redis   │
-│  Events  │            │             │            │          │
-└─────────┘            │  ┌─────────┐ │            └──────────┘
-                        │  │ Intent  │ │                 ▲
-                        │  │ Engine  │ │                 │
-                        │  └────┬────┘ │                 │
-                        │       │      │            progress
-                        │  ┌────▼────┐ │            pub/sub
-                        │  │   Job   │ │                 │
-                        │  │ Spawner │ │            ┌────┴─────┐
-                        │  └────┬────┘ │            │  Agent   │
-                        └───────┼──────┘            │  (Job)   │
-                                │                   └──────────┘
-                           creates K8s Job
-                           or Docker container
+┌─────────┐   HTTPS    ┌──────────────────────┐   Redis   ┌──────────┐
+│  Slack  │───────────▶│  AgentSmith.Server   │◀─────────▶│  Redis   │
+│  Teams  │            │                      │           └──────────┘
+└─────────┘            │  platform adapter    │                ▲
+                       │  intent engine       │           progress
+                       │  job spawner         │                │
+                       └──────────┬───────────┘           ┌────┴─────┐
+                                  │                       │  run     │
+                          K8s Job or Docker container ───▶│  (job)   │
+                                                          └──────────┘
 ```
 
-## How It Works
+## How it works
 
-1. **User sends a message** in Slack: `fix #42 in my-api`
-2. **Platform Adapter** receives the event via Slack Events API
-3. **Intent Engine** parses the message (regex patterns, LLM fallback for ambiguous input)
-4. **Project Resolver** maps `my-api` to a configured project
-5. **Job Spawner** creates an ephemeral container (K8s Job or Docker container)
-6. **Agent runs** the pipeline (`fix --repo ... --ticket 42 --headless`)
-7. **Progress streams** via Redis pub/sub back to the Dispatcher
-8. **Dispatcher relays** updates to the Slack channel in real time
-9. **Container terminates** when the pipeline completes
+1. **A user sends a message** in Slack: `fix #42 in my-api`.
+2. **The platform adapter** receives it (Slack Events API at `/slack/events`, Teams at `/api/teams/messages`) and checks the platform's signature.
+3. **The intent engine** parses the message: regex patterns first, and an LLM call on the agent's `reasoning` model for input the patterns don't match.
+4. **The project resolver** maps `my-api` to a configured project.
+5. **The job spawner** starts the run in its own container, a Kubernetes Job or a Docker container depending on `SPAWNER_TYPE`.
+6. **Progress streams** through Redis back to the server, which relays it into the originating channel or thread.
+7. **The container ends** when the pipeline completes.
 
-## Supported Platforms
+## Supported platforms
 
 | Platform | Adapter | Status |
 |----------|---------|--------|
 | Slack    | `SlackAdapter` | Production-ready — [setup guide](../setup/slack.md) |
 | Teams    | `TeamsAdapter` | Beta — [setup guide](../setup/teams.md) |
 
-## Slack Setup
+## Slack setup
 
-### 1. Create a Slack App
+### 1. Create a Slack app
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app
+1. Go to [api.slack.com/apps](https://api.slack.com/apps) and create a new app.
 2. Under **OAuth & Permissions**, add these scopes:
     - `chat:write`
     - `commands`
     - `app_mentions:read`
     - `im:history`
     - `channels:history`
-3. Under **Event Subscriptions**, enable events and set the request URL to `https://your-host:6000/slack/events`
-4. Subscribe to bot events: `app_mention`, `message.im`
-5. Install the app to your workspace
+3. Under **Event Subscriptions**, enable events and set the request URL to `https://your-host/slack/events`.
+4. Under **Interactivity**, set the request URL to `https://your-host/slack/interact`, and point the slash command at `https://your-host/slack/commands`.
+5. Subscribe to bot events: `app_mention`, `message.im`.
+6. Install the app to your workspace.
 
-### 2. Configure Secrets
+### 2. Configure secrets
 
 ```bash
-# .env
+# .env next to the compose file, or the agentsmith-secrets Secret on Kubernetes
 SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_SIGNING_SECRET=your-signing-secret
-ANTHROPIC_API_KEY=sk-ant-...
-GITHUB_TOKEN=ghp_...
 ```
 
-### 3. Deploy the Dispatcher
+### 3. Run the server
 
-**Docker Compose:**
+Nothing extra to deploy: the server from [docker-compose](../../host-it/docker-compose.md) or [Kubernetes](../../host-it/kubernetes.md) serves the Slack endpoints as soon as the two variables are set. Put a public HTTPS endpoint in front of port 8081 (the same one your webhooks use).
 
-```bash
-docker compose up -d dispatcher redis
-```
+## Chat commands
 
-**Kubernetes:**
+### Messages
 
-```bash
-kubectl apply -k k8s/overlays/prod
-```
-
-## Chat Commands
-
-### Natural Language
-
-Users interact in natural language. The intent engine recognizes patterns like:
-
-| Message | Parsed Intent |
+| Message | What it does |
 |---------|--------------|
-| `fix #42 in my-api` | Fix bug pipeline for ticket #42 in project `my-api` |
-| `scan my-api for security issues` | Security scan pipeline for project `my-api` |
-| `analyze the API of my-api` | API scan pipeline for project `my-api` |
-| `help` | Show available commands |
+| `fix #42 in my-api` | Runs the `code` pipeline for ticket 42 in project `my-api` |
+| `fix PROJ-42 in my-api` | The same with a Jira key; `ticket` and `fix` are optional (`#42`, `PROJ-42`) |
+| `list tickets in my-api` | Lists the project's open tickets (Jira included) |
+| `create ticket "Title" in my-api` | Files a ticket; a second quoted string adds a description |
+| `security-review my-api` / `security-review PR#12 in my-api` | Runs a security review |
+| `init my-api` | Runs `init-project` for the project (see [Onboarding](../setup/onboarding.md)) |
+| `help` | Shows the available commands |
 
-### Slash Commands and Modals
+When the engine can't tell the project or the command, it asks in the thread. The conversation state is tracked per channel and thread.
 
-The Dispatcher also supports structured input via Slack slash commands and modals:
+### Slash command and modal
 
-- `/agentsmith fix` — Opens a modal to select project, ticket, and pipeline options
-- `/agentsmith scan` — Opens a security scan modal
+The slash command opens a modal where you pick a command and a project: Fix Bug, Fix Bug (no tests), Add Feature, Security Review, MAD Discussion, Legal Analysis, List Tickets, Create Ticket, Init Project.
 
-!!! tip "Ambiguous input"
-    When the intent engine cannot determine the project or command, it asks for clarification in the thread. The conversation state is tracked per channel/thread.
+## One container per request
 
-## Intent Routing
+Each request runs in its own container:
 
-The intent engine uses a two-stage approach:
+- **Kubernetes:** a `batch/v1` Job running the CLI image in the server's namespace.
+- **Docker:** a container through the Docker socket, removed when it's done.
 
-1. **Regex patterns** for common, well-structured commands (fast, no API call)
-2. **LLM-based parsing** (Claude Haiku) for ambiguous or natural language input
+That keeps each run isolated, lets Kubernetes enforce CPU and memory limits, and cleans up after itself.
 
-## Ephemeral Containers
+## Orphan job detection
 
-Each request spawns an isolated container:
+The server runs an `OrphanJobDetector` that periodically looks for jobs whose container stopped without reporting completion, clears their state and tells the originating channel.
 
-- **Kubernetes:** A `batch/v1` Job with `backoffLimit: 0` and TTL-based cleanup
-- **Docker:** A container via the Docker socket with auto-remove
-
-This ensures:
-
-- **Isolation** — each request runs in its own environment
-- **No shared state** — no cross-contamination between projects
-- **Resource limits** — Kubernetes can enforce CPU/memory limits per Job
-- **Automatic cleanup** — containers are removed after completion
-
-## Progress Streaming
-
-The agent publishes progress updates to Redis channels:
-
-```
-agentsmith:progress:{job-id}
-```
-
-The Dispatcher subscribes to these channels and forwards updates to the originating Slack channel/thread. Updates include:
-
-- Pipeline step transitions (e.g., "Analyzing code...", "Generating plan...")
-- Completion with PR link or scan results
-- Error messages with context
-
-## Orphan Job Detection
-
-The Dispatcher includes an `OrphanJobDetector` that:
-
-- Scans Redis for stale job states after restart (in-memory tracking is lost)
-- Detects containers/Jobs that stopped without reporting completion
-- Performs liveness checks on running containers
-- Cleans up stale state and notifies the originating channel
-
-## Environment Variables
+## Environment variables
 
 | Variable | Description | Required |
 |----------|-------------|----------|
@@ -157,9 +104,10 @@ The Dispatcher includes an `OrphanJobDetector` that:
 | `TEAMS_APP_ID` | Azure AD App Registration client ID | Teams |
 | `TEAMS_APP_PASSWORD` | Azure AD App Registration client secret | Teams |
 | `TEAMS_TENANT_ID` | Azure AD tenant ID | Teams |
-| `REDIS_URL` | Redis connection | Yes |
-| `SPAWNER_TYPE` | `kubernetes` or `docker` | Yes |
-| `AGENTSMITH_IMAGE` | Image for spawned agents | Yes |
-| `K8S_NAMESPACE` | Namespace for K8s Jobs | K8s only |
-| `K8S_SECRET_NAME` | Secret to mount in Jobs | K8s only |
-| `IMAGE_PULL_POLICY` | K8s image pull policy | K8s only |
+| `REDIS_URL` | Redis connection, `host:port` | Yes |
+| `SPAWNER_TYPE` | `kubernetes` (default) or `docker` | Yes |
+| `K8S_NAMESPACE` | Namespace for spawned pods | K8s only |
+| `K8S_SECRET_NAME` | Secret to mount in spawned pods | K8s only |
+| `IMAGE_PULL_POLICY` | Image pull policy for spawned pods | K8s only |
+
+The image a spawned run uses comes from `deployment.version` (and `deployment.registry`), set under **Configuration → Deployment**.

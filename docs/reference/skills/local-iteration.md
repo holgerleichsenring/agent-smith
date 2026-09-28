@@ -62,14 +62,16 @@ dotnet test
 
 Once the local iteration looks good:
 
-1. Push your changes to the `agentsmith-skills` fork or branch.
-2. Tag `vX.Y.Z`. The `release.yml` workflow builds the deterministic tarball
-   and publishes the release.
-3. Pin `skills.version` in your agent-smith production config to the new tag
-   (p0325: without a pin, production keeps using the catalog embedded in the
-   binary — the next agent-smith release will embed your tag).
-4. Roll the server. The new tag mismatches the cached `.pulled` marker and
-   triggers a fresh pull.
+1. Open a pull request against the skills repository. It is squash-merged, so
+   the PR title has to be a conventional-commit title (`feat: …`, `fix: …`);
+   release-please reads it to cut the next version.
+2. Merging the release PR tags `vX.Y.Z`, and the release workflow builds the
+   deterministic tarball and its `.sha256` sidecar.
+3. Pin `skills.version` in your agent-smith production config to the new tag.
+   Without a pin, production keeps using the catalog embedded in the binary,
+   and the next agent-smith release embeds your tag.
+4. That's it for a server: the pin change is picked up on every replica without a
+   restart, and the new tag is pulled right away.
 
 Edge channel (`tag: edge`) tracks `main` and is rebuilt on every push — useful
 for smoke-testing in a staging environment without minting a release.
