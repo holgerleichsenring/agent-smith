@@ -30,8 +30,8 @@ public sealed class DataArchiveRoundTripTests : IDisposable
     public async Task RoundTrip_EveryTable_RestoresEveryRow()
     {
         var expected = await SeededSnapshotAsync();
-        expected.Should().HaveCount(27);
-        expected.Values.Sum(rows => rows.Count).Should().Be(56,
+        expected.Should().HaveCount(28);
+        expected.Values.Sum(rows => rows.Count).Should().Be(58,
             "two rows per table plus the two shapes that broke the hand transfer");
 
         await ImportAsync(await ExportSeededAsync());
@@ -51,7 +51,7 @@ public sealed class DataArchiveRoundTripTests : IDisposable
         await using var db = MigratedStoreTemplate.Context(_source);
         var expected = DataArchiveHarness.Tables(db)
             .Select(t => DataArchiveFormat.EntryFor(t.GetTableName()!)).ToList();
-        expected.Should().HaveCount(27, "the store carries twenty-seven tables");
+        expected.Should().HaveCount(28, "the store carries twenty-eight tables");
         zip.Entries.Select(e => e.FullName).Should().Contain(expected);
     }
 
@@ -78,7 +78,7 @@ public sealed class DataArchiveRoundTripTests : IDisposable
             "the head is named, not identified — the timestamp prefix is provider-local");
         manifest.SourceProvider.Should().Be("Microsoft.EntityFrameworkCore.Sqlite");
         manifest.FormatVersion.Should().Be(DataArchiveFormat.Version);
-        manifest.Tables.Should().HaveCount(27);
+        manifest.Tables.Should().HaveCount(28);
         manifest.Tables.Single(t => t.Table == "RunArtifacts").Rows.Should().Be(4,
             "two generated rows plus the two shapes that broke the hand transfer");
     }

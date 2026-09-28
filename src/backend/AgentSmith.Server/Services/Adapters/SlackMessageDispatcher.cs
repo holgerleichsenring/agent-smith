@@ -1,6 +1,7 @@
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
+using AgentSmith.Server.Services.ChatRuns;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +22,7 @@ public sealed class SlackMessageDispatcher(
     HelpHandler helpHandler,
     ClarificationStateManager clarificationState,
     SpecDialogRouter specDialogRouter,
+    ChatRunAnswerRouter runAnswers,
     PlatformAdapters adapters,
     ILogger<SlackMessageDispatcher> logger)
 {
@@ -34,18 +36,18 @@ public sealed class SlackMessageDispatcher(
     {
         try
         {
-            // Spec-dialog branch first (p0315a). 2026-09-17-042eg: false — a chat message carries
+            // A run of this thread asking for free text takes the message as its answer.
+            if (await runAnswers.TryAnswerFromMessageAsync(
+                    new ChatThread(platform, channelId, threadId, userId), text, cancellationToken))
+                return;
+            // Spec-dialog branch (p0315a). 2026-09-17-042eg: false — a chat message carries
             // no permission, so approving here files the work and never moves a ticket.
             if (await specDialogRouter.TryRouteAsync(
                     text, userId, channelId, threadId, platform, false, cancellationToken))
                 return;
 
-            // The run-trigger path keeps its historical platform label ("slack"
-            // even for Teams — see ChatAdaptersExtensions); only the spec-dialog
-            // branch above keys state by the real platform.
-            var intent = await intentEngine.ParseAsync(
-                text, userId, channelId, DispatcherDefaults.PlatformSlack, cancellationToken);
-            await RouteAsync(intent, channelId, platform, cancellationToken);
+            var intent = await intentEngine.ParseAsync(text, userId, channelId, platform, cancellationToken);
+            await RouteAsync(intent with { ThreadId = threadId }, channelId, platform, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -97,7 +99,7 @@ public sealed class SlackMessageDispatcher(
         ClarificationNeeded c, string channelId, CancellationToken ct)
     {
         var pending = new PendingClarification(c.Suggestion, c.RawText, c.UserId);
-        await clarificationState.SetAsync(DispatcherDefaults.PlatformSlack, channelId, pending, ct);
+        await clarificationState.SetAsync(c.Platform, channelId, pending, ct);
         await helpHandler.SendClarificationAsync(channelId, c.Suggestion, ct);
     }
 

@@ -199,7 +199,12 @@ fix #1 in my-project
 
 The project name must match a key in your `agentsmith.yml` configuration. Use the ticket id the way your tracker writes it: `#1` for GitHub, GitLab and Azure DevOps, the issue key for Jira (`fix PROJ-12 in my-project`).
 
-The bot answers with the id of the run it queued, and with a link to the run when `dialogue.dashboard_url` is set. The run executes in the server like a run the poller started; follow it, and answer its questions, on the dashboard.
+The bot answers in the thread of your message with the id of the run it queued, and with a link to the run when `dialogue.dashboard_url` is set. The run executes in the server like a run the poller started, and it reports back to that thread:
+
+- **Its questions** are posted there with buttons; a free-text question takes the next message you write in the thread as the answer. The answer reaches the run however long it has been waiting, also after a server restart.
+- **Its outcome** is posted there when it ends: the pull requests it opened, or the reason it failed. The thread is then free for the next run.
+
+While the run has not reported back, a second run asked for inside the same thread is refused; a new top-level message starts a new thread. The dashboard shows the run's progress in between. See [A chat run's lifecycle](../host-it/chat-gateway.md#a-chat-runs-lifecycle).
 
 ---
 

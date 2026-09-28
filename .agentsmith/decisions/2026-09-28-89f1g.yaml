@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1g
+
+decisions:
+  - category: Architecture
+    chose: "Every replica re-reads the open bindings from the database every five seconds (ChatRunBindingWatcher -> ChatRunFollower); nothing about a bound run is held in memory between passes"
+    over: "A per-replica bus subscription re-created on startup, or a leader-only watcher"
+    reason: |
+      "Re-subscribe on startup" is a pass over the table when the pass is the subscription: a
+      restart, a new replica and an expired conversation state lose nothing, and there is no
+      in-memory registry to rebuild. The spec asked for every replica, and the leader lease
+      would add a second failure mode for a table read. Which replica speaks is decided by
+      the store's conditional UPDATEs (question id recorded only when it differs; ClosedAt set
+      only when null), so a question or an outcome is posted exactly once however many follow.
+    alternatives:
+      - "MessageBusListener per replica: in-memory, lost on restart, and a server run publishes nothing on the bus but its questions"
+      - "Housekeeping leader: one replica, but a lease for what a conditional update already settles"
+
+  - category: Architecture
+    chose: "The outcome is read from the run's ROW (FinishedAt set and not a waiting status; RunRepos.PrUrl for the pull requests; Summary for the failure reason) rather than hooked on the RunFinished event"
+    over: "A notifier inside RunEventRouter/RunFinalizationProjection on the terminal event"
+    reason: |
+      The event is seen by every replica's broadcaster, and a terminal event that landed while
+      the server was down is reconciled into the row without being dispatched — a hook on the
+      event misses exactly the restart case this slice exists for. The row is where every
+      terminal path (success, failure, cancel, enforcer, reaper) converges. The cost is up to
+      one watcher interval of latency.
+    alternatives:
+      - "Event hook: immediate, but blind to terminals reconciled at cold start"
+
+  - category: Implementation
+    chose: "A run with no record thirty minutes after it was bound is reported as gone and its binding closed"
+    over: "Closing on a missing row immediately, or never"
+    reason: |
+      A claimed ticket run has no row until its first event lands, so a missing row early on is
+      a run starting, not a run gone. Thirty minutes is well past a queue consumer's pickup; a
+      run waiting in the capacity queue has a queued row and is never mistaken for gone.
+    alternatives: []
+
+  - category: Implementation
+    chose: "A bound run's current question is the unresumed checkpoint's question, else the newest question on its live dialogue stream (new IDialogueQuestionReader, Redis implementation next to RedisDialogueTransport); a question the inbox already answered is not posted"
+    over: "Posting only checkpointed questions, or subscribing to the stream"
+    reason: |
+      The hot question lives only on the stream for the hot window (ten minutes by default) and
+      a ticketless run never checkpoints, so the stream is the only place to see it; the
+      checkpoint is the only place a question survives the stream's two-hour TTL and a restart.
+      The reader parses the transport's own field layout and is proven against it in a round trip.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The dialogue identity of a chat-bound run is its run id"
+    over: "Storing a dialogue job id on the binding"
+    reason: "Chat runs execute in the server, where DialogueJobIdentity resolves to the run id; no chat run has a spawned job id any more."
+    alternatives: []
+
+  - category: Implementation
+    chose: "Answers from the thread go through IDialogueTransport.PublishAnswerAsync (durable inbox first, hot stream second); the interaction handlers' ConversationState path is replaced by ChatRunAnswerRouter, which finds the run by the thread's open binding and the question id recorded on it"
+    over: "Keeping the ConversationState lookup as a fallback"
+    reason: |
+      Since chat runs stopped writing conversation state, that path matched nothing; keeping it
+      would keep IMessageBus answers for a spawned CLI job that no chat command starts. A
+      free-text question takes the next message in the thread as its answer (Slack's question
+      block already says so), checked before the spec dialogue so a pending run question wins
+      in its own thread. A choice button answers by index; the router gives the run the label it
+      asked with, which is what ask_human returns to the model.
+    alternatives: []
+
+  - category: Architecture
+    chose: "Posting into a thread is a new IChatThreadAdapter (Slack: thread_ts; Teams: conversation id + service URL) resolved by the binding's platform through ChatThreadAdapters; the announcer uses it too"
+    over: "Adding threaded methods to IPlatformAdapter, or keeping the bare IPlatformAdapter"
+    reason: |
+      A bare IPlatformAdapter resolves to the last registered adapter — Teams — so f's
+      announcer answered Slack through the Teams adapter. IPlatformAdapter's send methods take no
+      thread and are implemented by the dashboard adapter as well; SlackAdapter and TeamsAdapter
+      sit at their length ceilings. A small posting interface per platform keeps the thread in
+      every call and grows neither.
+    alternatives:
+      - "Thread overloads on IPlatformAdapter: three implementations, two of them over the length ceiling"
+
+  - category: Implementation
+    chose: "The intent's platform is fixed at its source: SlackMessageDispatcher hands the intent engine the real platform and stamps the thread on the intent (ChatIntent.ThreadId); the clarification state is keyed by the intent's platform"
+    over: "Keeping the historical 'slack' label for Teams"
+    reason: |
+      Nothing downstream needed the fake label any more once the chat launch stopped spawning
+      jobs. Keying clarification by the real platform also makes the Teams clarification card
+      work: the dispatcher stored it under "slack" while TeamsInteractionHandler read "teams".
+    alternatives: []
+
+  - category: Implementation
+    chose: "The Teams service URL moves from a per-TeamsApiClient dictionary to a singleton TeamsServiceUrls, and the binding stores the URL the run was started under (ReplyEndpoint), registered again before posting"
+    over: "Relying on the default service URL after a restart"
+    reason: |
+      TeamsApiClient is a typed HttpClient and therefore transient, so a second client never saw
+      the URLs the adapter's client was told. After a restart, or on a replica that never received
+      a message from the conversation, the fallback (amer) is the wrong region for other tenants.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The per-thread guard refuses a second chat run while the thread has an open binding; in Slack every top-level message is its own thread, so the guard stops a second command written inside a run's thread; modal launches (no thread) share the channel-level null thread"
+    over: "A per-channel guard like the old conversation state"
+    reason: |
+      The brief asked for per-thread. The check is a read before launch, not a unique index —
+      a filtered unique index is not portable to MySQL — so two commands in one thread within
+      the same instant could both start; the ticket lease still refuses a second run of one ticket.
+    alternatives: []
+
+  - category: Implementation
+    chose: "dialogue.dashboard_url is read live through ChatRunLink (IConfigurationLoader per call) with RunAnswerLink gaining For(runId, dashboardUrl) so the URL shape stays in one place"
+    over: "RunAnswerLink over the startup AgentSmithConfig"
+    reason: "f recorded the startup read as a cost; the server's loader reads the config store, which live reload keeps current."
+    alternatives: []
+
+  - category: Scope
+    chose: "OrphanJobDetector is untouched: chat runs write no ConversationState and track no bus job, which are the only two things it scans, and a test pins that no chat-launch or chat-run type depends on either"
+    over: "Adding a chat-run exclusion to OrphanJobDetector"
+    reason: "Slice h deletes the detector; a guard inside it would be deleted with it, while the dependency test stays true."
+    alternatives: []
+
+  - category: Implementation
+    chose: "The binding is written by ChatRunStart (guard, launch, bind, announce) which all three chat intent handlers call, with the launch's reported run id — for ticket runs the funnel's SpawnResult.RunId"
+    over: "Writing the binding inside each launcher"
+    reason: |
+      Init goes through InitRunLauncher, which the dashboard shares, and the launchers would each
+      need the thread; one flow keeps the guard and the binding in one place. A binding that
+      cannot be written is logged and the thread is still told the run id.
+    alternatives: []
+
+  - category: Implementation
+    chose: "One migration per migration set: AddChatRunBindings in the SQLite-generated set (run verbatim by SQLite, PostgreSQL and MySQL; bounded strings declared by length only) and in the SQL Server set"
+    over: "Four provider-specific migrations"
+    reason: "The repo ships two migration assemblies; the shared set serves three providers, as AddTakenTickets does."
+    alternatives: []
+
+  - category: Implementation
+    chose: "No DbSet property for ChatRunBindings on AgentSmithDbContext; the configuration names the table"
+    over: "A DbSet line"
+    reason: "The context sits at the 120-line limit; Set<ChatRunBinding>() reaches the table the same way."
+    alternatives: []

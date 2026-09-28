@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Infrastructure.Models;
+using AgentSmith.Server.Services.ChatRuns;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -9,14 +9,12 @@ using System.Text.Json.Nodes;
 namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
-/// Handles Slack interactive component callbacks (button clicks).
-/// Routes job question answers via Redis Streams, and handles
-/// clarification confirm/help buttons.
+/// Handles Slack interactive component callbacks (button clicks): a question's answer goes
+/// to the run bound to the thread it was asked in; clarification confirm/help buttons are
+/// handled here too.
 /// </summary>
 public sealed class SlackInteractionHandler(
-    IMessageBus messageBus,
-    IDialogueTransport dialogueTransport,
-    ConversationStateManager stateManager,
+    ChatRunAnswerRouter answers,
     ClarificationStateManager clarificationState,
     SlackMessageDispatcher dispatcher,
     SlackErrorActionHandler errorActionHandler,
@@ -100,42 +98,21 @@ public sealed class SlackInteractionHandler(
             return;
         }
 
-        // Legacy flow: route via message bus
-        var state = await stateManager.GetAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
-        if (state is null)
+        // A run started from this thread: the binding says which run the answer belongs to.
+        var thread = new ChatThread(DispatcherDefaults.PlatformSlack, channelId, ThreadOf(payload),
+            payload["user"]?["id"]?.GetValue<string>() ?? "slack-user");
+        if (!await answers.TryAnswerAsync(thread, questionId, answer, null, ct))
         {
-            logger.LogWarning("Interaction for {ChannelId} but no active job found", channelId);
+            logger.LogWarning("Answer for {QuestionId} in {ChannelId} matches no open run", questionId, channelId);
             return;
         }
-
-        if (!IsExpectedQuestion(state, questionId)) return;
-
-        // p0327: durable-first — the dialogue-envelope publish writes the answer
-        // inbox row (survives restarts / a checkpointed run) AND the hot stream
-        // in the shape RedisDialogueTransport actually reads (the bus envelope's
-        // 'content' field never satisfied a dialogue wait). The legacy bus
-        // publish stays for IMessageBus.ReadAnswerAsync consumers (AskYesNo).
-        await dialogueTransport.PublishAnswerAsync(
-            state.JobId,
-            new DialogAnswer(questionId, answer, null, DateTimeOffset.UtcNow,
-                payload["user"]?["id"]?.GetValue<string>() ?? "slack-user"),
-            ct);
-        await messageBus.PublishAnswerAsync(state.JobId, questionId, answer, ct);
         await UpdateQuestionMessageAsync(channelId, questionId, answer, payload, ct);
-        await stateManager.ClearPendingQuestionAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
-
-        logger.LogInformation("Answer '{Answer}' for '{QuestionId}' forwarded to {JobId}",
-            answer, questionId, state.JobId);
     }
 
-    private bool IsExpectedQuestion(ConversationState state, string questionId)
-    {
-        if (state.PendingQuestionId == questionId) return true;
-
-        logger.LogWarning("Answer for {QuestionId} but pending is {Pending}",
-            questionId, state.PendingQuestionId);
-        return false;
-    }
+    // A question posted inside a thread carries the thread's ts; one posted at the top has none.
+    private static string? ThreadOf(JsonNode payload) =>
+        payload["message"]?["thread_ts"]?.GetValue<string>()
+        ?? payload["container"]?["thread_ts"]?.GetValue<string>();
 
     private async Task UpdateClarificationMessageAsync(
         string channelId, string answer, JsonNode payload, CancellationToken ct)

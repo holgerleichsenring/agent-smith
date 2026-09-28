@@ -15,17 +15,16 @@ public sealed class SecurityReviewIntentHandler(
     ServerContext serverContext,
     ChatPrContextResolver prContext,
     ChatTicketlessRunLauncher launcher,
-    ChatLaunchAnnouncer announcer)
+    ChatRunStart start)
 {
     public const string Pipeline = "security-scan";
 
-    public async Task HandleAsync(SecurityReviewIntent intent, CancellationToken cancellationToken)
+    public Task HandleAsync(SecurityReviewIntent intent, CancellationToken cancellationToken)
     {
         var subject = intent.PrIdentifier is { } pr
             ? $"a security review of PR #{pr} in *{intent.Project}*"
             : $"a security review of *{intent.Project}*";
-        var result = await LaunchAsync(intent, cancellationToken);
-        await announcer.AnnounceAsync(intent.ChannelId, subject, result, cancellationToken);
+        return start.StartAsync(ChatThread.Of(intent), subject, ct => LaunchAsync(intent, ct), cancellationToken);
     }
 
     private async Task<ChatLaunchResult> LaunchAsync(SecurityReviewIntent intent, CancellationToken ct)

@@ -25,11 +25,12 @@ public sealed class RunAnswerLink(AgentSmithConfig config)
             ? For(runId!)
             : null;
 
-    public string? For(string runId)
-    {
-        var baseUrl = config.Dialogue.DashboardUrl;
-        return string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(runId)
+    public string? For(string runId) => For(runId, config.Dialogue.DashboardUrl);
+
+    /// <summary>The link under a base URL the caller read itself — a caller that must see a
+    /// live-reloaded <c>dialogue.dashboard_url</c> cannot take the one this instance was built with.</summary>
+    public string? For(string runId, string? dashboardUrl) =>
+        string.IsNullOrWhiteSpace(dashboardUrl) || string.IsNullOrWhiteSpace(runId)
             ? null
-            : $"{baseUrl.TrimEnd('/')}/jobs/{Uri.EscapeDataString(runId)}";
-    }
+            : $"{dashboardUrl.TrimEnd('/')}/jobs/{Uri.EscapeDataString(runId)}";
 }

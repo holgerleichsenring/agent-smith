@@ -11,6 +11,7 @@ using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.ChatLaunch;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Tests.Spawning;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -22,11 +23,15 @@ namespace AgentSmith.Tests.Server;
 /// claim request as a polled ticket gets them — with the claim service as the double, because
 /// the claim is where the run leaves this process.
 /// </summary>
-public sealed class ChatTicketRunLaunchTests
+public sealed class ChatTicketRunLaunchTests : IDisposable
 {
     private const string Project = "sample";
-    private readonly List<string> _said = [];
+    private readonly ChatRunHarness _chat = new();
     private ClaimRequest? _claimed;
+
+    private IEnumerable<string> _said => _chat.Slack.Posts.Select(p => p.Text);
+
+    public void Dispose() => _chat.Dispose();
 
     [Fact]
     public async Task FixTicketIntent_GoesThroughTheSpawnFunnel_SpawnsNothing()
@@ -70,6 +75,21 @@ public sealed class ChatTicketRunLaunchTests
         _said.Should().ContainSingle().Which.Should().Contain("not configured");
     }
 
+    [Fact]
+    public async Task ChatFixTicket_FromTeams_IsAnsweredAndBoundOnTeams()
+    {
+        await Handler().HandleAsync(
+            Fix(pipeline: null) with { Platform = "teams", ChannelId = "19:conv", ThreadId = "19:conv" },
+            CancellationToken.None);
+
+        _chat.Teams.Posts.Should().ContainSingle().Which.Text.Should().Contain(_claimed!.ExistingRunId!);
+        _chat.Slack.Posts.Should().BeEmpty("the reply goes out on the platform the request came from");
+        var binding = await _chat.Get<IChatRunBindingStore>()
+            .FindOpenInThreadAsync("teams", "19:conv", "19:conv", CancellationToken.None);
+        binding!.RunId.Should().Be(_claimed.ExistingRunId);
+        binding.ReplyEndpoint.Should().Be("https://smba.example/emea");
+    }
+
     private FixTicketIntentHandler Handler()
     {
         var loader = new Mock<IConfigurationLoader>();
@@ -77,12 +97,7 @@ public sealed class ChatTicketRunLaunchTests
         var launcher = new ChatTicketRunLauncher(
             loader.Object, new ServerContext("agentsmith.yml"), Funnel(),
             NullLogger<ChatTicketRunLauncher>.Instance);
-        var adapter = new Mock<IPlatformAdapter>();
-        adapter.Setup(a => a.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, text, _) => _said.Add(text))
-            .Returns(Task.CompletedTask);
-        return new FixTicketIntentHandler(
-            launcher, new ChatLaunchAnnouncer(adapter.Object, new RunAnswerLink(new AgentSmithConfig())));
+        return new FixTicketIntentHandler(launcher, _chat.Get<ChatRunStart>());
     }
 
     private SpawnPipelineRunsUseCase Funnel()

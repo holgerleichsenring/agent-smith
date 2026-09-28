@@ -33,12 +33,18 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
     private const string Project = "sample";
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
     private readonly List<PipelineRequest> _enqueued = [];
-    private readonly List<string> _said = [];
+    private readonly ChatRunHarness _chat = new();
     private readonly Mock<IPrDiffProviderFactory> _diffs = new();
     private IReadOnlyList<RepoConnection> _repos = [Repo("sample-server")];
     private ISandboxCapacityProbe _probe = CapacityTestDoubles.AlwaysAdmit();
 
-    public void Dispose() => _connection.Dispose();
+    private IEnumerable<string> _said => _chat.Slack.Posts.Select(p => p.Text);
+
+    public void Dispose()
+    {
+        _chat.Dispose();
+        _connection.Dispose();
+    }
 
     [Fact]
     public async Task InitProjectIntent_LaunchesThroughInitRunLauncher()
@@ -113,22 +119,13 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         new ChatTicketlessRunLauncher(
             Runs(), Admission(), Queue(), TimeProvider.System,
             NullLogger<ChatTicketlessRunLauncher>.Instance),
-        Announcer());
+        _chat.Get<ChatRunStart>());
 
     private InitProjectIntentHandler InitHandler() => new(
         new InitRunLauncher(
             ConfigLoader(), new ServerContext("agentsmith.yml"), Runs(), Admission(), Queue(),
             TimeProvider.System, NullLogger<InitRunLauncher>.Instance),
-        Announcer());
-
-    private ChatLaunchAnnouncer Announcer()
-    {
-        var adapter = new Mock<IPlatformAdapter>();
-        adapter.Setup(a => a.SendMessageAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Callback<string, string, CancellationToken>((_, text, _) => _said.Add(text))
-            .Returns(Task.CompletedTask);
-        return new ChatLaunchAnnouncer(adapter.Object, new RunAnswerLink(new AgentSmithConfig()));
-    }
+        _chat.Get<ChatRunStart>());
 
     private InitRunRepository Runs() => new(new AgentSmithDbContext(Options()), TimeProvider.System);
 
