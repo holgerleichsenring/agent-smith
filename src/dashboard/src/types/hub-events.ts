@@ -695,7 +695,7 @@ export interface RunSnapshot {
    *  live SignalR path. */
   queuePosition?: number | null;
   /** p0332: RESERVED capacity-time for a finished run — memory request × pod
-   *  lifetime in Gi·minutes, summed over sandboxes + the spawned orchestrator.
+   *  lifetime in Gi·minutes, summed over sandboxes (and a legacy run's spawned orchestrator).
    *  Reservation, NOT measured consumption and NOT money. Null while running,
    *  on pre-p0332 rows, and on the live SignalR path. */
   reservedGiMinutes?: number | null;

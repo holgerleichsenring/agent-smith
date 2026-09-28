@@ -14,16 +14,13 @@ public static class RunSnapshotMapper
 {
     // p0320d: queuePosition carries the run's 1-based FIFO rank when it is a
     // capacity-queued row (matched via QueuedTicket.ReservedRunId at query time).
-    // p0332: orchestratorMemoryRequest is the JobSpawner Resources memory-request
-    // the spawner uses for the orchestrator pod; null falls back to the spawner's
-    // own unconfigured default (ResourceLimits.Default).
     // p0327: pendingQuestion carries the parked run's DialogQuestion (joined from
     // its checkpoint row at query time) so the dashboard can render the answer
     // affordance for status="waiting_for_input".
     // p0344b: includeStory=true (the run-detail path) additionally serves the
     // persisted progress ledger + acceptance snapshot; beats ride BOTH paths.
     public static RunSnapshot ToSnapshot(
-        Run run, int? queuePosition = null, string? orchestratorMemoryRequest = null,
+        Run run, int? queuePosition = null,
         PendingQuestionInfo? pendingQuestion = null, RunCapacitySnapshot? capacity = null,
         bool includeStory = false)
     {
@@ -73,7 +70,7 @@ public static class RunSnapshotMapper
             AgentName: run.AgentName,
             CancelRequested: run.CancelRequested,
             QueuePosition: queuePosition,
-            ReservedGiMinutes: ReservedCapacityCalculator.Compute(run, orchestratorMemoryRequest),
+            ReservedGiMinutes: ReservedCapacityCalculator.Compute(run),
             PendingQuestion: run.Status == "waiting_for_input" ? pendingQuestion : null,
             Footprint: RunFootprintView.From(capacity),
             // p0344b: beats always (list + detail); the story payloads only on

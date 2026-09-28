@@ -4,7 +4,7 @@ namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// Reports pipeline progress and asks interactive questions during execution.
-/// Implementations: ConsoleProgressReporter (local/CLI), RedisProgressReporter (K8s job mode).
+/// Implementation: ConsoleProgressReporter (CLI and server).
 ///
 /// <para>p0173e: the previous <c>string commandName</c> parameter on
 /// <see cref="ReportProgressAsync"/> is replaced by a typed
@@ -42,10 +42,4 @@ public interface IProgressReporter
     Task ReportErrorAsync(string text,
         int step, int total, string stepName,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Optional job identifier used for dialogue transport routing.
-    /// Returns null when not running in job mode (e.g., CLI).
-    /// </summary>
-    string? JobId => null;
 }

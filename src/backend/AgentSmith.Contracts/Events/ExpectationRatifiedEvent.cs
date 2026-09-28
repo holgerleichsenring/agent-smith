@@ -5,7 +5,8 @@ namespace AgentSmith.Contracts.Events;
 /// Travels the event stream (not a direct DB write) because the producer may
 /// be a spawned orchestrator whose only DB channel is this stream (p0330
 /// lesson); the server-side applier persists it as the RunExpectation row.
-/// DraftJson/RatifiedJson are serialized <c>ExpectationDraft</c> payloads.
+/// DraftJson/RatifiedJson are serialized draft payloads. The negotiation that emitted it is
+/// removed; the contract stays so archived trails decode and their rows stay readable.
 /// </summary>
 public sealed record ExpectationRatifiedEvent(
     string RunId,

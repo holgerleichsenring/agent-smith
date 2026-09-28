@@ -29,7 +29,7 @@ Agent Smith ships eight pipeline presets. Each one is a fixed list of steps defi
 
 A PR comment can start `code`, `security-scan` and `pr-review`, and nothing else.
 
-These eight names are the whole vocabulary. The retired names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer resolve anywhere: write `code` instead. A configuration that still routes to one gets a startup advisory naming the replacement, and a run routed to it fails when it starts. `skill-manager` and `autonomous` were removed without a replacement.
+These eight names are the whole vocabulary. The retired names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer resolve anywhere: write `code` instead. `skill-manager` and `autonomous` were removed without a replacement. Every refusal of a retired name says which of the two it is: a configuration that still routes to one gets a startup finding, and a run started with one is refused, and both name the replacement or the reason the name went.
 
 All pipeline commands support `--dry-run` to preview the execution plan without running it. Utility commands (`compile-wiki`, `security-trend`) also support `--dry-run`.
 

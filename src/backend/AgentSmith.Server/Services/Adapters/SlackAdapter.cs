@@ -10,10 +10,8 @@ public sealed class SlackAdapter(
     SlackApiClient api,
     SlackTypedQuestionBlockBuilder typedQuestionBlockBuilder,
     SlackMessageBlockBuilder messageBlockBuilder,
-    SlackProgressFormatter progressFormatter,
     ILogger<SlackAdapter> logger) : IPlatformAdapter
 {
-    private readonly SlackProgressTracker _progress = new();
     private readonly SlackTypedQuestionManager _typedQuestions = new(logger);
 
     public string Platform => "slack";
@@ -21,61 +19,12 @@ public sealed class SlackAdapter(
     public async Task SendMessageAsync(string channelId, string text, CancellationToken ct) =>
         await api.PostAsync("chat.postMessage", new { channel = channelId, text }, ct);
 
-    public async Task SendProgressAsync(string channelId, int step, int total,
-        string commandName, CancellationToken ct)
-    {
-        var text = progressFormatter.FormatProgress(step, total, commandName);
-        var existingTs = _progress.GetThreadTs(channelId);
-
-        if (existingTs is not null)
-        {
-            var resp = await api.PostAsync("chat.update",
-                new { channel = channelId, ts = existingTs, text }, ct);
-            if (resp?["ok"]?.GetValue<bool>() ?? false) return;
-        }
-
-        var response = await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text }, ct);
-        var ts = SlackApiClient.ExtractTimestamp(response);
-        if (ts is not null) _progress.SetThreadTs(channelId, ts);
-    }
-
-    public async Task SendDoneAsync(string channelId, string summary, string? prUrl,
-        CancellationToken ct)
-    {
-        _progress.Remove(channelId);
-        var text = string.IsNullOrWhiteSpace(prUrl)
-            ? $":rocket: *Done!* {summary}"
-            : $":rocket: *Done!* {summary}\n:link: <{prUrl}|View Pull Request>";
-        await api.PostAsync("chat.postMessage", new { channel = channelId, text }, ct);
-    }
-
-    public async Task SendErrorAsync(string channelId, ErrorContext errorContext, CancellationToken ct)
-    {
-        _progress.Remove(channelId);
-        var (fallbackText, blocks) = SlackErrorBlockBuilder.Build(errorContext);
-        await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text = fallbackText, blocks }, ct);
-    }
-
     public async Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken ct)
     {
         var (text, blocks) = messageBlockBuilder.BuildQuestionAnswered(questionText, answer);
         await api.PostAsync("chat.update",
             new { channel = channelId, ts = messageId, text, blocks }, ct);
-    }
-
-    public async Task SendDetailAsync(string channelId, string text, CancellationToken ct)
-    {
-        var threadTs = _progress.GetThreadTs(channelId);
-        if (threadTs is null)
-        {
-            logger.LogDebug("No progress message to thread detail under for {Channel}", channelId);
-            return;
-        }
-        await api.PostAsync("chat.postMessage",
-            new { channel = channelId, text, thread_ts = threadTs }, ct);
     }
 
     public async Task SendClarificationAsync(string channelId, string suggestion, CancellationToken ct)

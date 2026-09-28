@@ -48,7 +48,7 @@ public sealed record RunSnapshot(
     // Null for non-queued runs and on the live SignalR path.
     int? QueuePosition = null,
     // p0332: RESERVED capacity-time for a finished run — memory request x pod
-    // lifetime, summed over sandboxes + the spawned orchestrator, in Gi·minutes.
+    // lifetime, summed over sandboxes (and a legacy run's spawned orchestrator), in Gi·minutes.
     // Reservation, NOT measured consumption and NOT money: it is what the
     // scheduler set aside for the run. Computed by RunSnapshotMapper from the
     // persisted lifetimes; null while running, on pre-p0332 rows, and on the

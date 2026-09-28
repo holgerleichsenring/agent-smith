@@ -112,7 +112,7 @@ public sealed class InheritedSandboxHoldWindowTests : IDisposable
         var options = Options.Create(config.Sandbox);
         var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, resources, new StubAgentImageResolver(), new StubOrchestratorImageResolver(), config);
+            options, resources, new StubAgentImageResolver(), config);
         var loader = new SandboxHoldRailDoubles.CountingConfigLoader(config);
         return (new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,

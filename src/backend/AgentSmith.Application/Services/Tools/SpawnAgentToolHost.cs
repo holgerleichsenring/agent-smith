@@ -54,7 +54,7 @@ public sealed class SpawnAgentToolHost : IToolHost
         "detail lazily via read_sub_agent_observations.")]
     public async Task<string> SpawnAgents(
         [Description("Array of task objects: name, activity, task_description, " +
-                     "optional output_hint, optional tool_profile, inherited_context " +
+                     "optional output_hint, inherited_context " +
                      "object with pipeline_goal + prior_context_slice + " +
                      "optional system_prompt_block.")]
         JsonElement tasks,
@@ -134,12 +134,9 @@ public sealed class SpawnAgentToolHost : IToolHost
             var activity = task.TryGetProperty("activity", out var a) ? a.GetString() ?? "" : "";
             var taskDescription = task.TryGetProperty("task_description", out var d) ? d.GetString() ?? "" : "";
             var outputHint = task.TryGetProperty("output_hint", out var o) ? o.GetString() : null;
-            var toolProfile = task.TryGetProperty("tool_profile", out var tp)
-                && Enum.TryParse<ToolProfile>(tp.GetString(), ignoreCase: true, out var parsed)
-                    ? parsed : ToolProfile.Investigator;
 
             var inherited = ParseInheritedContext(task);
-            specs.Add(new SubAgentSpec(name, activity, taskDescription, inherited, outputHint, toolProfile));
+            specs.Add(new SubAgentSpec(name, activity, taskDescription, inherited, outputHint));
         }
         return specs;
     }

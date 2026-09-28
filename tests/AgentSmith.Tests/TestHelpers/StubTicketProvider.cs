@@ -31,10 +31,6 @@ internal sealed class StubTicketProvider(Func<TicketId, Ticket>? holds = null) :
         CancellationToken cancellationToken) =>
         Task.FromResult(new CreatedTicket(new TicketId("1"), "https://stub.test/tickets/1"));
 
-    public Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-        Task.FromResult(ParentLinkResult.Linked);
-
     public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
         Task.FromResult(TicketFinalizeResult.Moved());

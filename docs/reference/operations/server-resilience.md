@@ -12,7 +12,7 @@ Before the listener binds, the server asks each startup dependency whether it's 
 | `configuration` | Does the configuration load and validate? |
 | `database` | Is the database reachable? |
 | `redis` | Is Redis reachable? Without it the job queue, leader election and the live run feed are down, so no run can be queued or picked up. |
-| `spawner` | Is a real job spawner (Docker or Kubernetes) behind the one that was registered? |
+| `sandbox-backend` | Does the sandbox backend (Kubernetes, Docker or in-process) answer? Every run creates its sandboxes through it. |
 | `sandbox-agent` | Is a project's sandbox agent pinned to a different version than this server's release? Advisory only. |
 
 Each probe gets ten seconds. A probe that doesn't answer in time, or throws, is recorded as a blocking finding that says its state is unknown. Other parts of the server add findings as they run into things, for example an `auth` finding when the [token authority is unreachable](../security/access-control.md#when-the-authority-is-unreachable) or a `build` finding when a dashboard tab and the server come from different builds.
@@ -41,11 +41,11 @@ The server also logs one line at startup with the count and a pointer to this ro
 
 ## `GET /health`
 
-Liveness. It answers `200` whenever the listener is alive, needs no token, and carries the startup preflight's verdict so a `curl` shows what to fix without reading logs:
+Liveness. It answers `200` whenever the listener is alive, needs no token, and carries the startup preflight's verdict and the state of every background subsystem, so a `curl` shows what to fix without reading logs:
 
 ```json
 {
-  "status": "ok",
+  "status": "degraded",
   "timestamp": "2026-09-28T09:12:44Z",
   "preflight": {
     "status": "fail",
@@ -56,19 +56,25 @@ Liveness. It answers `200` whenever the listener is alive, needs no token, and c
     "failures": [
       { "name": "sign-in", "message": "…", "fix_hint": "…" }
     ]
-  }
+  },
+  "subsystems": [
+    { "name": "queue_consumer", "state": "degraded", "reason": "waiting for Redis", "last_changed_utc": "2026-09-28T09:10:01.004Z" },
+    { "name": "redis", "state": "degraded", "reason": "SocketFailure: …", "last_changed_utc": "2026-09-28T09:10:00.912Z" }
+  ]
 }
 ```
 
 `preflight.status` is `pending` until the startup run finished, then `pass` or `fail`. The checks are the same ones `agent-smith doctor` runs, plus the server-only ones such as `sign-in`. Point liveness probes here: Kubernetes and Docker should not restart the pod because Redis is briefly gone. The shipped manifests do exactly that (`deploy/k8s/8-deployment-server.yaml`, the compose healthcheck).
 
-There is no separate readiness endpoint. For alerting, watch `degraded` on `/api/config/findings` and `preflight.status` on `/health`.
+`subsystems` lists each background subsystem the server runs (below) with its state, the reason it is not up, and when that last changed. `status` is `degraded` while any of them is `down` or `degraded`, and `ok` otherwise; a `disabled` subsystem was switched off on purpose and does not count against it. The code stays `200` either way.
+
+There is no separate readiness endpoint: this server is the only pod that can report the fault, and a readiness probe would take it out of the service exactly when it has something to say. For alerting, watch `degraded` on `/api/config/findings`, and `status` and `preflight.status` on `/health`.
 
 ## The Redis-backed subsystems
 
-Three background subsystems need Redis: `queue_consumer` (pulls queued runs and executes them), `housekeeping` (stale-job detection and reconciliation, leader-elected) and `poller` (ticket polling per tracker, leader-elected). Webhook routes, the dashboard API and the config studio don't; they're served by the same listener regardless.
+Four background subsystems need Redis: `queue_consumer` (pulls queued runs and executes them), `housekeeping` (stale-job detection and reconciliation, leader-elected), `poller` (ticket polling per tracker, leader-elected) and `capacity_queue` (starts queued tickets as capacity frees, leader-elected). `/health` lists them beside `redis`, the connection itself. Webhook routes, the dashboard API and the config studio don't need Redis; they're served by the same listener regardless.
 
-Each of the three is in one of four states:
+Each of them is in one of four states:
 
 - **Up**: running normally.
 - **Degraded**: Redis is configured but not connected, or the task crashed and is retrying.

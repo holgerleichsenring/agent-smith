@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Output;
 using AgentSmith.Application.Services.Surface;
 using AgentSmith.Contracts.Commands;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ public static class ScanRegistrations
     {
         services.AddTransient<ICommandHandler<CollectMasterFindingsContext>, CollectMasterFindingsHandler>();
         services.AddTransient<ICommandHandler<DeliverFindingsContext>, DeliverFindingsHandler>();
+        services.AddTransient<IOutputDirectoryResolver, OutputDirectoryResolver>();
         services.AddTransient<ICommandHandler<StaticPatternScanContext>, StaticPatternScanHandler>();
         services.AddTransient<ICommandHandler<GitHistoryScanContext>, GitHistoryScanHandler>();
         services.AddTransient<ICommandHandler<DependencyAuditContext>, DependencyAuditHandler>();
@@ -33,7 +35,6 @@ public static class ScanRegistrations
         services.AddTransient<ICommandHandler<CompressApiScanFindingsContext>, CompressApiScanFindingsHandler>();
         services.AddTransient<ICommandHandler<SecurityTrendContext>, SecurityTrendHandler>();
         services.AddTransient<ICommandHandler<SecuritySnapshotWriteContext>, SecuritySnapshotWriter>();
-        services.AddTransient<ICommandHandler<SpawnFixContext>, SpawnFixHandler>();
         return services.AddScanAccountability().AddSurfaceDifference();
     }
 

@@ -78,9 +78,7 @@ public sealed class MidRunQuestionIsAnswerableTests
     public async Task DialogueIdentity_TheKeyWrittenAndTheKeyReadBack_AreTheSame()
     {
         var writer = new RecordingWriter();
-        var reporter = new Mock<IProgressReporter>();
-        reporter.Setup(r => r.JobId).Returns("job-9");
-        var identity = new DialogueJobIdentity(reporter.Object);
+        var identity = new DialogueJobIdentity();
         var context = Context(asked: true);
 
         await Handler(writer, identity).ExecuteAsync(context, CancellationToken.None);
@@ -94,7 +92,7 @@ public sealed class MidRunQuestionIsAnswerableTests
         RecordingWriter writer, IDialogueJobIdentity? identity = null) =>
         new(new NoOpPoster(), new FixedParkStatus(),
             new MasterQuestionCheckpoint(
-                writer, identity ?? new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
+                writer, identity ?? new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
             new Application.Services.Lifecycle.UnmovedTicketReport(

@@ -90,6 +90,21 @@ public sealed class CapacityQueuePumpTests : IDisposable
         run.FinishedAt.Should().NotBeNull();
     }
 
+    // A run a person named in chat was never routed by a status, so the status its ticket
+    // sits in cannot un-route it while it waits.
+    [Fact]
+    public async Task Pump_ANamedRunOutsideItsTriggerStatuses_IsClaimedNotDropped()
+    {
+        var harness = new Harness(_connection, ticketStatus: "Closed");
+        var reserved = await harness.EnqueueAsync("42", "{\"RequestedByName\":true}");
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        harness.LastClaim.Should().NotBeNull();
+        harness.LastClaim!.ExistingRunId.Should().Be(reserved);
+        harness.Published.Should().BeEmpty("nothing was dropped");
+    }
+
     // p0330: a cancel persisted while the entry waited at the head drops the
     // entry WITHOUT claiming — the run finishes 'cancelled', never launches.
     [Fact]
@@ -335,12 +350,12 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 NullLogger<CapacityQueuePump>.Instance);
         }
 
-        public Task<string> EnqueueAsync(string ticketId) =>
+        public Task<string> EnqueueAsync(string ticketId, string contextJson = "{}") =>
             _queue.EnqueueAsync(new CapacityQueueCandidate(
                 "p1", ticketId, "code", "github",
                 AgentSmith.Application.Services.RunIdGenerator.Generate(DateTimeOffset.UtcNow),
                 "waiting for sandbox capacity", ["repo-a"],
-                InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
+                InitialContextJson: contextJson, PlanAnswersJson: null), CancellationToken.None);
     }
 
     private static ICapacityQueue BuildDbQueue(SqliteConnection connection) =>

@@ -30,7 +30,6 @@ public static class ContextBuildersExtensions
         AddBuilder<AnalyzePrDiffContextBuilder>(services, CommandNames.AnalyzePrDiff);
         AddBuilder<CompilePrReviewFindingsContextBuilder>(services, CommandNames.CompilePrReviewFindings);
         AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
-        AddBuilder<NegotiateExpectationContextBuilder>(services, CommandNames.NegotiateExpectation); // p0328
         AddBuilder<DeriveSpecContextBuilder>(services, CommandNames.DeriveSpec); // p0393a
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
         AddBuilder<PhaseSequenceContextBuilder>(services, CommandNames.PhaseSequence); // p0393a
@@ -77,9 +76,7 @@ public static class ContextBuildersExtensions
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
-        AddBuilder<SpawnFixContextBuilder>(services, CommandNames.SpawnFix);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
-        AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
         AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);
         AddBuilder<VerifyPhaseContextBuilder>(services, CommandNames.VerifyPhase); // p0393

@@ -12,7 +12,7 @@ import { fetchPullRequests } from "@/lib/pullRequestsApi";
 import { useConfigCatalogContext } from "@/components/config/ConfigCatalogProvider";
 import { ENTITY_LABEL } from "@/components/config/entities";
 import { SETTING_ICON, SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
-import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
 import {
   bucketHref,

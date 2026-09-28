@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Settings for the security-scan and api-security-scan pipelines: the scan master's budget, the scanner tool files, auto-fix and trend analysis.
+Settings for the security-scan and api-security-scan pipelines: the scan master's budget, the scanner tool files and trend analysis.
 
 ## Scan master budget
 
@@ -60,12 +60,6 @@ container_timeout: 300
 ```
 
 ZAP picks its own mode: `api-scan` when an OpenAPI description was loaded, `baseline` otherwise. A scanner that reaches its `container_timeout` is reported as cut off, with the limit, and never as a clean result. See [API Scan](../pipelines/api-scan.md#a-cut-off-scanner-says-so).
-
-## Auto-fix
-
-The security-scan pipeline has a `SpawnFix` step that can turn Critical and High findings into fix jobs, each running the `code` pipeline, grouped by file and category, optionally confirmed through [Interactive Dialogue](../concepts/interactive-dialogue.md) first.
-
-The step runs with its defaults: disabled, severity threshold High, confirmation on, at most 3 concurrent jobs. No configuration key turns it on, so every scan logs "Auto-fix disabled, skipping" at this step.
 
 ## Trend analysis
 

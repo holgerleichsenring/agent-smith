@@ -38,7 +38,6 @@ internal static class DockerPresetScripts
             "mad-discussion" => MadDiscussion,
             "legal-analysis" => LegalAnalysis,
             "init-project" => InitProject,
-            "autonomous" => Autonomous,
             _ => client => client.EnqueueText("{}"),
         };
 
@@ -109,11 +108,4 @@ internal static class DockerPresetScripts
         .EnqueueToolCall("write_file",
             """{"path":"primary/.agentsmith/contexts/default/principles.md","content":"# Harness fixture coding principles"}""")
         .EnqueueText("Bootstrap files written.");
-
-    // p0199d: Triage routes to autonomous-planner + autonomous-investigator; each round
-    // closes on its first text response so the queue keeps two entries. Skill output is
-    // not asserted — the docker-tier test pins handler-chain shape, not LLM quality.
-    private static void Autonomous(ScriptedChatClient client) => client
-        .EnqueueText("{}")
-        .EnqueueText("{}");
 }

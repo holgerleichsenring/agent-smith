@@ -1,110 +1,25 @@
-using AgentSmith.Application.Services.Orchestrator;
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Services;
-using AgentSmith.Server.Contracts;
-using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Server.Models;
-using AgentSmith.Server.Services;
-using Microsoft.Extensions.Logging;
+using AgentSmith.Server.Services.ChatLaunch;
 
 namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
-/// Handles the FixTicketIntent: validates preconditions, resolves the per-project
-/// orchestrator image + resources, spawns an agent job, and registers it in the
-/// conversation state for progress tracking.
+/// Handles the FixTicketIntent: the named ticket's run goes through the server's spawn funnel
+/// like every routed ticket, and the run is bound to the thread that asked. A chat fix that
+/// names no pipeline runs <c>code</c>, the one pipeline that ships code.
 /// </summary>
 public sealed class FixTicketIntentHandler(
-    IJobSpawner spawner,
-    IPlatformAdapter adapter,
-    ConversationStateManager stateManager,
-    MessageBusListener listener,
-    IOrchestratorImageResolver orchestratorImageResolver,
-    IOrchestratorResourceResolver orchestratorResourceResolver,
-    IConfigurationLoader configurationLoader,
-    ServerContext serverContext,
-    ILogger<FixTicketIntentHandler> logger)
+    ChatTicketRunLauncher launcher,
+    ChatRunStart start)
 {
-    public async Task HandleAsync(FixTicketIntent intent, CancellationToken cancellationToken)
+    public Task HandleAsync(FixTicketIntent intent, CancellationToken cancellationToken)
     {
-        var existing = await stateManager.GetAsync(intent.Platform, intent.ChannelId, cancellationToken);
-        if (existing is not null)
-        {
-            await SendAlreadyRunningAsync(intent, existing, cancellationToken);
-            return;
-        }
-
-        await adapter.SendMessageAsync(
-            intent.ChannelId,
-            $"Starting Agent Smith for ticket *#{intent.TicketId}* in *{intent.Project}*...",
-            cancellationToken);
-
-        var projectConfig = ResolveProjectConfig(intent.Project);
-        var request = BuildJobRequest(intent, projectConfig);
-        var jobId = await spawner.SpawnAsync(request, cancellationToken);
-        await RegisterJobAsync(jobId, intent, cancellationToken);
-
-        logger.LogInformation(
-            "Job {JobId} spawned for ticket #{TicketId} in {Project} (channel={ChannelId}, image={Image})",
-            jobId, intent.TicketId, intent.Project, intent.ChannelId, request.OrchestratorImage);
-    }
-
-    private ResolvedProject ResolveProjectConfig(string projectName)
-    {
-        var config = configurationLoader.LoadConfig(serverContext.ConfigPath);
-        if (config.Projects.TryGetValue(projectName, out var found)) return found;
-        throw new InvalidOperationException(
-            $"Project '{projectName}' is not defined in agentsmith.yml.");
-    }
-
-    private JobRequest BuildJobRequest(FixTicketIntent intent, ResolvedProject projectConfig) => new()
-    {
-        InputCommand = $"fix #{intent.TicketId} in {intent.Project}",
-        Project = intent.Project,
-        ChannelId = intent.ChannelId,
-        UserId = intent.UserId,
-        Platform = intent.Platform,
-        OrchestratorImage = orchestratorImageResolver.Resolve(projectConfig),
-        // p0320b: the interface answers null only for in-process compositions; the
-        // Server composition always registers the JobSpawnerOptions-backed resolver.
-        OrchestratorResources = orchestratorResourceResolver.Resolve(projectConfig)
-            ?? throw new InvalidOperationException(
-                "No orchestrator resources resolved — the Server composition must register OrchestratorResourceResolver."),
-        PipelineOverride = intent.PipelineOverride
-    };
-
-    private async Task SendAlreadyRunningAsync(
-        FixTicketIntent intent,
-        ConversationState existing,
-        CancellationToken cancellationToken)
-    {
-        await adapter.SendMessageAsync(
-            intent.ChannelId,
-            $":hourglass: There is already a job running for this channel " +
-            $"(job `{existing.JobId}` for ticket #{existing.TicketId}). " +
-            "Please wait for it to complete.",
-            cancellationToken);
-    }
-
-    private async Task RegisterJobAsync(
-        string jobId,
-        FixTicketIntent intent,
-        CancellationToken cancellationToken)
-    {
-        var state = new ConversationState
-        {
-            JobId = jobId,
-            ChannelId = intent.ChannelId,
-            UserId = intent.UserId,
-            Platform = intent.Platform,
-            Project = intent.Project,
-            TicketId = intent.TicketId,
-            StartedAt = DateTimeOffset.UtcNow,
-            LastActivityAt = DateTimeOffset.UtcNow
-        };
-
-        await stateManager.SetAsync(state, cancellationToken);
-        await stateManager.IndexJobAsync(state, cancellationToken);
-        await listener.TrackJobAsync(jobId, cancellationToken);
+        var pipeline = string.IsNullOrWhiteSpace(intent.PipelineOverride)
+            ? PipelinePresets.CodeName
+            : intent.PipelineOverride;
+        return start.StartAsync(
+            ChatThread.Of(intent), $"{pipeline} for ticket *#{intent.TicketId}* in *{intent.Project}*",
+            ct => launcher.LaunchAsync(intent.Project, intent.TicketId, pipeline, ct), cancellationToken);
     }
 }

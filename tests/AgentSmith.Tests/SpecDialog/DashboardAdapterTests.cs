@@ -77,16 +77,11 @@ public sealed class DashboardAdapterTests
     {
         var adapter = NewAdapter();
 
-        await adapter.SendProgressAsync(Dialog, 1, 4, "code", CancellationToken.None);
-        await adapter.SendDoneAsync(Dialog, "done", null, CancellationToken.None);
-        await adapter.SendErrorAsync(Dialog, new ErrorContext(
-            "j-1", Dialog, "T-1", "sample", 1, 4, "Analyze", "raw", "friendly", null), CancellationToken.None);
         await adapter.UpdateQuestionAnsweredAsync(Dialog, "m-1", "q?", "yes", CancellationToken.None);
-        await adapter.SendDetailAsync(Dialog, "tool call", CancellationToken.None);
         await adapter.SendClarificationAsync(Dialog, "did you mean", CancellationToken.None);
 
         _hub.Pushes.Should().BeEmpty("no run-trigger conversation exists on this platform");
-        _logger.Warnings.Should().HaveCount(6,
+        _logger.Warnings.Should().HaveCount(2,
             "an arrival on a method this channel does not carry is a finding, not a "
             + "success nobody can see");
     }

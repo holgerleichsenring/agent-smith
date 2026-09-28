@@ -13,5 +13,4 @@ public sealed record SubAgentSpec(
     string Activity,
     string TaskDescription,
     InheritedContext InheritedContext,
-    string? OutputHint = null,
-    ToolProfile ToolProfile = ToolProfile.Investigator);
+    string? OutputHint = null);

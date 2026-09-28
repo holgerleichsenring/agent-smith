@@ -5,8 +5,8 @@ namespace AgentSmith.Application.Services.Preflight.Checks;
 
 /// <summary>
 /// p0324: the sandbox backend answers — via the composition's probe (CLI: a real
-/// spawn + exec round-trip through ISandboxFactory; server: the job spawner's
-/// reachability/capacity probe). An unreachable runtime otherwise surfaces mid-run
+/// spawn + exec round-trip through ISandboxFactory; server: the composed sandbox
+/// backend's own probe). An unreachable runtime otherwise surfaces mid-run
 /// as a claimed ticket whose sandbox never comes up.
 /// </summary>
 public sealed class SandboxSpawnCheck(IPreflightSandboxProbe sandboxProbe) : IPreflightCheck

@@ -45,7 +45,6 @@ public static class RunResultFormatter
         string? repoName = null,
         string? failureReason = null,
         IReadOnlyList<IgnoredInstruction>? ignoredInstructions = null,
-        Contracts.Expectations.RatifiedExpectation? expectation = null,
         string? account = null,
         string? declined = null)
     {
@@ -89,7 +88,6 @@ public static class RunResultFormatter
         // null then. Use a benign placeholder so result.md still emits.
         sb.AppendLine(plan?.Summary ?? $"Completed {realChanges.Count} change(s).");
 
-        RunContractSections.AppendExpectation(sb, expectation);
         RunContractSections.AppendAccount(sb, account);
         RunContractSections.AppendDeclined(sb, declined);
         RunResultSectionWriter.AppendDecisions(sb, decisions);

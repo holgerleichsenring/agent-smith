@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-// p0219: the single filter-chip primitive. Replaces the three near-identical
-// implementations (RunFilterChips, ActivityPills, EventDrawer filters) so the
+// p0219: the single filter-chip primitive. Replaces the near-identical
+// implementations (ActivityPills, EventDrawer filters) so the
 // selected / count / pressed states are defined exactly once.
 
 interface ChipProps {

@@ -11,7 +11,7 @@ internal static class SlackModalBlockFactory
     [
         ("fix_bug", "Fix Bug"), ("fix_bug_no_tests", "Fix Bug (no tests)"),
         ("add_feature", "Add Feature"), ("security_review", "Security Review"),
-        ("mad_discussion", "MAD Discussion"), ("legal_analysis", "Legal Analysis"),
+        ("mad_discussion", "MAD Discussion"),
         ("list_tickets", "List Tickets"), ("create_ticket", "Create Ticket"),
         ("init_project", "Init Project")
     ];

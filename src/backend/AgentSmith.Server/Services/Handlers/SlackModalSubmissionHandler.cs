@@ -15,6 +15,7 @@ internal sealed class SlackModalSubmissionHandler(
     ListTicketsIntentHandler listHandler,
     CreateTicketIntentHandler createHandler,
     InitProjectIntentHandler initHandler,
+    SecurityReviewIntentHandler securityHandler,
     SlackAdapter adapter,
     ILogger<SlackModalSubmissionHandler> logger)
 {
@@ -66,12 +67,8 @@ internal sealed class SlackModalSubmissionHandler(
                 await HandleFixTicketAsync(command, values, project, userId, channelId, ct);
                 break;
             case ModalCommandType.SecurityReview:
-                await fixHandler.HandleAsync(
-                    ModalIntentFactory.CreatePipelineIntent("security-scan", project, userId, channelId), ct);
-                break;
-            case ModalCommandType.LegalAnalysis:
-                await fixHandler.HandleAsync(
-                    ModalIntentFactory.CreatePipelineIntent("legal-analysis", project, userId, channelId), ct);
+                await securityHandler.HandleAsync(
+                    ModalIntentFactory.CreateSecurityReviewIntent(project, userId, channelId), ct);
                 break;
             case ModalCommandType.ListTickets:
                 await listHandler.HandleAsync(

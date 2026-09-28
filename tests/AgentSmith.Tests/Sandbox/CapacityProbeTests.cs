@@ -30,8 +30,8 @@ public sealed class CapacityProbeTests
     private static ResourceLimits SandboxSize() =>
         new(cpuRequest: "500m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "2Gi");
 
-    // p0320b: single-sandbox run without an orchestrator pod (the in-process shape).
-    private static RunFootprint Footprint() => new(Orchestrator: null, [SandboxSize()]);
+    // p0320b: a single-sandbox run.
+    private static RunFootprint Footprint() => new([SandboxSize()]);
 
     // ---- Kubernetes: pure Evaluate over a ResourceQuota ----
 
@@ -77,19 +77,17 @@ public sealed class CapacityProbeTests
     // ---- Kubernetes: p0320b full-run footprint math ----
 
     [Fact]
-    public void K8sProbe_Evaluate_SumsOrchestratorPlusThreeSandboxes()
+    public void K8sProbe_Evaluate_SumsEverySandbox()
     {
-        // Room for 3 CPU of requests; orchestrator 500m + 3 sandboxes x 500m = 2 CPU
-        // fits, but a 4th sandbox (2.5 CPU total sandboxes) would not.
+        // Room for 2 CPU of requests; 4 sandboxes x 500m = 2 CPU fits, a 5th would not.
         var quota = Quota("compute", hard: new() { ["requests.cpu"] = "3" },
                                    used: new() { ["requests.cpu"] = "1" });
-        var orchestrator = new ResourceLimits("500m", "1", "256Mi", "512Mi");
 
-        var fits = new RunFootprint(orchestrator, [SandboxSize(), SandboxSize(), SandboxSize()]);
+        var fits = new RunFootprint([SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize()]);
         KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, fits).Should().BeNull();
 
         var tooBig = new RunFootprint(
-            orchestrator, [SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize()]);
+            [SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize()]);
         var shortfall = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, tooBig);
         shortfall.Should().NotBeNull();
         shortfall!.Reason.Should().Contain("requests.cpu");
@@ -98,10 +96,9 @@ public sealed class CapacityProbeTests
     [Fact]
     public void K8sProbe_Evaluate_PodsCountRequiresRoomForAllPods()
     {
-        // 3 pod slots free, but orchestrator + 3 sandboxes = 4 pods → deny.
+        // 3 pod slots free, but 4 sandboxes = 4 pods → deny.
         var quota = Quota("pods", hard: new() { ["pods"] = "5" }, used: new() { ["pods"] = "2" });
-        var orchestrator = new ResourceLimits("100m", "500m", "128Mi", "256Mi");
-        var run = new RunFootprint(orchestrator, [SandboxSize(), SandboxSize(), SandboxSize()]);
+        var run = new RunFootprint([SandboxSize(), SandboxSize(), SandboxSize(), SandboxSize()]);
 
         var shortfall = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { quota }, run);
 
@@ -128,11 +125,11 @@ public sealed class CapacityProbeTests
         var hugeLimits = new ResourceLimits("100m", "8", "1Gi", "64Gi");
 
         KubernetesCapacityProbe.Evaluate(
-                new List<V1ResourceQuota> { quota }, new RunFootprint(null, [hugeLimits]))
+                new List<V1ResourceQuota> { quota }, new RunFootprint([hugeLimits]))
             .Should().BeNull("limits.* keys are absent from the quota, so limits must not count");
 
         // Requests still enforce: 3 x 1Gi = 3Gi > the 2Gi free requests.memory.
-        var tooManyRequests = new RunFootprint(null, [hugeLimits, hugeLimits, hugeLimits]);
+        var tooManyRequests = new RunFootprint([hugeLimits, hugeLimits, hugeLimits]);
         var denied = KubernetesCapacityProbe.Evaluate(
             new List<V1ResourceQuota> { quota }, tooManyRequests);
         denied.Should().NotBeNull();
@@ -144,7 +141,7 @@ public sealed class CapacityProbeTests
             hard: new() { ["requests.cpu"] = "2", ["requests.memory"] = "4Gi", ["pods"] = "5" },
             used: new() { ["requests.cpu"] = "0", ["requests.memory"] = "0", ["pods"] = "2" });
         var tiny = new ResourceLimits("100m", "8", "128Mi", "64Gi");
-        var fourPods = new RunFootprint(tiny, [tiny, tiny, tiny]);
+        var fourPods = new RunFootprint([tiny, tiny, tiny, tiny]);
         var podDenied = KubernetesCapacityProbe.Evaluate(new List<V1ResourceQuota> { podQuota }, fourPods);
         podDenied.Should().NotBeNull();
         podDenied!.Reason.Should().Contain("pods");
@@ -235,11 +232,11 @@ public sealed class CapacityProbeTests
         var docker = DockerWithRunningSandboxes(count: 1);
         var probe = ProbeBoundedAt(docker, bound: 3);
 
-        var twoRepoRun = new RunFootprint(null, [SandboxSize(), SandboxSize()]);
+        var twoRepoRun = new RunFootprint([SandboxSize(), SandboxSize()]);
         (await probe.HasCapacityAsync(twoRepoRun, CancellationToken.None))
             .Admitted.Should().BeTrue();
 
-        var threeRepoRun = new RunFootprint(null, [SandboxSize(), SandboxSize(), SandboxSize()]);
+        var threeRepoRun = new RunFootprint([SandboxSize(), SandboxSize(), SandboxSize()]);
         (await probe.HasCapacityAsync(threeRepoRun, CancellationToken.None))
             .Admitted.Should().BeFalse();
     }

@@ -17,6 +17,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -164,7 +165,7 @@ public sealed class EpicWorkTicketTests
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
 
-        FiledTicketLabels.CarriesApprovedSet(provider.Created[0].Labels).Should().BeTrue(
+        FiledTicketLabels.CarriesApprovedSet(provider.Created[0].Labels, TicketLabelVocabulary.Default).Should().BeTrue(
             "the run that picks this ticket up is held to the set that was approved for it");
     }
 
@@ -181,7 +182,7 @@ public sealed class EpicWorkTicketTests
 
         var handback = gate.MissingSet(
             Fetched(provider.Created[0].Labels), new SpecSetKey("recording-1"), null,
-            SpecSetBranchState.NothingAtThePath);
+            SpecSetBranchState.NothingAtThePath, TicketLabelVocabulary.Default);
 
         handback!.Case.Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
         handback.Reason.Should().Contain(FiledTicketLabels.ApprovedSetStamp);
@@ -492,10 +493,6 @@ public sealed class EpicWorkTicketTests
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
         }
-
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-            Task.FromResult(ParentLinkResult.Linked);
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         {

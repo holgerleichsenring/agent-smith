@@ -7,8 +7,6 @@ public sealed class ToolRunnerConfig
 {
     public string Type { get; set; } = "auto";
     public string? Socket { get; set; }
-    public string? Namespace { get; set; }
-    public string? ImagePullPolicy { get; set; }
     /// <summary>
     /// Scanner images the tool runner starts, overridable per key from agentsmith.yml.
     /// <para>

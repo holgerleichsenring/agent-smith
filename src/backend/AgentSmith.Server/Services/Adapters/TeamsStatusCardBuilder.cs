@@ -3,43 +3,10 @@ using System.Text.Json.Nodes;
 namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
-/// Builds Adaptive Cards for status messages (progress, done, error, info, clarification, answered).
+/// Builds Adaptive Cards for status messages (info, clarification, answered).
 /// </summary>
 public sealed class TeamsStatusCardBuilder
 {
-    public JsonObject BuildProgress(int step, int total, string commandName)
-    {
-        var bar = BuildProgressBar(step, total);
-        var body = new JsonArray
-        {
-            AdaptiveCardPrimitives.TextBlock($"**[{step}/{total}]** {commandName}", "medium", "bolder"),
-            AdaptiveCardPrimitives.TextBlock(bar, "small"),
-        };
-        return AdaptiveCardPrimitives.WrapCard(body);
-    }
-
-    public JsonObject BuildDone(string summary, string? prUrl)
-    {
-        var body = new JsonArray
-        {
-            AdaptiveCardPrimitives.TextBlock($"\u2705 **Done!** {summary}", "medium", "bolder"),
-        };
-        if (!string.IsNullOrWhiteSpace(prUrl))
-            body.Add(AdaptiveCardPrimitives.TextBlock($"[\ud83d\udd17 View Pull Request]({prUrl})", "small"));
-        return AdaptiveCardPrimitives.WrapCard(body);
-    }
-
-    public JsonObject BuildError(string friendlyError, string? logUrl)
-    {
-        var body = new JsonArray
-        {
-            AdaptiveCardPrimitives.TextBlock($"\u274c **Error:** {friendlyError}", "medium", "bolder", "attention"),
-        };
-        if (!string.IsNullOrWhiteSpace(logUrl))
-            body.Add(AdaptiveCardPrimitives.TextBlock($"[\ud83d\udcdd View Logs]({logUrl})", "small"));
-        return AdaptiveCardPrimitives.WrapCard(body);
-    }
-
     public JsonObject BuildInfo(string title, string text)
     {
         var body = new JsonArray
@@ -84,13 +51,5 @@ public sealed class TeamsStatusCardBuilder
             AdaptiveCardPrimitives.TextBlock($"{emoji} Answered: **{answer}**", "small"),
         };
         return AdaptiveCardPrimitives.WrapCard(body);
-    }
-
-    private static string BuildProgressBar(int step, int total)
-    {
-        const int barLength = 10;
-        var filled = (int)Math.Round((double)step / total * barLength);
-        var empty = barLength - filled;
-        return $"[{new string('\u2588', filled)}{new string('\u2591', empty)}] {step}/{total}";
     }
 }

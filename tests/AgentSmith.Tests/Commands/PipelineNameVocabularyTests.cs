@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Commands;
 using FluentAssertions;
 
@@ -49,7 +50,7 @@ public sealed class PipelineNameVocabularyTests
     {
         var declared = ReadPipelineNameEnum();
 
-        declared.Should().NotContain(PipelinePresets.RetiredPresets.Keys,
+        declared.Should().NotContain(RetiredPipelineNames.Removed.Keys,
             "a retired preset left in the vocabulary invites a configuration "
             + "that resolves to nothing");
     }

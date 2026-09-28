@@ -182,10 +182,7 @@ public sealed class ServerDiLifetimeTests
 
         // Mirror Server's Program.cs registration. AddRedis is replaced by
         // null-fakes so we don't need a live Redis to validate the DI tree.
-        // IJobSpawner is normally registered by JobSpawnerSetup based on
-        // K8s/Docker availability; mock here for the same reason.
         AddNullRedisStack(services);
-        services.AddSingleton(Mock.Of<IJobSpawner>());
         var configuration = new ConfigurationBuilder().Build();
         services.AddCoreDispatcherServices()
                 .AddServerCompositionOverrides()
@@ -195,17 +192,14 @@ public sealed class ServerDiLifetimeTests
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()
-                .AddOrchestratorGlobalConfig()
-                // 2026-09-15-9033: the dashboard channel composes here too, and BEFORE the
-                // chat adapters — the order decides what a single IPlatformAdapter resolve
-                // yields, and this mirror is where a lifetime violation would show.
+                // 2026-09-15-9033: the dashboard channel composes here too — this mirror is
+                // where a lifetime violation would show.
                 .AddDashboardAdapter()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()
                 .AddWebhookHandlers()
                 .AddLongRunningServices();
-        services.AddJobSpawnerOptions(configuration);
         return services;
     }
 
@@ -215,7 +209,6 @@ public sealed class ServerDiLifetimeTests
         services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
         services.AddSingleton(Mock.Of<IRedisClaimLock>());
         services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
-        services.AddSingleton<IConversationLookup, NullConversationLookup>();
         services.AddSingleton(Mock.Of<IDialogueTransport>());
         services.AddSingleton(Mock.Of<IProgressReporter>());
     }

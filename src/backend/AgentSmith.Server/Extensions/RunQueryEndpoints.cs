@@ -4,7 +4,6 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
-using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -58,7 +57,7 @@ internal static class RunQueryEndpoints
 
     private static async Task<IResult> GetRunsAsync(
         RunRepository runs, ICapacityQueue capacityQueue, IRunCheckpointStore checkpoints,
-        IOptions<JobSpawnerOptions> spawner, ICapacityBudget capacityBudget,
+        ICapacityBudget capacityBudget,
         IActiveRunLease activeRunLease, TimeProvider clock,
         string? before, int? limit,
         CancellationToken cancellationToken)
@@ -73,19 +72,18 @@ internal static class RunQueryEndpoints
             var page = await RunListComposer.BuildPageBeforeAsync(
                 runs, capacityBudget, cursor,
                 Math.Clamp(limit ?? RunListComposer.RecentLimit, 1, RunListComposer.MaxPageLimit),
-                spawner.Value.Resources.MemoryRequest, cancellationToken);
+                cancellationToken);
             return Results.Ok(new { recent = page });
         }
 
         var (active, recent) = await RunListComposer.BuildOverviewAsync(
-            runs, capacityQueue, cancellationToken, spawner.Value.Resources.MemoryRequest,
-            checkpoints, capacityBudget, activeRunLease, clock);
+            runs, capacityQueue, cancellationToken, checkpoints, capacityBudget, activeRunLease, clock);
         return Results.Ok(new { active, recent });
     }
 
     private static async Task<IResult> GetRunAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
-        IRunCheckpointStore checkpoints, IOptions<JobSpawnerOptions> spawner,
+        IRunCheckpointStore checkpoints,
         ICapacityBudget capacityBudget, IActiveRunLease activeRunLease, TimeProvider clock,
         CancellationToken cancellationToken)
     {
@@ -108,6 +106,6 @@ internal static class RunQueryEndpoints
         // (progress ledger + acceptance); beats ride list and detail alike.
         return Results.Ok(RunSnapshotMapper.ToSnapshot(
             run, RunQueuePlace.Of(run, positions, relaunching),
-            spawner.Value.Resources.MemoryRequest, pendingQuestion, capacity, includeStory: true));
+            pendingQuestion, capacity, includeStory: true));
     }
 }

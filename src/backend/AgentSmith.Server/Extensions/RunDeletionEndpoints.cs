@@ -30,10 +30,6 @@ internal static class RunDeletionEndpoints
     {
         var outcome = await deleter.DeleteAsync(runId, cancellationToken);
         if (outcome == RunDeleteOutcome.NotFound) return Results.NotFound();
-        if (outcome == RunDeleteOutcome.PodTerminationFailed)
-            return Results.Problem(
-                "Could not terminate the run's pod — the record was kept. Retry once the backend is reachable.",
-                statusCode: StatusCodes.Status502BadGateway);
         await NudgeAsync(hub, runId, cancellationToken);
         return Results.NoContent();
     }

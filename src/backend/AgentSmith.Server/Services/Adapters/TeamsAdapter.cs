@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
-using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 
@@ -14,8 +13,6 @@ public sealed class TeamsAdapter(
     TeamsCardBuilder cardBuilder,
     ILogger<TeamsAdapter> logger) : IPlatformAdapter
 {
-    private readonly ConcurrentDictionary<string, string> _progressActivityIds = new();
-
     public string Platform => "teams";
 
     internal void RegisterServiceUrl(string conversationId, string serviceUrl)
@@ -24,21 +21,6 @@ public sealed class TeamsAdapter(
     public Task SendMessageAsync(string channelId, string text, CancellationToken cancellationToken)
         => apiClient.SendActivityAsync(channelId,
             new JsonObject { ["type"] = "message", ["text"] = text }, cancellationToken);
-
-    public async Task SendProgressAsync(string channelId, int step, int total,
-        string commandName, CancellationToken cancellationToken)
-    {
-        var activity = TeamsApiClient.WrapCardInActivity(
-            cardBuilder.BuildProgressCard(step, total, commandName));
-
-        if (_progressActivityIds.TryGetValue(channelId, out var existingId)
-            && await apiClient.UpdateActivityAsync(channelId, existingId, activity, cancellationToken))
-            return;
-
-        var activityId = await apiClient.SendActivityAsync(channelId, activity, cancellationToken);
-        if (activityId is not null)
-            _progressActivityIds[channelId] = activityId;
-    }
 
     // Teams threads are addressed by the conversation id itself, so threadId
     // needs no extra routing (see SendInfoAsync).
@@ -79,32 +61,11 @@ public sealed class TeamsAdapter(
         => SendCardAsync(channelId, cardBuilder.BuildInfoCard(title, text),
             $"\u2139\ufe0f {title}: {text}", cancellationToken);
 
-    public Task SendDoneAsync(string channelId, string summary, string? prUrl,
-        CancellationToken cancellationToken)
-    {
-        _progressActivityIds.TryRemove(channelId, out _);
-        return SendCardAsync(channelId, cardBuilder.BuildDoneCard(summary, prUrl),
-            $"\u2705 Done! {summary}", cancellationToken);
-    }
-
-    public Task SendErrorAsync(string channelId, ErrorContext errorContext,
-        CancellationToken cancellationToken)
-    {
-        _progressActivityIds.TryRemove(channelId, out _);
-        return SendCardAsync(channelId,
-            cardBuilder.BuildErrorCard(errorContext.FriendlyError, errorContext.LogUrl),
-            $"\u274c Error: {errorContext.FriendlyError}", cancellationToken);
-    }
-
     public Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken cancellationToken)
         => apiClient.UpdateActivityAsync(channelId, messageId,
             TeamsApiClient.WrapCardInActivity(cardBuilder.BuildAnsweredCard(questionText, answer)),
             cancellationToken);
-
-    public Task SendDetailAsync(string channelId, string text, CancellationToken cancellationToken)
-        => apiClient.SendActivityAsync(channelId,
-            new JsonObject { ["type"] = "message", ["text"] = text }, cancellationToken);
 
     public Task SendClarificationAsync(string channelId, string suggestion,
         CancellationToken cancellationToken)

@@ -30,11 +30,9 @@ public sealed class  JiraTicketProvider : ITicketProvider
     private readonly string _doneStatus;
     private readonly string _closeTransitionName;
     private readonly ILogger<JiraTicketProvider> _logger;
-    private readonly TrackerParentLink _parentLink;
     private readonly JiraTicketFinalizer _finalizer;
     private readonly JiraTicketCreator _creator;
     private readonly AgentSmith.Contracts.Models.Configuration.JiraEndpoints _endpoints;
-    private readonly string _parentLinkType;
 
     public string ProviderType => "Jira";
 
@@ -52,9 +50,7 @@ public sealed class  JiraTicketProvider : ITicketProvider
         _doneStatus = doneStatus ?? "Done";
         _closeTransitionName = closeTransitionName ?? "Close";
         _logger = logger;
-        _parentLink = new TrackerParentLink("Jira", logger);
         _endpoints = connection.ResolvedEndpoints;
-        _parentLinkType = connection.ParentLinkType ?? JiraTicketConnection.DefaultParentLinkType;
         _attachmentLoader = new JiraAttachmentLoader(httpClient, logger);
         _searcher = new JiraIssueSearcher(_http, mapper, connection, logger);
         _transitioner = new JiraTransitioner(_http, _baseUrl, _endpoints, logger);
@@ -149,14 +145,6 @@ public sealed class  JiraTicketProvider : ITicketProvider
             new { update = new { labels = new[] { new { add = label } } } }, ct);
         return true;
     }
-
-    // A missing link type or disabled linking is the site's refusal, and a Failed link.
-    public Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-        _parentLink.AttemptAsync(() => _http.SendAsync(
-            HttpMethod.Post, $"{_baseUrl}{_endpoints.IssueLink}",
-            new { type = new { name = _parentLinkType }, inwardIssue = new { key = parent.Value }, outwardIssue = new { key = child.Id.Value } },
-            cancellationToken), cancellationToken);
 
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>

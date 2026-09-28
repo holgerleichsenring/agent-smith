@@ -9,9 +9,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// p0349: the server/UI store — config as DB entity-document rows. Reads assemble a
 /// <see cref="RawAgentSmithConfig"/> from the doc rows via the type&lt;-&gt;model map and
 /// project it onto the studio catalog; writes patch one entity's raw slice and
-/// persist just that doc (+ its edges) transactionally through
-/// <see cref="IConfigDocumentStore"/>, version-checked and secret-guarded. The
-/// single audit is config_entity_version, surfaced here as the Changes feed.
+/// persist just that doc (+ its edges) transactionally through <see cref="IConfigDocumentStore"/>,
+/// version-checked and secret-guarded. The audit, config_entity_version, is the Changes feed.
 /// </summary>
 public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentAssembler assembler,
     ConfigDocJson configJson) : IConfigStore
@@ -58,6 +57,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public void UpsertTracker(TrackerEntity entity, ChangeAttribution by) => Mutate(() =>
     {
         ConfigStudioCapabilities.ValidateTracker(entity);
+        HostOnlyRoutingRule.ValidateTracker(entity);
         RoutingWordCollisionRule.ValidateTracker(entity, _catalog);
         Save(ConfigDocTypes.Tracker, entity.Id, RawConfigPatch.Tracker(entity, Existing(_document!.Trackers, entity.Id)), by);
     });

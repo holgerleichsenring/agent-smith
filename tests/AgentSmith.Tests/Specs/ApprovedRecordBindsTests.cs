@@ -7,6 +7,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.Specs;
 
@@ -57,7 +58,7 @@ public sealed class ApprovedRecordBindsTests
     {
         var park = _gate.MissingSet(
             TicketWith(), Key, ApprovedSets.Record(Key.Value, ApprovedSets.Noon),
-            SpecSetBranchState.Unreadable);
+            SpecSetBranchState.Unreadable, TicketLabelVocabulary.Default);
 
         park.Should().NotBeNull(
             "the record holds the ticket to the same rule the stamp did — and this is the arm the "
@@ -69,7 +70,7 @@ public sealed class ApprovedRecordBindsTests
     {
         var park = _gate.MissingSet(
             TicketWith(FiledTicketLabels.ApprovedSetStamp), Key, record: null,
-            SpecSetBranchState.NothingAtThePath);
+            SpecSetBranchState.NothingAtThePath, TicketLabelVocabulary.Default);
 
         park!.Reason.Should().Contain(FiledTicketLabels.ApprovedSetStamp,
             "with no record to name, the sentence falls back to the label that held it");
@@ -81,7 +82,7 @@ public sealed class ApprovedRecordBindsTests
     {
         var park = _gate.MissingSet(
             TicketWith(), Key, ApprovedSets.Record(Key.Value, ApprovedSets.Noon),
-            SpecSetBranchState.Unreadable);
+            SpecSetBranchState.Unreadable, TicketLabelVocabulary.Default);
 
         park!.Reason.Should().NotContain(FiledTicketLabels.ApprovedSetStamp,
             "asserting a label this ticket does not carry is the sentence this phase removed");
@@ -94,7 +95,7 @@ public sealed class ApprovedRecordBindsTests
         var park = _gate.MissingSet(
             TicketWith(FiledTicketLabels.ParentStamp("42")), Key,
             ApprovedSets.Record(Key.Value, ApprovedSets.Noon),
-            SpecSetBranchState.NothingAtThePath);
+            SpecSetBranchState.NothingAtThePath, TicketLabelVocabulary.Default);
 
         park.Should().BeNull("an epic child carries no spec by design and still derives");
     }
@@ -103,7 +104,7 @@ public sealed class ApprovedRecordBindsTests
     public void Gate_AHandWrittenTicketWithNeither_DerivesAsBefore()
     {
         var park = _gate.MissingSet(
-            TicketWith(), Key, record: null, SpecSetBranchState.NothingAtThePath);
+            TicketWith(), Key, record: null, SpecSetBranchState.NothingAtThePath, TicketLabelVocabulary.Default);
 
         park.Should().BeNull();
     }

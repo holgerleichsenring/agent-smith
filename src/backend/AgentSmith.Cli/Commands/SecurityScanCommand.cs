@@ -13,8 +13,7 @@ internal static class SecurityScanCommand
 {
     public static Command Create(Option<string> configOption, Option<bool> verboseOption)
     {
-        var prOption = new Option<string>("--pr", () => string.Empty, "PR/MR number (diff only)");
-        var branchOption = new Option<string>("--branch", () => string.Empty, "Branch to scan (diff against main)");
+        var branchOption = new Option<string>("--branch", () => string.Empty, "Branch to check out and scan in full (default: the repository's default branch)");
         var outputOption = new Option<string>("--output", () => "console", "Output formats (comma-separated): console, summary, markdown, sarif");
         var outputDirOption = new Option<string?>("--output-dir", "Directory for file-based output (markdown, sarif)");
         var projectOption = new Option<string>("--project", () => string.Empty, "Project name from config (legacy; prefer --agent)");
@@ -24,13 +23,12 @@ internal static class SecurityScanCommand
 
         var cmd = new Command("security-scan", "Analyze code for security vulnerabilities")
         {
-            prOption, branchOption, outputOption, outputDirOption, projectOption, agentOption, configOption, verboseOption, dryRunOption
+            branchOption, outputOption, outputDirOption, projectOption, agentOption, configOption, verboseOption, dryRunOption
         };
         sourceOptions.AddTo(cmd);
 
         cmd.SetHandler(async (InvocationContext ctx) =>
         {
-            var pr = ctx.ParseResult.GetValueForOption(prOption) ?? string.Empty;
             var branch = ctx.ParseResult.GetValueForOption(branchOption) ?? string.Empty;
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
             var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
@@ -53,8 +51,6 @@ internal static class SecurityScanCommand
             };
             sourceOptions.ApplyTo(ctx, scanContext);
 
-            if (!string.IsNullOrWhiteSpace(pr))
-                scanContext[ContextKeys.ScanPrIdentifier] = pr;
             if (!string.IsNullOrWhiteSpace(branch))
                 scanContext[ContextKeys.ScanBranch] = branch;
             if (outputDir is not null)
@@ -68,8 +64,7 @@ internal static class SecurityScanCommand
             {
                 DryRunPrinter.Print(request, new Dictionary<string, string>
                 {
-                    ["PR"] = string.IsNullOrWhiteSpace(pr) ? "(full repo)" : $"#{pr}",
-                    ["Branch"] = string.IsNullOrWhiteSpace(branch) ? "(main)" : branch,
+                    ["Branch"] = string.IsNullOrWhiteSpace(branch) ? "(default branch)" : branch,
                     ["Output"] = output
                 });
                 return;

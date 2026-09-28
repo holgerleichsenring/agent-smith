@@ -42,7 +42,6 @@ export interface ResolvedSettings {
   runCommandTimeoutSeconds: ResolvedValue<number>;
   sandboxResources: ResolvedValue<ResourceSummary>;
   agentImage: ResolvedValue<string>;
-  orchestratorImage: ResolvedValue<string>;
   toolchainImage: ResolvedValue<string>;
   costCap: ResolvedValue<CostCap>;
   resolutionError: string | null;
@@ -112,8 +111,6 @@ export interface ConfigSandbox {
 }
 
 export interface ConfigOrchestrator {
-  registry: string;
-  version: string;
   maxRunWallTimeSeconds: number;
 }
 
@@ -406,7 +403,6 @@ export interface AgentCompactionConfig {
   thresholdIterations: number;
   maxContextTokens: number;
   keepRecentIterations: number;
-  summaryModel: string;
 }
 
 export interface AgentRetryConfig {
@@ -468,14 +464,14 @@ export interface StudioTracker {
   // means the tracker declares none, and every ticket it routes runs the hardcoded
   // fallback — which is what the advisory finding on this field says.
   defaultPipeline?: string;
-  // 2026-09-17-042ea: Jira only — the issue link type a filed slice record is linked to its
-  // epic's work ticket with (2026-09-17-0e79d).
-  parentLinkType?: string;
   // 2026-09-18-b4f0: Azure DevOps and Jira only — which native work-item/issue type each filed
   // role (work | record | bug | phase | chat) is created as. Rendered from the capabilities
   // descriptor as a generic map, so the keys are free text until a capability field can declare
   // a key set. Absent means every role is created as what the provider created before.
   workItemKinds?: Record<string, string>;
+  // Jira only: REST paths that differ from the Jira Cloud v3 defaults (search, issue,
+  // comment, transitions, create). Absent means every default applies.
+  endpoints?: Record<string, string>;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to
@@ -687,12 +683,23 @@ export class ConfigStoreNotEmptyError extends Error {}
 
 /** p0352: import a whole agentsmith.yml into the DB store — POST /api/config/import
  *  (text/yaml). 409 → ConfigStoreNotEmptyError so the UI can confirm-overwrite and
- *  retry with force=true. Returns the number of imported entities. */
+ *  retry with force=true. Returns the number of imported entities and every key of
+ *  the file the store did not keep (retired, bootstrap-only, or no such setting). */
+export interface DroppedConfigKey {
+  path: string;
+  reason: string;
+}
+
+export interface ConfigImportResult {
+  imported: number;
+  dropped: DroppedConfigKey[];
+}
+
 export async function importConfigYml(
   yaml: string,
   force: boolean,
   signal?: AbortSignal,
-): Promise<number> {
+): Promise<ConfigImportResult> {
   const res = await apiFetch(`/api/config/import${force ? "?force=true" : ""}`, {
     method: "POST",
     headers: { "Content-Type": "text/yaml" },
@@ -707,8 +714,8 @@ export async function importConfigYml(
     const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
-  const body = (await res.json()) as { imported: number };
-  return body.imported;
+  const body = (await res.json()) as { imported: number; dropped?: DroppedConfigKey[] };
+  return { imported: body.imported, dropped: body.dropped ?? [] };
 }
 
 // ---------------------------------------------------------------------------
@@ -734,11 +741,10 @@ export type SettingKey =
   | "registries"
   | "primary_provider"
   | "pipeline_storage"
-  | "pipeline_data_flow";
+  | "pipeline_data_flow"
+  | "trace";
 
 export interface OrchestratorSetting {
-  registry: string;
-  version: string;
   maxRunWallTimeSeconds: number;
 }
 
@@ -834,6 +840,12 @@ export interface PipelineDataFlowSetting {
   enforce: boolean;
 }
 
+/** Whether a run records its conversation. The AGENTSMITH_TRACE environment variable,
+ *  when set, wins over the stored value. */
+export interface TraceSetting {
+  enabled: boolean;
+}
+
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -848,6 +860,7 @@ export interface SettingShapes {
   primary_provider: PrimaryProviderSetting;
   pipeline_storage: PipelineStorageSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
+  trace: TraceSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

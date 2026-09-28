@@ -34,7 +34,7 @@ public static class SecurityCorpusLoader
     public static SecurityCorpus Load(string path, string? denyListDirectory)
     {
         var raw = File.ReadAllText(path);
-        var violations = ExpectationFixtureAnonymizationCheck.CheckText(raw, denyListDirectory);
+        var violations = FixtureAnonymizationCheck.CheckText(raw, denyListDirectory);
         if (violations.Count > 0)
             throw new InvalidOperationException(
                 $"{Path.GetFileName(path)} carries customer fingerprints and will not load:\n  "

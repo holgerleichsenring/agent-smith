@@ -5,7 +5,7 @@ namespace AgentSmith.PipelineHarness.Composition;
 /// <summary>
 /// p0199d: ISkillsCatalogPath pointed at the checked-in fixture catalog
 /// under Fixtures/SkillsCatalog/. Selected by SkillsBackend.Fixture so
-/// InitProject + Autonomous tests get a populated AvailableRoles without
+/// InitProject tests get a populated AvailableRoles without
 /// touching the network or the real agent-smith-skills tree. The fixture
 /// root carries a <c>skills/</c> subdirectory matching the production
 /// catalog layout (so LoadSkillsHandler's catalog-relative resolve hits

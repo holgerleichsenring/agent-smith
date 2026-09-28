@@ -190,6 +190,13 @@ Expected: a response listing open tickets from the configured project.
 
 Ticket ids are written the way the tracker writes them: `#42` for GitHub, GitLab and Azure DevOps, the issue key for Jira.
 
+Expected: a reply in the same conversation with the id of the run it queued. The run reports back to that conversation — replies to it always go out through Teams, from whichever server replica sees them:
+
+- **Its questions** arrive as Adaptive Cards; the card's buttons, or its text field for a free-text question, answer the run. The answer reaches the run however long it has been waiting, also after a server restart.
+- **Its outcome** arrives when it ends: the pull requests it opened, or the reason it failed.
+
+The conversation's service URL is stored with the run, so the replies reach the conversation's region even from a replica that never received a message from it. While the run has not reported back, a second run asked for in the same conversation is refused. See [A chat run's lifecycle](../host-it/chat-gateway.md#a-chat-runs-lifecycle).
+
 ```
 @Agent Smith /spec my-project
 ```
@@ -206,8 +213,6 @@ Opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in this conversatio
 | `TEAMS_APP_PASSWORD` | Azure AD App Registration client secret | Yes |
 | `TEAMS_TENANT_ID` | Azure AD tenant ID | Yes |
 | `REDIS_URL` | Redis connection string | Yes |
-| `SPAWNER_TYPE` | `kubernetes` or `docker` | Yes |
-| `AGENTSMITH_IMAGE` | Docker image for spawned agent jobs | Yes |
 
 ---
 
@@ -228,11 +233,12 @@ Opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in this conversatio
 - The `TEAMS_APP_ID` must match the App Registration's Application ID exactly
 - The `TEAMS_APP_PASSWORD` may have expired — create a new client secret
 
-### Bot responds but can't start jobs
+### Bot responds but the run does not start
 
-- Check `SPAWNER_TYPE` is set (`docker` for local, `kubernetes` for production)
-- For Docker: verify the Docker socket is mounted (`/var/run/docker.sock`)
-- For K8s: verify `K8S_NAMESPACE` and `K8S_SECRET_NAME` are set
+- The reply says why: an unknown project, a ticket that already has a run in flight, or a
+  run that does not fit the capacity budget right now (a ticket run then waits in the
+  capacity queue under the run id the reply names)
+- Otherwise find the run id on the dashboard's runs board and read its trail
 
 ### Sideload fails
 
@@ -270,6 +276,5 @@ Update the messaging endpoint in Azure Portal > Azure Bot > Configuration.
 - [ ] `TEAMS_APP_ID` set in K8s Secret / environment
 - [ ] `TEAMS_APP_PASSWORD` set in K8s Secret / environment
 - [ ] `TEAMS_TENANT_ID` set in K8s Secret / environment
-- [ ] `SPAWNER_TYPE` set (`docker` or `kubernetes`)
 - [ ] Messaging endpoint set to production URL
 - [ ] Redis running

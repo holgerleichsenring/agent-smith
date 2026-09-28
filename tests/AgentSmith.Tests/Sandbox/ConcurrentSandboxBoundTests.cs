@@ -31,7 +31,7 @@ public sealed class ConcurrentSandboxBoundTests
     private static readonly DockerSandboxQuery Query = new(Owner);
 
     private static RunFootprint OneSandbox() =>
-        new(Orchestrator: null, [new ResourceLimits("500m", "1000m", "1Gi", "2Gi")]);
+        new([new ResourceLimits("500m", "1000m", "1Gi", "2Gi")]);
 
     [Fact]
     public async Task Bound_SetInTheCatalog_IsWhatTheProbeUses()

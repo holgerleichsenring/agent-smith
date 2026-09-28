@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1d
+
+decisions:
+  - category: Architecture
+    chose: "One fallback chain, ModelRoleChain in Contracts, read by the registry, the run gate, the startup summary and the findings"
+    over: "Keeping the chain inside ConfigBasedModelRegistry and mirroring it in ConfiguredAgentCheck"
+    reason: |
+      The gate lives in Application and cannot reach the Infrastructure registry, and the mirror
+      it kept had already drifted (agent.model first, the registry primary first). The chain is a
+      value computation over an AgentConfig, like JiraEndpoints.IssueFor, so it sits beside the
+      model it reads. A role with a blank model counts as unset everywhere, which is also how the
+      studio clears a role. ConfigBasedModelRegistry now takes the AgentConfig; BuildFallback went.
+    alternatives:
+      - "Injecting IChatClientFactory into ConfiguredAgentCheck: a DI change for one string"
+
+  - category: TradeOff
+    chose: "An inheriting role takes primary's assignment whole, max_tokens included"
+    over: "Keeping the old per-role output caps (scout 4096, planning 4096, summarization 2048) as defaults"
+    reason: |
+      A per-role cap without a per-role model is a default that belongs to no provider. The cost:
+      SpecDerivationCall and RepoScopeClassifier (planning) and the compaction summarizer
+      (summarization) may now ask for up to primary's cap (8192 unless stated) where they asked for
+      4096/2048. Output caps are ceilings, not spend, so a short answer costs the same; an operator
+      who wants the smaller cap names the role. The startup finding says the roles inherit primary's
+      max_tokens.
+
+  - category: Implementation
+    chose: "Findings: one Advisory per agent whose models block leaves primary/scout/planning/summarization unset, one per non-Claude agent whose roles carry the two former built-in Claude ids — recorded by RawConfigMaterializer"
+    over: "A finding for every unset role, or the loaders recording them the way the retired-key detector does"
+    reason: |
+      Only those four roles changed behaviour (reasoning, context_generation always inherited; an
+      agent without a models block always ran everything on its model), so only they are named.
+      The Claude-id finding matches exactly claude-haiku-4-5-20251001 and claude-sonnet-4-20250514 —
+      the ids a stored document materialised — and skips roles whose provider_type is Claude, so a
+      Copilot agent serving a Claude model is not flagged. Nothing is rewritten: a stored default
+      cannot be told from a choice. The materializer already owns the configuration findings and
+      clears them each load; recording there keeps them out of LastResolutionFindings, so the
+      one-shot CLI loader does not refuse on an advisory. Decompose now omits null roles
+      (JsonIgnore WhenWritingNull), so newly stored documents hold only chosen roles.
+
+  - category: Implementation
+    chose: "Every TaskType role is optional in the studio capabilities; only coding is required"
+    over: "Keeping scout/planning/summarization/code-map required"
+    reason: "They inherit now; a required role forced the operator to invent a model per role, which is the trap this phase removes. AgentForm seeds an unset role with 'it inherits primary'."
+
+  - category: Security
+    chose: "type openai + endpoint sends there; the key comes only from api_key_secret, a named-but-empty variable throws naming it, none named sends the literal 'unauthenticated'"
+    over: "Falling back to OPENAI_API_KEY as before"
+    reason: |
+      With an endpoint the host is a third party; the fallback would send an OpenAI key there. The
+      SDK requires a non-empty key, so an unauthenticated local server gets a placeholder. The
+      builder now also decides Azure from the EFFECTIVE provider (assignment.ProviderType ?? agent.Type),
+      not agent.Type, so a role routed to azure_openai from another agent type builds an Azure client.
+
+  - category: Architecture
+    chose: "ModelAssignment.Endpoint kept; effective endpoint = role endpoint ?? (effective type == agent.Type ? agent.Endpoint : null), used by the OpenAI and Ollama builders"
+    over: "Deleting ModelAssignment.Endpoint as unread (the analysis note's first reading)"
+    reason: "Review correction: agent.endpoint already means the Ollama, Azure or external-worker URL; a role on another provider must not inherit it, and the role's own endpoint is how such a role gets one. The Ollama builder read agent.Endpoint unconditionally before; it now honours the same rule."
+
+  - category: Implementation
+    chose: "Schema coverage by reflection from RawAgentSmithConfig (and ToolRunnerConfig as a second root), settable properties only, UnderscoredNamingConvention, dict -> additionalProperties, list -> items, enum values incl. EnumMember names; a third rule requires every object with properties to close them"
+    over: "A hand-maintained key list"
+    reason: |
+      Two allowlists, each entry with its reason: connections.*.type=local (a connection is a git host;
+      the schema refuses local on purpose) and the triggerFields mixin (webhookTrigger and jiraTrigger
+      close it with unevaluatedProperties — additionalProperties:false inside an allOf part would refuse
+      jira's assignee_name). No detector-only key needs an entry: retired keys are gone from the typed
+      model, and RetiredConfigKeys reads the untyped tree. orchestrator.* stays declared and bound until
+      slice h. Validation counts only an overall failure: OutputFormat.List lists a failed oneOf branch
+      even when another branch matched.
+
+  - category: Scope
+    chose: "Retired by deletion plus a RetiredConfigKeys row: agents.*.compaction.summary_model, agents.*.compaction.deployment_name, agents.*.parallelism, tool_runner.namespace, tool_runner.image_pull_policy"
+    over: "Extending CompactionConfigDeprecationWarner, which needs the property kept bound"
+    reason: |
+      One mechanism for every retired key. The warner can only see a key the model still binds, which
+      would keep a dead key in the schema the coverage test says declares only what is read; the
+      detector reads the untyped tree, reports as an advisory finding with how to clear it, and needs
+      no allowlist. Known cost: every agent stored before this phase carries SummaryModel (the default
+      was serialised), so a DB installation gets one advisory per stored agent until that agent is saved
+      once in the studio. tool_runner.namespace and image_pull_policy were bound and read by nothing
+      (DockerToolRunner reads socket and images; the spawners read docker_hostname).
+
+  - category: Implementation
+    chose: "Jira endpoints bound on RawTrackerEntry (JiraEndpoints?), mapped by TrackerCatalogBuilder, and a Jira-only 'REST path overrides' map field in the studio that carries only the paths differing from the defaults"
+    over: "Binding only, with no studio field"
+    reason: "CapabilityCoverageTests requires every raw tracker field to be declared. The map form keeps a saved tracker following a default it never changed; an unknown key (issue_link, removed by slice b) is refused by name. No issue_link in the schema."
+
+  - category: Implementation
+    chose: "config import names every key it does not store: ConfigImportPlanner diffs the file's untyped tree against the documents Decompose would store (keys folded for case and underscores), and labels each as retired (the detector's reason), bootstrap (persistence, auth, tool_runner) or no such setting"
+    over: "Reporting only RetiredConfigKeys rows"
+    reason: |
+      A misspelt key is the case the report exists for, and only a diff against what is actually stored
+      sees it. The CLI prints each to stderr; POST /api/config/import returns them as `dropped` and the
+      studio's import message lists them. One alias (repo -> Ref) covers the repos mapping form. The
+      planner also replaced the two copies of decompose-and-skip-persistence in the CLI and the endpoint.
+
+  - category: Implementation
+    chose: "An export writes a repos item as a mapping when it carries default_branch or consumes"
+    over: "Leaving RawRepoRefYamlConverter.WriteYaml emitting only the ref"
+    reason: "Found while writing ExportedConfig_ValidatesAgainstSchema and the import diff: an export silently lost a repo's branch override and its consumed interface, so export -> import dropped them."
+
+  - category: Implementation
+    chose: "The exporter ignores RoleMappingConfig.IsEmpty through a YamlDotNet attribute override"
+    over: "[YamlIgnore] on the property"
+    reason: "Contracts does not reference YamlDotNet and should not for one attribute; the exporter is the only serializer that emitted it (is_empty in every export, which the schema refuses)."
+
+  - category: Implementation
+    chose: "trace is a taxonomy singleton and a Settings group; AGENTSMITH_TRACE still wins via TraceSwitch"
+    over: "Leaving trace file-only"
+    reason: "A server reads its configuration from the store, so a switch the store cannot hold could be flipped only by environment; import dropped it and export emitted it. Taxonomy_CoversEveryRawRootProperty_OrNamesWhyNot keeps every bound root block stored or named (auth: bootstrap). Kept apart from the orchestrator lines of settings.ts/SettingsForm for slice h."
+
+  - category: Implementation
+    chose: "Example config: dialogue and skills blocks commented out, claude-parallel renamed claude-scan, an OpenAI-compatible agent example added, per-role models trimmed where they only repeated the agent model"
+    over: "Keeping the active skills v4.7.0 pin and the empty dialogue key"
+    reason: "The active pin downgraded every skill from the embedded v5.7.3; an empty dialogue: is null and fails the schema. claude-parallel was named after the removed parallelism knob. The example is now validated (ExampleConfig_ValidatesAgainstSchema) and its docs links checked (ExampleConfig_NamesNoDocsPathThatDoesNotExist)."
+
+  - category: Implementation
+    chose: "SourceNamesNoDocsPathThatDoesNotExist scans all text of the hand-written backend and dashboard sources, not only string literals"
+    over: "A string-literal-only scan"
+    reason: "A dead docs path in an XML comment misleads the same way; the scan found DeprecatedFieldAttribute's docs/event-schema-policy.md besides YamlSkillLoader's migration link."

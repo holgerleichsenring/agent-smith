@@ -50,6 +50,10 @@ public static class ServiceCollectionExtensions
         // p0349: the shared raw->typed pipeline both the file loader and the
         // server's DB loader run over a RawAgentSmithConfig.
         services.AddSingleton<RawConfigMaterializer>();
+        services.AddTransient<ModelRoleFindings>();
+        services.AddTransient<Services.Configuration.Retired.RawConfigTreeReader>();
+        services.AddTransient<Services.Configuration.Retired.ConfigKeyPathMatcher>();
+        services.AddTransient<Services.Configuration.Retired.RetiredConfigKeyDetector>();
         services.AddSingleton<IConfigurationLoader, YamlConfigurationLoader>();
         // p0345/p0349: config studio — the catalog behind IConfigStore. The
         // read-only file store keeps the CLI/pipelines running purely from
@@ -63,6 +67,8 @@ public static class ServiceCollectionExtensions
         // server's own rule objects.
         services.AddSingleton<Services.Configuration.Studio.ConfigDraftRules>();
         services.AddSingleton<ConfigDocumentAssembler>();
+        services.AddTransient<StoredKeyDiff>();
+        services.AddTransient<ConfigImportPlanner>();
         // p0503b: the auth block reaches the bootstrap from the environment as well as
         // the file, so the reader takes the overlay that decides which wins per field.
         services.AddSingleton<AuthEnvironmentOverlay>();

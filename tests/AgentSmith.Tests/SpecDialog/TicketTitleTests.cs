@@ -108,7 +108,7 @@ public sealed class TicketTitleTests
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(Config());
         var handler = new CreateTicketIntentHandler(
-            Mock.Of<IPlatformAdapter>(), loader.Object, factory.Object, ApprovedSetDoubles.Kinds(),
+            new AgentSmith.Server.Services.Adapters.PlatformAdapters([], NullLogger<AgentSmith.Server.Services.Adapters.PlatformAdapters>.Instance), loader.Object, factory.Object, ApprovedSetDoubles.Kinds(),
             NullLogger<CreateTicketIntentHandler>.Instance);
 
         await handler.HandleAsync(new CreateTicketIntent

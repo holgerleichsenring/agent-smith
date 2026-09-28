@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 
@@ -15,10 +14,6 @@ namespace AgentSmith.Application.Services.Specs;
 /// CURRENT phase's done-list: the keystone scores it, the pull request renders it
 /// and result.md reports against it, exactly as before.
 /// </para>
-/// <para>
-/// The ratified expectation stays the source for any run that still negotiates one —
-/// removing the step must not empty the contract for pipelines that never had a spec.
-/// </para>
 /// </summary>
 public static class AcceptanceCriteria
 {
@@ -33,10 +28,7 @@ public static class AcceptanceCriteria
         if (pipeline.TryGet<ScanContract>(ContextKeys.ScanContract, out var scan)
             && scan is { Criteria.Count: > 0 })
             return scan.Statements;
-        return pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp)
-            && exp is not null
-                ? exp.Draft.Expected
-                : [];
+        return [];
     }
 
     /// <summary>

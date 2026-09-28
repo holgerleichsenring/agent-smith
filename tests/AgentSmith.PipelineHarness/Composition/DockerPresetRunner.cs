@@ -113,12 +113,11 @@ internal static class DockerPresetRunner
             SwaggerPathOverride = apiTarget?.OpenApiUrl,
         };
 
-    // p0199d: init-project + autonomous need the checked-in fixture catalog
-    // so BootstrapDispatch / Triage see populated AvailableRoles. All other
-    // presets stay on the empty-catalog stub (handler-shape only).
+    // init-project needs the checked-in fixture catalog so BootstrapDispatch sees
+    // populated AvailableRoles. All other presets stay on the empty-catalog stub
+    // (handler-shape only).
     private static SkillsBackend ResolveSkillsBackend(string preset) =>
         string.Equals(preset, "init-project", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(preset, "autonomous", StringComparison.OrdinalIgnoreCase)
             ? SkillsBackend.Fixture
             : SkillsBackend.Stub;
 

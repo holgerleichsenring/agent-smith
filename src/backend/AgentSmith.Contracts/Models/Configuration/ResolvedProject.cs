@@ -33,5 +33,4 @@ public sealed record ResolvedProject
     public WebhookTriggerConfig? AzuredevopsTrigger { get; init; }
     public PollingConfig Polling { get; init; } = new();
     public SandboxConfig? Sandbox { get; init; }
-    public OrchestratorConfig? Orchestrator { get; init; }
 }

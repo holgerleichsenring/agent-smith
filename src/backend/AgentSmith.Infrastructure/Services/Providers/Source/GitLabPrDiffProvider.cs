@@ -34,6 +34,15 @@ public sealed class GitLabPrDiffProvider(
                 : d.GetProperty("deleted_file").GetBoolean() ? ChangeKind.Deleted
                 : ChangeKind.Modified)).ToList();
 
-        return new PrDiff(baseSha, headSha, changedFiles);
+        return new PrDiff(baseSha, headSha, changedFiles,
+            Text(mrResponse, "source_branch"), Text(mrResponse, "author", "username"));
+    }
+
+    private static string? Text(JsonElement element, params string[] path)
+    {
+        foreach (var segment in path)
+            if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(segment, out element))
+                return null;
+        return element.ValueKind == JsonValueKind.String ? element.GetString() : null;
     }
 }

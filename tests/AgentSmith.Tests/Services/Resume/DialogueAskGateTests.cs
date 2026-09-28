@@ -19,16 +19,14 @@ public sealed class DialogueAskGateTests
 {
     private readonly Mock<IDialogueTransport> _transport = new();
     private readonly Mock<IDialogueCheckpointWriter> _checkpointWriter = new();
-    private readonly Mock<IProgressReporter> _reporter = new();
     private readonly InMemoryDialogueTrail _trail = new();
     private readonly DialogueAskGate _sut;
 
     public DialogueAskGateTests()
     {
-        _reporter.Setup(r => r.JobId).Returns("job-1");
         _sut = new DialogueAskGate(
             _transport.Object, _trail, _checkpointWriter.Object,
-            new DialogueJobIdentity(_reporter.Object), NullLogger<DialogueAskGate>.Instance);
+            new DialogueJobIdentity(), NullLogger<DialogueAskGate>.Instance);
     }
 
     [Fact]
@@ -37,10 +35,10 @@ public sealed class DialogueAskGateTests
         var pipeline = TicketPipeline(hotWaitSeconds: 0);
         var question = Question(TimeSpan.FromDays(3));
         _transport.Setup(t => t.WaitForAnswerAsync(
-                "job-1", question.QuestionId, TimeSpan.Zero, It.IsAny<CancellationToken>()))
+                "run-1", question.QuestionId, TimeSpan.Zero, It.IsAny<CancellationToken>()))
             .ReturnsAsync((DialogAnswer?)null);
         _checkpointWriter.Setup(w => w.TryCheckpointAsync(
-                pipeline, question, "job-1", It.IsAny<CancellationToken>()))
+                pipeline, question, "run-1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var outcome = await _sut.AskAsync(pipeline, question, CancellationToken.None);
@@ -51,7 +49,7 @@ public sealed class DialogueAskGateTests
             "the executor's parked-reason check ends the worker cleanly");
         // The hot wait used the THRESHOLD, not the days-scale question timeout.
         _transport.Verify(t => t.WaitForAnswerAsync(
-            "job-1", question.QuestionId, TimeSpan.Zero, It.IsAny<CancellationToken>()), Times.Once);
+            "run-1", question.QuestionId, TimeSpan.Zero, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -61,7 +59,7 @@ public sealed class DialogueAskGateTests
         var question = Question(TimeSpan.FromDays(3));
         var answer = new DialogAnswer(question.QuestionId, "yes", null, DateTimeOffset.UtcNow, "@op");
         _transport.Setup(t => t.WaitForAnswerAsync(
-                "job-1", question.QuestionId, TimeSpan.FromSeconds(600), It.IsAny<CancellationToken>()))
+                "run-1", question.QuestionId, TimeSpan.FromSeconds(600), It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
         var outcome = await _sut.AskAsync(pipeline, question, CancellationToken.None);
@@ -80,7 +78,7 @@ public sealed class DialogueAskGateTests
         pipeline.Set(ContextKeys.DialogueHotWaitSeconds, 0);
         var question = Question(TimeSpan.FromMinutes(5));
         _transport.Setup(t => t.WaitForAnswerAsync(
-                "job-1", question.QuestionId, TimeSpan.FromMinutes(5), It.IsAny<CancellationToken>()))
+                "run-1", question.QuestionId, TimeSpan.FromMinutes(5), It.IsAny<CancellationToken>()))
             .ReturnsAsync((DialogAnswer?)null);
 
         var outcome = await _sut.AskAsync(pipeline, question, CancellationToken.None);
@@ -124,10 +122,10 @@ public sealed class DialogueAskGateTests
             new DialogAnswer("ask-1", "yes", null, DateTimeOffset.UtcNow, "@op"));
         var second = Parked("ask-2", "And the tooling?");
         _transport.Setup(t => t.WaitForAnswerAsync(
-                "job-1", "ask-2", TimeSpan.Zero, It.IsAny<CancellationToken>()))
+                "run-1", "ask-2", TimeSpan.Zero, It.IsAny<CancellationToken>()))
             .ReturnsAsync((DialogAnswer?)null);
         _checkpointWriter.Setup(w => w.TryCheckpointAsync(
-                pipeline, second, "job-1", It.IsAny<CancellationToken>()))
+                pipeline, second, "run-1", It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
         var outcome = await _sut.AskAsync(pipeline, second, CancellationToken.None);
@@ -136,7 +134,7 @@ public sealed class DialogueAskGateTests
         pipeline.Has(ContextKeys.ResumedDialogueAnswer).Should().BeTrue(
             "the first question's answer was not spent on a question it does not answer");
         _transport.Verify(t => t.PublishQuestionAsync(
-            "job-1", second, It.IsAny<CancellationToken>()), Times.Once);
+            "run-1", second, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     /// <summary>
@@ -160,9 +158,8 @@ public sealed class DialogueAskGateTests
     }
 
     [Fact]
-    public async Task Ask_NoJobId_FallsBackToRunIdIdentity()
+    public async Task Ask_KeysTheDialogueOnTheRunId()
     {
-        _reporter.Setup(r => r.JobId).Returns((string?)null);
         var pipeline = TicketPipeline(hotWaitSeconds: 600);
         var question = Question(TimeSpan.FromMinutes(1));
         var answer = new DialogAnswer(question.QuestionId, "yes", null, DateTimeOffset.UtcNow, "@op");
@@ -175,7 +172,7 @@ public sealed class DialogueAskGateTests
         outcome.Answer!.Answer.Should().Be("yes");
         _transport.Verify(t => t.PublishQuestionAsync(
             "run-1", question, It.IsAny<CancellationToken>()), Times.Once,
-            "in-process server runs have no --job-id; the run id is the dialogue identity");
+            "the run id is the dialogue identity");
     }
 
     private static PipelineContext TicketPipeline(int hotWaitSeconds)

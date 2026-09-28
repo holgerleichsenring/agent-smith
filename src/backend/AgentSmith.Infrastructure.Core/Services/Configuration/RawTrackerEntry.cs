@@ -57,10 +57,6 @@ public sealed class RawTrackerEntry
     /// </summary>
     public Dictionary<string, string>? LifecycleStatusNames { get; set; }
 
-    /// <summary>Jira-only (YAML key <c>parent_link_type</c>): the issue link type a filed child
-    /// is linked to its parent with.</summary>
-    public string? ParentLinkType { get; set; }
-
     /// <summary>2026-09-25-3c7ac (YAML key <c>label_names</c>): what this board calls the eight
     /// labels the framework writes — the seven lifecycle states by name, and the approved-set
     /// stamp under <c>approved-set</c>. Unset keeps today's words.</summary>
@@ -73,6 +69,12 @@ public sealed class RawTrackerEntry
     /// only.
     /// </summary>
     public Dictionary<string, string>? WorkItemKinds { get; set; }
+
+    /// <summary>
+    /// Jira only (YAML key <c>endpoints</c>): REST path overrides. A key left out keeps its
+    /// Jira Cloud v3 default, so an operator sets only the path Atlassian moved.
+    /// </summary>
+    public JiraEndpoints? Endpoints { get; set; }
 }
 
 /// <summary>

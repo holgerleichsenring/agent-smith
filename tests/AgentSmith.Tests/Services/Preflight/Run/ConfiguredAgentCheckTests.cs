@@ -92,6 +92,27 @@ public sealed class ConfiguredAgentCheckTests
         finding.Lever.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task ConfiguredAgent_BothShapes_NamesTheModelTheRegistryResolves()
+    {
+        // The gate used to read agent.model first and the registry reads the primary role
+        // first: an agent with both was reported on a model that never answered.
+        var agent = new AgentConfig
+        {
+            Type = "openai", Model = "agent-model",
+            Models = new ModelRegistryConfig { Primary = new ModelAssignment { Model = "primary-model" } },
+        };
+        var config = new AgentSmithConfig { Agents = { ["a"] = agent } };
+        var registry = new AgentSmith.Infrastructure.Services.Providers.Agent.ConfigBasedModelRegistry(
+            agent, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+
+        var finding = await new ConfiguredAgentCheck(config)
+            .RunAsync(PipelineWith(agent), CancellationToken.None);
+
+        finding.Message.Should().Contain(registry.GetModel(AgentSmith.Contracts.Providers.TaskType.Primary).Model)
+            .And.Contain("primary-model");
+    }
+
     private static PipelineContext PipelineWith(AgentConfig agent)
     {
         var pipeline = new PipelineContext();

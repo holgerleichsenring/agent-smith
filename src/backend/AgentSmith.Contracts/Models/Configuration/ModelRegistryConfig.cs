@@ -1,42 +1,40 @@
+using System.Text.Json.Serialization;
+
 namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
-/// Configuration for task-specific model routing.
-/// Each task type can be assigned to a different model for cost optimization.
+/// Configuration for task-specific model routing: each task type may name its own model.
+/// <para>
+/// No role carries a built-in model. A built-in id belongs to one provider, and a partial
+/// <c>models:</c> block kept it for every role it did not name — an OpenAI agent answered its
+/// scout calls with a Claude model id. An unset role inherits instead: primary from the
+/// agent's own <c>model</c>, the others from primary, code-map generation from scout and then
+/// primary. <see cref="ModelRoleChain"/> is that chain, stated once.
+/// </para>
+/// A null role is left out of a stored document, so what is stored is only what was chosen.
 /// </summary>
 public sealed class ModelRegistryConfig
 {
-    public ModelAssignment Scout { get; set; } = new()
-    {
-        Model = "claude-haiku-4-5-20251001",
-        MaxTokens = 4096
-    };
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ModelAssignment? Scout { get; set; }
 
-    public ModelAssignment Primary { get; set; } = new()
-    {
-        Model = "claude-sonnet-4-20250514",
-        MaxTokens = 8192
-    };
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ModelAssignment? Primary { get; set; }
 
-    public ModelAssignment Planning { get; set; } = new()
-    {
-        Model = "claude-sonnet-4-20250514",
-        MaxTokens = 4096
-    };
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ModelAssignment? Planning { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ModelAssignment? Reasoning { get; set; }
 
-    public ModelAssignment Summarization { get; set; } = new()
-    {
-        Model = "claude-haiku-4-5-20251001",
-        MaxTokens = 2048
-    };
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ModelAssignment? Summarization { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ModelAssignment? ContextGeneration { get; set; }
 
-    /// <summary>2026-09-25-2fa7: optional, like Reasoning and ContextGeneration. It used to carry a
-    /// hard-coded Claude model, which was inert while nothing requested the role and would have
-    /// handed an OpenAI or ollama agent another provider's model string the moment something did.
-    /// Unset, it resolves to the agent's own Scout assignment — p0374's measured binding.</summary>
+    /// <summary>Unset, the code-map sweep follows scout — p0374 measured it onto the cheaper
+    /// model — and primary when scout is unset too.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ModelAssignment? CodeMapGeneration { get; set; }
 }

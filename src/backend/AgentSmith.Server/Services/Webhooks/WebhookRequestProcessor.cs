@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Health;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
@@ -11,9 +10,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// Processes validated webhook requests: detects platform, verifies signature, dispatches
 /// to handlers, and routes results. p0140b: ticket-event handlers now perform their own
 /// spawn (via SpawnPipelineRunsUseCase) and return HandledNoRoute — the old structured-
-/// ticket routing branch was deleted. Remaining post-dispatch paths: DialogueAnswer (PR
-/// /approve|/reject) routes via WebhookDialogueRouter; TriggerInput legacy path runs the
-/// free-form ExecutePipelineUseCase.
+/// ticket routing branch was deleted. The remaining post-dispatch path: TriggerInput runs
+/// the free-form ExecutePipelineUseCase.
 /// </summary>
 internal sealed class WebhookRequestProcessor(
     IServiceProvider services,
@@ -46,20 +44,6 @@ internal sealed class WebhookRequestProcessor(
             await PublishWebhookReceivedAsync(platform, eventType!, path,
                 actioned: false, skipReason: result.SkipReason ?? "no-handler-matched");
             return (200, "Event ignored");
-        }
-
-        if (result.DialogueAnswer is not null)
-        {
-            if (!IsRedisAvailable())
-            {
-                await PublishWebhookReceivedAsync(platform, eventType!, path,
-                    actioned: false, skipReason: "redis-unavailable");
-                return (503, "redis_unavailable");
-            }
-            var router = new WebhookDialogueRouter(services, logger);
-            _ = router.RouteAsync(result.DialogueAnswer);
-            await PublishWebhookReceivedAsync(platform, eventType!, path, actioned: true, skipReason: null);
-            return (202, "Accepted: dialogue answer");
         }
 
         if (result.TriggerInput is not null)
@@ -108,13 +92,6 @@ internal sealed class WebhookRequestProcessor(
         var tracker = services.GetService<IWebhookDeliveryTracker>();
         if (tracker is null) return;
         await tracker.RecordAsync(platform.ToLowerInvariant(), receivedAtUtc);
-    }
-
-    private bool IsRedisAvailable()
-    {
-        var redisHealth = services.GetServices<ISubsystemHealth>()
-            .FirstOrDefault(h => h.Name == "redis");
-        return redisHealth?.State == SubsystemState.Up;
     }
 
     private static async Task<WebhookResult> DispatchAsync(

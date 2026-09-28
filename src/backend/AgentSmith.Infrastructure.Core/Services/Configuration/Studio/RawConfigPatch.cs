@@ -44,7 +44,6 @@ public static class RawConfigPatch
             agent.Compaction.ThresholdIterations = compaction.ThresholdIterations;
             agent.Compaction.MaxContextTokens = compaction.MaxContextTokens;
             agent.Compaction.KeepRecentIterations = compaction.KeepRecentIterations;
-            agent.Compaction.SummaryModel = compaction.SummaryModel;
         }
         if (entity.Retry is { } retry)
         {
@@ -76,7 +75,6 @@ public static class RawConfigPatch
         tracker.NotImplementableStatus = entity.NotImplementableStatus;
         tracker.CloseTransitionName = entity.CloseTransitionName;
         tracker.DefaultPipeline = entity.DefaultPipeline; // 2026-09-16-a4d7
-        tracker.ParentLinkType = entity.ParentLinkType;
         if (entity.ExtraFields is { } extraFields) tracker.ExtraFields = [.. extraFields];
         if (entity.ZeroMatchComment is { } zeroMatch) tracker.ZeroMatchComment = zeroMatch;
         if (entity.LifecycleStatusNames is { } lifecycle)
@@ -87,6 +85,7 @@ public static class RawConfigPatch
         // written back here would persist on the first unrelated save and end "changes nothing".
         if (entity.WorkItemKinds is { } kinds)
             tracker.WorkItemKinds = kinds.ToDictionary(kv => kv.Key, kv => kv.Value);
+        if (entity.Endpoints is { } endpoints) tracker.Endpoints = JiraEndpointsMap.From(endpoints);
         if (entity.Polling is { } polling)
             tracker.Polling = new RawPollingEntry
             {

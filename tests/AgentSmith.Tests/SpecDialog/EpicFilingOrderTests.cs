@@ -82,13 +82,12 @@ public sealed class EpicFilingOrderTests
     /// work ticket with has no call site left, and the filing report has no note to carry.
     /// </summary>
     [Fact]
-    public async Task EpicFiling_NothingIsLinkedToAnything_AndNoNoteIsRaised()
+    public async Task EpicFiling_FilesOneTicket_AndRaisesNoNote()
     {
         var provider = new RecordingProvider();
 
         var report = await FileAsync(provider, Epic(Child("p9000a"), Child("p9000b", requires: ["p9000a"])));
 
-        provider.Links.Should().BeEmpty();
         report.Notes.Should().BeEmpty();
         report.Filed.Should().ContainSingle();
     }
@@ -196,8 +195,6 @@ public sealed class EpicFilingOrderTests
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created => _created;
 
-        public List<(string Child, string Parent)> Links { get; } = [];
-
         public Exception? ThrowOnCreate { get; init; }
 
         public string ProviderType => "recording";
@@ -220,13 +217,6 @@ public sealed class EpicFilingOrderTests
             _created.Add((title, description, labels));
             return Task.FromResult(new CreatedTicket(
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
-        }
-
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
-        {
-            Links.Add((child.Id.Value, parent.Value));
-            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task<TicketFinalizeResult> FinalizeAsync(

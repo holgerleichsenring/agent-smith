@@ -122,7 +122,7 @@ public sealed class TicketKindFilingTests
             Projects = new Dictionary<string, ResolvedProject> { ["proj"] = Project(kinds) },
         });
         return new CreateTicketIntentHandler(
-            Mock.Of<IPlatformAdapter>(), loader.Object, factory.Object,
+            new AgentSmith.Server.Services.Adapters.PlatformAdapters([], NullLogger<AgentSmith.Server.Services.Adapters.PlatformAdapters>.Instance), loader.Object, factory.Object,
             new TicketKindResolver(NullLogger<TicketKindResolver>.Instance),
             NullLogger<CreateTicketIntentHandler>.Instance);
     }

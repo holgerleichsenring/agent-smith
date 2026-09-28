@@ -6,7 +6,7 @@
 Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
 
 - **Ticket triggers** (issue or work item labelled, moved, assigned): these go through project resolution and the claim, and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms.
-- **Pull request events, PR comment commands and dialogue answers**: GitHub, GitLab and Azure DevOps.
+- **Pull request events and PR comment commands**: GitHub, GitLab and Azure DevOps.
 
 Polling is the alternative ingress for ticket triggers. See [Polling](../../trigger-it/polling.md).
 
@@ -38,11 +38,9 @@ The HTTP response says what the receiver did with the delivery, not how the run 
 | Status | Body | Meaning |
 |:------:|------|---------|
 | 202 | `Accepted` | a handler took the event (a run was claimed or queued, or a command started) |
-| 202 | `Accepted: dialogue answer` | an answer to a waiting question was routed to its run |
 | 200 | `Event ignored` | no handler wanted this event, or it matched nothing |
 | 200 | `Unknown platform` | the platform couldn't be detected |
 | 401 | `Signature validation failed` | a secret is configured and the delivery didn't prove it |
-| 503 | `redis_unavailable` | a dialogue answer arrived while Redis was down; the platform's retry delivers it again |
 
 ## Supported Platforms
 
@@ -98,7 +96,7 @@ The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ..
 
 ## Pull request review label
 
-On GitHub and GitLab, a label on a pull request or merge request can ask for a review, which runs `security-scan` on that repository. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
+On GitHub and GitLab, adding a label to a pull request or merge request can ask for a review, which runs `security-scan` on the pull request's head branch, for a repository a project configures. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
 
 ```yaml
 projects:
@@ -112,6 +110,8 @@ The word adds to `security-review`, it doesn't replace it. The project is found 
 ## PR comment commands
 
 Independent of the ticket lifecycle. A comment like `/agent-smith review` on a pull request or merge request starts a run directly, with no claim flow and no lifecycle labels. A comment may start `code`, `security-scan` or `pr-review` and nothing else; that list is fixed, because a comment is a lower-trust surface than your configuration.
+
+Only an author with write access to the repository can issue one: on GitHub the payload's `author_association` says so, on GitLab and Azure DevOps the server asks the platform, which needs the token scopes listed under [Webhooks](../../trigger-it/webhooks.md#pull-request-comment-commands). A command from anyone else is ignored before any model reads it.
 
 See [PR Comment Integration](../integrations/pr-comments.md) for command syntax.
 

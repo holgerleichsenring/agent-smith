@@ -19,8 +19,8 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// <para>
 /// The phase-gate hook runs <c>dotnet test AgentSmith.sln</c> with NO filter, so this
 /// test executes on every future phase commit on the operator's machine, where the
-/// credentials live. It therefore asserts what ExpectationGoldenEvalTests asserts and
-/// nothing more — the entry count and that the file exists. No assertion about what
+/// credentials live. It therefore asserts what the other report-writing evals assert
+/// and nothing more — the entry count and that the file exists. No assertion about what
 /// the model said, ever: a content assertion here becomes a paid, flaky gate forever.
 /// </para>
 /// </summary>

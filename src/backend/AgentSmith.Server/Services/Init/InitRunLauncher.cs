@@ -28,7 +28,7 @@ public sealed class InitRunLauncher(
     /// operator triggers by hand, so the surface takes no pipeline parameter.</summary>
     public const string PipelineName = "init-project";
 
-    private const string QueuedSummary = "starting — initialization requested from the dashboard";
+    private const string QueuedSummary = "starting — initialization requested";
 
     /// <param name="autoCompletePullRequests">p0490: the operator's auto-accept, as
     /// ticked on THIS launch. It rides the enqueued request into the pipeline context,

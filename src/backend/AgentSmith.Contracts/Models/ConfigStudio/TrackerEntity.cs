@@ -34,11 +34,12 @@ public sealed record TrackerEntity(
     IReadOnlyDictionary<string, string>? LifecycleStatusNames = null,
     // 2026-09-16-a4d7: APPENDED, never inserted — ToTracker calls this record positionally.
     string? DefaultPipeline = null,
-    string? ParentLinkType = null,
     // 2026-09-18-b4f0: role -> native work-item/issue type for the tickets agent-smith files.
     IReadOnlyDictionary<string, string>? WorkItemKinds = null,
     // 2026-09-25-3c7ac: what this board calls the labels the framework writes. APPENDED.
-    IReadOnlyDictionary<string, string>? LabelNames = null)
+    IReadOnlyDictionary<string, string>? LabelNames = null,
+    // Jira only: the REST paths that differ from the Jira Cloud v3 defaults. APPENDED.
+    IReadOnlyDictionary<string, string>? Endpoints = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

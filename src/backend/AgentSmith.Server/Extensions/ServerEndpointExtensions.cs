@@ -49,7 +49,7 @@ internal static class ServerEndpointExtensions
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
-        app.MapExpectationMetricsEndpoints();
+        app.MapCriteriaMetEndpoints();
         app.MapCatalogEndpoints();
         app.MapConfigQueryEndpoints();
         app.MapConfigStudioEndpoints(); // p0345: config studio CRUD + audit/revert

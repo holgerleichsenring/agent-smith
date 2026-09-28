@@ -11,7 +11,6 @@ public sealed record SecurityRunSnapshot(
     int FindingsHigh,
     int FindingsMedium,
     int FindingsRetained,
-    int FindingsAutoFixed,
     IReadOnlyList<string> ScanTypes,
     int NewSinceLast,
     int ResolvedSinceLast,

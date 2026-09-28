@@ -45,8 +45,15 @@ public sealed class AzureDevOpsPrDiffProvider(
                 MapChangeType(c.GetProperty("changeType").GetString())))
             .ToList();
 
-        return new PrDiff(baseSha, headSha, changedFiles);
+        return new PrDiff(baseSha, headSha, changedFiles, HeadBranch(pr),
+            pr.TryGetProperty("createdBy", out var by) && by.TryGetProperty("uniqueName", out var name)
+                ? name.GetString() : null);
     }
+
+    private static string? HeadBranch(JsonElement pr) =>
+        pr.TryGetProperty("sourceRefName", out var reference) && reference.GetString() is { } name
+            ? (name.StartsWith("refs/heads/", StringComparison.Ordinal) ? name["refs/heads/".Length..] : name)
+            : null;
 
     private static ChangeKind MapChangeType(string? changeType) => changeType switch
     {

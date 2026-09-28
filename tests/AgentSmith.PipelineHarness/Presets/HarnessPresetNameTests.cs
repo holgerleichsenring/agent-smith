@@ -55,10 +55,8 @@ public sealed class HarnessPresetNameTests
     [Fact]
     public void Harness_EverySuite_ResolvesThePresetItAsksFor()
     {
-        // A retired PRESET (PipelinePresets.RetiredPresets) is a different debt with its own
-        // owner — AutonomousDockerTests still asks for 'autonomous', which p0312a retired,
-        // and has been unrunnable ever since. Naming it here would only hide it behind this
-        // phase's verdict.
+        // No suite may ask for a removed preset either (RetiredPipelineNames.Removed): a suite
+        // asking for one can never run, which is why the autonomous docker suite was deleted.
         var asked = AskedPresets().ToList();
         asked.Should().NotBeEmpty(
             "a scan that finds no preset ask at all has stopped reading the suites, and an "
@@ -66,7 +64,6 @@ public sealed class HarnessPresetNameTests
 
         var unresolved = asked
             .Where(name => PipelinePresets.TryResolve(name) is null)
-            .Where(name => PipelinePresets.RetiredReason(name) is null)
             .OrderBy(x => x, StringComparer.Ordinal)
             .ToList();
 

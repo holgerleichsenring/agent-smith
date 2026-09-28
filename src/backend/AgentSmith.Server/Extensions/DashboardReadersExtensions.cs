@@ -1,3 +1,4 @@
+using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Catalog;
 using AgentSmith.Server.Services.Diagnostics;
 using AgentSmith.Server.Services.Config;
@@ -9,8 +10,8 @@ namespace AgentSmith.Server.Extensions;
 
 /// <summary>
 /// The dashboard's read models: the run trail, the p0388b full-pipeline rail with its
-/// decision notes, the per-step markdown artifacts, the catalog contents and the
-/// connection diagnostics.
+/// decision notes, the per-step markdown artifacts, the catalog contents, the Criteria met
+/// figure and the connection diagnostics.
 /// </summary>
 internal static class DashboardReadersExtensions
 {
@@ -39,6 +40,8 @@ internal static class DashboardReadersExtensions
         // 2026-09-14-620e: transient, like the ISandboxLanguageResolver it reads through —
         // a singleton would capture it.
         services.AddTransient<TemplateContextLookup>();
+        services.AddTransient<RunCriteriaCounter>();
+        services.AddTransient<CriteriaMetAggregator>();
         return services;
     }
 }

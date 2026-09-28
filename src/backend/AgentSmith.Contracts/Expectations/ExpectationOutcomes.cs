@@ -1,7 +1,9 @@
 namespace AgentSmith.Contracts.Expectations;
 
 /// <summary>
-/// p0328: ratification-outcome vocabulary, persisted on the RunExpectation row.
+/// p0328: ratification-outcome vocabulary, persisted on the RunExpectation row. The negotiation
+/// that wrote the rows is removed; the vocabulary stays because the rows and archived
+/// acceptance snapshots still carry it.
 /// The raw material for the p0329 first-PR-acceptance metric: verbatim/edited
 /// (+ edit distance) measure how close the draft was to what the human wanted;
 /// 'unratified' is the visible degradation stamp of a headless auto-ratify or a

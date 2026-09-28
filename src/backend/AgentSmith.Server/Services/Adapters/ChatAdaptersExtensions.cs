@@ -9,18 +9,16 @@ namespace AgentSmith.Server.Extensions;
 /// <summary>
 /// Slack + Teams + dashboard chat adapters. Each builds a typed HttpClient with a 30s timeout
 /// matching the platform's regional routing, wires the per-platform message / card
-/// builders + progress formatter, and registers the adapter as a Singleton —
-/// exposed through IPlatformAdapter so the dispatcher resolves all adapters
-/// uniformly. Teams additionally registers Bot Framework token + JWT validator
+/// builders, and registers the adapter as a Singleton — exposed through IPlatformAdapter
+/// so PlatformAdapters and the spec-dialog messenger resolve all adapters by platform. Teams additionally registers Bot Framework token + JWT validator
 /// + interaction handler.
 /// </summary>
 internal static class ChatAdaptersExtensions
 {
     /// <summary>
-    /// 2026-09-15-9033: the dashboard's own spec-dialog channel. Registered BEFORE the two
-    /// chat adapters on purpose: eight classes still take a single IPlatformAdapter and a
-    /// single-service resolve yields the LAST registration, so a third one added at the end
-    /// would silently move the run-trigger chat path onto a hub group.
+    /// 2026-09-15-9033: the dashboard's own spec-dialog channel. No class takes a single
+    /// IPlatformAdapter any more — every reply names its platform through PlatformAdapters —
+    /// so the order of the three registrations decides nothing.
     /// </summary>
     internal static IServiceCollection AddDashboardAdapter(this IServiceCollection services)
     {
@@ -44,9 +42,11 @@ internal static class ChatAdaptersExtensions
         services.AddTransient<TeamsCardBuilder>();
         services.AddHttpClient<BotFrameworkTokenProvider>(c => c.Timeout = TimeSpan.FromSeconds(30));
         services.AddHttpClient<TeamsApiClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddSingleton<TeamsServiceUrls>();
         services.AddSingleton<TeamsTypedQuestionTracker>();
         services.AddSingleton<TeamsAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
+        services.AddTransient<IChatThreadAdapter, TeamsThreadAdapter>();
         services.AddScoped<TeamsInteractionHandler>();
         return services;
     }
@@ -65,9 +65,9 @@ internal static class ChatAdaptersExtensions
         });
         services.AddTransient<SlackTypedQuestionBlockBuilder>();
         services.AddTransient<SlackMessageBlockBuilder>();
-        services.AddTransient<SlackProgressFormatter>();
         services.AddSingleton<SlackAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<SlackAdapter>());
+        services.AddTransient<IChatThreadAdapter, SlackThreadAdapter>();
         return services;
     }
 }

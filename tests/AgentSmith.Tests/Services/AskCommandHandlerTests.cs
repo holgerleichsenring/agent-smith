@@ -15,23 +15,21 @@ public sealed class AskCommandHandlerTests
 {
     private readonly Mock<IDialogueTransport> _transport = new();
     private readonly InMemoryDialogueTrail _trail = new();
-    private readonly Mock<IProgressReporter> _reporter = new();
     private readonly Mock<IDialogueCheckpointWriter> _checkpointWriter = new();
     private readonly AskCommandHandler _sut;
-    private const string JobId = "job-123";
+    private const string RunId = "run-123";
 
     public AskCommandHandlerTests()
     {
-        _reporter.Setup(r => r.JobId).Returns(JobId);
         _sut = new AskCommandHandler(
-            BuildGate(_reporter.Object),
+            BuildGate(),
             NullLogger<AskCommandHandler>.Instance);
     }
 
     // p0327: the handler routes through the real DialogueAskGate — these tests
     // pin the end-to-end handler behavior, not gate internals.
-    private DialogueAskGate BuildGate(IProgressReporter reporter) => new(
-        _transport.Object, _trail, _checkpointWriter.Object, new DialogueJobIdentity(reporter),
+    private DialogueAskGate BuildGate() => new(
+        _transport.Object, _trail, _checkpointWriter.Object, new DialogueJobIdentity(),
         NullLogger<DialogueAskGate>.Instance);
 
     [Fact]
@@ -41,10 +39,10 @@ public sealed class AskCommandHandlerTests
         var answer = new DialogAnswer(question.QuestionId, "yes", null, DateTimeOffset.UtcNow, "@holger");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
-        var pipeline = new PipelineContext();
+        var pipeline = RunPipeline();
         var context = new AskContext(question, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -60,10 +58,10 @@ public sealed class AskCommandHandlerTests
         var question = CreateQuestion(QuestionType.Confirmation, "Continue?", defaultAnswer: "yes");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync((DialogAnswer?)null);
 
-        var pipeline = new PipelineContext();
+        var pipeline = RunPipeline();
         var context = new AskContext(question, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -79,10 +77,10 @@ public sealed class AskCommandHandlerTests
         var answer = new DialogAnswer(question.QuestionId, "no", null, DateTimeOffset.UtcNow, "@reviewer");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
-        var pipeline = new PipelineContext();
+        var pipeline = RunPipeline();
         var context = new AskContext(question, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -99,10 +97,10 @@ public sealed class AskCommandHandlerTests
         var answer = new DialogAnswer(question.QuestionId, "yes", null, DateTimeOffset.UtcNow, "@reviewer");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
-        var pipeline = new PipelineContext();
+        var pipeline = RunPipeline();
         var context = new AskContext(question, pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -117,10 +115,10 @@ public sealed class AskCommandHandlerTests
         var answer = new DialogAnswer(question.QuestionId, "feature/login", null, DateTimeOffset.UtcNow, "@dev");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
-        var context = new AskContext(question, new PipelineContext());
+        var context = new AskContext(question, RunPipeline());
 
         await _sut.ExecuteAsync(context, CancellationToken.None);
 
@@ -131,13 +129,10 @@ public sealed class AskCommandHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoJobId_UsesDefaultAnswer()
+    public async Task ExecuteAsync_NoRunId_UsesDefaultAnswer()
     {
-        var noJobReporter = new Mock<IProgressReporter>();
-        noJobReporter.Setup(r => r.JobId).Returns((string?)null);
-
         var sut = new AskCommandHandler(
-            BuildGate(noJobReporter.Object),
+            BuildGate(),
             NullLogger<AskCommandHandler>.Instance);
 
         var question = CreateQuestion(QuestionType.Confirmation, "Continue?", defaultAnswer: "yes");
@@ -164,14 +159,21 @@ public sealed class AskCommandHandlerTests
         var answer = new DialogAnswer(question.QuestionId, rejectionWord, null, DateTimeOffset.UtcNow, "@user");
 
         _transport.Setup(t => t.WaitForAnswerAsync(
-                JobId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
+                RunId, question.QuestionId, question.Timeout, It.IsAny<CancellationToken>()))
             .ReturnsAsync(answer);
 
-        var context = new AskContext(question, new PipelineContext());
+        var context = new AskContext(question, RunPipeline());
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
+    }
+
+    private static PipelineContext RunPipeline()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, RunId);
+        return pipeline;
     }
 
     private static DialogQuestion CreateQuestion(

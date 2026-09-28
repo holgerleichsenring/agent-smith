@@ -1,37 +1,45 @@
-// p0329: client for the expectation-metrics read surface — the p0328
-// ratification outcomes aggregated per project into the two headline rates.
-// expectationHitRate = verbatim / human-ratified (null before any human
-// ratification); firstPrAcceptance = (verbatim+edited) / all negotiated runs.
+// The Criteria met read surface: the criteria finished coding runs were judged on,
+// counted by the status they ended on after the operator's overrules — overall, per
+// project, and per project per month of the run's finish (UTC). The route keeps its
+// expectation-era name.
+//
+// share = met / judged, judged = met + unmet + unproven; not_applicable is in neither.
+// An overrule counts only while the status it answered is still the snapshot's;
+// otherwise it is stale, counted in staleOverrules and not applied. share is null
+// where nothing was judged.
 
 import { getJson } from "@/lib/apiResponse";
 
-export interface OutcomeCounts {
-  total: number;
-  verbatim: number;
-  edited: number;
-  rejected: number;
-  unratified: number;
+export interface CriterionCounts {
+  met: number;
+  unmet: number;
+  unproven: number;
+  notApplicable: number;
+  overruled: number;
+  staleOverrules: number;
+  judged: number;
+  share: number | null;
 }
 
-export interface MonthMetrics {
+export interface MonthCriteria {
   month: string;
-  counts: OutcomeCounts;
+  runs: number;
+  counts: CriterionCounts;
 }
 
-export interface ProjectExpectationMetrics {
+export interface ProjectCriteria {
   project: string;
-  counts: OutcomeCounts;
-  expectationHitRate: number | null;
-  firstPrAcceptance: number;
-  averageEditDistance: number | null;
-  months: MonthMetrics[];
+  runs: number;
+  counts: CriterionCounts;
+  months: MonthCriteria[];
 }
 
-export interface ExpectationMetrics {
-  total: number;
-  projects: ProjectExpectationMetrics[];
+export interface CriteriaMet {
+  runs: number;
+  counts: CriterionCounts;
+  projects: ProjectCriteria[];
 }
 
-export async function fetchExpectationMetrics(signal?: AbortSignal): Promise<ExpectationMetrics> {
-  return getJson<ExpectationMetrics>(`/api/runs/expectations/metrics`, signal);
+export async function fetchExpectationMetrics(signal?: AbortSignal): Promise<CriteriaMet> {
+  return getJson<CriteriaMet>(`/api/runs/expectations/metrics`, signal);
 }

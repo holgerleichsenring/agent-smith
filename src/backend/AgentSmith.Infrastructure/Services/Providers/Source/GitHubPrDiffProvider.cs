@@ -39,7 +39,7 @@ public sealed class GitHubPrDiffProvider : IPrDiffProvider
             f.Patch ?? string.Empty,
             MapStatus(f.Status))).ToList();
 
-        return new PrDiff(pr.Base.Sha, pr.Head.Sha, changedFiles);
+        return new PrDiff(pr.Base.Sha, pr.Head.Sha, changedFiles, pr.Head.Ref, pr.User?.Login);
     }
 
     private static ChangeKind MapStatus(string status) => status switch

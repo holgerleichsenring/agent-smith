@@ -4,9 +4,8 @@ namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
 /// Converts <see cref="ResourceLimits"/> Kubernetes-quantity strings into the
-/// integer types Docker's HostConfig expects. Both <c>DockerContainerSpecBuilder</c>
-/// (sandbox toolchain) and <c>DockerJobSpawner</c> (orchestrator) parse the same
-/// quantities. p0268: the parse itself now lives in <see cref="KubernetesQuantity"/>
+/// integer types Docker's HostConfig expects, for <c>DockerContainerSpecBuilder</c>
+/// (sandbox toolchain). p0268: the parse itself now lives in <see cref="KubernetesQuantity"/>
 /// (Contracts) so the Application-layer resolver validates with the same logic; this
 /// extension keeps the historic "0 on malformed input" behavior by mapping false → 0.
 /// </summary>

@@ -128,8 +128,8 @@ export function RunSideRail({
     : STATE_LABEL[rawStatus.toLowerCase()] ?? (rawStatus ? rawStatus.replaceAll("_", " ") : "unknown");
 
   // p0348: COMPUTE shows the pods the run ACTUALLY spawned (RunSandbox rows), not
-  // the p0336 admission reservation (which counts every configured repo + a
-  // synthetic orchestrator pod and reads as live). Until the first sandbox lands
+  // the p0336 admission reservation (which counts every configured repo and
+  // reads as live). Until the first sandbox lands
   // on a run that will have pods (it carries a reserved footprint), show
   // "calculating…" rather than the reservation dressed up as live. Once pods
   // spawn — and after the run, because the rows persist — the live count wins.

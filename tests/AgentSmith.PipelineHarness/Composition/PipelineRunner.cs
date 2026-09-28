@@ -181,7 +181,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             CodingPrinciplesPath: null);
 
         SeedRequired(pipeline, project, resolved, presetName);
-        SeedPresetSpecific(pipeline, presetName);
+        SeedPresetSpecific(pipeline);
         return pipeline;
     }
 
@@ -240,10 +240,14 @@ public sealed class PipelineRunner(IServiceProvider services)
                 new Repository(new BranchName("(passive)"), PassiveRepositoryLocalPath));
             return;
         }
-        pipeline.Set(ContextKeys.SourcePath, SourcePathOverride ?? "/tmp/source");
+        // An explicit source path must exist, so none is invented: without an override
+        // the run resolves its source from the primary repo, as a CLI run without
+        // --source-path does.
+        if (SourcePathOverride is not null)
+            pipeline.Set(ContextKeys.SourcePath, SourcePathOverride);
     }
 
-    private void SeedPresetSpecific(PipelineContext pipeline, string presetName)
+    private void SeedPresetSpecific(PipelineContext pipeline)
     {
         if (NeedsClarificationStatus is not null)
             pipeline.Set(ContextKeys.NeedsClarificationStatus, NeedsClarificationStatus);
@@ -252,7 +256,6 @@ public sealed class PipelineRunner(IServiceProvider services)
         pipeline.Set(ContextKeys.SourceFilePath, SourceFilePathOverride ?? CreateLegalStubFile());
         pipeline.Set(ContextKeys.SwaggerPath, SwaggerPathOverride ?? "https://stub.test/swagger.json");
         pipeline.Set(ContextKeys.ApiTarget, ApiTargetOverride ?? "https://stub.test");
-        HarnessTicketSeed.SeedIfPlanProducing(pipeline, presetName);
     }
 
     private static string CreateLegalStubFile()

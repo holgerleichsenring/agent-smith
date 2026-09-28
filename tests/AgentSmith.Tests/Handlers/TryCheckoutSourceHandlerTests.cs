@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -139,6 +140,37 @@ public sealed class TryCheckoutSourceHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<string>(ContextKeys.SourcePath, out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TryCheckoutSource_CliSourcePathMissing_Fails()
+    {
+        var missing = "/does/not/exist/" + Guid.NewGuid();
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.SourcePath, missing);
+        var context = new TryCheckoutSourceContext(
+            new[] { new RepoConnection { Type = RepoType.Local, Path = missing } }, null, pipeline);
+
+        var result = await _handler.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("--source-path").And.Contain(missing);
+    }
+
+    [Fact]
+    public async Task TryCheckoutSource_NoSourceGiven_PassiveWithPlainMessage()
+    {
+        var logger = new CapturingLogger<TryCheckoutSourceHandler>();
+        var sut = new TryCheckoutSourceHandler(_clonerMock.Object, RunStateConceptsTestFactory.Default, logger);
+        var pipeline = new PipelineContext();
+        var context = new TryCheckoutSourceContext(
+            new[] { new RepoConnection { Type = RepoType.Local, Path = EphemeralSource.NoSourcePath } }, null, pipeline);
+
+        var result = await sut.ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        logger.Lines.Should().Contain("No source given — passive mode");
+        logger.Lines.Should().NotContain(l => l.Contains(EphemeralSource.NoSourcePath));
     }
 
     private static string CreateTempDir()

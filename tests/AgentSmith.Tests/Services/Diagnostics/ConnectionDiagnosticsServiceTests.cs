@@ -148,8 +148,9 @@ public sealed class ConnectionDiagnosticsServiceTests
     {
         var reachable = ConnectionProbeResult.Reachable(1);
 
-        var jobSpawner = new Mock<IJobSpawner>();
-        jobSpawner.Setup(s => s.ProbeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
+        var sandboxBackend = new Mock<IPreflightSandboxProbe>();
+        sandboxBackend.SetupGet(s => s.BackendLabel).Returns("Kubernetes");
+        sandboxBackend.Setup(s => s.ProbeAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
 
         var infra = new Mock<IInfraConnectivityProbe>();
         infra.Setup(p => p.ProbeRedisAsync(It.IsAny<CancellationToken>())).ReturnsAsync(reachable);
@@ -165,7 +166,7 @@ public sealed class ConnectionDiagnosticsServiceTests
             new StubSourceProviderFactory(),
             new StubTicketProviderFactory(),
             new Mock<IChatClientFactory>().Object,
-            jobSpawner.Object,
+            sandboxBackend.Object,
             infra.Object,
             chat.Object,
             new FakeTracker(lastSeen ?? new Dictionary<string, DateTimeOffset>()),

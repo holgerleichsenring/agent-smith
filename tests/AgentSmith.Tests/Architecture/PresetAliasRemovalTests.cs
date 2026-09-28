@@ -64,14 +64,13 @@ public sealed class PresetAliasRemovalTests
     }
 
     [Fact]
-    public void Presets_RetiredPresets_AreUntouched()
+    public void Presets_RemovedPresets_SitInTheOneListWithTheirReason()
     {
-        // skill-manager and autonomous are a DIFFERENT mechanism and are deliberately out of
-        // this phase's scope: they have no replacement, so there is nothing to rewrite a
-        // configuration to. They are also not accepted names — a configuration naming one has
-        // produced a blocking finding since long before this phase, and still does.
-        PipelinePresets.RetiredPresets.Keys.Should().BeEquivalentTo(["skill-manager", "autonomous"]);
-        PipelinePresets.RetiredReason("skill-manager").Should().NotBeNullOrWhiteSpace();
+        // skill-manager and autonomous were removed, not renamed: they have no replacement, so
+        // there is nothing to rewrite a configuration to. They sit in the same list as the
+        // renamed names, with the reason every refusal of them quotes.
+        RetiredPipelineNames.Removed.Keys.Should().BeEquivalentTo(["skill-manager", "autonomous"]);
+        RetiredPipelineNames.Explain("skill-manager").Should().NotBeNullOrWhiteSpace();
         PipelinePresets.IsAcceptedName("skill-manager").Should().BeFalse();
         RetiredPipelineNames.ReplacementFor("autonomous").Should().BeNull(
             "a retired PRESET has no replacement; a retired NAME is the same pipeline said "

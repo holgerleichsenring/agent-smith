@@ -1,28 +1,26 @@
-import type { OutcomeCounts, ProjectExpectationMetrics } from "@/lib/expectationsApi";
+import type { CriterionCounts } from "@/lib/expectationsApi";
 
-// 2026-08-27-559e: the per-project outcome counts summed into one reading.
-// The criteria CARD and the criteria PANEL both need it, and two copies of the
-// sum is how one installation ends up with two hit rates.
+// The Criteria met card and the criteria panel phrase the same counts; the phrasing
+// lives here once so the two cannot drift apart.
 
-export function sumOutcomeCounts(projects: ProjectExpectationMetrics[]): OutcomeCounts {
-  return projects.reduce<OutcomeCounts>(
-    (acc, p) => ({
-      total: acc.total + p.counts.total,
-      verbatim: acc.verbatim + p.counts.verbatim,
-      edited: acc.edited + p.counts.edited,
-      rejected: acc.rejected + p.counts.rejected,
-      unratified: acc.unratified + p.counts.unratified,
-    }),
-    { total: 0, verbatim: 0, edited: 0, rejected: 0, unratified: 0 },
-  );
-}
-
-/** Criteria a human actually ruled on — the denominator of the hit rate. */
-export function ratifiedCount(sum: OutcomeCounts): number {
-  return sum.total - sum.unratified;
-}
-
-/** A rate as a whole percentage, or a dash where there is no measurement. */
+/** A share as a whole percentage, or a dash where there is no measurement. */
 export function percentOrDash(value: number | null): string {
   return value === null ? "—" : `${Math.round(value * 100)}%`;
+}
+
+/** "3 met of 4 judged", with the not-applicable criteria named beside it when there are any. */
+export function judgedSentence(counts: CriterionCounts): string {
+  const base = `${counts.met} met of ${counts.judged} judged`;
+  return counts.notApplicable > 0 ? `${base} · ${counts.notApplicable} not applicable` : base;
+}
+
+/** Overrules applied and overrules left stale, or nothing when there are none. */
+export function overruleSentence(counts: CriterionCounts): string | null {
+  const parts = [
+    counts.overruled > 0 ? `${counts.overruled} overruled` : null,
+    counts.staleOverrules > 0
+      ? `${counts.staleOverrules} stale overrule${counts.staleOverrules === 1 ? "" : "s"}`
+      : null,
+  ].filter((p): p is string => p !== null);
+  return parts.length === 0 ? null : parts.join(" · ");
 }

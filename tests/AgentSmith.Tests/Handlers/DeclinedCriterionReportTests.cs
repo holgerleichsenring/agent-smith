@@ -133,7 +133,7 @@ public sealed class DeclinedCriterionReportTests
             [new CriterionAccount(Lint, AccountDisposition.NotSatisfied, null, "the command exits 1")])]);
 
         var json = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            null, null, accounts, [new DeclinedCriterion(Lint, Reason, "p1")]);
+            accounts, [new DeclinedCriterion(Lint, Reason, "p1")]);
         var view = RunStoryJson.TryDeserialize<AcceptanceView>(json)!;
 
         view.Criteria.Should().ContainSingle().Which.Status.Should().Be(AcceptanceCriterionStatuses.Unmet,
@@ -145,7 +145,7 @@ public sealed class DeclinedCriterionReportTests
     public void Outcome_ARunJudgedByNothingElse_StillListsWhatItDeclined()
     {
         var json = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            null, null, RunAccounts.Empty, [new DeclinedCriterion(Lint, Reason, "p1")]);
+            RunAccounts.Empty, [new DeclinedCriterion(Lint, Reason, "p1")]);
 
         var view = RunStoryJson.TryDeserialize<AcceptanceView>(json)!;
         view.Criteria.Should().BeEmpty();
@@ -155,6 +155,6 @@ public sealed class DeclinedCriterionReportTests
     [Fact]
     public void Outcome_ARunWithNothingDeclined_CarriesNoDeclinedList()
     {
-        RunStorySnapshotBuilder.BuildAcceptanceJson(null, null, RunAccounts.Empty, []).Should().BeNull();
+        RunStorySnapshotBuilder.BuildAcceptanceJson(RunAccounts.Empty, []).Should().BeNull();
     }
 }

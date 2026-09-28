@@ -3,7 +3,7 @@ namespace AgentSmith.Contracts.Commands;
 /// <summary>
 /// Security-pipeline command names: SecuritySkillRound (discussion-loop equivalent),
 /// the three scanner steps (static / git-history / dependency-audit), the finding-
-/// compression + trend + snapshot-write steps, and the SpawnFix auto-remediation step.
+/// compression, trend and snapshot-write steps.
 /// </summary>
 public static partial class CommandNames
 {
@@ -22,8 +22,6 @@ public static partial class CommandNames
 
     public const string SecurityTrend = "SecurityTrendCommand";
     public const string SecuritySnapshotWrite = "SecuritySnapshotWriteCommand";
-
-    public const string SpawnFix = "SpawnFixCommand";
 
     /// <summary>p0429: states what the scan is looking for BEFORE the first scanner
     /// runs, so a target that goes unanswered is a named miss rather than silence.</summary>

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { HubConnectionState } from "@microsoft/signalr";
 import type { OverviewSnapshot, PendingQuestionInfo, RunSnapshot } from "@/types/hub-events";
@@ -120,6 +120,28 @@ describe("MissionControl", () => {
     expect(section.querySelector("h2")).toHaveTextContent("Needs you");
     expect(screen.getByTestId("section-needs-you-count")).toHaveTextContent("1");
     expect(section).toHaveTextContent("answer here — the run resumes immediately");
+  });
+
+  it("MissionControl_FinishedRuns_ShowsClearFinished", () => {
+    mockOverview = {
+      active: [snap("run", "running")],
+      recent: [snap("done", "success")],
+      systemActivity: null,
+    };
+    render(<MissionControl />);
+    const finished = screen.getByTestId("section-finished");
+    expect(within(finished).getByTestId("clear-terminal-runs")).toHaveTextContent("clear finished");
+    expect(within(screen.getByTestId("section-running")).queryByTestId("clear-terminal-runs")).toBeNull();
+  });
+
+  it("MissionControl_NoFinishedRuns_HidesClearFinished", () => {
+    mockOverview = {
+      active: [snap("run", "running")],
+      recent: [],
+      systemActivity: null,
+    };
+    render(<MissionControl />);
+    expect(screen.queryByTestId("clear-terminal-runs")).toBeNull();
   });
 
   it("MissionControl_RunningSpineHint_OnlyWhenRunsCarryBeats", () => {

@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Commands;
@@ -157,6 +156,45 @@ public sealed class SpawnPipelineRunsUseCaseTests
         harness.CallCount.Should().Be(0, "a run that does not fit the budget must not be claimed");
         result.ClaimResults.Should().ContainSingle()
             .Which.Outcome.Should().Be(ClaimOutcome.Queued);
+    }
+
+    // A ClaimResult names no run, so the spawn result names the one the run lives under —
+    // what a chat reply has to tell the person who asked for it.
+    [Fact]
+    public async Task SpawnPipelineRuns_Started_ReportsTheRunIdItClaimedWith()
+    {
+        var harness = new Harness();
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            ClaimableConfig, project, "code", Envelope("42"), Trigger(), CancellationToken.None);
+
+        result.RunId.Should().NotBeNullOrEmpty().And.Be(harness.LastRequest!.ExistingRunId);
+    }
+
+    [Fact]
+    public async Task SpawnPipelineRuns_Deferred_ReportsTheRunIdItWaitsUnder()
+    {
+        var harness = new Harness(fits: false);
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        var result = await harness.Sut.ExecuteAsync(
+            ClaimableConfig, project, "code", Envelope("42"), Trigger(), CancellationToken.None);
+
+        result.RunId.Should().NotBeNullOrEmpty().And.Be(harness.EnqueuedRunId);
+    }
+
+    [Fact]
+    public async Task SpawnPipelineRuns_EnvelopeNamedByAPerson_SeedsTheMarkerIntoTheClaim()
+    {
+        var harness = new Harness();
+        var project = BuildProject("p1", repos: new[] { "repo-only" });
+
+        await harness.Sut.ExecuteAsync(
+            ClaimableConfig, project, "code", Envelope("42") with { RequestedByName = true },
+            Trigger(), CancellationToken.None);
+
+        harness.LastRequest!.InitialContext.IsRequestedByName().Should().BeTrue();
     }
 
     // p0355: after the at-claim corpse reap, admission reconciles with the REAL

@@ -27,11 +27,15 @@ public sealed class BootstrapDocumentContextBuilder : IContextBuilder
 
 public sealed class DeliverOutputContextBuilder : IContextBuilder
 {
+    private const string DefaultOutputFormat = "console";
+
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        var repo = pipeline.Get<Repository>(ContextKeys.Repository);
-        var repos = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         pipeline.TryGet<string>(ContextKeys.OutputFormat, out var outputFormat);
-        return new DeliverOutputContext(repos[0], repo, pipeline, outputFormat);
+        pipeline.TryGet<string>(ContextKeys.OutputDir, out var outputDir);
+        return new DeliverOutputContext(
+            project.Name,
+            string.IsNullOrWhiteSpace(outputFormat) ? DefaultOutputFormat : outputFormat,
+            outputDir, pipeline);
     }
 }

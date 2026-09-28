@@ -21,13 +21,11 @@ internal static class ModalIntentFactory
         Platform = DispatcherDefaults.PlatformSlack
     };
 
-    public static FixTicketIntent CreatePipelineIntent(
-        string pipeline, string project, string userId, string channelId) => new()
+    public static SecurityReviewIntent CreateSecurityReviewIntent(
+        string project, string userId, string channelId) => new()
     {
-        TicketId = string.Empty,
         Project = project,
-        PipelineOverride = pipeline,
-        RawText = $"/{pipeline} in {project}",
+        RawText = $"/security-review {project}",
         UserId = userId,
         ChannelId = channelId,
         Platform = DispatcherDefaults.PlatformSlack

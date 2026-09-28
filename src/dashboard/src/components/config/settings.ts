@@ -22,6 +22,7 @@ export const SETTING_KEYS: SettingKey[] = [
   "skills",
   "pipeline_storage",
   "pipeline_data_flow",
+  "trace",
 ];
 
 export const SETTING_LABEL: Record<SettingKey, string> = {
@@ -37,13 +38,14 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
   skills: "Skills",
   pipeline_storage: "Pipeline storage",
   pipeline_data_flow: "Pipeline data flow",
+  trace: "Trace",
 };
 
 // The one-line subtitle under each settings title in the studio content area.
 export const SETTING_SUBTITLE: Record<SettingKey, string> = {
-  orchestrator: "orchestrator image pin and the run wall-time ceiling",
+  orchestrator: "the run wall-time ceiling",
   sandbox: "sandbox agent image and per-step / per-command timeouts",
-  deployment: "the single image pin feeding both orchestrator and sandbox when unset",
+  deployment: "the image pin feeding the sandbox agent when it names none",
   registries: "private package feeds the agent authenticates against",
   primary_provider: "the default agent provider when a project names none",
   limits: "per-skill agentic loop ceilings — tool calls, tokens, sub-agents",
@@ -53,6 +55,7 @@ export const SETTING_SUBTITLE: Record<SettingKey, string> = {
   skills: "where the skill catalog is resolved from",
   pipeline_storage: "in-flight run-artifact store TTL",
   pipeline_data_flow: "data-flow gating — warn only, or enforce",
+  trace: "record each run's conversation, not only its numbers — AGENTSMITH_TRACE overrides it",
 };
 
 // The rail / header glyph per settings key.
@@ -69,6 +72,7 @@ export const SETTING_ICON: Record<SettingKey, string> = {
   skills: "✧",
   pipeline_storage: "⛁",
   pipeline_data_flow: "⇢",
+  trace: "⌁",
 };
 
 export function isSettingKey(value: string | undefined): value is SettingKey {

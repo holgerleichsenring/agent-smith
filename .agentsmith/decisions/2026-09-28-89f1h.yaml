@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1h
+
+decisions:
+  - category: Architecture
+    chose: "Each sandbox backend registers its own IPreflightSandboxProbe (Kubernetes lists one pod in its namespace, Docker pings its daemon, in-process runs the round-trip), and one SandboxBackendProbe turns it into the startup finding; ConnectionDiagnosticsService probes the same one"
+    over: "Reusing ISandboxCapacityProbe, or a round-trip spawn on every backend"
+    reason: |
+      The capacity probe answers "does this footprint fit" and fails open on a read error, so it
+      cannot say the backend is unreachable. A round-trip on Kubernetes or Docker would start a
+      pod per boot with an image that does not exist. The reachability calls are the ones the
+      deleted spawners made, moved onto the clients the sandbox backend really uses. The startup
+      subsystem is renamed spawner -> sandbox-backend; DockerSocketUriResolver's finding moved with it.
+    alternatives:
+      - "ISandboxCapacityProbe: fail-open by contract, answers another question"
+      - "SandboxRoundTripProbe everywhere: spawns a pod with a non-existent probe image"
+
+  - category: Implementation
+    chose: "KubernetesClientConfigLoader: in-cluster config in a pod, otherwise the default kubeconfig with 127.0.0.1 rewritten to host.docker.internal, exactly as JobSpawnerSetup did"
+    over: "Keeping the sandbox's in-cluster-only client, or dropping the Docker Desktop rewrite"
+    reason: |
+      JobSpawnerSetup registered IKubernetes after AddSandbox, so its kubeconfig fallback was what
+      every out-of-cluster Kubernetes sandbox actually ran on; deleting it alone would have broken
+      those. The rewrite is moved unchanged rather than redesigned — a natively running server
+      against Docker Desktop's cluster depends on host.docker.internal resolving, as it did before.
+
+  - category: Scope
+    chose: "The chat bus family goes whole: BusMessageRouter, MessageBusListener, JobSubscriptionRegistry, ConversationStateManager/Repository, OrphanJobDetector, SlackErrorActionHandler, SlackErrorBlockBuilder, ErrorContext, SlackProgressTracker/Formatter, the Teams progress/done/error cards, and IPlatformAdapter's SendProgress/SendDone/SendError/SendDetail"
+    over: "Deleting only the four types slice g named and fixing SlackErrorActionHandler's already-running check against the chat-run binding"
+    reason: |
+      Every one of them had BusMessageRouter as its only producer or caller: the router was the
+      only thing that posted progress, completion and the error block whose retry/contact buttons
+      SlackErrorActionHandler handled. With the router gone no such button is posted any more
+      (g's outcome notice is plain text), so the handler served only buttons on old messages,
+      and its "already running" check duplicated the per-thread guard ChatRunStart applies to
+      every launch. ConversationState the MODEL stays: the spec dialog stores its sessions in it.
+    alternatives:
+      - "Keep SlackErrorActionHandler with a binding check: a handler for a button nothing posts"
+
+  - category: Scope
+    chose: "IMessageBus shrinks to SubscribeToJobAsync, the one member SpecDialogQuestionPump still reads; RedisMessageBus drops publish, answer, read and cleanup"
+    over: "Leaving the unused members"
+    reason: "Their callers were the spawned CLI's RedisProgressReporter, the router and the orphan detector, all deleted here. RedisMessageBus falls under the length limit and leaves the baseline."
+
+  - category: Implementation
+    chose: "HelpHandler, ListTicketsIntentHandler and CreateTicketIntentHandler take PlatformAdapters and reply on the intent's platform (HelpHandler is handed it per call); PlatformAdapters gained SendClarificationAsync; no class takes a bare IPlatformAdapter any more, pinned by a reflection test"
+    over: "Resolving the keyed Slack adapter in each"
+    reason: "Teams reaches the same handlers through the shared dispatcher, so a fixed adapter answers one platform on the other's behalf. The registration-order comments that guarded the bare resolve went with the last user."
+
+  - category: Implementation
+    chose: "RunTerminator is deleted and CancelEnforcer finalizes without a kill; RunDeleter force-clears without one and RunDeleteOutcome.PodTerminationFailed goes with its 502 response"
+    over: "Keeping the JobId branch for rows that still carry one (the analysis note's 'keep reading old rows')"
+    reason: |
+      The branch needed an IJobSpawner, which no longer exists in any composition; with none
+      registered the old code already finalized anyway. A pod spawned before the upgrade is
+      beyond this server's reach by construction. Old rows are still READ: the reserved
+      capacity-time of a finished run with a JobId still counts its orchestrator pod, now at the
+      default 1Gi request rather than the deleted JobSpawner option.
+
+  - category: Implementation
+    chose: "RunStartedEvent.JobId and Run.JobId stay on the contract and the row, set by nothing"
+    over: "Removing them"
+    reason: "Recorded events and existing rows carry them; removing the field changes the persisted event contract and the dashboard mirror for no behaviour. IProgressReporter.JobId went — only the deleted RedisProgressReporter set it."
+
+  - category: Implementation
+    chose: "RunFootprint loses its Orchestrator slot; From maps every breakdown pod to a sandbox"
+    over: "Keeping a slot that is always null"
+    reason: "A stored breakdown with a legacy orchestrator pod still counts the same total, since the probe sums every pod either way."
+
+  - category: Implementation
+    chose: "Five RetiredConfigKeys rows — orchestrator.registry/version and projects.*.orchestrator.registry/version/resources — not one row per block"
+    over: "Retiring the orchestrator block"
+    reason: |
+      max_run_wall_time_seconds in the same block stays read, and every stored configuration has
+      an orchestrator row with Registry and Version serialised as empty strings, which the
+      detector's blank-is-unset rule keeps silent (pinned by a test). A studio save drops the
+      stale properties, which the config-studio smoke test now asserts.
+
+  - category: Implementation
+    chose: "The example config's deployment block is commented out and explained as an optional pin; the orchestrator block is shown with max_run_wall_time_seconds only"
+    over: "Keeping deployment active at 0.129.0"
+    reason: "The example called deployment 'required by the ORCHESTRATOR image'; with no orchestrator image it only pins the sandbox agent, whose tag is otherwise derived, and an active pin is reported as an advisory finding."
+
+  - category: Implementation
+    chose: "The CLI's run verb loses --job-id, --redis-url, --channel-id and --platform"
+    over: "Removing only the two named in the spec"
+    reason: "The last two were passed only by the spawners and read by nothing."
+
+  - category: Scope
+    chose: "Docs fixed beyond the named pages where they stated a now-false spawner fact: settings.md, install.md, repos-multi.md, agentsmith-yml.md, agentsmith-yml-schema.md, docker-k8s-troubleshooting.md, server-resilience.md, layers.md; DOCKERHUB_DESCRIPTION.md also dropped the fix verb and the server subcommand the CLI does not have"
+    over: "Touching only kubernetes, capacity, docker-compose, chat-gateway and DOCKERHUB_DESCRIPTION"
+    reason: "All other slices are merged, so nobody else owns these lines now; leaving them would document SPAWNER_TYPE and an orchestrator image pin that no longer exist. chat-gateway.md needed nothing: f and g had removed the spawner there."
+
+  - category: Scope
+    chose: "The Role keeps its name agentsmith-job-manager and loses only the batch/jobs rule"
+    over: "Renaming the Role"
+    reason: "A rename breaks the RoleBinding of every installed cluster on upgrade for a cosmetic gain."
+
+  - category: Scope
+    chose: "IContainerRunner/DockerContainerRunner are left alone; only the comment that tied them to DockerJobSpawner was corrected"
+    over: "Deleting them"
+    reason: "They are registered and consumed by nothing, but they never were the spawner's either — found here, not caused here. Reported for a follow-up rather than widened into this slice."

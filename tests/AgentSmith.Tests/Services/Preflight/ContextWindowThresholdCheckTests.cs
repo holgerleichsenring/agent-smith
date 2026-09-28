@@ -50,6 +50,29 @@ public sealed class ContextWindowThresholdCheckTests
     }
 
     [Fact]
+    public async Task Preflight_APartialModelsBlock_JudgesOnlyTheRolesItSets()
+    {
+        // An unset role is null now, not a Claude default; the check must not dereference it.
+        var config = new AgentSmithConfig
+        {
+            Agents = new Dictionary<string, AgentConfig>
+            {
+                ["agent"] = new()
+                {
+                    Type = "openai", Model = "gpt-5",
+                    Models = new ModelRegistryConfig { Primary = new() { Model = "gpt-5", ContextWindowTokens = 128000 } },
+                },
+            },
+        };
+
+        var result = await new ContextWindowThresholdCheck(FakePreflightConfigSource.Of(config))
+            .RunAsync(CancellationToken.None);
+
+        result.Status.Should().Be(PreflightStatus.Fail, "the one stated role folds at 140000 against 128000");
+        result.Message.Should().Contain("agent.primary").And.NotContain("agent.scout");
+    }
+
+    [Fact]
     public async Task Preflight_ConfigFailedToLoad_Skips()
     {
         var check = new ContextWindowThresholdCheck(

@@ -17,14 +17,9 @@ public sealed record JiraTicketConnection(
     string? ProjectKey = null,
     JiraEndpoints? Endpoints = null,
     JiraLifecycleStatusMap? LifecycleStatusMap = null,
-    string? ParentLinkType = null,
     Tickets.TicketLabelVocabulary? Labels = null)
 {
     private static readonly JiraEndpoints DefaultEndpoints = new();
-
-    /// <summary>The issue link type a filed child is linked to its parent with. A Task cannot
-    /// parent a Task, so the link is a plain issue link; a site may rename its types.</summary>
-    public const string DefaultParentLinkType = "Relates";
 
     /// <summary>Endpoint templates with Jira-Cloud-v3 defaults applied when unset.</summary>
     public JiraEndpoints ResolvedEndpoints => Endpoints ?? DefaultEndpoints;

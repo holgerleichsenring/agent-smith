@@ -4,9 +4,9 @@ import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsVi
 import { useExpectationMetrics } from "@/hooks/useExpectationMetrics";
 import * as api from "@/lib/expectationsApi";
 
-// p0329: the expectation-metrics rollup — populated projects render both
-// headline rates (null hit rate renders as an honest dash, never 0%), and an
-// empty backend renders the honest empty-state instead of zero-metrics.
+// The criteria panel: populated projects render their share and month tally (a project
+// with nothing judged shows a dash, never 0%), and an installation with no judged run
+// renders the empty state instead of zeros.
 
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
 
@@ -14,11 +14,12 @@ const mockedApi = api as unknown as {
   fetchExpectationMetrics: ReturnType<typeof vi.fn>;
 };
 
-const counts = { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 };
+const zero = { met: 0, unmet: 0, unproven: 0, notApplicable: 0, overruled: 0, staleOverrules: 0 };
+const alpha = { ...zero, met: 3, unmet: 1, judged: 4, share: 0.75, staleOverrules: 1 };
+const beta = { ...zero, notApplicable: 2, judged: 0, share: null };
 
-// 2026-08-27-559e: the panel takes the read rather than making it, so the tests
-// drive it through the hook that owns the fetch — the same path the Overview
-// composes, endpoint included.
+// The panel takes the read rather than making it, so the tests drive it through the
+// hook that owns the fetch — the same path the Overview composes, endpoint included.
 function CriteriaPanel() {
   return <ExpectationMetricsView {...useExpectationMetrics()} />;
 }
@@ -28,40 +29,37 @@ describe("ExpectationMetricsView", () => {
     mockedApi.fetchExpectationMetrics.mockReset();
   });
 
-  it("renders per-project rates and counts", async () => {
+  it("renders per-project shares and month tallies", async () => {
     mockedApi.fetchExpectationMetrics.mockResolvedValue({
-      total: 6,
+      runs: 3,
+      counts: { ...alpha, notApplicable: 2 },
       projects: [
         {
           project: "alpha",
-          counts,
-          expectationHitRate: 0.25,
-          firstPrAcceptance: 0.6,
-          averageEditDistance: 8,
-          months: [{ month: "2026-06", counts }],
+          runs: 2,
+          counts: alpha,
+          months: [{ month: "2026-06", runs: 2, counts: alpha }],
         },
-        {
-          project: "beta",
-          counts: { total: 1, verbatim: 0, edited: 0, rejected: 0, unratified: 1 },
-          expectationHitRate: null,
-          firstPrAcceptance: 0,
-          averageEditDistance: null,
-          months: [],
-        },
+        { project: "beta", runs: 1, counts: beta, months: [] },
       ],
     });
 
     render(<CriteriaPanel />);
 
     expect(await screen.findByTestId("expectations-project-alpha")).toBeInTheDocument();
-    expect(screen.getByTestId("expectations-hit-rate-alpha")).toHaveTextContent("25%");
-    expect(screen.getByTestId("expectations-acceptance-alpha")).toHaveTextContent("60%");
-    // A project nobody has ratified yet shows a dash, not a fake 0%.
-    expect(screen.getByTestId("expectations-hit-rate-beta")).toHaveTextContent("—");
+    expect(screen.getByTestId("expectations-share-alpha")).toHaveTextContent("75%");
+    expect(screen.getByTestId("expectations-months-alpha")).toHaveTextContent("2026-06: 3/4 met");
+    expect(screen.getByTestId("expectations-project-alpha")).toHaveTextContent("1 stale overrule");
+    // A project whose criteria were all not applicable has no share, not a fake 0%.
+    expect(screen.getByTestId("expectations-share-beta")).toHaveTextContent("—");
   });
 
-  it("renders the honest empty-state when no ratifications exist", async () => {
-    mockedApi.fetchExpectationMetrics.mockResolvedValue({ total: 0, projects: [] });
+  it("renders the empty state when no coding run was judged", async () => {
+    mockedApi.fetchExpectationMetrics.mockResolvedValue({
+      runs: 0,
+      counts: { ...zero, judged: 0, share: null },
+      projects: [],
+    });
 
     render(<CriteriaPanel />);
 

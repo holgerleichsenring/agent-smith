@@ -55,7 +55,7 @@ A run always finalizes — success, shortfall, failure, timeout, cancel — and 
 
 Mid-run, the master's work is committed and pushed to the branch every time it marks progress, at most every `agent.checkpoint_push_min_interval_seconds` (default 120). A crashed sandbox or a killed pod loses at most the work since the last checkpoint. Each checkpoint passes the same secret scan as the final commit.
 
-Run liveness is derived from the orchestrator itself (does the run's pod/container actually exist), not from a heartbeat key that a busy process might miss. The database knows what was in flight; a server restart reconciles instead of duplicating. Analysis stays fresh the same way — the project-map cache is keyed on the repo's HEAD SHA, so a new commit re-analyzes instead of reasoning about last week's code.
+A running run renews a heartbeat in the database every 45 seconds for its whole duration, independent of how busy its steps are. A heartbeat older than the stale threshold means the server replica that owned the run is gone: the lease is released and the ticket can be claimed again. The database knows what was in flight, so a server restart reconciles instead of duplicating. Analysis stays fresh the same way — the project-map cache is keyed on the repo's HEAD SHA, so a new commit re-analyzes instead of reasoning about last week's code.
 
 ## Per-repo bootstrap
 

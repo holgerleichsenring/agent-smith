@@ -18,7 +18,10 @@ internal static class ClaimPreChecker
         if (PipelinePresets.TryResolve(request.PipelineName) is null)
             return ClaimRejectionReason.UnknownPipeline;
 
-        if (!IsLabelTriggered(project, request.Platform, request.PipelineName))
+        // A run a person named in chat is not routed by a label, so nothing here asks whether
+        // one would have routed it — the pipeline and project checks above still hold.
+        if (!request.InitialContext.IsRequestedByName()
+            && !IsLabelTriggered(project, request.Platform, request.PipelineName))
             return ClaimRejectionReason.PipelineNotLabelTriggered;
 
         return null;

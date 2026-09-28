@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -21,10 +20,6 @@ internal static class CapacityTestDoubles
             .Returns(ResourceLimits.Default);
         return resolver.Object;
     }
-
-    // p0320b: in-process default — no orchestrator pod, footprint carries null.
-    public static IOrchestratorResourceResolver NoOrchestrator() =>
-        new NullOrchestratorResourceResolver();
 
     public static ISandboxCapacityProbe AlwaysAdmit()
     {

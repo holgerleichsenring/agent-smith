@@ -19,11 +19,8 @@ public sealed record ConfigSandbox(
     int StepTimeoutSeconds,
     int RunCommandTimeoutSeconds);
 
-/// <summary>Orchestrator defaults: image coordinates and the run wall-time ceiling.</summary>
-public sealed record ConfigOrchestrator(
-    string Registry,
-    string Version,
-    int MaxRunWallTimeSeconds);
+/// <summary>Orchestrator defaults: the run wall-time ceiling.</summary>
+public sealed record ConfigOrchestrator(int MaxRunWallTimeSeconds);
 
 /// <summary>The agentic-loop hard limits operators most often tune.</summary>
 public sealed record ConfigLimits(

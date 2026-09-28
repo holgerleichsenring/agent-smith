@@ -1,0 +1,46 @@
+using AgentSmith.Contracts.Models.Configuration;
+
+namespace AgentSmith.Infrastructure.Core.Services.Configuration.Retired;
+
+/// <summary>
+/// Every configuration key this product has stopped reading, and the one table
+/// <see cref="RetiredConfigKeyDetector"/> reads. Retiring a key is one row here: the file loader,
+/// the stored-document loader and their advisory findings follow from it.
+/// </summary>
+public static class RetiredConfigKeys
+{
+    private const string OrchestratorImage =
+        "No run spawns an orchestrator container any more: the pipeline runs in the server. "
+        + "deployment.version still pins the sandbox agent image.";
+
+    public static IReadOnlyList<RetiredConfigKey> All { get; } =
+    [
+        new("trackers.*.parent_link_type", "2026-09-28",
+            "Nothing links a filed ticket to a parent any more: an approved cut files one work "
+            + "ticket, so there is no child to link."),
+        new("projects.*.pipelines.*.confidence_threshold", "2026-09-28",
+            "Nothing downgrades a blocking observation any more, so the threshold that tuned it is "
+            + "not read. Remove the key from agentsmith.yml; in a stored configuration, export, "
+            + "edit and import it again."),
+        new("agents.*.compaction.summary_model", "2026-09-28",
+            "Compaction summarizes with the agent's summarization role; this model was never "
+            + "consulted after the compactor was rebuilt. Name that role under models: instead."),
+        new("agents.*.compaction.deployment_name", "2026-09-28",
+            "Compaction summarizes with the agent's summarization role, deployment included; "
+            + "this override was never consulted after the compactor was rebuilt."),
+        new("tool_runner.namespace", "2026-09-28",
+            "Scanners run on the Docker or Podman engine or as local processes; no tool runner reads a "
+            + "Kubernetes namespace."),
+        new("tool_runner.image_pull_policy", "2026-09-28",
+            "No tool runner reads a pull policy; the engine pulls an image it does not have."),
+        new("agents.*.parallelism", "2026-09-28",
+            "Skill rounds no longer run in batches, so there is nothing for it to bound."),
+        new("orchestrator.registry", "2026-09-28", OrchestratorImage),
+        new("orchestrator.version", "2026-09-28", OrchestratorImage),
+        new("projects.*.orchestrator.registry", "2026-09-28", OrchestratorImage),
+        new("projects.*.orchestrator.version", "2026-09-28", OrchestratorImage),
+        new("projects.*.orchestrator.resources", "2026-09-28",
+            "No run spawns an orchestrator pod any more: the pipeline runs in the server, and a "
+            + "run's footprint is its sandboxes. Size those under sandbox.resources."),
+    ];
+}

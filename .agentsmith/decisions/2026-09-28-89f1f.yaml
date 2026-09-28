@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1f
+
+decisions:
+  - category: Architecture
+    chose: "A chat ticket run enters ISpawnPipelineRunsUseCase with an envelope for the project's tracker platform (tracker type, lowercased) and the trigger TriggerSelectionHelper.ByTrackerType returns, falling back to an empty trigger when the project declares none"
+    over: "Calling ITicketClaimService.ClaimAsync directly, or keeping the chat platform ('slack') on the request"
+    reason: |
+      Admission, the FIFO capacity queue and the approved-set carrier live in the funnel, not in the
+      claim. The claim looks its trigger up by platform, and 'slack' matches none, so every chat run
+      was PipelineNotLabelTriggered; the tracker's platform makes the done/failed statuses resolve
+      exactly as a polled run's do.
+    alternatives:
+      - "ClaimAsync directly: skips capacity admission and the queue"
+      - "A chat platform in the claim: every run refused"
+
+  - category: Architecture
+    chose: "The 'named by a person' fact rides the envelope (RequestedByName) into the run's initial context (ContextKeys.RequestedByName); ClaimPreChecker skips only the label-route check when it is set, and CapacityQueuePump does not drop such a waiting run for its ticket's status"
+    over: "A new ClaimRequest field, or a new parameter on ISpawnPipelineRunsUseCase"
+    reason: |
+      A deferred run is re-claimed later by the pump from the persisted queue row, whose only
+      carrier for request facts is InitialContextJson; a ClaimRequest field would be lost there
+      without a schema change. The context already carries the approved set the same way. The
+      pump honours it for the same reason: a status never routed this run, so a status cannot
+      un-route it. The unknown-project and unknown-pipeline checks still apply.
+    alternatives:
+      - "ClaimRequest field + queue column: a migration for one bool"
+      - "Skip the pump's status re-check for nobody: a queued chat run on a ticket outside trigger_statuses is dropped"
+
+  - category: Implementation
+    chose: "SpawnResult carries the RunId the run was claimed or deferred under; the chat reply reads it there, and chat mints the id only for ticketless runs"
+    over: "Minting the id in chat and passing it into the funnel as ExistingRunId (the spec's wording)"
+    reason: |
+      The funnel already mints the id, and when the ticket is already in the capacity queue it keeps
+      the entry's reserved id (the queue upserts per project and ticket). An id minted in chat would
+      then name a run that does not exist. Returning the id the funnel actually used serves the
+      spec's reason — the next slice binds the thread to that id — without that failure mode.
+    alternatives:
+      - "Pass a minted ExistingRunId: wrong id for a ticket already waiting in the queue"
+
+  - category: Architecture
+    chose: "Ticketless chat runs (security-review) go through ChatTicketlessRunLauncher, reusing InitRunAdmission and InitRunRepository; init goes through InitRunLauncher itself; two launcher classes instead of one ChatRunLauncher"
+    over: "One ChatRunLauncher with both paths, or a copy of the init admission"
+    reason: |
+      The init admission and the queued-row writer already take a pipeline name, so the ticketless
+      door is the init door with another pipeline and a context. Two classes keep each under the
+      size limit with one responsibility. No double-start guard for chat scans: two reviews of
+      different pull requests in one project are legitimate, and admission bounds capacity.
+    alternatives:
+      - "One class with both paths: two responsibilities"
+
+  - category: Implementation
+    chose: "The Slack modal's MAD Discussion goes through the ticket funnel, not the ticketless launcher"
+    over: "The spec's scope line listing mad-discussion among the ticketless runs"
+    reason: |
+      The modal asks for a ticket for MAD Discussion and the mad-discussion pipeline reads it; the
+      notes' point was that the claim refused it as not label-routed, which the RequestedByName
+      marker settles. No chat command starts a ticketless mad-discussion.
+    alternatives: []
+
+  - category: Implementation
+    chose: "A chat security review of a pull request resolves the PR through IPrDiffProviderFactory; PrDiff gained optional HeadBranch and Author, filled by all three providers; PrRunContextFactory.FromDiff shares c's context builder"
+    over: "Seeding only PrNumber and SourceOverrideRepo, or a new PR-lookup provider"
+    reason: |
+      The checkout needs the head branch, which a bare number does not carry; every diff provider
+      already fetches the pull request object that has it. The context is built by the same
+      builder the webhook paths use, so the keys cannot drift.
+    alternatives:
+      - "PrNumber only: the scan checks out the default branch again"
+      - "A new provider interface: a second client per host for one lookup"
+
+  - category: TradeOff
+    chose: "A pull-request review from chat needs a project with exactly one GitHub/GitLab/Azure DevOps repo; otherwise it is refused, and the reply points at the PR label"
+    over: "Trying every repo of the project for the number"
+    reason: |
+      PR numbers are per repo, so #12 commonly exists in several; picking the first hit would scan
+      the wrong code. The label route knows its repo and serves multi-repo projects on GitHub and
+      GitLab.
+    alternatives:
+      - "First repo that answers: silently the wrong pull request"
+
+  - category: TradeOff
+    chose: "Chat no longer writes conversation state or tracks a bus job for a run; it posts the run id (and the dashboard link when dialogue.dashboard_url is set) and stops"
+    over: "Registering the run id as the channel's job like the spawner path did"
+    reason: |
+      A server run reports nothing on the bus, so the state would block the channel for its 45-minute
+      TTL, and OrphanJobDetector asks the spawner whether the 'job' is alive — for a run id it would
+      post "appears to have crashed" a minute in. Following the run back into the thread is
+      2026-09-28-89f1g. Consequence until then: questions and outcome are on the dashboard, and the
+      per-channel "already running" guard is gone (the ticket lease still refuses a second run).
+    alternatives:
+      - "Keep the state: a false crash message per chat run"
+
+  - category: Implementation
+    chose: "ChatLaunchAnnouncer takes RunAnswerLink from DI (singleton over the startup AgentSmithConfig)"
+    over: "Recomputing the link from a freshly loaded config"
+    reason: |
+      One place formats the dashboard's run URL. The cost stated: a dialogue.dashboard_url changed
+      by live reload reaches chat replies after a restart, as it already does for ticket comments.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The Slack legal modal is removed (ModalCommandType, SlackModalBuilder, SlackModalBlockFactory, chat-gateway docs); website/src/_data/pipelines.json no longer exists in the tree, so there was nothing to remove there"
+    over: "Keeping a modal entry that starts a run with no document"
+    reason: "legal-analysis needs a document and stays a CLI pipeline; the modal entry could never succeed."
+    alternatives: []
+
+  - category: Implementation
+    chose: "Chat replies keep going through the bare IPlatformAdapter the intent handlers used"
+    over: "Routing them through PlatformAdapters with the real platform"
+    reason: |
+      Intents carry the historical 'slack' label for Teams too, and changing the reply channel of the
+      whole run-trigger path is beyond this slice; behaviour is unchanged. Reported to the
+      orchestrator for 2026-09-28-89f1g, which owns the thread binding.
+    alternatives: []
+
+  - category: Implementation
+    chose: "AddProjectInit is registered by the chat composition as well as the dashboard API, with TryAdd; PrRunContextFactory likewise TryAdd in both places"
+    over: "Moving the registrations"
+    reason: "The dashboard API is conditional; the chat init door must resolve without it."
+    alternatives: []

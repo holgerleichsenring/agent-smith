@@ -22,11 +22,10 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         // Sites that do not pass a WebToolHost leave web_fetch off the surface.
         typeof(WebToolHost),
         // p0177: SpawnAgentToolHost + ReadSubAgentObservationsToolHost are
-        // allowed in the policy; pipeline opt-in to fan-out lives at the
-        // construction site (only pipelines that pass a SpawnAgentToolHost
-        // get spawn_agents). ReadSubAgentObservations is master-and-child
-        // safe — included unconditionally so siblings can inspect each
-        // other's observations.
+        // allowed in the policy; whether a master gets them is decided where its
+        // surface is composed (MasterToolComposition): every master whose fan-out
+        // count is above zero (max_sub_agents_per_run, or max_sub_agents_per_dialog_turn
+        // for a design turn) gets both, and a child gets neither.
         typeof(SpawnAgentToolHost),
         typeof(ReadSubAgentObservationsToolHost),
         // p0191: agent calls get_artifact_credentials on package-manager auth

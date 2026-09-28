@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/holgerleichsenring/agent-smith/blob/main/config/agentsmith.schema.json",
   "title": "Agent Smith Configuration",
-  "description": "Schema for agentsmith.yml (and agentsmith.example.yml). Introduced in p0139: top-level named catalogs for agents, repos, trackers, and pipeline_triggers; projects reference catalog entries by name.",
+  "description": "Schema for agentsmith.yml (and agentsmith.example.yml): top-level named catalogs for agents, connections, repos and trackers; projects reference catalog entries by name. Every object closes its properties, so a misspelt key is reported here — the loader itself ignores keys it does not know.",
   "type": "object",
   "additionalProperties": false,
   "properties": {
@@ -36,63 +36,341 @@
       "description": "Per-project configuration. Each project references catalog entries by name plus declares its own trigger blocks.",
       "additionalProperties": { "$ref": "#/$defs/project" }
     },
-    "skills": { "type": "object" },
+    "mcp_servers": {
+      "type": "object",
+      "description": "The configuration studio's MCP server catalog. Each key is a server name.",
+      "additionalProperties": { "$ref": "#/$defs/mcpServer" }
+    },
     "secrets": {
       "type": "object",
+      "description": "Named secrets other entries reference by name (auth: github_token). A value is usually an ${ENV_VAR} placeholder.",
       "additionalProperties": { "type": "string" }
     },
-    "queue": { "type": "object" },
-    "limits": { "type": "object" },
-    "pipeline_storage": { "type": "object" },
-    "pipeline_data_flow": { "type": "object" },
+    "registries": {
+      "type": "array",
+      "description": "Private package feeds the agent authenticates against inside a sandbox (get_artifact_credentials).",
+      "items": { "$ref": "#/$defs/registry" }
+    },
+    "primary_provider": { "type": "string", "description": "The default agent provider when a project names none." },
+    "skills": {
+      "type": "object",
+      "description": "Skill catalog source. Normally unset: the server runs the catalog embedded in its image.",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "How the catalog is resolved. Unset: path when path is set, url when url is set, a pinned release when version is set, otherwise the catalog embedded in the server image.",
+          "enum": ["default", "path", "url", "embedded"]
+        },
+        "version": {
+          "type": "string",
+          "description": "Release tag of the skills repository to pull (source: default)."
+        },
+        "path": {
+          "type": "string",
+          "description": "A mounted directory holding a skills/ subdirectory (source: path)."
+        },
+        "url": { "type": "string", "description": "An explicit catalog tarball (source: url)." },
+        "sha256": { "type": "string", "description": "Optional checksum a downloaded tarball must match." },
+        "overlay": {
+          "type": "string",
+          "description": "A directory whose skills are layered on top of whatever the source resolved."
+        },
+        "cache_dir": {
+          "type": "string",
+          "description": "Where downloaded catalogs are extracted. Default $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills."
+        }
+      }
+    },
+    "queue": {
+      "type": "object",
+      "description": "Consumer-side queue settings.",
+      "additionalProperties": false,
+      "properties": {
+        "max_parallel_jobs": {
+          "type": "integer",
+          "description": "Pipeline runs a consumer executes at once. Default 4."
+        },
+        "consume_block_seconds": { "type": "integer", "description": "How long one queue read blocks. Default 5." },
+        "shutdown_grace_seconds": {
+          "type": "integer",
+          "description": "How long a stopping consumer waits for its runs. Default 30."
+        },
+        "redis_retry_interval_seconds": {
+          "type": "integer",
+          "description": "Retry cadence while Redis is configured but unreachable. Default 30."
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "description": "Hard limits for the agentic loops.",
+      "additionalProperties": false,
+      "properties": {
+        "max_tool_calls_per_skill": { "type": "integer", "description": "Default 30." },
+        "max_tool_calls_per_investigator": { "type": "integer", "description": "Default 10." },
+        "max_tool_calls_per_verifier": { "type": "integer", "description": "Default 20." },
+        "max_llm_calls_per_skill": { "type": "integer", "description": "Default 15." },
+        "max_input_tokens_per_skill_call": { "type": "integer", "description": "Default 500000." },
+        "max_output_tokens_per_skill_call": { "type": "integer", "description": "Default 16000." },
+        "max_seconds_per_skill_call": { "type": "integer", "description": "Default 300." },
+        "max_concurrent_skill_calls": { "type": "integer", "description": "Default 10." },
+        "max_skills_per_phase": { "type": "integer", "description": "Default 5." },
+        "max_concurrent_sub_agents": { "type": "integer", "description": "Sub-agents running at once. Default 4." },
+        "max_sub_agents_per_run": {
+          "type": "integer",
+          "description": "Sub-agents one run may spawn. Default 20. 0 takes spawn_agents off every run's master."
+        },
+        "max_sub_agents_per_dialog_turn": {
+          "type": "integer",
+          "description": "Sub-agents one design turn may spawn. Default 4. 0 takes spawn_agents off the design surface."
+        },
+        "max_dialog_sub_agent_loop_iterations": {
+          "type": "integer",
+          "description": "The loop ceiling of a design turn's child. Default 20."
+        }
+      }
+    },
+    "pipeline_storage": {
+      "type": "object",
+      "description": "In-flight run-artifact store.",
+      "additionalProperties": false,
+      "properties": {
+        "redis_ttl_hours": {
+          "type": "integer",
+          "description": "How long an abandoned run's in-flight artifacts live. Default 4."
+        }
+      }
+    },
+    "pipeline_data_flow": {
+      "type": "object",
+      "description": "Data-flow gating.",
+      "additionalProperties": false,
+      "properties": {
+        "enforce": {
+          "type": "boolean",
+          "description": "Refuse a pipeline whose commands read data no earlier command wrote, instead of warning. Default false."
+        }
+      }
+    },
+    "pipeline_cost_cap": {
+      "type": "object",
+      "description": "Per-run cost cap. When a run crosses it, the remaining model calls are skipped and the run delivers what it has. Default $5 / 500000 tokens.",
+      "additionalProperties": false,
+      "properties": {
+        "default": { "$ref": "#/$defs/costCap" },
+        "per_pipeline": {
+          "type": "object",
+          "description": "Pipeline name -> its own cap.",
+          "additionalProperties": { "$ref": "#/$defs/costCap" }
+        },
+        "per_tier": {
+          "type": "object",
+          "description": "Complexity tier (Trivial, Small, Medium, Large) -> the cap a run of that estimated size may be raised to. Defaults $1/$2/$8/$25.",
+          "additionalProperties": { "$ref": "#/$defs/costCap" }
+        }
+      }
+    },
     "deployment": {
       "type": "object",
       "additionalProperties": false,
-      "description": "p0281c: single deployment-wide image pin feeding BOTH the orchestrator and the sandbox-agent image (they ship from the same release). The legacy sandbox.agent_version / orchestrator.{registry,version} blocks still load and win when set.",
-      "properties": {
-        "registry": { "type": "string" },
-        "version": { "type": "string" }
-      }
+      "description": "Single deployment-wide image pin feeding the sandbox-agent image. Left unset, the sandbox agent's tag is derived from the running server's release.",
+      "properties": { "registry": {"type": "string"}, "version": {"type": "string"} }
     },
     "sandbox": {
       "type": "object",
       "description": "Process-wide sandbox defaults (agent image pin, timeouts, the supply-chain boundary, the pull credential). Per-project `sandbox:` blocks override the per-project subset field-by-field; the boundary settings are global only.",
+      "additionalProperties": false,
       "properties": {
+        "agent_registry": { "type": "string", "description": "Registry the sandbox agent image is pulled from." },
+        "agent_version": {
+          "type": "string",
+          "description": "Sandbox agent image tag. Unset: derived from the running server's release (a deliberate pin is reported as an advisory finding)."
+        },
+        "step_timeout_seconds": {
+          "type": "integer",
+          "description": "Wall-time cap of one sandbox step. Default 900."
+        },
+        "run_command_timeout_seconds": {
+          "type": "integer",
+          "description": "Default timeout of a run_command that names none. Default 300."
+        },
+        "max_concurrent_sandboxes": {
+          "type": "integer",
+          "description": "Docker backend only: sandbox containers admitted at once on one host. Unset falls back to SANDBOX_MAX_CONCURRENT; 0 is unbounded.",
+          "minimum": 0
+        },
         "hold_seconds": {
           "type": "integer",
           "minimum": 0,
           "description": "How long a design conversation keeps a source-scope sandbox alive between its turns, so the next turn reads the repository it already has instead of cloning again. Default 180. 0 holds nothing. Per-project projects.<name>.sandbox.hold_seconds overrides this. It governs the DESIGN DIALOG only — a pipeline run's sandboxes are transient by design and are torn down when the run ends."
         },
+        "allowed_registries": {
+          "type": "array",
+          "description": "Registry prefixes a sandbox toolchain image may come from (mcr.microsoft.com/, ghcr.io/, a mirror host). Empty: the built-in default.",
+          "items": { "type": "string" }
+        },
+        "allow_docker_hub_library": {
+          "type": "boolean",
+          "description": "Whether Docker Hub official images (node:20-bookworm) are trusted. Unset: trusted while no registry is named, refused once one is."
+        },
         "image_pull_secrets": {
           "type": "array",
-          "description": "2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the sandbox pod references, so an image that only exists in a credentialed registry is pullable without patching the namespace's default service account out of band. Rendered at pod level, covering the init container and the toolchain container. Kubernetes only \u2014 the Docker backend carries no pull credential and says so when a pull fails. Names are declared, never verified: agent-smith deliberately holds no read access to the namespace's secrets.",
+          "description": "2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the sandbox pod references, so an image that only exists in a credentialed registry is pullable without patching the namespace's default service account out of band. Rendered at pod level, covering the init container and the toolchain container. Kubernetes only — the Docker backend carries no pull credential and says so when a pull fails. Names are declared, never verified: agent-smith deliberately holds no read access to the namespace's secrets.",
           "items": { "type": "string" },
           "examples": [["acr-pull"]]
         }
       }
     },
-    "orchestrator": { "type": "object" },
-    "primary_provider": { "type": "string" },
+    "orchestrator": {
+      "type": "object",
+      "description": "Run limits. Every run executes in the server; its sandboxes are the only pods it starts.",
+      "additionalProperties": false,
+      "properties": {
+        "max_run_wall_time_seconds": {
+          "type": "integer",
+          "description": "A run older than this is cancelled. Default 1800."
+        }
+      }
+    },
+    "dialogue": {
+      "type": "object",
+      "description": "How a run waits for a person, and where that person answers.",
+      "additionalProperties": false,
+      "properties": {
+        "hot_wait_seconds": {
+          "type": "integer",
+          "description": "How long a question is awaited in memory before an eligible run checkpoints and parks. Default 600."
+        },
+        "approval_timeout_seconds": {
+          "type": "integer",
+          "description": "When a parked approval question times out, its default answer (reject) applies. Default 259200 (3 days)."
+        },
+        "dashboard_url": {
+          "type": "string",
+          "description": "This deployment's dashboard address. A ticket comment that asks a question links to the run's page here; unset, it carries no link."
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "description": "SERVER only, bootstrap: the relational store. Read from this file (or the environment) before the database exists, so it is never stored in it.",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string", "enum": ["sqlite", "postgresql", "mysql", "sqlserver"] },
+        "connection_string": {
+          "type": "string",
+          "description": "The credential is part of it; a ${name} placeholder inside it is expanded by nothing. AGENTSMITH_PERSISTENCE_PROVIDER + AGENTSMITH_PERSISTENCE_CONNECTION replace the whole block."
+        }
+      }
+    },
     "auth": {
       "type": "object",
-      "description": "p0503b: the single OIDC authority a bearer token is validated against, and the switch that lets the permission a route declares refuse a caller. Bootstrap-only \u2014 read from this file and from AGENTSMITH_AUTH_* before the config store exists, and never stored in it, so an export can never emit a block the installation does not have. p0503d: it also says how the directory's claims become roles \u2014 the identity provider decides WHO holds a role, this block decides what a role MEANS.",
+      "description": "p0503b: the single OIDC authority a bearer token is validated against, and the switch that lets the permission a route declares refuse a caller. Bootstrap-only — read from this file and from AGENTSMITH_AUTH_* before the config store exists, and never stored in it, so an export can never emit a block the installation does not have. p0503d: it also says how the directory's claims become roles — the identity provider decides WHO holds a role, this block decides what a role MEANS.",
       "additionalProperties": false,
       "properties": {
         "authority": { "type": "string", "description": "The OIDC issuer. Absent means nothing authenticates." },
-        "audience": { "type": "string", "description": "The audience a token must carry. Absent means the audience is not checked." },
-        "enforce": { "type": "boolean", "default": false, "description": "Whether a missing permission refuses the call. With an authority configured and this off, a presented token is still validated and no route is refused." },
-        "role_claim": { "type": "string", "default": "roles", "description": "p0503d: the claim carrying role NAMES, read verbatim. A directory that NESTS its roles (realm roles under realm_access.roles) cannot be addressed by a flat claim name at all; map its groups instead." },
-        "group_claim": { "type": "string", "default": "groups", "description": "p0503d: the claim carrying group values, mapped onto roles by group_roles. Group values compare exactly, because they are opaque identifiers; a group path's leading slash is normalised away." },
-        "name_claim": { "type": "string", "default": "sub", "description": "p0503d: the claim a caller is NAMED by, on the identity page and in a config change's attribution. sub is opaque but always present; preferred_username or upn read better." },
+        "audience": {
+          "type": "string",
+          "description": "The audience a token must carry. Absent means the audience is not checked."
+        },
+        "enforce": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether a missing permission refuses the call. With an authority configured and this off, a presented token is still validated and no route is refused."
+        },
+        "role_claim": {
+          "type": "string",
+          "default": "roles",
+          "description": "p0503d: the claim carrying role NAMES, read verbatim. A directory that NESTS its roles (realm roles under realm_access.roles) cannot be addressed by a flat claim name at all; map its groups instead."
+        },
+        "group_claim": {
+          "type": "string",
+          "default": "groups",
+          "description": "p0503d: the claim carrying group values, mapped onto roles by group_roles. Group values compare exactly, because they are opaque identifiers; a group path's leading slash is normalised away."
+        },
+        "name_claim": {
+          "type": "string",
+          "default": "sub",
+          "description": "p0503d: the claim a caller is NAMED by, on the identity page and in a config change's attribution. sub is opaque but always present; preferred_username or upn read better."
+        },
         "group_roles": {
           "type": "object",
           "description": "p0503d: group value -> the roles holding it grants. A caller in two mapped groups holds the union of both bundles.",
-          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+          "additionalProperties": { "type": "array", "items": {"type": "string"} }
         },
         "roles": {
           "type": "object",
           "description": "p0503d: roles this installation adds to the built-in admin/operator/reader, as bundles over the permission catalog. Additive: a name colliding with a built-in role does not replace it, and a permission the catalog does not contain is dropped rather than granted.",
-          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+          "additionalProperties": { "type": "array", "items": {"type": "string"} }
+        }
+      }
+    },
+    "role_mapping": {
+      "type": "object",
+      "description": "What a role name means here. Normally edited on the dashboard's Access page; the file form is what an export and an import carry.",
+      "additionalProperties": false,
+      "properties": {
+        "role_claim": { "type": "string", "description": "The claim carrying role names. Default roles." },
+        "group_claim": { "type": "string", "description": "The claim carrying group values. Default groups." },
+        "group_roles": {
+          "type": "object",
+          "description": "Group value -> the roles it grants.",
+          "additionalProperties": { "type": "array", "items": {"type": "string"} }
+        },
+        "roles": {
+          "type": "object",
+          "description": "Roles this installation adds to the built-in three, as permission bundles.",
+          "additionalProperties": { "type": "array", "items": {"type": "string"} }
+        },
+        "person_grants": {
+          "type": "array",
+          "description": "Roles granted to one person here, each against the claim it was written for.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "claim": { "type": "string" },
+              "value": { "type": "string" },
+              "roles": { "type": "array", "items": {"type": "string"} }
+            }
+          }
+        },
+        "observation_retention_days": {
+          "type": "integer",
+          "description": "How long an observed caller is kept. Default 90; 0 or less keeps them forever."
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "description": "Run tracing.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Record each run's conversation (every prompt, answer and tool result), not only its numbers. Default false. The AGENTSMITH_TRACE environment variable, when set, wins."
+        }
+      }
+    },
+    "tool_runner": {
+      "type": "object",
+      "description": "Bootstrap, file-only: how scanners (Nuclei, Spectral) are started. Read from this file at start, never stored in the database or carried by an import.",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "auto | docker | podman | process. auto picks the Docker socket, then Podman's, then local processes. Default auto."
+        },
+        "socket": { "type": "string", "description": "Container engine socket, when not the default." },
+        "images": {
+          "type": "object",
+          "description": "Scanner images by tool (nuclei, spectral), overriding the built-in ones per key.",
+          "additionalProperties": { "type": "string" }
+        },
+        "docker_hostname": {
+          "type": "string",
+          "description": "How a container reaches the host. Default host.docker.internal."
         }
       }
     }
@@ -100,26 +378,138 @@
   "$defs": {
     "agent": {
       "type": "object",
-      "description": "AI agent definition. Sub-blocks (retry, cache, compaction, models, pricing, parallelism) are passed through to AgentConfig and validated separately by the loader.",
+      "description": "AI agent definition. Projects reference it by its catalog name.",
       "required": ["type"],
+      "additionalProperties": false,
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["claude", "openai", "azure_openai", "gemini", "ollama", "copilot"]
+          "description": "The provider. anthropic and google are aliases of claude and gemini. external_worker answers through an external agent CLI.",
+          "enum": [
+            "claude",
+            "anthropic",
+            "openai",
+            "azure_openai",
+            "gemini",
+            "google",
+            "ollama",
+            "copilot",
+            "external_worker"
+          ]
         },
-        "model": { "type": "string" },
-        "endpoint": { "type": "string" },
-        "deployment": { "type": "string" },
-        "api_version": { "type": "string" },
-        "api_key_secret": { "type": "string" },
-        "network_timeout_seconds": { "type": "integer", "description": "Per-request LLM HTTP timeout (default 300). The SDK default is 100s; a large completion exceeds it and the run dies with 'A task was cancelled'." },
-        "checkpoint_push_min_interval_seconds": { "type": "integer", "description": "p0360: minimum seconds between mid-run checkpoint pushes of dirty repo sandboxes to the run branch (default 120; <= 0 disables). A killed run loses at most the work since the last checkpoint." },
-        "retry": { "type": "object" },
-        "cache": { "type": "object" },
-        "compaction": { "type": "object" },
-        "models": { "type": "object" },
-        "pricing": { "type": "object" },
-        "parallelism": { "type": "object" }
+        "model": {
+          "type": "string",
+          "description": "The agent's own model. Every role under models: that names none inherits it (through primary)."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "The provider host: an Azure OpenAI resource, an Ollama server, or — with type: openai — any OpenAI-compatible server (vLLM, LM Studio, a gateway). A role on another provider does not inherit it."
+        },
+        "deployment": { "type": "string", "description": "Azure OpenAI deployment of the agent's own model." },
+        "api_version": { "type": "string", "description": "Azure OpenAI API version." },
+        "api_key_secret": {
+          "type": "string",
+          "description": "Name of the ENVIRONMENT VARIABLE holding the key. With type: openai and an endpoint, the key never falls back to OPENAI_API_KEY; a named but empty variable is refused, and none named sends no real key."
+        },
+        "network_timeout_seconds": {
+          "type": "integer",
+          "description": "Per-request LLM HTTP timeout (default 300). The SDK default is 100s; a large completion exceeds it and the run dies with 'A task was cancelled'."
+        },
+        "checkpoint_push_min_interval_seconds": {
+          "type": "integer",
+          "description": "p0360: minimum seconds between mid-run checkpoint pushes of dirty repo sandboxes to the run branch (default 120; <= 0 disables). A killed run loses at most the work since the last checkpoint."
+        },
+        "retry": {
+          "type": "object",
+          "description": "Transient-failure retry.",
+          "additionalProperties": false,
+          "properties": {
+            "max_retries": { "type": "integer", "description": "Default 5." },
+            "initial_delay_ms": { "type": "integer", "description": "Default 2000." },
+            "backoff_multiplier": { "type": "number", "description": "Default 2.0." },
+            "max_delay_ms": { "type": "integer", "description": "Default 60000." }
+          }
+        },
+        "cache": {
+          "type": "object",
+          "description": "Prompt caching (Claude).",
+          "additionalProperties": false,
+          "properties": {
+            "is_enabled": { "type": "boolean", "description": "Default true." },
+            "strategy": { "type": "string", "description": "Default automatic." }
+          }
+        },
+        "compaction": {
+          "type": "object",
+          "description": "In-loop context compaction. It summarizes with the agent's summarization role.",
+          "additionalProperties": false,
+          "properties": {
+            "is_enabled": { "type": "boolean", "description": "Default true." },
+            "threshold_iterations": {
+              "type": "integer",
+              "description": "Deprecated and ignored: compaction fires on token pressure only. A non-default value is warned about."
+            },
+            "max_context_tokens": { "type": "integer", "description": "Default 200000." },
+            "max_context_tokens_trigger_ratio": {
+              "type": "number",
+              "description": "Compaction fires past this share of max_context_tokens. Default 0.7; 0 or less disables it."
+            },
+            "keep_recent_iterations": { "type": "integer", "description": "Default 3." }
+          }
+        },
+        "models": {
+          "type": "object",
+          "description": "Per-role model routing. No role has a built-in model: an unset primary is the agent's model, every other unset role is primary (code_map_generation is scout, then primary), with primary's max_tokens.",
+          "additionalProperties": false,
+          "properties": {
+            "primary": { "$ref": "#/$defs/modelAssignment" },
+            "scout": { "$ref": "#/$defs/modelAssignment" },
+            "planning": { "$ref": "#/$defs/modelAssignment" },
+            "reasoning": { "$ref": "#/$defs/modelAssignment" },
+            "summarization": { "$ref": "#/$defs/modelAssignment" },
+            "context_generation": { "$ref": "#/$defs/modelAssignment" },
+            "code_map_generation": { "$ref": "#/$defs/modelAssignment" }
+          }
+        },
+        "pricing": {
+          "type": "object",
+          "description": "Prices for models the built-in table does not know.",
+          "additionalProperties": false,
+          "properties": {
+            "models": {
+              "type": "object",
+              "description": "Model id -> USD per million tokens.",
+              "additionalProperties": { "$ref": "#/$defs/modelPricing" }
+            }
+          }
+        },
+        "rate_limit": {
+          "type": "object",
+          "description": "Per-model throttle. Unset: the built-in budget for the provider.",
+          "additionalProperties": false,
+          "properties": {
+            "requests_per_minute": { "type": "integer" },
+            "input_tokens_per_minute": { "type": "integer" }
+          }
+        },
+        "max_fix_iterations": { "type": "integer", "description": "Default 3." },
+        "supports_vision": {
+          "type": "boolean",
+          "description": "Whether images are sent to the model. Default true."
+        },
+        "max_master_loop_iterations": { "type": "integer", "description": "Default 200." },
+        "max_sub_agent_loop_iterations": { "type": "integer", "description": "Default 100." },
+        "ledger_reminder_every_n_iterations": { "type": "integer", "description": "Default 10." },
+        "reminder_drift_editless_iterations": { "type": "integer", "description": "Default 8." },
+        "verdict_owed_after_iterations": { "type": "integer", "description": "Default 3." },
+        "worker_structured_result": {
+          "type": "boolean",
+          "description": "external_worker only: whether the CLI is asked for a structured result."
+        },
+        "scan_min_source_reads": { "type": "integer", "description": "Default 6." },
+        "scan_master_max_output_tokens": { "type": "integer", "description": "Default 32000." },
+        "scan_master_loop_iterations": { "type": "integer", "description": "Default 100." },
+        "scan_context_window_tokens": { "type": "integer", "description": "Default 200000." }
       }
     },
     "repo": {
@@ -127,53 +517,50 @@
       "description": "Source repository connection. type=local uses path; remote types use url.",
       "required": ["type", "auth"],
       "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["github", "gitlab", "azure_devops", "local"]
-        },
+        "type": { "type": "string", "enum": ["github", "gitlab", "azure_devops", "local"] },
         "url": { "type": "string" },
         "path": { "type": "string" },
         "organization": { "type": "string" },
         "project": { "type": "string" },
         "auth": { "type": "string", "description": "Reference into secrets:" },
         "default_branch": { "type": "string" }
-      }
+      },
+      "additionalProperties": false
     },
     "connection": {
       "type": "object",
       "description": "p0281a: a git-host connection. Repos are discovered under it via the provider API. azure_devops needs organization+project; github needs owner; gitlab needs group. host overrides the cloud endpoint for self-hosted installs.",
       "required": ["type", "auth"],
       "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["github", "gitlab", "azure_devops"]
-        },
+        "type": { "type": "string", "enum": ["github", "gitlab", "azure_devops"] },
         "organization": { "type": "string", "description": "Azure DevOps organisation." },
         "project": { "type": "string", "description": "Azure DevOps project." },
         "owner": { "type": "string", "description": "GitHub owner/org." },
         "group": { "type": "string", "description": "GitLab group." },
-        "host": { "type": "string", "description": "Optional API host override for self-hosted GitHub Enterprise / GitLab." },
+        "host": {
+          "type": "string",
+          "description": "Optional API host override for self-hosted GitHub Enterprise / GitLab."
+        },
         "auth": { "type": "string", "description": "Reference into secrets:" },
-        "default_branch": { "type": "string", "description": "Fallback branch used only until discovery reads each repo's real default branch." }
-      }
+        "default_branch": {
+          "type": "string",
+          "description": "Fallback branch used only until discovery reads each repo's real default branch."
+        }
+      },
+      "additionalProperties": false
     },
     "tracker": {
       "type": "object",
       "description": "Issue/work-item tracker connection. Open states, done status, close transition, and extra fields belong here when shared across projects.",
       "required": ["type", "auth"],
+      "additionalProperties": false,
       "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["github", "gitlab", "azure_devops", "jira"]
-        },
+        "type": { "type": "string", "enum": ["github", "gitlab", "azure_devops", "jira"] },
         "url": { "type": "string" },
         "organization": { "type": "string" },
         "project": { "type": "string" },
         "auth": { "type": "string", "description": "Reference into secrets:" },
-        "open_states": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
+        "open_states": { "type": "array", "items": {"type": "string"} },
         "done_status": { "type": "string" },
         "trigger_statuses": {
           "type": "array",
@@ -184,16 +571,25 @@
           "type": "string",
           "description": "p0281b: tracker-owned failed_status base; a project trigger overrides it."
         },
+        "needs_clarification_status": {
+          "type": "string",
+          "description": "Where a run parks a ticket that needs an answer. Must sit outside trigger_statuses; a project trigger overrides it."
+        },
+        "not_implementable_status": {
+          "type": "string",
+          "description": "Where a not-implementable verdict parks a ticket. Unset: needs_clarification_status."
+        },
         "pipeline_from_label": {
           "type": "object",
           "additionalProperties": { "type": "string" },
           "description": "p0281b: tracker-owned label->pipeline map; a project trigger overrides it, then the global pipeline_triggers map is the final fallback."
         },
-        "close_transition_name": { "type": "string", "description": "Jira only" },
-        "extra_fields": {
-          "type": "array",
-          "items": { "type": "string" }
+        "default_pipeline": {
+          "type": "string",
+          "description": "What a ticket runs when no label matched. A project trigger overrides it."
         },
+        "close_transition_name": { "type": "string", "description": "Jira only" },
+        "extra_fields": { "type": "array", "items": {"type": "string"} },
         "zero_match_comment": {
           "type": "boolean",
           "description": "When true (and the provider supports comments), posts a 'no agent-smith project matched this ticket' note on tickets whose ProjectResolver lookup returns zero matches. Default false. Single-tenant trackers can opt in for forensics; multi-tenant trackers should leave it off to avoid noise."
@@ -205,26 +601,41 @@
             "enabled": { "type": "boolean", "description": "Default false." },
             "interval_seconds": { "type": "integer", "minimum": 1, "description": "Default 60." },
             "jitter_percent": { "type": "integer", "minimum": 0, "description": "Default 10." }
-          }
+          },
+          "additionalProperties": false
         },
         "endpoints": {
           "type": "object",
-          "description": "Jira only: operator-overridable REST endpoint templates. Defaults target Jira Cloud v3; override when Atlassian changes an API path (e.g. CHANGE-2046 removed /rest/api/3/search) so the fix is config, not a redeploy. '{id}' is replaced with the issue key; paths are relative to the tracker url.",
+          "description": "Jira only: REST path overrides. Defaults target Jira Cloud v3; set only a path Atlassian moved (e.g. CHANGE-2046 removed /rest/api/3/search), so the fix is configuration, not a redeploy. '{id}' is replaced with the issue key; paths are relative to the tracker url.",
           "properties": {
             "search": { "type": "string", "description": "JQL search. Default /rest/api/3/search/jql." },
-            "issue": { "type": "string", "description": "Single issue (get/put labels). Default /rest/api/3/issue/{id}." },
+            "issue": {
+              "type": "string",
+              "description": "Single issue (get/put labels). Default /rest/api/3/issue/{id}."
+            },
             "comment": { "type": "string", "description": "Add comment. Default /rest/api/3/issue/{id}/comment." },
-            "transitions": { "type": "string", "description": "List/apply workflow transitions. Default /rest/api/3/issue/{id}/transitions." }
-          }
-        },
-        "parent_link_type": {
-          "type": "string",
-          "description": "Jira only: the issue link type a filed epic child is linked to its parent with. Default Relates. A type the site does not have is a failed link, shown on the filing."
+            "transitions": {
+              "type": "string",
+              "description": "List/apply workflow transitions. Default /rest/api/3/issue/{id}/transitions."
+            },
+            "create": { "type": "string", "description": "Create an issue. Default /rest/api/3/issue." }
+          },
+          "additionalProperties": false
         },
         "work_item_kinds": {
           "type": "object",
           "additionalProperties": { "type": "string" },
           "description": "Azure DevOps and Jira only: which native work-item/issue type each filed ROLE is created as. Keys are the filing roles work | bug | phase | chat (case-insensitive); an unknown key is warned about and ignored. A role that is not mapped creates what agent-smith created before this key existed (Task), so a tracker that declares nothing behaves exactly as before. The choice is per role because the roles carry identical labels and nothing but the call site can tell an approved cut's work ticket from a lone phase or a bug. The role `record` was removed with the slice records it filed; a config that still maps it validates and is warned about as an unknown role."
+        },
+        "lifecycle_status_names": {
+          "type": "object",
+          "description": "Jira only: lifecycle state -> native workflow status name. Non-empty switches that state to real workflow transitions.",
+          "additionalProperties": { "type": "string" }
+        },
+        "label_names": {
+          "type": "object",
+          "description": "What this board calls the labels agent-smith writes: the lifecycle states by name, and the approved-set stamp under approved-set.",
+          "additionalProperties": { "type": "string" }
         }
       }
     },
@@ -232,20 +643,20 @@
       "type": "object",
       "description": "Project entry. References agent/tracker/repos by catalog name. Trigger blocks stay on the project; per-platform trigger settings are project-specific even when two projects share a tracker.",
       "required": ["agent", "tracker", "repos"],
+      "additionalProperties": false,
       "properties": {
-        "agent": {
-          "type": "string",
-          "description": "Name from agents: catalog"
-        },
-        "tracker": {
-          "type": "string",
-          "description": "Name from trackers: catalog"
-        },
+        "agent": { "type": "string", "description": "Name from agents: catalog" },
+        "tracker": { "type": "string", "description": "Name from trackers: catalog" },
         "repos": {
           "type": "array",
           "description": "Repos this project operates on. Always a list, even when there is exactly one; p0140 runs them in parallel. Each item is one of: a repos: catalog name (legacy); a connection ref connection/name (p0285 EXACT — resolved STATICALLY from the connection's host/org/auth, NO discovery); a connection glob connection/pattern (p0281a — resolved via DISCOVERY, may over-match); or an object {repo, default_branch} that adds a per-repo default-branch override to any of those forms.",
           "items": { "$ref": "#/$defs/repoEntry" },
           "minItems": 1
+        },
+        "templates": {
+          "type": "array",
+          "description": "What each context of this project is built after: another project's context in one of its repos.",
+          "items": { "$ref": "#/$defs/templateEntry" }
         },
         "pipeline": {
           "type": "string",
@@ -270,7 +681,16 @@
         "gitlab_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "azuredevops_trigger": { "$ref": "#/$defs/webhookTrigger" },
         "jira_trigger": { "$ref": "#/$defs/jiraTrigger" },
-        "polling": { "type": "object" },
+        "polling": {
+          "type": "object",
+          "description": "Deprecated: polling belongs on the tracker (trackers.<name>.polling).",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "interval_seconds": { "type": "integer" },
+            "jitter_percent": { "type": "integer" }
+          }
+        },
         "sandbox": {
           "type": "object",
           "description": "Per-project sandbox overrides (toolchain image, resources, timeouts, credentials).",
@@ -285,9 +705,9 @@
               "type": "object",
               "description": "p0245: per-language toolchain image overrides (slug → image), merged over the code-default table per key. Polyglot-safe; the whole-project toolchain_image still wins outright. Keys: dotnet, node, python, go, rust, etc.",
               "additionalProperties": { "type": "string" },
-              "examples": [{ "dotnet": "my-mirror.azurecr.io/dotnet/sdk:9.0", "node": "node:20-bookworm" }]
+              "examples": [{"dotnet": "my-mirror.azurecr.io/dotnet/sdk:9.0", "node": "node:20-bookworm"}]
             },
-            "resources": { "type": "object" },
+            "resources": { "$ref": "#/$defs/resourceLimits" },
             "secrets": {
               "type": "object",
               "description": "p0272: credentials injected into the sandbox pod. Values come from operator-created Kubernetes Secrets — never from this file or context.yaml; only the references are sent to the pod spec.",
@@ -307,51 +727,46 @@
                       "mount": { "type": "string", "examples": ["/secrets/server.key"] },
                       "secret": { "type": "string", "examples": ["sf-creds"] },
                       "key": { "type": "string", "examples": ["jwt-key"] }
-                    }
+                    },
+                    "additionalProperties": false
                   }
                 }
-              }
+              },
+              "additionalProperties": false
+            },
+            "agent_registry": {
+              "type": "string",
+              "description": "Overrides sandbox.agent_registry for this project."
+            },
+            "agent_version": { "type": "string", "description": "Overrides sandbox.agent_version for this project." },
+            "step_timeout_seconds": {
+              "type": "integer",
+              "description": "Overrides sandbox.step_timeout_seconds for this project."
+            },
+            "run_command_timeout_seconds": {
+              "type": "integer",
+              "description": "Overrides sandbox.run_command_timeout_seconds for this project."
             }
-          }
-        },
-        "orchestrator": { "type": "object" }
+          },
+          "additionalProperties": false
+        }
       }
     },
     "webhookTrigger": {
       "type": "object",
       "description": "Trigger block shared by GitHub/GitLab/AzureDevOps. pipeline_from_label is optional; when omitted the global pipeline_triggers map applies. project_resolution is REQUIRED (p0140) — declares how the webhook handler picks this project out of all configured projects for an incoming ticket.",
-      "required": ["project_resolution"],
-      "properties": {
-        "project_resolution": { "$ref": "#/$defs/projectResolution" },
-        "pipeline_from_label": {
-          "type": "object",
-          "additionalProperties": { "type": "string" }
-        },
-        "default_pipeline": { "type": "string" },
-        "trigger_statuses": {
-          "type": "array",
-          "items": { "type": "string" }
-        },
-        "done_status": { "type": "string" },
-        "comment_keyword": { "type": "string" },
-        "pr_trigger_label": {
-          "type": "string",
-          "description": "2026-09-25-d83b: the label an operator puts on a pull request to ask for a review. Omitted → only the historical \"security-review\" triggers; a word set here is recognised in addition to it, never instead of it.",
-          "examples": ["please-review"]
-        }
-      }
+      "allOf": [{"$ref": "#/$defs/triggerFields"}],
+      "unevaluatedProperties": false
     },
     "jiraTrigger": {
-      "allOf": [
-        { "$ref": "#/$defs/webhookTrigger" },
-        {
-          "type": "object",
-          "properties": {
-            "assignee_name": { "type": "string" },
-            "secret": { "type": "string" }
-          }
-        }
-      ]
+      "type": "object",
+      "description": "The Jira trigger: the shared trigger block plus the assignee a ticket is handed to.",
+      "allOf": [{"$ref": "#/$defs/triggerFields"}],
+      "properties": {
+        "assignee_name": { "type": "string", "description": "Default Agent Smith." },
+        "secret": { "type": "string", "description": "The webhook secret." }
+      },
+      "unevaluatedProperties": false
     },
     "repoEntry": {
       "oneOf": [
@@ -371,17 +786,15 @@
             "default_branch": {
               "type": "string",
               "description": "p0285: per-repo default-branch override. Applies to an EXACT connection ref. Precedence: this override -> connection.default_branch -> the provider's real default at clone time. Use it for a repo whose default branch differs from its peers (e.g. a docs repo on main while code repos use develop)."
-            }
+            },
+            "consumes": { "type": "string", "description": "The served interface this repo consumes." }
           }
         }
       ]
     },
     "pipelineEntry": {
       "oneOf": [
-        {
-          "type": "string",
-          "description": "Pipeline name; uses project's default agent and skills_path."
-        },
+        { "type": "string", "description": "Pipeline name; uses project's default agent and skills_path." },
         {
           "type": "object",
           "required": ["name"],
@@ -396,13 +809,12 @@
               "type": "string",
               "description": "Optional override: this pipeline loads skills from a different path than the project default."
             },
-            "confidence_threshold": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100,
-              "description": "p0167b: blocking observations below this confidence are downgraded to non-blocking for this pipeline. Default 70."
+            "coding_principles_path": {
+              "type": "string",
+              "description": "Optional override of the project's coding_principles_path for this pipeline."
             }
-          }
+          },
+          "description": "{name, agent?, skills_path?, coding_principles_path?}"
         }
       ]
     },
@@ -412,13 +824,128 @@
       "required": ["strategy", "value"],
       "additionalProperties": false,
       "properties": {
-        "strategy": {
-          "type": "string",
-          "enum": ["tag", "area_path", "repo", "to_address"]
-        },
+        "strategy": { "type": "string", "enum": ["tag", "area_path", "repo", "to_address"] },
         "value": {
           "type": "string",
           "description": "Strategy-specific match value. tag: label string. area_path: hierarchical path (e.g. ContosoMain/Billing or ContosoMain\\Billing); matching is prefix-based on the normalized backslash form, so ContosoMain\\Billing matches both itself and ContosoMain\\Billing\\Invoicing. repo: repo URL or short name matched against the project's single repo's RepoConnection.Url. to_address: full email address."
+        }
+      }
+    },
+    "modelAssignment": {
+      "type": "object",
+      "description": "One role's model.",
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string", "description": "The model id. A role without one is unset and inherits." },
+        "max_tokens": { "type": "integer", "description": "Output cap. Default 8192." },
+        "deployment": { "type": "string", "description": "Azure OpenAI deployment for this role." },
+        "provider_type": {
+          "type": "string",
+          "description": "Answer this role on another provider than the agent's type."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "This role's own host. Unset: the agent's endpoint, when the role runs on the agent's provider."
+        },
+        "context_window_tokens": {
+          "type": "integer",
+          "description": "The input window the deployment behind this role accepts. Unset: nothing is derived from it."
+        }
+      }
+    },
+    "modelPricing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "input_per_million": { "type": "number" },
+        "output_per_million": { "type": "number" },
+        "cache_read_per_million": { "type": "number" }
+      }
+    },
+    "costCap": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "usd": {"type": "number"}, "tokens": {"type": "integer"} }
+    },
+    "registry": {
+      "type": "object",
+      "required": ["host"],
+      "additionalProperties": false,
+      "properties": {
+        "host": { "type": "string" },
+        "username": { "type": "string" },
+        "token": { "type": "string", "description": "A ${secret_name} reference." }
+      }
+    },
+    "mcpServer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "transport": { "type": "string" },
+        "url": { "type": "string" },
+        "auth": { "type": "string", "description": "A secret NAME, never a value." }
+      }
+    },
+    "resourceLimits": {
+      "type": "object",
+      "description": "Kubernetes quantities (250m, 1Gi). All-or-nothing: a partial block is not merged with the defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "cpu_request": { "type": "string" },
+        "cpu_limit": { "type": "string" },
+        "memory_request": { "type": "string" },
+        "memory_limit": { "type": "string" }
+      }
+    },
+    "templateEntry": {
+      "type": "object",
+      "required": ["context", "project", "repo", "template_context"],
+      "additionalProperties": false,
+      "properties": {
+        "context": { "type": "string", "description": "The context OF THIS PROJECT the binding applies to." },
+        "context_repo": {
+          "type": "string",
+          "description": "Which repo of this project that context belongs to, when two declare one name."
+        },
+        "project": { "type": "string", "description": "The project the template belongs to." },
+        "repo": { "type": "string", "description": "A repo ref of that project." },
+        "template_context": {
+          "type": "string",
+          "description": "The context inside the template this one is built after."
+        },
+        "revision": { "type": "string", "description": "A branch, tag or sha." }
+      }
+    },
+    "triggerFields": {
+      "description": "The properties every trigger block shares — mixed into webhookTrigger and jiraTrigger, each of which closes them.",
+      "required": ["project_resolution"],
+      "properties": {
+        "project_resolution": { "$ref": "#/$defs/projectResolution" },
+        "pipeline_from_label": { "type": "object", "additionalProperties": {"type": "string"} },
+        "default_pipeline": { "type": "string" },
+        "trigger_statuses": { "type": "array", "items": {"type": "string"} },
+        "done_status": { "type": "string" },
+        "failed_status": {
+          "type": "string",
+          "description": "Where a failed run moves the ticket. Must sit outside trigger_statuses. Unset: done_status."
+        },
+        "needs_clarification_status": {
+          "type": "string",
+          "description": "Where a run parks a ticket that needs an answer. Must sit outside trigger_statuses."
+        },
+        "not_implementable_status": {
+          "type": "string",
+          "description": "Where a not-implementable verdict parks a ticket. Unset: needs_clarification_status."
+        },
+        "in_progress_status": {
+          "type": "string",
+          "description": "Where a parked ticket returns when its run resumes. Must sit outside trigger_statuses."
+        },
+        "comment_keyword": { "type": "string" },
+        "pr_trigger_label": {
+          "type": "string",
+          "description": "2026-09-25-d83b: the label an operator puts on a pull request to ask for a review. Omitted → only the historical \"security-review\" triggers; a word set here is recognised in addition to it, never instead of it.",
+          "examples": ["please-review"]
         }
       }
     }

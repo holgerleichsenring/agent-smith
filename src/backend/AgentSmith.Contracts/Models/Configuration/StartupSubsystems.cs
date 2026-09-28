@@ -11,7 +11,9 @@ public static class StartupSubsystems
     public const string ConfigFile = "config-file";
     public const string Database = "database";
     public const string Redis = "redis";
-    public const string Spawner = "spawner";
+
+    /// <summary>The backend that creates sandboxes: Kubernetes, Docker or in-process.</summary>
+    public const string SandboxBackend = "sandbox-backend";
 
     /// <summary>2026-08-25-8c97: which build a half of the product came from.</summary>
     public const string Build = "build";
