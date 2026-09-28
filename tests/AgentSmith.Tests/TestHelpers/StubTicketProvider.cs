@@ -45,4 +45,7 @@ internal sealed class StubTicketProviderFactory : ITicketProviderFactory
 
     /// <summary>2026-09-27-5c1ea: nothing here searches, so the search records and matches nothing.</summary>
     public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
+
+    public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+        new RecordingLinkedWork();
 }

@@ -41,11 +41,11 @@ internal sealed class AzureDevOpsWiqlRunner(
     /// <paramref name="top"/> of them. Throws when the query does not run.
     /// </summary>
     public async Task<IReadOnlyList<Ticket>> RunAsync(
-        string where, int top, CancellationToken cancellationToken)
+        string where, int top, CancellationToken cancellationToken, string? orderBy = null)
     {
         try
         {
-            return await QueryAsync(where, top, cancellationToken);
+            return await QueryAsync(where, top, orderBy ?? ChangedDateDesc, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -54,13 +54,17 @@ internal sealed class AzureDevOpsWiqlRunner(
         }
     }
 
+    /// <summary>2026-09-28-1da5a: discovery wants the most recently changed; a number-prefix
+    /// search wants the ids nearest what was typed, so the ordering is the caller's.</summary>
+    internal const string ChangedDateDesc = "[System.ChangedDate] DESC";
+
     private async Task<IReadOnlyList<Ticket>> QueryAsync(
-        string where, int top, CancellationToken cancellationToken)
+        string where, int top, string orderBy, CancellationToken cancellationToken)
     {
         var client = connections.CreateClient();
         var wiql = new Wiql
         {
-            Query = $"SELECT [System.Id] FROM WorkItems WHERE {where} ORDER BY [System.ChangedDate] DESC"
+            Query = $"SELECT [System.Id] FROM WorkItems WHERE {where} ORDER BY {orderBy}"
         };
 
         var sw = System.Diagnostics.Stopwatch.StartNew();

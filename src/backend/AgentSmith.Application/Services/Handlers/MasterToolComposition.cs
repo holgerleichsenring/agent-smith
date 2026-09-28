@@ -43,6 +43,7 @@ public sealed class MasterToolComposition(
         WebToolHost? web, ProgressLedgerToolHost progress,
         MemoryRecallToolHost recall, MemoryWriteToolHost remember,
         WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
+        TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
         AgenticMasterContext context)
     {
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
@@ -55,7 +56,9 @@ public sealed class MasterToolComposition(
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
-               .. readTicket?.GetTools(null, null) ?? []]
+               .. readTicket?.GetTools(null, null) ?? [],
+               .. ticketWork?.GetTools(null, null) ?? [],
+               .. ticketRuns?.GetTools(null, null) ?? []]
             : isScanMaster
                 ? toolSurface.Review(fs, log, web, recall, remember)
                 : toolSurface.ReadWriteWithHuman(

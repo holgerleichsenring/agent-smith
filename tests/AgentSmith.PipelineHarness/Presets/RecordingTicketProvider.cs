@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 
@@ -79,4 +80,7 @@ internal sealed class RecordingTicketProviderFactory(RecordingTicketProvider pro
     public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
 
     public ITicketSearch CreateSearch(TrackerConnection config) => new HarnessTicketSearch();
+
+    public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+        new RecordingLinkedWork();
 }

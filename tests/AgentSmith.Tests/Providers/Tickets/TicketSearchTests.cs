@@ -173,6 +173,51 @@ public sealed class TicketSearchTests
             .Should().Contain("IN ('New', 'Active', 'Committed')");
     }
 
+
+    [Fact]
+    public async Task TicketNumberPrefix_Jira_EnumeratesTheKeysItStandsFor()
+    {
+        var handler = new RecordingHandler("""{"issues":[]}""");
+        await Jira(handler, projectKey: "PROJ").SearchAsync("194", 10, default);
+
+        var jql = Field(handler.LastBody!, Jql);
+        // Jira has no prefix operator on a key and takes an enumerated list, which this tree
+        // already sends elsewhere.
+        jql.Should().Contain("key IN (").And.Contain("\"PROJ-194\"").And.Contain("\"PROJ-19400\"");
+        // And the text match is still there: a number can appear in a title too.
+        jql.Should().Contain("summary ~");
+    }
+
+    [Fact]
+    public async Task TicketNumberPrefix_JiraWithNoProjectKey_AsksForNoKeys()
+    {
+        var handler = new RecordingHandler("""{"issues":[]}""");
+        await Jira(handler, projectKey: null).SearchAsync("194", 10, default);
+
+        // Without a configured project there is no prefix to put the number on.
+        Field(handler.LastBody!, Jql).Should().NotContain("key IN");
+    }
+
+    [Fact]
+    public async Task TicketNumberPrefix_GitLab_EnumeratesTheIidsItStandsFor()
+    {
+        var handler = new RecordingHandler("[]");
+        await GitLab(handler).SearchAsync("194", 10, default);
+
+        // The SECOND request is the numbered one; the text search is unchanged.
+        handler.LastRequest!.RequestUri!.Query.Should().Contain("iids[]=194")
+            .And.Contain("iids[]=19400").And.NotContain("search=");
+    }
+
+    [Fact]
+    public async Task TicketNumberPrefix_TextThatIsNotAllDigits_AsksForNoPrefix()
+    {
+        var handler = new RecordingHandler("[]");
+        await GitLab(handler).SearchAsync("widget", 10, default);
+
+        handler.LastRequest!.RequestUri!.Query.Should().Contain("search=widget").And.NotContain("iids");
+    }
+
     private static JiraTicketSearch Jira(RecordingHandler handler, string? projectKey) =>
         new(new JiraTicketConnection("https://jira.example.com", "a@b.c", "token", projectKey),
             new HttpClient(handler), new JiraFieldMapper(), NullLogger.Instance);

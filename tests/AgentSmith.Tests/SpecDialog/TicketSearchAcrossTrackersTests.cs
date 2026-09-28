@@ -203,6 +203,9 @@ public sealed class TicketSearchAcrossTrackersTests
 
         public ITicketSearch CreateSearch(TrackerConnection config) => Searching(config.Name);
 
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
+
         public ITicketProvider Create(TrackerConnection config) =>
             config.Name == Unreachable
                 ? new StubTicketProvider(_ => throw new HttpRequestException("the organisation is unreachable"))

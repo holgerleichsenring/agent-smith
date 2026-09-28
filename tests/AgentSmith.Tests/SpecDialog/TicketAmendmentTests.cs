@@ -344,6 +344,9 @@ public sealed class TicketAmendmentTests : IDisposable
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
 
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
+
         private sealed class Rewriter(FakeTracker owner) : ITicketRewriter
         {
             public Task<TicketRewriteResult> RewriteRegionAsync(
