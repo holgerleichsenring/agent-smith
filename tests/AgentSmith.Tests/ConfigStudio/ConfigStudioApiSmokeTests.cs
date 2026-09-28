@@ -337,12 +337,13 @@ public sealed class ConfigStudioApiSmokeTests
             var orchestrator = await http.GetStringAsync("/api/config/settings/orchestrator");
             orchestrator.Should().Contain("\"maxRunWallTimeSeconds\"").And.NotContain("\"MaxRunWallTimeSeconds\"");
 
-            // PUT saves it; the response and a re-GET carry the new value.
+            // PUT saves it; the response and a re-GET carry the new value. The retired image
+            // pin an older client still sends is accepted and not kept.
             var put = await http.PutAsync("/api/config/settings/orchestrator",
                 JsonBody("""{"registry":"ghcr.io/sample","version":"9.9.9","maxRunWallTimeSeconds":4200}"""));
             put.StatusCode.Should().Be(HttpStatusCode.OK);
             (await http.GetStringAsync("/api/config/settings/orchestrator")).Should().Contain("4200")
-                .And.Contain("ghcr.io/sample");
+                .And.NotContain("ghcr.io/sample");
 
             // The nested cost-cap doc round-trips (default + per-tier by tier name).
             var capPut = await http.PutAsync("/api/config/settings/pipeline_cost_cap",

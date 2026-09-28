@@ -84,7 +84,7 @@ public sealed class TeamsInteractionHandler(
             await messageDispatcher.DispatchAsync(pending.SuggestedText, userId, conversationId, ct,
                 conversationId, DispatcherDefaults.PlatformTeams);
         else
-            await helpHandler.SendHelpAsync(conversationId, ct);
+            await helpHandler.SendHelpAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
     }
 
     private async Task HandleJobQuestionAsync(

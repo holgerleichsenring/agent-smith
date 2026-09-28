@@ -62,14 +62,15 @@ public sealed class SlackModalSubmissionHandlerTests : IDisposable
                 NullLogger<ChatTicketRunLauncher>.Instance),
             _chat.Get<ChatRunStart>());
 
+        var adapters = new PlatformAdapters([_adapter.Object], NullLogger<PlatformAdapters>.Instance);
         var listHandler = new ListTicketsIntentHandler(
-            _adapter.Object,
+            adapters,
             _configLoader.Object,
             _ticketFactory.Object,
             NullLogger<ListTicketsIntentHandler>.Instance);
 
         var createHandler = new CreateTicketIntentHandler(
-            _adapter.Object,
+            adapters,
             _configLoader.Object,
             _ticketFactory.Object,
             TestSupport.ApprovedSetDoubles.Kinds(),
@@ -90,7 +91,6 @@ public sealed class SlackModalSubmissionHandlerTests : IDisposable
                     NullLogger<SlackApiClient>.Instance),
                 new SlackTypedQuestionBlockBuilder(),
                 new SlackMessageBlockBuilder(),
-                new SlackProgressFormatter(),
                 NullLogger<SlackAdapter>.Instance),
             NullLogger<SlackModalSubmissionHandler>.Instance);
     }

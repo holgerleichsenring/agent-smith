@@ -15,9 +15,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// Server-side dispatcher composition: in-memory message bus + state managers,
-/// the bus message router + listener (hosted), the orphan-job detector (hosted),
-/// then chains the Application + Infrastructure compositions and the IntentEngine.
+/// Server-side dispatcher composition: the message bus the spec dialog asks through, the
+/// clarification state, the chat intent parser, then chains the Application + Infrastructure compositions and the IntentEngine.
 /// AddServerCompositionOverrides supplies the last-wins bindings that flip
 /// ITicketStatusTransitionerFactory to the locking variant for Jira,
 /// IPipelineLifecycleCoordinator to the ticket-aware variant with heartbeat support,
@@ -28,13 +27,8 @@ internal static class DispatcherExtensions
     internal static IServiceCollection AddCoreDispatcherServices(this IServiceCollection services)
     {
         services.AddSingleton<IMessageBus, RedisMessageBus>();
-        services.AddSingleton<ConversationStateManager>();
         services.AddSingleton<ClarificationStateManager>();
         services.AddSingleton<ChatIntentParser>();
-        services.AddSingleton<IBusMessageRouter, BusMessageRouter>();
-        services.AddSingleton<MessageBusListener>();
-        services.AddHostedService(sp => sp.GetRequiredService<MessageBusListener>());
-        services.AddHostedService<OrphanJobDetector>();
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddIntentEngine();

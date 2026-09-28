@@ -188,7 +188,6 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `coding_principles_path`, `skills_path` | project-level overrides |
 | `github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger` | a full trigger block, overriding the tracker field by field. Must match the tracker's type |
 | `sandbox` | per-project sandbox overrides, see below |
-| `orchestrator` | per-project orchestrator overrides |
 
 ### Trigger blocks
 
@@ -262,8 +261,8 @@ These blocks apply to every project unless a project overrides them. On a server
 
 | Block | What it sets |
 |-------|--------------|
-| `deployment` | `registry`, `version`: one image pin for orchestrator and sandbox agent |
-| `orchestrator` | orchestrator image, `max_run_wall_time_seconds` (1800) |
+| `deployment` | `registry`, `version`: an optional image pin for the sandbox agent |
+| `orchestrator` | `max_run_wall_time_seconds` (1800) |
 | `sandbox` | agent image, `step_timeout_seconds` (900), `run_command_timeout_seconds` (300), `max_concurrent_sandboxes`, `hold_seconds` (180), registry trust and pull secrets |
 | `registries` | private package feeds the agent authenticates against in the sandbox |
 | `primary_provider` | the agent used when a project names none |

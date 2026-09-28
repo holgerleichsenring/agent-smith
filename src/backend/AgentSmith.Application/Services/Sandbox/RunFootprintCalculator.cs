@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
@@ -7,7 +6,8 @@ namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
 /// p0336: builds the run's full footprint by reading every repo's context.yaml
-/// remotely (the p0331 inventory: repo → contexts) and adding the orchestrator pod.
+/// remotely (the p0331 inventory: repo → contexts). The pipeline runs in the server, so
+/// the footprint is the sandboxes alone.
 /// p0336c: sizes ONE pod per (repo, toolchain image) at the max resource envelope —
 /// the SAME grouping the coordinator spawns — so the reserved footprint equals the
 /// pods that actually run (was one-per-context, which over-reserved). A mixed-SDK
@@ -16,7 +16,6 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class RunFootprintCalculator(
     ISandboxLanguageResolver languageResolver,
     ISandboxResourceResolver resourceResolver,
-    IOrchestratorResourceResolver orchestratorResolver,
     ILogger<RunFootprintCalculator> logger) : IRunFootprintCalculator
 {
     public async Task<RunFootprintBreakdown> CalculateAsync(
@@ -29,11 +28,6 @@ public sealed class RunFootprintCalculator(
             foreach (var group in discoveries.GroupBy(ImageOf, StringComparer.Ordinal))
                 pods.Add(PodForGroup(project, pipelineName, repo.Name ?? "?", group.ToList()));
         }
-
-        var orchestrator = orchestratorResolver.Resolve(project);
-        if (orchestrator is not null)
-            pods.Add(new RunFootprintPod(
-                "orchestrator", [], "orchestrator", orchestrator.CpuLimit, orchestrator.MemoryLimit));
 
         return Totalize(pods, project);
     }

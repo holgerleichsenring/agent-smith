@@ -12,7 +12,7 @@ Before the listener binds, the server asks each startup dependency whether it's 
 | `configuration` | Does the configuration load and validate? |
 | `database` | Is the database reachable? |
 | `redis` | Is Redis reachable? Without it the job queue, leader election and the live run feed are down, so no run can be queued or picked up. |
-| `spawner` | Is a real job spawner (Docker or Kubernetes) behind the one that was registered? |
+| `sandbox-backend` | Does the sandbox backend (Kubernetes, Docker or in-process) answer? Every run creates its sandboxes through it. |
 | `sandbox-agent` | Is a project's sandbox agent pinned to a different version than this server's release? Advisory only. |
 
 Each probe gets ten seconds. A probe that doesn't answer in time, or throws, is recorded as a blocking finding that says its state is unknown. Other parts of the server add findings as they run into things, for example an `auth` finding when the [token authority is unreachable](../security/access-control.md#when-the-authority-is-unreachable) or a `build` finding when a dashboard tab and the server come from different builds.

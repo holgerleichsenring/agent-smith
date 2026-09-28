@@ -21,7 +21,7 @@ public static class ReservedCapacityCalculator
     /// with the run (the pods are owner-referenced/disposed at run end). Null when
     /// nothing is computable (pre-p0332 rows) — no fake zeros.
     /// </summary>
-    public static double? Compute(Run run, string? orchestratorMemoryRequest)
+    public static double? Compute(Run run)
     {
         if (run.FinishedAt is not { } finished) return null;
 
@@ -36,11 +36,10 @@ public static class ReservedCapacityCalculator
             any = true;
         }
 
-        // The spawned orchestrator (JobId set by p0330) lives for the whole run;
-        // an in-process run (JobId null) has no orchestrator pod to account.
-        var orchestratorRequest = orchestratorMemoryRequest ?? ResourceLimits.Default.MemoryRequest;
+        // A run recorded with a JobId ran in a spawned orchestrator pod that lived for the
+        // whole run; no run is spawned that way any more, but those rows still reserved it.
         if (run.JobId is not null
-            && KubernetesQuantity.TryParseMemoryToBytes(orchestratorRequest, out var orchestratorBytes))
+            && KubernetesQuantity.TryParseMemoryToBytes(ResourceLimits.Default.MemoryRequest, out var orchestratorBytes))
         {
             total += GiMinutes(run.StartedAt, finished, orchestratorBytes);
             any = true;

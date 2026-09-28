@@ -17,13 +17,11 @@ public sealed class SlackInteractionHandler(
     ChatRunAnswerRouter answers,
     ClarificationStateManager clarificationState,
     SlackMessageDispatcher dispatcher,
-    SlackErrorActionHandler errorActionHandler,
     HelpHandler helpHandler,
     SlackAdapter adapter,
     ILogger<SlackInteractionHandler> logger)
 {
     private const string ClarificationPrefix = "clarification";
-    private const string ErrorPrefix = "error";
 
     public async Task HandleAsync(
         string channelId,
@@ -49,7 +47,6 @@ public sealed class SlackInteractionHandler(
         return questionId switch
         {
             ClarificationPrefix => HandleClarificationAsync(channelId, answer, payload, ct),
-            ErrorPrefix => errorActionHandler.HandleAsync(channelId, answer, payload, ct),
             _ => HandleJobQuestionAsync(channelId, questionId, answer, payload, ct)
         };
     }
@@ -70,7 +67,7 @@ public sealed class SlackInteractionHandler(
         if (answer == "confirm")
             await dispatcher.DispatchAsync(pending.SuggestedText, pending.UserId, channelId, ct);
         else
-            await helpHandler.SendHelpAsync(channelId, ct);
+            await helpHandler.SendHelpAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
     }
 
     private async Task HandleJobQuestionAsync(

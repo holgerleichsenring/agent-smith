@@ -43,5 +43,4 @@ public sealed class RawProjectEntry
 
     public PollingConfig Polling { get; set; } = new();
     public SandboxConfig? Sandbox { get; set; }
-    public OrchestratorConfig? Orchestrator { get; set; }
 }

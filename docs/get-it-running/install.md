@@ -97,15 +97,13 @@ The server needs:
 
 ## Pinning versions
 
-Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI, dashboard and sandbox-agent images ship from the same release. Pin the tag of the images you run, and name the same number once more as **Configuration → Deployment** in the studio (the `deployment:` block in a file):
+Every release tag is published on Docker Hub and on the GitHub releases page. Server, CLI, dashboard and sandbox-agent images ship from the same release. Pin the tag of the images you run. The sandbox-agent image needs no pin: its tag is derived from the release the running server is, so the two can't drift apart. Set **Configuration → Deployment** in the studio (the `deployment:` block in a file) or `sandbox.agent_version` only to run a different tag on purpose, say from an air-gapped mirror; a pin is reported as an advisory finding and never refused:
 
 ```yaml
 deployment:
-  registry: holgerleichsenring
+  registry: my-mirror.example/agent-smith
   version: 0.108.0
-```
-
-That pin feeds the spawned orchestrator container. The sandbox-agent image needs none: its tag is derived from the release the running server is, so the two can't drift apart. Set `sandbox.agent_version` only to run a different tag on purpose, say from an air-gapped mirror; a pin is reported as an advisory finding and never refused. Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. The Skills setting (or a `skills:` block for the CLI) is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
+``` Skills ship embedded in the release — every binary carries the exact catalog it was tested with, so there is nothing to pin. The Skills setting (or a `skills:` block for the CLI) is an override for skills development or air-gap mirrors — see [Skills catalog](../how-it-works/skills-catalog.md).
 
 ## Next
 

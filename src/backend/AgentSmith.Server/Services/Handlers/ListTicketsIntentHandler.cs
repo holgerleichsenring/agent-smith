@@ -1,4 +1,3 @@
-using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Adapters;
@@ -10,10 +9,10 @@ namespace AgentSmith.Server.Services.Handlers;
 /// <summary>
 /// Handles the ListTicketsIntent: loads open tickets from the configured provider
 /// and posts a formatted list to the chat channel.
-/// Executed directly by the Dispatcher — no K8s Job required.
+/// Replies on the platform the intent came from.
 /// </summary>
 public sealed class ListTicketsIntentHandler(
-    IPlatformAdapter adapter,
+    PlatformAdapters adapters,
     IConfigurationLoader configLoader,
     ITicketProviderFactory ticketFactory,
     ILogger<ListTicketsIntentHandler> logger)
@@ -28,8 +27,8 @@ public sealed class ListTicketsIntentHandler(
 
             if (!config.Projects.TryGetValue(intent.Project, out var projectConfig))
             {
-                await adapter.SendMessageAsync(
-                    intent.ChannelId,
+                await adapters.SendMessageAsync(
+                    intent.Platform, intent.ChannelId,
                     $":x: Project *{intent.Project}* not found in configuration.",
                     cancellationToken);
                 return;
@@ -43,7 +42,7 @@ public sealed class ListTicketsIntentHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to list tickets for project {Project}", intent.Project);
-            await adapter.SendMessageAsync(intent.ChannelId, $":x: {ex.Message}", cancellationToken);
+            await adapters.SendMessageAsync(intent.Platform, intent.ChannelId, $":x: {ex.Message}", cancellationToken);
         }
     }
 
@@ -54,8 +53,8 @@ public sealed class ListTicketsIntentHandler(
     {
         if (!tickets.Any())
         {
-            await adapter.SendMessageAsync(
-                intent.ChannelId,
+            await adapters.SendMessageAsync(
+                intent.Platform, intent.ChannelId,
                 $":white_check_mark: No open tickets found in *{intent.Project}*.",
                 cancellationToken);
             return;
@@ -68,6 +67,6 @@ public sealed class ListTicketsIntentHandler(
         var text = $":ticket: *Open tickets in {intent.Project}* ({tickets.Count} total):\n"
                    + string.Join("\n", lines);
 
-        await adapter.SendMessageAsync(intent.ChannelId, text, cancellationToken);
+        await adapters.SendMessageAsync(intent.Platform, intent.ChannelId, text, cancellationToken);
     }
 }

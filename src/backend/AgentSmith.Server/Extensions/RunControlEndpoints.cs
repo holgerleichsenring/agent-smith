@@ -14,9 +14,9 @@ namespace AgentSmith.Server.Extensions;
 /// p0330: cancel is PERSISTENT STATE, not a best-effort signal. The endpoint
 /// writes CancelRequested + a kill deadline onto the run row BEFORE returning;
 /// the cooperative token (in-process runs) may land inside the grace window,
-/// and <see cref="Services.Lifecycle.CancelEnforcer"/> force-kills anything
-/// still alive after it — including spawned orchestrator pods the in-memory
-/// registry can structurally never reach.
+/// and <see cref="Services.Lifecycle.CancelEnforcer"/> finalizes the run after it —
+/// including a run that outlived a restart, which the in-memory registry can
+/// structurally never reach.
 ///
 /// States the operator can hit:
 ///   1. QUEUED run — pure bookkeeping: queue entry deleted, row finished

@@ -35,11 +35,6 @@ public sealed class StartupThrowInventoryTests
     /// </summary>
     private static readonly Dictionary<string, string> Accounted = new()
     {
-        ["UnavailableJobSpawner.cs"] =
-            "Refuses the WORK, not the process: a run dispatched with no sandbox backend fails "
-            + "with the reason. p0391a's rule permits exactly this.",
-        ["DockerJobSpawner.cs"] =
-            "Per-run spawn failure at request time, not composition.",
         ["ConnectionRepoUrlBuilder.cs"] =
             "Caught by ConfigCatalogResolver.TryBuildProject — becomes that project's finding.",
         ["RepoGlobExpander.cs"] =

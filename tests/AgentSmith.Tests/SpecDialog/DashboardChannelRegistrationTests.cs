@@ -20,11 +20,8 @@ namespace AgentSmith.Tests.SpecDialog;
 /// <para>
 /// Both chat adapters register NON-KEYED, so a single-service resolve yields the LAST
 /// registration — and classes that take one adapter were reaching Teams whatever they
-/// meant. Two are Slack by name AND by purpose and now say so. The dispatcher is not one
-/// of them: Teams resolves that same class, so a fixed adapter there answers Slack on
-/// Teams' behalf and back again; it takes the platform per call instead. The rest are the
-/// run-trigger chat path, and this pins what they get so a later registration cannot move
-/// it unseen.
+/// meant. The Slack modal handler is Slack by name AND by purpose and says so. Every other
+/// reply names its platform through PlatformAdapters, and no class takes a bare one.
 /// </para>
 /// </summary>
 [Collection(TestSupport.EnvVarCollection.Name)]
@@ -35,7 +32,6 @@ public sealed class DashboardChannelRegistrationTests
     {
         Type[] slackNamed =
         [
-            typeof(SlackErrorActionHandler),
             typeof(SlackModalSubmissionHandler),
         ];
 
@@ -96,8 +92,8 @@ public sealed class DashboardChannelRegistrationTests
     [Fact]
     public async Task Reply_OnTheTeamsPlatform_ReachesTeamsAndNotSlack()
     {
-        var slack = new RecordingAdapter(DispatcherDefaults.PlatformSlack);
-        var teams = new RecordingAdapter(DispatcherDefaults.PlatformTeams);
+        var slack = new RecordingPlatformAdapter(DispatcherDefaults.PlatformSlack);
+        var teams = new RecordingPlatformAdapter(DispatcherDefaults.PlatformTeams);
         var adapters = new PlatformAdapters([slack, teams], NullLogger<PlatformAdapters>.Instance);
 
         await adapters.SendMessageAsync(
@@ -110,7 +106,7 @@ public sealed class DashboardChannelRegistrationTests
     [Fact]
     public async Task Reply_OnAPlatformWithNoAdapter_IsNotDeliveredAndSaysSo()
     {
-        var slack = new RecordingAdapter(DispatcherDefaults.PlatformSlack);
+        var slack = new RecordingPlatformAdapter(DispatcherDefaults.PlatformSlack);
         var adapters = new PlatformAdapters([slack], NullLogger<PlatformAdapters>.Instance);
 
         await adapters.SendMessageAsync("nowhere", "conversation", "it broke", default);
@@ -119,14 +115,17 @@ public sealed class DashboardChannelRegistrationTests
     }
 
     [Fact]
-    public void Registration_ABareResolve_YieldsTheDocumentedAdapter()
+    public void Registration_NoServerClass_TakesABareAdapter()
     {
-        using var provider = Composed().BuildServiceProvider();
+        var bare = typeof(PlatformAdapters).Assembly.GetTypes()
+            .Where(type => type is { IsClass: true, IsAbstract: false })
+            .Where(type => type.GetConstructors().Any(ctor => ctor.GetParameters()
+                .Any(parameter => parameter.ParameterType == typeof(IPlatformAdapter))))
+            .Select(type => type.Name);
 
-        provider.GetRequiredService<IPlatformAdapter>().Should().BeOfType<TeamsAdapter>(
-            "the five single-adapter sites that remain are the run-trigger chat path, and "
-            + "the last chat registration is what they have always got. The dashboard "
-            + "adapter registers BEFORE them for exactly this reason");
+        bare.Should().BeEmpty(
+            "a single IPlatformAdapter resolves to the last registered adapter, so a class "
+            + "taking one replies on that platform whatever the message came from");
     }
 
     [Fact]
@@ -160,50 +159,6 @@ public sealed class DashboardChannelRegistrationTests
         BuiltInRoles.All[BuiltInRoles.Operator].Should().Contain(Permissions.DialogWrite);
         HubMethodPermissions.For(nameof(AgentSmith.Server.Hubs.JobsHub.SubscribeSpecDialog))!
             .Names.Should().Equal(Permissions.DialogWrite);
-    }
-
-    /// <summary>Records what reached one platform, so a reply on the wrong one is visible.</summary>
-    private sealed class RecordingAdapter(string platform) : IPlatformAdapter
-    {
-        public string Platform { get; } = platform;
-
-        public List<string> Sent { get; } = [];
-
-        public Task SendMessageAsync(string channelId, string text, CancellationToken ct)
-        {
-            Sent.Add(text);
-            return Task.CompletedTask;
-        }
-
-        public Task SendProgressAsync(
-            string channelId, int step, int total, string commandName, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task<AgentSmith.Contracts.Dialogue.DialogAnswer?> AskTypedQuestionAsync(
-            string channelId, AgentSmith.Contracts.Dialogue.DialogQuestion question,
-            string? threadId, CancellationToken ct) => Task.FromResult<AgentSmith.Contracts.Dialogue.DialogAnswer?>(null);
-
-        public Task SendInfoAsync(
-            string channelId, string title, string text, string? threadId, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task SendDoneAsync(
-            string channelId, string summary, string? prUrl, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task SendErrorAsync(
-            string channelId, AgentSmith.Server.Models.ErrorContext errorContext,
-            CancellationToken ct) => Task.CompletedTask;
-
-        public Task UpdateQuestionAnsweredAsync(
-            string channelId, string messageId, string questionText, string answer,
-            CancellationToken ct) => Task.CompletedTask;
-
-        public Task SendDetailAsync(string channelId, string text, CancellationToken ct) =>
-            Task.CompletedTask;
-
-        public Task SendClarificationAsync(
-            string channelId, string suggestion, CancellationToken ct) => Task.CompletedTask;
     }
 
     private static IServiceCollection Composed()

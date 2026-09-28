@@ -86,7 +86,6 @@ public static class ConfigSnapshotMapper
         SandboxResources: new ConfigResolvedValue<ConfigResourceSummary>(
             ToSummary(s.SandboxResources.Value), Source(s.SandboxResources.Source)),
         AgentImage: Rv(s.AgentImage),
-        OrchestratorImage: Rv(s.OrchestratorImage),
         ToolchainImage: Rv(s.ToolchainImage),
         CostCap: new ConfigResolvedValue<ConfigCostCapValue>(
             ToCostCap(s.CostCap.Value), Source(s.CostCap.Source)),
@@ -106,9 +105,7 @@ public static class ConfigSnapshotMapper
         Sandbox: new ConfigSandbox(
             config.Sandbox.AgentRegistry, config.Sandbox.AgentVersion,
             config.Sandbox.StepTimeoutSeconds, config.Sandbox.RunCommandTimeoutSeconds),
-        Orchestrator: new ConfigOrchestrator(
-            config.Orchestrator.Registry, config.Orchestrator.Version,
-            config.Orchestrator.MaxRunWallTimeSeconds),
+        Orchestrator: new ConfigOrchestrator(config.Orchestrator.MaxRunWallTimeSeconds),
         Limits: new ConfigLimits(
             config.Limits.MaxToolCallsPerSkill, config.Limits.MaxLlmCallsPerSkill,
             config.Limits.MaxConcurrentSkillCalls, config.Limits.MaxSubAgentsPerRun),

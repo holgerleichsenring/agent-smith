@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Server.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Diagnostics;
@@ -19,7 +18,7 @@ internal sealed class ConnectionDiagnosticsService(
     ISourceProviderFactory sourceFactory,
     ITicketProviderFactory trackerFactory,
     IChatClientFactory chatClientFactory,
-    IJobSpawner jobSpawner,
+    IPreflightSandboxProbe sandboxBackend,
     IInfraConnectivityProbe infraProbe,
     IChatConnectivityProbe chatProbe,
     IWebhookDeliveryTracker webhookTracker,
@@ -62,8 +61,8 @@ internal sealed class ConnectionDiagnosticsService(
             ct => infraProbe.ProbeRedisAsync(ct));
         yield return new ProbeTarget("persistence", config.Persistence.Provider, "persistence", "infra",
             ct => infraProbe.ProbePersistenceAsync(ct));
-        yield return new ProbeTarget("sandbox", SpawnerLabel(), "sandbox", "infra",
-            ct => jobSpawner.ProbeAsync(ct));
+        yield return new ProbeTarget("sandbox", sandboxBackend.BackendLabel, "sandbox", "infra",
+            ct => sandboxBackend.ProbeAsync(ct));
 
         if (chatProbe.IsSlackConfigured)
             yield return new ProbeTarget("slack", "Slack", "chat", "chat",
@@ -72,9 +71,6 @@ internal sealed class ConnectionDiagnosticsService(
             yield return new ProbeTarget("teams", "Teams", "chat", "chat",
                 ct => chatProbe.ProbeTeamsAsync(ct));
     }
-
-    private string SpawnerLabel() =>
-        jobSpawner.GetType().Name.Replace("JobSpawner", "", StringComparison.Ordinal);
 
     private async Task<ConnectionStatus> RunAsync(ProbeTarget target, CancellationToken cancellationToken)
     {

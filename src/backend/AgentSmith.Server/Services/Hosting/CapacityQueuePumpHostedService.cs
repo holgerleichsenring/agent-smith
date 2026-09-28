@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Health;
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;

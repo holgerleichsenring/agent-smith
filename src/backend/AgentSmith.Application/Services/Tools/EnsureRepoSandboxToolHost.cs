@@ -91,8 +91,7 @@ public sealed class EnsureRepoSandboxToolHost(
 
         // Own single-sandbox probe — pipeline-aware size, orchestrator already running.
         var pipelineName = pipeline.TryGet<string>(ContextKeys.PipelineName, out var pn) ? pn : null;
-        var footprint = new RunFootprint(
-            Orchestrator: null, Sandboxes: [resourceResolver.Resolve(project, pipelineName)]);
+        var footprint = new RunFootprint(Sandboxes: [resourceResolver.Resolve(project, pipelineName)]);
         // 2026-09-22-2d11a: release before the probe; 2026-09-24-81ea: only when it is short.
         await heldSandboxes.EvictIfShortAsync(
             async c => (await capacityProbe.HasCapacityAsync(footprint, c)).Admitted, ct);

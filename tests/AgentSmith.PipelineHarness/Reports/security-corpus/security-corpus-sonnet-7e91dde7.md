@@ -4,7 +4,7 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-28T13:48:40.0010600+00:00
+- generated: 2026-09-28T14:56:06.7219570+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
@@ -16,15 +16,15 @@ Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [Critical]: src/orders/orderLookup.ts:7: SQL query built by string-concatenating req.params.id directly into the WHERE clause, unlike the parameterized countOrders in the same file (on the declared line)
+  - found [High]: src/orders/orderLookup.ts:7: findOrder() builds SQL by concatenating req.params.id directly into the query string instead of binding it as a parameter (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:16-18: removeMember mutates another member's data with no requireAdmin() check, unlike listMembers and suspendMember in the same file
+  - found [High]: src/admin/memberAdmin.ts:16: removeMember() deletes a member without calling requireAdmin(), unlike listMembers() and suspendMember() in the same file which both gate on it
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9-10: downloadAttachment joins user-supplied name into STORAGE_ROOT with no path containment check, unlike resolveExport in exportPath.ts (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9: downloadAttachment() joins caller-supplied name onto STORAGE_ROOT without resolving/containing it, unlike exportPath.ts's resolveExport() which checks the resolved path stays under its root (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [Medium]: src/auth/loginRedirect.ts:6-7: finishLogin redirects to req.query.next with no allow-list validation, unlike safeReturnTarget in returnTarget.ts
+  - found [Medium]: src/auth/loginRedirect.ts:6-7: finishLogin() redirects to req.query.next verbatim right after completing sign-in, instead of validating against a fixed route set like safeReturnTarget() in returnTarget.ts
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: job payload deserialized with eval() instead of JSON.parse, allowing arbitrary code execution from the queued payload text (on the declared line)
+  - found [High]: src/jobs/jobPayload.ts:7: readPayload() rehydrates a queued job's payload with eval("(" + raw + ")") instead of JSON.parse, executing arbitrary JavaScript from job.payloadText (on the declared line)
 - [x] src/reports/reportLookup.ts (sql-injection, clean)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)

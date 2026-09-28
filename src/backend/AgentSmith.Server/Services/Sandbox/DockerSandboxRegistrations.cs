@@ -37,6 +37,7 @@ internal static class DockerSandboxRegistrations
         services.AddSingleton<DockerContainerSpecBuilder>();
         services.AddSingleton<DockerPackageCaches>();
         services.AddSingleton<DockerImagePresence>();
+        services.AddSingleton<IPreflightSandboxProbe, DockerSandboxBackendProbe>();
         RegisterFactory(services);
         RegisterLiveness(services);
     }

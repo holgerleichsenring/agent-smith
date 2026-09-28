@@ -9,8 +9,8 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// <summary>
 /// p0269a: reads the namespace ResourceQuota(s) and answers whether a run of a given
 /// footprint still fits (hard - used >= required) for every quota that constrains cpu /
-/// memory / pods. p0320b: the footprint is the WHOLE run — orchestrator pod + one sandbox
-/// per repo, summed per quota key. If ANY quota would be exceeded, capacity is denied with
+/// memory / pods. p0320b: the footprint is the WHOLE run — one sandbox per repo and
+/// toolchain image, summed per quota key. If ANY quota would be exceeded, capacity is denied with
 /// the offending resource named. A namespace with no ResourceQuota is unconstrained → admit.
 /// Reads are fail-open: a transient API/RBAC error admits, because the pod-create itself
 /// remains the hard guard (a real quota rejection there maps to CapacityExhaustedException).
@@ -75,15 +75,15 @@ public sealed class KubernetesCapacityProbe(
         return null;
     }
 
-    // p0320b: the WHOLE run expressed as the quota resources it consumes — orchestrator pod
-    // (when present) + every sandbox, summed per quota key. A quota may constrain either the
+    // p0320b: the WHOLE run expressed as the quota resources it consumes — every sandbox,
+    // summed per quota key. A quota may constrain either the
     // prefixed ("requests.cpu") or bare ("cpu") form; emit both so whichever the quota uses
     // matches. Every pod in the footprint consumes one pods / count/pods unit.
     private static IEnumerable<(string QuotaKey, double Required)> RequiredAmounts(RunFootprint f)
     {
         var totals = new Dictionary<string, double>(StringComparer.Ordinal);
         var pods = 0;
-        foreach (var pod in EnumeratePods(f))
+        foreach (var pod in f.Sandboxes)
         {
             pods++;
             if (KubernetesQuantity.TryParseCpuToNanoCpus(pod.CpuRequest, out var cpuReq))
@@ -104,12 +104,6 @@ public sealed class KubernetesCapacityProbe(
         totals["pods"] = pods;
         totals["count/pods"] = pods;
         return totals.Select(kv => (kv.Key, kv.Value));
-    }
-
-    private static IEnumerable<ResourceLimits> EnumeratePods(RunFootprint f)
-    {
-        if (f.Orchestrator is not null) yield return f.Orchestrator;
-        foreach (var sandbox in f.Sandboxes) yield return sandbox;
     }
 
     private static void Add(Dictionary<string, double> totals, string key, double amount) =>

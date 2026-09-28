@@ -20,8 +20,7 @@ namespace AgentSmith.Server.Services;
 /// works in unit tests but not in production.
 ///
 /// What stays in Program.cs: the WebApplication-specific concerns (logging
-/// formatter, env-var validation, AddJobSpawnerAsync which needs builder.
-/// Configuration, dashboard endpoint mapping, app.Run()). What moves here:
+/// formatter, env-var validation, dashboard endpoint mapping, app.Run()). What moves here:
 /// every IServiceCollection.Add* call that a non-WebApplication consumer
 /// (the harness, future CLI shapes) needs to mirror.
 /// </summary>
@@ -48,10 +47,6 @@ public static class ServerCompositionBuilder
             .AddDataArchiveTransfer()
             .AddSandbox()
             .AddSandboxGlobalConfig()
-            .AddOrchestratorGlobalConfig()
-            // 2026-09-15-9033: the dashboard channel first, the two chat adapters after —
-            // a bare IPlatformAdapter resolve is the run-trigger chat path and must stay
-            // on a chat platform (DashboardChannelRegistrationTests pins what it yields).
             .AddDashboardAdapter()
             .AddSlackAdapter()
             .AddTeamsAdapter()

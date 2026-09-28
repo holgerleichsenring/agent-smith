@@ -99,6 +99,5 @@ public sealed class ResolvedProjectBuilder(
             AzuredevopsTrigger = raw.AzuredevopsTrigger,
             Polling = raw.Polling,
             Sandbox = raw.Sandbox,
-            Orchestrator = raw.Orchestrator,
         };
 }

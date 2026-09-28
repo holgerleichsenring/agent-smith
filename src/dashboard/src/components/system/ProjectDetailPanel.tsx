@@ -171,7 +171,6 @@ function ResolvedSection({ resolved }: { resolved: ConfigProject["resolved"] }) 
         <ResolvedRow testId="resolved-run-command-timeout" label="run_command timeout" rv={resolved.runCommandTimeoutSeconds} format={(v) => `${v}s`} />
         <ResolvedRow testId="resolved-sandbox-resources" label="sandbox resources" rv={resolved.sandboxResources} format={formatResources} />
         <ResolvedRow testId="resolved-agent-image" label="agent image" rv={resolved.agentImage} format={(v) => v} />
-        <ResolvedRow testId="resolved-orchestrator-image" label="orchestrator image" rv={resolved.orchestratorImage} format={(v) => v} />
         <ResolvedRow testId="resolved-toolchain-image" label="toolchain image" rv={resolved.toolchainImage} format={(v) => v} />
         <ResolvedRow testId="resolved-cost-cap" label="cost cap / run" rv={resolved.costCap} format={(v) => `$${v.usd} · ${v.tokens.toLocaleString()} tok`} />
       </dl>

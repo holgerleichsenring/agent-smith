@@ -29,22 +29,17 @@
 #   - Repos:     github | gitlab | azure_devops | local
 #   - Trackers:  github | gitlab | azure_devops | jira
 
-# --- Deployment image pin (required by the ORCHESTRATOR image) ---
-# p0281c: ONE registry + version feeds BOTH the orchestrator container and the
-# sandbox-agent image — they ship from the same agent-smith release, so there is
-# one knob to bump per upgrade instead of two kept in sync. The legacy per-image
-# blocks (`sandbox: { agent_version }` / `orchestrator: { registry, version }`)
-# still load and win field-by-field when present.
+# --- Deployment image pin (optional) ---
+# ONE registry + version for the sandbox-agent image, the only image agent-smith
+# starts besides the per-language toolchains. Left unset, its tag is DERIVED from
+# the release the running server is, so the two cannot drift apart by being
+# forgotten. Setting it here (or in `sandbox.agent_version`, which wins) pins it
+# deliberately — the server then reports the difference as an advisory finding
+# and refuses nothing.
 #
-# 2026-08-25-0d01: the SANDBOX-AGENT half no longer needs this. Left unset there,
-# its tag is DERIVED from the release the running server is, so the two cannot
-# drift apart by being forgotten. Setting it here (or in `sandbox.agent_version`)
-# still pins it deliberately — the server then reports the difference as an
-# advisory finding and refuses nothing. The orchestrator image has no derived
-# default and still needs a version, from here or from `orchestrator.version`.
-deployment:
-  registry: holgerleichsenring
-  version: 0.129.0
+# deployment:
+#   registry: holgerleichsenring
+#   version: 0.129.0
 
 # --- Per-language toolchain images (p0245) ---
 # Override the built-in language→image table per language, for one project, without
@@ -130,13 +125,10 @@ deployment:
 #   image_pull_secrets:
 #     - acr-pull
 
-# (Orchestrator + sandbox images both come from the `deployment:` pin above. To
-# override just one — e.g. pin a pre-release orchestrator — add the legacy block:
+# (Every run executes in the server; the sandboxes above are the only pods it
+# starts. A run older than this is cancelled:
 #   orchestrator:
-#     registry: my-mirror
-#     version: 0.49.0-beta
-# A per-project orchestrator.registry/version is ignored (p0281c); orchestrator
-# resources stay per-project.)
+#     max_run_wall_time_seconds: 1800)
 
 # --- Relational system-of-record (SERVER only; the CLI one-shot runs ignore it) ---
 # The server always uses a DB (run history + the single-run constraint) + Redis.

@@ -30,9 +30,8 @@ COPY src/ src/
 RUN dotnet publish src/backend/AgentSmith.Cli -c Release -o /app/publish --no-restore
 
 # Stage 2: Runtime
-# TODO p4x: dotnet SDK required until TestCommand spawns ephemeral job containers.
-# Target: aspnet:8.0 base + job-based test execution (see DockerJobSpawner).
-# Agent Smith is language-agnostic — hardcoding SDK is technical debt.
+# The CLI runs its sandboxes in-process, so the image carries the .NET SDK a build
+# step needs. Other toolchains run where the server's sandbox backend puts them.
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS runtime
 WORKDIR /app
 

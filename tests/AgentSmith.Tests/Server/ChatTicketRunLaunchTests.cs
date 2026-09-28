@@ -1,4 +1,3 @@
-using System.Reflection;
 using AgentSmith.Application.Services.Dialogue;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Commands;
@@ -34,7 +33,7 @@ public sealed class ChatTicketRunLaunchTests : IDisposable
     public void Dispose() => _chat.Dispose();
 
     [Fact]
-    public async Task FixTicketIntent_GoesThroughTheSpawnFunnel_SpawnsNothing()
+    public async Task FixTicketIntent_GoesThroughTheSpawnFunnel()
     {
         await Handler().HandleAsync(Fix(pipeline: null), CancellationToken.None);
 
@@ -43,14 +42,6 @@ public sealed class ChatTicketRunLaunchTests : IDisposable
         _claimed.TicketId.Value.Should().Be("42");
         _claimed.ExistingRunId.Should().NotBeNullOrEmpty();
         _said.Should().ContainSingle().Which.Should().Contain(_claimed.ExistingRunId!);
-
-        var chatTypes = typeof(ChatTicketRunLauncher).Assembly.GetTypes().Where(t =>
-            t.Namespace is "AgentSmith.Server.Services.ChatLaunch" or "AgentSmith.Server.Services.Handlers"
-            || t == typeof(AgentSmith.Server.Services.Adapters.SlackMessageDispatcher));
-        chatTypes.SelectMany(t => t.GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
-            .SelectMany(c => c.GetParameters())
-            .Select(p => p.ParameterType.Name)
-            .Should().NotContain("IJobSpawner", "no chat intent starts a run in a spawned job");
     }
 
     [Fact]

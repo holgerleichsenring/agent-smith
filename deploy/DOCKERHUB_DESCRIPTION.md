@@ -7,10 +7,11 @@ Your AI. Your infrastructure. Your rules.
 
 | Image | Purpose |
 |-------|---------|
-| `holgerleichsenring/agent-smith-cli` | CLI runner — one-shot commands (`fix`, `security-scan`, `api-scan`, `mad`, `legal`, …) and the lightweight webhook listener (`server` subcommand) |
-| `holgerleichsenring/agent-smith-server` | Slack/Teams dispatcher — receives chat events on `:8081` and spawns CLI jobs (Docker or Kubernetes) |
+| `holgerleichsenring/agent-smith-cli` | CLI — one-shot commands (`code`, `security-scan`, `api-scan`, `mad`, `legal`, …) and `database migrate` for the server's init container |
+| `holgerleichsenring/agent-smith-server` | The server — webhooks, polling, Slack/Teams chat and the run queue on `:8081`; every run executes here and creates its sandboxes through Docker or Kubernetes |
+| `holgerleichsenring/agent-smith-sandbox-agent` | The agent inside each sandbox — started by the server per run, never run by hand |
 
-Both images are published for `linux/amd64` and `linux/arm64`.
+The images are published for `linux/amd64` and `linux/arm64`.
 
 ## Deployment Modes
 
@@ -24,7 +25,7 @@ docker run --rm \
   -v ~/.ssh:/home/agentsmith/.ssh:ro \
   -v ./config:/app/config \
   holgerleichsenring/agent-smith-cli \
-  fix --ticket 42 --project my-api
+  code --ticket 42 --project my-api
 
 # Security scan a branch
 docker run --rm \
@@ -32,16 +33,7 @@ docker run --rm \
   -e GITHUB_TOKEN=ghp_... \
   -v ./config:/app/config \
   holgerleichsenring/agent-smith-cli \
-  security-scan --project my-api --branch feature/x --output console
-
-# Webhook listener (CLI image, no dispatcher)
-docker run -d \
-  -e ANTHROPIC_API_KEY=sk-... \
-  -e GITHUB_TOKEN=ghp_... \
-  -v ./config:/app/config \
-  -p 8081:8081 \
-  holgerleichsenring/agent-smith-cli \
-  server --port 8081
+  security-scan --agent claude-default --branch feature/x --output console
 ```
 
 Run `docker run --rm holgerleichsenring/agent-smith-cli --help` for the full subcommand list.
@@ -55,13 +47,13 @@ cp .env.example .env  # add your API keys
 
 # CLI one-shot
 docker compose -f deploy/docker-compose.yml run --rm agentsmith \
-  fix --ticket 42 --project my-api
+  code --ticket 42 --project my-api
 
 # Long-running stack (Server + Redis)
 docker compose -f deploy/docker-compose.yml up -d server redis
 ```
 
-The Server container handles Slack/Teams chat, webhooks, polling, and queue consumption in one process (single long-running deployment since p0107). See [`deploy/docker-compose.yml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/docker-compose.yml) for the full service set (CLI one-shot, Server, Redis, optional Ollama).
+The Server container handles Slack/Teams chat, webhooks, polling, and queue consumption in one process, and runs every pipeline itself. See [`deploy/docker-compose.yml`](https://github.com/holgerleichsenring/agent-smith/blob/main/deploy/docker-compose.yml) for the full service set (CLI one-shot, Server, Redis, optional Ollama).
 
 ### 3. Kubernetes
 
@@ -72,7 +64,7 @@ cp 4-secret-template.yaml 4-secret.yaml  # fill in tokens
 kubectl apply -f .
 ```
 
-The `agent-smith-server` deployment listens for Slack/Teams events and spawns `agent-smith-cli` jobs in the same namespace. Manifests in [`deploy/k8s/`](https://github.com/holgerleichsenring/agent-smith/tree/main/deploy/k8s).
+The `agent-smith-server` deployment takes webhooks, polls trackers and listens for Slack/Teams events; every run executes in the server and creates its sandbox pods in the same namespace. Manifests in [`deploy/k8s/`](https://github.com/holgerleichsenring/agent-smith/tree/main/deploy/k8s).
 
 ## Environment Variables
 
@@ -83,7 +75,7 @@ The `agent-smith-server` deployment listens for Slack/Teams events and spawns `a
 | `GEMINI_API_KEY` | Yes\* | Google Gemini API key |
 | `GITHUB_TOKEN` | Yes\*\* | GitHub PAT |
 | `AZURE_DEVOPS_TOKEN` | Yes\*\* | Azure DevOps PAT |
-| `REDIS_URL` | Server only | Redis connection (dispatcher / queue) |
+| `REDIS_URL` | Server only | Redis connection (queue, leases, sandbox channels) |
 | `SLACK_BOT_TOKEN` | Server only | Slack adapter |
 | `SLACK_SIGNING_SECRET` | Server only | Slack request verification |
 
