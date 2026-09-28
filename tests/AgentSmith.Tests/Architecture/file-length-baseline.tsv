@@ -45,7 +45,6 @@
 206	AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs
 203	AgentSmith.Application/Services/SwaggerSpecCompressor.cs
 182	AgentSmith.Application/Services/MasterVerificationParser.cs
-200	AgentSmith.Infrastructure/Services/Containers/DockerContainerRunner.cs
 200	AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs
 199	AgentSmith.Infrastructure/Services/Bus/RedisMessageBus.cs
 198	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs
