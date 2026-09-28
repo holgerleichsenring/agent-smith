@@ -30,7 +30,6 @@ public static class ServiceCollectionExtensions
         services.AddRepoDiscovery();
         services.AddAgentProviders();
         services.AddOutputStrategies();
-        services.AddContainerRunners();
         services.AddSecurityScanners();
         services.AddDialogueTransport();
         services.AddProjectMeta();
