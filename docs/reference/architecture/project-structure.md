@@ -1,152 +1,114 @@
 # Project Structure
 
-Full directory layout of the Agent Smith repository.
+The layout of the Agent Smith repository.
 
 ```
 agent-smith/
-├── .agentsmith/                    # Agent meta-files (project context)
-│   ├── context.yaml                # Project description + phase tracking
-│   ├── principles.md        # Detected coding conventions
+├── .agentsmith/                    # The repository's own spec-first meta-files
+│   ├── contexts/<name>/            # One directory per context (this repo has `default`)
+│   │   ├── context.yaml            #   architecture, stack, phase status
+│   │   └── principles.md           #   code quality rules
 │   ├── phases/
-│   │   ├── done/                   # Completed phase docs (historical)
-│   │   ├── active/                 # Currently active phase (max 1)
-│   │   └── planned/               # Upcoming phase requirements
-│   └── runs/                       # Execution artifacts (r{NN}-slug/)
+│   │   ├── planned/                # Upcoming phase specs
+│   │   ├── active/                 # The phase being implemented
+│   │   └── done/                   # Completed phases
+│   ├── decisions/                  # One decision YAML per phase
+│   ├── memory/                     # Experiential memory (MEMORY.md index + one file per fact)
+│   ├── runs/                       # Run records written by pipeline runs
+│   ├── security/                   # Security-scan snapshots for trend analysis
+│   └── *.schema.json               # Schemas for context, phase spec and decision files
 │
 ├── src/
-│   ├── AgentSmith.Domain/          # Innermost layer — no dependencies
-│   │   ├── Entities/               # Ticket, Repository, Plan, CodeChange, etc.
-│   │   ├── Models/                 # Value objects: TicketId, BranchName, FilePath
-│   │   └── Exceptions/            # AgentSmithException, ConfigurationException
-│   │
-│   ├── AgentSmith.Contracts/       # Interfaces + DTOs
-│   │   ├── Commands/               # ICommandHandler, ICommandExecutor, PipelineContext
-│   │   ├── Decisions/              # IDecisionLogger
-│   │   ├── Models/                 # Finding, RunCostSummary, ParsedIntent, OutputContext
-│   │   │   └── Configuration/     # AgentSmithConfig, ProjectConfig, ModelRegistryConfig
-│   │   ├── Providers/              # IAgentProvider, IContainerRunner, IModelRegistry
-│   │   └── Services/              # Service interfaces
-│   │
-│   ├── AgentSmith.Application/     # Use cases + handlers
-│   │   ├── Models/                 # Context records per handler (39 types)
-│   │   ├── Services/
-│   │   │   ├── Handlers/          # Pipeline step handlers (39 handlers)
-│   │   │   ├── Builders/          # Context builders for API/legal pipelines
-│   │   │   └── Triggers/         # InboxPollingService
-│   │   │   ├── ExecutePipelineUseCase.cs
-│   │   │   ├── PipelineExecutor.cs
-│   │   │   ├── CommandExecutor.cs
-│   │   │   ├── CommandContextFactory.cs
-│   │   │   ├── PipelineCostTracker.cs
-│   │   │   ├── RegexIntentParser.cs
-│   │   │   ├── LlmIntentParser.cs
-│   │   │   └── TrackingLlmClient.cs
-│   │   └── Extensions/            # DI registration, PipelineContext extensions
-│   │
-│   ├── AgentSmith.Infrastructure.Core/  # Shared infra (no external SDKs)
-│   │   └── Services/
-│   │       ├── Configuration/     # YamlConfigurationLoader, SecretsProvider
-│   │       ├── Detection/         # Language detectors (.NET, Python, TypeScript)
-│   │       ├── ProjectDetector.cs
-│   │       ├── ContextGenerator.cs
-│   │       ├── CodeMapGenerator.cs
-│   │       ├── CodingPrinciplesGenerator.cs
-│   │       ├── ProviderRegistry.cs
-│   │       ├── RepoSnapshotCollector.cs
-│   │       └── YamlSkillLoader.cs
-│   │
-│   ├── AgentSmith.Infrastructure/  # External integrations
-│   │   ├── Models/                 # ToolDefinitions, BusMessage, ScoutResult
-│   │   └── Services/
-│   │       ├── Providers/
-│   │       │   ├── Agent/         # Claude, OpenAI, Gemini, Ollama providers + loops
-│   │       │   ├── Source/        # GitHub, AzureRepos, GitLab, Local source providers
-│   │       │   └── Tickets/      # GitHub, AzureDevOps, GitLab, Jira ticket providers
-│   │       ├── Factories/         # AgentProvider, LlmClient, Source, Ticket factories
-│   │       ├── Output/            # Console, SARIF, Markdown, Summary strategies
-│   │       ├── Tools/             # DockerToolRunner, ProcessToolRunner
-│   │       ├── Bus/               # RedisMessageBus, RedisProgressReporter
-│   │       ├── Containers/        # DockerContainerRunner
-│   │       ├── Nuclei/            # NucleiSpawner
-│   │       └── Spectral/         # SpectralSpawner
-│   │
-│   ├── AgentSmith.Cli/           # CLI + webhook entry point
-│   │   ├── Commands/              # Fix, Feature, SecurityScan, ApiScan, Legal, etc.
-│   │   ├── Services/
-│   │   │   └── Webhooks/         # GitHub, GitLab, AzureDevOps webhook handlers
-│   │   ├── Program.cs             # Entry point, System.CommandLine setup
-│   │   ├── ConfigDiscovery.cs     # 4-step config file resolution
-│   │   └── ServiceProviderFactory.cs  # DI container builder
-│   │
-│   └── AgentSmith.Server/     # Chat gateway (separate process)
-│       ├── Contracts/              # IJobSpawner, IPlatformAdapter, IMessageBus
-│       ├── Models/                 # ChatIntent, JobRequest, ConversationState
-│       ├── Services/
-│       │   ├── Adapters/          # SlackAdapter, modals, interactions
-│       │   ├── Handlers/          # Dispatcher-specific handlers
-│       │   ├── IntentEngine.cs
-│       │   ├── KubernetesJobSpawner.cs
-│       │   ├── DockerJobSpawner.cs
-│       │   ├── MessageBusListener.cs
-│       │   ├── ConversationStateManager.cs
-│       │   ├── OrphanJobDetector.cs
-│       │   └── ProjectResolver.cs
-│       └── Program.cs             # Dispatcher entry point
+│   ├── backend/                    # The .NET solution's projects
+│   │   ├── AgentSmith.Domain/                         # entities, value objects, exceptions
+│   │   ├── AgentSmith.Contracts/                      # interfaces, commands, events, config models
+│   │   ├── AgentSmith.Application/                    # pipeline executor, handlers, use cases
+│   │   ├── AgentSmith.Infrastructure.Core/            # config loading, secrets, skill catalog
+│   │   ├── AgentSmith.Infrastructure/                 # LLM clients, git/ticket providers, Redis, scanners
+│   │   ├── AgentSmith.Infrastructure.Persistence/     # EF Core store and migrations
+│   │   ├── AgentSmith.Infrastructure.Persistence.SqlServer/  # SQL Server migrations
+│   │   ├── AgentSmith.Cli/                            # CLI entry point (+ Dockerfile)
+│   │   ├── AgentSmith.Server/                         # long-running server (+ Dockerfile)
+│   │   ├── AgentSmith.Sandbox.Wire/                   # step protocol shared with the sandbox agent
+│   │   ├── AgentSmith.Sandbox.Agent/                  # executable injected into each sandbox (+ Dockerfile)
+│   │   └── AgentSmith.SkillsPackaging/                # build-time skill catalog check
+│   └── dashboard/                  # Next.js dashboard (pnpm, vitest; + Dockerfile)
 │
 ├── tests/
-│   └── AgentSmith.Tests/          # 567 tests (xUnit + Moq + FluentAssertions)
+│   ├── AgentSmith.Tests/           # main xUnit suite, including the frozen event fixtures
+│   ├── AgentSmith.Sandbox.Agent.Tests/  # sandbox agent tests
+│   ├── AgentSmith.PipelineHarness/ # drives real pipeline compositions against scripted LLMs
+│   └── AgentSmith.Tests.Fixtures/  # sample repositories used by tests
 │
-├── config/                         # Configuration templates
-│   ├── prompts/                    # LLM prompt templates (.md files, loaded by FilePromptTemplateProvider)
-│   └── skills/                     # Skill definitions, observation schema, security principles
-├── k8s/                            # Kubernetes manifests
-│   ├── base/                       # Kustomize base
-│   │   ├── kustomization.yaml
-│   │   ├── namespace.yaml
-│   │   ├── configmap/
-│   │   ├── dispatcher/
-│   │   ├── rbac/
-│   │   └── redis/
-│   ├── overlays/
-│   │   ├── dev/                   # Development overlay
-│   │   └── prod/                  # Production overlay
-│   └── secret-template.yaml       # Secret template (do not commit values)
+├── config/                         # Configuration schema and examples
+│   ├── agentsmith.schema.json      #   JSON schema for agentsmith.yml
+│   ├── agentsmith.example.yml      #   annotated example configuration
+│   ├── nuclei.yaml, spectral.yaml  #   api-scan tool settings (+ .example variants)
+│   └── docs-writing-skill.md       #   writing guide for these docs
 │
-├── docs/                           # MkDocs documentation site
+├── deploy/
+│   ├── docker-compose.example.yml  # server, Redis, migrate job, dashboard
+│   ├── k8s/                        # numbered manifests (1-namespace.yaml … 12-pvc-persistence.yaml) + examples/
+│   ├── apply-k8s-secret.sh         # creates the Kubernetes secret
+│   └── DOCKERHUB_DESCRIPTION.md
 │
-├── deploy/                         # Deployment orchestration
-│   ├── docker-compose.yml          # Full stack: agent, server, redis, ollama
-│   ├── k8s/                        # Kubernetes manifests (base + overlays)
-│   └── apply-k8s-secret.sh         # K8s secret setup script
+├── tools/                          # Repository tooling
+│   ├── build-hub-event-types.mjs   #   dashboard event-type mirror check
+│   ├── build-tokens.mjs            #   DESIGN.md → CSS tokens for website and docs
+│   ├── freeze-event-fixtures.cs    #   one-shot seeder for event fixtures
+│   ├── fetch-skills.sh             #   pulls the pinned skill catalog for local tests
+│   └── …                           #   audit, prompt-bench and measurement scripts
+│
+├── docs/                           # This MkDocs site (docs/mkdocs.yml)
+├── website/                        # Project website (Eleventy)
+├── hooks/                          # Git hooks; enable with `git config core.hooksPath hooks`
+├── .github/workflows/              # GitHub Actions: build, test and images; dashboard; docs; releases
 │
 ├── AgentSmith.sln                  # Solution file
-├── release-please-config.json      # Automated release configuration
+├── DESIGN.md                       # Design tokens, source for build-tokens.mjs
+├── WORKER-MODE.md                  # Running a ticket with an external agent CLI answering the model calls
+├── release-please-config.json      # Release automation
 └── version.txt                     # Current version
 ```
 
-## Solution File
+## Solution projects
 
-The `AgentSmith.sln` contains 8 projects:
+`AgentSmith.sln` contains fifteen projects:
 
 | Project | Type | Description |
 |---------|------|-------------|
-| `AgentSmith.Domain` | Class Library | Entities, value objects, exceptions |
-| `AgentSmith.Contracts` | Class Library | Interfaces, DTOs, config models |
-| `AgentSmith.Application` | Class Library | Handlers, pipeline, use cases |
-| `AgentSmith.Infrastructure.Core` | Class Library | Config, detection, registries |
-| `AgentSmith.Infrastructure` | Class Library | AI, Git, tickets, output, tools |
-| `AgentSmith.Cli` | Console App | CLI entry point + webhook server |
-| `AgentSmith.Server` | Web App | Chat gateway + job spawner |
-| `AgentSmith.Tests` | Test Project | 567 tests (xUnit) |
+| `AgentSmith.Domain` | Class library | Entities, value objects, exceptions |
+| `AgentSmith.Contracts` | Class library | Interfaces, commands, events, config models |
+| `AgentSmith.Application` | Class library | Handlers, pipeline executor, use cases |
+| `AgentSmith.Infrastructure.Core` | Class library | Config loading, secrets, skill catalog, registries |
+| `AgentSmith.Infrastructure` | Class library | LLM clients, git and ticket providers, Redis, scanners, output |
+| `AgentSmith.Infrastructure.Persistence` | Class library | EF Core store (SQLite, PostgreSQL, MySQL, SQL Server) |
+| `AgentSmith.Infrastructure.Persistence.SqlServer` | Class library | SQL Server migrations |
+| `AgentSmith.Sandbox.Wire` | Class library | Sandbox step protocol |
+| `AgentSmith.Sandbox.Agent` | Console app | Agent inside each sandbox |
+| `AgentSmith.SkillsPackaging` | Console app | Build-time skill catalog check |
+| `AgentSmith.Cli` | Console app | CLI entry point |
+| `AgentSmith.Server` | Web app | Webhooks, queue, dashboard API, sandboxes |
+| `AgentSmith.Tests` | Test project | Main test suite |
+| `AgentSmith.Sandbox.Agent.Tests` | Test project | Sandbox agent tests |
+| `AgentSmith.PipelineHarness` | Console app | Pipeline harness |
 
-## Key Files
+## Published images
+
+| Image | Built from |
+|-------|------------|
+| `holgerleichsenring/agent-smith-server` | `src/backend/AgentSmith.Server/Dockerfile` |
+| `holgerleichsenring/agent-smith-cli` | `src/backend/AgentSmith.Cli/Dockerfile` |
+| `holgerleichsenring/agent-smith-sandbox-agent` | `src/backend/AgentSmith.Sandbox.Agent/Dockerfile` |
+| `holgerleichsenring/agentsmith-dashboard` | `src/dashboard/Dockerfile` |
+
+## Key files
 
 | File | Purpose |
 |------|---------|
-| `src/backend/AgentSmith.Cli/Program.cs` | CLI command definitions (18 lines after refactor) |
-| `src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` | Top-level orchestrator |
-| `src/backend/AgentSmith.Application/Services/PipelineExecutor.cs` | Runs ordered command sequence |
-| `src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs` | Pipeline step definitions |
-| `src/backend/AgentSmith.Cli/ConfigDiscovery.cs` | Config file resolution logic |
-| `docker-entrypoint.sh` | Volume permission handling with gosu |
-| `k8s/base/kustomization.yaml` | Kubernetes base configuration |
+| `src/backend/AgentSmith.Cli/Program.cs` | CLI verb definitions |
+| `src/backend/AgentSmith.Cli/ConfigDiscovery.cs` | Where the CLI looks for `agentsmith.yml` |
+| `src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs` | Top-level run orchestration |
+| `src/backend/AgentSmith.Application/Services/PipelineExecutor.cs` | Runs the ordered command list |
+| `src/backend/AgentSmith.Contracts/Commands/PipelinePresets*.cs` | The step list of every pipeline, one file per preset |
+| `src/backend/AgentSmith.Cli/docker-entrypoint.sh` | CLI image entrypoint: fixes volume permissions, then drops to the `agentsmith` user |

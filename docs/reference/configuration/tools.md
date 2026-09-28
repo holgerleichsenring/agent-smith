@@ -1,7 +1,7 @@
 # Tool Configuration
 
-!!! note "Which surface reads this"
-    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+!!! note "Where these files live"
+    `nuclei.yaml` and `spectral.yaml` are files in the `config/` directory, and the `tool_runner:` block is read from `config/agentsmith.yml` under the working directory, on a server and in the CLI alike. None of it is stored in the database or edited in the Config studio. See [Where configuration lives](../../configure-it/index.md).
 
 Agent Smith's **api-scan** pipeline uses external security tools running in containers. Their behavior is controlled by YAML config files in the `config/` directory.
 

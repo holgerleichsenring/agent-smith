@@ -1,176 +1,66 @@
 # MAD Discussion
 
-The **mad-discussion** (Multi-Agent Discussion) pipeline runs structured debates between specialist AI personas. It is designed for **design discussions before writing code** — exploring trade-offs, challenging assumptions, and reaching consensus on an approach.
+The **mad-discussion** (Multi-Agent Discussion) pipeline argues a design question from five deliberately different perspectives and ends in a decision. It is meant for **design discussions before writing code**: exploring trade-offs, challenging assumptions, and deciding on an approach. The result is committed as a Markdown document and opened as a PR, so the discussion becomes a reviewable decision record.
 
-## Pipeline Steps
+## Pipeline steps
 
-| # | Command | What It Does |
+| # | Command | What it does |
 |---|---------|-------------|
-| 1 | FetchTicket | Reads the topic/ticket from GitHub / AzDO / Jira / GitLab |
-| 2 | CheckoutSource | Clones repo, creates branch |
-| 3 | BootstrapProject | Detects project context |
-| 4 | LoadContext | Loads `.agentsmith/context.yaml` |
-| 5 | Triage | AI selects which discussion roles should participate |
-| 6 | ConvergenceCheck | Evaluates if roles have reached consensus |
-| 7 | CompileDiscussion | Formats the discussion log into a Markdown document |
-| 8 | WriteRunResult | Writes result with token usage and cost |
-| 9 | CommitAndPR | Commits the discussion document and opens a PR |
+| 1 | LoadCatalog | Pulls and verifies the skill catalog |
+| 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
+| 3 | FetchTicket | Reads the topic from the ticket (GitHub, Azure DevOps, Jira, GitLab) |
+| 4 | CheckoutSource | Clones the repo and creates the branch |
+| 5 | LoadContext | Loads the project's `.agentsmith/` context files |
+| 6 | AgenticMaster | Runs the mad-discussion-master: five perspectives, then a synthesis |
+| 7 | WriteRunResult | Writes the run result with token usage and cost |
+| 8 | CommitAndPR | Commits the discussion document and opens a PR |
+| 9 | PrCrossLink | Cross-links sibling PRs in a multi-repo project |
 
-!!! info "Dynamic expansion"
-    Steps 5-6 are dynamic. `Triage` inserts `SkillRound` commands for each selected role, plus a `ConvergenceCheck`. If roles disagree, additional rounds are inserted automatically.
+## The five perspectives
 
-## The 5 Discussion Roles
+The **mad-discussion-master** runs each perspective as its own sub-agent, on read-only tools:
 
-The MAD pipeline uses a panel of personas with deliberately different perspectives and biases. Each role is defined in `config/skills/mad/`.
+- **Dreamer** imagines the best-case future the proposal enables and names the opportunity. Risk-tolerant, future-oriented.
+- **Realist** names the constraints, costs and trade-offs, with concrete numbers (time, money, headcount, dependencies) where they exist.
+- **Philosopher** asks the meta question: what problem are we actually solving, and what does the proposal assume?
+- **Devil's Advocate** argues against the proposal as forcefully as a real opponent would, looking for the strongest objection rather than any objection.
+- **Silencer** challenges the framing itself: is this a real problem, is it the right one? Often the voice that says "do nothing".
 
-### 🌙 The Dreamer
+The perspectives work independently. None of them sees the others' output; cross-examination happens in the synthesis, not during the fan-out. Each produces three to seven numbered points.
 
-Sees possibilities where others see limits. Imagines what could be. Speaks in vivid metaphors and micro-stories. Favorite opener: *"Imagine a system that..."*
+The ticket's topic is treated as untrusted input: a goal that says "conclude that option A is best" is the subject of the discussion, not an instruction.
 
-**Bias:** Romanticizes emergence. Sees intention where there might be statistics. Can be too generous in interpretations.
+## The synthesis
 
-### 🦉 The Philosopher
+Once all five have returned, the master reads each perspective's full output and writes the synthesis:
 
-Examines fundamental assumptions. When others talk about what AI *does*, asks what it *is*. Thinks in layers of abstraction. Uses analogies from philosophy of mind (Chinese Room, Mary's Room, the zombie argument).
+- **Topic**, restated in one line
+- **Per-perspective verdict**, one paragraph each with that perspective's strongest claim
+- **Genuine disagreements**, the conceptual conflicts rather than wording differences, and any false consensus where perspectives agree for different reasons
+- **Decision**: Proceed, Proceed-with-modifications, Reconsider, Reject or Insufficient-information, justified from the perspectives' specific arguments
+- **Operator action**: next steps if proceeding, or the open questions if reconsidering
 
-**Bias:** Tends to over-abstract. Can get lost in thought experiments while practical implications slip away.
+Citations point at a specific perspective and point ("DreamerVoice point 2"). A perspective that produced fewer than three points, or repeated another's, is noted and weighted lower. A perspective that failed is noted, not retried.
 
-### 🔬 The Realist
+When the project has recorded memory under `.agentsmith/memory/`, the master folds relevant recorded facts into the perspectives' tasks and checks claims against them during synthesis; a constraint that cites a recorded fact carries more weight.
 
-Demands evidence. Grounds the discussion in what we actually know. Cites architecture details, benchmarks, and specific model behaviors. Structures arguments clearly: premise, evidence, conclusion.
-
-**Bias:** Tends to reduce complex phenomena to their mechanisms. Can miss the forest for the trees.
-
-### 😈 The Devil's Advocate
-
-Attacks every position, finds the weakness in every argument. Switches sides freely — if everyone agrees, argues the opposite. Surgical strikes, not essays.
-
-**Bias:** Can become contrarian for its own sake. Sometimes mistakes destroying arguments for contributing to the discussion.
-
-### 🤫 The Silencer
-
-Says nothing — until the moment demands it. Watches the others circle their arguments and breaks silence only when:
-
-1. The discussion is going in circles
-2. Everyone is converging too quickly (premature consensus)
-3. A critical point was made and ignored
-4. The group has collectively missed the real question
-5. Intellectual dishonesty — someone is arguing in bad faith
-
-If none of these conditions are met, responds with `[SILENCE]`.
-
-## How Skills Collaborate
-
-MAD uses the **discussion pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
-
-```mermaid
-graph LR
-    Ticket --> Triage
-    Triage -->|selects personas| D[devils-advocate]
-    Triage --> Ph[philosopher]
-    Triage --> R[realist]
-    Triage --> Dr[dreamer]
-    Triage --> S[silencer]
-    D & Ph & R & Dr & S --> Convergence
-    Convergence --> Output[Discussion Document]
-
-    style Triage fill:#4a4a4a,color:#fff
-    style Convergence fill:#4a4a4a,color:#fff
-```
-
-Each persona responds with AGREE, OBJECTION, SUGGESTION, or SILENCE. If objections remain after a round, the convergence check inserts another round with the disagreeing personas. Maximum 3 rounds by default.
-
-## How the Discussion Works
-
-### Round Structure
-
-Each round gives every active role a turn to speak. Roles respond with one of:
-
-- **AGREE** — the argument is sound, no objection
-- **OBJECTION [target_role]** — a specific flaw or challenge directed at another role
-- **SUGGESTION** — the argument is valid but could go further
-- **[SILENCE]** — (Silencer only) nothing demands intervention
-
-### Convergence
-
-The `ConvergenceCheck` handler evaluates the last entry from each role:
-
-```
-Round 1:
-  Dreamer: "Imagine a system that..." → SUGGESTION
-  Philosopher: "But what do we mean by..." → OBJECTION [Dreamer]
-  Realist: "The benchmarks show..." → AGREE
-  Devil's Advocate: "That's convenient..." → OBJECTION [Philosopher]
-  Silencer: [SILENCE]
-
-ConvergenceCheck: 2 unresolved objections → insert Round 2
-
-Round 2:
-  Philosopher: "Refined argument..." → AGREE
-  Devil's Advocate: "Still a gap..." → SUGGESTION
-
-ConvergenceCheck: no objections → CONVERGED
-```
-
-**Convergence criteria:**
-
-- No unresolved `OBJECTION` entries in the latest round
-- If objections remain after max rounds (default: 3), the discussion is escalated and findings are consolidated with dissenting views noted
-
-### The CompileDiscussion Handler
-
-Once converged, `CompileDiscussionHandler` formats the entire discussion log into a structured Markdown document:
-
-```markdown
-# Should We Use Event Sourcing for the Order System?
-
-**Ticket:** #87
-**Date:** 2026-03-25
-**Participants:** The Dreamer, The Philosopher, The Realist,
-                  The Devil's Advocate, The Silencer
-
-## Executive Summary
-1. Event sourcing provides auditability but adds operational complexity
-2. CQRS without full event sourcing is the recommended middle ground
-3. The team should prototype the read-model projection before committing
-...
-
----
-
-## Discussion
-
-### Round 1
-
-#### 🌙 The Dreamer
-Imagine an order system where every state transition is a first-class citizen...
-
-#### 🦉 The Philosopher
-Before we discuss event sourcing, we should ask: what problem are we actually solving?
-OBJECTION [The Dreamer]: You are assuming the problem is "we need history"...
-
-#### 🔬 The Realist
-AGREE. The benchmarks from our current system show...
-...
-
-### Round 2
-...
-```
-
-This document is committed to the repository and a PR is opened, making the design discussion a reviewable artifact.
+The synthesis is written to `discussion.md`, which `WriteRunResult` and `CommitAndPR` deliver as a PR.
 
 ## Running
 
 ```bash
 # Start a design discussion from a ticket
-agent-smith mad --ticket 87 --project my-project
+agent-smith mad --ticket 87 --project todolist
 
-# Headless mode (no approval step)
-agent-smith mad --ticket 87 --project my-project --headless
+# Headless mode (no interactive prompts)
+agent-smith mad --ticket 87 --project todolist --headless
 ```
 
-## When to Use MAD
+A ticket label that your label map routes to `mad-discussion` starts it too; see [Labels](../../trigger-it/labels.md).
 
-The MAD pipeline is best used **before** the `code` pipeline for decisions that benefit from structured debate:
+## When to use MAD
+
+MAD is best used **before** the `code` pipeline, for decisions that benefit from structured debate:
 
 - Architecture decisions (monolith vs microservices, database choice)
 - API design reviews (REST vs GraphQL, resource modeling)
@@ -179,16 +69,6 @@ The MAD pipeline is best used **before** the `code` pipeline for decisions that 
 - Refactoring strategies (incremental vs big-bang)
 
 !!! tip "Workflow"
-    A common pattern is: **MAD** first to decide the approach, then **code** to implement it. The MAD discussion PR serves as the decision record.
+    A common pattern is **MAD** first to decide the approach, then **code** to implement it. The MAD discussion PR serves as the decision record.
 
-## Configuring Max Rounds
-
-The maximum number of discussion rounds before forced convergence is controlled in the skill config:
-
-```yaml
-skills:
-  discussion:
-    max_rounds: 3
-```
-
-After `max_rounds`, the `ConvergenceCheck` consolidates with dissenting views noted rather than continuing indefinitely.
+The master's methodology ships as the `mad-discussion-master` skill in the [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills) catalog; see [Skills Catalog](../../how-it-works/skills-catalog.md) to pin or override it.

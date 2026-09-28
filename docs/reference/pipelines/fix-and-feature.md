@@ -1,164 +1,114 @@
 # The code pipeline
 
-The **code** pipeline is Agent Smith's coding workflow. It takes a ticket, understands the codebase, derives a specification, writes code, verifies it, and opens a pull request.
+The **code** pipeline is Agent Smith's coding workflow. It takes a ticket, reads the codebase, derives a specification, works it phase by phase, verifies each phase, and opens a pull request per repository.
 
-There used to be four of these — a bug one, a feature one, a no-tests one and a phase one. They differed only in steps a specification now carries, so they were collapsed into this single preset; the ticket's label is an input to the spec rather than a choice of pipeline.
+Bugs, features, refactors and migrations all run through it. The ticket's label is an input to the specification rather than a choice of pipeline. The names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer resolve: a server rewrites a stored configuration that still names them to `code` once at startup and says so, while a CLI `agentsmith.yml` carrying one fails until you edit it to `code`.
 
-## Pipeline Steps
+## Pipeline steps
 
-| # | Command | What It Does |
+| # | Command | What it does |
 |---|---------|-------------|
-| 1 | FetchTicket | Reads ticket from GitHub / AzDO / Jira / GitLab |
-| 2 | ScopeRepos | Narrows the run to the repos the ticket affects |
-| 3 | CheckoutSource | Clones each repo, creates the work branch |
-| 4 | RunPreflight | Proves the sandbox and branch preconditions |
-| 5 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` |
-| 6 | LoadCodingPrinciples / LoadContext | Loads the repo's standards and context |
-| 7 | AnalyzeCode | Scout agent identifies relevant files |
-| 8 | DeriveSpec | Turns the ticket into an ordered set of phase specs |
-| 9 | SpecHandback | Parks the ticket when the requirement contradicts the repo |
-| 10 | PhaseSpecGate | Validates the spec before a single master token is spent |
-| 11 | EnsurePrerequisites / ProbeTarget | Installs what the work needs, then checks the target answers |
-| 12 | PhaseSequence | One master → verify → record block per derived phase |
-| 13 | WriteRunResult | Writes `result.md` with token usage and cost |
-| 14 | CommitAndPR / PrCrossLink | Commits, pushes, opens PRs and cross-links them |
+| 1 | LoadCatalog / PipelineNameInitializer | Loads the pinned skills catalog, names the run |
+| 2 | FetchTicket | Reads the ticket, its comments and attachments from GitHub / Azure DevOps / Jira / GitLab |
+| 3 | ScopeRepos | Narrows the run to the repos the ticket affects, estimates its size, refuses what must not be done |
+| 4 | CheckoutSource | Clones each repo, creates the work branch `agent-smith/<ticket-id>` |
+| 5 | RunPreflight | Proves the run's preconditions before anything is spent on them |
+| 6 | SetupRegistryAuth | Pre-stages private-feed credentials in the sandboxes |
+| 7 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` context |
+| 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadContext | Loads the repo's principles, memory index and context |
+| 9 | AnalyzeCode | Scout agent maps the relevant code |
+| 10 | DeriveSpec | Turns the ticket into an ordered set of phase specs on the ticket branch |
+| 11 | SpecHandback | Parks the ticket when the derivation handed it back |
+| 12 | PhaseSpecGate | Validates the spec before a single master token is spent |
+| 13 | EnsurePrerequisites / ProbeTarget | Installs what the work needs, then checks the target answers |
+| 14 | PhaseSequence | Splices one block of steps per phase that hasn't run yet |
+| 15 | WriteRunResult | Writes `result.md` with the account, token usage and cost |
+| 16 | CommitAndPR / PrCrossLink | Commits, pushes, finalizes the PRs and cross-links them |
 
-## How Skills Collaborate
+`RunPreflight` fails the run, naming the fix, when the agent configuration is the empty placeholder, when a sandbox home isn't writable, or when a declared credential is malformed or didn't arrive. A branch that already carries earlier work, or a registry whose secret resolved to nothing, is reported without stopping the run.
 
-The code pipeline uses the **hierarchical pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
+`ProbeTarget` runs the `probe` command a repository declares, after the prerequisites are installed and before the master starts, so a target that refuses costs no model token. Both come from the [context file](../concepts/context-file.md).
+
+### The per-phase block
+
+`PhaseSequence` expands into this block for every phase, in order:
+
+| Command | What it does |
+|---------|-------------|
+| SelectPhase | Makes the phase current; a phase the branch already satisfies is recorded done and its work steps are skipped |
+| CheckPhasePremises | A fresh instance checks what the phase says it rests on; a false premise hands the phase back |
+| AgenticMaster | The coding master does the phase's work |
+| MasterOpenQuestions | Parks the run when the master asked a person something |
+| CommitPhaseWork | Puts the phase's work on the branch before it is judged |
+| VerifyPhase | Runs the declared verify stages, then takes the delivery account |
+| ReviewPhaseDiff | A fresh reviewer reads the phase diff; findings get one fix pass |
+| WritePhaseRecord | Commits the phase record under `.agentsmith/phases/done/` |
 
 ```mermaid
 graph TD
-    Ticket --> Scout["AnalyzeCode<br/>(scout agent)"]
-    Scout --> Triage["Triage<br/>(select skills)"]
-    Triage --> Plan["GeneratePlan<br/>[Lead]"]
-    Plan -->|"plan injected"| Execute[AgenticExecute]
-    Execute --> Test["Test Suite<br/>[Gate]"]
-    Test -->|pass| PR[CommitAndPR]
-    Test -->|fail| Execute
+    Ticket --> Scope["ScopeRepos<br/>narrow · size · refuse"]
+    Scope --> Analyze["AnalyzeCode<br/>(scout agent)"]
+    Analyze --> Derive["DeriveSpec<br/>phase specs on the branch"]
+    Derive -->|handed back| Park[ticket parked]
+    Derive --> Phase["per phase:<br/>premises → master → commit"]
+    Phase --> Verify["VerifyPhase<br/>stages + delivery account"]
+    Verify -->|outstanding, once| Phase
+    Verify -->|green| Review[ReviewPhaseDiff]
+    Review -->|next phase| Phase
+    Review --> PR[CommitAndPR]
 
-    style Plan fill:#27ae60,color:#fff
-    style Test fill:#c0392b,color:#fff
+    style Derive fill:#27ae60,color:#fff
+    style Verify fill:#c0392b,color:#fff
 ```
 
-The scout agent identifies relevant files using a cheaper model. The plan generated by the lead skill becomes part of the domain rules for the agentic execution loop. The test suite acts as a gate — if tests fail, the agent re-enters the loop to fix them.
+A red phase stops the sequence; the remaining phases don't run, and delivery decides between a failure and a shortfall (see [Lifecycle](../../how-it-works/lifecycle.md#when-it-goes-wrong)).
 
-## The Scout Agent (AnalyzeCode)
+## The specification
 
-Before any code is written, the **scout agent** runs during the `AnalyzeCode` step. It uses a cheaper, faster model to scan the codebase and identify which files are relevant to the ticket.
+`DeriveSpec` writes the set to the ticket branch under `.agentsmith/specs/<provider>-<ticket-id>/`: per phase a schema-valid YAML spec and a Markdown companion that carries the verbatim parts of the ticket, plus `accounting.md`, which says for every part of the ticket which phase carries it or why it was discarded. Phase ids come from the ticket, so ticket 54 becomes `p54a`, `p54b`, and a re-run recomputes the same ids.
 
-The scout:
+Before it writes, the derivation may look at the repositories through read-only tools. A cut that fails validation goes back to the model with the reason, up to three attempts; a fresh reviewer objects to cuts it doesn't accept, and if every attempt drew an objection the least-objected cut is kept and the objection is shown on the run. A cut that covers fewer of the contexts the scope call named gets one more attempt; a gap that survives it becomes a question for the author. If nothing usable comes back, the whole ticket runs as one phase and the run says why.
 
-- Reads the code map (generated by `LoadCodeMap`)
-- Reads the ticket description and any linked issues
-- Searches the codebase by pattern to find related files
-- Produces a focused file list that gets passed to the main agent
+The cut is committed, a draft PR opens at that commit, and the cut is posted to the ticket with its criteria, facts and assumptions. The run doesn't wait on it. How you correct a cut, and how an approved specification from a design conversation is handled, is on [Expectations](../../how-it-works/expectations.md#the-done-list-is-the-expectation).
 
-This keeps the main agent's context window focused on what matters, rather than dumping the entire codebase into the prompt.
+## When the ticket comes back to you
 
-## The Agentic Loop
+The derivation hands a ticket back instead of guessing. Each case comments on the ticket and parks it:
 
-The `AgenticExecute` step is where the AI actually writes code. It runs in an **agentic loop** — the AI calls tools, observes results, and decides what to do next.
+- **Two readings.** The comment lists both and names the one the run would take. Answer and move the ticket back to a trigger status; if the ticket comes back with nobody having answered, the run proceeds on the named reading and says so.
+- **Contradicts the repository.** Parks in `needs_clarification_status`. A second contradiction with no reply on the ticket in between ends the run as a failed step: "the loop ends here".
+- **Not implementable as specified.** Parks in `not_implementable_status` when you configured one, otherwise in `needs_clarification_status`. It doesn't restart on a comment; change the ticket and use Retry on the run.
+- **Refused.** Raised by `ScopeRepos` before checkout, with the offending sentence quoted. If the request is legitimate, reply with why and move the ticket back; the next run reads your reply beside the ticket.
 
-```
-┌─────────────────────────────────┐
-│         AgenticExecute          │
-│                                 │
-│  ┌──────────┐                   │
-│  │ AI Agent  │──→ read_file     │
-│  │          │──→ write_file    │
-│  │          │──→ search_code   │
-│  │          │──→ run_command   │
-│  │          │──→ list_files    │
-│  │          │←── tool results  │
-│  └──────────┘                   │
-│       ↕                         │
-│  Context compaction             │
-│  (if iterations > threshold)    │
-└─────────────────────────────────┘
-```
+When no park status can be resolved, the run fails rather than leave the ticket claimable.
 
-### Available Tools
+## The coding master
 
-The agent has access to these tools during the agentic loop:
+`AgenticMaster` runs the `coding-agent-master` skill in an agentic loop: it calls tools, observes the results, and decides what to do next. Its file tools (`read_file`, `write_file`, `edit`, `multi_edit`, `grep_in_tree`, `find_files`, `list_directory`, …) and `run_command` dispatch to the right sandbox by the first path segment, so one conversation works across all repos in scope. Besides those it has `update_progress` for its progress ledger, `ask_human` for a question that parks the run, `log_decision`, and `ensure_repo_sandbox` for a repo it didn't start with.
 
-| Tool | Purpose | Example |
-|------|---------|---------|
-| `read_file` | Read file contents | Read a service class to understand its interface |
-| `write_file` | Create or overwrite a file | Write the updated implementation |
-| `search_code` | Search codebase by pattern | Find all usages of a method before renaming |
-| `list_files` | List directory contents | Explore the project structure |
-| `run_command` | Execute shell commands | Run `dotnet build` to check compilation |
-
-The agent decides which tools to call, in what order, and how many iterations it needs. A typical bug fix might look like:
-
-```
-Iteration 1: read_file("src/Services/UserService.cs")
-Iteration 2: search_code("GetUserById")
-Iteration 3: read_file("src/Repositories/UserRepository.cs")
-Iteration 4: write_file("src/Services/UserService.cs", ...)
-Iteration 5: run_command("dotnet build")
-```
+The master runs the repo's build and tests itself as it works; `VerifyPhase` then runs the declared stages again as the gate, and the [delivery account](../../how-it-works/delivery-account.md) judges the criteria. Long sessions are kept inside the model's window by compaction; see [Context compaction](../concepts/context-compaction.md).
 
 !!! info "Tool execution"
     All tools run in the cloned repository's working directory. File paths are relative to the repo root. Shell commands execute with the repo root as the current directory.
 
-## Retry on Test Failure
-
-When the **Test** step fails, Agent Smith does not immediately give up. The pipeline re-enters the agentic loop with the test output, allowing the AI to fix the failing tests:
-
-```
-[11/14] AgenticExecute  ✓  (wrote code)
-[12/14] Test            ✗  (3 tests failed)
-         ↓ re-enter agentic loop with failure output
-[12/14] AgenticExecute  ✓  (fixed failing tests)
-[12/14] Test            ✓  (all tests pass)
-```
-
-!!! tip "Max retries"
-    The number of test-fix cycles is bounded by the retry configuration in `agentsmith.yml`. Default is 3 attempts.
-
-## Context Compaction
-
-Long agentic sessions can exceed the model's context window. When the iteration count crosses `threshold_iterations`, a smaller model (e.g., Claude Haiku) summarizes the conversation so far, keeping only recent iterations verbatim:
-
-```yaml
-agent:
-  compaction:
-    is_enabled: true
-    threshold_iterations: 8
-    max_context_tokens: 80000
-    keep_recent_iterations: 3
-    summary_model: claude-haiku-4-5-20251001
-```
-
-This allows long-running tasks (large features, multi-file refactors) to complete without hitting token limits.
-
 ## Running
 
 ```bash
-# Fix a bug from a ticket
-agent-smith fix --ticket 54 --project my-project
+# Work a ticket
+agent-smith code --ticket 54 --project todolist
 
-# Add a feature, headless (no approval prompt)
-agent-smith feature --ticket 12 --project my-project --headless
+# No interactive prompts (what CI and cron want)
+agent-smith code --ticket 54 --project todolist --headless
 
-# Fix without running tests
-agent-smith fix --ticket 54 --project my-project --no-test
-
-# Dry run -- show pipeline steps without executing
-agent-smith fix --ticket 54 --project my-project --dry-run
-agent-smith feature --ticket 12 --project my-project --dry-run
+# Dry run -- print the pipeline steps without executing
+agent-smith code --ticket 54 --project todolist --dry-run
 ```
 
-!!! note "Headless mode"
-    In `--headless` mode, the Approval step is skipped automatically. This is required for CI/CD and chat gateway usage.
+`agent-smith fix` and `agent-smith feature` still work as aliases; they print a deprecation notice and run `code`. All options are on [Trigger: CLI](../../trigger-it/cli.md).
 
 ## Output
 
-On success, the pipeline produces:
-
-- A **new branch** with the changes (e.g., `fix/54-null-ref-in-user-service`)
-- A **pull request** on your Git provider with the implementation plan as description
-- A **run result** in `.agentsmith/runs/r{NN}-slug/result.md` with token usage, cost, and duration
-- The **ticket** is updated with the PR link and closed (if configured)
+- The work branch `agent-smith/<ticket-id>` in every repo in scope, carrying the specification, the checkpoint commits, the change and the phase records.
+- One **pull request** per repository with changes, opened as a draft at the spec commit and taken out of draft only by a complete, verified run. Its body carries the ticket, the per-phase table, the delivery account, what the phase review still finds, and declined criteria. A red run's PR stays a draft with a banner.
+- A **run record** in `.agentsmith/runs/<run-id>/` with `result.md`, plus the master's `plan.md` where it wrote one.
+- The **ticket** gets a comment with the PR links, your done status and the `agent-smith:done` label — or `agent-smith:shortfall` / `agent-smith:failed` when the run fell short.

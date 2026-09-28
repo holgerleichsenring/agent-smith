@@ -5,15 +5,18 @@ The explicit, no-webhook way. Useful for testing the config, for dev iteration, 
 ## Basic invocation
 
 ```bash
-agent-smith fix --ticket 54 --project todolist
+agent-smith code --ticket 54 --project todolist
 ```
 
-Reads `agentsmith.yml` from the current directory, looks up `todolist` under `projects:`, fetches ticket `54` from that project's tracker, runs the `code` pipeline. Output streams to stdout; exit code is zero on success.
+Reads `agentsmith.yml` from the current directory, looks up `todolist` under `projects:`, fetches ticket `54` from that project's tracker, runs the [`code` pipeline](../reference/pipelines/fix-and-feature.md). Output streams to stdout; the exit code is zero on success and one on failure.
+
+`agent-smith fix` and `agent-smith feature` are deprecated aliases of `code`: they print a notice and run the same pipeline. The retired pipeline names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` are not verbs and don't resolve in a configuration either; write `code`.
+
+`code` takes `--ticket` and `--project` (both required), `--headless`, `--dry-run`, and the source options `--repo`, `--context`, `--source-type`, `--source-path`, `--source-url` and `--source-auth` described below.
 
 The other pipelines have their own verbs:
 
 ```bash
-agent-smith feature --ticket 62 --project todolist        # the same code pipeline
 agent-smith init --project todolist                       # init-project bootstrap
 agent-smith security-scan --agent claude-default          # security scan
 agent-smith api-scan --agent claude-parallel \
@@ -21,12 +24,11 @@ agent-smith api-scan --agent claude-parallel \
   --target  https://api.todolist.dev                      # api-security-scan
 agent-smith legal --source contract.pdf --project legal   # legal-analysis
 agent-smith mad --ticket 71 --project todolist            # mad-discussion
-agent-smith autonomous --project todolist                 # observe + write tickets
-agent-smith compile-wiki --project todolist               # knowledge-base compile
-agent-smith security-trend --project todolist             # scan trend analysis
+agent-smith compile-wiki --project ~/code/todolist-api     # knowledge-base compile (a project directory)
+agent-smith security-trend --project ~/code/todolist-api   # scan trend analysis (a project directory)
 ```
 
-`agent-smith --help` lists everything; every verb accepts `--config <path>` and `--verbose`, and the pipeline verbs accept `--dry-run` (print the pipeline, don't execute).
+`agent-smith --help` lists everything; every verb accepts `--config <path>` and `--verbose`, and the pipeline verbs accept `--dry-run` (print the pipeline, don't execute). `--help` also lists an `autonomous` verb, but there is no `autonomous` pipeline to run, so the command fails because the preset doesn't resolve.
 
 Two verbs are not pipelines but you'll use them a lot:
 
@@ -50,35 +52,35 @@ agent-smith api-scan --agent claude-parallel --source-path . \
 ## Pass an explicit config path
 
 ```bash
-agent-smith fix --ticket 54 --project todolist --config /etc/agentsmith.yml
+agent-smith code --ticket 54 --project todolist --config /etc/agentsmith.yml
 ```
 
 Without `--config`, the CLI searches `./agentsmith.yml`, then `./config/agentsmith.yml`, then `~/agentsmith.yml`.
 
-## Headless approval
-
-The approval gate is on by default — the agent prints the plan and waits for `y`. To skip:
+## Headless
 
 ```bash
-agent-smith fix --ticket 54 --project todolist --headless
+agent-smith code --ticket 54 --project todolist --headless
 ```
 
-For CI / cron / scripted runs, this is what you want. (Server-triggered runs — webhook, poll — are always headless.)
+`--headless` runs without interactive prompts: any question the console would ask is answered with its default. For CI / cron / scripted runs, this is what you want. Server-triggered runs — webhook, poll — are always headless. There is no plan approval to skip; the run works from the specification it derives and posts to the ticket.
 
 ## Scope to one repo in a multi-repo project
 
 ```bash
-agent-smith fix --ticket 54 --project azuredevops-todolist --repo todolist-api
+agent-smith code --ticket 54 --project azuredevops-todolist --repo todolist-api
 ```
 
-Only touches `todolist-api`. Since p0331 you rarely need this by hand: the `ScopeRepos` step reads the ticket first and narrows the run to the affected repos on its own, before any sandbox is provisioned.
+Only touches `todolist-api`. You rarely need this by hand: the `ScopeRepos` step reads the ticket first and narrows the run to the affected repos on its own, before any sandbox is provisioned. `--repo` wins over that classification.
+
+On a repository with several bootstrapped contexts, `--context <name>` pins the run to `.agentsmith/contexts/<name>` instead of discovering the contexts.
 
 ## Run against a local checkout
 
 Skip the clone-from-remote step and use a local working directory instead:
 
 ```bash
-agent-smith fix --ticket 54 --project todolist \
+agent-smith code --ticket 54 --project todolist \
   --source-type local \
   --source-path ~/code/todolist-api \
   --repo todolist-api
@@ -88,13 +90,13 @@ The agent does its work in the local checkout. Useful for offline iteration and 
 
 ## What lands on disk
 
-A run directory under `.agentsmith/runs/{run-id}/` with `plan.md`, `result.md`, and `decisions.md`. Same shape as a webhook-triggered run. See [First run](../get-it-running/first-run.md) for the walk-through.
+The specification under `.agentsmith/specs/<provider>-<ticket-id>/`, the phase records under `.agentsmith/phases/done/`, and a run directory under `.agentsmith/runs/{run-id}/` with `result.md`, plus the master's `plan.md` where it wrote one. Same shape as a webhook-triggered run. See [First run](../get-it-running/first-run.md) for the walk-through.
 
 ## What the CLI doesn't do
 
 - It doesn't listen for webhooks. The CLI is one-shot; webhooks need a long-running process. For that, go to [Host it: docker-compose](../host-it/docker-compose.md).
 - It doesn't poll. Same reason.
-- It doesn't do approval-via-comment. The interactive `y/N` prompt is on stdin only. The durable ask-and-resume dialogue is a server-mode feature — see [Expectations & durable dialogue](../how-it-works/expectations.md).
+- It doesn't resume. When a run hands the ticket back or the master asks a question, the comment lands on the ticket and the CLI run ends. Answer on the ticket and run the command again; the new run reads your reply. Answering in the dashboard and resuming the same run is a server feature — see [Expectations & durable dialogue](../how-it-works/expectations.md).
 
 ## Next
 

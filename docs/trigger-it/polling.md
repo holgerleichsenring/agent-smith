@@ -35,6 +35,10 @@ Per poll, the framework asks the tracker for tickets in `open_states` that have 
 - Status transitions that put a ticket into a `trigger_statuses` value.
 - Label adds (a `pipeline_from_label` label appears).
 
+A polled ticket carries its labels and nothing else (no area path, no source repo), so a project is matched by its `tag` rule on this path; see [Project resolution](../reference/configuration/project-resolution.md).
+
+On Jira and Azure DevOps the query also asks, by id, for tickets whose specification was approved and still expects work, even when they carry no trigger label, so an approved ticket isn't lost because nobody labelled it. That list is capped at fifty ids per query, oldest approval first, and the poller reports what didn't fit. GitHub and GitLab discovery is unchanged by this; their query doesn't carry the label guard the id list works around.
+
 The claim itself is a database lease, shared with the webhook path — webhook and poll racing on the same ticket resolve to one run.
 
 ## Polling vs webhooks

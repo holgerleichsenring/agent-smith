@@ -3,7 +3,7 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Skills** in the [Config studio](../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../configure-it/index.md).
 
-The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Since p0325 every Agent Smith release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
+The skills — the role definitions that say "this is what an architect looks at, this is what a security reviewer asks, this is what a backend dev produces" — are authored in their own repository and versioned with release tags. Every Agent Smith release **embeds** the skills catalog it was tested with: with no `skills:` block in `agentsmith.yml`, the embedded catalog materializes to disk at startup — no network fetch, no version pin. The `skills:` block is an **override** for skills development, mirrors, or running a different catalog version than the one embedded.
 
 ## Where they actually live
 
@@ -11,19 +11,20 @@ Repository: [`github.com/holgerleichsenring/agent-smith-skills`](https://github.
 
 What's inside:
 
-- A YAML manifest at the root (`catalog.yaml`) listing all skills and their roles.
-- One directory per skill, with `SKILL.md` (the skill definition: frontmatter + role-specific prompts).
-- A `concept-vocabulary.yaml` declaring the conceptual fields skills can activate against (`project_language`, `pipeline`, etc.).
-- Tests for the activation logic and prompt rendering.
+- `skills/_masters/`, one directory per master with its `SKILL.md` (frontmatter plus the prompt). Every pipeline is driven by one of these masters; the `init-project` bootstrap also ships its producers here.
+- `skills/concept-vocabulary.yaml`, the conceptual fields the bootstrap activates against (`project_language`, `pipeline`, …).
+- `principles/`, the universal coding principles (`core.md`) and the per-language deltas that get composed into a project's `principles.md`.
+- `patterns/`, the static security patterns the security scan runs, and `references/`, shared text the masters pull in.
+- Tests for the loader contract and prompt rendering.
 
-Release tags follow semver-ish (`v3.0.1`, `v3.1.0`, …). Every tag is a self-contained catalog you can pin.
+Release tags follow semver (`v5.7.3`, …). Every tag is a self-contained catalog you can pin.
 
 ## Why a separate repo
 
 Two reasons:
 
 - **The skills change faster than the framework.** A new skill (say `licence-compliance-reviewer` for legal-analysis) doesn't require an Agent Smith binary update. Tag the skills repo, pin `skills.version` in `agentsmith.yml`, and you have the new skill on the next run — without waiting for the next Agent Smith release (which will embed it).
-- **The framework changes shouldn't break your skills mid-flight.** When the framework gets a new feature (a new tool, a new role), the skills repo opts in to it by adopting it in a new tag. The old tag keeps working with the old framework version. The two move independently.
+- **The framework changes shouldn't break your skills mid-flight.** When the framework gets a new feature (a new tool, a new role), the skills repo opts in to it by adopting it in a new tag. The old tag keeps working with the old framework version. The two move independently, with one floor: a catalog older than the one the binary embeds is missing content the binary may expect, so a run that resolves such a pin says so in a warning ("older than the pin this binary embeds") and runs anyway.
 
 That separation was painful to maintain when the skills lived in-tree — every skill edit was a binary rebuild and every binary release re-shipped the entire catalog.
 
@@ -33,7 +34,7 @@ You usually don't. With no `skills:` block the embedded catalog is used. To over
 
 ```yaml
 skills:
-  version: v3.21.0             # pull this release tag instead of the embedded catalog
+  version: v5.7.3             # pull this release tag instead of the embedded catalog
   cache_dir: /var/lib/agentsmith/skills
 ```
 
@@ -54,13 +55,14 @@ Resolution: an explicit `path` wins, then `url`, then `version`; only when none 
 
 At orchestrator startup (when a `version` override is set; the embedded default works the same way with the built-in tarball instead of a fetch):
 
-1. Look at `skills.version` (e.g. `v3.0.1`).
-2. Check if `${cache_dir}/v3.0.1/` exists.
+1. Look at `skills.version` (e.g. `v5.7.3`).
+2. Check if `${cache_dir}/v5.7.3/` exists.
 3. If not, fetch it (clone the tag, extract the tarball, copy from the path).
-4. Load `catalog.yaml` from that directory.
-5. Validate that every skill referenced has a `SKILL.md`.
+4. Load every `SKILL.md` under its `skills/` directory and validate it; a skill the loader refuses is named, not silently skipped.
 
-Runs then activate skills from this loaded catalog. Same activation, same role lookup, same prompt rendering — only the source location has moved.
+Runs then take their masters from this loaded catalog — only the source location differs between embedded, pinned and local.
+
+Every run names the catalog it resolved in its Load-catalog step, in the form `catalog <version>: <n> concepts, <n> skills, <n> masters`, and adds the overlay's fingerprint when there is one. The dashboard's installation page shows the same binding next to the version embedded in the binary.
 
 ## Bumping the catalog
 
@@ -68,19 +70,19 @@ Normally: upgrade Agent Smith — every release carries its own catalog. To run 
 
 ```yaml
 skills:
-  version: v3.21.0     # override the embedded catalog
+  version: v5.7.3     # override the embedded catalog
 ```
 
-`docker compose restart orchestrator` or `kubectl rollout restart deployment/agent-smith-orchestrator -n agent-smith`. The new catalog gets fetched on the next start, loaded, validated, and the next run uses it.
+On a server, change it under **Configuration → Skills** and save. No restart: every replica notices the configuration change within seconds, pulls the new tag right away and logs whether the refresh worked, and the next run uses it. The CLI reads the file on each invocation anyway.
 
-If the new tag includes a breaking change to the concept vocabulary (renaming a concept, removing one), the validation step at startup fails fast with the diff between what your config references and what the catalog declares. Roll back to the previous tag, fix the config, re-deploy.
+If the new tag includes a breaking change to the concept vocabulary (renaming a concept, removing one), validation fails fast with the diff between what your config references and what the catalog declares. Roll back to the previous tag, fix the config, save again.
 
 ## Pre-pulling a catalog (`skills pull`)
 
 For air-gapped hosts and image builds there's a CLI verb that does the fetch/extract step ahead of time:
 
 ```bash
-agent-smith skills pull --version v3.21.0 --output /var/lib/agentsmith/skills
+agent-smith skills pull --version v5.7.3 --output /var/lib/agentsmith/skills
 agent-smith skills pull --url https://artifacts.internal.example/agent-smith-skills.tar.gz --sha256 <digest>
 ```
 
@@ -95,19 +97,19 @@ skills:
   path: /etc/agent-smith/in-house-skills
 ```
 
-Structure the local path the same way the upstream catalog is structured (a `catalog.yaml` at the root, one directory per skill). For mixing in-house and upstream skills, the cleanest approach today is to fork the upstream catalog and add your skills there. Multi-source merging is a planned feature, not a present one.
+Structure the local path the same way the upstream catalog is structured (a `skills/` directory with `_masters/<name>/SKILL.md` inside). That replaces the whole catalog. To add your own skills on top of a pinned or embedded catalog instead, use `skills.overlay`, which layers a directory over whatever the source resolved, file by file. See [Shipping your own skills](../reference/skills/your-own-skills.md).
 
-The `skill-manager` pipeline (in [Reference](../reference/pipelines/skill-manager.md)) can lint a local catalog and run it through the activation logic against a synthetic ticket — useful for testing a new skill before committing it.
+To try a skill before you commit it, point a local run at your working copy of the catalog — [Local iteration](../reference/skills/local-iteration.md) walks through it.
 
 ## What the framework ships vs what the catalog ships
 
 | Lives in the framework | Lives in the skills catalog |
 |---|---|
 | The orchestrator + sandbox-agent binaries | The skill definitions (`SKILL.md` files) |
-| The pipeline presets (`code`, `security-scan`, …) | The role prompts (`as_lead`, `as_reviewer`, …) |
+| The pipeline presets (`code`, `security-scan`, …) | The master prompts that drive each pipeline |
 | The agent tools (`read_file`, `edit`, `grep_in_tree`, `web_fetch`, …) | The activation expressions per skill |
 | The concept-type system | The concept vocabulary (`project_language`, `pipeline`, …) |
-| The plan / review / verify / final phase machinery | Which skills run in which phase |
+| The phase sequence, verification and the delivery account | The coding principles core and language deltas |
 
 If you find yourself wanting to add a new role to a pipeline, that's a skills-catalog change. If you find yourself wanting a new tool the agent can call, or a new pipeline shape, that's a framework change.
 

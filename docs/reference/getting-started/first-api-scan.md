@@ -3,13 +3,13 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Scan a running API for security vulnerabilities in under 2 minutes.
+Scan a running API for security vulnerabilities.
 
 ## Prerequisites
 
 - Agent Smith [installed](../../get-it-running/install.md)
 - `ANTHROPIC_API_KEY` (or other AI provider key)
-- Docker running (for Nuclei and Spectral tool containers)
+- Docker running (for the Nuclei, Spectral and ZAP containers)
 - A target API with a swagger.json endpoint
 
 ## Quick Run
@@ -25,72 +25,61 @@ agent-smith api-scan \
 
 That's it. No config file needed for a basic scan.
 
-## What Happens
+## What happens
 
-The scan runs the structured **api-security** pipeline. Deterministic scanners go first — [Nuclei](https://github.com/projectdiscovery/nuclei) probes the running API and [Spectral](https://github.com/stoplightio/spectral) lints the OpenAPI spec with OWASP rules. The **api-security-master** then triages and analyzes those results with a read-only view of the source (when one is available), and the delivered findings are the master's curated set plus any uncovered High+ scanner facts. See [API Scan](../pipelines/api-scan.md) for the full pipeline.
+The scan runs the **api-security-scan** pipeline. Before any scanner runs, it states what it will look for. Deterministic scanners go first: [Nuclei](https://github.com/projectdiscovery/nuclei) probes the running API, [Spectral](https://github.com/stoplightio/spectral) lints the OpenAPI description with OWASP rules, and [OWASP ZAP](https://www.zaproxy.org/) exercises the target. The **api-security-master** then triages their output, with a read-only view of the source when one is available. Its findings are checked against the description, each one is put to a refuter, and the run ends with an account of which of its stated targets were answered. See [API Scan](../pipelines/api-scan.md) for the full pipeline.
 
-## Output Formats
+## Output formats
 
 ```bash
 # Console output (default)
 agent-smith api-scan --swagger ./spec.json --target https://api --output console
 
-# Markdown report
+# Markdown report (findings.md)
 agent-smith api-scan --swagger ./spec.json --target https://api --output markdown --output-dir ./reports
 
-# SARIF for GitHub Security tab
+# SARIF for GitHub Security tab (findings.sarif)
 agent-smith api-scan --swagger ./spec.json --target https://api --output sarif --output-dir ./reports
 
 # Multiple formats at once
 agent-smith api-scan --swagger ./spec.json --target https://api --output console,markdown,sarif --output-dir ./reports
 ```
 
-## Code-Aware Scans (Optional)
+## Code-aware scans (optional)
 
-For richer findings with file:line evidence, add a `source:` block to the project
-config — api-scan will resolve it automatically (local path or remote clone), no
-`--source-path` needed:
+For findings with file:line evidence, point the scan at the source:
 
-```yaml
-projects:
-  api-security:
-    source:
-      type: GitHub                    # GitHub | GitLab | AzureRepos | Local
-      url: https://github.com/owner/repo
-      auth: token                     # token resolved from GITHUB_TOKEN env / secret store
-    # ...
+```bash
+agent-smith api-scan \
+  --swagger https://your-api.com/swagger.json \
+  --target https://your-api.com \
+  --source-path .
 ```
 
-A missing or unreachable source falls back to passive schema-only mode without failing.
-The `--source-path <local>` CLI flag still works for ad-hoc local overrides during
-iteration and wins over any configured source.
+Run with `--project` instead and the scan uses the project's first repository, a local path or a clone of a remote one. A missing path or a failed clone does not fail the scan; it runs without source.
 
-## With Custom Configuration
+## With a config file
 
-For recurring scans with custom skills and tool config, create an `.agentsmith/` directory:
+For recurring scans, keep an `agentsmith.yml` and the scanner settings side by side:
 
 ```
 .agentsmith/
 ├── agentsmith.yml
-├── nuclei.yaml          # custom Nuclei templates
-├── spectral.yaml        # custom Spectral rules
-└── skills/api-security/
-    ├── api-design-auditor.yaml
-    ├── auth-tester.yaml
-    ├── api-vuln-analyst.yaml
-    └── false-positive-filter.yaml
+├── nuclei.yaml          # Nuclei tags, rate limit, time limit
+├── spectral.yaml        # Spectral ruleset
+└── zap.yaml             # ZAP time limit
 ```
 
 ```bash
 agent-smith api-scan \
-  --agent claude-parallel \
+  --agent claude-scan \
   --swagger https://your-api.com/swagger.json \
   --target https://your-api.com \
   --config .agentsmith/agentsmith.yml \
   --output console,markdown
 ```
 
-API scans are project-less (p0281d): `--agent <name>` picks an agent from the config's `agents:` catalog directly — no `--project` needed. Add `--source-path .` to enable code-aware scanning against the local checkout.
+`--agent <name>` picks an agent from the config's `agents:` catalog directly, with no `--project` needed. The scanner files are found next to the `--config` file. See [Tool configuration](../pipelines/api-scan.md#tool-configuration).
 
 ## In CI/CD
 

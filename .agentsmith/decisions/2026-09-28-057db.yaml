@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-057db
+
+decisions:
+  - category: Content
+    chose: "Delete a page whose subject no longer exists, and repoint every link to it"
+    over: "Dropping it from the nav, or keeping it as a 'this was removed' stub"
+    reason: |
+      mkdocs builds a page that is out of the nav, so a stale page stays reachable through its inbound
+      links. triage, multi-skill, the skill migration guide, autonomous and skill-manager describe
+      machinery the code no longer has (no triage or skill-round handler, a loader that rejects the
+      multi-role format, two retired presets); pipelines/index.md already says which names are gone.
+    alternatives:
+      - "Stub pages explaining the removal: a reader looking for how it works today gains nothing from them"
+
+  - category: Content
+    chose: "Keep phase ids only where they illustrate the method itself"
+    over: "One rule for every page"
+    reason: |
+      phases-and-runs, phase-workflow and self-documentation explain phases, so an id there is an
+      example of the thing described. Everywhere else an id sends the reader to a directory they have
+      no reason to open; the sentence keeps the behaviour and drops when it arrived.
+    alternatives: []
+
+  - category: Content
+    chose: "Check every page last touched in May against the code, and the unowned architecture and cicd pages with them"
+    over: "Checking only the May pages the spec named"
+    reason: |
+      The same drift sat in pages touched later by a rename only: the architecture pages still drew a
+      Dispatcher layer and GeneratePlanHandler, and every cicd example would have failed (--repo is a
+      name filter, security-scan refuses without --agent or --project, the image is agent-smith-cli).
+    alternatives: []
+
+  - category: Content
+    chose: "Correct two setup examples 057da left wrong: a GitHub tracker takes url, not organization"
+    over: "Leaving them for a later pass"
+    reason: |
+      TrackerConnections builds the GitHub connection from config.Url with a null-forgiving read, so the
+      install and first-run examples would fail at the first ticket. Two writers had contradicted each
+      other; the code decided.
+    alternatives: []

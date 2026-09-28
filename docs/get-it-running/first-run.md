@@ -19,9 +19,9 @@ agents:
       planning:      { model: gpt-4.1 }
       summarization: { model: gpt-4.1-mini }
 
-secrets:
-  openai_api_key: ${OPENAI_API_KEY}
 ```
+
+The agent reads `OPENAI_API_KEY` from the environment; no `secrets:` entry is needed for it.
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -32,7 +32,7 @@ What happens, in order:
 
 1. **Preflight** — the relevant subset of `agent-smith doctor` (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
 2. **Workspace** — the bundled sample project is extracted to a temp directory and git-initialized with one baseline commit (`--workspace DIR` to choose the location, `--agent NAME` to pick a specific agent from your config).
-3. **The run** — the real `code` preset, headless and in-process: inline ticket → checkout → analyze → plan → agentic execute → test → commit. Same production path your real tickets will take.
+3. **The run** — the real `code` preset, headless and in-process: inline ticket → checkout → analyze → derive the phase spec → coding master → verify → commit. Same production path your real tickets will take.
 4. **The result** — a local commit fixing the seeded bug, the `git diff HEAD~1` printed to your terminal, and the workspace left in place for inspection.
 
 Exit code 0 means the loop worked end to end. Everything after this page is about pointing that same loop at your own systems.
@@ -75,7 +75,7 @@ repos:
 trackers:
   acme-issues:
     type: github
-    organization: acme-org
+    url: https://github.com/acme-org/todolist-api    # the repo whose issues are the tickets
     auth: github_token
 
 projects:
@@ -85,11 +85,10 @@ projects:
     repos: [todolist-api]
 
 secrets:
-  openai_api_key: ${OPENAI_API_KEY}
-  github_token:   ${GITHUB_TOKEN}
+  github_token: ${GITHUB_TOKEN}
 ```
 
-The shape is the catalog-first one introduced in p0139: top-level `agents:` / `repos:` / `trackers:` define what exists, `projects:` wires them together by name. See [Repos: mono-repo](../connect-your-stuff/repos-mono.md) for the smallest viable shape, [Repos: multi-repo](../connect-your-stuff/repos-multi.md) for the version with three or four sibling repos.
+The shape is catalog-first: top-level `agents:` / `repos:` / `trackers:` define what exists, `projects:` wires them together by name. See [Repos: mono-repo](../connect-your-stuff/repos-mono.md) for the smallest viable shape, [Repos: multi-repo](../connect-your-stuff/repos-multi.md) for the version with three or four sibling repos.
 
 Once you move to a long running server, this same wiring moves into the database and you edit it in the dashboard instead, and the file shrinks to `persistence:` plus `secrets:`. You don't have to redo it by hand: `agent-smith config import ./agentsmith.yml` takes exactly this file. [Where configuration lives](../configure-it/index.md) explains the split.
 
@@ -100,7 +99,7 @@ export OPENAI_API_KEY=sk-...
 export GITHUB_TOKEN=ghp_...
 ```
 
-The `${...}` references in `agentsmith.yml` resolve from the environment. Don't paste keys into the YAML — Agent Smith will refuse the config if it sees raw secrets.
+The `${...}` references in `agentsmith.yml` resolve from the environment, and each agent reads its provider key from the environment on its own (see [API keys](../connect-your-stuff/ai-providers.md#api-keys)). Don't paste keys into the YAML.
 
 ### Check the wiring, then run
 
@@ -111,38 +110,19 @@ agent-smith doctor
 The doctor actively probes everything the run will need — config schema, LLM reachable, tracker auth, repo access, skills catalog, sandbox spawn — and prints a fix hint per failed check. Green means the run below won't die on plumbing.
 
 ```bash
-agent-smith fix --ticket 54 --project todolist
+agent-smith code --ticket 54 --project todolist
 ```
 
-What you'll see (CLI mode, in-process sandbox, no Docker required — abridged, your file names and numbers will differ):
+In CLI mode the sandbox is in-process, so no Docker is required. The run goes through the `code` pipeline:
 
-```
-[ 1] LoadCatalog           → skills catalog loaded (embedded release build)
-[ 2] FetchTicket           → "Null ref in UserService.GetById when id is zero"
-[ 3] ScopeRepos            → 1 repo affected: todolist-api
-[ 4] CheckoutSource        → branch agentsmith/ticket-54 created in todolist-api
-[ 5] BootstrapCheck        → .agentsmith/context.yaml + principles.md present
-[ 6] AnalyzeCode           → scout pass: 47 files scanned, 3 candidates
-[ 7] NegotiateExpectation  → expectation ratified: GetById(0) → 400 BadRequest,
-                             existing behavior for valid ids unchanged
-[ 8] GeneratePlan          → 4 steps
+1. `FetchTicket` reads ticket 54, and `ScopeRepos` decides which of the project's repos it touches (here only `todolist-api`).
+2. `CheckoutSource` creates the run branch, then `RunPreflight` proves the preconditions it can only check now that the branch and sandbox exist.
+3. `BootstrapCheck` and `BootstrapGate` refuse a repo without `.agentsmith/contexts/<name>/context.yaml`; run `init-project` first (see [Onboarding](../reference/setup/onboarding.md)). Then the principles, the memory index and the context are loaded.
+4. `AnalyzeCode` sweeps the repo, and `DeriveSpec` turns the ticket into one or more phase specs, each with a done-list. When the ticket contradicts what is in the repository, `SpecHandback` parks it with a question instead of guessing.
+5. For each phase: the coding master edits the code and runs the repo's own build and tests inside the sandbox, then `VerifyPhase` checks the result against the phase's done-list. A red verify stops the run there.
+6. `WriteRunResult` writes the run record, and `CommitAndPR` opens the pull request.
 
-   Plan:
-   1. Add null-id guard at the top of GetById
-   2. Return a 400 BadRequest with a typed problem detail
-   3. Add UserService.GetById_ZeroId_ReturnsBadRequest test
-   4. Update the OpenAPI spec to declare the 400 response
-
-   Approve this plan? [y/N] y
-
-[ 9] AgenticMaster         → coding-agent-master: code changed, tests written,
-                             build + tests verified green inside the sandbox
-[10] CommitAndPR           → opened https://github.com/acme-org/todolist-api/pull/142
-
-Done. 1 pull request open. Ticket #54 → resolved. Cost: $0.018.
-```
-
-Two steps in there deserve a word. `NegotiateExpectation` writes down WHAT the fix must achieve — grounded in the actual analysis, not the raw ticket text — and that ratified expectation becomes the run's acceptance contract: it drives the plan, the master's prompt, and the PR body. And `AgenticMaster` is one agentic loop that plans details, edits, and runs the repo's own tests itself; there is no separate rigid test step that guesses your test command.
+The phase spec is the run's acceptance contract. It drives what the master works on, what gets verified, and what the PR body says.
 
 If the ticket is too thin to work from (title-only, no reproduction, contradictory), the run doesn't guess: it posts its open questions as a comment on the ticket, parks the ticket in a `needs_clarification` status, and resumes when you answer. See [Spec dialogue](../how-it-works/spec-dialogue.md).
 
@@ -150,13 +130,7 @@ The CLI exits with code zero if the PR opened and the ticket got updated. Non-ze
 
 ### What ended up on disk
 
-```
-.agentsmith/runs/2026-05-22T14-03-11-9f2a-fix-54/
-├── plan.md       — the plan after the planning round, role-by-role
-├── result.md     — what got done, the PR URL, the cost
-└── decisions.md  — non-obvious choices (e.g. "picked 400 over 404 because the
-                    spec already documents 400 for malformed input")
-```
+The run record lands in the repository, under `.agentsmith/runs/<run>/`, and is committed on the run branch so it travels with the PR. `result.md` holds what got done, the PR URL, the cost, the decisions the run logged, and the account of every done criterion.
 
 Run directories accumulate over time. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles them into a wiki you can grep when something feels familiar — "didn't we already debate this trade-off six months ago?" usually has an answer in there.
 
@@ -171,13 +145,13 @@ If the run fails, the ticket gets the `agent-smith:failed` label and a comment w
 
 ### Headless mode
 
-The approval prompt is on by default in interactive CLI mode. To skip it for a single run:
+`--headless` runs without interactive prompts, which is what you want in cron or CI:
 
 ```bash
-agent-smith fix --ticket 54 --project todolist --headless
+agent-smith code --ticket 54 --project todolist --headless
 ```
 
-Server mode (Docker / k8s) always runs headless — every webhook- or poll-triggered run auto-approves. The interactive gate is a CLI convenience for when you're still building trust.
+Server mode (Docker / k8s) always runs headless. There is no plan approval step in either mode: the question a run can't answer goes back to the ticket as a handback instead.
 
 ### Next
 

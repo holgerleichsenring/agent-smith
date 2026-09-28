@@ -1,34 +1,6 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{{ site.title }} — {{ site.tagline }}</title>
-<meta name="description" content="{{ site.description }}">
-<link rel="icon" type="image/svg+xml" href="favicon.svg">
-<link rel="stylesheet" href="styles.css">
-</head>
-<body>
-
-<!-- NAV -->
-<nav class="nav-bar">
-  <a href="/" class="nav-logo">
-    <span class="nav-logo-dot"></span>
-    agent-smith
-  </a>
-  <ul class="nav-links">
-    <li><a href="#how">How it works</a></li>
-    <li><a href="#why">Why I built it this way</a></li>
-    <li><a href="#built">How it was built</a></li>
-    <li><a href="#more">More pipelines</a></li>
-    <li><a href="{{ site.docsUrl }}">Docs</a></li>
-  </ul>
-  <div class="nav-cta">
-    <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-text">GitHub</a>
-    <a href="{{ site.docsUrl }}/get-it-running/install/" class="btn btn-primary">Get started</a>
-  </div>
-</nav>
-
+---
+layout: layouts/base.njk
+---
 <!-- HERO -->
 {% include "partials/hero-lifecycle.njk" %}
 
@@ -37,13 +9,13 @@
   <div class="section-wrap section-narrow">
     <h2 class="section-title">How a ticket actually becomes a PR</h2>
     <p class="prose">
-      You drop a ticket into your tracker — Jira, Azure DevOps, GitHub Issues, GitLab, whatever you use. Agent Smith reads it, figures out which project it belongs to, and starts a run. If your project has more than one repo, every repo gets its own sandbox with its own toolchain image (one runs <code class="inline-code">dotnet/sdk:8.0</code>, another runs <code class="inline-code">node:20</code>, a Python worker gets <code class="inline-code">python:3.12</code>). Each sandbox clones its repo and cuts a branch named <code class="inline-code">agentsmith/ticket-{N}</code>.
+      You drop a ticket into your tracker — Jira, Azure DevOps, GitHub Issues, GitLab, whatever you use. Agent Smith reads it, figures out which project it belongs to, and starts a run. If your project has more than one repo, every repo gets its own sandbox with its own toolchain image (one runs <code class="inline-code">dotnet/sdk:8.0</code>, another runs <code class="inline-code">node:20</code>, a Python worker gets <code class="inline-code">python:3.12</code>). Each sandbox clones its repo and cuts a branch named <code class="inline-code">agent-smith/{ticket}</code>.
     </p>
     <p class="prose">
-      Then the AI does the boring middle part. It analyses the code, comes up with a plan, lets you approve it (or runs headless if you trust the pipeline), writes the changes, runs the tests, and commits. One pull request per repo, all linked to each other in the PR body so reviewers see the whole change at once. The ticket gets set to resolved with every PR URL in the comment.
+      Before it writes anything, it turns the ticket into a specification: the phases the work needs, and for each one a list of what has to be true when it's done. That cut goes onto the ticket as a comment, so you can see what it understood (and correct it by commenting). If the ticket reads two ways, or asks for something the code makes impossible, it says so on the ticket and waits instead of guessing.
     </p>
     <p class="prose">
-      That's the standard flow. There's an approval gate before any code change lands, and every run records token usage and dollar cost so you actually know what you spent.
+      Then the AI does the boring middle part, one phase at a time: it writes the change, runs the verification each repository declares (your build, your tests), and has the diff of each phase reviewed against its spec before the next one starts. One pull request per repo, all linked to each other in the PR body so reviewers see the whole change at once. The ticket gets every PR URL in the comment, and every run records token usage and dollar cost so you actually know what you spent.
     </p>
 
     <h3 class="prose-heading">What one run looks like when it is done</h3>
@@ -54,13 +26,18 @@
 
   <div class="section-wrap diagram-wrap">
     <a class="diagram-panel" href="{{ site.docsUrl }}/reference/operations/dashboard/">
-      <img src="ui-run.png" alt="A finished run in the dashboard: the five-beat spine from ticket to outcome, all done, with the outcome panel showing a pull request button, a total cost of 0.42 dollars, six minutes wall clock and seven model calls." loading="lazy" width="2880" height="1180" />
+      <img src="/ui-run.png" alt="A finished run in the dashboard: the five-beat spine from ticket to outcome, all done, with the outcome panel showing a pull request button, a total cost of 0.42 dollars, six minutes wall clock and seven model calls." loading="lazy" width="2880" height="1180" />
     </a>
   </div>
 
   <div class="section-wrap section-narrow">
     <p class="prose">
-      That verification beat is cross-checked against the diff the run actually committed, so a run cannot report itself green without a matching change. When it does come back red, it says so and ships the partial work as a record rather than quietly rounding up.
+      Green tests are not the verdict, though. After the tests pass, a separate reader goes through the done-list one criterion at a time and decides met, unmet or not applicable, citing what on the branch proves it. That account is the only thing the run's verdict listens to. When it comes back short, the pull request still opens, as a draft, with a section saying what was not delivered. And if you think a verdict is wrong, you can overrule it with a reason that stays on the record.
+    </p>
+
+    <h3 class="prose-heading">Or think it through before there is a ticket</h3>
+    <p class="prose">
+      A lot of tickets are one line long. The dashboard has a page called Work it out, where you talk the change through with an agent that reads your repositories while it answers. When the two of you agree, it proposes a specification. You approve it, Agent Smith files one ticket with that specification attached, and the run executes exactly what you approved, never a re-cut of it. You can also open the conversation from an existing ticket, and then the ticket text is what every answer is grounded in. <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/work-it-out/">How Work it out works</a>
     </p>
 
     <h3 class="prose-heading">You wire it up in the browser</h3>
@@ -71,7 +48,7 @@
 
   <div class="section-wrap diagram-wrap">
     <a class="diagram-panel" href="{{ site.docsUrl }}/configure-it/config-studio/">
-      <img src="ui-config.png" alt="The configuration studio: a catalog of projects, agents, trackers, repositories, connections, MCP servers and secrets in the left rail, and each project shown with the agent, tracker and repositories it wires together." loading="lazy" width="3200" height="1560" />
+      <img src="/ui-config.png" alt="The configuration studio: a catalog of projects, agents, trackers, repositories, connections, MCP servers and secrets in the left rail, and each project shown with the agent, tracker and repositories it wires together." loading="lazy" width="3200" height="1560" />
     </a>
   </div>
 
@@ -84,7 +61,7 @@
 
   <div class="section-wrap diagram-wrap">
     <a class="diagram-panel" href="{{ site.docsUrl }}/how-it-works/lifecycle/">
-      <img src="lifecycle.svg" alt="A ticket comes in from your tracker. Agent Smith spawns one sandbox per repo, drives a tool-calling loop, then opens one PR per repo and resolves the ticket." loading="lazy" />
+      <img src="/lifecycle.svg" alt="A ticket comes in from your tracker. Agent Smith spawns one sandbox per repo, drives a tool-calling loop, then opens one PR per repo and resolves the ticket." loading="lazy" />
     </a>
   </div>
 </section>
@@ -101,12 +78,12 @@
 
     <h3 class="prose-heading">You see what every run cost.</h3>
     <p class="prose">
-      Great developers write great code. They even write documentation. But I have never seen <a class="prose-link" href="https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/">the why being documented</a>. Agent Smith documents the plan and maintains a decisions.md log, so the reasoning stays available over the complete lifecycle of the program.
+      Great developers write great code. They even write documentation. But I have never seen <a class="prose-link" href="https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/">the why being documented</a>. Agent Smith writes the specification it worked from next to the code and keeps a decision log in <code class="inline-code">.agentsmith/decisions/</code>, each entry naming what it chose and what it rejected, so the reasoning stays available over the complete lifecycle of the program.
     </p>
 
-    <h3 class="prose-heading">Approval sits between the plan and the code.</h3>
+    <h3 class="prose-heading">You approve the spec, not a wall of diff.</h3>
     <p class="prose">
-      The AI generates a plan, the plan gets shown to you, you approve or reject. Trust the pipeline? Set a config flag and runs go headless. Both modes ship because some teams want the eyeball, some don't.
+      Reviewing 800 changed lines tells you little about whether the right thing got built. So the moment to say yes or no is earlier: the specification. Approve it in a Work it out conversation and the run executes exactly that. Let it derive one from a plain ticket and the cut is on the ticket before any code exists, where a comment corrects it. Either way you judge the intent, and the delivery account judges the code against it.
     </p>
 
     <h3 class="prose-heading">One sandbox per repo, with its own toolchain.</h3>
@@ -126,7 +103,7 @@
   <div class="section-wrap section-narrow">
     <h2 class="section-title">Built by the method it teaches</h2>
     <p class="prose">
-      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over six months, by me and one language model. <strong>610 completed phases</strong> and <strong>244,753 lines of C#</strong>, with <strong>2,587 recorded decisions</strong> and <strong>3,760 tests</strong> behind them. About <strong>500 hours</strong> of my time went in, roughly 50 minutes per completed phase.
+      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over seven months, by me and one language model. <strong>968 completed phases</strong> and <strong>432,267 lines of C#</strong>, with <strong>5,062 recorded decisions</strong> and <strong>7,038 tests</strong> behind them. About <strong>650 hours</strong> of my time went in, roughly 40 minutes per completed phase.
     </p>
 
     <h3 class="prose-heading">The tests do the steering</h3>
@@ -136,7 +113,7 @@
 
     <h3 class="prose-heading">The model has no way to wave itself through</h3>
     <p class="prose">
-      A blocking commit hook lets a phase commit through once the build, all 3,760 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="inline-code">principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.
+      A blocking commit hook lets a phase commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="inline-code">principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.
     </p>
 
     <h3 class="prose-heading">Including what didn&#39;t work</h3>
@@ -151,10 +128,10 @@
   <div class="section-wrap section-narrow">
     <h2 class="section-title">There are more pipelines than the coding one</h2>
     <p class="prose">
-      <code class="inline-code">code</code> is the headline because it's the one most people show up for — it covers bug fixes and features alike, and the older <code class="inline-code">fix-bug</code> and <code class="inline-code">add-feature</code> names still route to it. Seven more presets ship in the box: <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (a security master reviewing a codebase or a live API), <code class="inline-code">pr-review</code> (a review of a pull request, posted back as PR comments), <code class="inline-code">legal-analysis</code> (contract review), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory per component in each repo), and <code class="inline-code">spec-dialog</code> (a design conversation that ends in a ticket or a phase draft). Same orchestrator, different masters, different output shapes.
+      <code class="inline-code">code</code> is the headline because it's the one most people show up for — it covers bug fixes, features, refactors and migrations alike. Seven more presets ship in the box: <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (a security master reviewing a codebase or a live API), <code class="inline-code">pr-review</code> (a review of a pull request, posted back as PR comments), <code class="inline-code">legal-analysis</code> (contract review), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory per component in each repo), and <code class="inline-code">spec-dialog</code> (a design conversation that ends in a ticket or a phase draft). Same orchestrator, different masters, different output shapes.
     </p>
     <p class="prose">
-      You can also define your own in <code class="inline-code">agentsmith.yml</code>. Skill files are YAML, no prompt engineering. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Pipeline reference is in the docs.</a>
+      The masters and skills behind them live in a versioned catalog that ships inside the binary. You can pin another release, or layer your own skills on top without forking it. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Pipeline reference is in the docs.</a>
     </p>
   </div>
 </section>
@@ -164,10 +141,10 @@
   <div class="section-wrap section-narrow">
     <h2 class="section-title">Providers and deploy</h2>
     <p class="prose">
-      Works with Claude, OpenAI, Gemini, Ollama (for fully local), and anything OpenAI-compatible (Groq, Azure OpenAI, LM Studio, vLLM, your own endpoint). You pick the model per role: a cheap one for the scout pass that maps the codebase, the good one for the actual code.
+      Works with Claude, OpenAI, Azure OpenAI, Gemini, Ollama (for fully local), and GitHub Copilot on a seat you already pay for. You pick the model per role: a cheap one for the scout pass that maps the codebase, the good one for the actual code.
     </p>
     <p class="prose">
-      Deploy as a single binary, Docker container, or Kubernetes. The sandbox-agent injects via an init-container into whatever toolchain image your repos use, so you get one carrier image plus the upstream toolchain image you already trust. A chat gateway lets you trigger runs from Slack and Teams when that's how your team works.
+      Deploy as a single binary, Docker container, or Kubernetes. The sandbox-agent injects via an init-container into whatever toolchain image your repos use, so you get one carrier image plus the upstream toolchain image you already trust. Slack and Teams work as a front door too, for triggering runs and for the same design conversation the dashboard has.
     </p>
     <p class="prose"><a class="prose-link" href="{{ site.docsUrl }}/connect-your-stuff/ai-providers/">AI providers</a> · <a class="prose-link" href="{{ site.docsUrl }}/host-it/docker-compose/">Docker Compose</a> · <a class="prose-link" href="{{ site.docsUrl }}/host-it/kubernetes/">Kubernetes</a></p>
   </div>
@@ -177,25 +154,10 @@
 <section class="cta-section">
   <div class="section-wrap section-narrow">
     <h2 class="cta-title">Have a look</h2>
-    <p class="cta-sub">First bug fix in about five minutes if your Docker is set up. The install guide walks through it.</p>
+    <p class="cta-sub"><code class="inline-code">agent-smith demo</code> runs the real pipeline against a bundled sample project. One model key, no tracker, no Docker.</p>
     <div class="cta-actions">
       <a href="{{ site.docsUrl }}/get-it-running/install/" class="btn btn-on-dark">Get started</a>
       <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-secondary-on-dark">View on GitHub</a>
     </div>
   </div>
 </section>
-
-<footer class="footer-region">
-  <div class="footer-l">agent-smith · MIT License · © 2026 Holger Leichsenring</div>
-  <div class="footer-r">
-    <a href="{{ site.docsUrl }}">Docs</a>
-    <a href="{{ site.sentinelUrl }}">Sentinel</a>
-    <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
-    <a href="{{ site.blogUrl }}">Blog</a>
-    <a href="{{ site.partnerUrl }}">45level</a>
-  </div>
-</footer>
-
-<script src="main.js"></script>
-</body>
-</html>
