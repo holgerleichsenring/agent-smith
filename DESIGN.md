@@ -294,10 +294,6 @@ components:
     description: "init-project pipeline. Cream chrome — bootstrap step."
     backgroundColor: "{colors.canvas-soft}"
     textColor: "{colors.ink}"
-  pipeline-skill-manager:
-    description: "skill-manager pipeline. Dark polarity — meta/admin surface."
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.on-primary}"
 
   # ─── Illustrative kit-mirror surfaces (re-purposed for Agent Smith) ───
   ex-pricing-tier:
@@ -538,9 +534,8 @@ Deterministic tint mapping — the same card chrome means the same pipeline acro
 | `legal-analysis` | `pipeline-legal-analysis` | Cream |
 | `mad-discussion` | `pipeline-mad-discussion` | Cream |
 | `init-project` | `pipeline-init-project` | Cream |
-| `skill-manager` | `pipeline-skill-manager` | Dark |
 
-Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are cream — they're the friendly default. Audit / admin pipelines (security / api-security / skill-manager) are dark — they signal severity or operator-mode.
+Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are cream — they're the friendly default. Audit pipelines (security / api-security) are dark — they signal severity or operator-mode.
 
 ### Inputs & Forms
 
@@ -580,7 +575,7 @@ Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are 
 - Pair Smith green CTA with ink-dark text on cream backgrounds — the three-token rhythm is the brand's whole conversion story.
 - Wrap every code / CLI / YAML surface in `card-terminal-panel`. Use `mono-code` typography exclusively inside.
 - Use the deterministic pipeline-card tint mapping. Same chrome means same pipeline across every surface.
-- Apply the polarity flip (`*-dark` variants) for the severity / operator-mode pipelines (security, skill-manager).
+- Apply the polarity flip (`*-dark` variants) for the severity pipelines (security, api-security).
 
 ### Don't
 - Don't replace cream canvas with pure white. The warmth IS the brand.

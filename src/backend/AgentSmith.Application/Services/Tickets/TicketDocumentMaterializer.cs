@@ -64,7 +64,7 @@ public sealed class TicketDocumentMaterializer(
     {
         await files.WriteAsync($"{path}.b64", Convert.ToBase64String(document.Content), cancellationToken);
         var decode = await RunShellAsync(
-            sandbox, $"base64 -d '{path}.b64' > '{path}' && rm -f '{path}.b64'", cancellationToken);
+            sandbox, $"base64 -d < '{path}.b64' > '{path}' && rm -f '{path}.b64'", cancellationToken);
         if (decode.ExitCode != 0)
         {
             logger.LogWarning("In-sandbox decode of '{File}' failed (exit {Code})",
