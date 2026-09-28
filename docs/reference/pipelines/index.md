@@ -110,4 +110,3 @@ Structured pipelines emit findings rather than code changes. The type does not c
 - [API Scan](api-scan.md) — live API scanning
 - [Legal Analysis](legal-analysis.md) — contract review
 - [MAD Discussion](mad-discussion.md) — multi-agent design debate
-- [Skill Manager](skill-manager.md) — retired

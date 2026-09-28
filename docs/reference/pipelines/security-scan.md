@@ -210,9 +210,6 @@ agent-smith security-scan --agent claude-scan --source-path . --output sarif --o
 # Scan a specific branch, markdown output
 agent-smith security-scan --agent claude-scan --source-path ./my-api --branch feature/auth --output markdown
 
-# Scan only the diff of a pull request
-agent-smith security-scan --agent claude-scan --source-path ./my-project --pr 42 --output markdown
-
 # Dry run — show the pipeline without executing
 agent-smith security-scan --agent claude-scan --source-path ./my-project --dry-run
 

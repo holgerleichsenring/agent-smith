@@ -1,398 +1,166 @@
 # Layer Details
 
-Each layer in Agent Smith has a clear responsibility and strict dependency boundaries.
+Each project in `src/backend/` has one responsibility and a fixed set of references. This page names the types you meet first in each one; it is a map, not an inventory.
 
 ## Domain
 
-**Project:** `AgentSmith.Domain` | **Dependencies:** None
+**Project:** `AgentSmith.Domain` | **References:** none
 
-The innermost layer. Contains business entities, value objects, and domain exceptions. No framework references, no external packages.
+The innermost layer: entities, value objects and exceptions, with no framework or package references.
 
-### Entities
-
-| Entity | Purpose |
-|--------|---------|
-| `Ticket` | Issue/work item from any source (GitHub, GitLab, Azure DevOps, Jira) |
-| `Repository` | Git repository reference with local path and remote URL |
-| `Plan` | Execution plan with ordered steps |
-| `PlanStep` | Single step within a plan |
-| `PlanDecision` | Decision made during planning (approve/reject/modify) |
-| `CodeAnalysis` | Analysis results from code review |
-| `CodeChange` | A single file change (path, content, operation) |
-| `AttachmentRef` | Reference to an attached document |
-
-### Value Objects
-
-| Value Object | Purpose |
-|-------------|---------|
-| `TicketId` | Strongly-typed ticket identifier |
-| `BranchName` | Git branch name with validation |
-| `FilePath` | File path with normalization |
-| `ProjectName` | Project identifier |
-| `CommandResult` | Success/failure result of a command |
-| `PipelineCommand` | Command to execute in a pipeline |
-
-### Exceptions
-
-| Exception | When |
-|-----------|------|
-| `AgentSmithException` | Base exception for all domain errors |
-| `ConfigurationException` | Invalid or missing configuration |
-| `ProviderException` | External provider failure |
-| `TicketNotFoundException` | Ticket does not exist |
+| Kind | Examples |
+|------|----------|
+| Entities (`Entities/`) | `Ticket`, `TicketComment`, `Repository`, `Plan`, `PlanStep`, `PlanDecision`, `CodeChange`, `Diff`, `AttachmentRef` |
+| Value objects and results (`Models/`) | `TicketId`, `BranchName`, `FilePath`, `ProjectName`, `CommandResult`, `PipelineCommand`, the run and phase accounts (`RunAccounts`, `PhaseAccounts`, `SpecAccount`), the scan contract (`ScanContract`, `ScanCriterion`), PR-review models (`PrDiffAnalysis`, `PrReviewInlineComment`) |
+| Exceptions (`Exceptions/`) | `AgentSmithException` (base), `ConfigurationException`, `ProviderException`, `TicketNotFoundException`, `CapacityExhaustedException`, `StaleConfigVersionException`, `DataArchiveException` |
 
 ---
 
 ## Contracts
 
-**Project:** `AgentSmith.Contracts` | **Dependencies:** Domain
+**Project:** `AgentSmith.Contracts` | **References:** Domain, Sandbox.Wire
 
-Defines all interfaces, commands, DTOs, and configuration models. This is the "contract" between Application and Infrastructure — neither depends on the other directly, both depend on Contracts.
+Interfaces, commands, configuration models and the event records. Application and Infrastructure both depend on Contracts and never on each other.
 
-### Commands
-
-| Type | Purpose |
-|------|---------|
-| `ICommandHandler<TContext>` | Interface for pipeline step handlers |
-| `ICommandExecutor` | Dispatches commands to handlers |
-| `ICommandContext` | Base context passed through the pipeline |
-| `PipelineContext` | Shared state bag for the entire pipeline run |
-| `CommandNames` | Constants for all command names |
-| `PipelinePresets` | Pipeline step definitions (code, security-scan, etc.) |
-
-### Provider Interfaces
-
-| Interface | Purpose |
-|-----------|---------|
-| `IChatClientFactory` | Resolves Microsoft.Extensions.AI `IChatClient` per `(AgentConfig, TaskType)` — replaces the legacy `IAgentProviderFactory` / `IAgenticAnalyzerFactory` / `ILlmClientFactory` trio. See [AI Clients](ai-clients.md). |
-| `IContainerRunner` | Runs tool containers (Docker, Podman) |
-| `IModelRegistry` | Per-task model selection |
-
-### Configuration Models
-
-| Model | Purpose |
-|-------|---------|
-| `AgentSmithConfig` | Root configuration object |
-| `ProjectConfig` | Per-project settings (source, tickets, AI) |
-| `AgentConfig` | AI provider settings (model, temperature, tokens) |
-| `ModelRegistryConfig` | Model assignments per task type |
-| `PricingConfig` | Token pricing for cost tracking |
-| `SkillConfig` | Multi-skill pipeline definitions |
-| `SourceConfig` | Git source provider settings |
-| `TicketConfig` | Ticket provider settings |
-
-### Other
-
-| Type | Purpose |
-|------|---------|
-| `Finding` / `FindingSummary` | Security scan results |
-| `RunCostSummary` | Token usage and cost data |
-| `OutputContext` | Output strategy parameters |
-| `ParsedIntent` | Result of intent parsing |
-| `IDecisionLogger` | Records decisions made during execution |
+| Area | Key types |
+|------|-----------|
+| Commands (`Commands/`) | `ICommandHandler<TContext>`, `ICommandExecutor`, `ICommandContext`, `PipelineContext`, `CommandNames`, `ContextKeys`, `PipelinePresets` (the step list of every pipeline) |
+| LLM access | `IChatClientFactory` (see [AI clients](ai-clients.md)), `IModelRegistry` |
+| Sandbox (`Sandbox/`) | `ISandbox`, `ISandboxFactory` |
+| Events (`Events/`) | `IDomainEvent`, `IEventPublisher`, the run and system event records; see [Event schema policy](event-schema-policy.md) |
+| Queue and configuration | `IRedisJobQueue`, `IConfigStore`, `AgentSmithConfig`, `AgentConfig` |
+| Output and decisions | `IOutputStrategy`, `OutputContext`, `IDecisionLogger`, `IContainerRunner` |
 
 ---
 
 ## Application
 
-**Project:** `AgentSmith.Application` | **Dependencies:** Contracts
+**Project:** `AgentSmith.Application` | **References:** Contracts, Domain
 
-The use-case layer. Contains all pipeline handlers, the pipeline executor, and supporting services. No external SDK references.
+The use-case layer: the pipeline executor, every step handler and the services around a run. No external SDK.
 
-### Core Services
-
-| Service | Purpose |
-|---------|---------|
-| `ExecutePipelineUseCase` | Resolves config, builds pipeline, executes — invoked by the queue consumer |
-| `PipelineExecutor` | Runs an ordered list of commands; wraps execution with lifecycle transitions and heartbeat |
-| `CommandExecutor` | Dispatches a single command to its handler |
-| `CommandContextFactory` | Creates typed contexts for each handler |
-| `PipelineCostTracker` | Aggregates token/cost data across handlers |
-| `TicketClaimService` | Single ingress for ticket-driven pipelines: pre-checks → SETNX claim-lock → status transition → enqueue |
-| `PipelineQueueConsumer` | Pulls `PipelineRequest` from `IRedisJobQueue`, runs them with `SemaphoreSlim` backpressure |
-
-### Lifecycle & Polling Services
+### Running a pipeline
 
 | Service | Purpose |
 |---------|---------|
-| `JobHeartbeatService` (Infrastructure) | Renews `agentsmith:heartbeat:{id}` every 30s; `IAsyncDisposable` clears on stop |
-| `StaleJobDetector` | Reverts InProgress tickets without heartbeat back to Pending (every 1min, leader-only) |
-| `EnqueuedReconciler` | Re-enqueues orphan Enqueued tickets (every 10min, leader-only) |
-| `PollerHostedService` | Runs configured `IEventPoller` instances in parallel under the poller leader |
-| `LeaderElectedHostedService` | Generic leader-election wrapper; runs work callback only when holding the named Redis lease |
+| `ExecutePipelineUseCase` | Resolves config, project and pipeline, builds the context and runs it. The CLI calls it directly; the server calls it from the queue consumer |
+| `PipelineExecutor` | Runs the ordered command list with lifecycle transitions |
+| `CommandExecutor` | Dispatches one command to its handler |
+| `CommandContextFactory` | Builds the typed context each handler receives |
+| `PipelineCostTracker` | Aggregates token usage and cost across the run |
 
-The ingress/lifecycle stack: webhook handler (or `IEventPoller`) → `TicketClaimService` → `IRedisJobQueue` → `PipelineQueueConsumer` → `ExecutePipelineUseCase` → `PipelineExecutor`. See [Ticket Lifecycle](../concepts/ticket-lifecycle.md) for the state machine.
-
-### Handlers (39 total)
-
-Each handler implements `ICommandHandler<TContext>` and handles one pipeline step:
-
-**Source & Setup:**
-
-- `CheckoutSourceHandler` — Clone/pull repository
-- `FetchTicketHandler` — Load ticket from provider
-- `BootstrapProjectHandler` — Detect language, generate context
-- `BootstrapDocumentHandler` — Prepare document for legal analysis
-- `AcquireSourceHandler` — Acquire source for legal pipeline
-- `LoadCodeMapHandler` — Generate/load code map
-- `LoadContextHandler` — Load `.agentsmith/` context files
-- `LoadCodingPrinciplesHandler` — Load domain-specific rules/skills
-- `LoadSkillsHandler` — Load skill definitions for multi-skill rounds
-- `LoadSwaggerHandler` — Load and compress OpenAPI specs
-
-**Analysis & Planning:**
-
-- `AnalyzeCodeHandler` — AI-driven code analysis
-- `TriageHandler` / `SecurityTriageHandler` / `ApiSecurityTriageHandler` — Classify and prioritize
-- `GeneratePlanHandler` — Create execution plan from analysis
-
-**Execution:**
-
-- `AgenticExecuteHandler` — Run the agentic code modification loop
-- `SkillRoundHandler` / `SecuritySkillRoundHandler` / `ApiSkillRoundHandler` — Multi-skill execution rounds
-- `ConvergenceCheckHandler` — Check if discussion/analysis has converged
-- `SwitchSkillHandler` — Transition between skills in multi-skill pipelines
-- `SpawnNucleiHandler` — Run Nuclei security scanner
-- `SpawnSpectralHandler` — Run Spectral OpenAPI linter
-- `ApprovalHandler` — Gate for human approval
-
-**Output:**
-
-- `TestHandler` — Run project tests
-- `CommitAndPRHandler` — Commit changes, create pull request
-- `WriteRunResultHandler` — Write run result to `.agentsmith/runs/`
-- `CompileDiscussionHandler` — Compile multi-skill discussion into output
-- `CompileFindingsHandler` — Compile security findings
-- `DeliverOutputHandler` / `DeliverFindingsHandler` — Deliver results via output strategies
-- `GenerateDocsHandler` / `GenerateTestsHandler` — Generate documentation/tests
-
-### Intent Parsing
+### Ingress and lifecycle
 
 | Service | Purpose |
 |---------|---------|
-| `RegexIntentParser` | Fast pattern-based intent recognition |
-| `LlmIntentParser` | LLM-based fallback for ambiguous input |
+| `TicketClaimService` | Single ingress for ticket-driven pipelines: pre-checks, claim lock, status transition, enqueue |
+| `PipelineQueueConsumer` | Pulls `PipelineRequest`s from `IRedisJobQueue` and runs them with bounded concurrency |
+| `PollerHostedService` | Runs the configured `IEventPoller`s |
+| `LeaderElectedHostedService` | Runs its work only while holding a named Redis lease |
+| `EnqueuedReconciler` | Re-enqueues taken tickets that have no fresh run lease |
+| `ActiveRunReaper` | Releases the lease of a run whose heartbeat went stale, so its ticket can be claimed again |
 
-### Triggers
+The path is: webhook handler or poller → `TicketClaimService` → `IRedisJobQueue` → `PipelineQueueConsumer` → `ExecutePipelineUseCase` → `PipelineExecutor`. See [Ticket lifecycle](../concepts/ticket-lifecycle.md) for the state machine.
 
-| Service | Purpose |
-|---------|---------|
-| `InboxPollingService` | Polls for new legal documents |
+### Handlers
+
+`Services/Handlers/` holds one handler per pipeline step, each implementing `ICommandHandler<TContext>`. The ones that carry judgement are `AgenticMasterHandler`, which runs a pipeline's master skill, and `PhaseSequenceHandler`, which runs the `code` pipeline's per-phase loop. Which handlers a pipeline runs, and in what order, is on the [Pipelines](../pipelines/index.md) page.
 
 ---
 
 ## Infrastructure.Core
 
-**Project:** `AgentSmith.Infrastructure.Core` | **Dependencies:** Contracts
+**Project:** `AgentSmith.Infrastructure.Core` | **References:** Contracts, Domain, SkillsPackaging
 
-Shared infrastructure that does not require external SDKs. Configuration loading, project detection, and registries.
-
-### Services
+Infrastructure that needs no external service.
 
 | Service | Purpose |
 |---------|---------|
-| `YamlConfigurationLoader` | Loads and validates YAML config files |
+| `YamlConfigurationLoader` | Loads and validates `agentsmith.yml` |
+| `DbConfigStore` | Serves the configuration from the database on a server |
 | `SecretsProvider` | Resolves secrets from environment variables |
-| `ProjectDetector` | Detects project type (language, framework) |
-| `ContextGenerator` | Generates `.agentsmith/context.yaml` |
-| `CodeMapGenerator` | Generates code map from repository |
-| `CodingPrinciplesGenerator` | Detects coding conventions |
-| `RepoSnapshotCollector` | Collects repository state for analysis |
-| `ProviderRegistry` | Registers and resolves providers |
-| `StorageReaderRegistry` | Registers storage backends |
-| `YamlSkillLoader` | Loads skill definitions from YAML |
-| `ContextValidator` | Validates context files |
-| `RepositoryDecisionLogger` | Records a decision on the run, and copies it into the repository through its sandbox |
-
-### Language Detectors
-
-| Detector | Languages |
-|----------|-----------|
-| `DotNetLanguageDetector` | C#, F# (.NET) |
-| `PythonLanguageDetector` | Python |
-| `TypeScriptLanguageDetector` | TypeScript, JavaScript |
+| `YamlSkillLoader` | Loads skill definitions from the catalog |
+| `ProviderRegistry<T>`, `StorageReaderRegistry` | Register and resolve providers by type |
+| `RepositoryDecisionLogger` | Records a decision on the run and copies it into the repository through its sandbox |
 
 ---
 
 ## Infrastructure
 
-**Project:** `AgentSmith.Infrastructure` | **Dependencies:** Contracts, Infrastructure.Core, external SDKs
+**Project:** `AgentSmith.Infrastructure` | **References:** Contracts, Domain, Infrastructure.Core, external SDKs
 
-Implements all provider interfaces using external libraries and APIs.
+Implements the Contracts interfaces against external libraries and services.
 
-### AI Providers
+| Area | Key types |
+|------|-----------|
+| LLM clients | `ChatClientFactory` and one `IChatClientBuilder` per provider, `ConfigBasedModelRegistry`. See [AI clients](ai-clients.md) |
+| Source providers | `GitHubSourceProvider`, `AzureReposSourceProvider`, `GitLabSourceProvider`, `LocalSourceProvider` |
+| Ticket providers | `GitHubTicketProvider`, `AzureDevOpsTicketProvider`, `GitLabTicketProvider`, `JiraTicketProvider` |
+| PR diffs | `GitHubPrDiffProvider`, `AzureDevOpsPrDiffProvider`, `GitLabPrDiffProvider` |
+| Redis | `RedisJobQueue`, `RedisEventPublisher` (run events into Redis Streams), `RedisMessageBus` |
+| Sandbox | `InProcessSandbox`, the sandbox the CLI uses |
+| API scanners | `NucleiSpawner`, `SpectralSpawner`, `ZapSpawner`, run through `DockerToolRunner` or `ProcessToolRunner` |
+| Output strategies | `ConsoleOutputStrategy`, `SummaryOutputStrategy`, `MarkdownOutputStrategy`, `SarifOutputStrategy` |
 
-| Provider | SDK | Models |
-|----------|-----|--------|
-| `ClaudeAgentProvider` | Anthropic.SDK | Claude Sonnet, Opus, Haiku |
-| `OpenAiAgentProvider` | OpenAI SDK | GPT-4, GPT-4.1 |
-| `GeminiAgentProvider` | Google AI SDK | Gemini 2.5 |
-| `OllamaAgentProvider` | HTTP client | Any Ollama model |
+---
 
-Each provider has its own agentic loop implementation (`AgenticLoop`, `OpenAiAgenticLoop`, `GeminiAgenticLoop`, `OllamaAgenticLoop`) that handles tool calling, context management, and retry logic.
+## Infrastructure.Persistence
 
-### Supporting AI Services
+**Projects:** `AgentSmith.Infrastructure.Persistence`, `AgentSmith.Infrastructure.Persistence.SqlServer` | **References:** Contracts, Domain
 
-| Service | Purpose |
-|---------|---------|
-| `AgentPromptBuilder` | Constructs system/user prompts |
-| `ClaudeContextCompactor` | Compresses conversation context when token limit is near |
-| `ScoutAgent` | Lightweight codebase discovery (file listing, search) |
-| `FileReadTracker` | Deduplicates file reads across turns |
-| `TokenUsageTracker` | Tracks token consumption per request |
-| `CostTracker` | Calculates cost from token usage |
-| `ConfigBasedModelRegistry` | Resolves models from configuration |
-| `PlanParser` | Parses LLM output into structured plans |
-
-### Source Providers
-
-| Provider | Backend |
-|----------|---------|
-| `GitHubSourceProvider` | Octokit (clone, branch, push, PR) |
-| `AzureReposSourceProvider` | Azure DevOps SDK |
-| `GitLabSourceProvider` | GitLab REST API |
-| `LocalSourceProvider` | Local filesystem |
-
-### Ticket Providers
-
-| Provider | Backend |
-|----------|---------|
-| `GitHubTicketProvider` | Octokit |
-| `AzureDevOpsTicketProvider` | Azure DevOps SDK |
-| `GitLabTicketProvider` | GitLab REST API |
-| `JiraTicketProvider` | Jira REST v3 |
-
-### PR Diff Providers
-
-| Provider | Purpose |
-|----------|---------|
-| `GitHubPrDiffProvider` | Fetch PR diffs from GitHub |
-| `AzureDevOpsPrDiffProvider` | Fetch PR diffs from Azure DevOps |
-| `GitLabPrDiffProvider` | Fetch MR diffs from GitLab |
-
-### Output Strategies
-
-| Strategy | Format |
-|----------|--------|
-| `ConsoleOutputStrategy` | Human-readable terminal output |
-| `SarifOutputStrategy` | SARIF (Static Analysis Results Interchange Format) |
-| `MarkdownOutputStrategy` | Rich Markdown report |
-| `SummaryOutputStrategy` | Compact one-page summary |
-
-### Tool Runners
-
-| Runner | Backend |
-|--------|---------|
-| `DockerToolRunner` | Docker CLI for tool containers |
-| `ProcessToolRunner` | Direct process execution |
-
-### Other Infrastructure
-
-| Service | Purpose |
-|---------|---------|
-| `RedisMessageBus` | Redis pub/sub for progress messages |
-| `RedisProgressReporter` | Publishes pipeline progress to Redis |
-| `DockerContainerRunner` | Runs containers for Nuclei/Spectral |
-| `NucleiSpawner` | Spawns Nuclei security scanner |
-| `SwaggerProvider` | Loads and preprocesses OpenAPI specs |
-| `AgentProviderFactory` | Creates AI provider instances |
-| `LlmClientFactory` | Creates LLM clients per project |
-| `SourceProviderFactory` | Creates source providers |
-| `TicketProviderFactory` | Creates ticket providers |
+The relational store behind run records, projections, the configuration and the data archive. `AgentSmithDbContext` is an EF Core context that runs on SQLite, PostgreSQL, MySQL or SQL Server, chosen by the `persistence:` block. SQL Server keeps its migrations in the separate `.SqlServer` assembly. Migrations are applied by `agent-smith database migrate`, never by the server on startup.
 
 ---
 
 ## CLI
 
-**Project:** `AgentSmith.Cli` | **Dependencies:** All layers (DI wiring)
+**Project:** `AgentSmith.Cli` | **References:** Application, Infrastructure, Infrastructure.Persistence(.SqlServer)
 
-The console-tool entry point. Wires CLI dependencies, defines one-shot subcommands. Since p0107, the CLI carries no long-running services — webhooks, polling, queue consumption all live in `AgentSmith.Server`.
+The console tool: one run, then exit. It reads its whole configuration from `agentsmith.yml` and runs its sandbox in-process.
 
-### CLI Commands
+| Verb | Purpose |
+|------|---------|
+| `code` | Run the `code` pipeline for a ticket (`fix` and `feature` are deprecated aliases) |
+| `security-scan`, `api-scan`, `security-trend` | Security scans and their trend |
+| `mad`, `legal` | Discussion pipelines |
+| `init` | Bootstrap `.agentsmith/` in a project's repositories |
+| `doctor`, `demo` | Active preflight; a self-contained demo run |
+| `config`, `database`, `archive` | Configuration import, export and validation; schema migrations; moving an installation's data between database providers |
+| `skills pull`, `validate-concepts` | Download a skill catalog release; check skill `activates_when` expressions against the concept vocabulary |
+| `compile-wiki`, `autonomous` | Compile run history into a knowledge-base wiki; observe a project and write improvement tickets |
 
-| Command | Verb | Description |
-|---------|------|-------------|
-| `FixCommand` | `fix` | Fix a bug from a ticket |
-| `FeatureCommand` | `feature` | Add a feature from a ticket |
-| `SecurityScanCommand` | `security-scan` | Run security analysis |
-| `ApiScanCommand` | `api-scan` | Run API security scan |
-| `LegalCommand` | `legal` | Run legal document analysis |
-| `MadCommand` | `mad` | Run MAD discussion |
-| `InitCommand` | `init` | Initialize `.agentsmith/` in a project |
-| `RunCommand` | `run` | Generic pipeline execution |
-| `AutonomousCommand` | `autonomous` | Autonomous run from project vision |
-| `SkillsCommand` | `skills pull` | Pull/update skill catalog |
-
-### Other
-
-| Service | Purpose |
-|---------|---------|
-| `ConfigDiscovery` | 4-step config file discovery |
-| `ServiceProviderFactory` | Builds the CLI DI container (interactive Console mode + spawned-job Redis mode) |
-| `ConsoleDialogueTransport` | Reads dialogue answers from stdin / writes prompts to stdout |
+Supporting types: `ConfigDiscovery` (where the config file is found), `ServiceProviderFactory` (the CLI's DI container), `ConsoleDialogueTransport` (dialogue questions on stdin/stdout). See [Host it: CLI](../../host-it/cli.md).
 
 ---
 
 ## Server
 
-**Project:** `AgentSmith.Server` | **Dependencies:** All layers (DI wiring)
+**Project:** `AgentSmith.Server` | **References:** Contracts, Application, Infrastructure, Infrastructure.Persistence(.SqlServer)
 
-The single long-running deployment. Bridges chat platforms (Slack/Teams) to pipeline execution via ephemeral CLI containers, hosts webhook routes, runs polling + queue consumption + lifecycle reconcilers — all in one process. Single Kestrel, single DI tree.
+The long-running deployment: one ASP.NET Core process with one DI tree.
 
-### Contracts
+| Area | Key types and routes |
+|------|---------------------|
+| Webhooks | `POST /webhook` and `/webhook/{github,gitlab,jira}`; `WebhookRequestProcessor` detects the platform, verifies the signature and dispatches to one of the `IWebhookHandler`s |
+| Dashboard API | `/api/...` endpoints and the SignalR hub `JobsHub` at `/hub/jobs` |
+| Health | `GET /health`: liveness plus the startup preflight verdict |
+| Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
+| Sandboxes | `DockerSandboxFactory`, `KubernetesSandboxFactory` |
+| Jobs | `IJobSpawner` with `DockerJobSpawner` and `KubernetesJobSpawner` |
+| Chat | `IPlatformAdapter` with `SlackAdapter`, `TeamsAdapter`, `DashboardAdapter`; `IntentEngine` and `ChatIntentParser` turn a message into an intent |
 
-| Interface | Purpose |
-|-----------|---------|
-| `IJobSpawner` | Creates K8s Jobs or Docker containers |
-| `IPlatformAdapter` | Abstracts chat platform (Slack, Teams) |
-| `IMessageBus` | Redis pub/sub abstraction |
-| `ILlmIntentParser` | LLM-based intent parsing |
-| `IProjectResolver` | Maps project names to configuration |
-| `IWebhookHandler` | Platform-specific webhook event handler |
+---
 
-### Chat / Job Spawning
+## Sandbox projects
 
-| Service | Purpose |
-|---------|---------|
-| `IntentEngine` | Two-stage intent parsing (regex + LLM) |
-| `ChatIntentParser` | Parses chat messages into structured intents |
-| `KubernetesJobSpawner` | Creates K8s Jobs for agent execution |
-| `DockerJobSpawner` | Creates Docker containers for agent execution |
-| `MessageBusListener` | Listens for Redis messages and routes to adapters |
-| `ConversationStateManager` | Tracks conversation context per channel/thread |
-| `ClarificationStateManager` | Manages clarification flows |
-| `ProjectResolver` | Resolves project names from configuration |
-| `OrphanJobDetector` | Detects and cleans up stale jobs |
-| `RedisMessageBus` | Redis pub/sub implementation |
+**Projects:** `AgentSmith.Sandbox.Wire`, `AgentSmith.Sandbox.Agent`
 
-### Webhooks (since p0107)
+`Sandbox.Wire` defines the step protocol (`Step`, `StepEvent`, `StepResult`, `RedisKeys`, `SizeLimits`) that the server and the agent share. `Sandbox.Agent` is the small executable injected into each sandbox: `JobLoop` takes steps from Redis, `StepExecutor` runs them, `HeartbeatLoop` reports liveness. See [Sandbox architecture](../concepts/sandbox-architecture.md) and [Sandbox agent](../concepts/sandbox-agent.md).
 
-| Service / Handler | Purpose |
-|-------------------|---------|
-| `MapWebhookEndpoints` | Registers POST `/webhook/{github,gitlab,azuredevops,jira}` on Server's `WebApplication` |
-| `WebhookRequestProcessor` | Detects platform → verifies signature → dispatches to handler → routes result |
-| `WebhookPlatformDetector` / `WebhookSignatureVerifier` | Platform routing + HMAC validation |
-| `GitHubIssueWebhookHandler` etc. | 13 handlers across GitHub/GitLab/AzDO/Jira × Issue/PR/Comment events |
+---
 
-### Long-Running Hosted Services (since p0107)
+## SkillsPackaging
 
-| Service | Purpose |
-|---------|---------|
-| `QueueConsumerHostedService` | Pulls `PipelineRequest`s off Redis queue, spawns pipeline runs (bounded concurrency) |
-| `HousekeepingLeaderHostedService` | Under leader election (`agentsmith:leader:housekeeping`): runs `StaleJobDetector` + `EnqueuedReconciler` |
-| `PollerLeaderHostedService` | Under leader election (`agentsmith:leader:poller`): runs `PollerHostedService` over all configured pollers |
-| `LeaderSubsystemRunner` / `LeaderElectedHostedService` | Redis-lease-based leader election with renewal + idle-reacquire |
-| `SubsystemTask.RunRedisGatedAsync` | Wraps Redis-dependent work with health-state tracking + retry-on-disconnect |
-| `RedisConnectionHealth` / `HealthResponseBuilder` | `/health` (liveness) and `/health/ready` (readiness aggregating subsystem state) |
+**Project:** `AgentSmith.SkillsPackaging`
 
-### Slack Integration
-
-| Service | Purpose |
-|---------|---------|
-| `SlackAdapter` | Receives Slack events, sends messages |
-| `SlackInteractionHandler` | Handles modal submissions, button clicks |
-| `SlackModalBuilder` | Builds Slack Block Kit modals |
-| `SlackMessageDispatcher` | Sends formatted messages to channels |
-| `SlackSignatureVerifier` | Validates Slack request signatures |
-| `SlackErrorBlockBuilder` | Formats error messages as Slack blocks |
-| `CachedTicketSearch` | Caches ticket search for autocomplete |
+A build-time check on the skill catalog that `Infrastructure.Core` embeds. Building `Infrastructure.Core` runs it on the pinned catalog tarball; `MasterDescriptionValidator` reports every master skill the loader would reject, and a violation fails the build.

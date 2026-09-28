@@ -1,19 +1,33 @@
-# Phase Workflow
+# Phase workflow
 
-Agent Smith evolves through a structured phase process. Each phase is a bounded development increment with clear scope, dependencies, and acceptance criteria.
+Agent Smith evolves through a structured phase process. Each phase is a bounded development increment with a clear goal, scope, dependencies and definition of done.
 
-## What Is a Phase?
+## What is a phase?
 
-A phase is a Markdown document in `.agentsmith/phases/` that describes a feature, refactor, or capability addition. Phases are numbered sequentially (`p0001`, `p0002`, ..., `p0062`).
+A phase is a YAML spec in `.agentsmith/phases/` that describes a feature, refactor, or capability addition. The file is named `{id}-{label}.yaml`, for example `2026-09-27-481bf-ticket-kind-is-a-word.yaml`.
 
 ```
 .agentsmith/phases/
   done/              # Completed phases (historical reference)
-  active/            # Currently in progress (max 1)
+  active/            # Currently in progress
   planned/           # Specified, not yet implemented
 ```
 
-## Phase Lifecycle
+## Phase ids
+
+A new phase id is minted from the clock: today's UTC date plus four random hex digits, `{yyyy-MM-dd}-{xxxx}`, for example `2026-08-24-8a3f`. Minting needs no knowledge of what anyone else has taken, so a worktree, an agent without network access and two agents working in parallel can all mint safely. The four hex digits make a same-day collision unlikely.
+
+Phases cut from one piece of work form a series. They share one minted number and append a lowercase letter: `2026-08-24-8a3fa`, `2026-08-24-8a3fb`, `2026-08-24-8a3fc`. The letter is appended, not dashed, because a label may itself begin with a one-letter word. The base number of a series is not itself a phase, and a phase that turns up later mints its own number instead of extending the series.
+
+Counter ids such as `p0042`, `p0057a` and `p0131c-pre` are a closed namespace. Every one of them stays valid and is never renamed, but no new ones are minted.
+
+An id is frozen; the file name is a pointer. Every `requires:` edge, decision file and commit message cites the id, so moving or relabelling a phase file breaks nothing but the pointer to it in `context.yaml`.
+
+## Phase labels
+
+The label after the id is a topic of 2 to 5 words and at most 50 characters. It is area-first: the leading word names the subject area and the rest narrows it, as in `checkpoint-partial-restore` or `ticket-kind-is-a-word`, so related phases group together in a directory listing. The claim itself lives in the `goal:`, one sentence of at most 200 characters.
+
+## Phase lifecycle
 
 ```
 planned/  -->  active/  -->  done/
@@ -21,75 +35,53 @@ planned/  -->  active/  -->  done/
 
 | Status | Directory | Meaning |
 |--------|-----------|---------|
-| Planned | `phases/planned/` | Specified with requirements and approach, not yet started |
-| Active | `phases/active/` | Currently being implemented. Only one phase can be active |
-| Done | `phases/done/` | Implemented. Document stays as historical reference |
+| Planned | `phases/planned/` | Specified with goal, scope and definition of done, not yet started |
+| Active | `phases/active/` | Currently being implemented |
+| Done | `phases/done/` | Implemented. The spec stays as historical reference |
 
-## Phase Document Structure
+## Phase spec structure
 
-```markdown
-# Phase N: Title
-
-## Goal
-What we're building and why.
-
-## Motivation
-The problem this solves.
-
-## Approach
-Technical details of the implementation.
-
-## Files to Create
-- list of new files
-
-## Files to Modify
-- list of existing files to change
-
-## Definition of Done
-- [ ] Checklist of acceptance criteria
-
-## Dependencies
-Other phases that must be completed first.
+```yaml
+phase: 2026-09-27-481bf
+goal: "One sentence stating what the phase makes true."
+applies_to: "Which part of the system the phase touches"
+requires: ["2026-09-27-481bb", "2026-09-27-481bc"]
+scope:
+  - What is in and out of this phase
+steps:
+  - The implementation steps, in order
+tests:
+  - The tests that prove it
+done:
+  - Checklist of acceptance criteria
 ```
 
-## Phase Tracking
+`phase` and `goal` are required; the schema is `.agentsmith/phase-spec.schema.json`. The reasoning behind the choices goes into a separate decision file, `.agentsmith/decisions/{id}.yaml`.
 
-The `state` section in `context.yaml` tracks all phases:
+## Phase tracking
+
+The `state` section of each context's `context.yaml` (`.agentsmith/contexts/<name>/context.yaml`) tracks the phases. A `done` entry is one index line of at most 400 characters: what shipped, and a pointer to the spec.
 
 ```yaml
 state:
   done:
-    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit"
-    p0002: "Retry and resilience: Polly policies, test retry loop"
-    p0052: "Single executable release: binaries for 5 platforms"
+    2026-09-27-481bf: "A ticket says what kind its tracker calls it. -> .agentsmith/phases/done/2026-09-27-481bf-ticket-kind-is-a-word.yaml"
+    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/phases/done/p0001-core-infrastructure.yaml"
   active: {}
-  planned:
-    p0023: "Multi-repo support"
+  planned: {}
 ```
 
-## Implemented Phases
+## Creating a new phase
 
-Agent Smith has completed over 60 phases covering:
-
-- **Core pipeline** (p0001-p0010) -- ticket fetch, checkout, plan, execute, test, commit, PR
-- **Resilience** (p0002, p0008) -- retry policies, error handling
-- **Multi-provider** (p0011, p0040a-d) -- Claude, OpenAI, Gemini, Ollama support
-- **Security stack** (p0054-p0056, p0060) -- static scan, git history, dependency audit, ZAP, auto-fix, trend
-- **API security** (p0044-p0048) -- Nuclei, Spectral, API specialist panel
-- **Chat gateway** (p0014-p0018) -- Slack integration, Redis pub/sub, job spawning
-- **Multi-skill** (p0034-p0036) -- role-based triage, skill rounds, convergence
-- **Skill standard** (p0057a-c) -- SKILL.md format, skill manager, autonomous pipeline
-- **Interactive dialogue** (p0058) -- structured Q&A across all channels
-- **PR comments** (p0059) -- webhook-based commands and dialogue
-- **Knowledge base** (p0061) -- wiki compilation, querying, linting
-
-## Creating a New Phase
-
-1. Write the phase document in `phases/planned/` with goal, approach, and definition of done
-2. Move to `phases/active/` when starting implementation
-3. Implement according to the document
-4. Move to `phases/done/` when all acceptance criteria are met
-5. Update `context.yaml` state
+1. Mint an id and write the spec in `phases/planned/` with goal, scope and definition of done
+2. Move it to `phases/active/` when starting implementation
+3. Implement according to the spec, logging decisions in `decisions/{id}.yaml`
+4. Move it to `phases/done/` when all acceptance criteria are met
+5. Add the `state.done` line to `context.yaml`
 
 !!! info "Phase-first workflow"
-    The phase document is always written **before** implementation starts. This ensures clear scope and prevents scope creep.
+    The phase spec is always written **before** implementation starts. This ensures clear scope and prevents scope creep.
+
+## Phases in your repositories
+
+The `code` pipeline applies the same method to the repositories it works on. Each phase a run executes is written to that repository's `.agentsmith/phases/done/` and indexed with a `state.done` line in its `context.yaml`, so the target repository carries the same planned-to-done record. Those ids are minted from the ticket number plus a series letter: ticket `57` becomes `p0057a`, `p0057b`, and so on.

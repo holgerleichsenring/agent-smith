@@ -1,99 +1,97 @@
 # Architecture
 
-Agent Smith is built on Clean Architecture principles with a strict dependency rule: inner layers never reference outer layers.
+Agent Smith is built on Clean Architecture with a strict dependency rule: inner layers never reference outer layers. The backend is a .NET solution under `src/backend/`; the dashboard is a separate Next.js application under `src/dashboard/`.
 
-## Layer Diagram
+## Layer diagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      Dispatcher                         │
-│         Slack/Teams gateway, job spawning,              │
-│         intent routing, conversation state              │
+│              Server              │         CLI          │
+│   webhooks, pollers, queue,      │  one run, then exit; │
+│   dashboard API + SignalR hub,   │  config from a file  │
+│   chat adapters, sandboxes       │                      │
 ├─────────────────────────────────────────────────────────┤
-│                         Host                            │
-│          CLI entry point, webhook server,               │
-│          DI wiring, command routing                     │
-├─────────────────────────────────────────────────────────┤
-│                    Infrastructure                       │
-│        AI providers (Claude, GPT-4, Gemini, Ollama),    │
-│        Git (LibGit2Sharp), ticket providers,            │
-│        Redis bus, output strategies, tool runners       │
+│   Infrastructure                 │  Persistence         │
+│   LLM clients, git and ticket    │  EF Core store:      │
+│   providers, Redis, scanners,    │  SQLite, PostgreSQL, │
+│   output strategies              │  MySQL, SQL Server   │
 ├─────────────────────────────────────────────────────────┤
 │                 Infrastructure.Core                     │
-│        Config loading, project detection,               │
-│        code map generation, provider registry           │
+│      config loading, secrets, skills, registries        │
 ├─────────────────────────────────────────────────────────┤
 │                     Application                         │
-│        Pipeline executor, command handlers,             │
-│        SkillGraphBuilder, typed orchestration,          │
-│        use cases, intent parsing, cost tracking         │
+│     pipeline executor, command handlers, use cases,     │
+│     claim and queue, lifecycle services                 │
 ├─────────────────────────────────────────────────────────┤
 │                      Contracts                          │
-│        Interfaces, commands, DTOs,                      │
-│        configuration models                             │
+│     interfaces, commands, context keys, events,         │
+│     configuration models                                │
 ├─────────────────────────────────────────────────────────┤
 │                       Domain                            │
-│        Entities (Ticket, Plan, Repository),             │
-│        value objects, exceptions                        │
+│     entities, value objects, exceptions                 │
 └─────────────────────────────────────────────────────────┘
+
+        Sandbox.Agent ── Sandbox.Wire ── Contracts
+        (runs inside each sandbox; talks to the server over Redis)
 ```
 
-## Dependency Flow
+## Dependency flow
 
 ```
-Domain ← Contracts ← Application ← Infrastructure.Core ← Infrastructure ← Host
-                                                                            ↑
-                                                                       Dispatcher
+Domain ← Contracts ← Application ─────────────────────────┐
+             ↑                                            ├── Cli
+             ├── Infrastructure.Core ← Infrastructure ────┤
+             └── Infrastructure.Persistence(.SqlServer) ──┴── Server
+
+Sandbox.Wire ← Contracts
+Sandbox.Wire ← Sandbox.Agent
 ```
 
-- **Domain** has zero dependencies.
-- **Contracts** depends only on Domain.
-- **Application** depends on Contracts (and transitively Domain).
-- **Infrastructure.Core** depends on Contracts for shared interfaces and config loading.
-- **Infrastructure** implements Contracts interfaces using external SDKs.
-- **Host** wires everything together via dependency injection.
-- **Dispatcher** is a separate process with its own contracts and DI.
+- **Domain** has no project references.
+- **Contracts** references Domain and Sandbox.Wire, the step protocol shared with the sandbox agent.
+- **Application** references Contracts and Domain only. It holds no external SDK.
+- **Infrastructure.Core** references Contracts and implements what needs no external service: configuration loading, secrets, the skill catalog.
+- **Infrastructure** references Infrastructure.Core and implements the Contracts interfaces with external SDKs.
+- **Infrastructure.Persistence** references Contracts and holds the relational store. SQL Server migrations live in their own assembly.
+- **Cli** and **Server** are the two hosts. Each wires the layers together through dependency injection.
 
-## Key Patterns
+## Key patterns
 
 | Pattern | Where | Purpose |
 |---------|-------|---------|
 | Command/Handler | Application | Each pipeline step is a command with a handler |
-| Pipeline | Application | Ordered sequence of commands per use case |
-| Claim-then-Enqueue | Application + Infrastructure | Single ingress for ticket-driven pipelines: webhook or poll → `TicketClaimService` → SETNX claim-lock → atomic status transition → `IRedisJobQueue` → `PipelineQueueConsumer`. Lifecycle (`Pending → Enqueued → InProgress → Done/Failed`) lives on the ticket itself. See [Ticket Lifecycle](../concepts/ticket-lifecycle.md) |
-| Leader Election | Application + Infrastructure | `LeaderElectedHostedService` over Redis SETNX+TTL leases for single-poller and single-housekeeping coordination across replicas |
-| Skill Graph | Application | `SkillGraphBuilder` builds deterministic execution graphs from skill metadata for structured/hierarchical pipelines |
-| Typed Orchestration | Application | Skills produce typed JSON outputs (`SkillOutputs`); gates write typed `List<Finding>` directly to context |
-| Factory | Infrastructure | Create providers based on config (AI, Git, tickets) |
-| Strategy | Infrastructure | Output formats (console, SARIF, markdown, summary) |
-| Adapter | Dispatcher | Platform-specific chat integration (Slack, Teams) |
-| Registry | Infrastructure.Core | Discover and register providers/detectors at startup |
+| Pipeline preset | Contracts | Each pipeline is a fixed, ordered list of command names defined in code |
+| Claim-then-enqueue | Application + Infrastructure | Single ingress for ticket-driven pipelines: webhook or poll → `TicketClaimService` → claim lock → status transition → `IRedisJobQueue` → `PipelineQueueConsumer`. See [Ticket lifecycle](../concepts/ticket-lifecycle.md) |
+| Leader election | Application + Server | `LeaderElectedHostedService` over Redis leases, so only one replica polls and runs housekeeping |
+| Sandbox over Redis | Server + Sandbox.Agent | File and command steps run in a per-repo sandbox that the server drives through Redis. See [Sandbox architecture](../concepts/sandbox-architecture.md) |
+| Decorator chain | Infrastructure | Every LLM call goes through one `IChatClient` chain: rate limit, retry, events, compaction, tool loop. See [AI clients](ai-clients.md) |
+| Strategy | Infrastructure | Output formats (console, summary, markdown, SARIF) |
+| Adapter | Server | Chat platforms (Slack, Teams) and the dashboard behind one `IPlatformAdapter` |
 
 ## Pipelines
 
-Agent Smith supports multiple pipelines, each classified by orchestration type (see [Pipeline Types](../pipelines/index.md#pipeline-types)):
+Agent Smith ships eight pipeline presets, each a fixed list of steps. Those that need judgement hand it to one master skill at their `AgenticMaster` step.
 
-| Pipeline | Type | Steps | Trigger |
-|----------|------|-------|---------|
-| **code** | hierarchical | FetchTicket → ScopeRepos → CheckoutSource → RunPreflight → BootstrapGate → LoadContext → AnalyzeCode → DeriveSpec → PhaseSpecGate → PhaseSequence (master → verify → record, per phase) → WriteRunResult → CommitAndPR | CLI, Slack, webhook |
-| **security-scan** | structured | CheckoutSource → BootstrapProject → LoadCodingPrinciples → AnalyzeCode → SecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → DeliverFindings | CLI, Slack, webhook |
-| **api-scan** | structured | LoadSwagger → SpawnNuclei → SpawnSpectral → SpawnZap → LoadSkills → ApiSecurityTriage (SkillGraphBuilder) → SkillRounds (staged) → CompileFindings → DeliverFindings | CLI, Slack, webhook |
-| **legal-analysis** | discussion | AcquireSource → BootstrapDocument → LoadCodingPrinciples → Triage (LLM) → ConvergenceCheck → CompileDiscussion → DeliverOutput | CLI, Slack, inbox |
-| **mad-discussion** | discussion | FetchTicket → CheckoutSource → BootstrapProject → LoadContext → Triage (LLM) → ConvergenceCheck → CompileDiscussion → WriteRunResult → CommitAndPR | CLI, Slack |
+| Pipeline | Type | Master |
+|----------|------|--------|
+| `code` | hierarchical | `coding-agent-master` |
+| `pr-review` | structured | `pr-review-master` |
+| `security-scan` | structured | `security-master` |
+| `api-security-scan` | structured | `api-security-master` |
+| `legal-analysis` | discussion | `legal-analyst-master` |
+| `mad-discussion` | discussion | `mad-discussion-master` |
+| `init-project` | discussion | none |
+| `spec-dialog` | discussion | `design-partner-master` |
 
-## AI Provider Support
+The steps of each are on the [Pipelines](../pipelines/index.md) page, which is generated from the presets.
 
-| Provider | Models | Use case |
-|----------|--------|----------|
-| Anthropic Claude | Sonnet, Opus, Haiku | Default for all tasks |
-| OpenAI | GPT-4, GPT-4.1 | Alternative agent provider |
-| Google Gemini | Gemini 2.5 | Alternative agent provider |
-| Ollama | Any local model | Air-gapped / cost-sensitive |
+## AI providers
 
-The model registry allows per-task model assignment (e.g., Haiku for intent parsing, Opus for code generation).
+Agent types are `claude`, `openai`, `azure_openai`, `gemini`, `ollama` and `copilot`. Each role (primary, planning, scout, summarization and others) can run on its own model. See [AI clients](ai-clients.md) and [AI providers](../../connect-your-stuff/ai-providers.md).
 
-## Further Reading
+## Further reading
 
-- [Layer Details](layers.md) — what each layer contains and why
-- [Project Structure](project-structure.md) — full directory tree
-- [Phase Workflow](phase-workflow.md) — how phases are planned, executed, and tracked
+- [Layer details](layers.md): what each project contains
+- [Project structure](project-structure.md): the repository layout
+- [Event schema policy](event-schema-policy.md): how the run-event contracts may change
+- [Phase workflow](phase-workflow.md): how phases are planned, executed and tracked
