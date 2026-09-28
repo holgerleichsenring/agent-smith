@@ -64,7 +64,10 @@ public sealed class PromptResourceOwnershipTests
             + string.Join("\n  ", unrequested));
     }
 
+    // No directory is no embedded prompt: git keeps no empty folder, so the last resource
+    // leaving takes the directory with it.
     private static IReadOnlyList<string> EmbeddedPromptNames() =>
+        !Directory.Exists(ResourcesDirectory()) ? [] :
         [.. Directory.EnumerateFiles(ResourcesDirectory(), "*.md")
             .Select(Path.GetFileNameWithoutExtension)
             .Select(n => n!)];

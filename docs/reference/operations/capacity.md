@@ -4,7 +4,7 @@ What happens when more runs arrive than your host or cluster can carry. Short ve
 
 ## Admission: check before you claim
 
-Before a triggered ticket is even claimed, the spawner asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is the pods the run will actually spawn: one orchestrator pod, plus one sandbox per repo **and toolchain image**. A repo whose contexts all build on one image gets one sandbox, sized to the largest resource envelope among those contexts; a repo that mixes SDKs gets one sandbox per image. No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die. The queued run shows up in the list right away, not once something tries to launch it.
+Before a triggered ticket is even claimed, the server asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is the pods the run will actually start: one sandbox per repo **and toolchain image**. The pipeline itself runs in the server, so it adds no pod of its own. A repo whose contexts all build on one image gets one sandbox, sized to the largest resource envelope among those contexts; a repo that mixes SDKs gets one sandbox per image. No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die. The queued run shows up in the list right away, not once something tries to launch it.
 
 The same question is asked at three doors: the ticket spawn, a manual project init, and a mid-run sandbox escalation.
 
@@ -34,7 +34,6 @@ What a sandbox asks for is not one global number:
 
 - **The code-changing pipeline** (`code`) uses the repo's declared `stack.resources` from its `.agentsmith/contexts/<name>/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
 - **Non-build pipelines** (init-project, scans, legal analysis, mad-discussion) get a light fixed profile. A security scan reads code; it doesn't need a build box.
-- The spawned orchestrator pod is sized separately and small (it runs the LLM loop, compiles nothing) — see the env values in `deploy/k8s/8-deployment-server.yaml`.
 
 And before sizing even matters, the `ScopeRepos` step narrows the run to the repos the ticket actually touches, so a five-repo project doesn't provision five sandboxes for a one-repo fix. If the master discovers mid-run it needs another repo after all, it has an `ensure_repo_sandbox` tool to escalate — the widening is recorded as a scope decision on the run.
 
@@ -52,7 +51,7 @@ A run can be cheap in tokens and expensive in pods (a big build that thinks litt
 Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a persistent cancel state that is enforced everywhere:
 
 - A run that hasn't started yet is cancelled before it ever spawns.
-- A running run gets a graceful window (30 seconds), then a server-side force-kill that tears down its pods — compute and capacity are released immediately, and the ticket is terminalized on the tracker.
+- A running run gets a graceful window (30 seconds) for its pipeline to stop, then the server records it cancelled whether it has stopped or not — its capacity is released, its sandbox pods go with it (the corpse reaper removes any that linger), and the ticket is terminalized on the tracker.
 - Cancelled is its own terminal status in the history, distinct from failed.
 
 ## The knobs, in one place

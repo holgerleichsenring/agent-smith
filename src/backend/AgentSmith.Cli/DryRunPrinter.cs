@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Commands;
 
@@ -14,7 +15,7 @@ internal static class DryRunPrinter
         var commands = PipelinePresets.TryResolve(request.PipelineName);
         if (commands is null)
         {
-            Console.Error.WriteLine($"Pipeline '{request.PipelineName}' not found in presets.");
+            Console.Error.WriteLine(RetiredPipelineNames.Refusal(request.PipelineName));
             Environment.ExitCode = 1;
             return;
         }

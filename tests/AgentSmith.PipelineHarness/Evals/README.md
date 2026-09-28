@@ -11,7 +11,7 @@ environment — each suite skips loudly per missing credential.
 dotnet test tests/AgentSmith.PipelineHarness --filter "Category=LiveLLM"
 
 # One suite:
-dotnet test tests/AgentSmith.PipelineHarness --filter "FullyQualifiedName~ExpectationGoldenEvalTests"
+dotnet test tests/AgentSmith.PipelineHarness --filter "FullyQualifiedName~AccountDeliveryEvalTests"
 ```
 
 ## Credentials (per client, any subset works)
@@ -68,15 +68,6 @@ than folded into a rate.
 No external machine is needed for either scoreboard, and no docker.
 
 ## Suites
-
-### Expectation golden eval (`ExpectationGoldenEvalTests`, p0329)
-
-Replays every fixture under `Fixtures/ExpectationGoldens/` through the real
-expectation drafter and judges the draft against the human gold per
-assertion. Report: `Reports/expectation-goldens/` (deterministic name per
-model + skills pin — commit it; its history is the baseline record). Add
-fixtures with `ExpectationFixtureIngestion`; the anonymization check gates
-both ingestion and load.
 
 ### Delivery account eval (`AccountDeliveryEvalTests`, 2026-08-25-7035)
 

@@ -39,29 +39,8 @@ public static class ExpectationPromptSection
     public static string Build(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var expectation)
-            && expectation is not null)
-            return Build(expectation);
         var criteria = Specs.AcceptanceCriteria.For(pipeline);
         return criteria.Count == 0 ? string.Empty : BuildFrom(criteria);
-    }
-
-    public static string Build(RatifiedExpectation expectation)
-    {
-        ArgumentNullException.ThrowIfNull(expectation);
-        var stamp = expectation.IsUnratified
-            ? " (UNRATIFIED — auto-ratified without human review)"
-            : string.Empty;
-        return $"""
-            ## Acceptance contract{stamp}
-            The ratified expectation below is the binding acceptance contract for this run.
-            Implement exactly what it asserts — no more, no less. Every "Expected" assertion
-            must hold after your change; every constraint must be respected.
-            {DeclineRule}
-
-            {ExpectationMarkdown.Render(expectation.Draft)}
-
-            """;
     }
 
     /// <summary>

@@ -22,7 +22,6 @@ public sealed class ConfigResolutionPassTests
         new(Options.Create(global ?? new SandboxGlobalConfig()),
             new StubSandboxResourceResolver(),
             agentImage ?? new StubAgentImageResolver(),
-            new StubOrchestratorImageResolver(),
             config ?? new AgentSmithConfig());
 
     [Fact]

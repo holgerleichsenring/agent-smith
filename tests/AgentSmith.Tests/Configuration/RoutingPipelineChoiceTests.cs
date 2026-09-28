@@ -7,20 +7,27 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Configuration;
 
 /// <summary>
-/// 2026-09-25-3c7ad: the pipeline a label routes to is OUR closed set, and the form typed it
-/// blind. The offer is derived from the property that makes two presets unroutable, so the next
+/// The pipeline a label routes to is OUR closed set. The offer is derived from the property that
+/// makes a preset unroutable — a run launched with context only a host supplies — so the next
 /// such preset cannot quietly become offerable, and a name nobody offers is REPORTED rather than
-/// blocking — a blocking finding disables every trigger on the project that carries it.
+/// blocking: a blocking finding disables every trigger on the project that carries it.
 /// </summary>
 public sealed class RoutingPipelineChoiceTests
 {
     [Fact]
-    public void Presets_TheOffer_ExcludesTheOnesATicketCannotRouteTo()
+    public void Presets_TheOffer_ExcludesTheOneATicketCannotRouteTo()
     {
         PipelinePresets.Routable.Should().NotContain(PipelinePresets.SpecDialogName,
             "a design conversation's run is seeded with a transcript and a reply slot");
-        PipelinePresets.Routable.Should().NotContain("init-project",
-            "project initialisation is launched with a context no label-routed run supplies");
+        PipelinePresets.NeedsHostContext(PipelinePresets.SpecDialogName).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Routable_ContainsInitProject()
+    {
+        PipelinePresets.Routable.Should().Contain("init-project",
+            "a label starts project initialisation on the ticket's branch like any other preset");
+        PipelinePresets.NeedsHostContext("init-project").Should().BeFalse();
     }
 
     [Fact]
@@ -28,8 +35,8 @@ public sealed class RoutingPipelineChoiceTests
     {
         PipelinePresets.Routable.Should().Contain(PipelinePresets.CodeName)
             .And.Contain("security-scan").And.Contain("pr-review");
-        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 2,
-            "the offer is DERIVED — it is the presets minus the two that need host-supplied "
+        PipelinePresets.Routable.Should().HaveCount(PipelinePresets.Names.Count - 1,
+            "the offer is DERIVED — it is the presets minus the one that needs host-supplied "
             + "context, not a hand-written list that the next preset would silently join");
     }
 
@@ -67,6 +74,38 @@ public sealed class RoutingPipelineChoiceTests
         findings.Should().ContainSingle()
             .Which.Severity.Should().Be(StartupFindingSeverity.Advisory);
         findings[0].Reason.Should().Contain("fix-bug").And.Contain("retired into 'code'");
+    }
+
+    [Fact]
+    public void RoutingPipelineNames_SpecDialogInLabelMap_ReportsTheEntry()
+    {
+        var findings = RoutingPipelineNames.Findings(Config(PipelinePresets.SpecDialogName)).ToList();
+
+        var finding = findings.Should().ContainSingle().Which;
+        finding.Severity.Should().Be(StartupFindingSeverity.Advisory,
+            "blocking would disable every trigger on the project over one rule");
+        finding.Project.Should().Be("alpha");
+        finding.Reason.Should().Contain("'bug'").And.Contain($"'{PipelinePresets.SpecDialogName}'");
+    }
+
+    [Fact]
+    public void RoutingPipelineNames_SpecDialogAsDefault_ReportsIt()
+    {
+        var config = Config(PipelinePresets.CodeName);
+        config.Projects["alpha"].GithubTrigger!.DefaultPipeline = PipelinePresets.SpecDialogName;
+
+        RoutingPipelineNames.Findings(config).Should().ContainSingle()
+            .Which.Reason.Should().Contain("default_pipeline").And.Contain(PipelinePresets.SpecDialogName);
+    }
+
+    [Fact]
+    public void RoutingPipelineNames_RemovedPreset_FindingCarriesReason()
+    {
+        var findings = RoutingPipelineNames.Findings(Config("autonomous")).ToList();
+
+        findings.Should().ContainSingle()
+            .Which.Reason.Should().Contain(RetiredPipelineNames.Explain("autonomous")!,
+                "a removed name has no replacement to name, so the finding says why it went");
     }
 
     [Fact]

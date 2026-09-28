@@ -42,14 +42,15 @@ internal static class IntentExtensions
         // spec-dialog filers and by the chat-filed ticket below, so it registers here.
         services.AddTransient<TicketKindResolver>();
         services.AddSpecDialogServices();
+        services.AddChatRunLaunch();
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();
         services.AddScoped<CreateTicketIntentHandler>();
         services.AddScoped<InitProjectIntentHandler>();
+        services.AddScoped<SecurityReviewIntentHandler>();
         services.AddScoped<HelpHandler>();
         services.AddScoped<AgentSmith.Server.Services.Adapters.PlatformAdapters>();
         services.AddScoped<SlackMessageDispatcher>();
-        services.AddScoped<SlackErrorActionHandler>();
         services.AddScoped<SlackInteractionHandler>();
         services.AddScoped<SlackModalSubmissionHandler>();
         services.AddSingleton<CachedTicketSearch>();

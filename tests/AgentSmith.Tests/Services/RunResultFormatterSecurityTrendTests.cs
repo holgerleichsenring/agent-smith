@@ -100,7 +100,6 @@ public sealed class RunResultFormatterSecurityTrendTests
             FindingsHigh: high,
             FindingsMedium: medium,
             FindingsRetained: retained,
-            FindingsAutoFixed: 0,
             ScanTypes: ["StaticPatternScan"],
             NewSinceLast: 0,
             ResolvedSinceLast: 0,

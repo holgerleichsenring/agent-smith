@@ -109,6 +109,51 @@ public sealed class ConfigDraftRulesTests
         _rules.ForTracker(draft).Should().BeEmpty();
     }
 
+    [Fact]
+    public void ConfigDraftRules_TrackerMapsLabelToSpecDialog_FindingNamesLabelAndValue()
+    {
+        var draft = Routed(new Dictionary<string, string> { ["design"] = PipelinePresets.SpecDialogName });
+
+        var finding = _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking).Which;
+
+        finding.Field.Should().Be("pipelineFromLabel");
+        finding.Reason.Should().Contain("'design'").And.Contain($"'{PipelinePresets.SpecDialogName}'");
+    }
+
+    [Fact]
+    public void ConfigDraftRules_TrackerMapsLabelToInitProject_NoFinding()
+    {
+        var draft = Routed(new Dictionary<string, string> { ["agent-smith:init"] = "init-project" });
+
+        _rules.ForTracker(draft).Should().BeEmpty("a label starts project initialisation");
+    }
+
+    [Fact]
+    public void ConfigDraftRules_TrackerDefaultIsSpecDialog_FindingNamesTheDefault()
+    {
+        var draft = Routed(null) with { DefaultPipeline = PipelinePresets.SpecDialogName };
+
+        _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking)
+            .Which.Field.Should().Be("defaultPipeline");
+    }
+
+    [Fact]
+    public void HostOnlyRoutingRule_SaveOfASpecDialogLabel_IsRefused()
+    {
+        var draft = Routed(new Dictionary<string, string> { ["design"] = PipelinePresets.SpecDialogName });
+
+        FluentActions.Invoking(() => HostOnlyRoutingRule.ValidateTracker(draft))
+            .Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*'design'*spec-dialog*");
+        FluentActions.Invoking(() => HostOnlyRoutingRule.ValidateTracker(
+                Routed(new Dictionary<string, string> { ["x"] = "init-project" })))
+            .Should().NotThrow();
+    }
+
+    private static TrackerEntity Routed(IReadOnlyDictionary<string, string>? labels) => new(
+        Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y",
+        PipelineFromLabel: labels, DefaultPipeline: labels is null ? null : "code");
+
     private static ProjectEntity Project(string pipeline) => new(
         "demo", "claude", "gh", ["repo"], pipeline, [pipeline],
         new ProjectResolution("tag", "demo"));

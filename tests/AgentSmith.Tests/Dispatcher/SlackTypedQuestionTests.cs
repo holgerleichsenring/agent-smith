@@ -288,7 +288,6 @@ public sealed class SlackTypedQuestionTests
             apiClient,
             new SlackTypedQuestionBlockBuilder(),
             new SlackMessageBlockBuilder(),
-            new SlackProgressFormatter(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<SlackAdapter>.Instance);
     }
 

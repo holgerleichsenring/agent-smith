@@ -22,7 +22,6 @@ public sealed record ResolvedProjectSettings(
     ResolvedValue<int> RunCommandTimeoutSeconds,
     ResolvedValue<ResourceLimits> SandboxResources,
     ResolvedValue<string> AgentImage,
-    ResolvedValue<string> OrchestratorImage,
     ResolvedValue<string> ToolchainImage,
     ResolvedValue<CostCapValues> CostCap,
     string? ResolutionError = null);

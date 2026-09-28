@@ -2,7 +2,7 @@ namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// Lifecycle state of a server subsystem reported via ISubsystemHealth.
-/// /health/ready returns 200 only when every subsystem is Up.
+/// /health lists every subsystem with its state; Down or Degraded marks the server degraded.
 /// </summary>
 public enum SubsystemState
 {

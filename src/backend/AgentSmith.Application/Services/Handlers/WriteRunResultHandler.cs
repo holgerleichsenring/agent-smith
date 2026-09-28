@@ -102,8 +102,6 @@ public sealed class WriteRunResultHandler(
         // that failed at Verify still carries it — the accounts are recorded before the
         // failing verdict and the finalizer tail runs after a failed step.
         var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            TryGet<RatifiedExpectation>(context.Pipeline, ContextKeys.RunExpectation),
-            TryGet<MasterVerification>(context.Pipeline, ContextKeys.MasterVerification),
             Specs.RunAccountLedger.Current(context.Pipeline),
             DeclinedCriteriaLedger.Current(context.Pipeline).All);
         if (ledgerJson is null && acceptanceJson is null) return;
@@ -280,14 +278,10 @@ public sealed class WriteRunResultHandler(
         var ignoredInstructions = context.Pipeline.TryGet<MasterVerification>(
             ContextKeys.MasterVerification, out var mv) && mv?.IgnoredInstructions is { Count: > 0 } ii
             ? ii : null;
-        // p0328: the ratified expectation renders on the run record as the
-        // acceptance-contract checklist (unratified stamp for headless runs).
-        var expectation = context.Pipeline.TryGet<Contracts.Expectations.RatifiedExpectation>(
-            ContextKeys.RunExpectation, out var exp) ? exp : null;
         var resultMd = RunResultFormatter.FormatResult(
             context.Ticket!, context.Plan, repoChanges, runId, duration, cost, trail, decisions, trend,
             dialogueEntries.Count > 0 ? dialogueEntries : null, perSkillBreakdown, topology, repoName, failureReason,
-            ignoredInstructions, expectation,
+            ignoredInstructions,
             // p0429a: what the run — or the scan — accounted for, itemised beside the
             // findings instead of only inside the gate that read it.
             RunAccountSection.Build(context.Pipeline),
@@ -519,15 +513,6 @@ public sealed class WriteRunResultHandler(
             Specs.AcceptanceCriteria.For(context.Pipeline).Count);
         return verdict.Satisfied ? null : verdict.FailureReason;
     }
-
-    // p0340: the ratified acceptance contract's Expected assertions — the criteria
-    // the keystone gates on. Empty when the run negotiated no expectation (many
-    // fix-bug runs, non-contract presets), which the keystone treats as "fall back
-    // to the change+green gate".
-    private static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
-        pipeline.TryGet<RatifiedExpectation>(ContextKeys.RunExpectation, out var exp) && exp is not null
-            ? exp.Draft.Expected
-            : Array.Empty<string>();
 
     private static IReadOnlyList<CallCostRecord>? ResolvePerSkillBreakdown(PipelineContext pipeline)
     {

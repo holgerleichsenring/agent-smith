@@ -82,7 +82,6 @@ public sealed class SnapshotYamlParser
             FindingsHigh: ParseInt(values, "findings_high"),
             FindingsMedium: ParseInt(values, "findings_medium"),
             FindingsRetained: ParseInt(values, "findings_retained"),
-            FindingsAutoFixed: ParseInt(values, "findings_auto_fixed"),
             ScanTypes: scanTypes,
             NewSinceLast: ParseInt(values, "new_since_last"),
             ResolvedSinceLast: ParseInt(values, "resolved_since_last"),

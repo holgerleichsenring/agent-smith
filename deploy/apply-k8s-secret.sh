@@ -96,7 +96,7 @@ add_literal "auth-group-claim" "${AGENTSMITH_AUTH_GROUP_CLAIM:-}"
 add_literal "auth-name-claim"  "${AGENTSMITH_AUTH_NAME_CLAIM:-}"
 add_literal "admin-grant"      "${AGENTSMITH_ADMIN_GRANT:-}"
 
-# Redis URL for K8s Jobs: the in-cluster Redis service name.
+# Redis URL the server and its sandbox pods reach: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"
 

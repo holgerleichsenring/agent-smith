@@ -47,8 +47,7 @@ public sealed class InheritedSandboxProjectionTests
         // which of its four layers would answer and a stub could only report a fixed one.
         var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, resources, new StubAgentImageResolver(),
-            new StubOrchestratorImageResolver(), config);
+            options, resources, new StubAgentImageResolver(), config);
         var projection = new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,
             config, new SandboxHoldRailDoubles.CountingConfigLoader(config),
@@ -125,8 +124,7 @@ public sealed class InheritedSandboxProjectionTests
         var config = new AgentSmithConfig();
         var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, resources, new StubAgentImageResolver(),
-            new StubOrchestratorImageResolver(), config);
+            options, resources, new StubAgentImageResolver(), config);
         var projection = new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity(null, null)), resources, options,
             config, new SandboxHoldRailDoubles.CountingConfigLoader(config),

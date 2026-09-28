@@ -60,9 +60,8 @@ public static class RunStorySnapshotBuilder
     /// gained a second source. Kept as the one entry point the handler calls.
     /// </summary>
     public static string? BuildAcceptanceJson(
-        RatifiedExpectation? expectation, MasterVerification? verification,
-        RunAccounts? accounts = null, IReadOnlyList<DeclinedCriterion>? declined = null) =>
-        AcceptanceSnapshot.Build(expectation, verification, accounts, declined);
+        RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null) =>
+        AcceptanceSnapshot.Build(accounts, declined);
 
     private static string StatusOf(ProgressStatus status) => status switch
     {

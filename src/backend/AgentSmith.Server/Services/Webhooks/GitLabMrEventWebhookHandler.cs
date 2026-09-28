@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -11,13 +10,14 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// routes them to the pr-review pipeline. "Opened" is action=open; the
 /// synchronize equivalent is action=update WITH an oldrev property — GitLab
 /// fires update for label/title edits too, and only a source-branch push
-/// carries oldrev. Registered after GitLabMrLabelWebhookHandler so the
-/// existing security-review label trigger keeps precedence on update events.
+/// carries oldrev. GitLabMrLabelWebhookHandler, registered first, claims only an
+/// update that ADDS the review-request label, so a push always reaches this handler.
 /// </summary>
 public sealed class GitLabMrEventWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
+    PrRunContextFactory contextFactory,
     ILogger<GitLabMrEventWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -46,7 +46,7 @@ public sealed class GitLabMrEventWebhookHandler(
                 return Task.FromResult(WebhookResult.NotHandled(
                     $"no agent-smith project configured for repo {repoPath}"));
 
-            var initialContext = BuildInitialContext(root, attrs, route);
+            var initialContext = contextFactory.FromGitLab(root, route.RepoName);
             logger.LogInformation(
                 "GitLab MR {Repo}!{Mr} {Action} -> pipeline={Pipeline} project={Project}",
                 repoPath, mrIid, action, route.PipelineName, route.ProjectName);
@@ -70,24 +70,6 @@ public sealed class GitLabMrEventWebhookHandler(
         return action == "update"
             && attrs.TryGetProperty("oldrev", out var oldrev)
             && oldrev.ValueKind == JsonValueKind.String;
-    }
-
-    private static Dictionary<string, object> BuildInitialContext(
-        JsonElement root, JsonElement attrs, PrReviewRoute route)
-    {
-        var context = new Dictionary<string, object>
-        {
-            [ContextKeys.PrNumber] = attrs.GetProperty("iid").GetInt32().ToString(),
-            [ContextKeys.PrAuthor] = root.GetProperty("user").GetProperty("username").GetString() ?? "",
-            [ContextKeys.CheckoutBranch] = attrs.GetProperty("source_branch").GetString() ?? "",
-            [ContextKeys.SourceOverrideRepo] = route.RepoName,
-        };
-        // The MR webhook has no base sha; AnalyzePrDiff publishes the
-        // authoritative head/base pair from the platform API.
-        if (attrs.TryGetProperty("last_commit", out var lastCommit)
-            && lastCommit.TryGetProperty("id", out var headSha))
-            context[ContextKeys.PrHead] = headSha.GetString() ?? "";
-        return context;
     }
 
     private static IReadOnlyList<string> ExtractLabels(JsonElement root)

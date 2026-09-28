@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -14,6 +13,7 @@ namespace AgentSmith.Server.Services.Adapters;
 public sealed class TeamsApiClient(
     HttpClient httpClient,
     BotFrameworkTokenProvider tokenProvider,
+    TeamsServiceUrls serviceUrls,
     ILogger<TeamsApiClient> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -21,10 +21,10 @@ public sealed class TeamsApiClient(
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private readonly ConcurrentDictionary<string, string> _serviceUrls = new();
+    private const string DefaultServiceUrl = "https://smba.trafficmanager.net/amer";
 
     internal void RegisterServiceUrl(string conversationId, string serviceUrl)
-        => _serviceUrls[conversationId] = serviceUrl.TrimEnd('/');
+        => serviceUrls.Register(conversationId, serviceUrl);
 
     internal async Task<string?> SendActivityAsync(
         string conversationId, JsonObject activity, CancellationToken cancellationToken)
@@ -92,10 +92,6 @@ public sealed class TeamsApiClient(
         };
     }
 
-    private string GetServiceUrl(string conversationId)
-    {
-        if (_serviceUrls.TryGetValue(conversationId, out var url))
-            return url;
-        return "https://smba.trafficmanager.net/amer";
-    }
+    private string GetServiceUrl(string conversationId) =>
+        serviceUrls.For(conversationId) ?? DefaultServiceUrl;
 }

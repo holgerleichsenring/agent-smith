@@ -4,8 +4,8 @@ namespace AgentSmith.Application.Services.Health;
 
 /// <summary>
 /// Thread-safe mutable ISubsystemHealth. Owners (queue consumer, housekeeping, poller, ...)
-/// call SetUp/SetDegraded/SetDown/SetDisabled as their state changes; readers (WebhookListener
-/// /health endpoint) read the snapshot through the interface.
+/// call SetUp/SetDegraded/SetDown/SetDisabled as their state changes; readers (the /health
+/// endpoint) read the snapshot through the interface.
 /// </summary>
 public sealed class SubsystemHealth(string name) : ISubsystemHealth
 {

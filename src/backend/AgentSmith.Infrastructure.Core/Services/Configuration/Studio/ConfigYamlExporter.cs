@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -19,6 +20,8 @@ public sealed class ConfigYamlExporter
         .WithTypeConverter(new RawRepoRefYamlConverter())
         .ConfigureDefaultValuesHandling(
             DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
+        // A computed answer, not a setting: emitting it wrote a key no loader reads.
+        .WithAttributeOverride<RoleMappingConfig>(m => m.IsEmpty, new YamlIgnoreAttribute())
         .Build();
 
     public string Export(RawAgentSmithConfig document) => Serializer.Serialize(document);

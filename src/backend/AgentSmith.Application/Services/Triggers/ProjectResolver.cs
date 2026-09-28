@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Tickets;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Triggers;
@@ -60,13 +61,13 @@ public sealed class ProjectResolver(
                     continue;
                 }
 
-                // p0315d: a ticket that BINDS routes hard-bound to the CODE preset on every
-                // project it matches — BEFORE pipeline_from_label, which would otherwise drop
-                // it: no operator's label map holds the framework's own stamp. 2026-09-25-e5b1
-                // names `code` itself, not the phase-execution alias p0393 collapsed into it.
-                // 2026-09-22-766b: a FILING binds on the APPROVAL, a PERSON by typing the phase
-                // word. Load-bearing on the WEBHOOK, which resolves a repo a poll cannot.
-                var pipeline = FiledTicketLabels.BindsPhaseExecution(envelope)
+                // A ticket that BINDS routes to the CODE preset on every project it matches —
+                // BEFORE pipeline_from_label, which holds no framework stamp and would drop it. A
+                // FILING binds on the approval, a PERSON by typing the phase word; the stamp is
+                // read in THIS project's tracker's vocabulary, since a word renamed on one board
+                // may be an ordinary routing word on another.
+                var pipeline = FiledTicketLabels.BindsPhaseExecution(
+                        envelope, TicketLabelVocabulary.For(project.Tracker))
                     ? PipelinePresets.CodeName
                     : pipelineResolver.Resolve(
                         trigger, envelope.Labels, config.PipelineTriggers, logger as ILogger);

@@ -1,4 +1,6 @@
+using System.Text.Json;
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
@@ -99,6 +101,35 @@ public sealed class ClaimPreCheckerTests
         var rejection = ClaimPreChecker.Check(request, config);
 
         rejection.Should().Be(ClaimRejectionReason.PipelineNotLabelTriggered);
+    }
+
+    [Fact]
+    public void Check_ARunANamedPersonAskedFor_SkipsOnlyTheLabelRouteCheck()
+    {
+        var config = ConfigWithTrigger(pipeline: "code");
+        var named = new Dictionary<string, object> { [ContextKeys.RequestedByName] = true };
+
+        ClaimPreChecker.Check(
+            NewRequest("GitHub", "my-project", "mad-discussion") with { InitialContext = named }, config)
+            .Should().BeNull("a person named the pipeline; no label had to route it");
+        ClaimPreChecker.Check(
+            NewRequest("GitHub", "my-project", "nonexistent-pipeline") with { InitialContext = named }, config)
+            .Should().Be(ClaimRejectionReason.UnknownPipeline);
+        ClaimPreChecker.Check(
+            NewRequest("GitHub", "missing-project", "code") with { InitialContext = named }, config)
+            .Should().Be(ClaimRejectionReason.UnknownProject);
+    }
+
+    [Fact]
+    public void Check_TheNamedMarkerAfterTheQueuesJsonRoundTrip_StillSkipsTheLabelRouteCheck()
+    {
+        var config = ConfigWithTrigger(pipeline: "code");
+        var roundTripped = JsonSerializer.Deserialize<Dictionary<string, object>>(
+            JsonSerializer.Serialize(new Dictionary<string, object> { [ContextKeys.RequestedByName] = true }));
+
+        ClaimPreChecker.Check(
+            NewRequest("GitHub", "my-project", "mad-discussion") with { InitialContext = roundTripped }, config)
+            .Should().BeNull();
     }
 
     private static ClaimRequest NewRequest(string platform, string project, string pipeline)

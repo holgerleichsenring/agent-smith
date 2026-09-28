@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Application.Webhooks;
 
 /// <summary>
-/// PR-comment intent parser (p0146e). CommentIntentParser is stateless — slash regexes
+/// PR-comment intent parser. CommentIntentParser is stateless — a slash regex
 /// + an IIntentParser delegate. Singleton so the singleton PR-comment webhook handlers
 /// can take it as a constructor dependency without a scope mismatch. The transient
 /// IIntentParser is captured once at construction; LlmIntentParser holds no mutable

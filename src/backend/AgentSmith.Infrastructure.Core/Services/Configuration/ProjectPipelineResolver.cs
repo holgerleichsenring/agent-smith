@@ -36,14 +36,6 @@ internal static class ProjectPipelineResolver
                 anyError = true;
             }
 
-            if (r.ConfidenceThreshold is < 0 or > 100)
-            {
-                findings.Add(ProjectFindings.Blocking(project, "pipelines",
-                    $"Project '{project}': pipeline '{r.Name}' has confidence_threshold " +
-                    $"{r.ConfidenceThreshold} — must be between 0 and 100."));
-                anyError = true;
-            }
-
             result.Add(new PipelineDefinition
             {
                 Name = r.Name,
@@ -51,7 +43,6 @@ internal static class ProjectPipelineResolver
                 Agent = resolvedAgent,
                 SkillsPath = r.SkillsPath,
                 CodingPrinciplesPath = r.CodingPrinciplesPath,
-                ConfidenceThreshold = r.ConfidenceThreshold,
             });
         }
         return anyError ? null : result;

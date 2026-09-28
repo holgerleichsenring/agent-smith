@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// <summary>
 /// p0337: deletes a run and every satellite keyed to it. Run children carry a
 /// plain indexed RunId (no FK, no cascade — see AgentSmithDbContext), and the
-/// lease / queue entry / checkpoint / expectation / dialogue inbox are separate
+/// lease / queue entry / checkpoint / expectation / criterion verdicts / dialogue inbox are separate
 /// tables, so a Run-row delete alone would orphan all of them. Every table is
 /// cleared in ONE transaction. Ticket-shared satellites (lease, queue entry) are
 /// keyed by the RUN id, never by (project, ticket): a re-triggered ticket's newer
@@ -58,6 +58,7 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork)
             .Where(a => dialogueJobIds.Contains(a.DialogueJobId)).ExecuteDeleteAsync(ct);
         await DeleteByRunIdAsync<RunCheckpoint>(ids, ct);
         await DeleteByRunIdAsync<RunExpectation>(ids, ct);
+        await DeleteByRunIdAsync<RunCriterionJudgement>(ids, ct); // an operator's verdicts go with their run
         await DeleteByRunIdAsync<RunCapacity>(ids, ct); // p0336: release the ledger row
         await unitOfWork.Set<QueuedTicket>()
             .Where(q => q.ReservedRunId != null && ids.Contains(q.ReservedRunId)).ExecuteDeleteAsync(ct);

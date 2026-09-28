@@ -8,6 +8,7 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.Specs;
 
@@ -50,7 +51,7 @@ public sealed class SpecSourceTests
     {
         var branch = Read(SetOnBranch());
 
-        var decision = _sut.Decide(branch, Ticket(EmbeddedSpec), Pointer(), Resuming(), "azdo-1");
+        var decision = _sut.Decide(branch, Ticket(EmbeddedSpec), Pointer(), Resuming(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
         decision.Cause.Should().Be(SpecRevisionCause.Resume);
@@ -66,7 +67,7 @@ public sealed class SpecSourceTests
         var ticket = Ticket("The endpoint returns 500 on empty payloads.");
         var branch = Read(SetOnBranch());
 
-        var decision = _sut.Decide(branch, ticket, Pointer(), new PipelineContext(), "azdo-1");
+        var decision = _sut.Decide(branch, ticket, Pointer(), new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
         decision.Cause.Should().Be(SpecRevisionCause.Retrigger);
@@ -80,7 +81,7 @@ public sealed class SpecSourceTests
         var branch = Read(SetOnBranch() with { TicketFingerprint = "cut-from-other-text" });
 
         var decision = _sut.Decide(
-            branch, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
+            branch, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
         decision.Cause.Should().Be(SpecRevisionCause.TicketEdit);
@@ -94,7 +95,7 @@ public sealed class SpecSourceTests
         var branch = Read(SetOnBranch());
 
         var decision = _sut.Decide(
-            branch, Ticket("The endpoint returns 500."), Pointer(), Commented(), "azdo-1");
+            branch, Ticket("The endpoint returns 500."), Pointer(), Commented(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
         decision.Cause.Should().Be(SpecRevisionCause.Comment);
@@ -109,7 +110,7 @@ public sealed class SpecSourceTests
         var inFlight = Read(cut with { Executed = [cut.Phases[0].PhaseId] });
 
         var decision = _sut.Decide(
-            inFlight, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1");
+            inFlight, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Set.Should().BeSameAs(inFlight.Set);
         decision.NeedsModel.Should().BeFalse(
@@ -120,7 +121,7 @@ public sealed class SpecSourceTests
     public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
     {
         var decision = _sut.Decide(
-            SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1");
+            SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.TicketDescription);
         decision.Cause.Should().Be(SpecRevisionCause.Initial);
@@ -132,7 +133,7 @@ public sealed class SpecSourceTests
     public void SpecSource_OrdinaryTicket_Derives()
     {
         var decision = _sut.Decide(
-            SpecSetOnBranch.Nothing, Ticket("Fix the boundary check."), null, new PipelineContext(), "azdo-1");
+            SpecSetOnBranch.Nothing, Ticket("Fix the boundary check."), null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.Derived);
         decision.NeedsModel.Should().BeTrue();
@@ -145,7 +146,7 @@ public sealed class SpecSourceTests
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing,
             Ticket("```yaml\nphase: nope\ngoal: 3\n```"),
-            null, new PipelineContext(), "azdo-1");
+            null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Error.Should().NotBeNull(
             "shipping a spec and getting it wrong must not degrade into 'no spec, derive one'");

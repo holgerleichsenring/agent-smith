@@ -42,6 +42,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogRouter _router;
     private readonly Mock<IOutcomeSink> _sink = new();
+    private readonly TestSupport.ChatRunHarness _chat = new();
     private readonly Mock<ISpecDialogTurnRunner> _turnRunner = new();
     private readonly SpecDialogTurnGate _turnGate = new(TimeProvider.System);
     private readonly SpecDialogPendingQuestions _pending = new(new SpecDialogTurnGate(TimeProvider.System));
@@ -115,7 +116,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
     public async Task ChatDispatch_NeverMovesATicket()
     {
         var dispatcher = new SlackMessageDispatcher(
-            null!, null!, null!, null!, null!, null!, null!, _router, null!,
+            null!, null!, null!, null!, null!, null!, null!, null!, _router,
+            _chat.Get<AgentSmith.Server.Services.ChatRuns.ChatRunAnswerRouter>(), null!,
             NullLogger<SlackMessageDispatcher>.Instance);
 
         await dispatcher.DispatchAsync("/spec", "U1", "C1", CancellationToken.None, "th-1", "slack");
@@ -262,6 +264,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
 
     public void Dispose()
     {
+        _chat.Dispose();
         _context.Dispose();
         _connection.Dispose();
     }

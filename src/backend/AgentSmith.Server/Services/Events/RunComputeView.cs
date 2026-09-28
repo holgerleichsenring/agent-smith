@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Services.Events;
 /// rows (the SandboxCreated/Disposed event stream) — the honest answer to the
 /// side rail's "N pods · XGi", which operators read as live compute. Distinct
 /// from <see cref="RunFootprintView"/>, the admission RESERVATION (every
-/// configured repo + a synthetic orchestrator pod, summed at limits) that
+/// configured repo, summed at limits) that
 /// over-counts what actually runs. Null until the first sandbox lands, so the
 /// client renders "calculating…" instead of a fabricated count; the rows persist,
 /// so the value stays correct after the run finishes.

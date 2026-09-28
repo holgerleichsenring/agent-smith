@@ -26,7 +26,6 @@ public sealed class GitLabTicketProvider : ITicketProvider
     private readonly GitLabCommentMapper _commentMapper = new();
     private readonly GitLabIssueLister _lister;
     private readonly ILogger _logger;
-    private readonly TrackerParentLink _parentLink;
     private readonly GitLabTicketFinalizer _finalizer;
 
     public string ProviderType => "GitLab";
@@ -46,7 +45,6 @@ public sealed class GitLabTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitLabIssueLister(_http, mapper, connection, logger);
         _logger = logger;
-        _parentLink = new TrackerParentLink("GitLab", logger);
         _finalizer = new GitLabTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
     }
 
@@ -136,13 +134,6 @@ public sealed class GitLabTicketProvider : ITicketProvider
         await _http.SendAsync(HttpMethod.Put, IssueUrl(ticketId), new { add_labels = label }, ct);
         return true;
     }
-
-    // relates_to is the one issue link the free tier offers; the body takes the decoded project path.
-    public Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-        _parentLink.AttemptAsync(() => _http.SendAsync(HttpMethod.Post, $"{IssueUrl(child.Id)}/links",
-            new { target_project_id = Uri.UnescapeDataString(_projectPath), target_issue_iid = parent.Value, link_type = "relates_to" },
-            cancellationToken), cancellationToken);
 
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         await TicketDocumentAttachmentDownloader.DownloadAllAsync(

@@ -104,7 +104,7 @@ public sealed class EnsureRepoSandboxToolHostTests
             .Should().ContainSingle(r => r.Name == "server");
         // The single-sandbox footprint was probed (own probe, no orchestrator pod).
         probe.Verify(p => p.HasCapacityAsync(
-            It.Is<RunFootprint>(f => f.Orchestrator == null && f.Sandboxes.Count == 1),
+            It.Is<RunFootprint>(f => f.Sandboxes.Count == 1),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 

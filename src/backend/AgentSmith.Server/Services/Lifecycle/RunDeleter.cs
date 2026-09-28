@@ -2,17 +2,14 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
-using AgentSmith.Server.Contracts;
 
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
 /// p0337: deletes a run and everything it left behind. A terminal run is a
-/// straight record delete; a non-terminal run is FORCE-CLEARED first — the
-/// spawned pod terminated, the lease released, the queue entry removed (the
-/// p0330 machinery) — so a delete never leaves a pod burning money or a held
-/// lease blocking the ticket. If the pod kill fails, the record is KEPT
-/// (PodTerminationFailed) for a retry.
+/// straight record delete; a non-terminal run is FORCE-CLEARED first — the lease
+/// released, the queue entry removed (the p0330 machinery) — so a delete never leaves a
+/// held lease blocking the ticket.
 /// <para>
 /// 2026-09-20-9f00: a run that FINISHED keeps the deliberate hands-off — its ticket
 /// is the operator's to move. A run with no result does not: force-clearing releases
@@ -23,7 +20,6 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// </para>
 /// </summary>
 public sealed class RunDeleter(
-    IServiceProvider services,
     RunRepository runs,
     RunDeletionRepository deletion,
     IActiveRunLease lease,
@@ -35,8 +31,7 @@ public sealed class RunDeleter(
     {
         var run = await runs.GetRunDetailAsync(runId, ct);
         if (run is null) return RunDeleteOutcome.NotFound;
-        if (run.FinishedAt is null && !await ForceClearAsync(run, ct))
-            return RunDeleteOutcome.PodTerminationFailed;
+        if (run.FinishedAt is null) await ForceClearAsync(run, ct);
         await deletion.DeleteAsync(runId, ct);
         logger.LogInformation("Deleted run {RunId} (status {Status})", runId, run.Status);
         return RunDeleteOutcome.Deleted;
@@ -45,15 +40,12 @@ public sealed class RunDeleter(
     // Bulk clear is terminal-only, so it never force-kills a live run.
     public Task<int> DeleteTerminalAsync(CancellationToken ct) => deletion.DeleteTerminalAsync(ct);
 
-    // Reuses the p0330 cancel-enforcement order: kill the pod, release the lease,
-    // drop the queue entry — before the rows are removed. Kill BEFORE finalize so
-    // a terminate failure keeps the run intact for a retry.
-    private async Task<bool> ForceClearAsync(Run run, CancellationToken ct)
+    // Reuses the p0330 cancel-enforcement order: release the lease, drop the queue
+    // entry — before the rows are removed.
+    private async Task ForceClearAsync(Run run, CancellationToken ct)
     {
-        logger.LogWarning("Force-clearing non-terminal run {RunId} (job {JobId}) before delete",
-            run.Id, run.JobId ?? "—");
-        if (!await TryTerminateJobAsync(run, ct)) return false;
-        if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId)) return true;
+        logger.LogWarning("Force-clearing non-terminal run {RunId} before delete", run.Id);
+        if (string.IsNullOrEmpty(run.Project) || string.IsNullOrEmpty(run.TicketId)) return;
         // p0459: release under THIS run's id. Force-clearing a run used to drop the
         // lease by ticket, which handed a NEWER run's ticket back to the poller and
         // put two runs on one branch.
@@ -66,27 +58,5 @@ public sealed class RunDeleter(
         await ticketFinalizer.FinalizeAsync(run.Project, run.TicketId, run.Id,
             "<b>Agent Smith — Deleted</b><br/>The run was deleted by an operator before it finished.",
             ct);
-        return true;
-    }
-
-    private async Task<bool> TryTerminateJobAsync(Run run, CancellationToken ct)
-    {
-        if (string.IsNullOrEmpty(run.JobId)) return true; // in-process run: nothing spawned to kill
-        var spawner = services.GetService<IJobSpawner>();
-        if (spawner is null)
-        {
-            logger.LogWarning("Run {RunId} has job {JobId} but no IJobSpawner is registered", run.Id, run.JobId);
-            return true;
-        }
-        try
-        {
-            await spawner.TerminateAsync(run.JobId!, ct);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Terminate failed for run {RunId} job {JobId} — keeping record", run.Id, run.JobId);
-            return false;
-        }
     }
 }

@@ -1,5 +1,5 @@
 using AgentSmith.Contracts.Dialogue;
-using AgentSmith.Infrastructure.Models;
+using AgentSmith.Server.Services.ChatRuns;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
@@ -10,13 +10,11 @@ namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
 /// Handles Teams Adaptive Card Action.Submit callbacks.
-/// Routes question answers to the TeamsAdapter (pending typed questions)
-/// or via Redis message bus (legacy flow).
+/// Routes question answers to the TeamsAdapter (pending typed questions) or to the run
+/// bound to the conversation.
 /// </summary>
 public sealed class TeamsInteractionHandler(
-    IMessageBus messageBus,
-    IDialogueTransport dialogueTransport,
-    ConversationStateManager stateManager,
+    ChatRunAnswerRouter answers,
     ClarificationStateManager clarificationState,
     SlackMessageDispatcher messageDispatcher,
     HelpHandler helpHandler,
@@ -73,19 +71,20 @@ public sealed class TeamsInteractionHandler(
     private async Task HandleClarificationAsync(
         string conversationId, string userId, string answer, CancellationToken ct)
     {
-        var pending = await clarificationState.GetAsync("teams", conversationId, ct);
+        var pending = await clarificationState.GetAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
         if (pending is null)
         {
             logger.LogWarning("Teams clarification clicked but no pending state for {ConversationId}", conversationId);
             return;
         }
 
-        await clarificationState.ClearAsync("teams", conversationId, ct);
+        await clarificationState.ClearAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
 
         if (answer == "confirm")
-            await messageDispatcher.DispatchAsync(pending.SuggestedText, userId, conversationId, ct);
+            await messageDispatcher.DispatchAsync(pending.SuggestedText, userId, conversationId, ct,
+                conversationId, DispatcherDefaults.PlatformTeams);
         else
-            await helpHandler.SendHelpAsync(conversationId, ct);
+            await helpHandler.SendHelpAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
     }
 
     private async Task HandleJobQuestionAsync(
@@ -109,32 +108,10 @@ public sealed class TeamsInteractionHandler(
             return;
         }
 
-        // Legacy flow: route via message bus
-        var state = await stateManager.GetAsync("teams", conversationId, ct);
-        if (state is null)
-        {
-            logger.LogWarning("Teams interaction for {ConversationId} but no active job found", conversationId);
-            return;
-        }
-
-        if (state.PendingQuestionId != questionId)
-        {
-            logger.LogWarning("Teams answer for {QuestionId} but pending is {Pending}",
-                questionId, state.PendingQuestionId);
-            return;
-        }
-
-        // p0327: durable-first, same rationale as the Slack handler — the
-        // dialogue envelope reaches the inbox + any dialogue wait; the legacy
-        // bus publish stays for IMessageBus.ReadAnswerAsync consumers.
-        await dialogueTransport.PublishAnswerAsync(
-            state.JobId,
-            new DialogAnswer(questionId, answer, null, DateTimeOffset.UtcNow, userId),
-            ct);
-        await messageBus.PublishAnswerAsync(state.JobId, questionId, answer, ct);
-        await stateManager.ClearPendingQuestionAsync("teams", conversationId, ct);
-
-        logger.LogInformation("Teams answer '{Answer}' for '{QuestionId}' forwarded to {JobId}",
-            answer, questionId, state.JobId);
+        // A run started from this conversation: the binding says which run the answer belongs to.
+        var thread = new ChatThread(DispatcherDefaults.PlatformTeams, conversationId, conversationId, userId);
+        if (!await answers.TryAnswerAsync(thread, questionId, answer, comment, ct))
+            logger.LogWarning("Teams answer for {QuestionId} in {ConversationId} matches no open run",
+                questionId, conversationId);
     }
 }

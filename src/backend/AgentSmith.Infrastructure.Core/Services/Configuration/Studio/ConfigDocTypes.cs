@@ -28,6 +28,7 @@ public static class ConfigDocTypes
     public const string Dialogue = "dialogue";
     public const string Persistence = "persistence";
     public const string PipelineCostCap = "pipeline_cost_cap";
+    public const string Trace = "trace";
 
     // 2026-08-25-1806: role names, their permission bundles and the two claims they are
     // read from — application configuration, not bootstrap.

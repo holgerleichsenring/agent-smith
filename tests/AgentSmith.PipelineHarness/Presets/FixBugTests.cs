@@ -84,7 +84,7 @@ public sealed class FixBugTests
         // path) AND the verification verdict is green.
         //
         // The analyzer is stubbed (HarnessProjectAnalyzerStub) for the same
-        // reason init-project/autonomous stub it: the production LLM-driven
+        // reason init-project stubs it: the production LLM-driven
         // ProjectAnalyzer would drain the ScriptedChatClient FIFO at AnalyzeCode
         // and steal the master's queued write_file/run_command. Analyzer LLM
         // behaviour is a model-fitness concern, not a framework concern — the

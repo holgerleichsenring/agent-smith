@@ -75,11 +75,11 @@ public sealed class ContextWindowThresholdCheck(IPreflightConfigSource configSou
     private static IEnumerable<(string Role, ModelAssignment Assignment)> Roles(ModelRegistryConfig? models)
     {
         if (models is null) yield break;
-        yield return ("scout", models.Scout);
-        yield return ("primary", models.Primary);
-        yield return ("planning", models.Planning);
+        if (models.Scout is { } scout) yield return ("scout", scout);
+        if (models.Primary is { } primary) yield return ("primary", primary);
+        if (models.Planning is { } planning) yield return ("planning", planning);
         if (models.Reasoning is { } reasoning) yield return ("reasoning", reasoning);
-        yield return ("summarization", models.Summarization);
+        if (models.Summarization is { } summarization) yield return ("summarization", summarization);
         if (models.ContextGeneration is { } contextGeneration) yield return ("contextGeneration", contextGeneration);
         if (models.CodeMapGeneration is { } codeMap) yield return ("codeMapGeneration", codeMap);
     }

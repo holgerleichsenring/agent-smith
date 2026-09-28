@@ -34,11 +34,11 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 The load-bearing details from `8-deployment-server.yaml`, so you know what you're looking at:
 
 - **An init-container runs `agentsmith database migrate --config /app/config/agentsmith.yml`** before the server starts. Migrations are applied exactly there — the server never migrates its own database on startup, deliberately. It shares the persistence volume with the server (and for an external DB it migrates over the connection string instead).
-- The server container listens on **8081** (`/health`, which answers for liveness and readiness alike). The startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports on `/health`; a degraded tracker shows up there instead of blocking startup.
+- The server container listens on **8081** (`/health`, which answers for liveness and readiness alike and stays `200` while a subsystem is degraded, so the pod that reports the fault is never pulled out of the service). The body lists each background subsystem with its state and reason, and the startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports there too; a degraded tracker shows up there instead of blocking startup.
 - The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
-- `SPAWNER_TYPE` is `kubernetes` by default in-cluster: each triggered run is spawned as its own short-lived orchestrator pod (the CLI image), which in turn creates the sandbox pods. That's why the quota math below counts "orchestrator + its sandboxes" per run.
-- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli` and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests, and the same number goes into **Configuration → Deployment** in the studio (`deployment.version`), which the spawned orchestrator pod's image is built from. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
+- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in its own namespace and removes them when the run ends. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
+- The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli` (the migrate init-container) and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin it through **Configuration → Deployment** (`deployment.version`) or `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
 
@@ -110,27 +110,24 @@ projects:
 
 ## Updating
 
-Bump the tag in the manifests' images (server, the migrate init-container, the dashboard, `AGENTSMITH_IMAGE`) and the Deployment setting in the studio together, then:
+Bump the tag in the manifests' images (server, the migrate init-container, the dashboard), then:
 
 ```bash
 kubectl apply -f deploy/k8s/
 kubectl -n agentsmith rollout status deployment/agentsmith-server
 ```
 
-`RollingUpdate` is the default strategy. The migrate init-container applies any new migrations before the new server accepts traffic. In-flight runs continue in their own pods until they finish.
+`RollingUpdate` is the default strategy. The migrate init-container applies any new migrations before the new server accepts traffic. Runs execute in the server pod, so a run still going on the replaced pod ends with it and the corpse reaper removes its sandbox pods; a run parked on a question holds no pod and resumes on the new one. Roll out between runs when you can.
 
 ## Resources
 
 The server itself is cheap on CPU — it waits on LLM calls and shuffles events — but it is **not** cheap on memory: ASP.NET + SignalR + EF + the skills catalog + live event streams need room. Give the server pod a **request of at least 512Mi and a limit of 1–1.5Gi**. Below that it OOMKills under normal load, and every OOM-restart reaps the in-flight run (surfacing as a bogus "cancelled"), truncates the durable event trail, and leaves the run's sandbox pods to the corpse reaper. The startup preflight WARNs when the pod's memory ceiling is under the 512Mi floor. Remember the namespace `ResourceQuota` counts the server's request/limit too.
 
-The interesting sizing is per run:
-
-- **The spawned orchestrator pod** runs the LLM loop and compiles nothing. It ships sized honestly (100m / 512Mi requests, 500m / 2Gi limits via the `JobSpawner__Resources__*` env values) because it's the longest-lived pod of every run.
-- **Build sandboxes** default to a 1Gi request with a 4Gi limit as the OOM guard. Keep requests honest, not minimal — see the warning below.
+The interesting sizing is per run: a run's pods are its sandboxes, one per repo and toolchain image. **Build sandboxes** default to a 1Gi request with a 4Gi limit as the OOM guard. Keep requests honest, not minimal — see the warning below.
 
 ## Capacity quota: count requests, not limits
 
-The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (orchestrator pod + one sandbox per repo and toolchain image) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
+The capacity probe reads the namespace `ResourceQuota` and admits a run only when its whole footprint (one sandbox per repo and toolchain image) still fits. It compares **only the quota keys present in `status.hard`** — so the quota's shape decides what "capacity" means. A run that doesn't fit is queued (strict FIFO, one entry per ticket, visible amber in the dashboard with its position) and launched when capacity frees.
 
 Quota the namespace on **requests**, not limits. Requests are what the scheduler packs nodes by — i.e. what the cluster actually provisions and what costs money. A quota on `limits.memory` reserves the theoretical worst case for a pod's whole runtime: five default pods "use" 20Gi of quota while their real reservation is a fraction of that, and runs queue behind capacity nobody is consuming.
 
@@ -156,7 +153,7 @@ That analogy is the whole relationship: `max_concurrent_sandboxes` in the `sandb
 Two warnings:
 
 - **Keep requests honest, not minimal.** Node-pressure eviction kills Burstable pods ranked by usage-above-request first. A build sandbox declared at 512Mi that peaks at 3–4Gi during `dotnet build` is the prime eviction victim — that resurrects the "sandbox vanished" failure class. The build-sandbox default stays at a 1Gi request with a 4Gi limit as the OOM guard.
-- **The quota lives in your cluster config, not in this repo.** Applying the requests-based quota is a **coordinated operator step**: land it together with the orchestrator env values in `deploy/k8s/8-deployment-server.yaml`, in whatever repo manages your namespace.
+- **The quota lives in your cluster config, not in this repo.** Applying the requests-based quota is an **operator step** in whatever repo manages your namespace; size it together with the server pod's own requests in `deploy/k8s/8-deployment-server.yaml`, which the quota counts too.
 
 Each finished run shows its **reserved capacity-time** (memory request × pod lifetime, in Gi·minutes) next to the LLM cost on the run detail page — reservation, not measured consumption — so you can see whether a run was expensive in tokens or in pods. More on the [capacity page](../reference/operations/capacity.md).
 

@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-27T15:47:05.6064+00:00",
+  "generated_at": "2026-09-28T15:00:24.622152+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,7 +9,7 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 any unauthenticated caller can read a member record including the sensitive fields role and contactEmail",
+      "finding_headline": "GET /members/{id}: no security requirement is declared on this operation at all, while every other data-bearing operation in the spec (PUT /members/{id}/role, GET /orders, GET /orders/{id}, POST /invoices, POST /tokens/introspect) explicitly requires memberToken bearer auth. The response returns a full Member record including contactEmail and role with zero authentication.",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: BOLA \u2014 memberId query parameter is caller-controlled with no spec indication that it is bound to the authenticated bearer\u0027s identity",
-      "highest_severity": "Medium",
+      "finding_headline": "GET /orders: memberId is a client-supplied required query parameter used to select whose orders are returned, with no indication it is cross-checked against the bearer\u0027s own identity \u2014 unlike GET /orders/{id}, whose summary explicitly states it is \u0027Scoped to the bearer\u0027s own member id\u0027 and returns 404 otherwise.",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: BOLA \u2014 orderId in the request body is caller-controlled; no spec-level indication that ownership of the referenced order is verified before invoice creation",
+      "finding_headline": "POST /invoices: orderId is accepted from the client with no documented ownership check against the caller\u0027s member id, and the only documented failure mode is a generic 500 \u2014 unlike GET /orders/{id}, which documents a distinct 404 specifically for \u0027no such order for this member\u0027.",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: BFLA \u2014 any authenticated member can set any other member\u0027s role; no admin or elevated-privilege scope is declared",
+      "finding_headline": "PUT /members/{id}/role: any caller holding a valid memberToken appears able to set the role of an arbitrary member id (including their own) to an arbitrary string value, with no spec indication of an admin-only restriction or an allow-list of role values.",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,

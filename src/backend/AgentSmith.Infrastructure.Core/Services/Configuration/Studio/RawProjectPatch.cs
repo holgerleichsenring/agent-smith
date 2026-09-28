@@ -81,7 +81,7 @@ public static class RawProjectPatch
     // other. A default naming an undeclared pipeline is a BLOCKING startup finding that
     // disables the project, so the default is always written into the list; and the list
     // is not replaced by it, because each stored entry carries its own agent, skills
-    // path, principles path and confidence threshold — sending only the default would
+    // path and principles path — sending only the default would
     // delete those silently, which is how default_branch and consumes are already lost.
     private static void ApplyPipelines(
         ProjectEntity entity, RawProjectEntry project, RawProjectEntry? existing)

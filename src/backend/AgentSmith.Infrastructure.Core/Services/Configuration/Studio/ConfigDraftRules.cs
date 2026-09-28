@@ -68,8 +68,16 @@ public sealed class ConfigDraftRules(
                 ex.Message, Field: "type"));
         }
         if (UndeclaredRouting(draft) is { } advisory) findings.Add(advisory);
+        findings.AddRange(HostOnlyRouting(draft));
         return findings;
     }
+
+    /// <summary>What the save refuses, named on the field that carries it before the save.</summary>
+    private static IEnumerable<StartupFinding> HostOnlyRouting(TrackerEntity draft) =>
+        HostOnlyRoutingRule.Violations(
+                HostOnlyRoutingRule.Owner(draft), draft.PipelineFromLabel, draft.DefaultPipeline)
+            .Select(v => new StartupFinding(
+                StartupSubsystems.Configuration, StartupFindingSeverity.Blocking, v.Reason, Field: v.Field));
 
     /// <summary>
     /// 2026-09-16-a4d7: a tracker declaring neither a label map nor a default routes every

@@ -46,8 +46,7 @@ public sealed class DockerSandboxFactory(
             spec.ToolchainImage, loggerFactory.CreateLogger<DockerSandbox>());
     }
 
-    // Mirrors DockerNetworkResolver (used by DockerJobSpawner) — explicit override
-    // first, then auto-detect from the server's own container, fallback to bridge.
+    // Explicit override first, then auto-detect from the server's own container, fallback to bridge.
     // Without this the sandbox lands on Docker's default bridge with no DNS for
     // `redis` / `host.docker.internal`, and the sandbox-agent's Redis connect
     // times out with a confusing UnableToConnect.

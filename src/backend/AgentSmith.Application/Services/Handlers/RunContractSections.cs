@@ -1,5 +1,4 @@
 using System.Text;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Handlers;
@@ -14,20 +13,6 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class RunContractSections
 {
-    // p0328: the run's acceptance contract on the run record — assertions as a
-    // checklist; a headless auto-ratification is stamped 'unratified' visibly.
-    internal static void AppendExpectation(StringBuilder sb, RatifiedExpectation? expectation)
-    {
-        if (expectation is null) return;
-        var stamp = expectation.IsUnratified
-            ? " (unratified — auto-ratified headless, no human review)"
-            : $" (ratified {expectation.Outcome} by {expectation.RatifiedBy})";
-        sb.AppendLine();
-        sb.AppendLine($"## Acceptance contract{stamp}");
-        sb.AppendLine();
-        sb.AppendLine(ExpectationMarkdown.Render(expectation.Draft, checkboxes: true));
-    }
-
     /// <summary>
     /// p0429a: what the run — or the scan — accounted for, itemised. The gate has judged
     /// this since p0421 and no reader has ever seen it: a scan whose dependency audit died

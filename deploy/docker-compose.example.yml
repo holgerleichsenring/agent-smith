@@ -77,7 +77,7 @@ services:
   #   docker compose --profile build-only build sandbox-agent
   #
   # Required before the first labelled ticket triggers a pipeline; without
-  # the image present, DockerJobSpawner fails with DockerImageNotFoundException
+  # the image present, the Docker sandbox backend fails with DockerImageNotFoundException
   # for `agent-smith-sandbox-agent:<tag>`. Pull from holgerleichsenring on
   # Docker Hub or build locally from src/backend/AgentSmith.Sandbox.Agent/Dockerfile.
   sandbox-agent:
@@ -144,7 +144,7 @@ services:
         AGENTSMITH_RELEASE_VERSION:
     image: agentsmith-server:${AGENTSMITH_VERSION:-0.129.0}
     restart: unless-stopped
-    user: root  # docker socket access for SPAWNER_TYPE=docker (local dev)
+    user: root  # docker socket access for the Docker sandbox backend (local dev)
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -156,10 +156,9 @@ services:
       - ../.env
     environment:
       - REDIS_URL=redis:6379
-      - SPAWNER_TYPE=${SPAWNER_TYPE:-docker}
+      # The backend every run creates its sandboxes through: docker, kubernetes or inprocess.
+      - SANDBOX_TYPE=${SANDBOX_TYPE:-docker}
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
-      - AGENTSMITH_IMAGE=${AGENTSMITH_IMAGE:-agentsmith-cli:${AGENTSMITH_VERSION:-0.129.0}}
-      - IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY:-IfNotPresent}
       # p0407: sandboxes share persistent package-cache volumes (agentsmith-pkgcache-*)
       # so a restore reads from disk instead of the network. Set to false to force a
       # cold restore in every sandbox; `docker volume rm agentsmith-pkgcache-<eco>` clears one.

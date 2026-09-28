@@ -104,7 +104,7 @@ The classic top-level `repos:` catalog (one entry per repo, `type` + `url` + `au
 
 **Per-repo bootstrap.** Each repo needs its own contexts, `.agentsmith/contexts/<name>/context.yaml` and `principles.md`, one directory per component, so Agent Smith knows the toolchain and the rules for each. The `init-project` pipeline writes them into each repo and opens one bootstrap PR per repo, cross-linked. Run it once per project, for example with the **Initialize** button on the project card; it covers every repo in the project.
 
-**`deployment`** is the single registry + version pin; it feeds both the orchestrator container and the sandbox-agent image. Skills need no block at all — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
+**`deployment`** is the optional registry + version pin for the sandbox-agent image, whose tag is otherwise derived from the running server's release. Skills need no block at all — they ship embedded in the release; a `skills:` block is only an override for skills development or air-gap mirrors (see [Skills catalog](../how-it-works/skills-catalog.md)).
 
 ## Toolchain images per repo
 

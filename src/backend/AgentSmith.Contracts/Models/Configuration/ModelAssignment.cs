@@ -2,7 +2,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 
 /// <summary>
 /// Maps a task type to a specific model and token budget.
-/// ProviderType and Endpoint are optional — null means use the default cloud provider.
+/// ProviderType and Endpoint are optional: null ProviderType answers on the agent's own
+/// provider, and null Endpoint takes the agent's endpoint when the role runs on that provider
+/// (<see cref="EffectiveEndpoint"/>).
 /// </summary>
 public sealed class ModelAssignment
 {
@@ -22,4 +24,18 @@ public sealed class ModelAssignment
     /// 4o-mini deployment answers in the deployment's window.
     /// </summary>
     public int? ContextWindowTokens { get; set; }
+
+    /// <summary>
+    /// Where this role sends its requests: its own endpoint, else the agent's when the role
+    /// runs on the agent's provider. <c>agent.endpoint</c> belongs to the agent's type (an
+    /// Ollama host, an Azure resource, an OpenAI-compatible server), so a role that switches
+    /// provider never inherits it.
+    /// </summary>
+    public string? EffectiveEndpoint(AgentConfig agent) =>
+        !string.IsNullOrWhiteSpace(Endpoint) ? Endpoint
+        : string.Equals(ProviderType ?? agent.Type, agent.Type, StringComparison.OrdinalIgnoreCase)
+            ? NullIfBlank(agent.Endpoint)
+            : null;
+
+    private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

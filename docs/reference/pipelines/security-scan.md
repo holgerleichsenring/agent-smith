@@ -12,7 +12,7 @@ The **security-scan** pipeline reviews a repository's code for security problems
 | 1 | LoadCatalog | Pulls and verifies the skill catalog |
 | 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
 | 3 | RatifyScanContract | States what this scan looks for, before any scanner runs |
-| 4 | CheckoutSource | Clones repo, optionally scopes to a PR diff or branch |
+| 4 | CheckoutSource | Clones the repo and checks out the branch to scan: `--branch`, a labelled pull request's head, or the default branch |
 | 5 | SetupRegistryAuth | Pre-stages private package-feed credentials for the dependency audit |
 | 6-7 | BootstrapCheck / BootstrapGate | Aborts early if the repo was never initialized |
 | 8 | LoadContext | Loads the project's `.agentsmith/` context files |
@@ -28,9 +28,8 @@ The **security-scan** pipeline reviews a repository's code for security problems
 | 18 | SubstantiateFindings | Puts every delivered finding to a fresh instance asked to refute it |
 | 19 | DeliverFindings | Writes output in the requested format(s) |
 | 20 | SecuritySnapshotWrite | Writes the snapshot for the next trend comparison |
-| 21 | SpawnFix | Spawns fix jobs for Critical/High findings when auto-fix is enabled |
-| 22 | AccountScanCoverage | Checks each stated criterion against the steps that really ran |
-| 23 | WriteRunResult | Writes `result.md`, including the scan's account |
+| 21 | AccountScanCoverage | Checks each stated criterion against the steps that really ran, and fails the run when the scan did not deliver |
+| 22 | WriteRunResult | Writes `result.md`, including the scan's account |
 
 ## What the scan states before it looks
 
@@ -44,7 +43,7 @@ The **security-scan** pipeline reviews a repository's code for security problems
 - Every delivered finding is substantiated against the evidence the scan holds (`SubstantiateFindings`)
 - The surviving findings are delivered in the requested formats (`DeliverFindings`)
 
-At the end, `AccountScanCoverage` checks each criterion against the execution trail. No model is asked. A criterion whose step never ran, or ran and failed, is marked outstanding and says why. That is how a scan whose dependency audit died reads differently from a scan that audited and found nothing. An outstanding criterion records the run as failed, with the missing criterion named.
+At the end, `AccountScanCoverage` checks each criterion against the execution trail. No model is asked. A criterion whose step never ran, or ran and failed, is marked outstanding and says why. That is how a scan whose dependency audit died reads differently from a scan that audited and found nothing. An outstanding criterion fails the run with the missing criterion named: the command exits with 1. The account is recorded first, so `result.md` still lists every criterion, and the findings already delivered (SARIF, Markdown) stay on disk.
 
 ## Static pattern scan
 
@@ -123,7 +122,7 @@ The `MergeMasterFindings` step decides what goes forward:
 
 ## Every delivered finding faces a refuter
 
-`SubstantiateFindings` puts every delivered finding, whoever raised it, to a fresh model instance together with the source it cites, and asks it to refute the claim. A finding it refutes with a quote from the evidence is **downgraded, never deleted**: it drops to Medium, stops blocking, is marked `refuted`, and carries the refuter's reason. The reviewer decides; the scan does not hide the disagreement.
+`SubstantiateFindings` puts every delivered finding, whoever raised it, to a fresh model instance together with the source it cites, and asks it to refute the claim. A finding it refutes with a quote from the evidence is **downgraded, never deleted**: it drops to Medium, is marked `refuted`, and carries the refuter's reason. The reviewer decides; the scan does not hide the disagreement.
 
 A finding whose citation cannot be resolved is kept when someone authored it: a master's finding whose cited file could not be opened is delivered as written. Only a promoted scanner fact that nobody vouched for, whose citation points at nothing the scan holds, is dropped as invention. If the refuter returns no usable answer, every finding stands. The step's result line says how many findings it delivered, how many are critical and how many were refuted.
 
@@ -217,18 +216,14 @@ agent-smith security-scan --agent claude-scan --source-path ./my-project --dry-r
 agent-smith security-scan --agent claude-scan --source-path ./my-project --output sarif,markdown,console --output-dir ./reports
 ```
 
-`--agent` picks an agent from the config's `agents:` catalog and runs the scan without a project. `--project` still works and scans the project's repositories; in a multi-repo project, `--repo NAME` scopes the scan to one of them.
+`--branch` checks out that branch and scans it in full; there is no diff-only scan. `--agent` picks an agent from the config's `agents:` catalog and runs the scan without a project. `--project` still works and scans the project's repositories; in a multi-repo project, `--repo NAME` scopes the scan to one of them.
 
 !!! tip "CI/CD integration"
-    Use `--output sarif` in your CI pipeline and upload the result to GitHub Advanced Security or Azure DevOps. The command exits with 1 when the run fails and 0 otherwise; findings alone do not change the exit code. See [GitHub Actions](../cicd/github-actions.md), [Azure DevOps](../cicd/azure-devops.md), and [GitLab CI](../cicd/gitlab-ci.md) for ready-to-use pipeline configurations.
+    Use `--output sarif` in your CI pipeline and upload the result to GitHub Advanced Security or Azure DevOps. The command exits with 1 when the run fails, including a scan that did not deliver what it stated it would look for, and 0 otherwise; findings alone do not change the exit code. See [GitHub Actions](../cicd/github-actions.md), [Azure DevOps](../cicd/azure-devops.md), and [GitLab CI](../cicd/gitlab-ci.md) for ready-to-use pipeline configurations.
 
 ## Exclusion rules
 
 What the master filters out comes from two places. Its general rules (test-only code paths, placeholder credentials, DoS without an exploit path, path-only SSRF, races without reproducible evidence) ship in the `security-master` skill. Your repository's principles, each context's `principles.md` or the file a pipeline's `coding_principles_path` names, are loaded by `LoadCodingPrinciples` and put in front of the master, so project-specific exclusions belong there. Dismissals recorded in the project's memory reach the master through `LoadMemoryIndex`.
-
-## Auto-fix
-
-`SpawnFix` can turn Critical and High findings into fix jobs that run the `code` pipeline, grouped by file and category. It is off by default and skips with "Auto-fix disabled, skipping". See [Security Scan Configuration](../configuration/security-scan.md#auto-fix).
 
 ## Trend analysis
 

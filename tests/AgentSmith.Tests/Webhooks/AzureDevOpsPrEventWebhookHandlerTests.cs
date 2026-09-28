@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -37,7 +38,7 @@ public sealed class AzureDevOpsPrEventWebhookHandlerTests
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config);
         return new AzureDevOpsPrEventWebhookHandler(
-            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(),
+            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()),
             NullLogger<AzureDevOpsPrEventWebhookHandler>.Instance);
     }
 

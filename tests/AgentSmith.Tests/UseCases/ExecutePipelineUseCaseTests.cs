@@ -426,6 +426,41 @@ public class ExecutePipelineUseCaseTests
     }
 
     [Fact]
+    public async Task ExecutePipeline_RemovedPresetName_RefusalCarriesReason()
+    {
+        // The refusal is what an operator holding a removed name reads: it says why the name
+        // went, not only that it is not found.
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(ConfigWithProject("todo-list"));
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", "autonomous"), "config.yml", CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ConfigurationException>())
+            .Which.Message.Should().Contain("autonomous").And.Contain("removed");
+    }
+
+    [Fact]
+    public async Task ExecutePipeline_RenamedPresetName_RefusalNamesCode()
+    {
+        _configMock.Setup(c => c.LoadConfig(It.IsAny<string>())).Returns(ConfigWithProject("todo-list"));
+
+        var act = () => _sut.ExecuteAsync(
+            new PipelineRequest("todo-list", "fix-bug"), "config.yml", CancellationToken.None);
+
+        (await act.Should().ThrowAsync<ConfigurationException>())
+            .Which.Message.Should().Contain("Write 'code' instead");
+    }
+
+    private static AgentSmithConfig ConfigWithProject(string name) => new()
+    {
+        Projects = { [name] = new ResolvedProject
+        {
+            Pipeline = "code",
+            Repos = new[] { new RepoConnection { Name = name } }
+        } }
+    };
+
+    [Fact]
     public async Task ExecuteAsync_AnUnknownProjectWithoutAReservedRun_PublishesNothing()
     {
         // A terminal event for a run id nobody reserved is a no-op in the database but not
@@ -502,6 +537,6 @@ public class ExecutePipelineUseCaseTests
         var act = () => _sut.ExecuteAsync("fix #1 in myproject", "config.yml", false, null, CancellationToken.None);
 
         await act.Should().ThrowAsync<ConfigurationException>()
-            .WithMessage("*Pipeline 'nonexistent' not found*");
+            .WithMessage("*Pipeline 'nonexistent' is not a pipeline this product runs*");
     }
 }

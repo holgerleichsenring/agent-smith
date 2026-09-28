@@ -18,7 +18,9 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 public sealed class YamlConfigurationLoader(
     RawConfigMaterializer materializer,
     ISystemEventPublisher systemEvents,
-    PersistenceEnvironmentOverlay? persistenceEnvironment = null) : IConfigurationLoader
+    PersistenceEnvironmentOverlay? persistenceEnvironment = null,
+    IStartupFindings? findings = null,
+    Retired.RetiredConfigKeyDetector? retiredKeys = null) : IConfigurationLoader
 {
     // 2026-09-04-102b: the one-shot processes — the CLI that runs `database migrate` as the
     // init container above all — take the database from the environment on exactly the terms
@@ -42,6 +44,8 @@ public sealed class YamlConfigurationLoader(
         var raw = Deserialize(yaml, configPath);
         raw.Persistence = _persistenceEnvironment.Apply(raw.Persistence);
         var config = materializer.Materialize(raw);
+        // After the materializer, which clears the configuration findings it republishes.
+        foreach (var finding in retiredKeys?.InYaml(yaml, configPath) ?? []) findings?.Record(finding);
         RefuseUnresolvable();
         _announcer.Announce(configPath, yaml.Length);
         LastRead = new ConfigFileReadFact(configPath, DateTimeOffset.UtcNow);

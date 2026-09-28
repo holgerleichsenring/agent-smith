@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Application.Models;
@@ -408,7 +407,7 @@ public class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
         // Ratified criteria with no account behind them: nothing measured itself.
-        pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
+        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
         var context = CreateContext(pipeline) with { Changes = Array.Empty<CodeChange>() };
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -577,7 +576,7 @@ public class CommitAndPRHandlerTests
         pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Failed, true, false, true, false, "build failed"));
-        pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
+        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
         var context = CreateContext(pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -599,7 +598,7 @@ public class CommitAndPRHandlerTests
         // build/test outcome is unknown, so the run cannot be a success.
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
-        pipeline.Set(ContextKeys.RunExpectation, ExpectationWithOneCriterion());
+        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
         var context = CreateContext(pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -717,7 +716,6 @@ public class CommitAndPRHandlerTests
 
     // p0421: the gate judges what was RATIFIED. A run that ratified nothing is not judged
     // at all — which is why these tests state a contract before expecting a verdict.
-    private static RatifiedExpectation ExpectationWithOneCriterion() =>
-        new(new ExpectationDraft("the bug", ["the bug is fixed"], [], null),
-            "ratified", "operator", DateTimeOffset.UnixEpoch, 0);
+    private static PhaseDraft PhaseWithOneCriterion() =>
+        new("p0001", "the bug", "phase: p0001\n", []) { Done = ["the bug is fixed"] };
 }

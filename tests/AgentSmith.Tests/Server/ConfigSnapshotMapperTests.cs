@@ -74,7 +74,6 @@ public sealed class ConfigSnapshotMapperTests
             Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig()),
             new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
             new AgentSmith.Tests.Sandbox.StubAgentImageResolver(),
-            new AgentSmith.Tests.Sandbox.StubOrchestratorImageResolver(),
             config);
 
     private static ConfigSnapshot Snap(AgentSmithConfig config) =>

@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Configuration.Resolved;
@@ -18,7 +17,6 @@ public sealed class ConfigResolutionPass : IConfigResolver
     private readonly SandboxGlobalConfig _global;
     private readonly ISandboxResourceResolver _resourceResolver;
     private readonly IAgentImageResolver _agentImageResolver;
-    private readonly IOrchestratorImageResolver _orchestratorImageResolver;
     private readonly AgentSmithConfig _config;
     private readonly Lazy<ResolvedConfig> _materialized;
 
@@ -26,13 +24,11 @@ public sealed class ConfigResolutionPass : IConfigResolver
         IOptions<SandboxGlobalConfig> sandboxGlobal,
         ISandboxResourceResolver resourceResolver,
         IAgentImageResolver agentImageResolver,
-        IOrchestratorImageResolver orchestratorImageResolver,
         AgentSmithConfig config)
     {
         _global = sandboxGlobal.Value;
         _resourceResolver = resourceResolver;
         _agentImageResolver = agentImageResolver;
-        _orchestratorImageResolver = orchestratorImageResolver;
         _config = config;
         _materialized = new Lazy<ResolvedConfig>(BuildMaterialized);
     }
@@ -43,7 +39,6 @@ public sealed class ConfigResolutionPass : IConfigResolver
         RunCommandTimeoutSeconds: ResolveRunCommandTimeout(project),
         SandboxResources: ResolveResources(project),
         AgentImage: ResolvedValue<string>.From(_agentImageResolver.Resolve(project), IsAgentOverride(project)),
-        OrchestratorImage: ResolvedValue<string>.From(_orchestratorImageResolver.Resolve(project), IsOrchestratorOverride(project)),
         ToolchainImage: ResolveToolchainImage(project),
         CostCap: ResolveCostCap(project.Pipeline));
 
@@ -82,7 +77,6 @@ public sealed class ConfigResolutionPass : IConfigResolver
                 project.Name, ResolveStepTimeout(project), ResolveRunCommandTimeout(project),
                 ResolveResources(project),
                 new ResolvedValue<string>(null!, ResolutionSource.GlobalDefault),
-                new ResolvedValue<string>(null!, ResolutionSource.GlobalDefault),
                 ResolveToolchainImage(project), ResolveCostCap(project.Pipeline),
                 ResolutionError: ex.Message);
         }
@@ -110,7 +104,4 @@ public sealed class ConfigResolutionPass : IConfigResolver
 
     private static bool IsAgentOverride(ResolvedProject p) =>
         !string.IsNullOrEmpty(p.Sandbox?.AgentRegistry) || !string.IsNullOrEmpty(p.Sandbox?.AgentVersion);
-
-    private static bool IsOrchestratorOverride(ResolvedProject p) =>
-        !string.IsNullOrEmpty(p.Orchestrator?.Registry) || !string.IsNullOrEmpty(p.Orchestrator?.Version);
 }

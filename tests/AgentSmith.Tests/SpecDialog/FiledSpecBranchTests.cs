@@ -547,10 +547,6 @@ public sealed class FiledSpecBranchTests
             return Task.FromResult(true);
         }
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-            Task.FromResult(ParentLinkResult.Linked);
-
         public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
             Task.FromResult(TicketFinalizeResult.Moved());

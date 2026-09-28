@@ -1,19 +1,20 @@
 namespace AgentSmith.Server.Models;
 
-/// <summary>
-/// Discriminated union of all chat intents the dispatcher can handle.
-/// </summary>
+/// <summary>Discriminated union of all chat intents the dispatcher can handle.</summary>
 public abstract record ChatIntent
 {
     public required string RawText { get; init; }
     public required string UserId { get; init; }
     public required string ChannelId { get; init; }
     public required string Platform { get; init; }
+
+    /// <summary>The thread the message was written in (Slack thread_ts; Teams conversation id), or null.</summary>
+    public string? ThreadId { get; init; }
 }
 
 /// <summary>
 /// User wants to fix a specific ticket: "fix #65 in todo-list"
-/// Spawns a K8s Job. Interactive (progress + questions).
+/// Started through the server's spawn funnel; no pipeline named means <c>code</c>.
 /// </summary>
 public sealed record FixTicketIntent : ChatIntent
 {
@@ -23,8 +24,7 @@ public sealed record FixTicketIntent : ChatIntent
 }
 
 /// <summary>
-/// User wants to list tickets: "list tickets in todo-list"
-/// Executed directly in the dispatcher. No K8s Job.
+/// User wants to list tickets: "list tickets in todo-list", answered directly in the dispatcher.
 /// </summary>
 public sealed record ListTicketsIntent : ChatIntent
 {
@@ -32,8 +32,7 @@ public sealed record ListTicketsIntent : ChatIntent
 }
 
 /// <summary>
-/// User wants to create a ticket: "create ticket 'Add logging' in todo-list"
-/// Executed directly in the dispatcher. No K8s Job.
+/// User wants to create a ticket: "create ticket 'Add logging' in todo-list", filed directly.
 /// </summary>
 public sealed record CreateTicketIntent : ChatIntent
 {
@@ -44,7 +43,7 @@ public sealed record CreateTicketIntent : ChatIntent
 
 /// <summary>
 /// User wants to initialize a project: "init todo-list"
-/// Spawns a K8s Job that runs BootstrapProject + InitCommit.
+/// Started through the same launcher as the dashboard's init button.
 /// </summary>
 public sealed record InitProjectIntent : ChatIntent
 {
@@ -53,7 +52,7 @@ public sealed record InitProjectIntent : ChatIntent
 
 /// <summary>
 /// User wants a security review: "/security-review PR#42 in my-api"
-/// Spawns a K8s Job running the security-scan pipeline.
+/// A ticketless security-scan run, pinned to the pull request's head when one is named.
 /// </summary>
 public sealed record SecurityReviewIntent : ChatIntent
 {

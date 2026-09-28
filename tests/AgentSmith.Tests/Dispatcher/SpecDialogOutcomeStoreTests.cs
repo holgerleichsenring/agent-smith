@@ -206,10 +206,6 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
                 $"https://tracker.test/{_created.Count}"));
         }
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-            Task.FromResult(ParentLinkResult.Linked);
-
         public Task<TicketFinalizeResult> FinalizeAsync(
             TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken) =>
             Task.FromResult(TicketFinalizeResult.Moved());

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+using Microsoft.VisualStudio.Services.Identity.Client;
 using Microsoft.VisualStudio.Services.WebApi;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -42,6 +43,9 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
     {
         return Connect(organizationUrl, personalAccessToken).GetClient<WorkItemTrackingHttpClient>();
     }
+
+    public IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken) =>
+        Connect(organizationUrl, personalAccessToken).GetClient<IdentityHttpClient>();
 
     // Keyed by org URL (the PAT is stable per org, same as the ticket-side cache).
     // A stale entry (TTL reached) is disposed and rebuilt so a refreshed

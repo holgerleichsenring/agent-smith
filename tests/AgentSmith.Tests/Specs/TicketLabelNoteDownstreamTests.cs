@@ -31,7 +31,7 @@ public sealed class TicketLabelNoteDownstreamTests
         + "## Acceptance criteria\n- the widget is stored\n";
 
     private static readonly string Note =
-        TicketLabelNote.For([FiledTicketLabels.ApprovedSetStamp])!;
+        TicketLabelNote.For([FiledTicketLabels.ApprovedSetStamp], FiledTicketLabels.ApprovedSetStamp)!;
 
     /// <summary>The ticket as the fetch door publishes it: its own text, without our note.</summary>
     private static Ticket Fetched() =>

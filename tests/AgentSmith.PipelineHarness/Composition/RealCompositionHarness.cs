@@ -225,8 +225,8 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         // empty temp dir — fast-tier tests asserting only handler shape
         // downstream of LoadSkills are happy with an empty catalog. Fixture
         // mode (p0199d) points Root at the checked-in SkillsCatalog tree so
-        // YamlSkillLoader walks real role definitions; init-project and
-        // autonomous need that to populate AvailableRoles.
+        // YamlSkillLoader walks real role definitions; init-project
+        // needs that to populate AvailableRoles.
         services.RemoveAll<ISkillsCatalogPath>();
         if (skillsBackend == SkillsBackend.Fixture)
             services.AddSingleton<ISkillsCatalogPath, CheckedInSkillsCatalogPath>();

@@ -78,15 +78,6 @@ public static class PipelineHandlersExtensions
         services.AddTransient<PrReviewCommentRenderer>();
         services.AddTransient<ICommandHandler<PostPrCommentsContext>, PostPrCommentsHandler>();
         services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
-        // p0328: expectation negotiation — drafter (LLM + caps validation),
-        // ratification question, edit parsing, tracker comment, outcome event.
-        services.AddTransient<ICommandHandler<NegotiateExpectationContext>, NegotiateExpectationHandler>();
-        services.AddTransient<Expectations.IExpectationDrafter, Expectations.ExpectationDrafter>();
-        services.AddTransient<Expectations.ExpectationDraftValidator>();
-        services.AddTransient<Expectations.ExpectationRatifier>();
-        services.AddTransient<Expectations.IExpectationTrackerCommenter, Expectations.ExpectationTrackerCommenter>();
-        services.AddTransient<Expectations.ExpectationOutcomeRecorder>();
-        services.AddTransient<ExpectationQuestionBuilder>();
         // p0393a: turn the ticket into an ordered SET of phase specs after AnalyzeCode —
         // deriver (the one LLM call, judgement only), deterministic segmenter/extractor,
         // reader + writer over the ticket branch, publisher (commit, pointer, draft PR),
@@ -127,13 +118,12 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
         // p0355: scopes the test/doc passes to the repos that actually changed.
         services.AddTransient<RepoDiffPartitioner>().AddTransient<PostExecutePassTools>();
-        services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>();
+        services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>().AddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>();
         services.AddTransient<ICommandHandler<BootstrapDocumentContext>, BootstrapDocumentHandler>();
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();
         services.AddTransient<ICommandHandler<AskContext>, AskCommandHandler>();
         services.AddTransient<ICommandHandler<CompileKnowledgeContext>, CompileKnowledgeHandler>();
-        services.AddTransient<ICommandHandler<QueryKnowledgeContext>, QueryKnowledgeHandler>();
         services.AddSingleton<KnowledgePromptBuilder>();
         services.AddTransient<IGateOutputHandler, GateOutputHandler>();
         services.AddTransient<IGateRetryCoordinator, GateRetryCoordinator>();

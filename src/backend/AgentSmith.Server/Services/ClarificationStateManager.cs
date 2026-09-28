@@ -6,8 +6,8 @@ using StackExchange.Redis;
 namespace AgentSmith.Server.Services;
 
 /// <summary>
-/// Manages pending clarifications in Redis. Separate from ConversationStateManager
-/// because clarifications exist before a job is spawned.
+/// Manages pending clarifications in Redis: a low-confidence chat command waits here
+/// for the person to confirm it before anything is launched.
 /// Key: clarification:{platform}:{channelId} — TTL 2 hours.
 /// </summary>
 public sealed class ClarificationStateManager(

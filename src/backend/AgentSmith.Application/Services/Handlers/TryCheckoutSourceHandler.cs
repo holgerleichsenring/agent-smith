@@ -11,17 +11,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Fail-soft source resolver for api-scan. Honors the --source-path CLI
-/// override, then resolves the configured source: block (Local path or
-/// remote clone via IHostSourceCloner). The clone lands on the host filesystem
-/// so skills can read project sources via their Read/Grep tools. Any failure
-/// leaves SourcePath unset and lets the pipeline continue in passive schema-
-/// only mode.
-///
-/// Multi-repo note: as of p0158b the context is list-shaped (Configs), but
-/// this handler still operates on Configs[0] (= Source) because api-scan
-/// today consumes a single primary repo. Multi-repo fail-soft (front-end +
-/// back-end correlation) is a follow-up beyond p0158d.
+/// Source resolver for api-scan. An explicit --source-path must exist; otherwise the
+/// configured source (a local path or a remote clone via IHostSourceCloner) is used, and
+/// any failure there leaves SourcePath unset so the scan continues in passive mode.
+/// Operates on the primary repo only (Configs[0]).
 /// </summary>
 public sealed class TryCheckoutSourceHandler(
     IHostSourceCloner cloner,
@@ -36,7 +29,8 @@ public sealed class TryCheckoutSourceHandler(
         TryCheckoutSourceContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
-        if (TryHonorCliOverride(pipeline)) return Ok();
+        var cliOverride = TryHonorCliOverride(pipeline);
+        if (cliOverride is not null) return cliOverride;
 
         var source = context.Source;
         if (source.Type == RepoType.Local)
@@ -45,20 +39,24 @@ public sealed class TryCheckoutSourceHandler(
         return await CloneRemoteAsync(context, cancellationToken);
     }
 
-    private bool TryHonorCliOverride(PipelineContext pipeline)
+    private CommandResult? TryHonorCliOverride(PipelineContext pipeline)
     {
-        if (!pipeline.TryGet<string>(ContextKeys.SourcePath, out var path)) return false;
-        if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return false;
+        if (!pipeline.TryGet<string>(ContextKeys.SourcePath, out var path) || string.IsNullOrWhiteSpace(path))
+            return null;
+        if (!Directory.Exists(path))
+            return CommandResult.Fail($"--source-path '{path}' does not exist");
         PublishLocalRepository(pipeline, path);
         logger.LogInformation("Source: {Path} (CLI override)", path);
         EmitBanner(pipeline, sourcePath: path);
-        return true;
+        return Ok();
     }
 
     private CommandResult ResolveLocal(RepoConnection source, PipelineContext pipeline)
     {
-        if (string.IsNullOrWhiteSpace(source.Path) || !Directory.Exists(source.Path))
-            return WarnPassive(pipeline, $"Local source path missing or absent: {source.Path}");
+        if (string.IsNullOrWhiteSpace(source.Path) || source.Path == EphemeralSource.NoSourcePath)
+            return WarnPassive(pipeline, "No source given — passive mode");
+        if (!Directory.Exists(source.Path))
+            return WarnPassive(pipeline, $"Configured source path '{source.Path}' does not exist — passive mode");
         var absolute = Path.GetFullPath(source.Path);
         pipeline.Set(ContextKeys.SourcePath, absolute);
         PublishLocalRepository(pipeline, absolute);

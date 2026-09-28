@@ -36,7 +36,7 @@ public sealed class InheritedSandboxStructuredTests
         };
         var resources = WiredResourceResolver.Create();
         var pass = new ConfigResolutionPass(
-            options, resources, new StubAgentImageResolver(), new StubOrchestratorImageResolver(), config);
+            options, resources, new StubAgentImageResolver(), config);
         return new InheritedSandboxProjection(
             pass, new AgentVersionResolver(options, new BuildIdentity("abc", "0.60.0")), resources, options,
             config, new SandboxHoldRailDoubles.CountingConfigLoader(config),

@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Tickets;
-using AgentSmith.Server.Contracts;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
@@ -13,10 +12,10 @@ namespace AgentSmith.Server.Services.Handlers;
 /// <summary>
 /// Handles the CreateTicketIntent: creates a new ticket in the configured provider
 /// and posts a confirmation with the new ticket ID to the chat channel.
-/// Executed directly by the Dispatcher — no K8s Job required.
+/// Replies on the platform the intent came from.
 /// </summary>
 public sealed class CreateTicketIntentHandler(
-    IPlatformAdapter adapter,
+    PlatformAdapters adapters,
     IConfigurationLoader configLoader,
     ITicketProviderFactory ticketFactory,
     TicketKindResolver kinds,
@@ -30,8 +29,8 @@ public sealed class CreateTicketIntentHandler(
 
             if (!config.Projects.TryGetValue(intent.Project, out var projectConfig))
             {
-                await adapter.SendMessageAsync(
-                    intent.ChannelId,
+                await adapters.SendMessageAsync(
+                    intent.Platform, intent.ChannelId,
                     $":x: Project *{intent.Project}* not found in configuration.",
                     cancellationToken);
                 return;
@@ -50,7 +49,7 @@ public sealed class CreateTicketIntentHandler(
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create ticket in project {Project}", intent.Project);
-            await adapter.SendMessageAsync(intent.ChannelId, $":x: {ex.Message}", cancellationToken);
+            await adapters.SendMessageAsync(intent.Platform, intent.ChannelId, $":x: {ex.Message}", cancellationToken);
         }
     }
 
@@ -60,8 +59,8 @@ public sealed class CreateTicketIntentHandler(
         CancellationToken cancellationToken)
     {
         var link = created.WebUrl is null ? string.Empty : $"\n:link: {created.WebUrl}";
-        await adapter.SendMessageAsync(
-            intent.ChannelId,
+        await adapters.SendMessageAsync(
+            intent.Platform, intent.ChannelId,
             $":white_check_mark: Ticket *#{created.Id.Value}* created in *{intent.Project}*: _{intent.Title}_{link}\n" +
             $"To start working on it: `fix #{created.Id.Value} in {intent.Project}`",
             cancellationToken);

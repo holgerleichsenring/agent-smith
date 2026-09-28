@@ -323,7 +323,6 @@ public sealed partial class SpecDialogOutcomeTests
         work.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.SelectMany(t => t.Labels).Should()
             .NotContain(PhaseTicketRenderer.EpicLabel);
-        bed.Tickets.Links.Should().BeEmpty("nothing is filed under the work ticket to link to it");
         bed.Tickets.Comments.Should().BeEmpty("there are no records to list on it");
         // 2026-09-22-b3d7: the slice list is the ONLY place a person reads a slice on its own, so
         // every id, every goal and every requires: edge has to be in it.
@@ -582,12 +581,6 @@ public sealed partial class SpecDialogOutcomeTests
     {
         private readonly List<(string Title, string Body, IReadOnlyList<string> Labels)> _created = [];
         private readonly List<(TicketId Id, string Comment)> _comments = [];
-        private readonly List<(string Child, string Parent)> _links = [];
-
-        public IReadOnlyList<(string Child, string Parent)> Links
-        {
-            get { lock (_links) return [.. _links]; }
-        }
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created
         {
@@ -618,13 +611,6 @@ public sealed partial class SpecDialogOutcomeTests
                     new TicketId(_created.Count.ToString()),
                     $"https://tracker.test/{_created.Count}"));
             }
-        }
-
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
-        {
-            lock (_links) _links.Add((child.Id.Value, parent.Value));
-            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
@@ -709,20 +695,8 @@ public sealed partial class SpecDialogOutcomeTests
         public Task SendMessageAsync(string channelId, string text, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task SendProgressAsync(string channelId, int step, int total, string commandName,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendDoneAsync(string channelId, string summary, string? prUrl,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendErrorAsync(string channelId, ErrorContext errorContext,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
         public Task UpdateQuestionAnsweredAsync(string channelId, string messageId, string questionText,
             string answer, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendDetailAsync(string channelId, string text, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
 
         public Task SendClarificationAsync(string channelId, string suggestion,
             CancellationToken cancellationToken) => Task.CompletedTask;
@@ -761,15 +735,6 @@ public sealed partial class SpecDialogOutcomeTests
             _answers.GetOrAdd($"{jobId}:{questionId}",
                 _ => new TaskCompletionSource<DialogAnswer>(TaskCreationOptions.RunContinuationsAsynchronously));
 
-        public Task PublishAsync(BusMessage message, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task PublishAnswerAsync(
-            string jobId, string questionId, string content, CancellationToken cancellationToken) =>
-            PublishAnswerAsync(jobId,
-                new DialogAnswer(questionId, content, null, DateTimeOffset.UtcNow, "U-harness"),
-                cancellationToken);
-
         public async IAsyncEnumerable<BusMessage> SubscribeToJobAsync(
             string jobId, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
@@ -783,13 +748,6 @@ public sealed partial class SpecDialogOutcomeTests
             }
             yield break;
         }
-
-        public Task<BusMessage?> ReadAnswerAsync(
-            string jobId, TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult<BusMessage?>(null);
-
-        public Task CleanupJobAsync(string jobId, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
     }
 
     private sealed class StubSkillsCatalogResolver : ISkillsCatalogResolver

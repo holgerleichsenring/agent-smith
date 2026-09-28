@@ -14,7 +14,6 @@ function project(name: string): ConfigProject {
       runCommandTimeoutSeconds: { value: 300, source: "global-default" },
       sandboxResources: { value: { cpuRequest: "1", cpuLimit: "2", memoryRequest: "2Gi", memoryLimit: "4Gi" }, source: "global-default" },
       agentImage: { value: "a", source: "global-default" },
-      orchestratorImage: { value: "o", source: "global-default" },
       toolchainImage: { value: null, source: "run-resolved" },
       costCap: { value: { usd: 5, tokens: 500000 }, source: "global-default" },
       resolutionError: null,

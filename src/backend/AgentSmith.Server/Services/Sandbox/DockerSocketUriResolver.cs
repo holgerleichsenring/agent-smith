@@ -18,7 +18,7 @@ public sealed class DockerSocketUriResolver(IStartupFindings findings)
         if (Uri.TryCreate(configured, UriKind.Absolute, out var uri)) return uri;
 
         findings.Record(new StartupFinding(
-            StartupSubsystems.Spawner,
+            StartupSubsystems.SandboxBackend,
             StartupFindingSeverity.Blocking,
             $"DOCKER_HOST '{configured}' is not a valid URI, so the Docker sandbox backend "
             + $"falls back to '{DefaultSocket}'. Expected form: unix:///var/run/docker.sock "

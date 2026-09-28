@@ -124,8 +124,8 @@ SLACK_SIGNING_SECRET=your-signing-secret-here
 docker compose -f deploy/docker-compose.yml up -d server redis
 ```
 
-The `server` service runs the chat gateway with `SPAWNER_TYPE=docker` by default,
-meaning agent jobs run as Docker containers on the same host.
+The `server` service runs the chat gateway. A run started from Slack is queued and executed
+by the server like any other run, in the sandboxes the server is configured with.
 
 Verify it's running:
 
@@ -144,7 +144,7 @@ curl http://localhost:6000/health
 kubectl apply -k k8s/overlays/prod
 ```
 
-Set `SPAWNER_TYPE=kubernetes` to spawn agent jobs as K8s Jobs.
+Chat runs use the server's own Kubernetes sandboxes; there is nothing chat-specific to set.
 
 ---
 
@@ -199,6 +199,13 @@ fix #1 in my-project
 
 The project name must match a key in your `agentsmith.yml` configuration. Use the ticket id the way your tracker writes it: `#1` for GitHub, GitLab and Azure DevOps, the issue key for Jira (`fix PROJ-12 in my-project`).
 
+The bot answers in the thread of your message with the id of the run it queued, and with a link to the run when `dialogue.dashboard_url` is set. The run executes in the server like a run the poller started, and it reports back to that thread:
+
+- **Its questions** are posted there with buttons; a free-text question takes the next message you write in the thread as the answer. The answer reaches the run however long it has been waiting, also after a server restart.
+- **Its outcome** is posted there when it ends: the pull requests it opened, or the reason it failed. The thread is then free for the next run.
+
+While the run has not reported back, a second run asked for inside the same thread is refused; a new top-level message starts a new thread. The dashboard shows the run's progress in between. See [A chat run's lifecycle](../host-it/chat-gateway.md#a-chat-runs-lifecycle).
+
 ---
 
 ## Supported Commands
@@ -210,7 +217,9 @@ The project name must match a key in your `agentsmith.yml` configuration. Use th
 | Fix a Jira ticket | `fix PROJ-12 in my-project` |
 | List open tickets | `list tickets in my-project` |
 | Create a ticket | `create ticket "Title here" in my-project` |
-| Security scan | `scan my-project for security issues` |
+| Security review | `security-review my-project` |
+| Security review of a pull request | `security-review PR#12 in my-project` |
+| Initialize a project | `init my-project` |
 | Start a design conversation | `@Agent Smith /spec my-project` |
 | Help | `help` |
 
@@ -283,7 +292,6 @@ Update both URLs in the Slack App settings:
 - [ ] Server deployed with stable public HTTPS URL
 - [ ] `SLACK_BOT_TOKEN` set in K8s Secret / environment
 - [ ] `SLACK_SIGNING_SECRET` set in K8s Secret / environment
-- [ ] `SPAWNER_TYPE` set (`docker` or `kubernetes`)
 - [ ] Slack Event Subscriptions URL pointing to production server
 - [ ] Slack Interactivity URL pointing to production server
 - [ ] Bot invited to all relevant channels

@@ -21,11 +21,11 @@ public sealed record BootstrapDocumentContext(
     PipelineContext Pipeline) : ICommandContext;
 
 /// <summary>
-/// Context for writing the analysis output and archiving the source document.
-/// When OutputFormat is set, delegates to the matching IOutputStrategy.
+/// Context for delivering the master's written report through the IOutputStrategy
+/// named by <see cref="OutputFormat"/>, into <see cref="OutputDir"/> when it writes a file.
 /// </summary>
 public sealed record DeliverOutputContext(
-    RepoConnection Config,
-    Repository Repository,
-    PipelineContext Pipeline,
-    string? OutputFormat = null) : ICommandContext;
+    string ProjectName,
+    string OutputFormat,
+    string? OutputDir,
+    PipelineContext Pipeline) : ICommandContext;

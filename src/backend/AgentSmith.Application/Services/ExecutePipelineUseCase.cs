@@ -267,7 +267,7 @@ public sealed class ExecutePipelineUseCase(
         var projectConfig = ResolveProject(request, config);
         var repos = ResolveRepos(projectConfig, request.Context);
         var commands = PipelinePresets.TryResolve(request.PipelineName)
-            ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
+            ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
         var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
 
         var pipeline = new PipelineContext();
@@ -441,9 +441,7 @@ public sealed class ExecutePipelineUseCase(
     }
 
     // The CLI scan's source comes from --source-path (a single synthetic local repo);
-    // absent → the passive-mode empty path, as the retired noop-source placeholder did.
-    private const string EphemeralNoopSourcePath = "/var/empty/agentsmith-noop";
-
+    // absent → EphemeralSource.NoSourcePath, which never exists, so the scan is passive.
     private static ResolvedProject BuildEphemeralProject(PipelineRequest request, AgentSmithConfig config)
     {
         if (!config.Agents.TryGetValue(request.AgentName!, out var agent))
@@ -469,7 +467,7 @@ public sealed class ExecutePipelineUseCase(
         && context.TryGetValue(ContextKeys.SourcePath, out var value)
         && value is string path && !string.IsNullOrEmpty(path)
             ? path
-            : EphemeralNoopSourcePath;
+            : EphemeralSource.NoSourcePath;
 
     /// <summary>
     /// Resolves the repos this run will operate on. By default returns all configured repos.
@@ -598,11 +596,7 @@ public sealed class ExecutePipelineUseCase(
                 Project: projectConfig.Name,
                 Platform: request.TicketId is not null
                     ? projectConfig.Tracker.Type.ToString().ToLowerInvariant()
-                    : null,
-                // p0330: a spawned orchestrator's JOB_ID (the --job-id handle) rides
-                // on RunStarted so the server can force-kill the Job/container by
-                // runId. Null in-process/interactively — nothing spawned to kill.
-                JobId: progressReporter.JobId),
+                    : null),
             ct);
     }
 

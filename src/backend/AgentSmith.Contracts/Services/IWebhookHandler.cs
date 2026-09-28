@@ -16,14 +16,13 @@ public interface IWebhookHandler
 /// <summary>
 /// Result of processing a webhook event.
 /// Post-p0140b: ticket-event handlers spawn their own pipelines via SpawnPipelineRunsUseCase
-/// and return HandledNoRoute() (Handled=true with no routing fields). DialogueAnswer and
-/// TriggerInput paths remain for PR-dialogue and legacy free-form trigger inputs.
+/// and return HandledNoRoute() (Handled=true with no routing fields). The TriggerInput path
+/// remains for PR-comment commands and other legacy free-form trigger inputs.
 /// </summary>
 public sealed record WebhookResult(
     bool Handled,
     string? TriggerInput,
     string? Pipeline,
-    DialogueAnswerData? DialogueAnswer = null,
     Dictionary<string, object>? InitialContext = null,
     string? ProjectName = null,
     string? TicketId = null,
@@ -42,15 +41,3 @@ public sealed record WebhookResult(
         new(false, null, null, SkipReason: reason);
     public static WebhookResult HandledNoRoute() => new(true, null, null);
 }
-
-/// <summary>
-/// Carries dialogue answer data extracted from a PR comment (/approve or /reject).
-/// Used by WebhookListener to route the answer to the waiting agent job via IDialogueTransport.
-/// </summary>
-public sealed record DialogueAnswerData(
-    string Platform,
-    string RepoFullName,
-    string PrIdentifier,
-    string Answer,
-    string? Comment,
-    string AuthorLogin);

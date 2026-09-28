@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -173,8 +174,8 @@ public sealed class RequirementTicketTests
     public void FiledPhase_Labels_CarryTheApprovedSetStamp()
     {
         FiledTicketLabels.CarriesApprovedSet(
-            [FiledTicketLabels.ApprovedSetStamp, "bug"]).Should().BeTrue();
-        FiledTicketLabels.CarriesApprovedSet(["phase"]).Should().BeFalse(
+            [FiledTicketLabels.ApprovedSetStamp, "bug"], TicketLabelVocabulary.Default).Should().BeTrue();
+        FiledTicketLabels.CarriesApprovedSet(["phase"], TicketLabelVocabulary.Default).Should().BeFalse(
             "a hand-written phase ticket is not held to a set nobody approved");
     }
 

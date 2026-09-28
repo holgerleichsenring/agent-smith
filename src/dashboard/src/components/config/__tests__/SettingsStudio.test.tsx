@@ -10,7 +10,7 @@ import { resetCapabilitiesCache } from "../useCapabilities";
 // registries list — plus the dirty-gated Save.
 
 const FIXTURES: Record<string, unknown> = {
-  orchestrator: { registry: "ghcr.io/x", version: "1.0.0", maxRunWallTimeSeconds: 1800 },
+  orchestrator: { maxRunWallTimeSeconds: 1800 },
   skills: { source: 0, version: "v3", path: null, url: null, sha256: null, cacheDir: "" },
   pipeline_cost_cap: {
     default: { usd: 5, tokens: 500000 },
@@ -23,6 +23,7 @@ const FIXTURES: Record<string, unknown> = {
     },
   },
   registries: [],
+  trace: { enabled: false },
   sandbox: {
     agentRegistry: "ghcr.io/x",
     agentVersion: "0.48.0",
@@ -73,7 +74,7 @@ describe("SettingsStudio", () => {
     render(<SettingsStudio settingKey="orchestrator" />);
     const walltime = await screen.findByTestId("setting-orchestrator-walltime");
     expect(walltime).toHaveValue(1800);
-    expect(screen.getByTestId("setting-orchestrator-registry")).toHaveValue("ghcr.io/x");
+    expect(screen.queryByTestId("setting-orchestrator-registry")).toBeNull();
     expect(screen.getByRole("heading", { name: /Orchestrator/ })).toBeInTheDocument();
   });
 
@@ -90,7 +91,7 @@ describe("SettingsStudio", () => {
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith(
       "orchestrator",
-      expect.objectContaining({ maxRunWallTimeSeconds: 3600, registry: "ghcr.io/x" }),
+      expect.objectContaining({ maxRunWallTimeSeconds: 3600 }),
     );
   });
 
@@ -252,5 +253,15 @@ describe("SettingsStudio", () => {
     expect(saveSetting).toHaveBeenCalledWith("registries", [
       expect.objectContaining({ host: "pkgs.dev.azure.com" }),
     ]);
+  });
+
+  it("TraceForm_Toggle_SavesTheStoredSwitch", async () => {
+    render(<SettingsStudio settingKey="trace" />);
+    const enabled = await screen.findByTestId("setting-trace-enabled");
+    expect(enabled).toHaveAttribute("data-selected", "false");
+    fireEvent.click(enabled);
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith("trace", { enabled: true });
   });
 });

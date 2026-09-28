@@ -7,7 +7,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// p0199d: pins the checked-in fixture catalog against the production
 /// YamlSkillLoader's contract. The harness uses these role files to populate
 /// AvailableRoles; if an upstream loader change drops them silently, the
-/// init-project / autonomous tests would surface it as a confusing "0 roles
+/// init-project tests would surface it as a confusing "0 roles
 /// loaded" failure further down the chain. This test stays close to the
 /// fixture so the failure mode reads as "fixture/loader contract drift".
 /// </summary>

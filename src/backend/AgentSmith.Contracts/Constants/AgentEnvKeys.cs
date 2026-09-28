@@ -3,8 +3,8 @@ namespace AgentSmith.Contracts.Constants;
 /// <summary>
 /// Canonical environment-variable names used across the agent runtime —
 /// LLM provider tokens, source-provider tokens, ticket-provider credentials,
-/// and the Redis bus endpoint. Replaces magic strings in spawners
-/// (KubernetesJobSpawner, DockerJobSpawner) and chat-client builders.
+/// and the Redis bus endpoint. Replaces magic strings in the secret bindings and the
+/// chat-client builders.
 /// </summary>
 public static class AgentEnvKeys
 {

@@ -48,6 +48,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("authSecret", "Auth secret", Required: true),
             .. WorkflowFields,
             WorkItemKinds,
+            new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map),
         ],
         _ => throw new ConfigurationException(
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),
@@ -77,7 +78,6 @@ public static class TrackerCapabilityFields
         new CapabilityField(
             "defaultPipeline", "Default pipeline", Required: false, Choices: Commands.PipelinePresets.Routable),
         new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
-        new CapabilityField("parentLinkType", "Parent link type (Jira)", Required: false),
         // 2026-09-25-3c7ac: what this board calls the labels agent-smith writes onto it.
         new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map),
     ];

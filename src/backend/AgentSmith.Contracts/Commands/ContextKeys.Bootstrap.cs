@@ -1,10 +1,9 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// Bootstrap + skill-manager + autonomous PipelineContext keys. Covers the
-/// skill-manager workflow (candidates → evaluations → approval → install),
-/// init-project mode flag, autonomous-pipeline findings + written-tickets,
-/// query-knowledge answer, and the run-history list (consumed by autonomous-*).
+/// Bootstrap + skill-manager PipelineContext keys. Covers the skill-manager
+/// workflow (candidates → evaluations → approval → install), the init-project
+/// mode flag and the compile-wiki updates.
 /// </summary>
 public static partial class ContextKeys
 {
@@ -56,10 +55,6 @@ public static partial class ContextKeys
     public const string ApprovedSkills = "ApprovedSkills";
 
     public const string WikiUpdates = "WikiUpdates";
-    public const string QueryAnswer = "QueryAnswer";
-    public const string RunHistory = "RunHistory";
-    public const string AutonomousFindings = "AutonomousFindings";
-    public const string WrittenTickets = "WrittenTickets";
 
     /// <summary>2026-09-04-0721: the analyzed ProjectMap of each CONTEXT, keyed repo name then
     /// context name. RepoProjectMaps is keyed by SANDBOX, so it describes the subtree of that

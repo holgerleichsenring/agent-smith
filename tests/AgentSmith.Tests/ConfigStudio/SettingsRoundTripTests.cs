@@ -25,7 +25,7 @@ public sealed class SettingsRoundTripTests
             "orchestrator", "limits", "pipeline_cost_cap", "skills", "sandbox", "queue",
             "dialogue", "deployment", "registries", "primary_provider", "pipeline_storage",
             // 2026-08-25-1806: what a role name means is application configuration too.
-            "pipeline_data_flow", "role_mapping",
+            "pipeline_data_flow", "role_mapping", "trace",
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }
@@ -37,12 +37,11 @@ public sealed class SettingsRoundTripTests
         h.Import("orchestrator:\n  max_run_wall_time_seconds: 1800\n");
 
         h.Store.SaveSetting("orchestrator",
-            Doc("""{"registry":"ghcr.io/sample","version":"1.2.3","maxRunWallTimeSeconds":5400}"""),
+            Doc("""{"maxRunWallTimeSeconds":5400}"""),
             new ChangeAttribution("alice"));
 
         // The assembled runtime value is the saved one.
         var raw = h.Assembler.Assemble(h.DocStore.LoadAll());
-        raw.Orchestrator.Registry.Should().Be("ghcr.io/sample");
         raw.Orchestrator.MaxRunWallTimeSeconds.Should().Be(5400);
 
         // GetSetting reads the same value back, typed — serialized the same camelCase

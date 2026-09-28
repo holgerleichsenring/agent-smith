@@ -1,13 +1,12 @@
-import type { ProjectExpectationMetrics } from "@/lib/expectationsApi";
-import { percentOrDash } from "@/lib/expectationTotals";
+import type { ProjectCriteria } from "@/lib/expectationsApi";
+import { judgedSentence, overruleSentence, percentOrDash } from "@/lib/expectationTotals";
 
-// p0343d: one project's ratification record as the parity mock's .ecard — its
-// counts, its two rates, and the per-month accepted tally where months exist.
-// 2026-08-27-559e: its own file, so the criteria panel's view holds the states
-// it can be in and nothing else.
+// One project's criteria as the parity mock's .ecard: its counts, its share, and the
+// share per month of the runs' finish where months exist.
 
-export function ExpectationProjectCard({ metrics }: { metrics: ProjectExpectationMetrics }) {
+export function ExpectationProjectCard({ metrics }: { metrics: ProjectCriteria }) {
   const c = metrics.counts;
+  const overrules = overruleSentence(c);
   return (
     <div className="ecard" data-testid={`expectations-project-${metrics.project}`}>
       <div className="ec-top">
@@ -17,24 +16,14 @@ export function ExpectationProjectCard({ metrics }: { metrics: ProjectExpectatio
         <div style={{ minWidth: 0 }}>
           <div className="ec-name">{metrics.project}</div>
           <div className="ec-sub">
-            {c.total} negotiated · {c.verbatim} verbatim · {c.edited} edited · {c.rejected}{" "}
-            rejected · {c.unratified} unratified
-            {metrics.averageEditDistance !== null &&
-              ` · avg edit distance ${Math.round(metrics.averageEditDistance)}`}
+            {metrics.runs} runs · {judgedSentence(c)} · {c.unmet} unmet · {c.unproven} unproven
+            {overrules !== null && ` · ${overrules}`}
           </div>
         </div>
         <div className="ec-right">
           <span className="tybadge">
-            hit rate{" "}
-            <b data-testid={`expectations-hit-rate-${metrics.project}`}>
-              {percentOrDash(metrics.expectationHitRate)}
-            </b>
-          </span>
-          <span className="tybadge">
-            first-PR{" "}
-            <b data-testid={`expectations-acceptance-${metrics.project}`}>
-              {percentOrDash(metrics.firstPrAcceptance)}
-            </b>
+            met{" "}
+            <b data-testid={`expectations-share-${metrics.project}`}>{percentOrDash(c.share)}</b>
           </span>
         </div>
       </div>
@@ -43,12 +32,12 @@ export function ExpectationProjectCard({ metrics }: { metrics: ProjectExpectatio
   );
 }
 
-function MonthTally({ metrics }: { metrics: ProjectExpectationMetrics }) {
+function MonthTally({ metrics }: { metrics: ProjectCriteria }) {
   return (
     <div className="ec-body">
-      <span className="msub mono">
+      <span className="msub mono" data-testid={`expectations-months-${metrics.project}`}>
         {metrics.months
-          .map((m) => `${m.month}: ${m.counts.verbatim + m.counts.edited}/${m.counts.total} accepted`)
+          .map((m) => `${m.month}: ${m.counts.met}/${m.counts.judged} met`)
           .join(" · ")}
       </span>
     </div>

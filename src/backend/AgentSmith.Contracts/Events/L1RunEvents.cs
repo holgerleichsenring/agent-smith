@@ -27,10 +27,9 @@ public sealed record RunStartedEvent(
     // p0320c events and non-project (CLI ephemeral) runs.
     string? Project = null,
     string? Platform = null,
-    // p0330: the spawner's container/pod handle (JOB_ID of a spawned orchestrator).
-    // Persisted onto the Run row so the server-side cancel enforcer can force-kill
-    // the k8s Job / Docker container by runId — the event stream is the ONLY channel
-    // a spawned orchestrator has back to the server DB. Null for in-process runs.
+    // p0330: the container/pod handle of a spawned orchestrator. No run is spawned that
+    // way any more, so nothing sets it; it stays on the contract so recorded events and
+    // the rows they produced still read. Null for every run the server executes.
     string? JobId = null)
     : RunEvent(RunId, EventType.RunStarted, StartedAt);
 

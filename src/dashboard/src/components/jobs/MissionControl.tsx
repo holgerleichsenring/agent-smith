@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { HubConnectionState } from "@microsoft/signalr";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import type { RunSnapshot } from "@/types/hub-events";
 import { fetchRunsBefore } from "@/lib/runsApi";
 import { ConnectionState } from "./ConnectionState";
 import { RunRow } from "./RunRow";
-import { mergeNewestFirst } from "./RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
+import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
 import { NeedsYouCard } from "./mission/NeedsYouCard";
+import { Section } from "./mission/Section";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
-import { cn } from "@/lib/utils";
 
 // p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
 // needs the operator: Needs-you (answer inline, no navigation) → Running →
@@ -170,6 +171,7 @@ export function MissionControl() {
           id="finished"
           count={buckets.finished.length}
           testId="section-finished"
+          action={buckets.finished.length > 0 ? <ClearTerminalRunsButton /> : undefined}
           alwaysShow={filter === "finished"}
           emptyLine={EMPTY_LINE.finished}
         >
@@ -208,44 +210,5 @@ function RowList({ runs }: { runs: Parameters<typeof RunRow>[0]["snapshot"][] })
         </RenderBoundary>
       ))}
     </div>
-  );
-}
-
-function Section({
-  title,
-  id,
-  count,
-  amber,
-  testId,
-  hint,
-  alwaysShow,
-  emptyLine,
-  children,
-}: {
-  title: string;
-  /** p0345b: DOM anchor for the AppRail monitor hash-links (/#needs-you …). */
-  id: string;
-  count: number;
-  /** The mock's .cnt.amber attention pill (Needs-you > 0). */
-  amber?: boolean;
-  testId: string;
-  hint?: string;
-  alwaysShow?: boolean;
-  emptyLine?: string;
-  children: ReactNode;
-}) {
-  if (count === 0 && !alwaysShow) return null;
-  return (
-    <section id={id} data-testid={testId} className="scroll-mt-6">
-      <div className="section-head">
-        <h2>{title}</h2>
-        <span data-testid={`${testId}-count`} className={cn("cnt", amber && "amber")}>
-          {count}
-        </span>
-        {hint && <span className="sh-sub">{hint}</span>}
-      </div>
-      <div style={{ height: 14 }} />
-      {count === 0 ? <div className="msub">{emptyLine}</div> : children}
-    </section>
   );
 }

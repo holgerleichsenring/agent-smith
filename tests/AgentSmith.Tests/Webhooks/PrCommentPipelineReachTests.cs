@@ -17,11 +17,12 @@ public sealed class PrCommentPipelineReachTests
     public void PrComment_TheCodePreset_IsReachableOnAllThreeHosts()
     {
         PrCommentPipelines.Allowed.Should().Contain(PipelinePresets.CodeName);
+        Source("PrCommentCommandAdmission").Should().Contain("PrCommentPipelines.Allowed");
         Handlers().Should().OnlyContain(
-            source => source.Contains("PrCommentPipelines.Allowed", StringComparison.Ordinal),
+            source => source.Contains("admission.AdmitAsync", StringComparison.Ordinal),
             "three copies of one list is how the capability nearly went missing — every host "
-            + "reads the same one, so 'on all three hosts' is a property of the code, not of "
-            + "three assertions that could drift apart");
+            + "goes through the one admission that reads it, so 'on all three hosts' is a "
+            + "property of the code, not of three assertions that could drift apart");
     }
 
     [Fact]
@@ -40,7 +41,10 @@ public sealed class PrCommentPipelineReachTests
         {
             "GitHubPrCommentWebhookHandler", "GitLabMrCommentWebhookHandler",
             "AzureDevOpsPrCommentWebhookHandler",
-        }.Select(name => File.ReadAllText(Path.Combine(
+        }.Select(Source);
+
+    private static string Source(string name) =>
+        File.ReadAllText(Path.Combine(
             Architecture.ArchitectureSources.BackendRoot,
-            "AgentSmith.Server", "Services", "Webhooks", $"{name}.cs")));
+            "AgentSmith.Server", "Services", "Webhooks", $"{name}.cs"));
 }

@@ -230,23 +230,8 @@ public sealed class ChatClientFactory(
         GetAssignment(agent, task).ContextWindowTokens;
     public string GetModel(AgentConfig agent, TaskType task) => GetAssignment(agent, task).Model;
 
-    private ModelAssignment GetAssignment(AgentConfig agent, TaskType task)
-    {
-        var registryConfig = agent.Models ?? BuildFallback(agent);
-        var registry = new ConfigBasedModelRegistry(registryConfig, _logger);
-        return registry.GetModel(task);
-    }
-
-    private static ModelRegistryConfig BuildFallback(AgentConfig agent)
-    {
-        var primary = new ModelAssignment { Model = agent.Model, Deployment = agent.Deployment };
-        return new ModelRegistryConfig
-        {
-            Scout = primary, Primary = primary, Planning = primary,
-            Reasoning = primary, Summarization = primary,
-            ContextGeneration = primary, CodeMapGeneration = primary
-        };
-    }
+    private ModelAssignment GetAssignment(AgentConfig agent, TaskType task) =>
+        new ConfigBasedModelRegistry(agent, _logger).GetModel(task);
 
     private static Dictionary<string, IChatClientBuilder> BuildIndex(IEnumerable<IChatClientBuilder> builders)
     {

@@ -28,7 +28,7 @@ This section documents the on-disk file format. Before you use it, know which su
 - :material-tag-multiple: **[Concept vocabulary](concept-vocabulary.md)** -- the concepts skills activate on
 - :material-wrench: **[Tool configuration](tools.md)** -- Nuclei and Spectral config for the api-scan pipeline
 - :material-webhook: **[Webhooks](webhooks.md)** -- endpoints, signature verification, PR comment commands
-- :material-shield-check: **[Security scan config](security-scan.md)** -- DAST (ZAP), auto-fix, and trend analysis configuration
+- :material-shield-check: **[Security scan config](security-scan.md)** -- DAST (ZAP) and trend analysis configuration
 
 </div>
 

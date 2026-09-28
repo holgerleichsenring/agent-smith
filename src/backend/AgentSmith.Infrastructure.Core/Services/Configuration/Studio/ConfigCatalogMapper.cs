@@ -23,10 +23,9 @@ internal static class ConfigCatalogMapper
             Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
             Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
 
-    // p0345c: the FULL raw agent surface. Model routing surfaces the EFFECTIVE
-    // registry (defaults filled by binding are shown as-is — what runs is what
-    // the operator sees); the reserved "coding" role carries the top-level
-    // model/deployment pair. Sections not surfaced here (parallelism, rate
+    // p0345c: the FULL raw agent surface. Model routing surfaces the roles the operator
+    // SET — an unset role inherits and shows as empty; the reserved "coding" role carries
+    // the top-level model/deployment pair. Sections not surfaced here (parallelism, rate
     // limit, loop tuning) survive upsert untouched via the patch builders.
     private static AgentEntity ToAgent(string id, AgentConfig agent)
     {
@@ -35,19 +34,8 @@ internal static class ConfigCatalogMapper
             ["coding"] = new(agent.Model, agent.Deployment),
         };
         if (agent.Models is { } registry)
-        {
-            models["scout"] = ToAssignment(registry.Scout);
-            models["primary"] = ToAssignment(registry.Primary);
-            models["planning"] = ToAssignment(registry.Planning);
-            if (registry.Reasoning is { } reasoning) models["reasoning"] = ToAssignment(reasoning);
-            models["summarization"] = ToAssignment(registry.Summarization);
-            if (registry.ContextGeneration is { } contextGeneration)
-                models["contextGeneration"] = ToAssignment(contextGeneration);
-            // 2026-09-25-2fa7: optional like its neighbours — an agent that states no code-map
-            // role emits none, rather than the studio showing a value nobody set.
-            if (registry.CodeMapGeneration is { } codeMap)
-                models["codeMapGeneration"] = ToAssignment(codeMap);
-        }
+            foreach (var (role, assignment) in StudioModelRoles.Of(registry))
+                models[role] = ToAssignment(assignment);
         return new AgentEntity(
             id,
             agent.Type,
@@ -69,8 +57,7 @@ internal static class ConfigCatalogMapper
                 agent.Compaction.IsEnabled,
                 agent.Compaction.ThresholdIterations,
                 agent.Compaction.MaxContextTokens,
-                agent.Compaction.KeepRecentIterations,
-                agent.Compaction.SummaryModel),
+                agent.Compaction.KeepRecentIterations),
             new AgentRetrySettings(
                 agent.Retry.MaxRetries,
                 agent.Retry.InitialDelayMs,
@@ -107,9 +94,9 @@ internal static class ConfigCatalogMapper
             tracker.ZeroMatchComment,
             tracker.LifecycleStatusNames is { Count: > 0 } lifecycle ? lifecycle : null,
             tracker.DefaultPipeline,
-            tracker.ParentLinkType,
             tracker.WorkItemKinds is { Count: > 0 } kinds ? kinds : null,
-            tracker.LabelNames is { Count: > 0 } labelNames ? labelNames : null);
+            tracker.LabelNames is { Count: > 0 } labelNames ? labelNames : null,
+            JiraEndpointsMap.Overrides(tracker.Endpoints));
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);

@@ -36,23 +36,19 @@ internal static class RunListComposer
     // stays complete when opened from a paged row.
     internal static async Task<RunSnapshot[]> BuildPageBeforeAsync(
         RunRepository runs, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
-        string? orchestratorMemoryRequest, CancellationToken ct)
+        CancellationToken ct)
     {
         var page = await runs.GetRunsBeforeAsync(before, limit, ct);
         var footprints = capacityBudget is null
             ? new Dictionary<string, RunCapacitySnapshot>()
             : await capacityBudget.GetManyAsync(page.Select(r => r.Id).ToList(), ct);
         return [.. page.Select(r => RunSnapshotMapper.ToSnapshot(
-            r, null, orchestratorMemoryRequest, null, footprints.GetValueOrDefault(r.Id)))];
+            r, null, null, footprints.GetValueOrDefault(r.Id)))];
     }
 
-    /// <summary>
-    /// p0332: orchestratorMemoryRequest feeds the reserved resource-time — the same
-    /// JobSpawner Resources value the spawner sizes the orchestrator pod with.
-    /// </summary>
     internal static async Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync(
         RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
-        string? orchestratorMemoryRequest = null, IRunCheckpointStore? checkpoints = null,
+        IRunCheckpointStore? checkpoints = null,
         ICapacityBudget? capacityBudget = null, IActiveRunLease? activeRunLease = null,
         TimeProvider? clock = null)
     {
@@ -72,10 +68,10 @@ internal static class RunListComposer
         var footprints = await FootprintsByRunIdAsync(capacityBudget, active, recent, cancellationToken);
         return (
             [.. active.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, RunQueuePlace.Of(r, positions, relaunching), orchestratorMemoryRequest,
+                r, RunQueuePlace.Of(r, positions, relaunching),
                 pending.GetValueOrDefault(r.Id), footprints.GetValueOrDefault(r.Id)))],
             [.. recent.Select(r => RunSnapshotMapper.ToSnapshot(
-                r, RunQueuePlace.Of(r, positions), orchestratorMemoryRequest,
+                r, RunQueuePlace.Of(r, positions),
                 null, footprints.GetValueOrDefault(r.Id)))]);
     }
 

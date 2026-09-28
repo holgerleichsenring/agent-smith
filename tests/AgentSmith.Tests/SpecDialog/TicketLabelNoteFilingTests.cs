@@ -163,10 +163,6 @@ public sealed class TicketLabelNoteFilingTests
                 new TicketId(_created.Count.ToString()), $"https://tracker.test/{_created.Count}"));
         }
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-            Task.FromResult(ParentLinkResult.Linked);
-
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 

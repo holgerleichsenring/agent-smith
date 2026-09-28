@@ -17,12 +17,13 @@ It was not possible to connect to the redis server(s).
 ## Runs never start on Docker: no socket
 
 ```
-Docker socket not available: … Mount /var/run/docker.sock into the dispatcher container.
+The Docker sandbox backend is not reachable, so no run can create a sandbox. Cause: …
 ```
 
-With `SPAWNER_TYPE=docker` the server creates containers through the host's Docker
-daemon, so the compose service needs `/var/run/docker.sock` mounted (the example
-compose file does this, and runs the server as root for socket access).
+With `SANDBOX_TYPE=docker` the server creates each run's sandboxes through the host's
+Docker daemon, so the compose service needs `/var/run/docker.sock` mounted (the example
+compose file does this, and runs the server as root for socket access). The finding is
+listed under `sandbox-backend` at `GET /api/config/findings`.
 
 ## The sandbox agent image is missing
 

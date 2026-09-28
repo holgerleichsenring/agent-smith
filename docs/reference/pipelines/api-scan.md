@@ -12,7 +12,7 @@ The **api-security-scan** pipeline scans a running API against its OpenAPI descr
 | 1 | LoadCatalog | Pulls and verifies the skill catalog |
 | 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
 | 3 | RatifyScanContract | States what this scan looks for, before any scanner runs |
-| 4 | TryCheckoutSource | Resolves the source if one is available; never fails the run |
+| 4 | TryCheckoutSource | Resolves the source if one is available; fails only on a `--source-path` that does not exist |
 | 5 | SetupRegistryAuth | Pre-stages private-feed credentials (nothing to do without source) |
 | 6-7 | BootstrapCheck / BootstrapGate | Checks the source's bootstrap; skipped when there is no source |
 | 8 | LoadContext | Loads the target's `.agentsmith/` context files, if present |
@@ -43,7 +43,7 @@ The **api-security-scan** pipeline scans a running API against its OpenAPI descr
 - Every delivered finding is substantiated against the evidence the scan holds (`SubstantiateFindings`)
 - The surviving findings are delivered in the requested formats (`DeliverFindings`)
 
-`AccountScanCoverage` checks each one against the execution trail at the end. A criterion whose step never ran, or failed, is outstanding, names why, and records the run as failed. The account appears under **What this scan looked for** in `result.md`, with the master pass's measurements; see [Security Scan](security-scan.md#the-scans-account).
+`AccountScanCoverage` checks each one against the execution trail at the end. A criterion whose step never ran, or failed, is outstanding and names why, and the run fails: the command exits with 1. The account is recorded first, so `result.md` and the delivered reports are still written. The account appears under **What this scan looked for** in `result.md`, with the master pass's measurements; see [Security Scan](security-scan.md#the-scans-account).
 
 ## Automated scanners
 
@@ -85,7 +85,7 @@ The master works on the same read-only surface as the security-master (file read
 
 ## Findings are checked against the description
 
-`SubstantiateFindings` resolves each finding's endpoint against the OpenAPI description the scan loaded. A claim about the live target, one that names an endpoint or schema and has no readable source line behind it, is dropped when the endpoint it cites is not in the description: an endpoint the specification never declared is invention. Every other finding is put to a fresh instance with the request and response that produced it and asked to refute it. A refuted finding is downgraded to Medium, stops blocking, and carries the reason; it is not deleted.
+`SubstantiateFindings` resolves each finding's endpoint against the OpenAPI description the scan loaded. A claim about the live target, one that names an endpoint or schema and has no readable source line behind it, is dropped when the endpoint it cites is not in the description: an endpoint the specification never declared is invention. Every other finding is put to a fresh instance with the request and response that produced it and asked to refute it. A refuted finding is downgraded to Medium and carries the reason; it is not deleted.
 
 ## What the clients never use
 
@@ -181,13 +181,15 @@ container_timeout: 300       # seconds before the container is cut off
 
 ## Source resolution
 
-With source, the master can anchor a finding to a file and line. Source is optional: without it the scan runs against the description and the live target only, and does not fail.
+With source, the master can anchor a finding to a file and line. Source is optional: without it the scan runs against the description and the live target only, and does not fail. The log says "No source given — passive mode".
 
 Resolution order, first match wins:
 
-1. `--source-path <local-path>` always wins.
+1. `--source-path <local-path>` always wins. A path you name must exist: a missing one fails the run rather than quietly scanning without source.
 2. With `--project`, the project's first repository: a local repository's path, or a clone of a remote one using the repository's configured credentials.
-3. Otherwise, or when the path is missing or the clone fails, the scan runs without source.
+3. Otherwise, or when the configured path is missing or the clone fails, the scan runs without source.
+
+`--source-url` needs `--source-type`; a URL without a type is refused before the run starts.
 
 The clone uses the repository's default branch. api-scan never checks out ticket branches.
 

@@ -148,8 +148,13 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
   };
 
   const runImport = async (yaml: string, force: boolean) => {
-    const count = await importConfigYml(yaml, force);
-    setImportMsg(`Imported ${count} config entities.`);
+    const { imported, dropped } = await importConfigYml(yaml, force);
+    const notKept = dropped.map((d) => `${d.path} (${d.reason})`).join("; ");
+    setImportMsg(
+      dropped.length === 0
+        ? `Imported ${imported} config entities.`
+        : `Imported ${imported} config entities. Not imported: ${notKept}.`,
+    );
     await reload();
   };
 

@@ -9,7 +9,7 @@ The `pr-review` pipeline reviews a pull request: it reads the PR diff, has the *
 
 - The input is the PR diff, with the repository checked out at the PR's head so the master can read the code around a change.
 - One master covers four dimensions: correctness, a thin security pass over the changed lines, style, and test coverage. On a large diff it splits the review across sub-agents and merges what comes back. A security concern that needs the whole repository is noted once and points you at a full `security-scan`.
-- Every finding the master delivers is put to a fresh instance asked to refute it, the same step the scans run. A refuted finding is downgraded to Medium, stops blocking, and carries the reason. See [Security Scan](security-scan.md#every-delivered-finding-faces-a-refuter).
+- Every finding the master delivers is put to a fresh instance asked to refute it, the same step the scans run. A refuted finding is downgraded to Medium and carries the reason. See [Security Scan](security-scan.md#every-delivered-finding-faces-a-refuter).
 - Findings land as review comments on the lines they're about, grouped by file and line range, most severe first, at most 25 inline. The rest, and any finding on a line the diff doesn't touch, fold into one summary comment. A review with no findings still posts a summary.
 - **Re-review replaces.** Each comment carries a hidden marker. When the PR is updated, the next review deletes the previous review's comments before posting the new ones, instead of piling a second opinion on top of a stale one.
 
@@ -52,7 +52,7 @@ projects:
 You can also start a review from a PR comment, `/agent-smith review`; see [PR comments](../integrations/pr-comments.md).
 
 !!! note "The review label starts a security scan"
-    Putting the label `security-review` on a pull request, or the word your project sets as `pr_trigger_label` on its `github_trigger` / `gitlab_trigger`, starts a **security-scan** of that repository, not a `pr-review`. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way.
+    Putting the label `security-review` on a pull request, or the word your project sets as `pr_trigger_label` on its `github_trigger` / `gitlab_trigger`, starts a **security-scan** of that pull request's head (its branch checked out, scanned in full), not a `pr-review`. The scan starts when the label is added, and only for a repository a project configures. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way. Pushes to a pull request that already carries the label still start a `pr-review`.
 
 ## Per-pipeline overrides
 

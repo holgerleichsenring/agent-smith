@@ -20,13 +20,33 @@ public sealed class ContextGenerationRoleOptionalTests
     {
         var raw = new RawAgentSmithConfig
         {
-            Agents = { ["agent"] = new AgentConfig { Model = "m", Models = new ModelRegistryConfig() } },
+            Agents =
+            {
+                ["agent"] = new AgentConfig
+                {
+                    Model = "m", Models = new ModelRegistryConfig { Primary = new() { Model = "p" } },
+                },
+            },
         };
 
         var models = ConfigCatalogMapper.ToCatalog(raw).Agents.Single().Models;
 
         models.Should().NotContainKey("contextGeneration");
-        models.Should().ContainKey("primary"); // the roles that are not optional still map
+        models.Should().NotContainKey("scout", "an unset role inherits and is not shown as a value");
+        models.Should().ContainKey("primary"); // a role the operator set still maps
+    }
+
+    [Fact]
+    public void RawAgentModelPatch_RoleSavedWithAnEmptyModel_IsUnset()
+    {
+        var agent = new AgentConfig
+        {
+            Model = "m", Models = new ModelRegistryConfig { Scout = new() { Model = "claude-haiku-4-5-20251001" } },
+        };
+
+        RawAgentModelPatch.Apply(Entity("scout", new AgentModelAssignment("", null)), agent);
+
+        agent.Models!.Scout.Should().BeNull("an empty model is how the studio clears a role");
     }
 
     [Fact]
@@ -41,13 +61,16 @@ public sealed class ContextGenerationRoleOptionalTests
     }
 
     [Fact]
-    public void ConfigStudioCapabilities_ContextGeneration_IsOptional() =>
+    public void ConfigStudioCapabilities_EveryRoleButCoding_IsOptional() =>
         ConfigStudioCapabilities.RoleCapabilities
-            .Single(r => r.Key == "contextGeneration").Optional.Should().BeTrue();
+            .Should().OnlyContain(r => r.Optional == (r.Key != ConfigStudioCapabilities.ReservedCodingRole));
 
     private static AgentEntity Entity(AgentModelAssignment contextGeneration) =>
+        Entity("contextGeneration", contextGeneration);
+
+    private static AgentEntity Entity(string role, AgentModelAssignment assignment) =>
         new(
             "agent", "stub", null, null, null, null,
-            new Dictionary<string, AgentModelAssignment> { ["contextGeneration"] = contextGeneration },
+            new Dictionary<string, AgentModelAssignment> { [role] = assignment },
             null, null, null, null);
 }

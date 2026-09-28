@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -20,6 +22,10 @@ internal static class WebhookEndpointsExtensions
         // 2026-09-25-d83b: the PR-label handlers ask this for the review-request word
         // instead of carrying a literal each.
         services.AddSingleton<PrTriggerLabelResolver>();
+        services.AddPrCommentAuthorTrust();
+        services.AddSingleton<PrCommentCommandAdmission>();
+        services.AddSingleton<PrReviewRouteResolver>();
+        services.TryAddSingleton<PrRunContextFactory>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();
@@ -35,7 +41,6 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IWebhookHandler, JiraCommentWebhookHandler>();
         // p0167a: pr-opened / pr-synchronize -> pr-review. Registered AFTER the
         // label/comment handlers so existing triggers keep first-match precedence.
-        services.AddSingleton<PrReviewRouteResolver>();
         services.AddSingleton<IWebhookHandler, GitHubPrEventWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitLabMrEventWebhookHandler>();
         services.AddSingleton<IWebhookHandler, AzureDevOpsPrEventWebhookHandler>();
