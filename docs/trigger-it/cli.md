@@ -47,7 +47,7 @@ agent-smith api-scan --agent claude-parallel --source-path . \
   --target  https://api.todolist.dev
 ```
 
-`--project` still works on the scan verbs for back-compat, but `--agent` is the shape to use.
+`--project` still works on the scan verbs for back-compat, but `--agent` is the shape to use. A `--source-path` you name must exist: a missing one fails the scan instead of running it without source. Leave it out and `api-scan` runs passively, against the description and the live target only.
 
 ## Pass an explicit config path
 
@@ -86,7 +86,7 @@ agent-smith code --ticket 54 --project todolist \
   --repo todolist-api
 ```
 
-The agent does its work in the local checkout. Useful for offline iteration and when you don't want to push to a remote. (`--source-url` and `--source-auth` exist for the symmetric case of overriding the remote.)
+The agent does its work in the local checkout. Useful for offline iteration and when you don't want to push to a remote. (`--source-url` and `--source-auth` exist for the symmetric case of overriding the remote. `--source-url` needs `--source-type` alongside it; a URL on its own is refused before the run starts.)
 
 ## What lands on disk
 

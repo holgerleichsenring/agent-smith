@@ -172,13 +172,13 @@ public sealed class DbConfigStoreTests : IDisposable
     public void Project_StoredPipelineList_SurvivesASaveThatOnlyChangesTheDefault()
     {
         // The union, not a replacement: each stored entry carries a per-pipeline agent,
-        // skills path, principles path and confidence threshold, and a save that sent only
+        // skills path and principles path, and a save that sent only
         // the default would delete every other entry and its overrides.
         var existing = new RawProjectEntry
         {
             Pipelines =
             [
-                new RawPipelineEntry { Name = "code", Agent = "claude-default", ConfidenceThreshold = 80 },
+                new RawPipelineEntry { Name = "code", Agent = "claude-default", SkillsPath = "skills/custom" },
                 new RawPipelineEntry { Name = "security-scan" },
             ],
         };
@@ -190,7 +190,7 @@ public sealed class DbConfigStoreTests : IDisposable
 
         patched.Pipelines.Select(p => p.Name).Should().Equal("code", "security-scan", "pr-review");
         patched.Pipelines[0].Agent.Should().Be("claude-default");
-        patched.Pipelines[0].ConfidenceThreshold.Should().Be(80);
+        patched.Pipelines[0].SkillsPath.Should().Be("skills/custom");
     }
 
     private ConfigCatalog FileStoreCatalog(string yaml)

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -16,6 +15,7 @@ public sealed class GitHubPrEventWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
+    PrRunContextFactory contextFactory,
     ILogger<GitHubPrEventWebhookHandler> logger) : IWebhookHandler
 {
     private static readonly HashSet<string> TriggerActions = new(StringComparer.OrdinalIgnoreCase)
@@ -51,7 +51,7 @@ public sealed class GitHubPrEventWebhookHandler(
                 return Task.FromResult(WebhookResult.NotHandled(
                     $"no agent-smith project configured for repo {repoFullName}"));
 
-            var initialContext = BuildInitialContext(pr, route);
+            var initialContext = contextFactory.FromGitHub(pr, route.RepoName);
             logger.LogInformation(
                 "GitHub PR {Repo}#{Pr} {Action} -> pipeline={Pipeline} project={Project}",
                 repoFullName, prNumber, action, route.PipelineName, route.ProjectName);
@@ -67,17 +67,6 @@ public sealed class GitHubPrEventWebhookHandler(
             return Task.FromResult(WebhookResult.NotHandled());
         }
     }
-
-    private static Dictionary<string, object> BuildInitialContext(
-        JsonElement pr, PrReviewRoute route) => new()
-    {
-        [ContextKeys.PrNumber] = pr.GetProperty("number").GetInt32().ToString(),
-        [ContextKeys.PrHead] = pr.GetProperty("head").GetProperty("sha").GetString() ?? "",
-        [ContextKeys.PrBase] = pr.GetProperty("base").GetProperty("sha").GetString() ?? "",
-        [ContextKeys.PrAuthor] = pr.GetProperty("user").GetProperty("login").GetString() ?? "",
-        [ContextKeys.CheckoutBranch] = pr.GetProperty("head").GetProperty("ref").GetString() ?? "",
-        [ContextKeys.SourceOverrideRepo] = route.RepoName,
-    };
 
     private static IReadOnlyList<string> ExtractLabels(JsonElement pr)
     {

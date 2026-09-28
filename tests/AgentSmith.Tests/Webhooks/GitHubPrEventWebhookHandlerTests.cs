@@ -21,7 +21,7 @@ public sealed class GitHubPrEventWebhookHandlerTests
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config ?? BuildConfig());
         return new GitHubPrEventWebhookHandler(
-            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()),
+            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrRunContextFactory(),
             NullLogger<GitHubPrEventWebhookHandler>.Instance);
     }
 

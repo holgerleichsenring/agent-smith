@@ -441,9 +441,7 @@ public sealed class ExecutePipelineUseCase(
     }
 
     // The CLI scan's source comes from --source-path (a single synthetic local repo);
-    // absent → the passive-mode empty path, as the retired noop-source placeholder did.
-    private const string EphemeralNoopSourcePath = "/var/empty/agentsmith-noop";
-
+    // absent → EphemeralSource.NoSourcePath, which never exists, so the scan is passive.
     private static ResolvedProject BuildEphemeralProject(PipelineRequest request, AgentSmithConfig config)
     {
         if (!config.Agents.TryGetValue(request.AgentName!, out var agent))
@@ -469,7 +467,7 @@ public sealed class ExecutePipelineUseCase(
         && context.TryGetValue(ContextKeys.SourcePath, out var value)
         && value is string path && !string.IsNullOrEmpty(path)
             ? path
-            : EphemeralNoopSourcePath;
+            : EphemeralSource.NoSourcePath;
 
     /// <summary>
     /// Resolves the repos this run will operate on. By default returns all configured repos.

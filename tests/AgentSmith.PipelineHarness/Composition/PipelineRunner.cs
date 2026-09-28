@@ -240,7 +240,11 @@ public sealed class PipelineRunner(IServiceProvider services)
                 new Repository(new BranchName("(passive)"), PassiveRepositoryLocalPath));
             return;
         }
-        pipeline.Set(ContextKeys.SourcePath, SourcePathOverride ?? "/tmp/source");
+        // An explicit source path must exist, so none is invented: without an override
+        // the run resolves its source from the primary repo, as a CLI run without
+        // --source-path does.
+        if (SourcePathOverride is not null)
+            pipeline.Set(ContextKeys.SourcePath, SourcePathOverride);
     }
 
     private void SeedPresetSpecific(PipelineContext pipeline, string presetName)

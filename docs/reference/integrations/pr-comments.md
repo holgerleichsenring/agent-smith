@@ -22,7 +22,7 @@ Everything after the prefix is read as free text, in any language, and resolved 
 
 ## Ask for a security scan with a label
 
-Putting the label `security-review` on a pull request starts a **security-scan** of that repository. The word is yours to choose: set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`, and that label triggers too.
+Putting the label `security-review` on a pull request starts a **security-scan** of that pull request: its head branch is checked out and scanned in full. The word is yours to choose: set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`, and that label triggers too.
 
 ```yaml
 projects:

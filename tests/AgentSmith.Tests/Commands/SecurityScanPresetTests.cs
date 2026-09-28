@@ -41,6 +41,13 @@ public sealed class SecurityScanPresetTests
     }
 
     [Fact]
+    public void SecurityScanPreset_HasNoSpawnFixStep()
+    {
+        PipelinePresets.SecurityScan.Should().NotContain("SpawnFixCommand");
+        typeof(CommandNames).GetField("SpawnFix").Should().BeNull();
+    }
+
+    [Fact]
     public void AllPresets_DoNotReferenceLoadDomainRulesString()
     {
         // The constant was deleted; ensure no preset still wires the literal string.

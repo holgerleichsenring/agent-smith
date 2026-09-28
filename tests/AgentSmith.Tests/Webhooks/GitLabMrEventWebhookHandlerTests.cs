@@ -31,7 +31,7 @@ public sealed class GitLabMrEventWebhookHandlerTests
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config);
         return new GitLabMrEventWebhookHandler(
-            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()),
+            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrRunContextFactory(),
             NullLogger<GitLabMrEventWebhookHandler>.Instance);
     }
 

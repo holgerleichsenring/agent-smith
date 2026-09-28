@@ -32,6 +32,15 @@ internal sealed class SourceOptions
         command.Add(Url);
         command.Add(Auth);
         command.Add(Context);
+        command.AddValidator(RejectUrlWithoutType);
+    }
+
+    // A url alone names no provider to clone it with; without this the url is dropped
+    // in silence and the run scans nothing.
+    private void RejectUrlWithoutType(System.CommandLine.Parsing.CommandResult result)
+    {
+        if (result.FindResultFor(Url) is not null && result.FindResultFor(Type) is null)
+            result.ErrorMessage = "--source-url needs --source-type (github, gitlab or azurerepos).";
     }
 
     public void ApplyTo(InvocationContext ctx, Dictionary<string, object> context)

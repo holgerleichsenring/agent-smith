@@ -1,9 +1,11 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Output;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Services.Output;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,78 +14,98 @@ namespace AgentSmith.Tests.Commands;
 
 public sealed class DeliverOutputHandlerTests : IDisposable
 {
-    private readonly string _baseDir = Path.Combine(Path.GetTempPath(), $"ast-deliver-{Guid.NewGuid():N}");
-    private readonly DeliverOutputHandler _sut = new(
-        new ServiceCollection().BuildServiceProvider(),
-        NullLogger<DeliverOutputHandler>.Instance);
+    private const string Analysis = "# Risk Assessment\nHigh risk clause found.";
+    private readonly string _outputDir = Path.Combine(Path.GetTempPath(), $"ast-deliver-{Guid.NewGuid():N}");
+    private readonly RecordingStrategy _console = new();
+    private readonly DeliverOutputHandler _sut;
 
     public DeliverOutputHandlerTests()
     {
-        Directory.CreateDirectory(Path.Combine(_baseDir, "inbox"));
-        Directory.CreateDirectory(Path.Combine(_baseDir, "processing"));
+        var services = new ServiceCollection();
+        services.AddKeyedSingleton<IOutputStrategy>("console", _console);
+        services.AddKeyedSingleton<IOutputStrategy>(
+            "markdown", new MarkdownOutputStrategy(NullLogger<MarkdownOutputStrategy>.Instance));
+        _sut = new DeliverOutputHandler(
+            services.BuildServiceProvider(),
+            new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance),
+            NullLogger<DeliverOutputHandler>.Instance);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_baseDir))
-            Directory.Delete(_baseDir, recursive: true);
+        if (Directory.Exists(_outputDir))
+            Directory.Delete(_outputDir, recursive: true);
     }
 
     [Fact]
-    public async Task ExecuteAsync_WritesAnalysisToOutbox_ArchivesSource()
+    public async Task DeliverOutput_LegalRun_ConsoleRendersMasterAnalysis()
     {
-        var sourceFileName = "contract.pdf";
-        var inboxPath = Path.Combine(_baseDir, "inbox", sourceFileName);
-        var processingPath = Path.Combine(_baseDir, "processing", sourceFileName);
-        await File.WriteAllTextAsync(inboxPath, "original");
-        await File.WriteAllTextAsync(processingPath, "processing copy");
+        var pipeline = PipelineWith(
+            new CodeChange(new FilePath(".agentsmith/runs/r1/plan.md"), "the plan", "create"),
+            new CodeChange(new FilePath("analysis.md"), Analysis, "create"));
 
-        var workspace = Path.Combine(_baseDir, "workspace");
-        Directory.CreateDirectory(workspace);
-        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
-
-        var changes = new List<CodeChange>
-        {
-            new(new FilePath("analysis.md"), "# Risk Assessment\nHigh risk clause found.", "create"),
-        };
-
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CodeChanges, (IReadOnlyList<CodeChange>)changes);
-        pipeline.Set(ContextKeys.SourceFilePath, inboxPath);
-
-        var config = new RepoConnection { Type = RepoType.Local, Path = _baseDir };
-        var context = new DeliverOutputContext(config, repo, pipeline);
-
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+        var result = await _sut.ExecuteAsync(
+            new DeliverOutputContext("legal", "console", null, pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-
-        var outboxFiles = Directory.GetFiles(Path.Combine(_baseDir, "outbox"));
-        outboxFiles.Should().HaveCount(1);
-        outboxFiles[0].Should().Contain("contract-analysis.md");
-
-        var archiveFiles = Directory.GetFiles(Path.Combine(_baseDir, "archive"));
-        archiveFiles.Should().HaveCount(1);
-
-        File.Exists(processingPath).Should().BeFalse("processing file should be moved to archive");
-        File.Exists(inboxPath).Should().BeFalse("inbox file should be deleted");
+        _console.Delivered!.ReportMarkdown.Should().Be(Analysis);
     }
 
     [Fact]
-    public async Task ExecuteAsync_NoCodeChanges_ReturnsFail()
+    public async Task DeliverOutput_Markdown_WritesAnalysisToRequestedOutputDir()
     {
-        var workspace = Path.Combine(_baseDir, "workspace");
-        Directory.CreateDirectory(workspace);
-        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
+        var pipeline = PipelineWith(new CodeChange(new FilePath("analysis.md"), Analysis, "create"));
 
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.SourceFilePath, "/some/path.pdf");
+        var result = await _sut.ExecuteAsync(
+            new DeliverOutputContext("legal", "markdown", _outputDir, pipeline), CancellationToken.None);
 
-        var context = new DeliverOutputContext(new RepoConnection { Path = _baseDir }, repo, pipeline);
+        result.IsSuccess.Should().BeTrue();
+        var written = await File.ReadAllTextAsync(Path.Combine(_outputDir, "findings.md"));
+        written.Should().Contain(Analysis);
+    }
 
-        var result = await _sut.ExecuteAsync(context, CancellationToken.None);
+    [Fact]
+    public async Task DeliverOutput_NoMasterDocument_FailsNamingTheMissingReport()
+    {
+        var pipeline = PipelineWith(
+            new CodeChange(new FilePath(".agentsmith/runs/r1/decisions.md"), "decisions", "create"));
+
+        var result = await _sut.ExecuteAsync(
+            new DeliverOutputContext("legal", "console", null, pipeline), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("No compiled analysis");
+        result.Message.Should().Contain("No analysis report");
+        _console.Delivered.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeliverOutput_UnregisteredFormat_Fails()
+    {
+        var pipeline = PipelineWith(new CodeChange(new FilePath("analysis.md"), Analysis, "create"));
+
+        var result = await _sut.ExecuteAsync(
+            new DeliverOutputContext("legal", "file", null, pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("Unknown output format: 'file'");
+    }
+
+    private static PipelineContext PipelineWith(params CodeChange[] changes)
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.CodeChanges, (IReadOnlyList<CodeChange>)changes);
+        return pipeline;
+    }
+
+    private sealed class RecordingStrategy : IOutputStrategy
+    {
+        public OutputContext? Delivered { get; private set; }
+        public string ProviderType => "console";
+
+        public Task DeliverAsync(OutputContext context, CancellationToken cancellationToken = default)
+        {
+            Delivered = context;
+            return Task.CompletedTask;
+        }
     }
 }

@@ -41,7 +41,6 @@ internal static class SecuritySnapshotBuilder
             FindingsHigh: high,
             FindingsMedium: medium,
             FindingsRetained: obs.Count,
-            FindingsAutoFixed: 0,
             ScanTypes: scanTypes,
             NewSinceLast: 0,
             ResolvedSinceLast: 0,

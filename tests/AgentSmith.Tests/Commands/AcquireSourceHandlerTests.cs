@@ -4,18 +4,21 @@ using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.Architecture;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
+[Collection(ExternalProcessCollection.Name)]
 public sealed class AcquireSourceHandlerTests : IDisposable
 {
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), $"ast-{Guid.NewGuid():N}");
     private readonly AcquireSourceHandler _sut = new(
-        new SandboxFileReaderFactory(),
+        new SandboxBinaryFileWriter(new SandboxFileReaderFactory()),
         NullLogger<AcquireSourceHandler>.Instance);
 
     public AcquireSourceHandlerTests() => Directory.CreateDirectory(_tempDir);
@@ -55,6 +58,30 @@ public sealed class AcquireSourceHandlerTests : IDisposable
         var repo = pipeline.Get<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository);
         repo.Should().NotBeNull();
         repo.LocalPath.Should().Be("/work");
+    }
+
+    [Fact]
+    public async Task AcquireSource_BinaryPdf_ArrivesByteIdenticalInSandbox()
+    {
+        // Bytes that are not valid UTF-8 — a text read would replace them.
+        var bytes = new byte[4096];
+        new Random(42).NextBytes(bytes);
+        bytes[0] = 0x25; bytes[1] = 0xFF; bytes[2] = 0xFE; bytes[3] = 0x80;
+        var sourceFile = Path.Combine(_tempDir, "contract.pdf");
+        await File.WriteAllBytesAsync(sourceFile, bytes);
+        var workDir = Path.Combine(_tempDir, "sandbox");
+        Directory.CreateDirectory(workDir);
+        await using var sandbox = new InProcessSandbox("acquire", workDir, ownsWorkDir: false, NullLogger.Instance);
+
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.SourceFilePath, sourceFile);
+        pipeline.Set<ISandbox>(ContextKeys.Sandbox, sandbox);
+        var result = await _sut.ExecuteAsync(
+            new AcquireSourceContext(new RepoConnection { Type = RepoType.Local }, pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        (await File.ReadAllBytesAsync(Path.Combine(workDir, "contract.pdf"))).Should().Equal(bytes);
+        File.Exists(Path.Combine(workDir, "contract.pdf.b64")).Should().BeFalse();
     }
 
     [Fact]

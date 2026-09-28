@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Output;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
@@ -14,12 +15,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class DeliverFindingsHandler(
     IServiceProvider serviceProvider,
+    IOutputDirectoryResolver outputDirectories,
     ILogger<DeliverFindingsHandler> logger) : ICommandHandler<DeliverFindingsContext>
 {
     public async Task<CommandResult> ExecuteAsync(
         DeliverFindingsContext context, CancellationToken cancellationToken)
     {
-        var outputDir = ResolveOutputDir(context.OutputDir, logger);
+        var outputDir = outputDirectories.Resolve(context.OutputDir);
 
         context.Pipeline.TryGet<List<SkillObservation>>(
             ContextKeys.SkillObservations, out var observations);
@@ -55,34 +57,5 @@ public sealed class DeliverFindingsHandler(
                 $"No valid output formats found in: {string.Join(",", context.OutputFormats)}");
 
         return CommandResult.Ok($"Delivered via {string.Join(", ", delivered)}");
-    }
-
-    internal static string ResolveOutputDir(string? requested, ILogger logger)
-    {
-        // Try requested path first, then /output (Docker), then local fallback
-        foreach (var candidate in new[] { requested, "/output", "./agentsmith-output" })
-        {
-            if (string.IsNullOrWhiteSpace(candidate)) continue;
-
-            try
-            {
-                Directory.CreateDirectory(candidate);
-                var testFile = Path.Combine(candidate, ".write-test");
-                File.WriteAllText(testFile, "");
-                File.Delete(testFile);
-                return candidate;
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex,
-                    "Output dir '{Candidate}' not writable, trying next fallback", candidate);
-            }
-        }
-
-        // Last resort — temp directory is always writable
-        var temp = Path.GetTempPath();
-        logger.LogWarning(
-            "All preferred output dirs unwritable; findings fall back to temp dir '{Temp}'", temp);
-        return temp;
     }
 }

@@ -27,7 +27,7 @@ public static partial class PipelinePresets
         CommandNames.SessionSetup,          // p79: authenticate personas before scan
         CommandNames.SpawnNuclei,
         CommandNames.SpawnSpectral,
-        CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP (skips if dast not enabled)
+        CommandNames.SpawnZap,              // p60: DAST via OWASP ZAP
         CommandNames.AgenticMaster,         // p0179d: loads api-security-master per pipeline-name routing
         CommandNames.CollectMasterFindings, // p0267: scrape master's triaged observations into SkillObservations
         CommandNames.SubstantiateFindings,  // p0429a: an endpoint the specification never declared is invention

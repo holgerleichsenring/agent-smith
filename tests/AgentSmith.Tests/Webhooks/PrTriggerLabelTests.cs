@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.Webhooks;
@@ -89,8 +90,8 @@ public sealed class PrTriggerLabelTests
                 {
                     Repos = new[]
                     {
-                        new RepoConnection { Url = GitHubRepo },
-                        new RepoConnection { Url = GitLabRepo },
+                        new RepoConnection { Name = "gh", Url = GitHubRepo },
+                        new RepoConnection { Name = "gl", Url = GitLabRepo },
                     },
                     GithubTrigger = new WebhookTriggerConfig { PrTriggerLabel = word },
                     GitlabTrigger = new WebhookTriggerConfig { PrTriggerLabel = word },
@@ -100,10 +101,12 @@ public sealed class PrTriggerLabelTests
 
     private static GitHubPrLabelWebhookHandler GitHub(AgentSmithConfig config) =>
         new(Loader(config), new ServerContext(ConfigPath), new PrTriggerLabelResolver(),
+            new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrRunContextFactory(),
             NullLogger<GitHubPrLabelWebhookHandler>.Instance);
 
     private static GitLabMrLabelWebhookHandler GitLab(AgentSmithConfig config) =>
         new(Loader(config), new ServerContext(ConfigPath), new PrTriggerLabelResolver(),
+            new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrRunContextFactory(),
             NullLogger<GitLabMrLabelWebhookHandler>.Instance);
 
     private static IConfigurationLoader Loader(AgentSmithConfig config)
@@ -118,7 +121,7 @@ public sealed class PrTriggerLabelTests
             "action": "labeled",
             "label": { "name": "{{label}}" },
             "pull_request": { "number": 7 },
-            "repository": { "name": "my-api", "clone_url": "{{repoUrl}}.git" }
+            "repository": { "name": "my-api", "full_name": "org/my-api", "clone_url": "{{repoUrl}}.git" }
         }
         """;
 
@@ -126,6 +129,7 @@ public sealed class PrTriggerLabelTests
         {
             "object_attributes": { "action": "update", "iid": 3 },
             "labels": [{ "title": "{{label}}" }],
+            "changes": { "labels": { "previous": [], "current": [{ "title": "{{label}}" }] } },
             "project": { "path": "my-api", "web_url": "{{repoUrl}}" }
         }
         """;

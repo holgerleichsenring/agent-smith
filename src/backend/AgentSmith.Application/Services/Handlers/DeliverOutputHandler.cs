@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Output;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -9,95 +10,47 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Delivers pipeline output via IOutputStrategy (keyed by OutputFormat)
-/// or falls back to file-based outbox delivery (legal analysis pipeline).
+/// Delivers the report the master wrote (every file it created outside the run record)
+/// through the IOutputStrategy the operator chose. A run whose master wrote no report
+/// fails here rather than delivering an empty "no findings".
 /// </summary>
 public sealed class DeliverOutputHandler(
     IServiceProvider serviceProvider,
+    IOutputDirectoryResolver outputDirectories,
     ILogger<DeliverOutputHandler> logger) : ICommandHandler<DeliverOutputContext>
 {
+    private const string DocumentSeparator = "\n\n---\n\n";
+
     public async Task<CommandResult> ExecuteAsync(
-        DeliverOutputContext context, CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(context.OutputFormat))
-            return await DeliverViaStrategyAsync(context, cancellationToken);
-
-        return await DeliverToFileAsync(context, cancellationToken);
-    }
-
-    private async Task<CommandResult> DeliverViaStrategyAsync(
         DeliverOutputContext context, CancellationToken cancellationToken)
     {
         var strategy = serviceProvider.GetKeyedService<IOutputStrategy>(context.OutputFormat);
         if (strategy is null)
             return CommandResult.Fail($"Unknown output format: '{context.OutputFormat}'");
 
-        var outputContext = new OutputContext(
-            context.Config.Path ?? "unknown",
-            null,
-            [],
-            null,
-            "./agentsmith-output",
-            context.Pipeline);
+        var report = MasterReport(context.Pipeline);
+        if (report is null)
+            return CommandResult.Fail(
+                "No analysis report to deliver: the master wrote no document outside the run record");
 
+        var outputContext = new OutputContext(
+            context.ProjectName, null, [], report,
+            outputDirectories.Resolve(context.OutputDir), context.Pipeline);
         await strategy.DeliverAsync(outputContext, cancellationToken);
+        logger.LogInformation("Delivered the master's report via {Format}", context.OutputFormat);
         return CommandResult.Ok($"Delivered via {context.OutputFormat} strategy");
     }
 
-    private async Task<CommandResult> DeliverToFileAsync(
-        DeliverOutputContext context, CancellationToken cancellationToken)
+    private static string? MasterReport(PipelineContext pipeline)
     {
-        if (!context.Pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var changes)
-            || changes is null || changes.Count == 0)
-        {
-            return CommandResult.Fail("No compiled analysis found in pipeline");
-        }
+        if (!pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out var changes)
+            || changes is null)
+            return null;
 
-        var sourceFilePath = context.Pipeline.Get<string>(ContextKeys.SourceFilePath);
-        var sourceFileName = Path.GetFileNameWithoutExtension(sourceFilePath);
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var basePath = context.Config.Path ?? ".";
-
-        await WriteToOutboxAsync(basePath, timestamp, sourceFileName, changes, cancellationToken);
-        ArchiveSource(basePath, timestamp, sourceFileName, sourceFilePath);
-
-        return CommandResult.Ok("Delivered analysis to outbox");
-    }
-
-    private async Task WriteToOutboxAsync(
-        string basePath, string timestamp, string sourceFileName,
-        IReadOnlyList<CodeChange> changes, CancellationToken cancellationToken)
-    {
-        var outboxDir = Path.Combine(basePath, "outbox");
-        Directory.CreateDirectory(outboxDir);
-
-        var outputPath = Path.Combine(outboxDir, $"{timestamp}-{sourceFileName}-analysis.md");
-        var content = string.Join("\n\n---\n\n", changes.Select(c => c.Content));
-        await File.WriteAllTextAsync(outputPath, content, cancellationToken);
-        logger.LogInformation("Wrote analysis to {OutputPath}", outputPath);
-    }
-
-    private void ArchiveSource(
-        string basePath, string timestamp, string sourceFileName, string sourceFilePath)
-    {
-        var archiveDir = Path.Combine(basePath, "archive");
-        Directory.CreateDirectory(archiveDir);
-
-        var sourceExt = Path.GetExtension(sourceFilePath);
-        var archivePath = Path.Combine(archiveDir, $"{timestamp}-{sourceFileName}{sourceExt}");
-
-        var processingPath = Path.Combine(basePath, "processing", Path.GetFileName(sourceFilePath));
-        if (File.Exists(processingPath))
-        {
-            File.Move(processingPath, archivePath, overwrite: true);
-            logger.LogInformation("Archived source to {ArchivePath}", archivePath);
-        }
-
-        var inboxPath = Path.Combine(basePath, "inbox", Path.GetFileName(sourceFilePath));
-        if (File.Exists(inboxPath))
-        {
-            File.Delete(inboxPath);
-            logger.LogInformation("Removed original from inbox");
-        }
+        var documents = changes
+            .Where(c => !RunRecordPaths.IsRunRecordPath(c.Path.Value) && !string.IsNullOrWhiteSpace(c.Content))
+            .Select(c => c.Content)
+            .ToList();
+        return documents.Count == 0 ? null : string.Join(DocumentSeparator, documents);
     }
 }
