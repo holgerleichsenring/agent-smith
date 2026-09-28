@@ -6,7 +6,7 @@
 Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
 
 - **Ticket triggers** (issue or work item labelled, moved, assigned): these go through project resolution and the claim, and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms.
-- **Pull request events, PR comment commands and dialogue answers**: GitHub, GitLab and Azure DevOps.
+- **Pull request events and PR comment commands**: GitHub, GitLab and Azure DevOps.
 
 Polling is the alternative ingress for ticket triggers. See [Polling](../../trigger-it/polling.md).
 
@@ -38,11 +38,9 @@ The HTTP response says what the receiver did with the delivery, not how the run 
 | Status | Body | Meaning |
 |:------:|------|---------|
 | 202 | `Accepted` | a handler took the event (a run was claimed or queued, or a command started) |
-| 202 | `Accepted: dialogue answer` | an answer to a waiting question was routed to its run |
 | 200 | `Event ignored` | no handler wanted this event, or it matched nothing |
 | 200 | `Unknown platform` | the platform couldn't be detected |
 | 401 | `Signature validation failed` | a secret is configured and the delivery didn't prove it |
-| 503 | `redis_unavailable` | a dialogue answer arrived while Redis was down; the platform's retry delivers it again |
 
 ## Supported Platforms
 
