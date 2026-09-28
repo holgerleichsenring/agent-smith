@@ -322,7 +322,6 @@ public sealed partial class SpecDialogOutcomeTests
         work.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.SelectMany(t => t.Labels).Should()
             .NotContain(PhaseTicketRenderer.EpicLabel);
-        bed.Tickets.Links.Should().BeEmpty("nothing is filed under the work ticket to link to it");
         bed.Tickets.Comments.Should().BeEmpty("there are no records to list on it");
         // 2026-09-22-b3d7: the slice list is the ONLY place a person reads a slice on its own, so
         // every id, every goal and every requires: edge has to be in it.
@@ -581,12 +580,6 @@ public sealed partial class SpecDialogOutcomeTests
     {
         private readonly List<(string Title, string Body, IReadOnlyList<string> Labels)> _created = [];
         private readonly List<(TicketId Id, string Comment)> _comments = [];
-        private readonly List<(string Child, string Parent)> _links = [];
-
-        public IReadOnlyList<(string Child, string Parent)> Links
-        {
-            get { lock (_links) return [.. _links]; }
-        }
 
         public IReadOnlyList<(string Title, string Body, IReadOnlyList<string> Labels)> Created
         {
@@ -617,13 +610,6 @@ public sealed partial class SpecDialogOutcomeTests
                     new TicketId(_created.Count.ToString()),
                     $"https://tracker.test/{_created.Count}"));
             }
-        }
-
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
-        {
-            lock (_links) _links.Add((child.Id.Value, parent.Value));
-            return Task.FromResult(ParentLinkResult.Linked);
         }
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)

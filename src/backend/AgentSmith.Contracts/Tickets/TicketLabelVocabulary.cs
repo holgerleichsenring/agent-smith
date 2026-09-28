@@ -48,6 +48,10 @@ public sealed class TicketLabelVocabulary
         return tracker.LabelNames.Count == 0 ? Default : new TicketLabelVocabulary(tracker.LabelNames);
     }
 
+    /// <summary>The vocabulary of a tracker a run may not carry; with none, today's names.</summary>
+    public static TicketLabelVocabulary ForOptional(Models.Configuration.TrackerConnection? tracker) =>
+        tracker is null ? Default : For(tracker);
+
     /// <summary>What this board calls the stamp a filing writes.</summary>
     public string ApprovedSetStamp { get; }
 

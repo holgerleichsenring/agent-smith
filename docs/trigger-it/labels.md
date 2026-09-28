@@ -23,6 +23,8 @@ Tag a work item / issue with `agent-smith:bug`, and the framework runs the `code
 
 The label values themselves are arbitrary; the convention is `agent-smith:{pipeline-name}` because it groups them together in the tracker's label UI. You can rename them if your team prefers (`smith-fix`, `ai-fix`, whatever) — the YAML key is the label, the YAML value is the pipeline. The one restriction: a routing word can't be the same as a label the framework writes (see [below](#labels-the-framework-writes)).
 
+Any pipeline a ticket can run is a valid value, `init-project` included: the label starts it on the ticket's branch. `spec-dialog` is the exception. A design conversation starts from the chat or the dashboard, with a transcript and a place to reply that a ticket doesn't carry, so a label can't start one. Config Studio refuses to save a label or a default pipeline that names it, and names the label; a configuration file or stored configuration that still has one gets an advisory finding at startup.
+
 ## What if no label matches
 
 If a ticket comes in (via webhook or poll) and enters one of `trigger_statuses`, what happens next depends on whether a map exists:
@@ -41,7 +43,7 @@ Both work. Default-on gives you the volume but you'll see more `agent-smith:fail
 
 A ticket that carries an approved specification runs the `code` pipeline and works that specification, whatever `pipeline_from_label` says. The check runs before the map. A ticket counts as one when any of these is true:
 
-- It carries `phase-spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes.
+- It carries `phase-spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes, or the name the tracker gives that stamp (see [Renaming them](#renaming-them)).
 - The server holds an approval record for it. This still routes the ticket after someone removes the stamp; the stamp is a hint for people scanning the board, and the record is what binds. On Jira and Azure DevOps the poller also finds approved tickets by id, so a ticket whose stamp was removed is still picked up (up to 50 outstanding approvals per tracker; the rest wait, with a warning, until older ones are done or the stamp is put back).
 - A person typed the `phase` label onto it.
 
@@ -64,7 +66,7 @@ In addition to the trigger labels you set, Agent Smith writes a lifecycle label 
 | `agent-smith:shortfall` | The run delivered the phases it verified and fell short of the rest. The ticket counts as done, not failed. |
 | `agent-smith:failed` | Pipeline failed. Error posted as a comment on the ticket. |
 
-Filed phase tickets also carry `phase-spec:approved` (above).
+Filed phase tickets also carry the approved-set stamp, `phase-spec:approved` unless the tracker renames it (above).
 
 The framework owns these; don't set them by hand. Lifecycle labels are removed before the `pipeline_from_label` match runs, so an `agent-smith:done` label doesn't accidentally re-trigger. Other `agent-smith:` labels, like your trigger labels, are left alone.
 
@@ -82,6 +84,8 @@ trackers:
 ```
 
 The keys are `pending`, `enqueued`, `in-progress`, `waiting`, `done`, `shortfall`, `failed` and `approved-set`. Anything you leave out keeps its default. After a rename the framework writes the new name and still recognises the old one, so tickets labelled before the change keep working.
+
+A renamed approved-set stamp does everything the default one does: it routes the ticket to `code`, holds it to its approved specification (a stamped ticket with nothing on its branch parks rather than deriving its own), and it is the word the ticket's notes and park messages name. The rename belongs to that tracker only. On another tracker the same word is an ordinary label, which may be one of its routing words.
 
 Config Studio refuses to save a tracker or project where a framework label is the same word as a routing word: a `pipeline_from_label` key, or a project's tag resolution value. One word on a ticket would mean two things, and routing would quietly pick the framework's meaning. The refusal names the colliding word; rename one of the two.
 

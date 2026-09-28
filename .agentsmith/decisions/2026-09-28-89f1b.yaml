@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1b
+
+decisions:
+  - category: Architecture
+    chose: "Every stamp reader takes the ticket's own tracker's TicketLabelVocabulary as a REQUIRED parameter"
+    over: "An optional parameter defaulting to TicketLabelVocabulary.Default, or a global union of every tracker's names"
+    reason: |
+      The defect was a default: three readers sat on the constant and nothing forced them off it.
+      A required parameter makes every caller say which board it reads, which is the question that
+      was skipped. Global matching is wrong on its own terms — a word renamed on tracker A may be a
+      routing word on tracker B (RoutingWordCollisionRule is per tracker for the same reason), so
+      ProjectResolver reads the vocabulary of the project it is matching, not of the envelope.
+      TicketLabelNote.For lost its defaulted stamp for the same reason.
+    alternatives:
+      - "Optional vocabulary: ~20 test call sites untouched, and the next reader repeats the bug"
+      - "Resolve the vocabulary inside SpecSourceResolver from the pipeline's project: a second source for what DeriveSpecContext.Tracker already carries"
+
+  - category: Implementation
+    chose: "MissingSpecReason names the stamp the ticket ACTUALLY carries, falling back to the board's configured name"
+    over: "Always naming vocabulary.ApprovedSetStamp"
+    reason: |
+      Reading is a union (configured plus every historical name), so a ticket filed before a rename
+      carries the old word while the board's configured name is the new one. The park sentence tells
+      a person which label held the ticket; the one on the ticket is the only true answer.
+
+  - category: Implementation
+    chose: "TicketLabelVocabulary.ForOptional(TrackerConnection?) for DeriveSpecContext, whose Tracker is nullable"
+    over: "Making For() accept null"
+    reason: "For() throwing on null is relied on elsewhere; a run without a tracker reads today's names, and says so in a separate method."
+
+  - category: Scope
+    chose: "The spec-dialog refusal covers a tracker's pipeline_from_label and default_pipeline, and every resolved trigger's map and default at startup — not a project's own default_pipeline"
+    over: "Also refusing project.default_pipeline"
+    reason: |
+      project.default_pipeline is filled implicitly from the legacy single `pipeline:` key and is what
+      PipelineConfigResolver hands the CLI and ticketless launches, not only label routing; refusing it
+      would reach past "a label map or default_pipeline" into launch paths nothing reported broken.
+      The trigger-level default (the tracker's, merged by EffectiveTriggerBuilder) is the one a label
+      falls back to, and that one is covered.
+
+  - category: Architecture
+    chose: "One HostOnlyRoutingRule with three doors: studio SAVE throws, studio DRAFT reports Blocking on the field, STARTUP reports Advisory"
+    over: "A blocking startup finding"
+    reason: |
+      A blocking finding disables every trigger on the project (RoutingPipelineNames' own rationale),
+      which would take a whole project off the air over one wrong label rule. Save and draft are where
+      the operator can fix it, so they refuse; startup reports what a file, an import or an older store
+      still carries. The reason names owner, label and value in every door.
+
+  - category: Scope
+    chose: "Label-started init-project keeps its current behaviour (ticket branch, IsInit=false, the single-result record) and is accepted as is"
+    over: "Changing how a label-started init runs"
+    reason: "Nothing reported a defect there; the defect was only that 3c7ad made the studio stop offering it (binding correction in the analysis note)."
+
+  - category: Architecture
+    chose: "RetiredConfigKeys reads an UNTYPED tree (YAML via YamlDotNet's representation model, stored rows via JsonNode) — no detector-only property on RawTrackerEntry"
+    over: "Keeping RawTrackerEntry.ParentLinkType as a detector-only property (the analysis note's correction)"
+    reason: |
+      The task preferred the generic read so no dead property is needed, and a property kept only to be
+      detected is a key the typed model still binds, which slice d's coverage test would then have to
+      allowlist. The untyped tree also serves every later row without touching a raw model: stored
+      rows of a type the taxonomy no longer assembles (h's orchestrator) are still read. Segment names
+      compare ignoring case and underscores, because stored documents carry the C# spelling.
+    alternatives:
+      - "Detector-only property per retired key: one dead property per row, forever"
+
+  - category: Implementation
+    chose: "A stored value counts as set only when non-null and non-blank"
+    over: "Presence of the key"
+    reason: "ConfigDocJson serialises every property, so every tracker ever stored carries ParentLinkType:null; presence would flag every installation."
+
+  - category: Implementation
+    chose: "The findings are recorded by the two loaders right after the materializer, through optional constructor parameters resolved by DI"
+    over: "A separate IStartupProbe, or required constructor parameters"
+    reason: |
+      The materializer clears the Configuration findings on every load, including live reloads, so a
+      probe that ran once at boot would be wiped by the first reload; recording after the materializer
+      republishes them with every load. The loaders already take IStartupFindings optionally; required
+      parameters would have touched sixteen test constructions for no behaviour. A composition test
+      (RetiredConfigKeyCompositionTests) proves the real container hands the detector to the loader.
+
+  - category: Scope
+    chose: "LinkToParentAsync deleted with TrackerParentLink, GitHubSubIssueRequest, ParentLinkResult/Outcome, CreatedTicket.NativeId, JiraTicketConnection.ParentLinkType/DefaultParentLinkType, JiraEndpoints.IssueLink, TrackerConnection/RawTrackerEntry/TrackerEntity.ParentLinkType and the studio field"
+    over: "Keeping JiraEndpoints.IssueLink"
+    reason: |
+      IssueLink was read only by the Jira LinkToParentAsync. It needs no retired-key row: tracker
+      endpoints were never mapped from the raw tracker entry (slice d fixes that mapping), so no
+      configuration could ever have set it. Slice d's schema for the Jira endpoints block must not add
+      issue_link.
+
+  - category: Implementation
+    chose: "Test doubles lose the member; the two Links recorders and their 'nothing is linked' assertions go with it"
+    over: "Keeping the empty-Links assertions"
+    reason: "With no link member on ITicketProvider nothing can link, so the assertions became vacuous; the epic-filing test was renamed to what it still asserts."

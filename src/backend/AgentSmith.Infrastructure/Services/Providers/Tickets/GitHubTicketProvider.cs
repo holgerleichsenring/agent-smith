@@ -24,7 +24,6 @@ public sealed class GitHubTicketProvider : ITicketProvider
     private readonly GitHubIssueLister _lister;
     private readonly TicketLabelVocabulary _labels;
     private readonly ILogger _logger;
-    private readonly TrackerParentLink _parentLink;
     private readonly GitHubTicketFinalizer _finalizer;
 
     public string ProviderType => "GitHub";
@@ -41,7 +40,6 @@ public sealed class GitHubTicketProvider : ITicketProvider
         _mapper = mapper;
         _lister = new GitHubIssueLister(_client, connection, _mapper, logger);
         _logger = logger;
-        _parentLink = new TrackerParentLink("GitHub", logger);
         _finalizer = new GitHubTicketFinalizer(UpdateStatusAsync, CloseTicketAsync, TransitionToAsync);
     }
 
@@ -109,18 +107,8 @@ public sealed class GitHubTicketProvider : ITicketProvider
         return true;
     }
 
-    // The database id rides along: a sub-issue link names the child by it, not by its number.
     internal static CreatedTicket Created(Issue issue) =>
-        new(new TicketId(issue.Number.ToString()), issue.HtmlUrl) { NativeId = issue.Id.ToString() };
-
-    public async Task<ParentLinkResult> LinkToParentAsync(CreatedTicket child, TicketId parent, CancellationToken cancellationToken)
-    {
-        if (!TryParseIssueNumber(parent, out var n) || !long.TryParse(child.NativeId, out var childId))
-            return ParentLinkResult.Failed("A sub-issue link needs the parent's number and the child's database id.");
-        var request = GitHubSubIssueRequest.For(_owner, _repo, n, childId);
-        return await _parentLink.AttemptAsync(() =>
-            _client.Connection.Post(request.Path, request.Body, GitHubSubIssueRequest.Accepts, cancellationToken), cancellationToken);
-    }
+        new(new TicketId(issue.Number.ToString()), issue.HtmlUrl);
 
     internal static NewIssue BuildNewIssue(string title, string description, IReadOnlyList<string> labels)
     {

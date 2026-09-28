@@ -19,7 +19,6 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 public sealed class AzureDevOpsTicketProvider : ITicketProvider
 {
     private readonly string _project;
-    private readonly string _organizationUrl;
     private readonly string _doneStatus;
     private readonly AzureDevOpsAttachmentLoader _attachmentLoader;
     private readonly AzureDevOpsFieldMapper _mapper;
@@ -28,7 +27,6 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
     private readonly TicketLabelVocabulary _labels;
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
-    private readonly TrackerParentLink _parentLink;
     private readonly AzureDevOpsTicketFinalizer _finalizer;
     private readonly AzureDevOpsTicketCreator _creator;
 
@@ -44,7 +42,6 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         IReadOnlyList<string>? extraFields = null)
     {
         _project = connection.Project;
-        _organizationUrl = connection.OrganizationUrl;
         _labels = connection.ResolvedLabels;
         _doneStatus = doneStatus ?? "Closed";
         _attachmentLoader = attachmentLoader;
@@ -52,7 +49,6 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         _connections = new AzureDevOpsConnectionCache(connection, logger);
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
         _logger = logger;
-        _parentLink = new TrackerParentLink("Azure DevOps", logger);
         _finalizer = new AzureDevOpsTicketFinalizer(_doneStatus, WriteFinalizeAsync, logger);
         _creator = new AzureDevOpsTicketCreator(
             connection.OrganizationUrl, connection.Project,
@@ -144,18 +140,6 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
         tags.Contains(label, StringComparer.OrdinalIgnoreCase)
             ? null
             : [Op("/fields/System.Tags", string.Join("; ", tags.Append(label)))];
-
-    public async Task<ParentLinkResult> LinkToParentAsync(
-        CreatedTicket child, TicketId parent, CancellationToken cancellationToken) =>
-        int.TryParse(parent.Value, out var parentId) && int.TryParse(child.Id.Value, out _)
-            ? await _parentLink.AttemptAsync(() =>
-                PatchAsync(child.Id, BuildParentLinkPatch(_organizationUrl, parentId), cancellationToken), cancellationToken)
-            : ParentLinkResult.Failed($"'{child.Id.Value}' or '{parent.Value}' is not an Azure DevOps work item id.");
-
-    // A relation names its target by the REST url, not the web url a person follows.
-    internal static JsonPatchDocument BuildParentLinkPatch(string organizationUrl, int parentId) =>
-        [Op("/relations/-", new WorkItemRelation
-            { Rel = "System.LinkTypes.Hierarchy-Reverse", Url = $"{organizationUrl.TrimEnd('/')}/_apis/wit/workItems/{parentId}" })];
 
     public async Task<IReadOnlyList<TicketDocumentAttachment>> DownloadDocumentAttachmentsAsync(
         TicketId ticketId, CancellationToken cancellationToken) =>

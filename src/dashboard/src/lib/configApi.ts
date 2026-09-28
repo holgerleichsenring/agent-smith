@@ -468,9 +468,6 @@ export interface StudioTracker {
   // means the tracker declares none, and every ticket it routes runs the hardcoded
   // fallback — which is what the advisory finding on this field says.
   defaultPipeline?: string;
-  // 2026-09-17-042ea: Jira only — the issue link type a filed slice record is linked to its
-  // epic's work ticket with (2026-09-17-0e79d).
-  parentLinkType?: string;
   // 2026-09-18-b4f0: Azure DevOps and Jira only — which native work-item/issue type each filed
   // role (work | record | bug | phase | chat) is created as. Rendered from the capabilities
   // descriptor as a generic map, so the keys are free text until a capability field can declare

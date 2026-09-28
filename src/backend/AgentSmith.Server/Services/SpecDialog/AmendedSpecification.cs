@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -18,17 +19,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 internal sealed record AmendedSpecification(
     IReadOnlyList<PhaseDraft> Set, string Region, string? Error)
 {
-    private static readonly string[] Labels = [FiledTicketLabels.ApprovedSetStamp];
-
+    /// <param name="vocabulary">The bound ticket's tracker's label names, so the note names the
+    /// stamp that board actually carries — the one a filing on it wrote.</param>
     internal static AmendedSpecification Of(
         OutcomeProposal proposal, string conversation,
-        PhaseTicketRenderer renderer, EpicChildOrderer orderer) => proposal switch
+        PhaseTicketRenderer renderer, EpicChildOrderer orderer, TicketLabelVocabulary vocabulary) =>
+        proposal switch
         {
             PhaseOutcome phase => new(
                 [phase.Draft],
-                renderer.RenderPhase(phase.Draft, conversation, TicketLabelNote.For(Labels)).Body,
+                renderer.RenderPhase(phase.Draft, conversation, Note(vocabulary)).Body,
                 null),
-            EpicOutcome epic => FromEpic(epic, conversation, renderer, orderer),
+            EpicOutcome epic => FromEpic(epic, conversation, renderer, orderer, Note(vocabulary)),
             // A bug ticket is filed from another renderer and carries no approved set, so there
             // is no region of ours on the bound ticket for it to replace.
             _ => Refused(
@@ -36,8 +38,12 @@ internal sealed record AmendedSpecification(
                 + "specification, so it cannot amend a ticket."),
         };
 
+    private static string? Note(TicketLabelVocabulary vocabulary) =>
+        TicketLabelNote.For([vocabulary.ApprovedSetStamp], vocabulary.ApprovedSetStamp);
+
     private static AmendedSpecification FromEpic(
-        EpicOutcome epic, string conversation, PhaseTicketRenderer renderer, EpicChildOrderer orderer)
+        EpicOutcome epic, string conversation, PhaseTicketRenderer renderer, EpicChildOrderer orderer,
+        string? note)
     {
         // The same refusal the filing makes, before anything is written: a cut whose edges
         // cannot be ordered has no run order, and the body lists the slices in that order.
@@ -47,8 +53,7 @@ internal sealed record AmendedSpecification(
         return new(
             order.Children,
             renderer.RenderEpicParent(
-                epic.Parent, order.Children, epic.Templates, conversation,
-                TicketLabelNote.For(Labels)).Body,
+                epic.Parent, order.Children, epic.Templates, conversation, note).Body,
             null);
     }
 

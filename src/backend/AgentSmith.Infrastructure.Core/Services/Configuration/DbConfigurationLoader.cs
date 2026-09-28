@@ -26,7 +26,8 @@ public sealed class DbConfigurationLoader(
     RawConfigMaterializer materializer,
     BootstrapConfigReader bootstrap,
     ILogger<DbConfigurationLoader>? logger = null,
-    IStartupFindings? findings = null) : IConfigurationLoader
+    IStartupFindings? findings = null,
+    Retired.RetiredConfigKeyDetector? retiredKeys = null) : IConfigurationLoader
 {
     private const string Source = "db://config-entity";
 
@@ -59,9 +60,13 @@ public sealed class DbConfigurationLoader(
 
     private AgentSmithConfig Assemble()
     {
-        var raw = assembler.Assemble(docStore.LoadAll());
+        var rows = docStore.LoadAll();
+        var raw = assembler.Assemble(rows);
         ApplyBootstrap(raw);
-        return materializer.Materialize(raw);
+        var config = materializer.Materialize(raw);
+        // After the materializer, which clears the configuration findings it republishes.
+        foreach (var finding in retiredKeys?.InStoredDocuments(rows) ?? []) _findings.Record(finding);
+        return config;
     }
 
     private AgentSmithConfig Degraded(Exception ex, string subsystem, string reason)

@@ -784,10 +784,6 @@ public sealed class FiledWorkStartTests
             return Task.FromResult(true);
         }
 
-        public Task<ParentLinkResult> LinkToParentAsync(
-            CreatedTicket child, TicketId parent, CancellationToken ct) =>
-            Task.FromResult(ParentLinkResult.Linked);
-
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken ct) =>
             Task.CompletedTask;
 

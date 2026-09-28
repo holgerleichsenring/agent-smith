@@ -9,6 +9,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.Specs;
 
@@ -39,7 +40,7 @@ public sealed class ApprovedSetPrecedenceTests
         var branch = Branch(ApprovedSets.Noon, ["p19106a"]);
         var record = ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(1), ["p19106x", "p19106y"]);
 
-        var decision = _sut.Decide(branch, Filed(), null, new PipelineContext(), Key, record);
+        var decision = _sut.Decide(branch, Filed(), null, new PipelineContext(), Key, TicketLabelVocabulary.Default, record);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
         decision.Set!.Phases.Select(p => p.PhaseId).Should().Equal(["p19106a"],
@@ -53,7 +54,7 @@ public sealed class ApprovedSetPrecedenceTests
         var unreadable = SpecSetOnBranch.Unreadable("set.yaml is on the ticket branch and did not parse");
         var record = ApprovedSets.Record(Key, ApprovedSets.Noon, ["p19106x"]);
 
-        var decision = _sut.Decide(unreadable, Filed(), null, new PipelineContext(), Key, record);
+        var decision = _sut.Decide(unreadable, Filed(), null, new PipelineContext(), Key, TicketLabelVocabulary.Default, record);
 
         decision.Set.Should().BeNull("a copy standing in for an unreadable set is how an edit disappears");
         decision.Handback!.Case.Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
@@ -65,7 +66,7 @@ public sealed class ApprovedSetPrecedenceTests
         var record = ApprovedSets.Record(Key, ApprovedSets.Noon, ["p19106a", "p19106b"]);
 
         var decision = _sut.Decide(
-            SpecSetOnBranch.Nothing, Filed(), null, new PipelineContext(), Key, record);
+            SpecSetOnBranch.Nothing, Filed(), null, new PipelineContext(), Key, TicketLabelVocabulary.Default, record);
 
         decision.Source.Should().Be(SpecSource.Approved);
         decision.NeedsModel.Should().BeFalse();
@@ -79,7 +80,7 @@ public sealed class ApprovedSetPrecedenceTests
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing, Ticket("Fix the boundary check."), null,
-            new PipelineContext(), Key);
+            new PipelineContext(), Key, TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.Derived);
         decision.NeedsModel.Should().BeTrue("a ticket nobody approved derives exactly as before");
@@ -91,7 +92,7 @@ public sealed class ApprovedSetPrecedenceTests
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec, ["phase"]), null,
-            new PipelineContext(), Key);
+            new PipelineContext(), Key, TicketLabelVocabulary.Default);
 
         decision.Source.Should().Be(SpecSource.TicketDescription);
         decision.Set!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");

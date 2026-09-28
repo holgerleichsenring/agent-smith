@@ -70,10 +70,11 @@ public static class TicketLabelNote
     /// </summary>
     /// <param name="approvedSetStamp">2026-09-25-3c7ac: what THIS board calls the stamp. The note
     /// has to name the word the ticket actually carries, or it explains a label nobody can see.</param>
-    public static string? For(IReadOnlyCollection<string> labels, string? approvedSetStamp = null)
+    public static string? For(IReadOnlyCollection<string> labels, string approvedSetStamp)
     {
         ArgumentNullException.ThrowIfNull(labels);
-        var stamp = approvedSetStamp ?? FiledTicketLabels.ApprovedSetStamp;
+        ArgumentException.ThrowIfNullOrWhiteSpace(approvedSetStamp);
+        var stamp = approvedSetStamp;
         List<string> sentences = [];
         if (Carries(labels, stamp)) sentences.Add(StampSentence(stamp));
         return sentences.Count == 0

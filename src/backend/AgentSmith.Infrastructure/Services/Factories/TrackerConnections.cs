@@ -25,7 +25,7 @@ internal sealed class TrackerConnections(SecretsProvider secrets)
     public JiraTicketConnection Jira(TrackerConnection config) => new(
         config.Url ?? secrets.GetRequired("JIRA_URL"), secrets.GetRequired("JIRA_EMAIL"),
         secrets.GetRequired("JIRA_TOKEN"), config.Project, config.Endpoints,
-        ParentLinkType: config.ParentLinkType, Labels: TicketLabelVocabulary.For(config));
+        Labels: TicketLabelVocabulary.For(config));
 
     public GitLabTicketConnection GitLab(TrackerConnection config) => new(
         secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl,
