@@ -20,19 +20,6 @@ Everything after the prefix is read as free text, in any language, and resolved 
 
 `/agent-smith help` is recognized and logged, and posts nothing back. A comment that does not start with a prefix is ordinary conversation and is ignored.
 
-## Answer a running job
-
-When a running job asks a question on the PR (via [Interactive Dialogue](../concepts/interactive-dialogue.md)), answer with:
-
-```
-/approve                                 # confirm (yes)
-/approve Please rename the branch        # confirm with comment
-/reject                                  # reject (no)
-/reject The naming convention is wrong   # reject with reason
-```
-
-Commands are case-insensitive. The answer is forwarded to the running job, and the pipeline continues.
-
 ## Ask for a security scan with a label
 
 Putting the label `security-review` on a pull request starts a **security-scan** of that repository. The word is yours to choose: set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`, and that label triggers too.
@@ -83,7 +70,6 @@ PR comment / PR label / PR event
 POST /webhook (signature verified when a secret is configured)
     |
     +-- comment  --> /agent-smith or /as  --> pipeline resolved from the text --> job starts
-    |            --> /approve or /reject  --> answer forwarded to the running job
     |            --> anything else        --> ignored
     |
     +-- label    --> security-review or pr_trigger_label --> security-scan starts

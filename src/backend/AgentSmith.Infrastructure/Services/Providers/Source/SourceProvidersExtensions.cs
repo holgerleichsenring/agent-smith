@@ -20,10 +20,6 @@ public static class SourceProvidersExtensions
         services.AddSingleton<ISourceProviderFactory, SourceProviderFactory>();
         services.AddSingleton<IPrDiffProviderFactory, PrDiffProviderFactory>();
         services.AddSingleton<IHostSourceCloner, HostSourceCloner>();
-        services.AddSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>();
-        services.AddKeyedSingleton<IPrCommentReplyService, GitHubPrCommentReplyService>("github");
-        services.AddKeyedSingleton<IPrCommentReplyService, GitLabMrCommentReplyService>("gitlab");
-        services.AddKeyedSingleton<IPrCommentReplyService, AzureDevOpsPrCommentReplyService>("azuredevops");
         return services;
     }
 }
