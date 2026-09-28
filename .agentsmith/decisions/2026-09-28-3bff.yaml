@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-3bff
+
+decisions:
+  - category: Scope
+    chose: "Split the agent's connection narrowing out of 2026-09-28-23a2a into a release of its own"
+    over: "Shipping it inside 23a2a with a version floor that names that same release"
+    reason: |
+      Review of 23a2a: release-please picks the number after merge, and an unpinned trunk build
+      derives the last released tag (AgentVersionResolver.cs:18-22, 34-36). A floor naming the release
+      that ships the narrowing would refuse every trunk build. Shipping first gives the floor a
+      published number. Minted anew, per the series rule.
+
+  - category: Implementation
+    chose: "Do not announce the client library, so CLIENT SETINFO is never sent"
+    over: "Granting +client|setinfo"
+    reason: "The subcommand exists only from Redis 7.2, and naming it in ACL SETUSER fails on 7.0 and 7.1."
+
+  - category: Implementation
+    chose: "Pin the agent's reconnect interval below the 10-second heartbeat TTL"
+    reason: "After a Redis restart the heartbeat has to resume before the liveness watcher gives up (HeartbeatLoop.cs:19)."

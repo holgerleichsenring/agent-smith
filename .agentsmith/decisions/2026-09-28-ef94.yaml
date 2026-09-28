@@ -27,3 +27,14 @@ decisions:
       ConfigSecretResolver replaces ${NAME} with its value and keeps no record of NAME
       (ConfigSecretResolver.cs:19-25). Naming those variables means carrying the source name on the
       resolved secret. That field is the fix, and it is a phase of its own.
+
+  - category: Security
+    chose: "State that the strip stops accidents, not a deliberate script"
+    reason: |
+      An in-process step runs as the same user as its parent, whose environment and arguments stay
+      readable through /proc/$PPID. The boundary for repository code is the container sandbox
+      (23a2a, 23a2b).
+
+  - category: Scope
+    chose: "The secrets-block source names moved to 2026-09-28-c657"
+    reason: "Operator ruling 2026-09-28: spec the named follow-ups now, each under its own minted id."

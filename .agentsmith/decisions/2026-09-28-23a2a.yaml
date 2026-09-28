@@ -48,13 +48,24 @@ decisions:
       (HeartbeatLoop.cs:59; Sandbox.Agent.csproj:15). Mapping out INFO removes version detection,
       so the agent states its server version. The real-Redis test decides the final set.
 
-  - category: TradeOff
-    chose: "per_job by default; missing ACL rights raise a blocking startup finding that names sandbox.redis_scoping"
-    over: "shared by default with a warning"
+  - category: Security
+    chose: "Per-job users are the only mode: no redis_scoping setting, no shared opt-out; older agent images refused by name (operator ruling 2026-09-28)"
+    over: "per_job by default with an explicit shared opt-out and a tolerated older-image fallback"
     reason: |
-      A dangerous default belongs in the API, not in a warning. The blocking finding reuses the
-      mechanism RedisExtensions.cs:98-104 already has, so an operator on a managed Redis without ACL
-      rights learns the setting at startup, not at the first run.
+      Operator: "from this version it is simply enforced, no IFs." A Redis without ACL rights, or with
+      an open default user, is a blocking startup finding: a failure report, not an option. An agent
+      image pinned below this release is refused at sandbox creation, naming both versions. The
+      real-Redis handshake test proves the new agent and has no fallback branch.
+
+  - category: Implementation
+    chose: "One redis-password secret key; every URL composed by Kubernetes $(VAR) expansion"
+    over: "A full redis-url secret key"
+    reason: |
+      Redis itself (--requirepass), its probes (REDISCLI_AUTH) and every client need the same
+      password. A URL key plus a password key would be two copies that drift. Composing
+      "redis:6379,password=$(REDIS_PASSWORD)" fits deployments that seal only the password and that
+      set REDIS_URL as a literal env value today. The job spawner passes --redis-url $(REDIS_URL), so
+      no Job spec carries the value (it did: KubernetesJobSpawner.cs:155-162).
 
   - category: Scope
     chose: "The in-process path moves to a new phase, 2026-09-28-ef94"
@@ -81,3 +92,14 @@ decisions:
       GIT_TOKEN in Step.Env is one installation-wide token per platform (GitTokenResolver.cs:21-27),
       and the sandbox's own git steps already receive it. The motive rests on forged steps, forged
       jobs and liveness edits instead.
+
+  - category: Scope
+    chose: "Second review: the agent narrowing moved to 2026-09-28-3bff; the floor is a resolved-version field; the finding refuses container sandbox creation itself; required password key; job URL by reference in both spawners"
+    reason: |
+      Review 2 found that the version floor could not name its own release and would refuse trunk
+      builds (AgentVersionResolver.cs:18-22). It also found that an optional $(VAR) fails open, that a
+      StartupFinding with no project disables nothing (StartupFindingsQueries.cs:21-26), and that the
+      job pod carried REDIS_URL twice. Accepted with the fixes listed. Also accepted: an exact owner
+      match in the sweep, a creation-time label, a sandbox-facing URL, password redaction in findings,
+      compose interpolation and the file-length extractions. The goal is narrowed, because a script
+      can still forge its own job's results.

@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-acd0
+goal: "A spawned CLI job pod reaches only its model, tracker, git, package, skills and database hosts plus Redis and DNS, accepts no connection, and carries no service-account token."
+
+applies_to: "deploy (a job-pod NetworkPolicy beside the sandbox ones) and backend (the Kubernetes job pod template)"
+
+requires:
+  - "2026-09-28-23a2d"
+  - "PRECONDITION, NOT MET TODAY: a spawned job pod loads a configuration. It does not (see decisions); the operator decides whether that path is given its configuration or retired before this phase starts."
+
+scope:
+  in: >
+    A NetworkPolicy of its own on app=agentsmith job pods: no ingress; egress to Redis, DNS and
+    public IPv4 minus the private, link-local, shared and WireServer ranges; a job-only allowance
+    section for private model endpoints (with a pod and namespace selector variant for an in-cluster
+    one), trackers, git hosts, package feeds, a skills mirror and a networked database. The job pod
+    template is stamped egress=open and mounts no service-account token, built by an extracted
+    pod-template type with the app value as a constant.
+  out: >
+    The Docker job spawner, which stamps the same app label (DockerJobSpawner.cs:61) but has no
+    NetworkPolicy equivalent; its network needs the same proxy or host firewall p0304 plans for Docker
+    sandboxes, and p0304's docker step names only sandboxes. It is left unscheduled and named here.
+    Exfiltration over public egress: repository commands run in-process inside the job pod next to
+    the model and tracker keys (see decisions). Giving the job pod its configuration, the precondition.
+
+decisions:
+  - key: |
+      THE KUBERNETES JOB PATH DOES NOT RUN TODAY. BuildJob mounts no volume and passes no --config
+      (KubernetesJobSpawner.cs:107-153). The image carries no configuration ("Config is NOT baked into
+      the image", AgentSmith.Cli/Dockerfile:62-66). The CLI then falls back to config/agentsmith.yml
+      (ConfigDiscovery.cs:7-25), which is not there. Even the ConfigMap, if mounted, holds no
+      projects, and the CLI never reads the server database. A policy for a path that cannot complete
+      a run proves nothing, so this phase waits on that decision rather than claiming a done it
+      cannot reach.
+  - key: |
+      WHAT A JOB POD WOULD TALK TO, READ OFF THE CODE:
+      - chat intents spawn it (FixTicketIntentHandler.cs:44, InitProjectIntentHandler.cs:47);
+      - it runs `run --headless --redis-url` (KubernetesJobSpawner.cs:155-162), so it needs Redis;
+      - its environment is the model, tracker and git secrets (KubernetesJobSpawner.cs:174-186), so it
+        calls model APIs and trackers;
+      - it registers only the in-process sandbox (ServiceProviderFactory.cs:61), so it clones and
+        builds itself: git hosts and package registries;
+      - it writes its traced conversation to the configured database (CliRunRecordingRegistration.cs:21-23);
+      - it pulls skills over HTTP unless they are embedded (SkillsRegistrations.cs:16, 26-28; a
+        mirror is documented, airgap-deployment.yaml:1-10);
+      - chat traffic goes through Redis (CliInteractionRegistration.cs:43-49), and nothing calls the
+        server's HTTP API.
+      So: model, tracker, git, registry, skills and database hosts, Redis, DNS; nothing inbound.
+  - key: |
+      A POLICY OF ITS OWN, NOT A WIDER SHARED ONE. Sandboxes talk only to Redis. Adding private model
+      and tracker hosts to a shared allowance would let every sandbox's repository scripts reach them.
+      The job policy selects app=agentsmith only; the sandbox allowance stays narrow. The private git
+      host appears in both, because both clone.
+  - key: |
+      THE SELECTOR IS SAFE. Nothing else in deploy/k8s is labelled app=agentsmith: the server is
+      agentsmith-server (8-deployment-server.yaml:7) and the dashboard is agentsmith-dashboard.
+  - key: |
+      THE TOKEN GOES. The job names no service account (KubernetesJobSpawner.cs:107-153). The CLI
+      references no Kubernetes client, and backend detection by KUBERNETES_SERVICE_HOST exists only in
+      the server (ServerSandboxExtensions.cs:97).
+  - key: |
+      THIS DOES NOT CONTAIN REPOSITORY CODE. Repository scripts run in-process in the job pod beside the
+      model and tracker keys, and the parent process keeps them even after ef94. Any policy that lets
+      the model API through lets a script send those keys there. The in-cluster path is what this
+      phase closes.
+  - key: |
+      KubernetesJobSpawner IS AT ITS BASELINE (217 of 217, file-length-baseline.tsv:41). The pod
+      template moves into its own builder; the app value becomes a constant a test can read.
+  - key: |
+      SERIES: turned up while specifying 2026-09-28-23a2d, which named job pods out of scope. Own
+      number per the minting rule.
+
+steps:
+  - id: the-template-is-extracted
+    path: "src/backend/AgentSmith.Server/Services"
+    action: "A job pod-template builder with the app value as a constant, egress=open and automountServiceAccountToken false; KubernetesJobSpawner shrinks."
+    new:
+      - "JobPodTemplateBuilder: the spawned job's pod template"
+  - id: the-policy-ships
+    path: "deploy/k8s"
+    action: "13-networkpolicy-sandbox.yaml gains the job-pod policy with its own allowance section headed like the sandbox one."
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Capture the Job through a mocked IKubernetes; read the manifest and match its selector to the builder's constant and not the server's label."
+
+tests:
+  - "JobPodTemplateBuilder_Build_CarriesEgressOpenAndNoTokenMount"
+  - "KubernetesJobSpawner_Spawn_UsesTheTemplateBuilder"
+  - "JobPodNetworkPolicyManifest_Selector_MatchesTheBuilderConstantNotTheServer"
+  - "JobPodNetworkPolicyManifest_OpenRule_ExceptsTheSameRangesAsSandboxes"
+
+done:
+  - "manual acceptance, once the precondition is met, on a CNI that enforces NetworkPolicy: a job pod completes a run against its hosts and cannot reach the server service"
+  - "rollout: a deployment whose model, tracker, git host, feed, skills mirror or database is in a private range fills the job allowance before applying"
+  - "build green, full suite green"

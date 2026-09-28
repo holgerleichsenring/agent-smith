@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-acd0
+
+decisions:
+  - category: Scope
+    chose: "Keep the spec and write its unmet precondition into requires"
+    over: "Dropping the phase, or claiming a done it cannot reach"
+    reason: |
+      Review showed a spawned job pod cannot load a configuration today. It has no mount and no
+      --config flag, and the image carries none (KubernetesJobSpawner.cs:107-153;
+      AgentSmith.Cli/Dockerfile:62-66; ConfigDiscovery.cs:7-25). Whether that path gets a configuration
+      or is retired is the operator's decision; the spec states the precondition instead of assuming it.
+
+  - category: Security
+    chose: "A job-pod policy of its own"
+    over: "Widening the sandbox policies to app in (agentsmith-sandbox, agentsmith)"
+    reason: "A shared allowance for private model and tracker hosts would let every sandbox's scripts reach them. Accepted from review."
+
+  - category: Scope
+    chose: "The egress map adds the database and the skills mirror; in-cluster model endpoints get a selector variant"
+    reason: "CliRunRecordingRegistration.cs:21-23 writes to the configured database, and SkillsRegistrations.cs:16, 26-28 pulls skills over HTTP. Accepted from review."
+
+  - category: Scope
+    chose: "The Docker job spawner is named as unscheduled"
+    reason: "p0304's docker step names only sandboxes (review finding 10), so deferring to it would be a silent defer."

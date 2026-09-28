@@ -11,13 +11,14 @@ scope:
     Static NetworkPolicies in deploy/k8s on the pods the server stamps app=agentsmith-sandbox: no
     ingress; egress to the in-cluster Redis and cluster DNS; for pods labelled egress=open (p0304's
     word), egress to public IPv4 except private, link-local, shared-address and the Azure WireServer
-    address, with a commented allowance for operator CIDRs (on-premises git hosts, package feeds,
-    scan targets, an external Redis); automountServiceAccountToken false.
+    address; an allowance section at the TOP of the manifest, headed as mandatory for any deployment
+    whose git host, package feed, scan target or Redis lives in a private range (a self-managed git
+    server on an intranet network is the case that breaks first: clone fails); deploy notes that say
+    so before the apply command; automountServiceAccountToken false.
   out: >
     Spawned CLI job pods (app=agentsmith, KubernetesJobSpawner.cs:113-131), which run repository
-    commands in-process with every agent secret: their secrets are ef94's
-    (2026-09-28-ef94); their network needs its own measured egress map (model endpoints, trackers,
-    Redis) and is a job-pod network-policy phase to be minted when taken up. The public path to the
+    commands in-process with every agent secret: their environment is 2026-09-28-ef94's, their
+    network 2026-09-28-acd0's. A deny mode with a per-project allowlist (2026-09-28-c59a). The public path to the
     server's own ingress (9-ingress.yaml), defended by authentication and webhook signatures, not by
     this policy. IPv6: the policy covers IPv4 only; a dual-stack cluster needs ::/0 rules with v6
     private and link-local excepts, named in the manifest. The Docker backend, which joins the
@@ -55,8 +56,16 @@ decisions:
       always-needed part selects every sandbox; the public part selects egress=open, the mode name
       p0304 already uses (p0304-sandbox-egress-allowlist.yaml:12), which the builder stamps today.
       p0304 as written creates no policy for open mode (:28) and switches setup to agent phase on a
-      live pod (:18), which needs a pod patch the RBAC does not grant (2-rbac.yaml:25-27): it needs a
-      successor spec, which this phase does not write.
+      live pod (:18), which needs verbs on networkpolicies the RBAC does not grant — or a pods patch,
+      also not granted (2-rbac.yaml:18-39), if done by relabelling; its successor is 2026-09-28-c59a.
+  - key: |
+      A PRIVATE GIT HOST BREAKS FIRST, SO THE ALLOWANCE LEADS THE MANIFEST. A reference deployment
+      clones from a self-managed git server on a private intranet network; with the default policy
+      its first CheckoutSource fails. The allowance section is the first thing in the file, headed as
+      mandatory for private git hosts, feeds, scan targets and Redis, and the deploy notes put "add
+      your private CIDRs first" before the apply command. The Redis rule's pod selector matches the
+      shipped manifest's label; a deployment whose Redis pod is labelled otherwise edits it in the
+      same section.
   - key: |
       REDIS OUTSIDE THE CLUSTER IS THE OPERATOR'S ALLOWANCE, NOT A GUESS. The rule allows
       app=redis:6379, which matches 6-deployment-redis.yaml:15-18. A REDIS_URL naming an external or
@@ -87,7 +96,9 @@ steps:
     path: "deploy/k8s"
     action:
       - "On app=agentsmith-sandbox: no ingress; egress to app=redis on 6379 and to kube-system k8s-app=kube-dns on 53 UDP/TCP."
-      - "On app=agentsmith-sandbox, egress=open: egress to 0.0.0.0/0 except 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 and 168.63.129.16/32; commented allowances for operator CIDRs, external Redis, DNS variants and IPv6."
+      - "On app=agentsmith-sandbox, egress=open: egress to 0.0.0.0/0 except 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 and 168.63.129.16/32."
+      - "An allowance section at the top of the file: private git host, package feeds, scan targets, external Redis or a differently labelled Redis pod, DNS variants, IPv6 — each an example rule to fill in."
+      - "Deploy notes beside the manifests: an operator with a private git host MUST add its CIDR before applying."
     new:
       - "deploy/k8s/13-networkpolicy-sandbox.yaml"
 
@@ -109,4 +120,5 @@ done:
   - "a sandbox pod has no service-account token mounted"
   - "a renamed label or a dropped except fails a test"
   - "manual acceptance (operator, on a CNI that enforces NetworkPolicy): a sandbox reaches a public host, DNS and Redis, and not the server service, another pod, 169.254.169.254 or 168.63.129.16"
+  - "rollout: the deploy notes state that a deployment with a private git host, feed or Redis must fill the allowance before applying, or clone fails"
   - "build green, full suite green"

@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-c59a
+goal: "A project can put its Kubernetes sandboxes in deny mode, where for its whole life a sandbox reaches only the CIDRs the project allows, Redis and DNS."
+
+applies_to: "backend (sandbox spec resolution, Kubernetes sandbox creation, studio and dashboard project form) and deploy (RBAC)"
+
+requires: ["2026-09-28-23a2d"]
+
+scope:
+  in: >
+    An egress block (mode open | deny, allowlist CIDRs) on the global sandbox configuration and the
+    project override, resolved by SandboxSpecBuilder and shown with provenance like the other
+    sandbox settings. The pod is stamped egress={mode}. A deny sandbox gets a per-pod NetworkPolicy
+    owned by its pod, created right after the pod; if that fails, the pod is deleted and creation
+    fails. Every sandbox a deny project creates gets it: pipeline, secondary, mid-run
+    ensure_repo_sandbox, resumed and source-scope. A deny mode on a backend that cannot enforce it
+    is refused by name. RBAC for networkpolicies.
+  out: >
+    setup-only (p0304-sandbox-egress-allowlist.yaml:12). The code refutes a CIDR-only form of it:
+    the run pushes from inside the sandbox after the setup steps, and dotnet restores in the agent
+    phase. It needs domain-level egress through a proxy — p0304's proxy tier (:11), which stays
+    planned. The Docker backend (p0304's docker step). Blocked-egress risk events (p0304:22).
+    Per-pipeline modes: per project first, see decisions.
+
+decisions:
+  - key: |
+      SUCCESSOR TO p0304, WHICH STAYS AS WRITTEN. p0304 plans open|setup-only|deny per pipeline (:12),
+      a per-run policy applied before the agent phase with a setup/agent switch (:18), and a test that
+      open creates no policy (:28). Open already has its policy in 2026-09-28-23a2d, and the RBAC
+      grants no verb on networkpolicies (2-rbac.yaml:18-39), so the server cannot create one today.
+  - key: |
+      SETUP-ONLY IS DROPPED, REFUTED BY THE CODE. A switch after EnsurePrerequisites would cut off:
+      - the phase commits, which push from the sandbox (CommitPhaseWork, PipelinePresets.Parking.cs:54;
+        GitBranchPusher.cs:47-51);
+      - CommitAndPR and PrCrossLink (PipelinePresets.Code.cs:67-68);
+      - the failure path's PersistWorkBranch (CommandNames.Pipeline.cs:173-174);
+      - ProbeTarget, which runs right after it (PipelinePresets.Code.cs:59-61);
+      - every dotnet build and test, since dotnet restores implicitly (CommandNames.Pipeline.cs:43-45).
+      Keeping the git host allowed throughout needs its addresses, which a hosted git service does not
+      publish as a stable CIDR set. What remains shippable with NetworkPolicy alone is deny with a
+      fixed allowlist.
+  - key: |
+      DENY MEANS THE ALLOWLIST HOLDS THE GIT HOST, FEEDS AND TARGETS. It suits a self-hosted estate
+      whose git server, package feeds and scan targets live at known addresses. The documentation says
+      so. For hosted services the operator stays on open until a proxy exists.
+  - key: |
+      THE ANALYZER STILL HAS SHELL AND HTTP. AnalyzeCode's surface includes run_command and
+      http_request (ProjectAnalyzer.cs:47-48; AgenticToolSurface.cs:37-38; FilesystemToolHost.cs:218,
+      531-540). Under deny it reaches only the allowlist, which is the point. Under open it reaches
+      the public internet, as today.
+  - key: |
+      A MODE AT CREATION, NOT A SWITCH. Deny holds from the pod's creation to its deletion, so there is
+      no transition to miss. A sandbox created mid-run (EnsureRepoSandboxToolHost.cs:108-130), a
+      resumed run's fresh sandboxes (PipelineExecutor.cs:116-117) and source-scope sandboxes
+      (SourceScopeOpener.cs:51-53) all go through the same builder and factory, so each gets the same
+      policy. There is no pipeline step.
+  - key: |
+      CREATED AFTER THE POD, FAIL-SAFE MEANWHILE. The ownerReference needs the pod uid, so the policy
+      follows the pod create (KubernetesSandboxFactory.cs:30). Until it exists, the pod labelled
+      egress=deny matches only 23a2d's Redis+DNS rule, which is narrower. blockOwnerDeletion is left
+      unset, because setting it needs pods/finalizers update, which the RBAC does not grant. Garbage
+      collection removes the policy with the pod, so no reaper needs to learn a new kind.
+  - key: |
+      PER PROJECT, NOT PER PIPELINE. Sandbox settings resolve per project with a global default
+      (SandboxSpecBuilder.cs:39-66; provenance in ConfigResolutionPass.cs:40-48). p0304's per-pipeline
+      axis would let scans run deny while code runs open. It is not built until an operator asks for
+      it: the resolver already takes the pipeline name, so it can be added later without a new seam.
+  - key: |
+      A MARKER, AS THE PATTERN IS. Enforcement capability is a marker interface on the sandbox, like
+      ISandboxSecretInjection (KubernetesSandbox.cs:21, 30-32). A factory that cannot enforce deny
+      refuses it at creation: Docker and in-process.
+  - key: |
+      SERIES: turned up while specifying 2026-09-28-23a2d, which recorded that p0304 needs a
+      successor. Own number per the minting rule.
+
+steps:
+  - id: the-mode-is-resolved
+    path: "src/backend/AgentSmith.Contracts, src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs, the configuration resolution pass, the studio project mapping and the dashboard project sandbox section"
+    action: "The egress block, global and per project, onto SandboxSpec; provenance shown; round-trips through the database-backed configuration."
+    new:
+      - "SandboxEgress: the resolved mode and allowlist"
+  - id: the-policy
+    path: "src/backend/AgentSmith.Server/Services/Sandbox"
+    action:
+      - "Stamp egress={mode}; for deny, create the per-pod NetworkPolicy owned by the pod; on failure delete the pod and fail."
+      - "Docker and in-process factories refuse deny by name."
+    new:
+      - "SandboxEgressPolicyBuilder: the per-pod NetworkPolicy"
+  - id: rbac
+    path: "deploy/k8s/2-rbac.yaml"
+    action: "Grant create, delete, get and list on networking.k8s.io networkpolicies in the namespace."
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Against a recording Kubernetes client: the policy per mode, its ownerReference, the failure path, and each sandbox kind; the resolution and the studio round trip."
+
+tests:
+  - "SandboxEgress_Unset_ResolvesToOpen"
+  - "SandboxEgress_ProjectOverride_WinsOverGlobalWithProvenance"
+  - "SandboxEgress_DbBackedProject_RoundTrips"
+  - "PodSpecBuilder_Mode_StampedAsEgressLabel"
+  - "SandboxEgressPolicyBuilder_Deny_AllowsTheListOwnedByThePodWithoutBlockOwnerDeletion"
+  - "KubernetesSandboxFactory_OpenMode_CreatesNoPerPodPolicy"
+  - "KubernetesSandboxFactory_PolicyCreateFails_PodDeletedAndCreationFails"
+  - "EnsureRepoSandbox_DenyProject_MidRunSandboxGetsThePolicy"
+  - "DockerSandboxFactory_Deny_RefusedByName"
+  - "InProcessSandboxFactory_Deny_RefusedByName"
+
+done:
+  - "manual acceptance on a CNI that enforces NetworkPolicy: a deny sandbox clones, restores, builds and pushes against allowlisted hosts and cannot reach a public host outside the list"
+  - "open behaves exactly as 23a2d"
+  - "build green, full suite green"

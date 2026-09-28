@@ -56,3 +56,11 @@ decisions:
     chose: "The goal claims the in-cluster path only"
     over: "Claiming nothing else inside the cluster is reachable"
     reason: "Public egress still reaches the server's public ingress (9-ingress.yaml); authentication and webhook signatures defend that path. Accepted from review."
+
+  - category: Scope
+    chose: "The allowance section leads the manifest, and the deploy notes require it before applying when a private git host exists"
+    over: "A commented allowance further down the manifest"
+    reason: |
+      A reference deployment clones from a self-managed git server on a private intranet network, so
+      with the default policy its first checkout fails. The case is made impossible to miss rather
+      than documented somewhere. Described generically: no deployment is named.
