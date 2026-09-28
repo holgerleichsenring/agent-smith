@@ -21,6 +21,38 @@ const useJobsHub = vi.hoisted(() => vi.fn());
 vi.mock("@/hooks/useJobsHub", () => ({ useJobsHub: () => useJobsHub() }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
 
+// Five judged criteria over two runs: 3 met, 1 unmet, 1 unproven, 2 not applicable
+// (in neither side), one overrule applied and one left stale.
+const alphaCounts = {
+  met: 3,
+  unmet: 1,
+  unproven: 1,
+  notApplicable: 2,
+  overruled: 1,
+  staleOverrules: 1,
+  judged: 5,
+  share: 0.6,
+};
+const alphaCriteria = {
+  runs: 2,
+  counts: alphaCounts,
+  projects: [{ project: "alpha", runs: 2, counts: alphaCounts, months: [] }],
+};
+const noCriteria = {
+  runs: 0,
+  counts: {
+    met: 0,
+    unmet: 0,
+    unproven: 0,
+    notApplicable: 0,
+    overruled: 0,
+    staleOverrules: 0,
+    judged: 0,
+    share: null,
+  },
+  projects: [],
+};
+
 const mockedExpectations = expectationsApi as unknown as {
   fetchExpectationMetrics: ReturnType<typeof vi.fn>;
 };
@@ -93,7 +125,7 @@ beforeEach(() => {
   useJobsHub.mockReset();
   useJobsHub.mockReturnValue({ overview });
   mockedExpectations.fetchExpectationMetrics.mockReset();
-  mockedExpectations.fetchExpectationMetrics.mockResolvedValue({ total: 0, projects: [] });
+  mockedExpectations.fetchExpectationMetrics.mockResolvedValue(noCriteria);
 });
 
 describe("Overview", () => {
@@ -154,24 +186,11 @@ describe("Overview", () => {
   });
 
   it("Overview_TheCriteriaOutcomes_AreTheOnesTheExpectationViewRead", async () => {
-    mockedExpectations.fetchExpectationMetrics.mockResolvedValue({
-      total: 5,
-      projects: [
-        {
-          project: "alpha",
-          counts: { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 },
-          expectationHitRate: 0.25,
-          firstPrAcceptance: 0.6,
-          averageEditDistance: 8,
-          months: [],
-        },
-      ],
-    });
+    mockedExpectations.fetchExpectationMetrics.mockResolvedValue(alphaCriteria);
     renderOverview();
-    // 1 verbatim / 4 human-ratified = 25%; (1 verbatim + 2 edited) / 5 = 60%.
-    expect(await screen.findByTestId("exp-metric-negotiated")).toHaveTextContent("5");
-    expect(screen.getByTestId("exp-metric-hit-rate")).toHaveTextContent("25%");
-    expect(screen.getByTestId("exp-metric-acceptance")).toHaveTextContent("60%");
+    // 3 met of 5 judged = 60%, over two runs.
+    expect(await screen.findByTestId("exp-metric-runs")).toHaveTextContent("2");
+    expect(screen.getByTestId("exp-metric-share")).toHaveTextContent("60%");
     expect(screen.getByTestId("expectations-project-alpha")).toBeInTheDocument();
   });
 
@@ -317,27 +336,17 @@ describe("Overview", () => {
     // The empty state costs the panel, not the bottom half of the page.
     // Awaited, not queried: the panel renders immediately in its loading state,
     // so awaiting the PANEL settles nothing — on a slow runner the metrics fetch
-    // is still pending and the assertion reads "Loading expectation metrics…".
+    // is still pending and the assertion reads "Loading criteria outcomes…".
     expect(await within(panel).findByTestId("expectations-empty")).toBeInTheDocument();
-    expect(screen.getByTestId("overview-criteria-card")).toHaveTextContent("none ratified yet");
+    expect(screen.getByTestId("overview-criteria-card")).toHaveTextContent(
+      "no criterion judged yet",
+    );
     expect(screen.getByTestId("overview-spend-card")).toBeInTheDocument();
     expect(screen.getByTestId("overview-runs-card")).toBeInTheDocument();
   });
 
   it("Overview_EveryFigure_IsTheOneTheSectionsAlreadyRead", async () => {
-    mockedExpectations.fetchExpectationMetrics.mockResolvedValue({
-      total: 5,
-      projects: [
-        {
-          project: "alpha",
-          counts: { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 },
-          expectationHitRate: 0.25,
-          firstPrAcceptance: 0.6,
-          averageEditDistance: 8,
-          months: [],
-        },
-      ],
-    });
+    mockedExpectations.fetchExpectationMetrics.mockResolvedValue(alphaCriteria);
     const cost = deriveCostRollup(overview, Date.now());
     const outcomes = deriveRunOutcomes(mergeNewestFirst(overview.active, overview.recent));
     renderOverview();
@@ -348,14 +357,18 @@ describe("Overview", () => {
       cost.llmCalls.toLocaleString(),
     );
     expect(screen.getByTestId("kcard-runs-total")).toHaveTextContent(String(outcomes.total));
-    expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent(String(outcomes.succeeded));
+    expect(screen.getByTestId("kcard-runs-succeeded")).toHaveTextContent(
+      String(outcomes.succeeded),
+    );
     expect(screen.getByTestId("kcard-runs-failed")).toHaveTextContent(String(outcomes.failed));
-    expect(screen.getByTestId("kcard-runs-cancelled")).toHaveTextContent(String(outcomes.cancelled));
-    // The criteria card is the panel's own hit rate: 1 verbatim / 4 ratified.
-    expect(await screen.findByTestId("exp-metric-hit-rate")).toHaveTextContent("25%");
+    expect(screen.getByTestId("kcard-runs-cancelled")).toHaveTextContent(
+      String(outcomes.cancelled),
+    );
+    // The criteria card is the panel's own share: 3 met of 5 judged.
+    expect(await screen.findByTestId("exp-metric-share")).toHaveTextContent("60%");
     const card = screen.getByTestId("overview-criteria-card");
-    expect(card.querySelector(".v")).toHaveTextContent("25%");
-    expect(card).toHaveTextContent("1 of 4 ratified criteria verified");
+    expect(card.querySelector(".v")).toHaveTextContent("60%");
+    expect(card).toHaveTextContent("3 met of 5 judged · 2 not applicable · 2 coding runs");
   });
 
   it("Overview_ReadsTheCriteriaOnce_ForTheCardAndThePanel", () => {

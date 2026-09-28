@@ -1,20 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchExpectationMetrics, type ExpectationMetrics } from "@/lib/expectationsApi";
+import { fetchExpectationMetrics, type CriteriaMet } from "@/lib/expectationsApi";
 
 export interface ExpectationRead {
-  data: ExpectationMetrics | null;
+  data: CriteriaMet | null;
   error: Error | null;
 }
 
-// 2026-08-27-559e: the criteria read, lifted out of the view that used to own
-// it. The Overview shows the same outcomes twice — as a card figure and as a
-// panel — and a read owned by one of them would mean a second request for a
-// number the first already answered. Read once here, passed to both.
+// The Criteria met read, made once for the Overview: the card and the panel below it
+// show the same counts, and a read owned by one of them would be a second request for
+// a number the first already answered.
 
 export function useExpectationMetrics(): ExpectationRead {
-  const [data, setData] = useState<ExpectationMetrics | null>(null);
+  const [data, setData] = useState<CriteriaMet | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {

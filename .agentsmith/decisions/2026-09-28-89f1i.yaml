@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1i
+
+decisions:
+  - category: Implementation
+    chose: "The synthetic account row is recognised as an `unproven` row in a snapshot whose source is `delivery_account`"
+    over: "Adding a marker field to AcceptanceCriterionView, or matching the row's text against the run's repo keys"
+    reason: |
+      AcceptanceSnapshot.FromAccounts writes `unproven` only for the per-repository row of an
+      account that could not judge a repository at all; its dispositions map to met, unmet and
+      not_applicable. So on that source the status alone identifies the row, in stored
+      snapshots too. A marker field would change a contract this slice does not own and would
+      not reach snapshots already written; repo-key matching depends on RunRepo rows being
+      present. `unproven` on archived master-verification snapshots is a ratified criterion
+      without a disposition, and counts against the share as the ruling says.
+    alternatives:
+      - "Marker field on the view: touches AcceptanceSnapshot (not this slice's), misses history"
+      - "Match text to RunRepo keys: a second lookup that can be empty"
+
+  - category: Architecture
+    chose: "One read of finished code runs (acceptance JSON) plus one join for their judgements, aggregated in memory by an instance CriteriaMetAggregator over a RunCriteriaCounter"
+    over: "Aggregating in SQL, or a run-id list parameter for the judgements"
+    reason: |
+      The criteria live in a JSON column and SQLite cannot bucket a DateTimeOffset, as the old
+      aggregator already noted. The judgements are joined to the same run filter rather than
+      fetched by an id list, which would outgrow a provider's parameter limit. The static
+      aggregator became two transient services, per the principles' no-static-services rule.
+    alternatives:
+      - "SQL aggregation: needs JSON functions per provider"
+
+  - category: Implementation
+    chose: "An overrule applies (its HumanStatus counts, `overruled` +1) only when its MachineStatus equals the snapshot's current status; otherwise the machine status counts and `staleOverrules` +1"
+    over: "Always applying the human status"
+    reason: "The ruling. A re-judged run may have changed its verdict; an overrule of a verdict nobody holds any more would correct the wrong thing, so it is surfaced instead of applied."
+    alternatives: []
+
+  - category: Implementation
+    chose: "Share, and its denominator `judged`, are computed properties of CriterionCounts that travel on the wire; share is null where judged is 0"
+    over: "The dashboard computing the share from the counts"
+    reason: |
+      The card and the panel read one number the server defined, so they cannot compute it two
+      ways. A run whose criteria are all not applicable counts as a run but has no share —
+      no measurement is not 0%. The overall counts are server-side sums too, replacing the
+      client-side sumOutcomeCounts.
+    alternatives: []
+
+  - category: Scope
+    chose: "The backend types were renamed to CriteriaMet* (repository, endpoints class, snapshot, aggregator); the route and the dashboard file names stayed"
+    over: "Keeping the ExpectationMetrics* names on the new semantics"
+    reason: |
+      The names described ratification outcomes that no longer exist. The route is kept as the
+      task asked; the dashboard files keep their names because other code imports them and the
+      task listed them by those names — their types (CriteriaMet, CriterionCounts,
+      ProjectCriteria) carry the new meaning.
+    alternatives: []
+
+  - category: Scope
+    chose: "The endpoint's payload is not part of the generated hub-event mirror; no generator change"
+    over: "Adding it to gen:hub-events"
+    reason: "gen:hub-events mirrors AgentSmith.Contracts/Events only; this REST read model lives in AgentSmith.Server/Models and was always hand-mirrored in expectationsApi.ts. `pnpm gen:hub-events` reports no drift."
+    alternatives: []
+
+  - category: Scope
+    chose: "A run counts toward `runs` only when its snapshot yields at least one counted criterion (not_applicable included)"
+    over: "Counting every finished code run"
+    reason: "A code run with no acceptance snapshot, or only the account row, was not judged on any criterion; counting it would make the run figure disagree with the criteria beneath it."
+    alternatives: []
