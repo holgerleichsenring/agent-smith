@@ -21,9 +21,13 @@ import type {
 export function DialogScopePanel({
   session,
   projects,
+  starting,
 }: {
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
+  /** 2026-09-27-481bd: what the NEXT conversation is already settled on — the project it will be
+   *  grounded in, and the ticket it starts from. Absent while nothing has been chosen. */
+  starting?: { ticketId: string; title: string; kind?: string | null } | null;
 }) {
   return (
     <div data-testid="dialog-scope">
@@ -41,9 +45,24 @@ export function DialogScopePanel({
         </>
       ) : (
         <>
+          {/* Until something is chosen this lists the candidates; once a project is settled it
+              is a statement about the conversation that is about to start, and saying "no
+              conversation is open" there reads as though nothing had been chosen at all. */}
           <p className="ec-sub mb-2">
-            No conversation is open on this page yet. A new one can be grounded in:
+            {projects.length === 1
+              ? "The conversation you are about to start will be grounded in:"
+              : "No conversation is open on this page yet. A new one can be grounded in:"}
           </p>
+          {starting && (
+            <div data-testid="dialog-scope-starting" className="mb-3">
+              <div className="fl">Ticket</div>
+              <div className="ec-marks ec-sub items-center">
+                <span className="ec-mark filed">{starting.ticketId}</span>
+                {starting.kind && <span>{starting.kind}</span>}
+                <span className="min-w-0 truncate text-ink">{starting.title}</span>
+              </div>
+            </div>
+          )}
           {projects.length === 0 ? (
             <p data-testid="dialog-scope-none" className="dsh-body text-ink">
               No project is configured, so there is nothing to design against yet.

@@ -4364,6 +4364,31 @@ describe("The ticket search", () => {
     ).toHaveLength(1);
   });
 
+
+  // 2026-09-27-481bd: the pane showed ONE project once a ticket resolved it — and went on saying
+  // "no conversation is open on this page yet", which reads as though nothing had been chosen.
+  // The picked ticket was promised here by the phase's own step and was not delivered.
+  it("SpecDialogScopePanel_APickedTicket_IsShownWithTheProject", async () => {
+    searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, kind: "Bug" }]));
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), {
+      target: { value: "cannot log in" },
+    });
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    const starting = await screen.findByTestId("dialog-scope-starting");
+    expect(starting.textContent).toContain("DPG-1239");
+    expect(starting.textContent).toContain("Bug");
+    // And the sentence is a statement about what is about to start, not a report that nothing is.
+    expect(screen.getByTestId("dialog-scope").textContent)
+      .toContain("about to start will be grounded in");
+    expect(screen.getByTestId("dialog-scope").textContent)
+      .not.toContain("No conversation is open on this page yet");
+  });
+
   it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {
     searchTickets.mockResolvedValue(found([JIRA_HIT]));
     await renderSurface();

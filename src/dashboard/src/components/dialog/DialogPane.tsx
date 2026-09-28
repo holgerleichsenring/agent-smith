@@ -38,6 +38,7 @@ export interface DialogPaneFocus {
 export function DialogPane({
   session,
   projects,
+  starting,
   proposal,
   filed,
   work,
@@ -49,6 +50,8 @@ export function DialogPane({
 }: {
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
+  /** 2026-09-27-481bd: the ticket the NEXT conversation starts from, before one is open. */
+  starting?: { ticketId: string; title: string; kind?: string | null } | null;
   proposal: SpecDialogProposalPush | null;
   filed: SpecDialogFilingPush | null;
   /** 2026-09-17-042ej: what became of that filing; null until its own read comes back. */
@@ -113,7 +116,9 @@ export function DialogPane({
       >
         {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
         {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
-        {tab === "scope" && <DialogScopePanel session={session} projects={projects} />}
+        {tab === "scope" && (
+          <DialogScopePanel session={session} projects={projects} starting={starting} />
+        )}
         {tab === "approved" && work?.approved && (
           <DialogApprovedPanel approved={work.approved} />
         )}
