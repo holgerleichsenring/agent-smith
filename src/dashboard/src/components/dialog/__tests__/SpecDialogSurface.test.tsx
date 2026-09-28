@@ -3518,6 +3518,28 @@ describe("SpecDialogSurface", () => {
     expect(empty).not.toHaveTextContent("Filing is not where this ends");
   });
 
+
+  // 2026-09-28-1da5b: the framework used to push "Spec dialog … opened — Describe what you want to
+  // build" between the operator's first message and the answer to it. On this page the first
+  // message is what OPENS the conversation, so the instruction arrived after the description and
+  // above the turn already working on it.
+  it("SpecDialogSurface_AFirstMessage_LeavesNothingBetweenItAndTheReply", async () => {
+    fetchSpecDialog.mockResolvedValue(view({ session: null }));
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+
+    // Nothing but the operator's own line: the opening notice used to be pushed here, as an
+    // agent turn, before the answer had begun.
+    const turns = await screen.findAllByTestId(/^dialog-turn-/);
+    expect(turns).toHaveLength(1);
+    expect(turns[0].textContent).toContain("update every dependency");
+    expect(screen.getByTestId("dialog-transcript").textContent).not.toContain("opened");
+  });
+
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {
     await renderSurface();
 

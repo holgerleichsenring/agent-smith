@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-1da5b
+goal: "The dashboard conversation stops announcing that it opened and asking for what it was already given."
+
+applies_to: "backend (where a dashboard conversation decides to send an opening line) and dashboard (what an opened conversation shows)"
+
+scope:
+  in: "The line a dashboard conversation emits when it opens."
+  out: "The chat platforms' wording, where a dialog IS opened by a command and the sentence is the only thing that says so."
+
+decisions:
+  - key: |
+      IT ASKS FOR SOMETHING THE OPERATOR HAS ALREADY DONE. "Spec dialog opened — scope … Describe
+      what you want to build" is written for a flow where a COMMAND opens the dialog and the person
+      types afterwards. On the dashboard the first message is what opens the conversation, so the
+      sentence arrives after the description, above the turn that is already answering it — and the
+      instruction it carries is addressed to somebody who is watching their own question being
+      worked on.
+  - key: |
+      EVERYTHING IT SAYS IS ALREADY ON THE PAGE. The session id is in the header, the project and
+      its repositories are in the scope pane, and the button that starts a separate conversation is
+      the one labelled New conversation. The line is a chat transcript's way of establishing what a
+      browser shows in chrome.
+  - key: |
+      THE SEND IS SKIPPED, NOT COMPOSED EMPTY. A composed reply cannot express "no message" — it is
+      a function from a dialect to a string — and the empty string it would return still travels
+      the whole road: composer, messenger, adapter, hub push, all unconditional. The page absorbs
+      it without drawing a bubble, but the handler that absorbs it also resets the working state
+      and flips the flag that decides whether a proposal card gets a turn of its own. Sending
+      nothing is not the same as not sending, and only the handler knows both the platform and
+      whether a line exists.
+  - key: |
+      THREE TESTS ASSERT THIS LINE AND ONE OF THEM PROVES SOMETHING ELSE. Two assert the wording
+      and the bold markup of the opened line on the dashboard and simply go. The third is the test
+      that proves a composed line is bound to the dialect of the channel it travels to — it merely
+      uses this line to do it, so it is RE-POINTED at another composed line rather than deleted,
+      or the binding stops being proven at all.
+  - key: |
+      THE CHAT WORDING STAYS. There a dialog is opened by a command, nothing renders a scope beside
+      the thread, and the sentence is the only acknowledgement that anything happened. The composer
+      already branches on the binding for exactly this kind of difference.
+
+steps:
+  - id: the-dashboard-sends-nothing
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Skip the send itself where the conversation is on the dashboard, in the handler that knows the platform — not by composing an empty string, which would travel the whole road and reset the turn's working state on arrival."
+      - "Leave the chat platforms' wording and their send as they are."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests, src/dashboard/src/components/dialog/__tests__"
+    action:
+      - "Assert that a dashboard conversation sends no opening notice and that a chat one still does."
+      - "Re-point the test that proves a composed line is bound to its channel's dialect at another composed line, so the binding stays proven."
+      - "Assert on the surface that a first message leaves the operator's line and the reply with nothing between them."
+
+tests:
+  - "SpecDialogOpened_OnTheDashboard_SaysNothing"
+  - "SpecDialogOpened_OnChat_StillAnnouncesTheDialogAndItsScope"
+
+done:
+  - "a conversation started from the dashboard shows the operator's message and the reply, and nothing between them"
+  - "no empty message is pushed, so the turn's working state is not reset by an announcement"
+  - "chat is unchanged, and the dialect binding is still proven by a test"
+  - "build green, full suite green"

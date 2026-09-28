@@ -36,11 +36,26 @@ public sealed class SpecDialogCommandHandler(
             return;
         }
 
-        var reply = scopeResolver.Resolve(project) switch
+        var resolution = scopeResolver.Resolve(project);
+        // 2026-09-28-1da5b: opening is announced on CHAT only. There a command opens the dialog,
+        // nothing renders a scope beside the thread, and the line is the sole acknowledgement that
+        // anything happened. On the dashboard the first MESSAGE opens the conversation — so the
+        // announcement would arrive after the operator's description, above the turn already
+        // answering it, telling them to describe what they want to build. The SEND is skipped
+        // rather than the text emptied: an empty push still resets the turn's working state on
+        // arrival, and a composed reply cannot express "no message".
+        if (resolution is ScopeResolved resolved)
         {
-            ScopeResolved resolved => composer.ComposeOpened(
-                await sessions.OpenAsync(
-                    platform, channelId, threadId, userId, resolved.Scope, ct, ticket)),
+            var opened = await sessions.OpenAsync(
+                platform, channelId, threadId, userId, resolved.Scope, ct, ticket);
+            if (platform != DispatcherDefaults.PlatformDashboard)
+                await messenger.SendAsync(
+                    platform, channelId, threadId, composer.ComposeOpened(opened), ct);
+            return;
+        }
+
+        var reply = resolution switch
+        {
             ScopeChoiceRequired choice => composer.ComposeChoiceRequired(choice.Projects),
             ScopeUnknownProject unknown => composer.ComposeUnknownProject(unknown.Requested, unknown.Projects),
             var other => throw new InvalidOperationException($"Unhandled scope resolution {other.GetType().Name}"),

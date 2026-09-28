@@ -39,6 +39,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
     private const string Dialog = "d-2f19";
     private const string FreshDialog = "d-fresh";
     private const string Owner = "person-a";
+
+    private readonly AgentSmith.Tests.TestHelpers.RecordingDispatchedWork _dispatched = new();
     private const string Intruder = "person-b";
     private const string CannedReply = "canned design answer";
     private const string FirstSentence = "a widget that reads the ledger";
@@ -97,19 +99,22 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_SlashSpec_OpensASession()
     {
-        var result = await SendAsync("/spec");
+        var result = await OpenAsync();
 
         result.Should().BeOfType<Accepted>();
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         state.Should().NotBeNull();
         state!.UserId.Should().Be(Owner, "the session belongs to the principal that opened it");
-        LastText().Should().Contain("opened");
+        // 2026-09-28-1da5b: and SAYS nothing. On this page the first message is what opens the
+        // conversation, so an announcement would arrive after the description and above the turn
+        // already answering it.
+        _hub.Pushes.Should().BeEmpty("opening is not announced on the dashboard");
     }
 
     [Fact]
     public async Task Ingest_AuthenticatedMessage_RoutesThroughTheSpecDialogRouter()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
 
         await SendAsync("a widget that reads the ledger");
 
@@ -125,7 +130,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_DoesNotAwaitTheTurnOnTheRequest()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var entered = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         _turnRunner
@@ -152,7 +157,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_BySomeoneElsesPrincipal_IsRefused()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
 
         var opened = _hub.Pushes.Count;
         var result = await Ingest("let me approve that for you", Intruder);
@@ -172,7 +177,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_AConversationTheCallerOwns_IsResumedOntoTheTargetDialog()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
         var result = await Resume(opened!.JobId, FreshDialog);
@@ -192,7 +197,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_AConversationTheCallerDoesNotOwn_IsNotFound()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
         var result = await Resume(opened!.JobId, "d-elsewhere", Intruder);
@@ -212,11 +217,11 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_ATargetDialogTheCallerMayNotWatch_IsRefusedAndClosesNothing()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var mine = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
-        var before = _hub.Pushes.Count;
+        // 2026-09-28-1da5b: opening pushes nothing, so the wait is on the dispatched work.
         await Ingest("/spec", Intruder, FreshDialog);
-        await Settle(before + 1);
+        await _dispatched.SettleAsync();
         var theirs = await _sessions.GetOpenByThreadAsync(Platform, FreshDialog, CancellationToken.None);
 
         var result = await Resume(mine!.JobId, FreshDialog);
@@ -236,7 +241,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_ALiveQuestion_IsStillRefused()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         _pendingQuestions.Set(opened!.JobId, "q-approval", "file these tickets?");
 
@@ -257,7 +262,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_ALiveTurn_IsStillRefused()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
@@ -295,7 +300,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_OntoAFreshDialogId_ClosesNothingElse()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         await ReplaceTheConversationHereAsync();
         var current = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
@@ -319,7 +324,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_IntoTheThreadItAlreadyLivesIn_LeavesItOpen()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var here = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
 
         var result = await Resume(here!.JobId, Dialog);
@@ -333,7 +338,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task ResumeRoute_AClosedConversationOfAnotherPrincipal_IsNotFound()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var past = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         await ReplaceTheConversationHereAsync();
 
@@ -348,7 +353,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Subscribe_ToAnotherPrincipalsSession_IsRefused()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
 
         var act = async () => await Hub(Intruder).SubscribeSpecDialog(Dialog);
 
@@ -359,7 +364,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Subscribe_ByTheOwner_JoinsTheDialogGroup()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
 
         await Hub(Owner).SubscribeSpecDialog(Dialog);
 
@@ -369,7 +374,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_WithAPendingTypedQuestion_AnswersItInsteadOfRunningATurn()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         _pendingQuestions.Set(state!.JobId, "q-approval", "approve this?");
 
@@ -388,7 +393,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_WhileATurnIsRunning_IsToldSoAndDoesNotQueueASecond()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
         _turnRunner
@@ -450,7 +455,8 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var before = _hub.Pushes.Count;
 
         await Ingest(FirstSentence, Owner, Dialog, "sample");
-        await Settle(before + 2);
+        // 2026-09-28-1da5b: one push. Opening is no longer announced on this page.
+        await Settle(before + 1);
 
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().NotBeNull("the message that named a project opened its own conversation");
@@ -472,11 +478,15 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var before = _hub.Pushes.Count;
 
         await Ingest(FirstSentence, Owner, Dialog, "sample");
-        await Settle(before + 2);
+        // 2026-09-28-1da5b: ONE push, not two. A first message used to be answered by an opening
+        // notice and then by the turn — the notice arriving after the operator's description and
+        // above the turn already working on it.
+        await Settle(before + 1);
 
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         state!.Transcript.Select(turn => turn.Text).Should()
             .Equal(FirstSentence, CannedReply);
+        AllTexts().Should().NotContain(text => text.Contains("opened"));
     }
 
     // The caller that really has nothing to open: a page that lost its project, or something that
@@ -498,7 +508,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task SpecDialogDispatch_AMessageOnAnOpenSession_OpensNothingAndRoutesAsBefore()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
         var opened = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         var before = _hub.Pushes.Count;
 
@@ -534,7 +544,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     [Fact]
     public async Task Ingest_PublishesTheChatIngestionSystemEvent()
     {
-        await SendAsync("/spec");
+        await OpenAsync();
 
         var published = _events.Published.Should().ContainSingle()
             .Which.Should().BeOfType<ChatMessageReceivedEvent>().Subject;
@@ -588,6 +598,9 @@ new DashboardOutcomeChannel(
         // which is the installation these routing tests are about.
         services.AddSingleton(new TokenAuthorityConfig());
         services.AddSingleton<ISystemEventPublisher>(_events);
+        // 2026-09-28-1da5b: the route dispatches through Task.Run and drops the handle. Nothing
+        // is registered for this in production; here it is what makes the class deterministic.
+        services.AddSingleton<AgentSmith.Server.Services.SpecDialog.IDispatchedWork>(_dispatched);
         return services.BuildServiceProvider();
     }
 
@@ -613,6 +626,18 @@ new DashboardOutcomeChannel(
         return result;
     }
 
+    /// <summary>
+    /// 2026-09-28-1da5b: opening a conversation pushes NOTHING on the dashboard, and that push was
+    /// the only thing these tests had to wait on. What they wait on now is the dispatched work
+    /// itself — a handle rather than a sentence meant for a person.
+    /// </summary>
+    private async Task<IResult> OpenAsync(string dialogId = Dialog)
+    {
+        var result = await Ingest("/spec", Owner, dialogId);
+        await _dispatched.SettleAsync();
+        return result;
+    }
+
     /// <summary>The resume route, called the way the page calls it: the conversation by its
     /// session id, the tab it is to be moved onto, and the principal asking.</summary>
     private Task<IResult> Resume(string sessionId, string dialogId, string caller = Owner) =>
@@ -630,7 +655,7 @@ new DashboardOutcomeChannel(
     {
         await _sessions.CloseAsync(Platform, Dialog, CancellationToken.None);
         ForgetTracked();
-        await SendAsync("/spec");
+        await OpenAsync();
         ForgetTracked();
     }
 

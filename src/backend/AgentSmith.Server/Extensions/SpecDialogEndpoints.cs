@@ -76,7 +76,8 @@ internal static class SpecDialogEndpoints
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
             .CreateLogger("AgentSmith.Server.SpecDialogIngestion");
-        _ = Task.Run(async () =>
+        // 2026-09-28-1da5b: the handle goes to whatever wants to watch work nobody awaits.
+        var work = Task.Run(async () =>
         {
             try
             {
@@ -90,10 +91,11 @@ internal static class SpecDialogEndpoints
                 logger.LogError(ex, "Fire-and-forget spec-dialog dispatch failed");
             }
         });
+        ctx.RequestServices.GetService<Services.SpecDialog.IDispatchedWork>()?.Started(work);
     }
 
-    // p0173c: chat-channel ingestion is a SystemEvent. Metadata only — no message text in
-    // the payload (the security boundary both other channels hold to).
+    // p0173c: chat-channel ingestion is a SystemEvent. Metadata only — no message text in the
+    // payload, the security boundary both other channels hold to.
     private static async Task EmitChatAsync(
         HttpContext ctx, string dialogId, bool actioned, string? skipReason)
     {
@@ -102,12 +104,8 @@ internal static class SpecDialogEndpoints
         try
         {
             await publisher.PublishAsync(new ChatMessageReceivedEvent(
-                Source: ChatSource,
-                Channel: dialogId,
-                MessageType: "message",
-                Actioned: actioned,
-                SkipReason: skipReason,
-                Timestamp: DateTimeOffset.UtcNow));
+                Source: ChatSource, Channel: dialogId, MessageType: "message",
+                Actioned: actioned, SkipReason: skipReason, Timestamp: DateTimeOffset.UtcNow));
         }
         catch (Exception ex)
         {
