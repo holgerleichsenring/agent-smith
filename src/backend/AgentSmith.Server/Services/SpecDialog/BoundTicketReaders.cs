@@ -19,6 +19,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class BoundTicketReaders(
     ITicketProviderFactory providers,
     SpecDialogTicketTextRepository store,
+    FiledWorkRunsReader runs,
     ILoggerFactory loggerFactory)
 {
     public async Task<BoundTicket?> ForAsync(
@@ -33,12 +34,16 @@ public sealed class BoundTicketReaders(
             // 2026-09-28-1da5c: and what the TRACKER shows against it. One lookup, two ports —
             // the pairing that made this class exist is the same pairing both of them need.
             new BoundTicketWork(
-                providers.CreateLinkedWork(project.Tracker), new TicketId(held.TicketId)));
+                providers.CreateLinkedWork(project.Tracker), new TicketId(held.TicketId)),
+            // 2026-09-28-1da5d: and what THIS framework did about it, which is a different claim.
+            new BoundTicketRuns(
+                runs, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketRuns>()));
     }
 }
 
 /// <summary>The two things a BOUND turn may ask about its own ticket, from one lookup.</summary>
-public sealed record BoundTicket(ITicketReader Reader, IBoundTicketWork Work);
+public sealed record BoundTicket(
+    ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs);
 
 /// <summary>2026-09-28-1da5c: the linked-work port, closed over the ticket the turn is bound to.</summary>
 public sealed class BoundTicketWork(ITicketLinkedWork work, TicketId ticketId) : IBoundTicketWork

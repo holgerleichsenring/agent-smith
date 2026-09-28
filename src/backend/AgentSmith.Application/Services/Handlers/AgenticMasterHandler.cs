@@ -289,6 +289,11 @@ public sealed class AgenticMasterHandler(
                 ContextKeys.SpecDialogTicketWork, out var boundWork) && boundWork is not null
             ? new TicketWorkToolHost(boundWork)
             : null;
+        var ticketRuns = dialogueJobId is not null
+            && context.Pipeline.TryGet<IBoundTicketRuns>(
+                ContextKeys.SpecDialogTicketRuns, out var boundRuns) && boundRuns is not null
+            ? new TicketRunsToolHost(boundRuns)
+            : null;
         var credentials = new GetArtifactCredentialsToolHost(config.Registries);
         // p0341c: constrain write_context_yaml's context_name to the DISCOVERED contexts
         // per repo (from ScopeRepos' RemoteContextInventory) so the model can't author a
@@ -370,7 +375,7 @@ public sealed class AgenticMasterHandler(
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
         var composed = composition.Compose(
             isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-            progress, recall, remember, withdraw, readTicket, ticketWork, context);
+            progress, recall, remember, withdraw, readTicket, ticketWork, ticketRuns, context);
         var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
 
         var request = new AgenticLoopRequest(

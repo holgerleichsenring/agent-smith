@@ -76,6 +76,7 @@ internal static class SpecDialogTurnSeeds
         {
             seeds[ContextKeys.SpecDialogTicketReader] = bound.Reader;
             seeds[ContextKeys.SpecDialogTicketWork] = bound.Work;
+            seeds[ContextKeys.SpecDialogTicketRuns] = bound.Runs;
         }
         return seeds;
     }

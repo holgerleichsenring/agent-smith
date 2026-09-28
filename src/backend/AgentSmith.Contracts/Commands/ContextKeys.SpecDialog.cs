@@ -79,4 +79,8 @@ public static partial class ContextKeys
     /// <summary>2026-09-28-1da5c: what the TRACKER shows against that ticket — its pull requests,
     /// and its branches where a tracker links them. Seeded only by a bound conversation's turn.</summary>
     public const string SpecDialogTicketWork = "SpecDialogTicketWork";
+
+    /// <summary>2026-09-28-1da5d: what THIS framework did about that ticket — its runs, their
+    /// phases and the pull requests they opened. A different claim from what the board shows.</summary>
+    public const string SpecDialogTicketRuns = "SpecDialogTicketRuns";
 }
