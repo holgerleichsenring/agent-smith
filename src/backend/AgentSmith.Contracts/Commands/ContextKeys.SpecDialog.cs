@@ -75,4 +75,8 @@ public static partial class ContextKeys
     /// <summary>2026-09-27-481ba: reading that ticket from its tracker when the seeded copy was
     /// capped. Seeded only by a BOUND conversation's turn, so an unbound one carries no tool.</summary>
     public const string SpecDialogTicketReader = "SpecDialogTicketReader";
+
+    /// <summary>2026-09-28-1da5c: what the TRACKER shows against that ticket — its pull requests,
+    /// and its branches where a tracker links them. Seeded only by a bound conversation's turn.</summary>
+    public const string SpecDialogTicketWork = "SpecDialogTicketWork";
 }

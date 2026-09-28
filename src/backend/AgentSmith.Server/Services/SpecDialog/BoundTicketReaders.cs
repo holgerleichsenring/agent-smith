@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Logging;
 
@@ -20,14 +21,28 @@ public sealed class BoundTicketReaders(
     SpecDialogTicketTextRepository store,
     ILoggerFactory loggerFactory)
 {
-    public async Task<ITicketReader?> ForAsync(
+    public async Task<BoundTicket?> ForAsync(
         string sessionId, ResolvedProject? project, CancellationToken ct)
     {
         if (project is null) return null;
         var held = await store.GetAsync(sessionId, ct);
-        return held is null
-            ? null
-            : new BoundTicketReader(
-                providers, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketReader>());
+        if (held is null) return null;
+        return new BoundTicket(
+            new BoundTicketReader(
+                providers, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketReader>()),
+            // 2026-09-28-1da5c: and what the TRACKER shows against it. One lookup, two ports —
+            // the pairing that made this class exist is the same pairing both of them need.
+            new BoundTicketWork(
+                providers.CreateLinkedWork(project.Tracker), new TicketId(held.TicketId)));
     }
+}
+
+/// <summary>The two things a BOUND turn may ask about its own ticket, from one lookup.</summary>
+public sealed record BoundTicket(ITicketReader Reader, IBoundTicketWork Work);
+
+/// <summary>2026-09-28-1da5c: the linked-work port, closed over the ticket the turn is bound to.</summary>
+public sealed class BoundTicketWork(ITicketLinkedWork work, TicketId ticketId) : IBoundTicketWork
+{
+    public Task<TicketLinkedWorkResult> ForAsync(CancellationToken cancellationToken) =>
+        work.ForAsync(ticketId, cancellationToken);
 }

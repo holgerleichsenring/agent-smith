@@ -87,6 +87,9 @@ public sealed class ReadTicketToolTests
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
+
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
     }
 
     private sealed class Failing : ITicketProviderFactory
@@ -97,5 +100,8 @@ public sealed class ReadTicketToolTests
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
+
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
     }
 }
