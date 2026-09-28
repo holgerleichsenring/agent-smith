@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useJobsHub } from "@/hooks/useJobsHub";
 import { useSystemBacklog } from "@/hooks/useSubsystemEvents";
 import { useSubsystemActivity } from "@/hooks/useSubsystemActivity";
-import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { cn } from "@/lib/utils";
 
 // p0343b: the mock's INFLOW pill on the runs-home header row. Everything on it

@@ -98,13 +98,14 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<Services.Lifecycle.RunTerminator>();
         services.AddSingleton<Services.Lifecycle.CancelEnforcer>();
 
-        // p0320c: the persistent FIFO capacity queue + its dequeue pump. The no-op default
-        // (DispatcherExtensions) is replaced by the DB-backed queue whose
+        // The persistent FIFO capacity queue replaces the no-op default (DispatcherExtensions);
         // UNIQUE(Project,TicketId) makes "one entry, one queued run row per ticket" a guarantee.
         services.AddScoped<QueuedTicketRepository>();
         services.RemoveAll<ICapacityQueue>();
         services.AddSingleton<ICapacityQueue, DbCapacityQueue>();
-        services.AddHostedService<CapacityQueuePumpHostedService>();
+        services.AddSingleton<CapacityQueuePumpHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<CapacityQueuePumpHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<CapacityQueuePumpHostedService>().Health);
 
         // p0336: the DB-backed capacity budget replaces the no-op — the app-owned
         // reservation ledger that makes admission predictable (full footprint

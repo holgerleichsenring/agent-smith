@@ -88,7 +88,7 @@ docker compose -f deploy/docker-compose.yml run --rm agentsmith config export --
 
 ## Health
 
-`GET http://localhost:8081/health` tells you how the subsystems are doing — including the startup preflight report (the same checks `agent-smith doctor` runs, warn-only on the server so a degraded tracker doesn't become an outage).
+`GET http://localhost:8081/health` tells you how the subsystems are doing: each background subsystem (queue consumer, housekeeping, poller, capacity queue, Redis) with its state and the reason it is not up, plus the startup preflight report (the same checks `agent-smith doctor` runs, warn-only on the server so a degraded tracker doesn't become an outage). It answers `200` either way; see [Server resilience](../reference/operations/server-resilience.md#get-health).
 
 ## Webhooks
 

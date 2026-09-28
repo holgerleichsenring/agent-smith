@@ -19,7 +19,6 @@ public static partial class CommandStepClasses
         [CommandNames.TryCheckoutSource] = Milestone,
         [CommandNames.BootstrapProject] = Milestone,     // retired; old records still classify
         [CommandNames.AnalyzeCode] = Milestone,
-        [CommandNames.NegotiateExpectation] = Milestone,
         [CommandNames.DeriveSpec] = Milestone,
         ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
         [CommandNames.Approval] = Milestone,
@@ -43,7 +42,6 @@ public static partial class CommandStepClasses
         [CommandNames.DeliverOutput] = Milestone,
         [CommandNames.Ask] = Milestone,
         [CommandNames.CompileKnowledge] = Milestone,
-        [CommandNames.QueryKnowledge] = Milestone,
         [CommandNames.WriteTickets] = Milestone,
         [CommandNames.RunReviewPhase] = Milestone,
         [CommandNames.RunFinalPhase] = Milestone,

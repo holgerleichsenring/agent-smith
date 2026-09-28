@@ -4,7 +4,7 @@ import { makeBehaviorSubject } from "../JobsHubClient";
 describe("makeBehaviorSubject", () => {
   it("BehaviorSubject_ReplaysLastValue_ToLateSubscriber", () => {
     // The Runs-list bug: AppRail subscribes first and consumes the one-time
-    // snapshot; RunsList mounts later and must still receive the current value
+    // snapshot; the runs board mounts later and must still receive the current value
     // without a page refresh.
     const subject = makeBehaviorSubject<number>();
     const early = vi.fn();
@@ -13,7 +13,7 @@ describe("makeBehaviorSubject", () => {
     subject.emit(42); // snapshot arrives while only AppRail (early) is listening
 
     const late = vi.fn();
-    subject.add(late); // RunsList mounts afterwards
+    subject.add(late); // the runs board mounts afterwards
 
     expect(early).toHaveBeenCalledWith(42);
     expect(late).toHaveBeenCalledWith(42); // replayed, no refresh needed

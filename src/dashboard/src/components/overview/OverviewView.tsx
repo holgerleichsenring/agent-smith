@@ -5,7 +5,7 @@ import { useJobsHub } from "@/hooks/useJobsHub";
 import { useCostRollup } from "@/hooks/useCostRollup";
 import { useSpendBreakdown } from "@/hooks/useSpendBreakdown";
 import { useExpectationMetrics } from "@/hooks/useExpectationMetrics";
-import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { deriveRunOutcomes } from "@/lib/runOutcomes";
 import { PageHead } from "@/components/system/PageHead";
 import { SpendCard } from "@/components/overview/SpendCard";

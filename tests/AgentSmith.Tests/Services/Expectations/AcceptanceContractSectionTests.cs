@@ -1,7 +1,6 @@
 using AgentSmith.Application.Services.Expectations;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
 
@@ -78,47 +77,21 @@ public sealed class AcceptanceContractSectionTests
         presented.Should().Equal(AcceptanceCriteria.For(pipeline));
     }
 
-    [Fact]
-    public void Acceptance_ARatifiedExpectation_StillRendersItsOwnContractUnchanged()
-    {
-        var pipeline = WithPhaseSpec();
-        pipeline.Set(ContextKeys.RunExpectation, new RatifiedExpectation(
-            new ExpectationDraft(
-                "The endpoint returns 500 on empty payloads.",
-                ["The endpoint returns 400 on empty payloads."],
-                ["No new dependencies."],
-                null),
-            ExpectationOutcomes.Verbatim, "@operator", DateTimeOffset.UtcNow, 0));
-
-        var section = ExpectationPromptSection.Build(pipeline);
-
-        section.Should().Contain("The endpoint returns 400 on empty payloads.");
-        section.Should().Contain("The ratified expectation below");
-        section.Should().NotContain(First, "a negotiated expectation still wins its own slot");
-    }
-
     /// <summary>
     /// 2026-09-06-3d81: the third answer is stated in the contract. AcceptanceStatus has had
     /// not_applicable since p0340 and the gate has accepted it with a reason all along; the
     /// master was never told, so a criterion the repository makes impossible was fought pass
     /// after pass (run 989e bisected plugin versions for sixteen minutes) or, when a master
-    /// did decline it, the answer reached nobody. Both bodies carry the rule — a spec-derived
-    /// run and one judged by a negotiated expectation are given the same vocabulary.
+    /// did decline it, the answer reached nobody.
     /// </summary>
     [Fact]
     public void Contract_TheSectionGivenToTheMaster_NamesNotApplicableAndItsEvidenceRule()
     {
         var derived = ExpectationPromptSection.Build(WithPhaseSpec());
-        var negotiated = ExpectationPromptSection.Build(new RatifiedExpectation(
-            new ExpectationDraft("observed", ["expected"], [], null),
-            ExpectationOutcomes.Verbatim, "@operator", DateTimeOffset.UtcNow, 0));
 
-        foreach (var section in new[] { derived, negotiated })
-        {
-            section.Should().Contain("`not_applicable`", "the answer is named in the vocabulary the skill parses");
-            section.Should().Contain("EVALUATED MEANING", "and what it costs to use it — the skill's own words");
-            section.Should().Contain("does not count", "a bare N/A is refused, and the master is told so");
-        }
+        derived.Should().Contain("`not_applicable`", "the answer is named in the vocabulary the skill parses");
+        derived.Should().Contain("EVALUATED MEANING", "and what it costs to use it — the skill's own words");
+        derived.Should().Contain("does not count", "a bare N/A is refused, and the master is told so");
         // The rule is prose; the criteria list the gate reads back is untouched.
         Bullets(derived).Should().Equal(First, Second);
     }

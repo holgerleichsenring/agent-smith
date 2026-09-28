@@ -3,7 +3,6 @@ using System.Text.Json;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Progress;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
@@ -54,19 +53,14 @@ public sealed class RunStoryServedTests : IDisposable
             new ProgressLedgerEntry("2", "Wire the client", ProgressStatus.InProgress),
             new ProgressLedgerEntry("3", "Extend the smoke test", ProgressStatus.Pending),
         ]))!;
-        var acceptanceJson = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            new RatifiedExpectation(
-                new ExpectationDraft("Observed state",
-                    ["The endpoint returns 200", "Old rows serve null", "A third criterion"],
-                    [], null),
-                ExpectationOutcomes.Verbatim, "operator", T, 0),
-            new MasterVerification(VerificationStatus.Green, true, true, true, true, "green",
-                AcceptanceDispositions:
-                [
-                    new AcceptanceDisposition("The endpoint returns 200", AcceptanceStatus.Met, "Endpoint.cs"),
-                    new AcceptanceDisposition("Old rows serve null", AcceptanceStatus.NotApplicable, "no old rows in scope"),
-                    // no disposition for the third criterion → unproven
-                ]))!;
+        // An archived snapshot from a run that negotiated its expectation: nothing writes this
+        // shape any more, and the run detail must still serve it as it was recorded.
+        var acceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
+        [
+            new AcceptanceCriterionView("The endpoint returns 200", "met", "Endpoint.cs"),
+            new AcceptanceCriterionView("Old rows serve null", "not_applicable", "no old rows in scope"),
+            new AcceptanceCriterionView("A third criterion", "unproven", null),
+        ], "verbatim", "operator", AcceptanceSources.MasterVerification));
 
         await ApplyAsync(
             new RunStartedEvent(runId, "ticket", "code", ["primary"], T, "claude", "42"),
@@ -155,21 +149,7 @@ public sealed class RunStoryServedTests : IDisposable
     {
         RunStorySnapshotBuilder.BuildLedgerJson(null).Should().BeNull();
         RunStorySnapshotBuilder.BuildLedgerJson(ProgressLedger.Empty).Should().BeNull();
-        RunStorySnapshotBuilder.BuildAcceptanceJson(null, null).Should().BeNull();
-    }
-
-    [Fact]
-    public void StoryBuilder_ContractWithoutAnyDispositions_AllCriteriaUnproven()
-    {
-        var json = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            new RatifiedExpectation(
-                new ExpectationDraft("obs", ["c1", "c2"], [], null),
-                ExpectationOutcomes.Unratified, "auto", T, 0),
-            verification: null)!;
-
-        var view = RunStoryJson.TryDeserialize<AcceptanceView>(json)!;
-        view.Criteria.Should().OnlyContain(c => c.Status == "unproven");
-        view.Outcome.Should().Be("unratified");
+        RunStorySnapshotBuilder.BuildAcceptanceJson(null).Should().BeNull();
     }
 
     [Fact]

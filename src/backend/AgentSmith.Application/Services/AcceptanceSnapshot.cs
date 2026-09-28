@@ -26,16 +26,15 @@ internal static class AcceptanceSnapshot
     /// The page used to be built only from a negotiated expectation and the master's own
     /// dispositions, while the gate has refused runs on the phase spec's criteria since
     /// p0393a. A live run showed both at once: the failure named three ratified criteria
-    /// and the card said "No ratified acceptance contract on this run yet". Nothing was
-    /// missing from the run — the page was reading the wrong one of two judges.
+    /// and the card said "No ratified acceptance contract on this run yet". The negotiation
+    /// is gone, so the gate's account is the one judge left; archived snapshots written from
+    /// the negotiated source still decode, because the view shape did not change.
     /// </para>
     /// </summary>
-    public static string? Build(
-        RatifiedExpectation? expectation, MasterVerification? verification,
-        RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null)
+    public static string? Build(RunAccounts? accounts, IReadOnlyList<DeclinedCriterion>? declined = null)
     {
         var declinedViews = DeclinedViews(declined);
-        var view = FromAccounts(accounts) ?? FromExpectation(expectation, verification);
+        var view = FromAccounts(accounts);
         if (view is null)
             return declinedViews is null ? null : RunStoryJson.Serialize(DeclinedOnly(declinedViews));
         return RunStoryJson.Serialize(view with { Declined = declinedViews });
@@ -61,18 +60,6 @@ internal static class AcceptanceSnapshot
 
         return new AcceptanceView(
             criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec, AcceptanceSources.DeliveryAccount);
-    }
-
-    private static AcceptanceView? FromExpectation(
-        RatifiedExpectation? expectation, MasterVerification? verification)
-    {
-        if (expectation is null) return null;
-        var dispositions = verification?.AcceptanceDispositions;
-        var criteria = expectation.Draft.Expected
-            .Select((text, i) => CriterionOf(text, i < dispositions?.Count ? dispositions![i] : null))
-            .ToList();
-        return new AcceptanceView(
-            criteria, expectation.Outcome, expectation.RatifiedBy, AcceptanceSources.MasterVerification);
     }
 
     /// <summary>A run that declined something and was judged by nothing else — it ended
@@ -101,19 +88,4 @@ internal static class AcceptanceSnapshot
         AccountDisposition.NotApplicable => AcceptanceCriterionStatuses.NotApplicable,
         _ => AcceptanceCriterionStatuses.Unmet,
     };
-
-    private static AcceptanceCriterionView CriterionOf(string text, AcceptanceDisposition? disposition)
-    {
-        if (disposition is null)
-            return new AcceptanceCriterionView(text, AcceptanceCriterionStatuses.Unproven, null);
-
-        var status = disposition.Status switch
-        {
-            AcceptanceStatus.Met => AcceptanceCriterionStatuses.Met,
-            AcceptanceStatus.NotApplicable => AcceptanceCriterionStatuses.NotApplicable,
-            _ => AcceptanceCriterionStatuses.Unmet,
-        };
-        var reason = string.IsNullOrWhiteSpace(disposition.Evidence) ? null : disposition.Evidence;
-        return new AcceptanceCriterionView(text, status, reason);
-    }
 }

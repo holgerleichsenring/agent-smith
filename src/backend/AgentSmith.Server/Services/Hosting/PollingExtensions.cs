@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Extensions;
 /// <summary>
 /// Long-running hosted services: queue consumer, housekeeping leader, poller
 /// leader, and the Redis connection health monitor. Each one is published as
-/// ISubsystemHealth so /health endpoints expose the per-subsystem status.
+/// ISubsystemHealth so /health lists the per-subsystem status.
 /// </summary>
 internal static class PollingExtensions
 {

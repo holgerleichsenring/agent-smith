@@ -25,7 +25,6 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadContext] = "Load project context",
         [CommandNames.LoadSkills] = "Load skills",
         [CommandNames.AnalyzeCode] = "Analyze codebase",
-        [CommandNames.NegotiateExpectation] = "Negotiate expectation", // p0328
         [CommandNames.DeriveSpec] = "Derive the phase specs",
         [CommandNames.SpecHandback] = "Hand the ticket back",
         [CommandNames.PhaseSequence] = "Plan the phase sequence",
@@ -62,7 +61,6 @@ public static partial class CommandDisplayNames
         [CommandNames.SessionSetup] = "Authenticate API personas",
         [CommandNames.Ask] = "Ask human",
         [CommandNames.CompileKnowledge] = "Compile knowledge base",
-        [CommandNames.QueryKnowledge] = "Query knowledge base",
         [CommandNames.LoadRuns] = "Load run history",
         [CommandNames.WriteTickets] = "Write tickets",
         [CommandNames.FilterRound] = "Filter round",

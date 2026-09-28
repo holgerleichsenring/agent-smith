@@ -3,17 +3,13 @@ using System.Text.RegularExpressions;
 namespace AgentSmith.PipelineHarness.Evals;
 
 /// <summary>
-/// p0329: the anonymization gate every fixture passes TWICE — at ingestion
-/// (<see cref="ExpectationFixtureIngestion"/> refuses to write) and at load
-/// (<see cref="ExpectationFixtureLoader"/> refuses to run). Two layers:
-/// generic fingerprint patterns baked in CODE (emails, non-placeholder URLs,
-/// hosting-org paths — never specific customer names, per repo policy), plus
-/// an EXTENSIBLE deny-list file (<c>deny-patterns.txt</c>, one regex per
-/// line, '#' comments) the operator grows with their own fingerprints. The
-/// checks run over the raw fixture text so a fingerprint anywhere — title,
-/// gold assertion, code map — is caught.
+/// The anonymization gate every eval fixture passes at load: generic fingerprint patterns baked
+/// in CODE (emails, non-placeholder URLs, hosting-org paths — never specific customer names, per
+/// repo policy), plus an EXTENSIBLE deny-list file (<c>deny-patterns.txt</c>, one regex per line,
+/// '#' comments) the operator grows in their private fixture directory. The sweep runs over the
+/// raw fixture text so a fingerprint anywhere in it is caught.
 /// </summary>
-public static class ExpectationFixtureAnonymizationCheck
+public static class FixtureAnonymizationCheck
 {
     public const string DenyListFileName = "deny-patterns.txt";
 
@@ -33,24 +29,9 @@ public static class ExpectationFixtureAnonymizationCheck
             RegexOptions.IgnoreCase | RegexOptions.Compiled), "hosting-org path"),
     ];
 
-    /// <summary>Returns every violation found; an empty list means the fixture
-    /// may be ingested/loaded. <paramref name="denyListDirectory"/> is scanned
-    /// for the extensible deny-list file when non-null.</summary>
-    public static IReadOnlyList<string> Check(
-        ExpectationFixture fixture, string rawJson, string? denyListDirectory)
-    {
-        var violations = new List<string>();
-        CheckAttestation(fixture, violations);
-        violations.AddRange(CheckText(rawJson, denyListDirectory));
-        return violations;
-    }
-
-    /// <summary>
-    /// 2026-08-25-7035: the same fingerprint sweep over any fixture text, for a fixture that
-    /// is not an expectation and carries no attestation of its own. The patterns are the
-    /// gate; the attestation is a property of a HARVESTED fixture, and an authored one has
-    /// nobody to attest.
-    /// </summary>
+    /// <summary>Every violation in <paramref name="rawText"/>; an empty list means the fixture
+    /// may be loaded. <paramref name="denyListDirectory"/> is scanned for the extensible deny-list
+    /// file when non-null.</summary>
     public static IReadOnlyList<string> CheckText(string rawText, string? denyListDirectory)
     {
         var violations = new List<string>();
@@ -61,19 +42,10 @@ public static class ExpectationFixtureAnonymizationCheck
         return violations;
     }
 
-    private static void CheckAttestation(ExpectationFixture fixture, List<string> violations)
-    {
-        if (fixture.Anonymization is not { Attested: true })
-            violations.Add("missing anonymization attestation — the fixture must carry "
-                + "'anonymization': { 'attested': true, 'by': '<who anonymized it>' }.");
-        else if (string.IsNullOrWhiteSpace(fixture.Anonymization.By))
-            violations.Add("anonymization attestation carries no 'by' — name who anonymized it.");
-    }
-
     private static void CheckPattern(
-        string rawJson, Regex pattern, string reason, List<string> violations)
+        string rawText, Regex pattern, string reason, List<string> violations)
     {
-        foreach (Match match in pattern.Matches(rawJson))
+        foreach (Match match in pattern.Matches(rawText))
         {
             if (IsAllowedPlaceholder(match)) continue;
             violations.Add($"customer-fingerprint suspect ({reason}): \"{Excerpt(match.Value)}\"");

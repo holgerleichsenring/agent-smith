@@ -9,8 +9,8 @@
 // runs the named preset end-to-end against a clean container, then prints
 // step results, container lifecycle, WIP-branch presence on the fake
 // remote, and the final pipeline result. p0199c extends --docker to the
-// full nine-preset matrix (init-project + autonomous land deferred until
-// a real skill catalog is mounted into the sandbox).
+// preset matrix (init-project lands deferred until a real skill catalog is
+// mounted into the sandbox).
 
 using AgentSmith.PipelineHarness.Composition;
 using AgentSmith.PipelineHarness.Presets;
@@ -44,12 +44,6 @@ return 2;
 
 static async Task<int> RunPresetAsync(string preset)
 {
-    if (PresetDeferrals.IsDeferred(preset, out var reason))
-    {
-        Console.WriteLine($"Preset '{preset}' is deferred: {reason}");
-        return 0;
-    }
-
     Console.WriteLine($"Running preset '{preset}' via RealCompositionHarness (stub sandbox)...");
     var configPath = Path.Combine(AppContext.BaseDirectory, "Fixtures", "agentsmith.yml");
     // p0199f: scanner stubs are now in RealCompositionHarness defaults
@@ -74,8 +68,8 @@ static void PrintUsage()
     Console.WriteLine("  dotnet run --project tests/AgentSmith.PipelineHarness -- --preset <name> --docker");
     Console.WriteLine();
     Console.WriteLine("  --docker:  run the docker-tier flow end-to-end (real DockerSandbox + dotnet + git).");
-    Console.WriteLine("             Supports all nine presets except init-project + autonomous (deferred,");
-    Console.WriteLine("             see InitProjectDockerTests / AutonomousDockerTests for the gap detail).");
+    Console.WriteLine("             Supports every preset except init-project (deferred, see");
+    Console.WriteLine("             InitProjectDockerTests for the gap detail).");
     Console.WriteLine("             Requires docker daemon + sandbox-agent image; uses REDIS_URL (default");
     Console.WriteLine("             localhost:6379). Sets AGENTSMITH_HARNESS_DOCKER=1 implicitly when invoked.");
 }

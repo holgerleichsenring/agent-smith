@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { applySnapshotFilters } from "@/hooks/useJobsHub";
 import type { RunSnapshot } from "@/types/hub-events";
 

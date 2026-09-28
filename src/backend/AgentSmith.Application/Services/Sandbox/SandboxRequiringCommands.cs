@@ -19,7 +19,7 @@ public static class SandboxRequiringCommands
         CommandNames.BootstrapDiscover, // p0161d: read-only LLM round reads via the per-repo sandbox
         CommandNames.LoadContext, CommandNames.LoadCodingPrinciples, CommandNames.LoadCodeMap,
         CommandNames.LoadRuns, CommandNames.AnalyzeCode,
-        CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
+        CommandNames.CompileDiscussion, CommandNames.CompileKnowledge,
         CommandNames.WriteRunResult,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite

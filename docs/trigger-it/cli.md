@@ -28,7 +28,7 @@ agent-smith compile-wiki --project ~/code/todolist-api     # knowledge-base comp
 agent-smith security-trend --project ~/code/todolist-api   # scan trend analysis (a project directory)
 ```
 
-`agent-smith --help` lists everything; every verb accepts `--config <path>` and `--verbose`, and the pipeline verbs accept `--dry-run` (print the pipeline, don't execute). `--help` also lists an `autonomous` verb, but there is no `autonomous` pipeline to run, so the command fails because the preset doesn't resolve.
+`agent-smith --help` lists everything; every verb accepts `--config <path>` and `--verbose`, and the pipeline verbs accept `--dry-run` (print the pipeline, don't execute).
 
 Two verbs are not pipelines but you'll use them a lot:
 

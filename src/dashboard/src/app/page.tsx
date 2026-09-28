@@ -2,7 +2,7 @@ import { MissionControl } from "@/components/jobs/MissionControl";
 import { InflowPill } from "@/components/jobs/mission/InflowPill";
 
 // p0343: the home screen is mission control — tickets worked as jobs, ranked by
-// what needs the operator (Needs-you first). Supersedes the flat RunsList table.
+// what needs the operator (Needs-you first). Supersedes the flat runs table.
 // p0343c (pixel identity): the page emits the runs-list.html mock DOM verbatim —
 // .mock-shell/.mock-runs scope the ported mock stylesheet, .main/.m-head carry
 // the mock's title row with the inflow pill on the right.

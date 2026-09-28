@@ -62,7 +62,7 @@ The home page is split into the same buckets as the rail, under a strip of count
 - **Needs you** holds runs parked on a question. Each card opens in place with the question, quick replies and a free-text box, and **Send & resume run** resumes the same run without leaving the page. More on parking in [durable dialogue](../../how-it-works/expectations.md).
 - **Running** shows each run's step progress, cost so far and age, and its story beat when the server sends one.
 - **Queued** shows each run's place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch is waiting for a slot moves here too and reads `resuming · pos 2`, instead of still claiming to need you.
-- **Finished** pages back through history with **Load more**.
+- **Finished** pages back through history with **Load more**. Its header carries **clear finished**, which deletes every finished, failed and cancelled run at once (see [Deleting runs](#deleting-runs)); it shows only while there is a finished run, and not to a signed-in caller without `runs.delete`.
 
 Finished runs say how they ended: done, done with a shortfall (the verified phases shipped and the rest is named as not delivered), failed, or cancelled, each distinct. Every row carries a delete button, which asks for a second click before it acts.
 
@@ -97,7 +97,7 @@ The live view answers "what is happening". **Why this run did that** (`/jobs/{id
 
 ### Deleting runs
 
-Deleting a run removes it and everything it left behind. A run that hasn't finished is cleared first: its pod is terminated, its lease released, its queue entry dropped, and its ticket disarmed with a comment, so the next poll doesn't pick it up again as a fresh run. A finished run's ticket is left alone, that one's yours to move. If the pod can't be terminated the record is kept and the delete fails with a `502`, so you can retry once the backend answers.
+Deleting a run removes it and everything it left behind, including the judgements recorded on its acceptance criteria. A run that hasn't finished is cleared first: its pod is terminated, its lease released, its queue entry dropped, and its ticket disarmed with a comment, so the next poll doesn't pick it up again as a fresh run. A finished run's ticket is left alone, that one's yours to move. If the pod can't be terminated the record is kept and the delete fails with a `502`, so you can retry once the backend answers.
 
 The same over HTTP, both needing `runs.delete`:
 
@@ -106,7 +106,7 @@ curl -X DELETE https://agentsmith.example.com/api/runs/<runId>
 curl -X DELETE "https://agentsmith.example.com/api/runs?state=terminal"   # every finished, failed and cancelled run
 ```
 
-The bulk form only ever touches terminal runs, so it can't kill a live one.
+The bulk form only ever touches terminal runs, so it can't kill a live one. It is what **clear finished** on the runs board calls; its confirming second click says that the finished runs and their verdict history go.
 
 ### Retrying a handed-back ticket
 

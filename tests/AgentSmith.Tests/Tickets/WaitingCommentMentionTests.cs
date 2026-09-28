@@ -1,16 +1,13 @@
 using AgentSmith.Application.Services.Dialogue;
-using AgentSmith.Application.Services.Expectations;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Services.Providers.Tickets.Expectations;
 using AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +17,7 @@ using Moq;
 namespace AgentSmith.Tests.Tickets;
 
 /// <summary>
-/// p0454: the three comments that WAIT for a person name that person — proven at the
+/// p0454: the comments that WAIT for a person name that person — proven at the
 /// posters, because that is where a ticket's assignee was being dropped, not in the
 /// templates that never saw one.
 /// </summary>
@@ -61,20 +58,6 @@ public sealed class WaitingCommentMentionTests
     }
 
     [Fact]
-    public async Task AnExpectationToRatify_NamesThePersonItWaitsFor()
-    {
-        var (factory, provider) = Provider();
-        var sut = new ExpectationTrackerCommenter(
-            Services(), factory.Object, NoLink(),
-            NullLogger<ExpectationTrackerCommenter>.Instance);
-
-        await sut.PostAsync(
-            new PipelineContext(), AzureDevOps, Assigned(), Draft(), CancellationToken.None);
-
-        Comment(provider).Should().Contain($"data-vss-mention=\"version:2.0,{Guid}\"");
-    }
-
-    [Fact]
     public void AHandbackVerdict_NamesThePersonItWaitsFor()
     {
         var waiting = TicketMention.WaitingLine(TrackerType.AzureDevOps, Assigned());
@@ -94,8 +77,6 @@ public sealed class WaitingCommentMentionTests
         var services = new ServiceCollection();
         services.AddKeyedSingleton<ITicketCommentTemplate,
             AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
-        services.AddKeyedSingleton<IExpectationCommentTemplate,
-            MarkdownExpectationCommentTemplate>("azuredevops");
         return services.BuildServiceProvider();
     }
 
@@ -116,23 +97,11 @@ public sealed class WaitingCommentMentionTests
         return captured;
     }
 
-    private static string Comment(Mock<ITicketProvider> provider)
-    {
-        var captured = string.Empty;
-        provider.Verify(p => p.UpdateStatusAsync(
-            It.IsAny<TicketId>(), It.Is<string>(b => Capture(b, out captured)),
-            It.IsAny<CancellationToken>()), Times.Once);
-        return captured;
-    }
-
     private static bool Capture(string body, out string captured)
     {
         captured = body;
         return true;
     }
-
-    private static ExpectationDraft Draft() =>
-        new("Rename the call sites", ["Every call site is renamed."], [], null);
 
     private static Ticket Assigned() =>
         Ticket(new TicketPerson("Jane Operator", Guid));

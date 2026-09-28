@@ -1,15 +1,12 @@
 using AgentSmith.Application.Services.Dialogue;
-using AgentSmith.Application.Services.Expectations;
 using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Services.Providers.Tickets.Expectations;
 using AgentSmith.Infrastructure.Services.Providers.Tickets.OpenQuestions;
 using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Tests.TestHelpers;
@@ -56,20 +53,6 @@ public sealed class AWaitingTicketPointsAtTheRunTests
 
         Body(provider).Should().NotContain("/jobs/",
             "a guessed address printed into someone's work item is a broken link");
-    }
-
-    [Fact]
-    public async Task TheExpectationComment_LinksToWhereRatifyingWorks()
-    {
-        var provider = new Mock<ITicketProvider>();
-        var sut = new ExpectationTrackerCommenter(
-            Templates(), Factory(provider), new RunAnswerLink(Config(Dashboard)),
-            NullLogger<ExpectationTrackerCommenter>.Instance);
-
-        await sut.PostAsync(Pipeline(), AzureDevOps, Ticket(), Draft(), CancellationToken.None);
-
-        Comment(provider).Should().Contain($"{Dashboard}/jobs/{RunId}",
-            "it said 'ratify it on the run's dashboard prompt' without saying where that was");
     }
 
     [Fact]
@@ -122,8 +105,6 @@ public sealed class AWaitingTicketPointsAtTheRunTests
         var services = new ServiceCollection();
         services.AddKeyedSingleton<ITicketCommentTemplate,
             AzureDevOpsOpenQuestionsCommentTemplate>("azuredevops");
-        services.AddKeyedSingleton<IExpectationCommentTemplate,
-            MarkdownExpectationCommentTemplate>("azuredevops");
         return services.BuildServiceProvider();
     }
 
@@ -143,15 +124,6 @@ public sealed class AWaitingTicketPointsAtTheRunTests
         return captured;
     }
 
-    private static string Comment(Mock<ITicketProvider> provider)
-    {
-        var captured = string.Empty;
-        provider.Verify(p => p.UpdateStatusAsync(
-            It.IsAny<TicketId>(), It.Is<string>(b => Capture(b, out captured)),
-            It.IsAny<CancellationToken>()), Times.Once);
-        return captured;
-    }
-
     private static bool Capture(string body, out string captured)
     {
         captured = body;
@@ -160,9 +132,6 @@ public sealed class AWaitingTicketPointsAtTheRunTests
 
     private static Contracts.Models.RunCheckpointRecord Checkpoint() =>
         ParkedTicketFixture.Checkpoint(DateTimeOffset.Parse("2026-08-19T10:00:00Z"));
-
-    private static ExpectationDraft Draft() =>
-        new("Rename the call sites", ["Every call site is renamed."], [], null);
 
     private static Ticket Ticket() =>
         new(new TicketId("19213"), "T", "D", null, "Active", "AzureDevOps", null,

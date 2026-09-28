@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1e
+
+decisions:
+  - category: Architecture
+    chose: "/health keeps answering 200 and gains `subsystems`; its `status` reads `degraded` while any subsystem is down or degraded, `ok` otherwise"
+    over: "Keeping `status` a constant `ok`, or adding a /health/ready that answers 503"
+    reason: |
+      A body that lists redis as degraded under `status: ok` says two things at once. The code is
+      what probes read and stays 200, because this server is the only pod that can report the fault
+      and a readiness probe would pull it out of the service exactly then. A `disabled` subsystem was
+      switched off on purpose and does not degrade the status.
+    alternatives:
+      - "status constant `ok`: the body contradicts itself"
+      - "/health/ready 503: excluded by the spec's scope"
+
+  - category: Implementation
+    chose: "capacity_queue is registered as a singleton hosted service exposing its SubsystemHealth, like the other leader subsystems"
+    over: "Leaving it an AddHostedService<T> whose health nobody can resolve"
+    reason: |
+      The pump already kept a SubsystemHealth named capacity_queue; nothing could reach it. The
+      registration moved to the same three-line shape PollingExtensions uses, and a comment was
+      tightened so RelationalPersistenceExtensions stays inside its file-length baseline.
+    alternatives: []
+
+  - category: TradeOff
+    chose: "The degraded-redis /health test boots the real composition with Redis pointed at nothing"
+    over: "A partial WebApplication with a hand-registered degraded subsystem"
+    reason: |
+      The claim is that the composed server lists the real subsystems and still answers 200; only the
+      booted rig proves the registration. Its subject is the unreachable dependency, which is the case
+      BootPlan says may name one.
+    alternatives:
+      - "Partial host: proves the mapping, which SubsystemHealthSectionTests already does"
+
+  - category: Architecture
+    chose: "RetiredPipelineNames holds both kinds — Replacements (renamed) and Removed (name -> reason) — with Explain (nullable) and Refusal (full sentence)"
+    over: "One Explain method only, each refusal site composing its own sentence"
+    reason: |
+      Four sites refuse a name. The validator and the routing finding have their own sentence
+      shapes and call Explain; ExecutePipelineUseCase and the CLI dry run print the same whole
+      refusal, and ExecutePipelineUseCase sits at its file-length baseline, so the full sentence
+      lives beside the list. The removed reasons lost their phase ids: they are operator-facing.
+    alternatives: []
+
+  - category: Scope
+    chose: "ClaimPreChecker keeps refusing with the UnknownPipeline enum and no text"
+    over: "Threading Explain into the claim rejection"
+    reason: |
+      The claim rejection is an enum on the wire, not a sentence, and a configuration routing a
+      retired name already gets the startup finding that explains it. The four refusal sites the
+      analysis named are the ones a person reads.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The CLI's verb tree moved out of Program.cs into CliRootCommand.Create()"
+    over: "Testing the absent verb by reading Program.cs as text"
+    reason: |
+      CliRoot_HasNoAutonomousVerb needs the root command; a factory makes it an object a test can
+      ask. Program.cs is now the banner and the invoke.
+    alternatives: []
+
+  - category: Scope
+    chose: "Harness leftovers of BOTH removed presets went: HarnessTicketSeed (autonomous and skill-manager only), the skill-manager deferral and PresetDeferrals.IsDeferred"
+    over: "Removing only the autonomous lines"
+    reason: |
+      With autonomous gone the seed and the deferral served only skill-manager, which no longer
+      resolves either, so both became code with no case to run. HarnessPresetNameTests no longer
+      exempts a removed preset: no suite asks for one now.
+    alternatives: []
+
+  - category: Scope
+    chose: "The Contracts types the negotiation owned (RatifiedExpectation, ExpectationDraft, ExpectationOpenQuestion, ExpectationMarkdown) were deleted; ExpectationOutcomes stays"
+    over: "Keeping them beside the event contract"
+    reason: |
+      Once every ContextKeys.RunExpectation read was gone, nothing in code used them. The
+      ExpectationRatified event carries its drafts as JSON strings, RunExpectationProjection writes
+      them as strings, and the dashboard's verifyFallback parses the JSON itself — so archived trails
+      still decode. ExpectationOutcomes stays: the metric endpoint, the RunExpectation rows and the
+      acceptance snapshot still carry that vocabulary.
+    alternatives: []
+
+  - category: Implementation
+    chose: "AcceptanceSnapshot and RunStorySnapshotBuilder.BuildAcceptanceJson lost the expectation and verification parameters; the result formatter lost its expectation section; CommitAndPR lost ExpectationPrBodySection"
+    over: "Passing null into the old signatures"
+    reason: |
+      The expectation argument could only ever be null, and the master-verification argument fed
+      only the expectation path. The served view shape (AcceptanceView) is unchanged, so an archived
+      snapshot built from a negotiated expectation still reads; RunStoryServedTests now seeds that
+      archived shape as literal JSON and asserts it is served.
+    alternatives: []
+
+  - category: TradeOff
+    chose: "CommitAndPR gate tests state their one criterion as a phase spec's done-list"
+    over: "Deleting them with the RunExpectation key they used"
+    reason: |
+      They test the gate, not the negotiation. AcceptanceCriteria reads the phase spec first, so the
+      contract under test is unchanged.
+    alternatives: []
+
+  - category: Scope
+    chose: "The expectation eval harness, its goldens, the report and the drafting prompt went with the chain; the shared fingerprint sweep became FixtureAnonymizationCheck"
+    over: "Keeping the eval against a drafter that no longer exists"
+    reason: |
+      LOSS, named: there is no longer a measurement of how close a drafted expectation came to a
+      human's gold — there is no drafter left to measure. The account, security and api corpora
+      used the same text sweep, so it stays under a neutral name without the attestation check that
+      only harvested expectation fixtures carried.
+    alternatives: []
+
+  - category: Scope
+    chose: "The embedded-owned branch of the prompt ownership table stays with no entry; its only test, which used the removed drafting prompt, went"
+    over: "Deleting PromptOwner.Embedded, EmbeddedOwnedNames and the SkillCatalogPromptCatalog branch in this slice"
+    reason: |
+      expectation-drafting-system was the last embedded-owned prompt and the last file under
+      Prompts/Resources. The branch is p0415's ownership vocabulary rather than a caller of anything
+      removed here; retiring it (and the empty embedded catalog) is a follow-up reported to the
+      series owner, not done under a slice about server surfaces. PromptResourceOwnershipTests now
+      reads an absent Resources directory as no embedded prompt, since git keeps no empty folder.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Clear finished hides for a signed-in caller the server resolved without runs.delete, and shows otherwise"
+    over: "Always showing it and letting the 403 answer"
+    reason: |
+      The endpoint needs runs.delete. Without a token (an installation without sign-in) no identity is
+      asked for and the button shows, as every per-row delete already does; with one, a caller the
+      server says cannot delete is not offered the button. The armed click reads "finished runs and
+      their verdict history go".
+    alternatives:
+      - "A shared permission hook: one caller, so not yet"
+
+  - category: Scope
+    chose: "RunFilterChips went with RunsList"
+    over: "Keeping the chips"
+    reason: "RunsList was their only caller; the mission board filters by the rail's bucket instead."
+    alternatives: []
+
+  - category: Scope
+    chose: "The Criteria met metric, ExpectationMetricsEndpoints and the dashboard metric code were left compiling on the existing RunExpectations table"
+    over: "Re-sourcing them here"
+    reason: "Slice 2026-09-28-89f1i rewrites the metric; this slice keeps it working untouched."
+    alternatives: []

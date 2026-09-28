@@ -5,7 +5,7 @@ import { deriveCostRollup } from "@/hooks/useCostRollup";
 import { deriveSpendBreakdown } from "@/hooks/useSpendBreakdown";
 import { deriveRunOutcomes } from "@/lib/runOutcomes";
 import { bucketRuns } from "@/components/jobs/mission/missionBuckets";
-import { mergeNewestFirst } from "@/components/jobs/RunsList";
+import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 import * as expectationsApi from "@/lib/expectationsApi";
 

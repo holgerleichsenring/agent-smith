@@ -77,7 +77,6 @@
 173	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
 123	AgentSmith.Application/Services/Events/SandboxEventProjector.cs
 160	AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs
-167	AgentSmith.Contracts/Commands/PipelinePresets.cs
 166	AgentSmith.Contracts/Progress/LedgerMergePolicy.cs
 166	AgentSmith.Server/Extensions/TeamsEndpoints.cs
 164	AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs
@@ -97,7 +96,6 @@
 154	AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs
 154	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketStatusTransitioner.cs
 152	AgentSmith.Server/Services/Handlers/SlackModalSubmissionHandler.cs
-151	AgentSmith.Application/Services/Handlers/QueryKnowledgeHandler.cs
 151	AgentSmith.Application/Services/Handlers/RunResultSectionWriter.cs
 150	AgentSmith.Application/Services/Handlers/SchemaFlattener.cs
 150	AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs

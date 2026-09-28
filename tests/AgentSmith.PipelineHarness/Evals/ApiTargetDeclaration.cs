@@ -84,7 +84,7 @@ public static class ApiTargetDeclarationLoader
     public static ApiTargetDeclaration Load(string path)
     {
         var raw = File.ReadAllText(path);
-        var violations = ExpectationFixtureAnonymizationCheck.CheckText(raw, DefaultDirectory);
+        var violations = FixtureAnonymizationCheck.CheckText(raw, DefaultDirectory);
         if (violations.Count > 0)
             throw new InvalidOperationException(
                 $"{System.IO.Path.GetFileName(path)} carries customer fingerprints:\n  "
