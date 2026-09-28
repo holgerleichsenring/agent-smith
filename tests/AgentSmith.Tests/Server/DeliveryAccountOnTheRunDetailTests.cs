@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services;
-using AgentSmith.Contracts.Expectations;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -21,40 +20,20 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     private static RunAccounts Accounts(params CriterionAccount[] criteria) =>
         RunAccounts.Empty.With("p1", [new SpecAccount("Sample.Server", criteria)]);
 
-    private static RatifiedExpectation Ratified(string criterion) =>
-        new(new ExpectationDraft("summary", [criterion], [], null),
-            ExpectationOutcomes.Verbatim, "someone", DateTimeOffset.UnixEpoch, 0);
-
     private static AcceptanceView Deserialize(string? json) =>
         RunStoryJson.TryDeserialize<AcceptanceView>(json)
         ?? throw new InvalidOperationException("the snapshot did not round-trip");
 
     [Fact]
-    public void RunStory_ADeliveryAccountExists_IsSnapshottedOverTheMasterDispositions()
+    public void RunStory_ADeliveryAccountExists_IsSnapshottedAsTheGatesAccount()
     {
-        var expectation = Ratified("the master's criterion");
-
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
-            expectation, verification: null,
             Accounts(new CriterionAccount("the gate's criterion", AccountDisposition.Satisfied, "src/A.cs", "found it"))));
 
         view.Criteria.Should().ContainSingle()
             .Which.Text.Should().Be("the gate's criterion",
                 "the account is what refused the run, so it is what the page must show");
         view.Source.Should().Be(AcceptanceSources.DeliveryAccount);
-    }
-
-    [Fact]
-    public void RunStory_NoDeliveryAccount_StillSnapshotsTheMasterDispositions()
-    {
-        var expectation = Ratified("the master's criterion");
-
-        var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
-            expectation, verification: null, RunAccounts.Empty));
-
-        view.Criteria.Should().ContainSingle().Which.Text.Should().Be("the master's criterion");
-        view.Source.Should().Be(AcceptanceSources.MasterVerification,
-            "most of the history has no phase account and must keep showing what it showed");
     }
 
     /// <summary>
@@ -66,7 +45,6 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     public void RunStory_AnAccountAndNoExpectation_StillProducesASnapshotToPublish()
     {
         var json = RunStorySnapshotBuilder.BuildAcceptanceJson(
-            expectation: null, verification: null,
             Accounts(new CriterionAccount("a ratified criterion", AccountDisposition.NotSatisfied, null, "no file shows it")));
 
         json.Should().NotBeNull("the handler publishes when either payload exists");
@@ -75,15 +53,14 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     }
 
     [Fact]
-    public void RunStory_NeitherAnAccountNorAnExpectation_SnapshotsNothing() =>
-        RunStorySnapshotBuilder.BuildAcceptanceJson(null, null, RunAccounts.Empty)
+    public void RunStory_NoAccount_SnapshotsNothing() =>
+        RunStorySnapshotBuilder.BuildAcceptanceJson(RunAccounts.Empty)
             .Should().BeNull("a run with nothing to say serves an honest null");
 
     [Fact]
     public void RunStory_TheAccountSnapshot_CarriesItsCitation()
     {
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
-            null, null,
             Accounts(new CriterionAccount("a criterion", AccountDisposition.Satisfied, "src/Messaging/Installer.cs", "found"))));
 
         view.Criteria.Single().Citation.Should().Be("src/Messaging/Installer.cs",
@@ -100,7 +77,6 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     public void RunStory_AnAccountThatCouldNotBeTaken_IsUnprovenAndSaysWhy()
     {
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
-            null, null,
             RunAccounts.Empty.With("p1",
                 [new SpecAccount("Sample.Server", [], "the build exited 1")])));
 

@@ -2,8 +2,7 @@ namespace AgentSmith.PipelineHarness.DataToolchain;
 
 /// <summary>
 /// p0505: resolves the checkout root by walking up from the test's base directory
-/// to the folder holding AgentSmith.sln — the same move ExpectationGoldenEvalTests
-/// makes for its report path. Fixtures and reports must be read from the SOURCE
+/// to the folder holding AgentSmith.sln. Fixtures and reports must be read from the SOURCE
 /// tree: the harness re-copies Fixtures/** into bin on every build, so a bin-dir
 /// read would hash a stale copy and a bin-dir write would never be committed.
 /// </summary>

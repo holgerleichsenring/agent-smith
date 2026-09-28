@@ -99,6 +99,16 @@ public sealed class RoutingPipelineChoiceTests
     }
 
     [Fact]
+    public void RoutingPipelineNames_RemovedPreset_FindingCarriesReason()
+    {
+        var findings = RoutingPipelineNames.Findings(Config("autonomous")).ToList();
+
+        findings.Should().ContainSingle()
+            .Which.Reason.Should().Contain(RetiredPipelineNames.Explain("autonomous")!,
+                "a removed name has no replacement to name, so the finding says why it went");
+    }
+
+    [Fact]
     public void Findings_AConfigurationNamingOnlyPresets_IsSilent()
     {
         RoutingPipelineNames.Findings(Config(PipelinePresets.CodeName)).Should().BeEmpty();

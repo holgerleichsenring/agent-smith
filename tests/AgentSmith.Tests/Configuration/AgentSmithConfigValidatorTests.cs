@@ -157,6 +157,37 @@ public sealed class AgentSmithConfigValidatorTests
             e.Contains("missing-agent"));
     }
 
+    [Fact]
+    public void ConfigValidator_ProjectPipelineRetired_MessageNamesReplacement()
+    {
+        var config = ConfigWithProject(
+            "p",
+            new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            project => project with
+            {
+                Pipelines = new[] { new PipelineDefinition { Name = "fix-bug" } },
+                GithubTrigger = new WebhookTriggerConfig { ProjectResolution = TagResolution("p") },
+            });
+
+        var errors = _sut.Validate(config);
+
+        errors.Should().Contain(e => e.Contains("pipelines['fix-bug']") && e.Contains("Write 'code' instead"));
+    }
+
+    [Fact]
+    public void ConfigValidator_PipelineTriggerRemovedPreset_MessageCarriesReason()
+    {
+        var config = new AgentSmithConfig
+        {
+            PipelineTriggers = new PipelineTriggerMap(
+                new Dictionary<string, string> { ["observe"] = "autonomous" }),
+        };
+
+        var errors = _sut.Validate(config);
+
+        errors.Should().ContainSingle(e => e.Contains(RetiredPipelineNames.Explain("autonomous")!));
+    }
+
     private static ProjectResolutionConfig TagResolution(string value) =>
         new() { Strategy = ResolutionStrategy.Tag, Value = value };
 

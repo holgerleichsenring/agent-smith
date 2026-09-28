@@ -71,11 +71,11 @@ public static class RoutingPipelineNames
                 $"A routing rule on {where} names pipeline '{n}', which this product does not "
                 + Instead(n) + " A ticket routed to it will fail when it starts."));
 
-    // 2026-09-25-e5b1: a name the collapse retired is the case an operator is most likely to be
-    // holding, and "offered: code, security-scan, …" leaves them to guess which of those their
-    // old word became. When we know, we say it; otherwise the offer is the best answer there is.
+    // A retired name is the case an operator is most likely to be holding, and "offered: code,
+    // security-scan, …" leaves them to guess what their old word became or why it went. When we
+    // know, we say it; otherwise the offer is the best answer there is.
     private static string Instead(string named) =>
-        RetiredPipelineNames.ReplacementFor(named) is { } target
-            ? $"offer any more — it was retired into '{target}'. Write '{target}' instead."
+        RetiredPipelineNames.Explain(named) is { } why
+            ? $"offer any more: {why}"
             : $"offer (offered: {string.Join(", ", PipelinePresets.Routable)}).";
 }

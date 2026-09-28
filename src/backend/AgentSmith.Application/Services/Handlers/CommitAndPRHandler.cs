@@ -318,7 +318,6 @@ public sealed class CommitAndPRHandler(
         // 2026-09-24-b3c1: the pull-request body is markdown, and an Azure DevOps
         // description is HTML — rendered raw, a reviewer read the tags themselves.
         var body = $"{redBanner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
-            + $"{ExpectationPrBodySection.Build(context.Pipeline)}"
             + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
             + $"{RunAccountSection.Build(context.Pipeline)}"
             + $"{PhaseReviewSection.Build(context.Pipeline)}"

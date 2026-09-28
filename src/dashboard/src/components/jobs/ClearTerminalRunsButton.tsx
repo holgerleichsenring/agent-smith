@@ -1,14 +1,22 @@
 "use client";
 
 import { useCallback, useState } from "react";
-
-// p0337: bulk "clear terminal runs" — one click empties finished/failed/
-// cancelled runs, leaving running and queued untouched (the backend scopes it
-// to terminal only, so it can never force-kill a live run). Two-click confirm
-// like DeleteRunButton; the RunsChanged nudge refetches the list.
 import { apiFetch } from "@/lib/apiResponse";
+import { useAccessToken } from "@/hooks/useAccessToken";
+import { useCallerIdentity } from "@/hooks/useCallerIdentity";
+
+// p0337: bulk "clear finished" — one click empties finished/failed/cancelled
+// runs, leaving running and queued untouched (the backend scopes it to terminal
+// only, so it can never force-kill a live run). Two-click confirm like
+// DeleteRunButton, and the armed state says what goes: the runs AND the verdicts
+// operators recorded on their criteria. The RunsChanged nudge refetches the list.
+// The endpoint needs runs.delete; a signed-in caller the server resolved without
+// it is not offered the button at all.
+const RUNS_DELETE = "runs.delete";
 
 export function ClearTerminalRunsButton() {
+  const token = useAccessToken();
+  const { identity } = useCallerIdentity(token !== null);
   const [armed, setArmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +37,13 @@ export function ClearTerminalRunsButton() {
     }
   }, [armed, pending]);
 
-  const label = pending ? "clearing…" : armed ? "confirm clear" : "clear finished";
+  if (identity && !identity.permissions.includes(RUNS_DELETE)) return null;
+
+  const label = pending
+    ? "clearing…"
+    : armed
+      ? "confirm: finished runs and their verdict history go"
+      : "clear finished";
 
   return (
     <button
@@ -38,7 +52,7 @@ export function ClearTerminalRunsButton() {
       onMouseLeave={() => !pending && setArmed(false)}
       disabled={pending}
       data-testid="clear-terminal-runs"
-      title={error ?? "Delete all finished, failed and cancelled runs"}
+      title={error ?? "Delete every finished, failed and cancelled run, with the criterion verdicts recorded on it"}
       className={`inline-flex flex-none items-center rounded px-2 py-0.5 text-xs font-medium border transition disabled:cursor-not-allowed disabled:opacity-60 ${
         armed
           ? "border-rose-300 bg-rose-50 text-rose-700"

@@ -127,7 +127,7 @@ The console tool: one run, then exit. It reads its whole configuration from `age
 | `doctor`, `demo` | Active preflight; a self-contained demo run |
 | `config`, `database`, `archive` | Configuration import, export and validation; schema migrations; moving an installation's data between database providers |
 | `skills pull`, `validate-concepts` | Download a skill catalog release; check skill `activates_when` expressions against the concept vocabulary |
-| `compile-wiki`, `autonomous` | Compile run history into a knowledge-base wiki; observe a project and write improvement tickets |
+| `compile-wiki` | Compile run history into a knowledge-base wiki |
 
 Supporting types: `ConfigDiscovery` (where the config file is found), `ServiceProviderFactory` (the CLI's DI container), `ConsoleDialogueTransport` (dialogue questions on stdin/stdout). See [Host it: CLI](../../host-it/cli.md).
 
@@ -143,8 +143,8 @@ The long-running deployment: one ASP.NET Core process with one DI tree.
 |------|---------------------|
 | Webhooks | `POST /webhook` and `/webhook/{github,gitlab,jira}`; `WebhookRequestProcessor` detects the platform, verifies the signature and dispatches to one of the `IWebhookHandler`s |
 | Dashboard API | `/api/...` endpoints and the SignalR hub `JobsHub` at `/hub/jobs` |
-| Health | `GET /health`: liveness plus the startup preflight verdict |
-| Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
+| Health | `GET /health`: liveness, the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
+| Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `CapacityQueuePumpHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
 | Sandboxes | `DockerSandboxFactory`, `KubernetesSandboxFactory` |
 | Jobs | `IJobSpawner` with `DockerJobSpawner` and `KubernetesJobSpawner` |
 | Chat | `IPlatformAdapter` with `SlackAdapter`, `TeamsAdapter`, `DashboardAdapter`; `IntentEngine` and `ChatIntentParser` turn a message into an intent |

@@ -75,6 +75,7 @@ public sealed class RunDeleteTests : IDisposable
         db.RunSandboxes.Should().BeEmpty();
         db.RunCheckpoints.Should().BeEmpty();
         db.RunExpectations.Should().BeEmpty();
+        db.RunCriterionJudgements.Should().BeEmpty("an operator's verdict on a deleted run is an orphan");
         db.DialogueAnswers.Should().BeEmpty();
         db.ActiveRuns.Should().BeEmpty();
         db.QueuedTickets.Should().BeEmpty();
@@ -234,6 +235,23 @@ public sealed class RunDeleteTests : IDisposable
     }
 
     [Fact]
+    public async Task BulkDelete_ClearsTheFinishedRunsVerdicts_KeepsTheLiveRunsOnes()
+    {
+        await SeedTerminalRunWithSatellitesAsync("run-terminal");
+        await SeedRunningRunAsync("run-running", jobId: "cccc00000001");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.RunCriterionJudgements.Add(Judgement("run-running"));
+            await ctx.SaveChangesAsync();
+        }
+
+        await NewDeleter().DeleteTerminalAsync(CancellationToken.None);
+
+        using var db = new AgentSmithDbContext(Options());
+        db.RunCriterionJudgements.Select(j => j.RunId).Should().Equal("run-running");
+    }
+
+    [Fact]
     public async Task ADeletedRun_DoesNotReleaseTheLeaseANewerRunHolds()
     {
         // p0459, the live defect: an operator deleted an older, still non-terminal
@@ -349,6 +367,7 @@ public sealed class RunDeleteTests : IDisposable
         ctx.RunSandboxes.Add(new RunSandbox { RunId = runId });
         ctx.RunCheckpoints.Add(new RunCheckpoint { RunId = runId, DialogueJobId = "d1", Project = "p1", TicketId = "7" });
         ctx.RunExpectations.Add(new RunExpectation { RunId = runId });
+        ctx.RunCriterionJudgements.Add(Judgement(runId));
         ctx.DialogueAnswers.Add(new DialogueAnswerEntry { DialogueJobId = "d1", QuestionId = "q1" });
         // A lease + queue entry keyed to THIS run must go too.
         ctx.ActiveRuns.Add(new ActiveRun
@@ -363,6 +382,13 @@ public sealed class RunDeleteTests : IDisposable
         });
         await ctx.SaveChangesAsync();
     }
+
+    private static RunCriterionJudgement Judgement(string runId) => new()
+    {
+        RunId = runId, CriterionKey = "k1", CriterionText = "the bug is fixed",
+        MachineStatus = "unmet", HumanStatus = "met", Reason = "the fix is in A.cs",
+        Author = "operator", RecordedAt = DateTimeOffset.UtcNow,
+    };
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

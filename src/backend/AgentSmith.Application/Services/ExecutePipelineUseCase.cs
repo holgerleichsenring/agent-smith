@@ -267,7 +267,7 @@ public sealed class ExecutePipelineUseCase(
         var projectConfig = ResolveProject(request, config);
         var repos = ResolveRepos(projectConfig, request.Context);
         var commands = PipelinePresets.TryResolve(request.PipelineName)
-            ?? throw new ConfigurationException($"Pipeline '{request.PipelineName}' not found in presets.");
+            ?? throw new ConfigurationException(RetiredPipelineNames.Refusal(request.PipelineName));
         var resolved = pipelineConfigResolver.Resolve(projectConfig, request.PipelineName);
 
         var pipeline = new PipelineContext();

@@ -110,29 +110,4 @@ public static partial class PipelinePresets
     /// the studio offers.
     /// </summary>
     public static bool IsAcceptedName(string pipelineName) => All.ContainsKey(pipelineName);
-
-    /// <summary>
-    /// p0312a: presets that were removed rather than renamed, with the reason a
-    /// configuration naming one still validates instead of failing at load.
-    /// skill-manager and autonomous carried the Triage/SkillRound choreography that
-    /// no longer exists; reactivating either means authoring a master and declaring
-    /// an <c>AgenticMaster</c> preset, not restoring this machinery.
-    /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> RetiredPresets =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["skill-manager"] =
-                "skill-manager was retired in p0312a together with the Triage/SkillRound "
-                + "machinery it was the last consumer of. Re-enable it by authoring a "
-                + "skill-manager master and declaring an AgenticMaster-shaped preset.",
-            ["autonomous"] =
-                "autonomous was retired in p0312a together with the Triage/SkillRound "
-                + "machinery it was the last consumer of. Re-enable it by authoring an "
-                + "autonomous master and declaring an AgenticMaster-shaped preset.",
-        };
-
-    /// <summary>The operator-facing reason a retired preset name no longer resolves.</summary>
-    public static string? RetiredReason(string pipelineName) =>
-        RetiredPresets.GetValueOrDefault(pipelineName);
-
 }

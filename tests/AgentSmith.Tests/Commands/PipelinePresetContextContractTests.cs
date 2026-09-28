@@ -228,7 +228,7 @@ public sealed class PipelinePresetContextContractTests
             // StaticPatternScan, GitHistoryScan, DependencyAudit, SecurityTrend,
             // SecuritySnapshotWrite, DeliverFindings, DeliverOutput,
             // CompileFindings, CompileDiscussion, CompileKnowledge,
-            // QueryKnowledge, LoadRuns, WriteTickets, Triage, SkillRound,
+            // LoadRuns, WriteTickets, Triage, SkillRound,
             // SecuritySkillRound, ApiSecuritySkillRound, FilterRound,
             // ConvergenceCheck, EmptyPlanCheck,
             // PersistWorkBranch, RunReviewPhase, RunFinalPhase, RunVerifyPhase,

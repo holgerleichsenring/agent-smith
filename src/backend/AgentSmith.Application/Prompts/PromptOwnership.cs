@@ -34,7 +34,6 @@ public static class PromptOwnership
             // carries the cut-sizing rule, ships_code is gone from the model entirely
             // (p0421), and the pin moved — so NoPromptName_HasTwoOwners failed at
             // exactly the moment it was written to, and ownership moves.
-            ["expectation-drafting-system"] = PromptOwner.Embedded,
         };
 
     /// <summary>

@@ -90,8 +90,8 @@ public sealed class AgentSmithConfigValidator
                 if (!PipelinePresets.IsAcceptedName(pipeline.Name))
                 {
                     errors.Add(Blocking(
-                        $"Project '{name}': pipelines['{pipeline.Name}'] is not a known " +
-                        $"pipeline (known: {string.Join(", ", PipelinePresets.Names)}).",
+                        $"Project '{name}': pipelines['{pipeline.Name}'] is not a known pipeline. " +
+                        (RetiredPipelineNames.Explain(pipeline.Name) ?? $"Known: {string.Join(", ", PipelinePresets.Names)}."),
                         name, field: "pipelines"));
                 }
                 // AgentName resolution itself is handled by ResolvedProjectBuilder.
@@ -122,12 +122,11 @@ public sealed class AgentSmithConfigValidator
     {
         foreach (var (label, pipelineName) in map.AsDictionary)
         {
-            // p0393: a retired name still validates — it resolves to `code`. Rejecting it
-            // would break every existing trigger configuration on the day of the rename.
+            // A retired name no longer validates; the refusal says what it became or why it went.
             if (PipelinePresets.IsAcceptedName(pipelineName)) continue;
             errors.Add(Blocking(
-                $"pipeline_triggers['{label}'] references unknown pipeline " +
-                $"'{pipelineName}' (known: {string.Join(", ", PipelinePresets.Names)}).",
+                $"pipeline_triggers['{label}'] references unknown pipeline '{pipelineName}'. " +
+                (RetiredPipelineNames.Explain(pipelineName) ?? $"Known: {string.Join(", ", PipelinePresets.Names)}."),
                 field: "pipeline_triggers"));
         }
     }

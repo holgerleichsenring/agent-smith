@@ -34,7 +34,6 @@ public static partial class CommandNames
         [LoadMemoryIndex] = "Loading memory index", // p0380
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
-        [NegotiateExpectation] = "Negotiating expectation", // p0328
         [DeriveSpec] = "Deriving the phase specs",
         [SpecHandback] = "Handing the ticket back",
         [PhaseSequence] = "Planning the phase sequence",
@@ -91,7 +90,6 @@ public static partial class CommandNames
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
         [CompileKnowledge] = "Compiling knowledge base",
-        [QueryKnowledge] = "Querying knowledge base",
         [LoadRuns] = "Loading run history",
         [WriteTickets] = "Writing tickets",
         [SessionSetup] = "Authenticating API personas",

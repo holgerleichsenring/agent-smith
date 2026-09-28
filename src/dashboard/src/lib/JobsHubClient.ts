@@ -51,7 +51,7 @@ function makeSubject<T>(): SubjectMap<T> {
 // listener that subscribes LATER. State/snapshot streams need this — AppRail
 // calls useJobsHub() and holds the overview subscription for the app's whole
 // lifetime, so the hub's one-time SubscribeOverview snapshot is pushed once;
-// a later-mounting consumer (RunsList on a client-side nav) would otherwise
+// a later-mounting consumer (the runs board on a client-side nav) would otherwise
 // register its listener too late and stay empty until a hard refresh. Replaying
 // the cached snapshot on subscribe fixes that. Event streams stay plain
 // makeSubject — replaying a single stale event would be wrong.

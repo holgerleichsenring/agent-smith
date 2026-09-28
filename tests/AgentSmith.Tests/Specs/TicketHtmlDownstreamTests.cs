@@ -93,16 +93,6 @@ public sealed class TicketHtmlDownstreamTests
     }
 
     [Fact]
-    public void Compose_ADescriptionInHtml_ReachesTheExpectationPromptAsText()
-    {
-        var prompt = ExpectationPromptComposer.ComposeUserPrompt(HtmlTicket(), new PipelineContext());
-
-        prompt.Should().Contain("Update all direct dependencies")
-            .And.Contain("the build is green")
-            .And.NotContain("<h2").And.NotContain("<li>");
-    }
-
-    [Fact]
     public void Of_ATicketWhoseBodyIsHtml_IsShownToTheCutReviewAsText()
     {
         var text = SpecCutReviewTicketText.Of(HtmlTicket());

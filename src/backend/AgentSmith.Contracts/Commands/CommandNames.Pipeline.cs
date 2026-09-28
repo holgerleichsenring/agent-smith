@@ -57,16 +57,6 @@ public static partial class CommandNames
     public const string LoadSkills = "LoadSkillsCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";
 
-    /// <summary>p0328: negotiate the WHAT before any code changes. Runs after
-    /// AnalyzeCode (the draft must be grounded in analysis, not the raw ticket)
-    /// and before EnsurePrerequisites. Drafts a schema-capped Soll
-    /// block (observed / ≤5 verifiable assertions / ≤3 constraints / ≤1 A-or-B
-    /// question), posts it to the ticket + dialogue transports and waits for
-    /// ratification through the p0327 durable ask — approve verbatim, edited
-    /// text (parsed back into the schema), or reject. The ratified expectation
-    /// becomes the run's acceptance contract; headless runs auto-ratify with a
-    /// visible 'unratified' stamp.</summary>
-    public const string NegotiateExpectation = "NegotiateExpectationCommand";
 
     /// <summary>p0393a: turns any ticket into an ORDERED SET of phase specs on the ticket
     /// branch — yaml for what and done, markdown for the verbatim code templates — so the
@@ -161,7 +151,6 @@ public static partial class CommandNames
     public const string Ask = "AskCommand";
 
     public const string CompileKnowledge = "CompileKnowledgeCommand";
-    public const string QueryKnowledge = "QueryKnowledgeCommand";
     public const string LoadRuns = "LoadRunsCommand";
     public const string WriteTickets = "WriteTicketsCommand";
 
