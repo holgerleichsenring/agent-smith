@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-057da
+
+decisions:
+  - category: Scope
+    chose: "Audit from p0334, not from the 2026-08-19 pass"
+    over: "Auditing only what landed after the last day docs were touched in bulk"
+    reason: |
+      The adversarial review found that 2026-08-19 (p0462, p0463) moved configuration into the studio
+      and rewrote the voice without auditing anything; the last real mirror, p0335, stopped at
+      p0333c. Starting at p0478 would have left 152 phases unmirrored, and among them sat the change
+      that invalidated the core pages: p0393 replaced negotiate-expectation, plan, approval and the
+      keystone with derivation and a phase sequence.
+    alternatives:
+      - "Starting at p0478 and recording p0334-p0477 as exempt: nothing justified the exemption"
+
+  - category: Method
+    chose: "Every audit row checked against the page it names, and every written sentence checked against the code"
+    over: "Deriving the delta from specs alone, as p0335 did"
+    reason: |
+      Specs describe intent at the time; five weeks of reshaping (the design surface became Work it
+      out, an approved cut files one ticket, epics stopped filing children) means a spec is a lead,
+      not a fact. The writers found the audits themselves wrong in places (the read-set rule p0429 was
+      said to replace still exists; a rendered capacity panel is in fact not mounted anywhere), which
+      is exactly what reading the code catches.
+    alternatives:
+      - "Trusting the audit rows: several would have documented behaviour that does not ship"
+
+  - category: Implementation
+    chose: "Six writers with disjoint page ownership, mkdocs.yml kept by the orchestrator"
+    over: "One writer per theme touching whatever page the theme needs"
+    reason: |
+      Themes cut across pages (labels appear in the conversation, lifecycle and tracker pages). Owning
+      pages instead of themes means no two writers edit one file, and facts for a foreign page travel
+      in the report rather than as a conflicting edit.
+    alternatives:
+      - "Sequential writing: correct but several hours longer for ~90 pages"
+
+  - category: Content
+    chose: "Document what the code does, and report defects the reading found instead of papering over them"
+    over: "Describing the intended behaviour where the code diverges"
+    reason: |
+      Several pages described features that are dead or unreachable (auto-fix always skips,
+      confidence_threshold is read by nothing, /health/ready no longer exists, the autonomous and
+      skill-manager pipelines are retired). The pages now say what happens; the defects are listed for
+      the operator, because fixing them is product work outside a docs phase.
+    alternatives:
+      - "Keeping the old text until the code is fixed: the docs would keep promising what does not run"
+
+  - category: Content
+    chose: "New pages for Work it out, the delivery account, project templates and the memory store"
+    over: "Folding them into existing pages"
+    reason: |
+      Each is a surface a person uses on its own (a dashboard page, a verdict card, a config block, a
+      repository directory) and had no page at all; spec-dialogue.md keeps what all channels share and
+      links to Work it out for the dashboard.
+    alternatives:
+      - "One large spec-dialogue page covering chat and dashboard: two surfaces, two audiences"

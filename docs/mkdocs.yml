@@ -86,6 +86,7 @@ nav:
   - Configure it:
     - Where configuration lives: configure-it/index.md
     - The Config studio:         configure-it/config-studio.md
+    - Project templates:         configure-it/templates.md
     - Settings:                  configure-it/settings.md
     - agentsmith.yml:            configure-it/yaml.md
 
@@ -113,7 +114,9 @@ nav:
     - Methodology:    how-it-works/methodology.md
     - Built by the method it teaches: how-it-works/built-by-the-method.md
     - Lifecycle:      how-it-works/lifecycle.md
+    - The delivery account: how-it-works/delivery-account.md
     - Spec dialogue:  how-it-works/spec-dialogue.md
+    - Work it out:    how-it-works/work-it-out.md
     - Expectations & durable dialogue: how-it-works/expectations.md
     - Multi-repo:     how-it-works/multi-repo.md
     - Skills catalog: how-it-works/skills-catalog.md
@@ -128,13 +131,12 @@ nav:
       - The context file:            reference/concepts/context-file.md
       - Self-documentation:          reference/concepts/self-documentation.md
       - Multi-agent orchestration:   reference/concepts/multi-agent-orchestration.md
-      - Multi-skill architecture:    reference/concepts/multi-skill.md
-      - Triage:                      reference/concepts/triage.md
       - Context compaction:          reference/concepts/context-compaction.md
       - Decision logging:            reference/concepts/decisions.md
       - Cost tracking:               reference/concepts/cost-tracking.md
       - Interactive dialogue:        reference/concepts/interactive-dialogue.md
       - Knowledge base:              reference/concepts/knowledge-base.md
+      - Memory:                      reference/concepts/memory.md
       - Sandbox architecture:        reference/concepts/sandbox-architecture.md
       - Sandbox agent:               reference/concepts/sandbox-agent.md
     - Pipelines:
@@ -146,8 +148,6 @@ nav:
       - First API scan walkthrough: reference/getting-started/first-api-scan.md
       - Legal analysis:        reference/pipelines/legal-analysis.md
       - MAD discussion:        reference/pipelines/mad-discussion.md
-      - Skill manager:         reference/pipelines/skill-manager.md
-      - Autonomous:            reference/pipelines/autonomous.md
     - Configuration:
       - reference/configuration/index.md
       - agentsmith.yml reference: reference/configuration/agentsmith-yml.md
@@ -157,7 +157,6 @@ nav:
       - Pipeline cost cap:        reference/configuration/pipeline-cost-cap.md
       - Security scan config:     reference/configuration/security-scan.md
       - Skills reference:         reference/configuration/skills.md
-      - SKILL.md migration:       reference/configuration/skills/migration.md
       - Tool configuration:       reference/configuration/tools.md
       - Webhooks:                 reference/configuration/webhooks.md
       - Access control:            reference/security/access-control.md

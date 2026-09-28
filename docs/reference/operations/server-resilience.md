@@ -1,96 +1,85 @@
-# Server Resilience
+# Server resilience
 
-The Server (`AgentSmith.Server.dll`, the single long-running deployment since p0107)
-is split into independent subsystems with separate health states. Most depend on
-Redis; the webhook routing path does not. The server boots even when Redis is
-missing or unreachable — it stays up and reports *why* it is degraded via the
-`/health` endpoints, instead of crashing the container.
+The server (`AgentSmith.Server.dll`, the one long-running deployment) always starts. A missing database, an unreachable Redis, a broken configuration or no reachable container backend don't crash the container. Each one becomes a **finding**: the server comes up, serves what still works, and tells you what doesn't and why. A server that crash-loops can't explain itself, and the explanation is the thing you need.
 
-## Subsystems
+## Startup findings
 
-| Subsystem        | Needs Redis | Purpose                                                |
-|------------------|-------------|--------------------------------------------------------|
-| `redis`          | Yes         | StackExchange.Redis multiplexer connection state.      |
-| `queue_consumer` | Yes         | Pulls `PipelineRequest`s off the queue and runs them.  |
-| `housekeeping`   | Yes         | Stale-job detector + enqueued reconciler (leader-elected). |
-| `poller`         | Yes         | Per-platform ticket polling (leader-elected).          |
+Before the listener binds, the server asks each startup dependency whether it's there:
 
-The webhook routes (`/webhook/{github,gitlab,azuredevops,jira}`) are served by
-the same Kestrel as `/health` and the chat-platform endpoints — no separate
-listener subsystem since p0107.
+| Subsystem | Asks |
+|---|---|
+| `config-file` | Is the bootstrap file there? Without it the server falls back to built-in defaults, which is fine for a local run and serious in a container. |
+| `configuration` | Does the configuration load and validate? |
+| `database` | Is the database reachable? |
+| `redis` | Is Redis reachable? Without it the job queue, leader election and the live run feed are down, so no run can be queued or picked up. |
+| `spawner` | Is a real job spawner (Docker or Kubernetes) behind the one that was registered? |
+| `sandbox-agent` | Is a project's sandbox agent pinned to a different version than this server's release? Advisory only. |
 
-Each subsystem is in one of four states:
+Each probe gets ten seconds. A probe that doesn't answer in time, or throws, is recorded as a blocking finding that says its state is unknown. Other parts of the server add findings as they run into things, for example an `auth` finding when the [token authority is unreachable](../security/access-control.md#when-the-authority-is-unreachable) or a `build` finding when a dashboard tab and the server come from different builds.
 
-- **Up** — running normally.
-- **Degraded** — temporarily impaired (Redis is configured but disconnected;
-  task crashed and is retrying).
-- **Down** — fatal error.
-- **Disabled** — `REDIS_URL` is not configured. The subsystem will never start
-  in this process; restart with `REDIS_URL` set to enable it.
-
-## Endpoints
-
-### `GET /health` — liveness
-
-Always returns HTTP 200 as long as the listener is alive. The body is JSON
-describing every subsystem:
+A finding names the subsystem, a severity (`blocking` or `advisory`) and a reason, and where it applies, the project, trigger and field. Read them at `GET /api/config/findings`. The route answers without a token, because the channel that reports a broken authority can't depend on that authority:
 
 ```json
 {
-  "status": "degraded",
-  "subsystems": [
-    { "name": "queue_consumer", "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
-    { "name": "housekeeping",   "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
-    { "name": "poller",         "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" },
-    { "name": "redis",          "state": "disabled", "reason": "REDIS_URL not configured",    "last_changed_utc": "2026-04-26T12:00:00Z" }
+  "degraded": true,
+  "blocking": 1,
+  "advisory": 0,
+  "findings": [
+    {
+      "subsystem": "redis",
+      "severity": "blocking",
+      "reason": "Redis is not reachable, so the job queue, leader election and the live run feed are down — no run can be queued or picked up. Cause: …",
+      "project": null,
+      "trigger": null,
+      "field": "REDIS_URL"
+    }
   ]
 }
 ```
 
-`status` is `ok` when every subsystem is `up`, otherwise `degraded`. Use
-`/health` for container liveness probes — Kubernetes / Docker should not restart
-the pod just because Redis is briefly down.
+The server also logs one line at startup with the count and a pointer to this route. With any blocking finding, the dashboard shows an amber banner over every page, "Running degraded — 1 blocking finding. Everything not named below still runs.", followed by the findings. `agent-smith config validate` prints the same findings for a configuration file without starting a server.
 
-### `GET /health/ready` — readiness (loud-fail)
+## `GET /health`
 
-Returns HTTP 503 whenever **any** subsystem is not `Up` — including `Disabled`.
-This is intentional: a server with `REDIS_URL` unset is technically alive but
-silently rejecting every webhook with 503, which would otherwise look identical
-to a healthy server in monitoring. Loud-fail readiness ensures operators see
-the misconfiguration immediately:
+Liveness. It answers `200` whenever the listener is alive, needs no token, and carries the startup preflight's verdict so a `curl` shows what to fix without reading logs:
 
-- 200 + `{"status": "ready"}` — every subsystem is `Up`.
-- 503 + `{"status": "not_ready", "subsystems": [...]}` — at least one subsystem
-  is not `Up`. The body lists every subsystem with its current state and
-  reason so the operator can see *why* at a glance.
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-09-28T09:12:44Z",
+  "preflight": {
+    "status": "fail",
+    "completed_at_utc": "2026-09-28T09:10:02.118Z",
+    "passed": 11,
+    "failed": 1,
+    "skipped": 2,
+    "failures": [
+      { "name": "sign-in", "message": "…", "fix_hint": "…" }
+    ]
+  }
+}
+```
 
-Use `/health/ready` for ingress / load-balancer readiness gates and alerting.
+`preflight.status` is `pending` until the startup run finished, then `pass` or `fail`. The checks are the same ones `agent-smith doctor` runs, plus the server-only ones such as `sign-in`. Point liveness probes here: Kubernetes and Docker should not restart the pod because Redis is briefly gone. The shipped manifests do exactly that (`deploy/k8s/8-deployment-server.yaml`, the compose healthcheck).
 
-## Behaviour by deployment configuration
+There is no separate readiness endpoint. For alerting, watch `degraded` on `/api/config/findings` and `preflight.status` on `/health`.
 
-| Configuration                          | `webhook` | `redis`    | `queue_consumer` | `/health` | `/health/ready` |
-|----------------------------------------|-----------|------------|------------------|-----------|-----------------|
-| `REDIS_URL` set, Redis reachable       | Up        | Up         | Up               | 200 ok    | 200 ready       |
-| `REDIS_URL` set, Redis unreachable     | Up        | Degraded   | Degraded         | 200 degraded | 503 not_ready |
-| `REDIS_URL` unset                      | Up        | Disabled   | Disabled         | 200 degraded | 503 not_ready |
-| Listener stopped (graceful shutdown)   | Down      | (any)      | (any)            | 200 / shutdown | 503        |
+## The Redis-backed subsystems
 
-## Recovery semantics
+Three background subsystems need Redis: `queue_consumer` (pulls queued runs and executes them), `housekeeping` (stale-job detection and reconciliation, leader-elected) and `poller` (ticket polling per tracker, leader-elected). Webhook routes, the dashboard API and the config studio don't; they're served by the same listener regardless.
 
-- `IConnectionMultiplexer` is built with `AbortOnConnectFail=false`, so it
-  reconnects automatically when Redis becomes reachable.
-- `queue_consumer`, `housekeeping`, and `poller` each poll the multiplexer
-  every `queue.redis_retry_interval_seconds` (default 30s, configurable in
-  `agentsmith.yml`) while in `Degraded`. When the multiplexer reports
-  `IsConnected=true` they transition to `Up` and start their work.
-- A single `INFO` log line per state transition keeps the log readable during
-  outages.
+Each of the three is in one of four states:
 
-## Webhook behaviour while Redis is down
+- **Up**: running normally.
+- **Degraded**: Redis is configured but not connected, or the task crashed and is retrying.
+- **Down**: fatal error.
+- **Disabled**: `REDIS_URL` is not set. The subsystem won't start in this process; restart with `REDIS_URL` set.
 
-Structured ticket webhooks (`/webhook/jira`, `/webhook/github`, …) need
-`ITicketClaimService` to enqueue work. When Redis is unavailable, every
-structured webhook responds:
+The Redis connection is built not to abort on a failed connect, so it reconnects on its own once Redis is reachable. While degraded, each subsystem checks every `queue.redis_retry_interval_seconds` (default 30) and starts its work as soon as the connection is up. Each state change writes one log line, which keeps the log readable during an outage.
+
+## Webhooks while Redis is down
+
+A webhook that carries an answer to a parked run's question needs Redis to route it. While Redis is not up, that delivery gets:
 
 ```
 HTTP/1.1 503 Service Unavailable
@@ -98,9 +87,10 @@ HTTP/1.1 503 Service Unavailable
 redis_unavailable
 ```
 
-Dialogue-answer webhooks (PR comment paths) reply 503 with the same body for
-the same reason. Free-form `TriggerInput` webhooks that run pipelines
-in-process (no claim required) continue to work.
+and the trigger log records it as skipped with `redis-unavailable`. GitHub, GitLab, Azure DevOps and Jira retry deliveries on a 503, so the answer arrives once Redis is back.
 
-GitHub / GitLab / Azure DevOps / Jira retry their webhook deliveries on 503,
-so once Redis is restored, queued events are replayed to the server.
+## Next
+
+- [Dashboard](dashboard.md): the degraded and build banners, and the Connection check.
+- [Access control](../security/access-control.md): the `sign-in` preflight check and an unreachable authority.
+- [Metrics](metrics.md): the counters the server exposes.

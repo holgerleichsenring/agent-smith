@@ -12,7 +12,7 @@ That last sentence is the whole design, and it is worth stating plainly:
 > claim, a group membership it maps, or a role an administrator grants a person on the
 > **Access** surface.
 
-A grant decides a role and never decides access. There is still no user store, and the
+A grant decides a role and never decides access. There is no user store, and the
 list of people on the Access surface is not one: it is the callers this installation has
 actually seen, kept so an administrator picks a person instead of copying an identifier
 out of a directory console.
@@ -22,12 +22,71 @@ out of a directory console.
 | Role | Holds |
 | --- | --- |
 | `reader` | what the agent DID — runs, the live run drawer, the catalog, the connection snapshot, its own identity |
-| `operator` | everything `reader` holds, plus run control, run deletion, project init and connection probes |
-| `admin` | the whole catalog, configuration and secrets included |
+| `operator` | everything `reader` holds, plus run control, run deletion, project init, connection probes and design conversations |
+| `admin` | every permission in the catalog, configuration, secrets, access and archives included |
 
 `reader` deliberately holds no `config.read`: the configuration is where credentials,
 trackers and repositories are named, and "may look at the run list" is not "may read the
 installation".
+
+The permission catalog is closed. These are all of them:
+
+| Permission | Guards | `reader` | `operator` |
+| --- | --- | --- | --- |
+| `runs.read` | the run list, run detail, pull requests, run statistics | yes | yes |
+| `runs.watch` | the live sandbox drawer, whose expansion is shared across viewers | yes | yes |
+| `runs.control` | cancel, answer a parked run, retry a handed-back ticket, judge a criterion | | yes |
+| `runs.delete` | deleting a run, clearing finished runs | | yes |
+| `projects.init` | initializing a project without a ticket | | yes |
+| `catalog.read` | the skills catalog | yes | yes |
+| `diagnostics.read` | the connection snapshot | yes | yes |
+| `diagnostics.probe` | running a probe, an authenticated call into your systems | | yes |
+| `identity.read` | `GET /api/identity`; every validated caller holds it, roles or not | yes | yes |
+| `dialog.write` | holding a design conversation, which files tickets | | yes |
+| `config.read`, `config.write` | the configuration catalog and settings | | |
+| `config.export`, `config.import` | the config export and import | | |
+| `secrets.read`, `secrets.write` | secret entities | | |
+| `access.read`, `access.write` | the Access surface | | |
+| `archive.export`, `archive.import` | the [whole-database archive](../operations/data-archive.md) | | |
+
+`admin` holds every row. The same table decides the live stream: a call on the
+dashboard's hub is checked against it like an HTTP route, and the token for the hub is
+taken from the connection handshake.
+
+## Turning it on
+
+Authentication is two halves, and they are configured in two places.
+
+**The server** validates tokens. Its `auth:` block is bootstrap configuration, read from
+`agentsmith.yml` and the environment before the config store exists:
+
+```yaml
+auth:
+  authority: https://login.example.com/realms/agentsmith
+  audience: agent-smith
+  enforce: false
+  name_claim: sub          # names a caller on the identity page and in the audit trail
+```
+
+Leave the block out and nothing authenticates. The environment wins over the file, field
+by field, and an environment variable alone is enough to create the block:
+
+| Field | Variable | Default |
+| --- | --- | --- |
+| `authority` | `AGENTSMITH_AUTH_AUTHORITY` | none |
+| `audience` | `AGENTSMITH_AUTH_AUDIENCE` | none |
+| `enforce` | `AGENTSMITH_AUTH_ENFORCE` | `false` |
+| `role_claim` | `AGENTSMITH_AUTH_ROLE_CLAIM` | `roles` |
+| `group_claim` | `AGENTSMITH_AUTH_GROUP_CLAIM` | `groups` |
+| `name_claim` | `AGENTSMITH_AUTH_NAME_CLAIM` | `sub` |
+
+**The dashboard** signs people in, as a public OIDC client with the code flow and PKCE.
+It reads `AGENTSMITH_AUTH_AUTHORITY` and `AGENTSMITH_AUTH_AUDIENCE` too, so one value in a
+compose `.env` serves both halves, plus `AGENTSMITH_AUTH_CLIENT_ID`,
+`AGENTSMITH_AUTH_SCOPES` and `AGENTSMITH_AUTH_REDIRECT_PATH`. The reply URL has to be
+registered as a single-page application, and the scopes need `offline_access` for a
+session to outlive its first token. The details are on the
+[dashboard page](../operations/dashboard.md#sign-in).
 
 ## First login, before anything is mapped
 
@@ -74,6 +133,12 @@ help: the token was refused before any claim in it was read. The page names whic
 refused it — audience, issuer, signature, expiry — and shows **both sides**: the authority
 and audience this server expects, beside the audience, issuer and version the token you
 just presented carried. The fix is written from the difference between them.
+
+Before any token has been refused, the page can still catch one mistake on its own: when
+the scopes the dashboard asks for (`AGENTSMITH_AUTH_SCOPES`) name a different resource
+than the audience this server validates, it says "These scopes name a different
+resource". Silence there is not a promise; a scope nobody consented to, or an API that
+mints a different token version, passes that comparison.
 
 ### One issuer, one audience, matched exactly
 
@@ -187,6 +252,25 @@ store is the single answer, and the file's copy is ignored.
 authority with `enforce: false` first: tokens are validated and nothing is refused, which
 is how an issuer gets proven before anybody can be locked out.
 
+The server's startup preflight checks this for you. Its `sign-in` check (category `auth`)
+reports, with the authority set, how many callers were accepted inside the observation
+window and through which route an administrator can be reached. With enforcement on it
+fails when nobody has been accepted in that window, since every route is then refusing
+and nothing has proven a token gets through, and when no administrator can be seen from
+the server, since enforcement without one is a lockout the next restart makes permanent.
+A failure is listed with the rest of the preflight on `/health` (see
+[server resilience](../operations/server-resilience.md)).
+
+### When the authority is unreachable
+
+The server probes its authority at startup and every 30 seconds after. While it cannot
+reach it, a token the server holds no cached signing keys for can't be validated, and the
+server says that about itself instead of blaming the token: the `401` carries
+`error="temporarily_unavailable"` and points at `GET /api/config/findings`, where an `auth`
+finding names the authority and the cause. The finding is blocking when enforcement is
+on, which puts it in the dashboard's degraded banner, and advisory when it's off. It
+clears on its own once the authority answers again.
+
 ## What resolves, and how it compares
 
 * **Role names fold case.** One directory emits an app-role value as the operator
@@ -200,9 +284,9 @@ is how an issuer gets proven before anybody can be locked out.
 * **Custom roles are additive, and composed here.** A role you write stands beside the
   built-in three and never replaces one: a name that collides with a built-in is refused at
   the save, as is a permission name the catalog does not contain — compared exactly, so
-  `Runs.Read` is refused the way an invented name is. Both used to be accepted and then
-  quietly dropped from the resolved bundle, which is why they are now refused while the
-  person who typed them is still looking at them.
+  `Runs.Read` is refused the way an invented name is. The refusal comes at the save, while
+  the person who typed the name is still looking at it, rather than as a permission that
+  silently never resolves.
 * **A role already configured is left alone unless you touch it.** The validation is over
   what a save ADDS OR CHANGES: a legacy bundle naming a permission this version no longer
   has keeps working, keeps its `findings` entry, and does not refuse an unrelated save.
@@ -254,11 +338,11 @@ import — state both, so a holder of `config.read` alone is refused for exactly
 reason, and the body says which.
 
 A `401` with a `WWW-Authenticate: Bearer` header is a different answer: it means no valid
-token was presented at all.
+token was presented at all. A live-stream call refused for a missing permission fails with a hub error of the
+same shape, naming the method and the permission it needs.
 
 ## Attribution
 
 A config change is attributed to the **principal** — the claim `name_claim` names,
-`sub` by default. A change made with no principal is attributed to `dashboard`, as it
-always was. Nothing about the attribution comes from the request, so nothing about it can
+`sub` by default. A change made with no principal is attributed to `dashboard`. Nothing about the attribution comes from the request, so nothing about it can
 be forged by a client.

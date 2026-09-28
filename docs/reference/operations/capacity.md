@@ -4,16 +4,18 @@ What happens when more runs arrive than your host or cluster can carry. Short ve
 
 ## Admission: check before you claim
 
-Before a triggered ticket is even claimed, the spawner asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is honest — one orchestrator pod plus one sandbox per repo the run will touch (p0320b). No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die.
+Before a triggered ticket is even claimed, the spawner asks the capacity probe one question: does this run's *whole footprint* fit right now? The footprint is the pods the run will actually spawn: one orchestrator pod, plus one sandbox per repo **and toolchain image**. A repo whose contexts all build on one image gets one sandbox, sized to the largest resource envelope among those contexts; a repo that mixes SDKs gets one sandbox per image. No fit means the run is recorded as **queued**, without claiming the ticket and without spawning anything that would then die. The queued run shows up in the list right away, not once something tries to launch it.
+
+The same question is asked at three doors: the ticket spawn, a manual project init, and a mid-run sandbox escalation.
 
 Per backend:
 
-- **Docker** (compose / single host): a proactive bound, `max_concurrent_sandboxes`, counted against the labelled sandbox containers actually running. A real out-of-memory on the host still fails honestly — the bound exists so you stop before that point. It lives in the `sandbox:` settings and is read at the moment of the decision, so changing it applies to the next run rather than the next restart; see [where the bound is set](#where-the-concurrent-sandbox-bound-is-set).
+- **Docker** (compose / single host): a proactive bound, `max_concurrent_sandboxes`, counted against the labelled sandbox containers of this deployment that are actually running. A real out-of-memory on the host still fails honestly — the bound exists so you stop before that point. It lives in the `sandbox:` settings and is read at the moment of the decision, so changing it applies to the next run rather than the next restart; see [where the bound is set](#where-the-concurrent-sandbox-bound-is-set).
 - **Kubernetes**: the probe reads the namespace `ResourceQuota` and compares against the keys present in its `status.hard`. Quota exceeded is a structured queue event, never a crash-looping pod. The quota shape you want (requests-based, plus a `pods` cap) is worked through on the [Kubernetes host page](../../host-it/kubernetes.md#capacity-quota-count-requests-not-limits).
 
 ## The queue: strict FIFO, one entry per ticket
 
-Queued runs go into a persistent FIFO (p0320c). The properties that matter:
+Queued runs go into a persistent FIFO. The properties that matter:
 
 - **One entry per ticket.** A ticket that triggers while queued does not multiply into N run rows.
 - **Strict arrival order.** Nothing overtakes; a small run does not jump a big one.
@@ -22,30 +24,32 @@ Queued runs go into a persistent FIFO (p0320c). The properties that matter:
 
 Resumed runs (a run that checkpointed on a question and got its answer — see [durable dialogue](../../how-it-works/expectations.md)) ride the same queue with the same rules.
 
-In the [dashboard](dashboard.md) a queued run is amber, shows "queued · #position" and the reason it's waiting, and there's a filter chip for them. Position also comes back on `/api/runs`.
+In the [dashboard](dashboard.md) a queued run sits in the **Queued** bucket with its place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch waits for a slot moves there too, as `resuming · pos 2`, rather than still showing under **Needs you**. Position also comes back on `/api/runs`.
+
+Cancelling or deleting a queued or parked run takes it out of the queue and disarms its ticket, so the next poll doesn't file it again at the back of the line.
 
 ## Sizing: pipeline-aware, clamped
 
-What a sandbox asks for is not one global number (p0320a):
+What a sandbox asks for is not one global number:
 
-- **The code-changing pipeline** (`code`) uses the repo's declared `stack.resources` from its `.agentsmith/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
+- **The code-changing pipeline** (`code`) uses the repo's declared `stack.resources` from its `.agentsmith/contexts/<name>/context.yaml` — the LLM proposes them during init, you can edit them, and the framework clamps them to a hard ceiling either way.
 - **Non-build pipelines** (init-project, scans, legal analysis, mad-discussion) get a light fixed profile. A security scan reads code; it doesn't need a build box.
 - The spawned orchestrator pod is sized separately and small (it runs the LLM loop, compiles nothing) — see the env values in `deploy/k8s/8-deployment-server.yaml`.
 
-And before sizing even matters, the `ScopeRepos` step (p0331) narrows the run to the repos the ticket actually touches, so a five-repo project doesn't provision five sandboxes for a one-repo fix. If the master discovers mid-run it needs another repo after all, it has an `ensure_repo_sandbox` tool to escalate — the widening is recorded as a scope decision on the run.
+And before sizing even matters, the `ScopeRepos` step narrows the run to the repos the ticket actually touches, so a five-repo project doesn't provision five sandboxes for a one-repo fix. If the master discovers mid-run it needs another repo after all, it has an `ensure_repo_sandbox` tool to escalate — the widening is recorded as a scope decision on the run.
 
 ## What a run costs, honestly
 
-Every finished run shows two costs side by side (p0332):
+Every finished run shows two costs side by side:
 
 - **LLM cost** — tokens and dollars, per call, with the cached share (see [cost tracking](../concepts/cost-tracking.md)).
 - **Reserved capacity-time** — memory request × pod lifetime, in Gi·minutes, summed over the run's pods. Reservation, not measured usage: it's what your cluster had to hold free for the run, which is what capacity planning and cloud bills are made of.
 
-A run can be cheap in tokens and expensive in pods (a big build that thinks little) or the reverse. Now you can see which.
+A run can be cheap in tokens and expensive in pods (a big build that thinks little) or the reverse. With both side by side you can see which.
 
 ## Cancel is a state, not a wish
 
-Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a persistent cancel state that is enforced everywhere (p0330):
+Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a persistent cancel state that is enforced everywhere:
 
 - A run that hasn't started yet is cancelled before it ever spawns.
 - A running run gets a graceful window (30 seconds), then a server-side force-kill that tears down its pods — compute and capacity are released immediately, and the ticket is terminalized on the tracker.
@@ -55,12 +59,13 @@ Cancelling a run (dashboard button or `POST /api/runs/{runId}/cancel`) writes a 
 
 | Knob | Where | What it bounds |
 |---|---|---|
-| `queue.MaxParallelJobs` | `agentsmith.yml` (server) | Concurrent runs the consumer will execute (default 4). |
-| `max_concurrent_sandboxes` | `sandbox:` settings (Docker backend) | Sandbox containers on one host. Live — no restart. |
+| `queue.max_parallel_jobs` | Settings → Queue | Concurrent runs the consumer will execute (default 4). |
+| `max_concurrent_sandboxes` | Settings → Sandbox (Docker backend) | Sandbox containers on one host. Live — no restart. |
+| `hold_seconds` | Settings → Sandbox, or per project | How long a design conversation keeps its sandboxes between turns (default 180). Never denies a run. |
 | `ResourceQuota` (`requests.cpu` / `requests.memory` / `pods`) | your namespace | Whole-cluster footprint; the `pods` key is the deterministic backpressure knob. |
 | `stack.resources` | per-repo `context.yaml` | Build-sandbox size for code-changing pipelines (clamped). |
-| `projects.X.sandbox.resources` | `agentsmith.yml` | Per-project sandbox sizing override. |
-| `pipeline_cost_cap` | `agentsmith.yml` | USD / token budget per run — the other half of "bounded". |
+| `projects.X.sandbox.resources` | the project's sandbox settings | Per-project sandbox sizing override. |
+| `pipeline_cost_cap` | Settings → Pipeline cost cap | USD / token budget per run — the other half of "bounded". See [pipeline cost cap](../configuration/pipeline-cost-cap.md). |
 
 ## Where the concurrent-sandbox bound is set
 
@@ -97,6 +102,12 @@ in its refusal.
 The bound is a **Docker** setting. A Kubernetes installation bounds sandboxes through its
 namespace `ResourceQuota`, and the in-process backend is unbounded — on either, the number
 does nothing.
+
+## Held sandboxes never cost a run its place
+
+A design conversation in the dashboard keeps the source sandboxes it opened for a while after each turn, so the next question doesn't pay for the clone again. That hold is the one place sandboxes outlive the work that made them, and it never denies a run: before any of the three doors turns a run away for lack of capacity, it releases the sandboxes this server is holding and asks again. A run that fits without them leaves them alone. Pipeline runs never reuse a sandbox; the hold covers design conversations only.
+
+How long a hold lasts is `hold_seconds` in the `sandbox:` settings (**Sandbox hold (seconds)** in Settings → Sandbox), overridable on a project. Resolution runs project, then the global setting, then the `SANDBOX_HOLD_SECONDS` environment variable, then 180 seconds. `0` holds nothing. A wrong number costs idle resources, never a refused run.
 
 ## Next
 

@@ -25,7 +25,7 @@ AGENTSMITH_PERSISTENCE_PROVIDER=postgresql
 AGENTSMITH_PERSISTENCE_CONNECTION=Host=postgres;Database=agentsmith;Username=agentsmith;Password=…
 ```
 
-which replaces the whole `persistence:` block wherever both are set — in the server and in the `database migrate` container alike, which is why they have to be set on both. Set one without the other and neither is used: the provider decides how the connection string is parsed, so half a pair is reported as a blocking startup finding and the file's block keeps running.
+which replaces the whole `persistence:` block wherever both are set, in the server and in the `database migrate` container alike, which is why they have to be set on both. Set one without the other and neither is used: the provider decides how the connection string is parsed, so half a pair is reported as a blocking startup finding and the file's block keeps running.
 
 The server looks for the file at `CONFIG_PATH`, and the container images default that to `/app/config/agentsmith.yml`. If the file is missing entirely the server still boots, on a SQLite default with no secret names, and tells you so in its startup findings rather than dying silently.
 
@@ -33,12 +33,16 @@ The server looks for the file at `CONFIG_PATH`, and the container images default
 
 The CLI is a different animal. One shot runs, with no database and no Redis behind them. It reads the entire file (agents, repos, trackers, projects, the lot), and that hasn't changed and isn't going to.
 
-The CLI looks for `agentsmith.yml` in the working directory, then `./config/agentsmith.yml`, then your home directory. `--config /path/to/agentsmith.yml` overrides all of it.
+The CLI looks for `.agentsmith/agentsmith.yml` in the working directory, then `config/agentsmith.yml`, then `.agentsmith/agentsmith.yml` in your home directory. `--config /path/to/agentsmith.yml` overrides all of it.
 
 ```bash
 agent-smith doctor --config ./agentsmith.yml
-agent-smith fix --ticket 54 --project todolist
+agent-smith code --ticket 54 --project todolist
 ```
+
+`--ticket` takes the ticket the way its tracker writes it: `54` on GitHub, GitLab or Azure DevOps, `TL-54` on Jira. `fix` and `feature` still work as deprecated aliases of `code`.
+
+The coding pipeline is called `code`. The four names it replaced (`fix-bug`, `fix-no-test`, `add-feature`, `phase-execution`) no longer run. A server rewrites them to `code` in its stored configuration once, at startup. A CLI file is never rewritten, so a `pipeline_from_label` or `default_pipeline` in your `agentsmith.yml` that still says `fix-bug` has to be edited by hand; until it is, the startup findings name it and say what to write instead, and a ticket routed to it fails when it starts.
 
 So a laptop that drives runs from the CLI and a server that runs the same project from a tracker are configured in two different places on purpose. If you want them to agree, export from the server and use that file for the CLI.
 
@@ -53,7 +57,7 @@ agent-smith config import ./agentsmith.yml
 agent-smith config import ./agentsmith.yml --force   # overwrite a non-empty store
 ```
 
-Import refuses a store that already holds configuration unless you pass `--force`, and `persistence:` is excluded in both directions, because it belongs to the file and importing it into the database it describes would be nonsense.
+Import refuses a store that already holds configuration unless you pass `--force`, and `persistence:` is excluded in both directions, because it belongs to the file and importing it into the database it describes would be nonsense. An import is also refused when one catalog in the file carries two spellings of one name (`TodoList` and `todolist`); names are matched without regard to case, so the two would be one entity. The refusal names both, and nothing is written.
 
 Export round-trips: the YAML that comes out loads back through the same loader that reads a CLI config, which is what makes it usable as a real backup rather than a pretty-printed summary.
 

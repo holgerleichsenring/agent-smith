@@ -1,202 +1,59 @@
 # Legal Analysis
 
-The **legal-analysis** pipeline reviews contracts and legal documents using a panel of 5 specialist roles. It reads documents from an inbox folder, converts them to Markdown, runs a multi-role analysis, and delivers the output to an outbox folder. All legal output is written in **German legal language**.
+The **legal-analysis** pipeline reads a contract or other legal document and produces a structured analysis: clause-level risk, obligations per party, red flags and recommended next actions. It converts the document to Markdown and hands it to the **legal-analyst-master**, which reads it section by section and writes the report.
 
-## Pipeline Steps
+## Pipeline steps
 
-| # | Command | What It Does |
+| # | Command | What it does |
 |---|---------|-------------|
-| 1 | AcquireSource | Picks up a document from the inbox folder, creates a workspace |
-| 2 | BootstrapDocument | Converts to Markdown via MarkItDown, detects contract type, loads legal skills |
-| 3 | LoadCodingPrinciples | Loads `legal-principles.md` with analysis guidelines |
-| 4 | Triage | AI selects which legal specialist roles should participate |
-| 5 | ConvergenceCheck | Evaluates if all roles agree; re-runs objecting roles if not |
-| 6 | CompileDiscussion | Consolidates all role analyses into a final document |
-| 7 | DeliverOutput | Writes analysis to outbox, archives source document |
+| 1 | LoadCatalog | Pulls and verifies the skill catalog |
+| 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
+| 3 | AcquireSource | Copies the document into the run's sandbox |
+| 4 | EnsurePrerequisites | Installs MarkItDown in the sandbox |
+| 5 | BootstrapDocument | Converts the document to Markdown and classifies the contract type |
+| 6 | LoadCodingPrinciples | Loads the principles that frame the analysis |
+| 7 | LoadMemoryIndex | Loads the project's recorded memory |
+| 8 | AgenticMaster | Runs the legal-analyst-master over the document |
+| 9 | DeliverOutput | Delivers the analysis |
 
-## Inbox / Outbox Folder Watching
+## Document conversion
 
-The legal pipeline uses a file-based workflow:
+`BootstrapDocument` converts the input with [MarkItDown](https://github.com/microsoft/markitdown), inside the sandbox. It handles PDF, DOCX / DOC, XLSX, PPTX and HTML. A conversion that fails stops the run with the file name.
 
-```
-legal-docs/
-├── inbox/          ← drop contracts here (PDF, DOCX, etc.)
-├── processing/     ← file moves here during analysis
-├── outbox/         ← analysis results appear here
-└── archive/        ← original + result after completion
-```
+It then asks a model to classify the contract from its opening text:
 
-**AcquireSource** picks up the file, copies it to a temp workspace, and sets up the pipeline context. **DeliverOutput** writes the compiled analysis to `outbox/` as a timestamped Markdown file and moves the original to `archive/`.
-
-```
-inbox/vertrag-lieferant-xyz.pdf
-  → processing (during analysis)
-  → outbox/20260325-143022-vertrag-lieferant-xyz-analysis.md
-  → archive/20260325-143022-vertrag-lieferant-xyz.pdf
-```
-
-## Document Conversion
-
-The `BootstrapDocument` step converts the input document to Markdown using [MarkItDown](https://github.com/microsoft/markitdown). Supported formats:
-
-- PDF
-- DOCX / DOC
-- XLSX
-- PPTX
-- HTML
-
-After conversion, the handler uses an LLM call to classify the contract type:
-
-| Contract Type | German Name | Triggers |
-|---------------|-------------|----------|
+| Contract type | German name | Covers |
+|---------------|-------------|--------|
 | `nda` | Geheimhaltungsvereinbarung | Non-disclosure agreements |
 | `werkvertrag` | Werkvertrag | Work contracts (deliverable-based) |
 | `dienstleistungsvertrag` | Dienstleistungsvertrag | Service contracts (effort-based) |
 | `saas-agb` | SaaS-AGB | SaaS terms of service |
 | `kaufvertrag` | Kaufvertrag | Purchase contracts |
 | `mietvertrag` | Mietvertrag | Lease contracts |
-| `unknown` | Unbekannt | Fallback for unrecognized types |
 
-The detected type determines which specialist roles are activated via their trigger lists.
+## How the master analyzes
 
-## The 5 Legal Specialist Roles
+The `AgenticMaster` step loads the **legal-analyst-master** skill. It treats the document as untrusted content: it analyses what the document says and never follows instructions written into it. It does not modify files; it reads and writes a report.
 
-Each role is defined in `config/skills/legal/` and writes its analysis in German.
+1. **Read.** It reads the converted document. For a long one it first locates the structural sections (definitions, term, payment, IP, warranties, liability, termination, governing law) and reads them in order.
+2. **Analyse.** For each clause it names the type (obligation, right, restriction, limit, exclusion, penalty and so on), the party affected, a risk level from Critical to Informational from the perspective of the party you represent (the customer, unless the goal says otherwise), and specific red flags such as unbounded liability, automatic renewal with a short opt-out, broad IP assignment or non-mutual indemnification. Non-obvious interpretation choices are recorded with `log_decision`.
+3. **Synthesise.** It writes a report with the document type, key obligations per party, a risk register sorted by severity with section references and counter-proposals, the red flags with citations, and a recommended next action (sign, negotiate specific clauses, reject, escalate).
 
-### 📄 Contract Analyst
+It cites the document section for every claim, names the jurisdiction when an interpretation depends on it, and marks general-pattern warnings as such rather than as findings in this document. A document of hundreds of pages can be split across sub-agents, one per major section; otherwise the master works alone.
 
-**File:** `contract-analyst.yaml`
+The report is written in plain language. The master's methodology ships as the `legal-analyst-master` skill in the [agentsmith-skills](https://github.com/holgerleichsenring/agent-smith-skills) catalog; see [Skills Catalog](../../how-it-works/skills-catalog.md) to pin or override it.
 
-Reads the contract systematically from top to bottom. Identifies every clause, its purpose, and what it obliges each party to do. Flags unusual, missing, or ambiguous clauses.
+## Running
 
-Output structure per clause:
-
-```markdown
-## Vertraulichkeitspflicht (§ 3)
-**Zweck:** Schutz vertraulicher Informationen beider Parteien
-**Pflichten:** Auftragnehmer: Geheimhaltung / Auftraggeber: Kennzeichnung
-**Anmerkung:** Standard — keine Auffaelligkeiten
+```bash
+agent-smith legal --source ./contracts/supplier-agreement.pdf
 ```
 
-### 🔐 Compliance Checker
+`--project` names the project from your config and defaults to `legal`. `--output` chooses how `DeliverOutput` delivers; `console` is the default. `--dry-run` shows the pipeline without running it.
 
-**File:** `compliance-checker.yaml`
+## Delivery
 
-Checks for DSGVO (GDPR) compliance and validity under German AGB-Recht (standard form contract law, sections 305-310 BGB). Evaluates:
-
-- Auftragsverarbeitungsvertrag (data processing agreement) references
-- Data categories, purpose, and retention periods
-- Prohibited clauses under sections 308 and 309 BGB
-- Surprising clauses under section 305c BGB
-- Proper AGB incorporation under section 305 BGB
-
-### ⚠️ Risk Assessor
-
-**File:** `risk-assessor.yaml`
-
-Evaluates each clause for risk from the client's perspective. Assigns risk levels and flags missing clauses that are typically expected for the contract type.
-
-| Risk Level | Meaning |
-|------------|---------|
-| 🔴 HIGH | Could cause significant financial or legal harm |
-| 🟡 MEDIUM | Worth negotiating or clarifying |
-| 🟢 LOW | Standard, no action needed |
-
-### ⚖️ Liability Analyst
-
-**File:** `liability-analyst.yaml`
-
-Deep-dives into liability caps, exclusions, and indemnification clauses:
-
-- Haftungsausschluss (liability exclusion)
-- Haftungsbegrenzung (liability limitation)
-- Freistellung (indemnification)
-- Gewaehrleistung (warranty)
-- Vertragsstrafe (contractual penalties)
-
-Checks whether exclusions are valid under German law (e.g., section 309 Nr. 7 BGB prohibits exclusion of liability for gross negligence in B2C contracts).
-
-### ✏️ Clause Negotiator
-
-**File:** `clause-negotiator.yaml`
-
-Proposes concrete alternative formulations for HIGH and MEDIUM risk clauses. Alternatives are written in standard German legal language and are designed to be copy-pasted into a contract draft.
-
-```markdown
-### Haftungsbegrenzung (§ 8)
-**Urspruengliche Formulierung:** Haftung auf den Vertragswert begrenzt
-**Problem:** Schliesst mittelbare Schaeden vollstaendig aus
-**Alternativvorschlag:**
-> Die Haftung ist auf den zweifachen Jahresvertragswert begrenzt.
-> Mittelbare Schaeden sind bis zur Hoehe des einfachen Jahresvertragswertes erstattungsfaehig,
-> sofern sie vorhersehbar und typisch waren.
-**Wirkung:** Ausgewogener Schutz beider Parteien bei vorhersehbaren Schaeden
-```
-
-## How Skills Collaborate
-
-Legal analysis uses the **discussion pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
-
-```mermaid
-graph LR
-    Document --> Triage
-    Triage -->|selects roles| CA[contract-analyst]
-    Triage --> CC[compliance-checker]
-    Triage --> RA[risk-assessor]
-    Triage --> LA[liability-analyst]
-    Triage --> CN[clause-negotiator]
-    CA & CC & RA & LA & CN --> Convergence
-    Convergence --> Output[Legal Analysis]
-
-    style Triage fill:#4a4a4a,color:#fff
-    style Convergence fill:#4a4a4a,color:#fff
-```
-
-Each role analyzes the contract from its perspective. The convergence check evaluates whether roles agree — if they disagree, another round runs with the objecting roles.
-
-## Convergence
-
-The discussion follows the standard convergence pattern:
-
-1. **Triage** selects roles based on contract type
-2. **Round 1**: Each role analyzes the document
-3. **ConvergenceCheck**: If roles disagree (e.g., the Clause Negotiator objects to the Risk Assessor's rating), another round runs
-4. **Max rounds** (default: 3): If no consensus, findings are consolidated with dissenting views noted
-5. **CompileDiscussion**: Produces the final merged analysis document
-
-## Output
-
-The final analysis is a single Markdown document combining all role outputs:
-
-```markdown
-# Vertragspruefung: Rahmenvertrag IT-Dienstleistungen
-
-**Datum:** 2026-03-25
-**Vertragstyp:** Dienstleistungsvertrag
-**Teilnehmer:** Contract Analyst, Compliance Checker, Risk Assessor,
-                Liability Analyst, Clause Negotiator
-
-## Zusammenfassung
-1. 3 Klauseln mit hohem Risiko identifiziert
-2. DSGVO-Konformitaet: Auftragsverarbeitungsvertrag fehlt
-3. Haftungsbegrenzung einseitig zu Lasten des Auftragnehmers
-...
-
-## Klauselanalyse
-...
-
-## Compliance-Pruefung
-...
-
-## Risikoanalyse
-...
-
-## Haftungsanalyse
-...
-
-## Aenderungsvorschlaege
-...
-```
+With an output format set, `DeliverOutput` hands the run to that output strategy (`console`, `summary`, `markdown` or `sarif`). Without one, it writes the analysis to an `outbox/` folder as `{timestamp}-{name}-analysis.md` and moves the source from `processing/` or `inbox/` to `archive/`, all under the project's configured path.
 
 !!! warning "No legal advice"
-    Agent Smith identifies and describes — it does not recommend. The output is an analytical aid, not legal counsel. Always have a qualified lawyer review the results.
+    Agent Smith identifies and describes. The output is an analytical aid, not legal counsel. Always have a qualified lawyer review the results.

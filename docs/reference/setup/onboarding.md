@@ -3,14 +3,28 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Before Agent Smith can run a code-touching pipeline (`code`, `security-scan`, `api-security-scan`) against a repository, the repo needs two files:
+Before Agent Smith can run a code-touching pipeline (`code`, `security-scan`, `api-security-scan`) against a repository, the repo needs two files per component it holds:
 
-- `.agentsmith/context.yaml` — the project's architectural fingerprint (stack, modules, conventions).
-- `.agentsmith/principles.md` — the constraints Agent Smith respects when changing code.
+- `.agentsmith/contexts/<name>/context.yaml` — the component's fingerprint: stack, toolchain image, how it is verified. See [The context file](../concepts/context-file.md).
+- `.agentsmith/contexts/<name>/principles.md` — the constraints Agent Smith respects when changing code.
 
-The `init-project` pipeline produces both files. Running it once per repository is the prerequisite. This guide walks the recommended onboarding flow — a labelled issue triggers `init-project`, Agent Smith opens a PR with the generated files, and the operator reviews and merges. Subsequent agent-smith labels then work normally.
+The `init-project` pipeline produces them. Running it once per repository is the prerequisite. There are two ways to start it: the **Initialize** button on a project in the dashboard, or a labelled issue. Either way Agent Smith opens a PR with the generated files.
 
 > Works the same way on GitHub, GitLab, Azure DevOps, and Jira. Webhook-based or polling-based — both paths feed the same trigger and route via `pipeline_from_label`.
+
+## From the dashboard
+
+Every project card in the Config studio (and the project panel under System) has an **Initialize** button. It starts `init-project` for that project with no ticket; the run is stamped as a manual one. While it runs the button turns into **Initializing — view run**, which opens the live run, and pressing it again never starts a second one. Pressing it on a repository that is already initialized is safe: a re-run that changes nothing opens no PR. It needs the `operator` role (see [Access control](../security/access-control.md)).
+
+Next to it sits **Auto-accept PRs**, on by default. With it on, the run completes the init pull requests it opened, one repo at a time. The outcome per repo is one of three:
+
+- merged;
+- armed: on Azure Repos, a PR behind a required-build policy is approved and set to auto-complete, and merges itself once the build passes;
+- refused: a branch policy, a required reviewer or a failing build said no. The PR stays open with the reason recorded for that repo, and the run does not fail over it.
+
+Untick it when you want to review the generated files yourself.
+
+The rest of this page walks the ticket-labelled path, which works the same on GitHub, GitLab, Azure DevOps and Jira.
 
 ## Prerequisites
 
@@ -53,7 +67,7 @@ projects:
 
 Place `agent-smith:init` **first** in `pipeline_from_label` — match order is dict-insertion order. Putting it first keeps onboarding visible to operators reading the config.
 
-Restart Agent Smith if it was already running (config changes are not hot-reloaded).
+A server picks up the change without a restart.
 
 ## Step 2 — Create the init issue
 
@@ -68,22 +82,23 @@ That's the entire trigger. Agent Smith picks it up via webhook delivery (sub-sec
 
 Agent Smith runs the `init-project` pipeline:
 
-1. Checks out a fresh branch (`agentsmith/init`) on the repository.
-2. Analyzes the project to detect its primary language (csharp / node / python / generic).
-3. Dispatches the language-specific bootstrap skill that writes `.agentsmith/context.yaml` + `principles.md`.
-4. Commits with message `chore: initialize .agentsmith/ directory` and opens a PR.
-5. Comments on the init issue with the PR link, then transitions it to `done_status` (or closes it if no `done_status` is configured).
+1. Checks out a fresh branch on each repository and analyzes it.
+2. Discovers the repository's components. A component is something built and shipped on its own; the internal layer projects of one solution (a `Domain` or `Infrastructure` project, say) belong to the component that ships them and get no context of their own.
+3. Runs one bootstrap round per component, on the agent's `context_generation` model. The round reads that component's subtree through tools and writes its `context.yaml`, including `stack.image` and a `verify` block derived from the CI pipeline the repository already runs.
+4. Transfers the coding principles into each `principles.md`: the universal core plus the delta for the component's language, from the skills catalog. An existing `principles.md` is never overwritten.
+5. Commits with message `chore: initialize .agentsmith/ directory` and opens a PR per repo (cross-linked when there are several).
+6. With auto-accept on, completes the PRs as described above; on the ticket path it comments on the init issue with the PR link and transitions it to `done_status`.
 
-Typical wall-clock: 1–3 minutes depending on repository size and the language detector's depth.
+Typical wall-clock: a few minutes, depending on repository size and the number of components.
 
 ## Step 4 — Review and merge
 
-The PR contains exactly two files. Review them like any other PR:
+The PR body says, per context, what the run did with the principles (transferred from the core and language delta, already present and left untouched, or authored by the skill) and, per file the language delta ships, whether it was written, already present, or not written and why. Review the files like any other PR:
 
-- **`context.yaml`** — confirm the stack, modules, and conventions match your repo. Generic-bootstrap output is deliberately minimal and flagged as a fallback; you may want to flesh it out before merging.
-- **`principles.md`** — the constraints Agent Smith will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The file is named for what it holds, not just for code: the rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, and merging this PR is where you ratify it.
+- **`context.yaml`** — confirm the stack, the image and the `verify` stages match your repo.
+- **`principles.md`** — the constraints Agent Smith will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, and merging this PR is where you ratify it.
 
-Edit either file in the PR before merging — Agent Smith respects whatever lands on the default branch, not the initially-generated content. If the output is wrong shape or the generator misclassified your stack, edit `.agentsmith/context.yaml` directly in the PR; you don't need to re-run `init-project`.
+Edit either file in the PR before merging. Agent Smith respects whatever lands on the default branch, not the initially-generated content.
 
 Merge the PR. The repo is now bootstrapped.
 
@@ -104,7 +119,7 @@ The Slack path produces the same bootstrap PR but does not transition any ticket
 
 ### My non-init pipeline says "Run init-project first"
 
-Expected if you haven't merged the bootstrap PR yet. The BootstrapGate guards code-touching pipelines and aborts fast when either `.agentsmith/context.yaml` or `principles.md` is missing. Merge the init PR first, then re-trigger.
+Expected if you haven't merged the bootstrap PR yet. The BootstrapGate guards code-touching pipelines and aborts fast, naming the context and the file, when a `context.yaml` or `principles.md` is missing. A repository that still carries the old file name `coding-principles.md` is refused the same way; re-running `init-project` renames it to `principles.md` and keeps its Project Specifics. Merge the init PR first, then re-trigger.
 
 ### The init issue stayed open with no PR
 
@@ -116,19 +131,19 @@ Three likely causes:
 
 ### Bootstrap PR opened but the files look wrong
 
-Edit them in the PR before merging — see Step 4. The bootstrap skills produce a reasonable starting point but aren't omniscient about your conventions. Re-running `init-project` later is fine: it preserves your manual edits to `context.yaml` and only backfills auto-detectable fields that are missing.
+Edit them in the PR before merging — see Step 4. Or re-run `init-project`: it derives every context again instead of returning what is declared, so a wrong value (a wrong `meta.workdir`, a wrong image) gets corrected. Sections of `context.yaml` the generator does not model, like hand-written `decisions` or `integrations`, are carried over, and an existing `principles.md` is left as it is. A context the new derivation no longer produces is moved to `.agentsmith/contexts-retired/<name>/` and the move is part of the PR.
 
 For language-detection misclassification specifically (e.g. a TypeScript monorepo bootstrapped as `generic`), check the [Bootstrap Skills](../skills/bootstrap.md) reference for the project_language enum and the per-language activation criteria.
 
 ### Where do I read the result.md?
 
-Each agent run produces a `result.md` under `.agentsmith/runs/<run-id>/`. The init run's result.md surfaces the bootstrap-skill output, cost breakdown, and any warnings. Failed runs leave the same artifact path with the failure details — useful when the PR doesn't appear.
+Each agent run produces a `result.md` under `.agentsmith/runs/<run>/`. The init run's result.md surfaces the bootstrap-skill output, cost breakdown, and any warnings. Failed runs leave the same artifact path with the failure details — useful when the PR doesn't appear.
 
 ## Bootstrapping a multi-repo project
 
-A multi-repo project (one project entry referencing N entries in `repos:` or a discovery glob) needs each repo to end up with its own `.agentsmith/context.yaml` and `.agentsmith/principles.md`. One `agent-smith:init` ticket on the project does it: the `init-project` pipeline iterates the project's repos, writes both files into each, and opens one bootstrap PR per repo, cross-linked.
+A multi-repo project (one project entry referencing N entries in `repos:` or a discovery glob) needs each repo to end up with its own contexts. One `agent-smith:init` ticket on the project, or one press of **Initialize**, does it: the `init-project` pipeline iterates the project's repos, writes the contexts into each, and opens one bootstrap PR per repo, cross-linked.
 
-Re-running init later is safe: it preserves your manual edits to `context.yaml` and merges in missing auto-detectable fields, and a re-init that produces no changes closes its ticket instead of looping. Every repo must be bootstrapped before ticket-triggered runs against the project succeed end-to-end (the `BootstrapGate` aborts code-touching pipelines on any repo missing the two files).
+Re-running init later is safe: it derives again (see Troubleshooting above), and a re-init that produces no changes closes its ticket instead of looping. Every repo must be bootstrapped before ticket-triggered runs against the project succeed end-to-end (the `BootstrapGate` aborts code-touching pipelines on any repo missing its context files).
 
 ### Example: a 3-repo project
 
@@ -167,7 +182,7 @@ projects:
 
 ### Operator workflow
 
-1. On `acme-backend`, file an issue (any title), apply the `agent-smith:init` label. Wait for the bootstrap PR (typically 1-3 minutes), review the generated `.agentsmith/context.yaml` and `principles.md`, merge.
+1. On `acme-backend`, file an issue (any title), apply the `agent-smith:init` label. Wait for the bootstrap PR (typically 1-3 minutes), review the generated `.agentsmith/contexts/` files, merge.
 2. Repeat on `acme-frontend`.
 3. Repeat on `acme-sdk`.
 

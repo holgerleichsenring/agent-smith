@@ -33,11 +33,13 @@ contains both:
 
 The pattern resolver looks at, in order:
 
-1. `${AGENTSMITH_CONFIG_DIR}/patterns/` — operator override for custom or
-   replacement patterns
-2. `{catalogRoot}/patterns/` — patterns from the agentsmith-skills release
-3. `./config/patterns/` (development convenience when running from a source
-   checkout that still has bundled patterns)
+1. `${AGENTSMITH_CONFIG_DIR}/patterns/`, then `${AGENTSMITH_CONFIG_DIR}/config/patterns/`,
+   the operator override for custom or replacement patterns
+2. `{catalogRoot}/patterns/`, the patterns from the agentsmith-skills release
+3. `./config/patterns/`, then the install directory's `config/patterns/`
+   (a development convenience when running from a source checkout)
+
+The first directory that exists wins; the others are not read.
 
 The file name is organisational. The category exposed in findings comes from
 the top-level `name:` field inside the YAML, falling back to the file name
@@ -93,9 +95,9 @@ add or extend a YAML under `patterns/`. The next release ships it.
 **For your deployment only — operator override:** point
 `AGENTSMITH_CONFIG_DIR` at a directory that contains a `patterns/` subfolder
 with your custom YAMLs. The resolver picks that location up before the
-catalog. Mix-and-match isn't supported in this slice — when the override path
-is set, the catalog patterns are not also loaded; copy any defaults you want
-to keep into your override directory.
+catalog. Mix-and-match isn't supported: when the override directory exists,
+the catalog patterns are not also loaded, so copy any defaults you want to
+keep into your override directory.
 
 ```yaml
 # ${AGENTSMITH_CONFIG_DIR}/patterns/my-org.yaml
@@ -119,5 +121,9 @@ patterns:
   carrying `provider` and `revokeUrl` directly from the YAML.
 - Git history scan → [`GitDiffSecretMatcher`](https://github.com/holgerleichsenring/agent-smith/blob/main/src/backend/AgentSmith.Infrastructure/Services/Security/GitDiffSecretMatcher.cs)
   uses the same YAMLs filtered to `category=secrets`.
-- SARIF / Markdown / JSON reports include `provider` and `revokeUrl` whenever
-  the matched pattern provides them.
+- A git-history finding whose pattern names a `revocationUrl` carries it in its
+  suggestion: "Rotate the credential and revoke it via …".
+- Pattern findings are scanner facts. The security-master sees them only after
+  its own review, when it reconciles; a High or Critical one it does not cover
+  is still delivered, and then put to a refuter like every other finding. See
+  [Security Scan](../pipelines/security-scan.md#delivery-curated-triage-with-a-safety-net).

@@ -3,7 +3,7 @@
 The CLI binary is one process, one run, exit. Good for:
 
 - Trying things out on your laptop without setting up Docker.
-- Cron-driven runs (a Jenkins job that runs `agent-smith fix` on a schedule).
+- Cron-driven runs (a Jenkins job that runs `agent-smith code` on a schedule).
 - Air-gapped environments where you can't run a daemon.
 
 For long-lived setups with webhooks, you want [docker-compose](docker-compose.md) or [kubernetes](kubernetes.md) instead.
@@ -13,9 +13,9 @@ For long-lived setups with webhooks, you want [docker-compose](docker-compose.md
 The CLI looks for `agentsmith.yml`:
 
 1. Path passed via `--config /path/to/agentsmith.yml`.
-2. `./agentsmith.yml` in the current working directory.
+2. `./.agentsmith/agentsmith.yml` in the current working directory.
 3. `./config/agentsmith.yml`.
-4. `~/agentsmith.yml` in your home directory.
+4. `~/.agentsmith/agentsmith.yml` in your home directory.
 
 For a one-machine setup, just keep `agentsmith.yml` in a project directory and `cd` there before invoking. For a shared CLI install (system-wide on a build agent), pass `--config /etc/agent-smith/agentsmith.yml` explicitly in the wrapper script / unit file.
 
@@ -33,46 +33,36 @@ For systemd-managed runs:
 ```ini
 [Service]
 EnvironmentFile=/etc/agent-smith/secrets.env
-ExecStart=/usr/local/bin/agent-smith fix --ticket ${TICKET_ID} --project todolist --headless --config /etc/agent-smith/agentsmith.yml
+ExecStart=/usr/local/bin/agent-smith code --ticket ${TICKET_ID} --project todolist --headless --config /etc/agent-smith/agentsmith.yml
 ```
 
 For GitHub Actions / Azure Pipelines / GitLab CI, set them as masked CI secrets.
 
 ## Sandbox in CLI mode
 
-In CLI mode, the framework picks a sandbox backend automatically:
+The CLI always runs its sandbox in-process: file operations and commands happen on your local filesystem, in the CLI process, with no container around them and no isolation between repos. No Docker daemon is needed, and `SANDBOX_TYPE` has no effect here. The commands a run executes need their toolchain (`dotnet`, `node`, `git`, …) installed on the machine itself.
 
-| Detection | Backend |
-|---|---|
-| `SANDBOX_TYPE=kubernetes` or pod env vars present | Kubernetes API (you probably don't want CLI mode if you have this) |
-| `SANDBOX_TYPE=docker` or `/var/run/docker.sock` exists | Docker daemon — one container per repo per run |
-| Otherwise | In-process sandbox — no isolation between repos, runs in the CLI process itself |
+That's fine for single-repo work on a machine you trust. For per-repo toolchain containers, sandbox isolation and the package cache, run the [server](docker-compose.md), which picks Docker or Kubernetes sandboxes.
 
-The in-process sandbox is the developer-machine convenience: no Docker daemon required, single-tenant, file ops happen on the local filesystem. It works fine for single-repo projects. For multi-repo with different toolchains you want the Docker backend, which means having a Docker daemon running.
+## Where a run leaves its record
 
-To force a specific backend regardless of detection:
+The run record is written into each repository the run changed, under `.agentsmith/runs/<run>/` (`result.md`, and `plan.md` when the run had one), and committed on the run branch, so it travels with the pull request.
 
-```bash
-SANDBOX_TYPE=docker agent-smith fix --ticket 54 --project todolist
-```
-
-## Output directory
-
-`.agentsmith/runs/{run-id}/` next to the config file. Three files per run: `plan.md`, `result.md`, `decisions.md`. Plus a top-level `runs:` entry in `.agentsmith/context.yaml` for the wiki-compile pass.
+A CLI run also records its facts to a database, the same way a server run does. It uses the `persistence:` block when that location can be written. The default points at `/var/lib/agentsmith/agentsmith.db`, the container path, which a laptop usually can't create; then the run falls back to `~/.agentsmith/runs.db` and says so on the output.
 
 ## Exit codes
 
 Zero on success (PR opened, ticket updated), non-zero on failure with the failing step + error message on the output. `agent-smith doctor` has the same contract — 0 all-green, 1 on any failed check — which makes it the natural gate before a scheduled run:
 
 ```bash
-agent-smith doctor --json && agent-smith fix --ticket "$TICKET" --project todolist --headless
+agent-smith doctor --json && agent-smith code --ticket "$TICKET" --project todolist --headless
 ```
 
 Wrap in cron / CI accordingly.
 
 ## Updating
 
-The CLI binary is one file. Replace it; that's the upgrade. The sandbox-agent image (for Docker mode) bumps separately — pull the new tag matching the new CLI version. Skills come embedded in the binary and upgrade with it; a `skills:` block in `agentsmith.yml` is only needed to override that (path to a working tree, mirror URL, or an explicit `version:` pin).
+The CLI binary is one file. Replace it; that's the upgrade. There is no sandbox-agent image to match, because the CLI never starts a container. Skills come embedded in the binary and upgrade with it; a `skills:` block in `agentsmith.yml` is only needed to override that (path to a working tree, mirror URL, or an explicit `version:` pin).
 
 ## Next
 
