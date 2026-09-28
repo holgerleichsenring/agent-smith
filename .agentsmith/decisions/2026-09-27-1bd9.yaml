@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-1bd9
+
+decisions:
+  - category: Architecture
+    chose: "The by-id choice narrows its matches to the tracker that answered, and TrackerProjects holds that lookup once"
+    over: "Narrowing inside TicketProjectMatch, where the matching itself lives"
+    reason: |
+      TicketProjectMatch is shared with the run side and its recorded decision is deliberate: it
+      keeps a project whose trigger KIND equals the ticket's platform, and says so in its own header
+      — "two projects on different trackers carrying one tag both match, and the project decides
+      which tracker the conversation will file into". That is right for a run, which reaches a
+      ticket through the tracker it was already routed from. It is wrong for a conversation opened
+      from a ticket id, which swept the trackers to find the number and must not then be handed a
+      project on a different one. So the narrowing lives in the caller that did the sweeping, and
+      the shared matcher is untouched. The tracker-to-projects lookup moved into a file of its own
+      because a second reader — the dialog's cross-tracker search — already had its own copy, and
+      two copies of one rule are how they start to disagree.
+    alternatives:
+      - "Comparing tracker identity inside the match: reverses another phase's stated decision for its other caller"
+
+  - category: Implementation
+    chose: "A project matched by the labels on another tracker is REPORTED, not silently dropped"
+    over: "Narrowing quietly, so the ticket simply names no project"
+    reason: |
+      Without the report the page falls through to "No project's routing names this ticket", which
+      is false and accusatory: the routing does name one, it is just pointed at a tracker that does
+      not hold this ticket. An operator reading that would go looking for a configuration mistake
+      that is not there. The answer therefore carries the projects the labels named elsewhere, and
+      the page says which they are and why they cannot be used — the same shape the unanswerable
+      list already has, for the same reason.
+    alternatives:
+      - "One combined list: the two cases need different sentences, and a merged list could only produce one"
+
+  - category: Implementation
+    chose: "Unanswerable projects are narrowed by tracker too"
+    over: "Narrowing only the matches"
+    reason: |
+      An unanswerable project is one routed by area path, repository or address — a reason offered
+      to explain why it could not be ruled in. Offering that reason for a project on a tracker that
+      does not hold the ticket would be noise about a candidate that was never a candidate.
+    alternatives:
+      - "Leaving it whole: a list that grows with every unrelated tracker an installation configures"
+
+  - category: Implementation
+    chose: "The search sweep's own intersection is deleted rather than left as a no-op"
+    over: "Leaving it, since the choice now guarantees the same result"
+    reason: |
+      Once the choice narrows itself, the sweep's `answer.Projects.Intersect(routed)` can never
+      remove anything. A line that cannot change an outcome reads as load-bearing to the next person
+      and would be defended in a review. What stays is the fall-back it also expressed — the routed
+      set when the labels named nothing — which is still a real branch.
+    alternatives:
+      - "Keeping it defensively: defending against the guarantee this phase just established"

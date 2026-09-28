@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
@@ -23,8 +24,17 @@ internal static class TicketBinders
 
     /// <summary>2026-09-25-8e51c: the ticket-text reader a conversation with no ticket never uses.</summary>
     internal static TicketTextForConversation NoTicketText(SpecDialogTicketTextRepository store) =>
-        new(new Mock<ITicketProviderFactory>().Object, store, Divergence(), TimeProvider.System,
-            NullLogger<TicketTextForConversation>.Instance);
+        new(new Mock<ITicketProviderFactory>().Object, store, Divergence(), MovedCheck(),
+            new TicketReadReports(new DashboardReadingChannel(
+                new Mock<ISourceScopeObserverAccessor>().Object,
+                NullLogger<DashboardReadingChannel>.Instance)),
+            new TicketDiscussion(NullLogger<TicketDiscussion>.Instance),
+            TimeProvider.System, NullLogger<TicketTextForConversation>.Instance);
+
+    /// <summary>2026-09-27-481ba: the moved-check, which a conversation with no ticket never runs
+    /// — it is the only tracker round trip a bound turn makes, and an unbound one makes none.</summary>
+    internal static TicketMovedCheck MovedCheck() =>
+        new(new Mock<ITicketProviderFactory>().Object, NullLogger<TicketMovedCheck>.Instance);
 
     /// <summary>2026-09-25-8e51e: the divergence over an empty approval store — nothing approved,
     /// so nothing to differ from, which is what a test about something else expects.</summary>

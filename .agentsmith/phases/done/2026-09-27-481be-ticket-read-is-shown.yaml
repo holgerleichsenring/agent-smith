@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-27-481be
+goal: "A conversation says when it is reading its ticket, so the tracker round trips before a bound conversation's reply are accounted for rather than unexplained."
+
+applies_to: "backend (the two places a ticket is read) and dashboard (what a running turn says it is reading)"
+
+requires: ["2026-09-27-481ba"]
+
+scope:
+  in: "Reporting both tracker reads a bound conversation makes — the one that grounds it and the per-turn check for whether the ticket has moved — through the channel that already reports what is being read."
+  out: "What the ticket SAYS, which is 2026-09-27-481bc. Changing WHEN either read happens: the read-once design is 2026-09-25-8e51c's and this phase only makes it visible."
+
+decisions:
+  - key: |
+      THE CHANNEL NEEDS NO OBSERVER TO BE TOLD, BUT IT NEEDS TWO THINGS THE READ DOES NOT HAVE.
+      Pushing a reading line is a public call; the observer exists only because SANDBOXES are
+      created down more than one route and neither signature names one. But the push is addressed by
+      the DIALOG id, and the ticket read carries the SESSION id, which is a different value; and the
+      check that this conversation is a dashboard one lives in the observer rather than in the push,
+      so a direct push would emit for a Slack or Teams session into a group nobody joined. Both
+      travel from the callers, which hold the conversation's whole state, rather than being
+      rediscovered by a collaborator that was given one identifier for another purpose.
+  - key: |
+      THE PAYLOAD IS NOT GENERATED, SO THE MIRROR IS THE WHOLE GUARD. The reading push is a server
+      model, not an event contract, and the generator that checks the dashboard's mirror walks the
+      contracts' events directory only. The dashboard's copy of this shape is hand-written and
+      nothing will notice a field added on one side and not the other, so the dashboard test is the
+      only thing standing between the two.
+  - key: |
+      THERE ARE TWO READS, IN TWO PLACES, AND BOTH ARE FELT. The ticket is fetched ONCE when a
+      conversation comes into existence — the whole ticket and its comments, at bind time, in the
+      dispatcher — and then every turn re-checks the tracker to decide whether the ticket has moved
+      since. The first is the long pause before a bound conversation's first reply; the second is a
+      smaller one before every reply after it. Reporting only the first would leave the recurring
+      pause unexplained, so both report, and they report from the one collaborator that performs
+      both rather than from the two callers, each of which sits at the per-file limit.
+  - key: |
+      A READING LINE IS KEYED BY WHAT IT IS, NOT ONLY BY ITS NAME. The dashboard finds a line to
+      update by repository name alone, and its list is keyed by it — so a ticket whose id happened
+      to match a repository name would overwrite that repository's line. The key becomes the kind
+      and the name together.
+  - key: |
+      THE HEADER ABOVE THE LINES SAYS "OPENING THE REPOSITORIES IT NEEDS", AND WOULD BE WRONG. It
+      is driven by whether any line is in the opening state, which a ticket read would enter. The
+      sentence has to answer for whatever is actually being read, or the one place a person looks
+      while waiting says something false.
+  - key: |
+      AN UNBOUND CONVERSATION REPORTS NOTHING NEW. It reads no ticket, so its running state is byte
+      for byte what it was — the same rule the seeding already follows.
+
+steps:
+  - id: both-ticket-reads-report
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Report the grounding read and the per-turn moved-check from wherever each is performed, taking the dialog id and the dashboard-only decision from the caller rather than deriving either."
+      - "Say what is being read and of what kind, keeping today's repository lines reading exactly as they do."
+
+  - id: the-dashboard-tells-them-apart
+    path: "src/dashboard/src"
+    action:
+      - "Mirror the widened shape by hand — nothing checks this file — and key a reading line by its kind and its name together."
+      - "Word a ticket read in the dashboard's own words, and make the header above the lines answer for whatever is being read."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests, src/dashboard/src/components/dialog/__tests__"
+    action: "Assert that both reads report, that a repository read is unchanged, that an unbound conversation reports what it always did, and that a ticket named like a repository does not overwrite its line."
+
+tests:
+  - "SpecDialogTicketRead_GroundingAConversation_IsReported"
+  - "SpecDialogTicketRead_ThePerTurnMovedCheck_IsReported"
+  - "SpecDialogTurn_AnUnboundConversation_ReportsWhatItAlwaysDid"
+  - "SpecDialogTurn_ARepositoryRead_IsReportedUnchanged"
+  - "DialogWorking_ATicketNamedLikeARepository_DoesNotOverwriteItsLine"
+  - "DialogWorking_ATicketBeingRead_SaysSoAndTheHeaderAnswersForIt"
+
+done:
+  - "a bound conversation shows that it is reading its ticket, both when it is grounded and on every turn after"
+  - "repository reads report exactly as before, and an unbound conversation's running state is unchanged"
+  - "a ticket and a repository of the same name are two lines, not one"
+  - "the line above the readings never says repositories when a ticket is being read"
+  - "build green, full suite green, dashboard tests green"

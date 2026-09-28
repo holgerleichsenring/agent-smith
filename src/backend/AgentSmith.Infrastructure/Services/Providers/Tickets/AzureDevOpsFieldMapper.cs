@@ -30,7 +30,8 @@ public sealed class AzureDevOpsFieldMapper : ITicketFieldMapper<IDictionary<stri
             "AzureDevOps",
             labels,
             ReadIdentity(fields, "System.AssignedTo"),
-            ReadIdentity(fields, "System.CreatedBy"));
+            ReadIdentity(fields, "System.CreatedBy"),
+            ReadOrNull(fields, "System.WorkItemType"));
     }
 
     // p0454: an @-mention only reaches an Azure DevOps inbox with the identity GUID, so

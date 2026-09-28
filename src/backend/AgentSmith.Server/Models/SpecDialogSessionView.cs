@@ -39,4 +39,20 @@ public sealed record SpecDialogSessionView(
     string? Subject = null,
     SpecDialogProposalPush? Proposal = null,
     SpecDialogFilingPush? Filing = null,
-    int? ProposalTurn = null);
+    int? ProposalTurn = null,
+    SpecDialogTicketView? Ticket = null);
+
+/// <summary>
+/// 2026-09-27-481bc: the ticket text this conversation was GROUNDED ON — what every turn of it is
+/// seeded with, shown where a person already goes to see what the conversation may read.
+/// <para>
+/// It is the SEEDED copy and not a fresh read, deliberately. The conversation reasons from what it
+/// was given, and a ticket that has since changed is exactly the case where the two differ — so
+/// showing today's ticket would answer a different question than the one worth asking when an
+/// answer looks wrong. It comes from the stored row, so opening the pane costs no tracker call.
+/// </para>
+/// </summary>
+/// <param name="Truncated">The ticket was longer than the conversation carries: its description is
+/// whole and the discussion is the most recent that fit. A turn can read the rest.</param>
+public sealed record SpecDialogTicketView(
+    string TicketId, string Title, string Text, DateTimeOffset ReadAt, bool Truncated);

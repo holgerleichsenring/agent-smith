@@ -9,4 +9,17 @@ namespace AgentSmith.Server.Models;
 /// joined no run group to hear it.
 /// </para>
 /// </summary>
-public sealed record SpecDialogReadingPush(string DialogId, string Repo, string State, DateTimeOffset At);
+/// <param name="Kind">2026-09-27-481be: a repository or a TICKET. The line used to be found and
+/// keyed by its name alone, so a ticket whose id matched a repository name would have overwritten
+/// that repository's line — and the sentence above the lines said "opening the repositories it
+/// needs" whatever was being read.</param>
+public sealed record SpecDialogReadingPush(
+    string DialogId, string Kind, string Name, string State, DateTimeOffset At);
+
+/// <summary>What a reading line is about. The dashboard words each in its own way.</summary>
+public static class SpecDialogReadingKinds
+{
+    public const string Repository = "repository";
+
+    public const string Ticket = "ticket";
+}

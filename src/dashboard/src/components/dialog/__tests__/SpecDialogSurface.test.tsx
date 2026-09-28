@@ -66,6 +66,11 @@ const readTicketProject = vi.fn();
 // cancelling the request in flight is a requirement and not an optimisation: every query costs one
 // round trip per configured tracker.
 const searchTickets = vi.fn<(q: string, signal?: AbortSignal) => Promise<unknown>>();
+// 2026-09-27-481bb: the per-PICK resolution. A hit carries only an id and a title, so picking one
+// reads that ticket on its own tracker and matches its labels — the answer that makes a ticket
+// found by title resolve what the same ticket found by number does.
+const resolveTicketProjects =
+  vi.fn<(tracker: string, ticketId: string, signal?: AbortSignal) => Promise<unknown>>();
 const routerReplace = vi.fn();
 vi.mock("next/navigation", () => ({
   useSearchParams: () => searchParams.current,
@@ -118,6 +123,8 @@ vi.mock("@/lib/specDialogApi", () => ({
     readTicketConversation(project, ticketId),
   readTicketProject: (ticketId: string) => readTicketProject(ticketId),
   searchTickets: (q: string, signal?: AbortSignal) => searchTickets(q, signal),
+  resolveTicketProjects: (tracker: string, ticketId: string, signal?: AbortSignal) =>
+    resolveTicketProjects(tracker, ticketId, signal),
   deleteSpecDialogConversation: (sessionId: string) => deleteSpecDialogConversation(sessionId),
   resumeSpecDialogConversation: (sessionId: string, dialogId: string) =>
     resumeSpecDialogConversation(sessionId, dialogId),
@@ -139,6 +146,7 @@ function view(overrides: Partial<SpecDialogView> = {}): SpecDialogView {
     turn: { computing: false, elapsedSeconds: 0, steps: [], turnStartedAt: null },
     session: {
       sessionId: "s-1",
+      ticket: null,
       scope: SAMPLE_SCOPE,
       transcript: [],
       lastActivityAt: "2026-09-15T10:00:00Z",
@@ -420,18 +428,30 @@ beforeEach(() => {
   resumeSpecDialogConversation.mockResolvedValue(undefined);
   searchTickets.mockReset();
   searchTickets.mockResolvedValue(found([]));
+  resolveTicketProjects.mockReset();
+  // Answering null keeps the hit's own routed set, which is what every case that predates the
+  // per-pick read asserts.
+  resolveTicketProjects.mockResolvedValue(null);
 });
 
 /** 2026-09-27-5c1eb: what the search route answers — the hits, the cap, and the trackers that
  *  could not be asked, which is never the same as a board with no such ticket. */
 function found(
-  hits: { ticketId: string; title: string; tracker: string; projects: string[] }[],
-  overrides: { moreHeldBack?: boolean; unsearchable?: string[] } = {},
+  hits: {
+    ticketId: string;
+    title: string;
+    tracker: string;
+    projects: string[];
+    exact?: boolean;
+    kind?: string;
+  }[],
+  overrides: { moreHeldBack?: boolean; unsearchable?: string[]; unreachable?: string[] } = {},
 ) {
   return {
     found: hits,
     moreHeldBack: overrides.moreHeldBack ?? false,
     unsearchable: overrides.unsearchable ?? [],
+    unreachable: overrides.unreachable ?? [],
     minimum: 3,
   };
 }
@@ -1833,11 +1853,12 @@ describe("SpecDialogSurface", () => {
 
     const at = new Date().toISOString();
     act(() => {
-      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "opening", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "opening", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "repo-a", state: "ready", at });
-      readings.emit({ dialogId: heldDialogId(), repo: "template-repo", state: "failed", at });
-      readings.emit({ dialogId: "someone-else", repo: "foreign", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "repo-a", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "template-repo", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "repo-a", state: "ready", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "template-repo", state: "failed", at });
+      readings.emit({
+        dialogId: "someone-else", kind: "repository", name: "foreign", state: "opening", at });
     });
 
     const lines = await screen.findAllByTestId("dialog-reading");
@@ -2581,12 +2602,54 @@ describe("SpecDialogSurface", () => {
     const working = await screen.findByTestId("dialog-working");
 
     act(() => readings.emit({
-      dialogId: heldDialogId(), repo: "repo-a@v2", state: "opening", at: new Date().toISOString(),
+      dialogId: heldDialogId(), kind: "repository", name: "repo-a@v2",
+      state: "opening", at: new Date().toISOString(),
     }));
 
     expect(working).toHaveTextContent("Opening the repositories it needs");
     expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("repo-a@v2");
     expect(within(working).getByTestId("dialog-working-pulse")).toHaveTextContent("0s · 0 steps");
+  });
+
+
+  // 2026-09-27-481be: a bound conversation makes TWO tracker reads — the one that grounds it and a
+  // per-turn check for whether the ticket has moved — and both were pauses with nothing on screen.
+  it("DialogWorking_ATicketBeingRead_SaysSoAndTheHeaderAnswersForIt", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    const working = await screen.findByTestId("dialog-working");
+
+    act(() => readings.emit({
+      dialogId: heldDialogId(), kind: "ticket", name: "DPG-1239",
+      state: "opening", at: new Date().toISOString(),
+    }));
+
+    // The line above the readings used to say "the repositories it needs" whatever was open.
+    expect(working).toHaveTextContent("Reading the ticket…");
+    expect(within(working).getByTestId("dialog-reading")).toHaveTextContent("DPG-1239");
+  });
+
+  it("DialogWorking_ATicketNamedLikeARepository_DoesNotOverwriteItsLine", async () => {
+    await renderSurface();
+    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+      target: { value: "update every dependency" },
+    });
+    fireEvent.click(screen.getByTestId("dialog-composer-send"));
+    const working = await screen.findByTestId("dialog-working");
+    const at = new Date().toISOString();
+
+    // Identical names, different kinds. A line was found and keyed by its NAME alone.
+    act(() => {
+      readings.emit({ dialogId: heldDialogId(), kind: "repository", name: "billing", state: "opening", at });
+      readings.emit({ dialogId: heldDialogId(), kind: "ticket", name: "billing", state: "ready", at });
+    });
+
+    expect(within(working).getAllByTestId("dialog-reading")).toHaveLength(2);
+    // And the header answers for both rather than for the repositories alone.
+    expect(working).toHaveTextContent("Opening the repositories it needs");
   });
 
   // 2026-09-22-b3d7: this line is the one place the card counts what the button files, and the
@@ -3441,14 +3504,18 @@ describe("SpecDialogSurface", () => {
     expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument();
   });
 
-  it("SpecDialog_TheEmptyTranscript_SaysTheConversationFollowsWhatItFiles", async () => {
+  // 2026-09-27-481bd: this used to assert four paragraphs of instruction — how to phrase a
+  // request, how long the first reply takes, and what the proposal card does, shown before any
+  // card exists to somebody who came here on purpose. Replaced rather than repaired: the words it
+  // pinned are deliberately gone.
+  it("SpecDialogSurface_AnEmptyConversation_GreetsAndSaysNothingElse", async () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null }));
 
     render(<SpecDialogSurface />);
 
     const empty = await screen.findByTestId("dialog-transcript-empty");
-    expect(empty).toHaveTextContent("Filing is not where this ends");
-    expect(empty).toHaveTextContent("follows the work it filed");
+    expect(empty.textContent).toMatch(/^Good (morning|afternoon|evening)\.$/);
+    expect(empty).not.toHaveTextContent("Filing is not where this ends");
   });
 
   it("SpecDialog_APushForAnotherDialog_ChangesNothing", async () => {
@@ -3738,6 +3805,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: ["sample"],
       unanswerable: [],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });
@@ -3773,6 +3841,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: [],
       unanswerable: ["beta"],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });
@@ -3791,6 +3860,36 @@ describe("a page addressed with a ticket and no project", () => {
     );
   });
 
+  // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
+  // Binding through it would re-fetch this number on that tracker, which is a different board.
+  it("SpecDialogSurface_LabelsNamingAnotherTrackersProject_SaysSoRatherThanBinding", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    readTicketProject.mockResolvedValue({
+      ticketId: "412",
+      title: "Widget drops",
+      tracker: "jira-one",
+      projects: [],
+      unanswerable: [],
+      elsewhere: ["beta"],
+      sessionId: null,
+      openDialogId: null,
+    });
+
+    await renderSurface();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain(
+        "on another tracker",
+      ),
+    );
+    expect(screen.getByTestId("dialog-ticket-reason").textContent).toContain("beta");
+  });
+
   // 2026-09-27-5c1eb: and the same sentence on a SINGLE-project installation, which renders no
   // project choice at all.
   it("SpecDialogSurface_SingleConfiguredProject_StillSaysWhyTheTicketNamedNoProject", async () => {
@@ -3801,6 +3900,7 @@ describe("a page addressed with a ticket and no project", () => {
       tracker: "jira",
       projects: [],
       unanswerable: ["sample"],
+      elsewhere: [],
       sessionId: null,
       openDialogId: null,
     });
@@ -4006,5 +4106,254 @@ describe("The ticket search", () => {
     await waitFor(() => expect(screen.getByTestId("dialog-ticket-more")).toBeInTheDocument());
     // NOT an empty board: nothing here says whether the ticket is on that tracker.
     expect(screen.getByTestId("dialog-ticket-unsearchable").textContent).toContain("ado-main");
+  });
+
+  // 2026-09-27-481bb: the same ticket must resolve the same project whichever way it was found.
+  it("SpecDialogSurface_ALabelledTicketFoundByTitle_ResolvesTheSameProjectAsByNumber", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    // The SWEEP can only offer both projects on the tracker — a hit is an id and a title.
+    searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, projects: ["sample", "beta"] }]));
+    // The PICK reads the ticket and matches its labels, which name one.
+    resolveTicketProjects.mockResolvedValue({
+      ticketId: "DPG-1239",
+      title: JIRA_HIT.title,
+      tracker: JIRA_HIT.tracker,
+      projects: ["sample"],
+      unanswerable: [],
+      elsewhere: [],
+      sessionId: null,
+      openDialogId: null,
+    });
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    expect(resolveTicketProjects.mock.calls[0].slice(0, 2)).toEqual(["jira-main", "DPG-1239"]);
+    // One project after the read, so there is nothing left to choose and the composer opens.
+    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_AnExactHit_IsMarkedAsTheNumberThatWasTyped", async () => {
+    searchTickets.mockResolvedValue(
+      found([
+        { ...JIRA_HIT, exact: true },
+        { ticketId: "DPG-1300", title: "mentions DPG-1239", tracker: "jira-main", projects: ["sample"] },
+      ]),
+    );
+    await renderSurface();
+
+    await type("DPG-1239");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-exact-DPG-1239")).toBeInTheDocument());
+    // The row that merely MENTIONS the number carries no mark.
+    expect(screen.queryByTestId("dialog-ticket-exact-DPG-1300")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialogSurface_ANumberLookupThatFailed_IsSaidApartFromAnUnsearchableTracker", async () => {
+    searchTickets.mockResolvedValue(
+      found([JIRA_HIT], { unsearchable: ["ado-main"], unreachable: ["gitlab-main"] }),
+    );
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-unreachable").textContent).toContain("gitlab-main"));
+    // Two different failures: one board was never searched, the other never asked for a number.
+    expect(screen.getByTestId("dialog-ticket-unsearchable").textContent).toContain("ado-main");
+    expect(screen.getByTestId("dialog-ticket-unreachable").textContent).not.toContain("ado-main");
+  });
+
+  it("SpecDialogSurface_ATicketOnATrackerWithNoProject_SaysSoAndOffersNoBinding", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    // No configured project routes to this hit's tracker.
+    searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, projects: [] }]));
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+
+    // Falling back to every project would let the first message bind this number on another board.
+    await waitFor(() =>
+      expect(screen.getByTestId("dialog-ticket-stranded").textContent).toContain("jira-main"));
+  });
+
+
+  // 2026-09-27-481bc: what the model reads, a person can read. The ticket text is seeded into
+  // EVERY turn of a bound conversation and no surface showed it — so when an answer looked wrong,
+  // the first question had no answer.
+  it("SpecDialogScopePanel_ABoundConversation_ShowsTheTextItWasSeededWith", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: {
+          ...view().session!,
+          ticket: {
+            ticketId: "DPG-1239",
+            title: "Cannot log in",
+            text: "Title: Cannot log in\n\nthe reset link expires too early",
+            readAt: "2026-09-27T09:00:00Z",
+            truncated: true,
+          },
+        },
+      }),
+    );
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.getByTestId("dialog-scope-ticket").textContent).toContain("DPG-1239");
+    expect(screen.getByTestId("dialog-scope-ticket-text").textContent).toContain(
+      "the reset link expires too early",
+    );
+    // A capped ticket says so where its text is shown, not only in the prompt.
+    expect(screen.getByTestId("dialog-scope-ticket").textContent).toContain(
+      "longer than this conversation carries",
+    );
+  });
+
+  it("SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisPhase", async () => {
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.queryByTestId("dialog-scope-ticket")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-scope")).toBeInTheDocument();
+  });
+
+
+  // 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but only when no ticket
+  // is in play. The field is ONE component holding the search input, the sentence saying why a
+  // ticket named no project, the picked row and the control that unbinds it; removing it while a
+  // ticket is picked would delete all three while the composer went on sending the ticket.
+  it("SpecDialogSurface_AProjectPickedByHandWithNoTicket_RemovesTheSearchInput", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    await renderSurface();
+
+    expect(screen.getByTestId("dialog-ticket-query")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("dialog-ticket-search")).not.toBeInTheDocument());
+  });
+
+  it("SpecDialogSurface_AProjectPickedByHandForAPickedTicket_KeepsTheRowAndTheUnbind", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [
+          SAMPLE_SCOPE,
+          { name: "beta", repos: ["repo-b"], templates: [] },
+          { name: "gamma", repos: ["repo-c"], templates: [] },
+        ],
+      }),
+    );
+    searchTickets.mockResolvedValue(
+      found([{ ...JIRA_HIT, projects: ["sample", "beta"] }]),
+    );
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), {
+      target: { value: "cannot log in" },
+    });
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-picked")).toBeInTheDocument());
+
+    // The pick COMPLETES the ticket rather than replacing it.
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    expect(screen.getByTestId("dialog-ticket-picked")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-ticket-clear")).toBeInTheDocument();
+  });
+
+  // 2026-09-27-481bd: the pane branched on whether a session was open and on nothing else, so it
+  // offered every project as a candidate while the composer said one had been settled.
+  it("SpecDialogScopePanel_AProjectSettledWithoutASession_ShowsThatOneNotAllOfThem", async () => {
+    fetchSpecDialog.mockResolvedValue(
+      view({
+        session: null,
+        projects: [SAMPLE_SCOPE, { name: "beta", repos: ["repo-b"], templates: [] }],
+      }),
+    );
+    await renderSurface();
+
+    fireEvent.click(screen.getByTestId("dialog-tab-scope"));
+    expect(screen.getByTestId("dialog-scope-project-sample")).toBeInTheDocument();
+    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("dialog-choice-project"), { target: { value: "beta" } });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("dialog-scope-project-sample")).not.toBeInTheDocument());
+    expect(screen.getByTestId("dialog-scope-project-beta")).toBeInTheDocument();
+  });
+
+
+  // 2026-09-27-481bf: the tracker's own word. A fixed set of ours would either mislabel a process
+  // template's type or show nothing for it, so the word is always the tracker's and only the few
+  // every tracker means the same by get an icon.
+  it("SpecDialogSurface_AKindWithNoSharedMeaning_IsDrawnAsAWordWithNoIcon", async () => {
+    searchTickets.mockResolvedValue(
+      found([
+        { ...JIRA_HIT, kind: "Bug" },
+        {
+          ticketId: "DPG-1300",
+          title: "a backlog item",
+          tracker: "jira-main",
+          projects: ["sample"],
+          kind: "Produktrückstandselement",
+        },
+        { ticketId: "7", title: "a github issue", tracker: "gh-main", projects: ["sample"] },
+      ]),
+    );
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-ticket-query"), {
+      target: { value: "cannot log in" },
+    });
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-kind-bug")).toBeInTheDocument());
+
+    // A type nobody else has survives as itself.
+    expect(screen.getByTestId("dialog-ticket-kind-produktrückstandselement").textContent)
+      .toContain("Produktrückstandselement");
+    // And GitHub, whose SDK carries none, draws NO kind rather than a guessed one.
+    expect(
+      within(screen.getByTestId("dialog-ticket-hit-7"))
+        .queryAllByTestId(/^dialog-ticket-kind-/),
+    ).toHaveLength(0);
+    expect(
+      within(screen.getByTestId("dialog-ticket-hit-DPG-1239"))
+        .queryAllByTestId(/^dialog-ticket-kind-/),
+    ).toHaveLength(1);
+  });
+
+  it("SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText", async () => {
+    searchTickets.mockResolvedValue(found([JIRA_HIT]));
+    await renderSurface();
+
+    await type("cannot log in");
+    await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("dialog-new"));
+
+    // The field holds its own text, so the surface clearing its state was never enough.
+    await waitFor(() =>
+      expect((screen.getByTestId("dialog-ticket-query") as HTMLInputElement).value).toBe(""));
+    expect(screen.queryByTestId("dialog-ticket-hit-DPG-1239")).not.toBeInTheDocument();
   });
 });

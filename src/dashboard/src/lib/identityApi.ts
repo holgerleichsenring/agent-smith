@@ -23,6 +23,10 @@ export interface CallerIdentity {
   permissions: string[];
   /** What the server noticed while resolving — an unknown permission, an overage. */
   findings: string[];
+  /** 2026-09-27-481bd: whether `subject` is a name a person recognises. It carries the NAME-CLAIM
+   *  value and falls back to the opaque one when the directory sent none, so it is always present
+   *  and not always a name. Hand-written mirror: nothing checks this file. */
+  nameIsReadable?: boolean;
 }
 
 export async function fetchIdentity(signal?: AbortSignal): Promise<CallerIdentity> {

@@ -82,8 +82,8 @@ public sealed class DashboardDialogDispatcher(
         string? ticketId)
     {
         if (string.IsNullOrWhiteSpace(project)) return true;
-        // Only a conversation that NAMES a ticket reads the catalog here: a conversation without
-        // one must reach the resolver exactly as it did before this phase, config read included.
+        // Only a conversation that NAMES a ticket reads the catalog here; one without must reach
+        // the resolver exactly as it did before, config read included.
         var resolved = string.IsNullOrWhiteSpace(ticketId) ? null : Resolved(project!);
         var binding = resolved is null
             ? null
@@ -92,9 +92,9 @@ public sealed class DashboardDialogDispatcher(
             dialogId, project, userId, cancellationToken, binding);
         if (target.SessionId is null) return false;
         // 2026-09-25-8e51c: the ticket is read ONCE, here, where the conversation has just come
-        // into existence — a turn reads what was kept rather than the tracker.
+        // into existence — a turn reads what was kept, not the tracker. 481be: and says it is.
         if (binding is not null && resolved is not null)
-            await ticketText.ReadAsync(target.SessionId, resolved, binding.TicketId, cancellationToken);
+            await ticketText.ReadAsync(target.SessionId, resolved, binding.TicketId, dialogId, cancellationToken);
         return true;
     }
 

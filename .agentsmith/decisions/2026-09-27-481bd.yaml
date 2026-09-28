@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-27-481bd
+
+decisions:
+  - category: Implementation
+    chose: "A greeting, and nothing else"
+    over: "Shortening the 154 words of instruction"
+    reason: |
+      A heading asking what should be true, a paragraph on how to phrase it, a paragraph on the
+      first reply and a paragraph describing the proposal card — the last shown before any card
+      exists, to somebody who came to this page on purpose. None of it is knowledge a person
+      arriving here lacks; the composer already says work can begin. Shortening would have kept
+      the shape of an explanation where no explanation is wanted.
+    alternatives:
+      - "Keeping the sentence about the first reply taking a minute: it is a fact, and it is one the working indicator already shows once a turn starts"
+
+  - category: Implementation
+    chose: "The name is the one the header already shows, plus one bit saying whether it is readable"
+    over: "Carrying a display name on the identity"
+    reason: |
+      The name already travels: the identity's subject IS the name-claim value, falling back to
+      the opaque one only when the directory sent none, and the header renders exactly that value
+      on every page of this dashboard including this one. A second name field would have been the
+      second shape that eventually disagrees with the first — which that record's own header
+      forbids in writing. What was genuinely missing is one bit: whether the claim the installation
+      named is the opaque default. The access view already computed it inline for its own page, so
+      the predicate was extracted rather than copied.
+    alternatives:
+      - "Greeting with whatever the subject holds: on the default claim that is a directory identifier"
+
+  - category: Implementation
+    chose: "The greeting is two components, split on whether an authority is configured"
+    over: "One component branching on it"
+    reason: |
+      The hook that acquires a token starts an auth session unconditionally, so a conditional call
+      would either break the rules of hooks or fire a request on an installation that can sign
+      nobody in — and, in the tests, in every case that renders this surface. The header solves the
+      same problem the same way, and the symmetry is the point: two places that read an identity
+      should be guarded alike.
+    alternatives:
+      - "Guarding inside the hook: the condition belongs to the page, not to the reading"
+
+  - category: Implementation
+    chose: "A project picked BY HAND ends the ticket question only when no ticket is in play"
+    over: "Removing the ticket field whenever a project is chosen"
+    reason: |
+      The field is ONE component holding four things: the search input, the sentence saying why a
+      ticket named no project, the picked-ticket row, and the control that unbinds it. Removing it
+      on any picked project would delete the sentence the operator was answering, the row showing
+      what they chose and the only way to undo it — while the composer went on sending the ticket,
+      because the send reads the picked ticket and not the field. An invisible ticket riding the
+      first message with no way to clear it is the defect 2026-09-27-5c1eb closed, in a new shape.
+      And "chosen" cannot mean "a project exists": on a single-project installation one exists from
+      the first render, so the field would never appear at all. There are three states, not two —
+      a ticket picked, a ticket from the address still asking which project it belongs to, and
+      neither. Only the third is the operator saying they are not starting from a ticket.
+    alternatives:
+      - "Splitting the component so the input alone goes: more moving parts for a case the predicate already separates"
+
+  - category: Implementation
+    chose: "The pane shows the settled project once one is settled, in its no-session branch only"
+    over: "Narrowing the project list it is given"
+    reason: |
+      It branched on whether a SESSION was open and on nothing else, so between picking a ticket
+      and sending the first message it offered every configured project as a candidate while the
+      composer — which appears only once a project is resolved — said the opposite. Narrowing alone
+      would not have reached it: the pane is handed the full list, not the narrowed one. The
+      session branch is left alone because 2026-09-27-481bc owns it, so the two phases could land
+      in either order.
+    alternatives:
+      - "Passing the narrowed list: the narrowed list is empty in exactly the case where the pane should show one project"

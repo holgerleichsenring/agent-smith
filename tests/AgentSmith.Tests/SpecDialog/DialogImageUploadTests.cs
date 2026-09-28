@@ -47,6 +47,7 @@ public sealed class DialogImageUploadTests : IDisposable
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionRepository _repository;
     private readonly SpecDialogAttachmentRepository _attachments;
+    private readonly SpecDialogTicketTextRepository _ticketText;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogOwnership _ownership;
     private readonly RecordingDialogHub _hub = new();
@@ -60,6 +61,7 @@ public sealed class DialogImageUploadTests : IDisposable
         _context.Database.Migrate();
         _repository = new SpecDialogSessionRepository(_context);
         _attachments = new SpecDialogAttachmentRepository(_context);
+        _ticketText = new SpecDialogTicketTextRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
@@ -246,7 +248,7 @@ public sealed class DialogImageUploadTests : IDisposable
                 new SpecDialogLatestOutcomeStore(
                     _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                new SpecDialogTurnGate(TimeProvider.System), _attachments)
+                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText)
             .ReadAsync(dialogId, CancellationToken.None)).Session;
 
     private async Task<long> StoreAgainstAsync(string sessionId) =>

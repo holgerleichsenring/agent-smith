@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
 import type { TicketProjectRead, TicketSearchFound } from "@/lib/specDialogApi";
-import { readTicketConversation, readTicketProject } from "@/lib/specDialogApi";
+import {
+  readTicketConversation,
+  readTicketProject,
+  resolveTicketProjects,
+} from "@/lib/specDialogApi";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -18,6 +22,7 @@ import { DialogPane, useDialogPaneFocus } from "./DialogPane";
 import { DialogProjectChoice, type ProjectsRead } from "./DialogProjectChoice";
 import { DialogQuestionCard } from "./DialogQuestionCard";
 import { DialogTicketSearch } from "./DialogTicketSearch";
+import { DialogGreeting } from "./DialogGreeting";
 import { DialogTranscript } from "./DialogTranscript";
 import { DialogWorking } from "./DialogWorking";
 
@@ -109,7 +114,14 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
         }
         const named = project ? [project] : ((held as TicketProjectRead | null)?.projects ?? []);
         if (named.length === 1) setPending({ project: named[0], ticketId });
-        else setReason(whyNoProject(named, (held as TicketProjectRead | null)?.unanswerable ?? []));
+        else
+          setReason(
+            whyNoProject(
+              named,
+              (held as TicketProjectRead | null)?.unanswerable ?? [],
+              (held as TicketProjectRead | null)?.elsewhere ?? [],
+            ),
+          );
       })
       // A ticket the tracker does not have, or a read that failed: the page stays usable and the
       // operator is not handed a conversation bound to something that is not there.
@@ -127,9 +139,17 @@ function useTicketHandover(open: (sessionId: string, openDialogId?: string | nul
 }
 
 /** Why the ticket did not name one project — a reason, never an accusation. */
-function whyNoProject(named: string[], unanswerable: string[]): string {
+function whyNoProject(named: string[], unanswerable: string[], elsewhere: string[]): string {
   if (named.length > 1)
     return `This ticket's labels name ${named.length} projects (${named.join(", ")}). Choose one.`;
+  // 2026-09-27-1bd9: the labels DID name a project — on a tracker that does not hold this ticket.
+  // Without this sentence the routing looks broken when it is merely pointed elsewhere.
+  if (named.length === 0 && elsewhere.length > 0)
+    return (
+      `This ticket's labels name ${elsewhere.join(", ")}, which ${elsewhere.length === 1 ? "is" : "are"} ` +
+      "on another tracker — a project there would open a different board's ticket of this number. " +
+      "Choose a project on this one."
+    );
   if (unanswerable.length > 0)
     return (
       `No project matched this ticket's labels. ${unanswerable.join(", ")} ` +
@@ -159,22 +179,49 @@ export function SpecDialogSurface() {
   // 2026-09-27-5c1eb: and the picked TICKET beside it, for the same reason — sending needs it, and
   // the component that offers it is unmounted the moment a project is resolved.
   const [pickedTicket, setPickedTicket] = useState<TicketSearchFound | null>(null);
+  // 2026-09-27-481bb: a hit carries an id and a title by contract, so the sweep could only offer
+  // the projects ROUTED to its tracker. Picking one reads that ticket on that tracker and matches
+  // its own labels, so a ticket found by typing its title resolves what the same ticket found by
+  // its number does. The request is cancelled when another is picked: a late answer would rewrite
+  // a newer pick's project.
+  const [resolved, setResolved] = useState<TicketProjectRead | null>(null);
+  useEffect(() => {
+    setResolved(null);
+    if (!pickedTicket) return;
+    const controller = new AbortController();
+    void resolveTicketProjects(pickedTicket.tracker, pickedTicket.ticketId, controller.signal)
+      .then((answer) => {
+        if (!controller.signal.aborted) setResolved(answer);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [pickedTicket]);
   // 2026-09-25-8e51b: a page opened on a ticket already knows its project — it had to, to ask
   // which conversation that ticket has — so there is nothing left to pick.
   // A ticket routed to exactly one project resolves it: send is a no-op with no project, the
   // dispatcher returns early and DROPS the ticket, and with several projects configured there is no
   // composer to type into — so a picked ticket that did not resolve a project could not be discussed.
-  const fromTicket = pickedTicket?.projects.length === 1 ? pickedTicket.projects[0] : "";
+  // The ticket's own labels where they have been read, the tracker's routed set until then.
+  const ticketProjects = resolved?.projects.length ? resolved.projects : pickedTicket?.projects ?? [];
+  const fromTicket = ticketProjects.length === 1 ? ticketProjects[0] : "";
   const project =
     picked || pendingTicket?.project || fromTicket || (projects.length === 1 ? projects[0].name : "");
   // Several routed projects: the choice is narrowed to them, because the others are on trackers
   // that do not hold this ticket and would bind a different board's ticket of the same number.
   const offered =
-    pickedTicket && pickedTicket.projects.length > 1
-      ? projects.filter((held) => pickedTicket.projects.includes(held.name))
+    pickedTicket && ticketProjects.length > 1
+      ? projects.filter((held) => ticketProjects.includes(held.name))
       : projects;
+  // 2026-09-27-481bb: NO configured project is routed to this ticket's tracker. Falling back to
+  // every project would let a pick bind that number on another board, silently — the trap the
+  // narrowing above exists to close, entered from its empty side.
+  const strandedTicket = pickedTicket !== null && pickedTicket.projects.length === 0;
   const session = dialog.view?.session ?? null;
   const mustPick = !session && project === "";
+  // 2026-09-27-481bd: the pane branched on whether a SESSION was open and on nothing else, so
+  // between picking and sending it offered every project as a candidate while the composer, which
+  // appears only once a project is resolved, said the opposite.
+  const settled = !session && project !== "";
   // 2026-09-23-6e3f: what the choice may say while it holds no projects. The list is empty in
   // all three states, so the VIEW is what tells them apart: a read that has not answered leaves
   // it null, and a read that failed leaves the same null for ever with a failure beside it.
@@ -303,8 +350,15 @@ export function SpecDialogSurface() {
                     the moment a project is picked. The reason a ticket did not name one project
                     moved here with it: it used to be passed only into that choice, so on a
                     single-project installation it was computed and silently discarded. */}
-                {!session && (
+                {/* 2026-09-27-481bd: a project picked BY HAND ends the ticket question — but
+                    only when no ticket is in play. With one picked, or with one asking which
+                    project it belongs to, the pick COMPLETES it, and removing the field here would
+                    delete the sentence being answered, the row showing the choice, and the only
+                    way to undo it, while the composer went on sending the ticket. */}
+                {!session && !(picked !== "" && pickedTicket === null && !ticketReason) && (
                   <DialogTicketSearch
+                    key={dialog.dialogId ?? "new"}
+                    stranded={strandedTicket}
                     bound={boundTickets}
                     picked={pickedTicket}
                     onPicked={setPickedTicket}
@@ -323,6 +377,7 @@ export function SpecDialogSurface() {
                     <DialogTranscript
                       entries={dialog.entries}
                       onInspect={inspect}
+                      greeting={<DialogGreeting />}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -367,7 +422,7 @@ export function SpecDialogSurface() {
             </section>
             <DialogPane
               session={session}
-              projects={projects}
+              projects={settled ? projects.filter((held) => held.name === project) : offered}
               proposal={dialog.proposal}
               filed={dialog.filed}
               work={work}

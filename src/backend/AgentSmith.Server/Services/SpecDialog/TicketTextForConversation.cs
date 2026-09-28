@@ -30,22 +30,29 @@ public sealed class TicketTextForConversation(
     ITicketProviderFactory providers,
     SpecDialogTicketTextRepository store,
     ApprovedSetDivergence divergence,
+    TicketMovedCheck movedCheck,
+    TicketReadReports reports,
+    TicketDiscussion discussion,
     TimeProvider timeProvider,
     ILogger<TicketTextForConversation> logger)
 {
     /// <summary>Reads the ticket and stores what the conversation may be grounded on.</summary>
     public async Task<SeededTicket?> ReadAsync(
-        string sessionId, ResolvedProject project, string ticketId, CancellationToken ct)
+        string sessionId, ResolvedProject project, string ticketId, string? reportTo,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(project);
         try
         {
             var provider = providers.Create(project.Tracker);
-            var ticket = await provider.GetTicketAsync(new TicketId(ticketId), ct);
-            var comments = provider.SupportsComments
-                ? await provider.GetCommentsAsync(ticket.Id, ct)
-                : [];
-            var seeded = TicketTextComposer.Compose(ticket, comments);
+            // The LONG pause before a bound conversation's first reply: the whole ticket and its
+            // discussion, off the tracker, reported where a repository read is.
+            var ticket = await reports.AroundAsync(
+                reportTo, ticketId, () => provider.GetTicketAsync(new TicketId(ticketId), ct), ct);
+            // 2026-09-27-481ba: the comment read is its OWN try. It used to share this one, so a
+            // tracker that served the ticket and refused its comments left the conversation with no
+            // ticket at all — a whole grounding lost to the part of it that matters least.
+            var seeded = TicketTextComposer.Compose(ticket, await discussion.OfAsync(provider, ticket, ct));
             await store.SaveAsync(
                 new Infrastructure.Persistence.Entities.SpecDialogTicketText
                 {
@@ -80,33 +87,16 @@ public sealed class TicketTextForConversation(
     /// </para>
     /// </summary>
     public async Task<SeededTicket?> HeldAsync(
-        string sessionId, ResolvedProject? project, CancellationToken ct)
+        string sessionId, ResolvedProject? project, string? reportTo, CancellationToken ct)
     {
         if (await store.GetAsync(sessionId, ct) is not { } held) return null;
+        // The SMALLER pause, before every reply after the first: the moved-check is the one tracker
+        // round trip a turn of a bound conversation makes.
+        var moved = await reports.AroundAsync(
+            reportTo, held.TicketId, () => movedCheck.ForAsync(held, project, ct), ct);
         return new SeededTicket(
-            held.Title, held.Text, held.Truncated, held.Fingerprint,
-            await MovedAsync(held, project, ct),
+            held.Title, held.Text, held.Truncated, held.Fingerprint, moved,
             await divergence.ForAsync(project, held.TicketId, held.Text, ct));
-    }
-
-    private async Task<bool> MovedAsync(
-        Infrastructure.Persistence.Entities.SpecDialogTicketText held,
-        ResolvedProject? project, CancellationToken ct)
-    {
-        if (project is null) return false;
-        try
-        {
-            var ticket = await providers.Create(project.Tracker)
-                .GetTicketAsync(new TicketId(held.TicketId), ct);
-            return !string.Equals(
-                TicketTextFingerprint.Of(ticket), held.Fingerprint, StringComparison.Ordinal);
-        }
-        // A tracker this turn could not reach says nothing about whether the ticket moved.
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
-        {
-            logger.LogDebug(ex, "Could not tell whether ticket {Ticket} has moved", held.TicketId);
-            return false;
-        }
     }
 
     private static string Trimmed(string title) =>

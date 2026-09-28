@@ -81,7 +81,7 @@ public sealed class SpecDialogReadingTests
         [.. _hub.Pushes
             .Where(p => p.Method == "SpecDialogReading")
             .Select(p => (p.Group, (SpecDialogReadingPush)p.Args[0]!))
-            .Select(p => (p.Group, p.Item2.DialogId, p.Item2.Repo, p.Item2.State))];
+            .Select(p => (p.Group, p.Item2.DialogId, p.Item2.Name, p.Item2.State))];
 
     private RealCompositionHarness BuildHarness() =>
         RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
