@@ -25,4 +25,12 @@ public interface ITicketProviderFactory
     /// says it could not look.
     /// </summary>
     ITicketSearch CreateSearch(TrackerConnection config);
+
+    /// <summary>
+    /// 2026-09-28-1da5c: what the tracker links to a ticket — the pull requests, and the branches
+    /// where it links those too. Built here for the reason its siblings are: this is where a
+    /// tracker's credentials are already resolved, and a model that had to reach them itself would
+    /// need a secret rather than a question.
+    /// </summary>
+    ITicketLinkedWork CreateLinkedWork(TrackerConnection config);
 }

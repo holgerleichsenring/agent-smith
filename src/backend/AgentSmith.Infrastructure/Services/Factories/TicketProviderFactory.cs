@@ -18,6 +18,8 @@ public sealed class TicketProviderFactory(
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<TicketProviderFactory>();
     private readonly TrackerConnections _connections = new(secrets);
+    private readonly TicketCapabilities _capabilities =
+        new(new TrackerConnections(secrets), httpClientFactory, loggerFactory);
 
     public ITicketProvider Create(TrackerConnection config) => config.Type switch
     {
@@ -29,45 +31,18 @@ public sealed class TicketProviderFactory(
     };
 
     /// <summary>
-    /// 2026-09-25-8e51e: the same connections, built for the one write that reads first. Jira
-    /// answers with a refusal that names the round trip rather than with nothing — see
-    /// <see cref="JiraTicketRewriter"/>.
+    /// 2026-09-25-8e51e, 2026-09-27-5c1ea: the capabilities BESIDE the provider — the write that
+    /// reads first, and the text search. Their switches live in
+    /// <see cref="TicketCapabilities"/>: a fourth one would not fit here, and a partial of this
+    /// type is the one thing the per-file limit exists to prevent.
     /// </summary>
-    public ITicketRewriter CreateRewriter(TrackerConnection config) => config.Type switch
-    {
-        TrackerType.AzureDevOps => new AzureDevOpsTicketRewriter(
-            _connections.AzureDevOps(config), loggerFactory.CreateLogger<AzureDevOpsTicketRewriter>()),
-        TrackerType.GitHub => new GitHubTicketRewriter(
-            _connections.GitHub(config), loggerFactory.CreateLogger<GitHubTicketRewriter>()),
-        TrackerType.Jira => new JiraTicketRewriter(),
-        TrackerType.GitLab => new GitLabTicketRewriter(
-            _connections.GitLab(config), httpClientFactory.CreateClient(),
-            loggerFactory.CreateLogger<GitLabTicketRewriter>()),
-        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
-    };
+    public ITicketRewriter CreateRewriter(TrackerConnection config) =>
+        _capabilities.Rewriter(config);
 
-    /// <summary>
-    /// 2026-09-27-5c1ea: the same connections, built for the one read a person drives by typing.
-    /// GitHub's search takes the Octokit client as its interface so the request it builds is
-    /// assertable; the others take the shared HttpClient as their siblings do.
-    /// </summary>
-    public ITicketSearch CreateSearch(TrackerConnection config) => config.Type switch
-    {
-        TrackerType.AzureDevOps => new AzureDevOpsTicketSearch(
-            _connections.AzureDevOps(config), TrackerConnections.OpenStates(config),
-            TrackerConnections.ExtraFields(config),
-            loggerFactory.CreateLogger<AzureDevOpsTicketSearch>()),
-        TrackerType.GitHub => new GitHubTicketSearch(
-            _connections.GitHubClient(config), _connections.GitHub(config),
-            loggerFactory.CreateLogger<GitHubTicketSearch>()),
-        TrackerType.Jira => new JiraTicketSearch(
-            _connections.Jira(config), httpClientFactory.CreateClient(), new JiraFieldMapper(),
-            loggerFactory.CreateLogger<JiraTicketSearch>()),
-        TrackerType.GitLab => new GitLabTicketSearch(
-            _connections.GitLab(config), httpClientFactory.CreateClient(), new GitLabFieldMapper(),
-            loggerFactory.CreateLogger<GitLabTicketSearch>()),
-        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
-    };
+    public ITicketSearch CreateSearch(TrackerConnection config) => _capabilities.Search(config);
+
+    public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+        _capabilities.LinkedWork(config);
 
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {

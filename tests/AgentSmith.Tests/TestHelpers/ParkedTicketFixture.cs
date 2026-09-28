@@ -65,6 +65,9 @@ public static class ParkedTicketFixture
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
+
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
     }
 
     /// <summary>The ticket as a recorder: what it was asked for, and what was written to it.</summary>

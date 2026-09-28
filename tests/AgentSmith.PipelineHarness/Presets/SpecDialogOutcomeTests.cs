@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
@@ -645,6 +646,9 @@ public sealed partial class SpecDialogOutcomeTests
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new HarnessTicketRewriter();
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new HarnessTicketSearch();
+
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
     }
 
     /// <summary>
