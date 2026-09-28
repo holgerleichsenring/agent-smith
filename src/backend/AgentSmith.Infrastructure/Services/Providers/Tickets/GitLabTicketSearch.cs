@@ -32,13 +32,30 @@ public sealed class GitLabTicketSearch(
         var url = $"{connection.BaseUrl.TrimEnd('/')}/api/v4/projects/{connection.ProjectPath}/issues"
             + $"?search={Uri.EscapeDataString(text.Trim())}&in=title,description"
             + $"&state=opened&order_by=updated_at&sort=desc&per_page={limit + 1}";
+        // 2026-09-28-1da5a: a typed NUMBER also names iids. GitLab has no prefix filter, but it
+        // takes an enumerated list — the same mechanism Azure DevOps expresses as ranges — so the
+        // prefix is asked for separately and merged, its own query rather than a widened one.
+        var byNumber = TicketNumberPrefix.Of(text) is { } prefix
+            ? $"{connection.BaseUrl.TrimEnd('/')}/api/v4/projects/{connection.ProjectPath}/issues"
+                + $"?state=opened&per_page={limit + 1}&"
+                + string.Join("&", TicketNumberPrefix.Ids(prefix).Select(id => $"iids[]={id}"))
+            : null;
         try
         {
             logger.LogDebug("GitLab ticket search: GET {Url}", url);
             using var doc = await _http.SendForJsonOrThrowAsync(
                 HttpMethod.Get, url, null, cancellationToken);
-            var hits = mapper.MapMany(doc.RootElement).Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind));
-            return TicketSearchResult.Of(hits, limit);
+            var hits = mapper.MapMany(doc.RootElement).ToList();
+            if (byNumber is not null)
+            {
+                using var numbered = await _http.SendForJsonOrThrowAsync(
+                    HttpMethod.Get, byNumber, null, cancellationToken);
+                hits.AddRange(mapper.MapMany(numbered.RootElement)
+                    .Where(n => hits.All(h => h.Id.Value != n.Id.Value)));
+            }
+
+            return TicketSearchResult.Of(
+                hits.Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind)), limit);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

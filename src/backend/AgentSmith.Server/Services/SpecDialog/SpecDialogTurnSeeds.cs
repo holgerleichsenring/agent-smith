@@ -39,7 +39,7 @@ internal static class SpecDialogTurnSeeds
         ConversationState state, IReadOnlyList<RepoConnection> scopeRepos,
         Dictionary<string, ISandbox> sandboxes, SpecDialogReplySlot slot, DialogImageSet images,
         IFiledTicketWithdrawal withdrawal, SeededTicket? ticket = null,
-        AgentSmith.Contracts.Dialogue.ITicketReader? ticketReader = null)
+        BoundTicket? bound = null)
     {
         var primary = scopeRepos[0];
         var seeds = new Dictionary<string, object>
@@ -72,7 +72,13 @@ internal static class SpecDialogTurnSeeds
         if (ticket is not null) seeds[ContextKeys.SpecDialogTicket] = ticket;
         // 2026-09-27-481ba: and the way to read the rest of it. Seeded only where the ticket is,
         // so an unbound conversation carries neither the text nor the tool.
-        if (ticketReader is not null) seeds[ContextKeys.SpecDialogTicketReader] = ticketReader;
+        if (bound is not null)
+        {
+            seeds[ContextKeys.SpecDialogTicketReader] = bound.Reader;
+            seeds[ContextKeys.SpecDialogTicketWork] = bound.Work;
+            seeds[ContextKeys.SpecDialogTicketRuns] = bound.Runs;
+            seeds[ContextKeys.SpecDialogFrameworkFacts] = bound.Facts;
+        }
         return seeds;
     }
 

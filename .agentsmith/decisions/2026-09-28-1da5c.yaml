@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-1da5c
+
+decisions:
+  - category: Architecture
+    chose: "A capability port the factory builds, not credentials in the model's hands"
+    over: "Giving the design turn's request tool a personal access token"
+    reason: |
+      Asked whether a ticket's branches were finished, a design conversation answered that it could
+      not verify: every link demanded authentication. That answer was correct and correctly
+      reasoned — its one reach outward is a request tool that validates a method and an address and
+      injects no credential, while the same turn reads the ticket itself through a port whose
+      factory resolved a token. A tool carrying that token could reach everything the token reaches,
+      INCLUDING WRITES, on a surface whose own comment says it performs no run and no write. A port
+      answers named questions and cannot be talked into a PUT. This framework has never handed a
+      model a secret; it hands it tools that already hold one.
+    alternatives:
+      - "An allow-list on the request tool: a list of hosts is not a list of acts, and a token is still a token"
+
+  - category: Architecture
+    chose: "The capability switches moved into a collaborator before the fourth was added"
+    over: "A fourth switch in the ticket provider factory"
+    reason: |
+      Each capability is a documented four-armed switch of a dozen lines. The factory sat five under
+      the per-file limit and is not in the baseline, where an entry may not be added, so the fourth
+      would not have fitted. A partial of the factory is the wrong escape and this repository says
+      so in writing: splitting a type across files to get under a per-file limit is the one thing
+      that limit exists to prevent. The factory kept the construction that is genuinely its own and
+      went from 115 lines to 87.
+    alternatives:
+      - "A second factory: a second copy of the credential resolution the first already performs"
+
+  - category: Implementation
+    chose: "Each tracker answers what it can, and the three that cannot say why"
+    over: "One promise of branches and pull requests everywhere"
+    reason: |
+      Only Azure DevOps links both, as work-item relations the single fetch did not ask for. GitLab
+      links merge requests to an issue and does not link branches — a branch there is a repository
+      fact, which this conversation's own source sandboxes already read. GitHub reaches pull
+      requests through an issue's timeline; its linked branches are a GraphQL concept and the client
+      this tree speaks is REST. Jira keeps both behind a development-tools integration on an
+      undocumented endpoint keyed by an issue's numeric id. Promising four and delivering one would
+      have made three trackers look like boards with no work on them.
+    alternatives:
+      - "Leaving Jira out of the port: a tracker with no implementation is reported as a fact about OUR wiring, when what an operator needs is the fact about THEIRS"
+
+  - category: Implementation
+    chose: "A refusal, an empty answer and a ticket with no work are three states"
+    over: "An empty list for all of them"
+    reason: |
+      A tracker that cannot be asked, a connection not permitted to read, and a ticket with
+      genuinely nothing against it are different facts. Collapsing them tells an operator their work
+      does not exist — the reading this series has now removed twice, from the text search and from
+      the number lookup.
+    alternatives:
+      - "Throwing on a refusal: the conversation would lose the answer it was about to give"
+
+  - category: Implementation
+    chose: "One lookup pairs both bound ports"
+    over: "A second lookup for the linked-work port"
+    reason: |
+      The reader and the linked-work port need the same two things — the project and the ticket id —
+      and the stored row carries only one of them. That pairing is why the collaborator exists; a
+      second one would have repeated the lookup and the reason for it. It also keeps the turn runner
+      at one call, which matters because that file is at the per-file limit exactly.
+    alternatives:
+      - "Seeding them separately: two lookups, two arguments, in a file with no lines to give"
