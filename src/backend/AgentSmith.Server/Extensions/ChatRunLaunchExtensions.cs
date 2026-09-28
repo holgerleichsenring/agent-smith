@@ -21,6 +21,7 @@ internal static class ChatRunLaunchExtensions
         services.AddScoped<ChatTicketlessRunLauncher>();
         services.AddScoped<ChatPrContextResolver>();
         services.AddScoped<ChatLaunchAnnouncer>();
-        return services;
+        services.AddScoped<ChatRunStart>();
+        return services.AddChatRunBinding();
     }
 }

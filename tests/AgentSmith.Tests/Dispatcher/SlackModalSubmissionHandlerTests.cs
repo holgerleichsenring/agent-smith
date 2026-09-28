@@ -20,8 +20,9 @@ using System.Text.Json.Nodes;
 
 namespace AgentSmith.Tests.Dispatcher;
 
-public sealed class SlackModalSubmissionHandlerTests
+public sealed class SlackModalSubmissionHandlerTests : IDisposable
 {
+    private readonly TestSupport.ChatRunHarness _chat = new();
     private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<IConfigurationLoader> _configLoader = new();
@@ -55,13 +56,11 @@ public sealed class SlackModalSubmissionHandlerTests
                 It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()))
             .ReturnsAsync(new SpawnResult([ClaimResult.Claimed()], "run-1"));
         var serverContext = new ServerContext("/tmp/agentsmith.yml");
-        var announcer = new ChatLaunchAnnouncer(_adapter.Object, new RunAnswerLink(new AgentSmithConfig()));
-
         var fixHandler = new FixTicketIntentHandler(
             new ChatTicketRunLauncher(
                 _configLoader.Object, serverContext, _spawn.Object,
                 NullLogger<ChatTicketRunLauncher>.Instance),
-            announcer);
+            _chat.Get<ChatRunStart>());
 
         var listHandler = new ListTicketsIntentHandler(
             _adapter.Object,
@@ -113,9 +112,11 @@ public sealed class SlackModalSubmissionHandlerTests
             It.Is<IncomingTicketEnvelope>(e => e.TicketId == "42" && e.RequestedByName),
             It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Once);
-        _adapter.Verify(a => a.SendMessageAsync(
-            "C123", It.Is<string>(t => t.Contains("run-1")), It.IsAny<CancellationToken>()), Times.Once);
+        _chat.Slack.Posts.Should().ContainSingle(p => p.Thread.ChannelId == "C123")
+            .Which.Text.Should().Contain("run-1");
     }
+
+    public void Dispose() => _chat.Dispose();
 
     [Fact]
     public async Task HandleAsync_MadDiscussion_StartsMadDiscussionOnTheTicket()

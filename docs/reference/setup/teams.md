@@ -190,6 +190,13 @@ Expected: a response listing open tickets from the configured project.
 
 Ticket ids are written the way the tracker writes them: `#42` for GitHub, GitLab and Azure DevOps, the issue key for Jira.
 
+Expected: a reply in the same conversation with the id of the run it queued. The run reports back to that conversation — replies to it always go out through Teams, from whichever server replica sees them:
+
+- **Its questions** arrive as Adaptive Cards; the card's buttons, or its text field for a free-text question, answer the run. The answer reaches the run however long it has been waiting, also after a server restart.
+- **Its outcome** arrives when it ends: the pull requests it opened, or the reason it failed.
+
+The conversation's service URL is stored with the run, so the replies reach the conversation's region even from a replica that never received a message from it. While the run has not reported back, a second run asked for in the same conversation is refused. See [A chat run's lifecycle](../host-it/chat-gateway.md#a-chat-runs-lifecycle).
+
 ```
 @Agent Smith /spec my-project
 ```

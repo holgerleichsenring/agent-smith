@@ -1,14 +1,15 @@
 namespace AgentSmith.Server.Models;
 
-/// <summary>
-/// Discriminated union of all chat intents the dispatcher can handle.
-/// </summary>
+/// <summary>Discriminated union of all chat intents the dispatcher can handle.</summary>
 public abstract record ChatIntent
 {
     public required string RawText { get; init; }
     public required string UserId { get; init; }
     public required string ChannelId { get; init; }
     public required string Platform { get; init; }
+
+    /// <summary>The thread the message was written in (Slack thread_ts; Teams conversation id), or null.</summary>
+    public string? ThreadId { get; init; }
 }
 
 /// <summary>
@@ -23,8 +24,7 @@ public sealed record FixTicketIntent : ChatIntent
 }
 
 /// <summary>
-/// User wants to list tickets: "list tickets in todo-list"
-/// Executed directly in the dispatcher. No K8s Job.
+/// User wants to list tickets: "list tickets in todo-list", answered directly in the dispatcher.
 /// </summary>
 public sealed record ListTicketsIntent : ChatIntent
 {
@@ -32,8 +32,7 @@ public sealed record ListTicketsIntent : ChatIntent
 }
 
 /// <summary>
-/// User wants to create a ticket: "create ticket 'Add logging' in todo-list"
-/// Executed directly in the dispatcher. No K8s Job.
+/// User wants to create a ticket: "create ticket 'Add logging' in todo-list", filed directly.
 /// </summary>
 public sealed record CreateTicketIntent : ChatIntent
 {

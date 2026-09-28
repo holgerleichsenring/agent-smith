@@ -44,9 +44,11 @@ internal static class ChatAdaptersExtensions
         services.AddTransient<TeamsCardBuilder>();
         services.AddHttpClient<BotFrameworkTokenProvider>(c => c.Timeout = TimeSpan.FromSeconds(30));
         services.AddHttpClient<TeamsApiClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        services.AddSingleton<TeamsServiceUrls>();
         services.AddSingleton<TeamsTypedQuestionTracker>();
         services.AddSingleton<TeamsAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<TeamsAdapter>());
+        services.AddTransient<IChatThreadAdapter, TeamsThreadAdapter>();
         services.AddScoped<TeamsInteractionHandler>();
         return services;
     }
@@ -68,6 +70,7 @@ internal static class ChatAdaptersExtensions
         services.AddTransient<SlackProgressFormatter>();
         services.AddSingleton<SlackAdapter>();
         services.AddSingleton<IPlatformAdapter>(sp => sp.GetRequiredService<SlackAdapter>());
+        services.AddTransient<IChatThreadAdapter, SlackThreadAdapter>();
         return services;
     }
 }
