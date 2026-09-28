@@ -2,18 +2,18 @@
 
 Agent Smith exposes counters via `System.Diagnostics.Metrics` under the Meter name `AgentSmith`. The metrics surface is BCL-only — no NuGet dependency is added in the agent-smith binary. Operators who want Prometheus, OTLP, or any other export wire their own exporter against the named Meter.
 
-This page lists the counters that ship today, explains the cost-of-ambiguity dashboard, and shows how to wire OpenTelemetry without modifying agent-smith.
+This page lists the counters, explains the cost-of-ambiguity dashboard, and shows how to wire OpenTelemetry without modifying agent-smith.
 
 ## Overview
 
-The meter is declared once, in `AgentSmith.Application/Services/Metrics/AgentSmithMeter.cs`:
+The meter is declared once, in `AgentSmith.Application/Services/Metrics/AgentSmithMetrics.cs`, a class registered as a singleton and injected where a counter is incremented:
 
 ```csharp
-public static class AgentSmithMeter
+public sealed class AgentSmithMetrics : IDisposable
 {
-    public static readonly Meter Meter = new("AgentSmith", "...");
-    public static readonly Counter<long> AmbiguousResolution = ...;
-    public static readonly Counter<long> PipelineSkippedAsIrrelevant = ...;
+    public const string MeterName = "AgentSmith";
+    public Counter<long> AmbiguousResolution { get; }
+    public Counter<long> PipelineSkippedAsIrrelevant { get; }
 }
 ```
 
@@ -29,7 +29,7 @@ Why BCL and not OpenTelemetry directly: the `OpenTelemetry.*` NuGet ecosystem ch
 |----------|-------|
 | Type | `Counter<long>` |
 | Labels | `project`, `pipeline` |
-| Source | `ProjectResolver` (p0140a/b) |
+| Source | `ProjectResolver` |
 
 Incremented **once per matched (project, pipeline) pair** when the resolver returns more than one match for an incoming ticket envelope. Single-match resolutions (the common case) emit nothing.
 
@@ -49,9 +49,11 @@ The per-pair increment is intentional. The dashboard question is "how often is p
 |----------|-------|
 | Type | `Counter<long>` |
 | Labels | `project`, `pipeline`, `reason` |
-| Source | `EmptyPlanSkipHandler` (p0140e) |
+| Source | `EmptyPlanCheckHandler` |
 
-Incremented when a pipeline's Plan phase produces no actionable work (`plan.Steps.Count == 0`) and the post-Plan gate signals a graceful skip. The `reason` label currently has one value: `"empty_plan"`. See [Roadmap](#roadmap) for how more values are added.
+Incremented when a pipeline's plan has no steps (`plan.Steps.Count == 0`) and the post-plan gate ("Check plan is non-empty") signals a graceful skip. The `reason` label has one value: `"empty_plan"`.
+
+No built-in pipeline preset produces an empty plan, so on a stock installation this counter stays at zero. It moves only for operator-authored presets that include the empty-plan check.
 
 Example: a multi-repo project fans out to three repos; one repo's Plan comes back empty. One increment:
 
@@ -143,24 +145,8 @@ To capture a counter trace to a file (useful when reproducing a tricky ambiguity
 dotnet-counters collect -p <pid> --counters AgentSmith --output agent-smith-metrics.csv
 ```
 
-## Roadmap
-
-### More `reason` values
-
-Today the `reason` label on `agent_smith_pipeline_skipped_as_irrelevant_total` has one value: `"empty_plan"`. The label is a string (not an enum) so future phases can add values without a contract change. The directional list, in roughly ascending order of LLM-classification difficulty:
-
-- `wrong_pipeline_for_ticket_type` — the matched pipeline (e.g. `security-scan`) is not the right shape for this ticket (e.g. a docs-only feature request).
-- `ticket_insufficient_info` — the LLM judged the ticket too vague to plan against; rather than hallucinate, it returns an empty plan.
-- `out_of_repo_scope` — the work is real but belongs to a sibling repo in the same multi-repo project.
-
-Each of these requires Plan-phase output that reliably classifies the skip reason. The current `EmptyPlanSkipHandler` infers nothing — it just detects an empty plan and stamps `reason="empty_plan"`. Richer classification is downstream work; the counter contract is forward-compatible.
-
-### More counters
-
-p0140e ships the two umbrella-required counters. Latency histograms (per-handler, per-pipeline), per-skill cost metrics, and queue-depth gauges are all valid future additions and would land as additional instruments on the same `AgentSmith` meter — no exporter change required for operators who have already wired `AddMeter("AgentSmith")`.
-
 ## See also
 
 - [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — the design context the counters quantify.
 - [Project Resolution Strategies](../configuration/project-resolution.md) — how ambiguity arises and how to tighten it.
-- [Server Resilience](server-resilience.md) — `/health` endpoints, the other operator-facing observability surface.
+- [Server resilience](server-resilience.md) — `/health` and the startup findings, the other operator-facing observability surface.

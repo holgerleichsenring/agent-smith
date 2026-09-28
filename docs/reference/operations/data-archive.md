@@ -50,6 +50,10 @@ and that is what it refuses. Everything else is identical, transaction included.
 Afterwards the server reloads its configuration and bumps the config epoch, so the
 installation serves the configuration the archive carried without a restart.
 
+Behind the page are three routes: `GET /api/archive/preview` (the tables and row counts,
+under `archive.export`), `GET /api/archive/export` (the download, `archive.export`) and
+`POST /api/archive/import` (the restore, `archive.import`).
+
 ## What it will refuse
 
 * **A schema that does not match.** The archive records the head migration by NAME, and

@@ -14,7 +14,7 @@ binary into any official toolchain image via the **init-container pattern**.
 - A worker process inside a sandbox pod
 - Driven by a Redis wire format (Step / StepEvent / StepResult)
 - Self-contained .NET 8 single-file binary, no runtime dependencies beyond glibc
-- One pipeline = one pod = one agent process (run-once, exit on Shutdown)
+- One sandbox = one agent process (run-once, exit on Shutdown); a run gets one sandbox per repo and toolchain image
 
 ## What it isn't
 
@@ -38,7 +38,7 @@ Each sandbox pod has **two containers** sharing an `emptyDir` volume:
 │  └────────────────────────────────────────┘  │
 │             │                                │
 │             ▼ writes /shared/agent           │
-│               + /shared/python (p0357)       │
+│               + /shared/python               │
 │  ┌────────────── emptyDir /shared ─────────┐ │
 │  │  agent (executable, ~80 MB)             │ │
 │  │  python/ (relocatable CPython, ~120 MB) │ │
@@ -55,7 +55,7 @@ Each sandbox pod has **two containers** sharing an `emptyDir` volume:
 └──────────────────────────────────────────────┘
 ```
 
-### The python payload (p0357)
+### The python payload
 
 The carrier also ships a **relocatable CPython** (python-build-standalone
 `install_only`, pinned + checksum-verified per architecture at image build).
@@ -64,10 +64,11 @@ agent's `ProcessRunner` prepends `/shared/python/bin` to every step's `PATH` —
 so `python3` (stdlib only, no network pip) resolves in **every** toolchain
 image without modifying those images. The payload needs exactly the glibc floor
 the self-contained agent already requires: python works wherever the agent runs.
-The coding-master skill (v1.14.0+) declares this guarantee; ship skill and
-carrier in the same release train.
+The coding-master skill declares this guarantee; ship skill and carrier in the
+same release train.
 
-Sample Pod spec the Server pod will produce (in p0116):
+A sample of the pod spec the server produces (trimmed: labels, resources and pull
+secrets left out):
 
 ```yaml
 apiVersion: v1
@@ -83,7 +84,7 @@ spec:
       emptyDir: {}
   initContainers:
     - name: inject-agent
-      image: holgerleichsenring/agent-smith-sandbox-agent:1.0.0
+      image: holgerleichsenring/agent-smith-sandbox-agent:0.108.0   # derived from the server's release
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -153,7 +154,10 @@ Three keys per job, all under the `sandbox:{jobId}:` namespace:
 }
 ```
 
-`kind` is `run` (default) or `shutdown`. Run steps require `command`. The
+`kind` is one of `run` (default), `shutdown`, `readFile`, `writeFile`, `listFiles`,
+`grep` or `directoryTree`; see [Step kinds](sandbox-architecture.md#step-kinds). Run
+steps require `command`. A kind the agent doesn't know is answered with a result that
+names the protocol mismatch rather than a crash. The
 agent inherits its pod's environment, so secrets like `GIT_TOKEN` are
 available without putting them in `step.env` (which would land in Redis
 and be readable via `redis-cli`).

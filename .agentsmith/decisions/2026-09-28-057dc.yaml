@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-057dc
+
+decisions:
+  - category: Content
+    chose: "One domain, with /azure-devops/ as its own page linked from the hero"
+    over: "A second domain for the Azure DevOps offer"
+    reason: |
+      The offer is the same product at the same price with the same hosting. A second domain splits
+      search weight and doubles upkeep; a page of its own ranks for the Azure DevOps search just as
+      well, and the main site stays the proof that the other trackers work too.
+    alternatives:
+      - "Leading the whole landing page with Azure DevOps: it would push the Jira and GitHub reader away for a gap that is one audience's"
+
+  - category: Content
+    chose: "State the gap in Microsoft's own words, linked and dated, and limit it to ticket-to-PR"
+    over: "Claiming Agent Smith is the only Azure Repos agent"
+    reason: |
+      Microsoft's Azure Boards page (updated 2026-07-23) says the Copilot integration requires GitHub
+      repositories and does not support Azure Repos, and that Copilot does not handle dependencies
+      between work items. Copilot code review reached Azure Repos in public preview in 2026-08, so a
+      claim about review would be false. A dated citation lets a reader check it and makes the day it
+      stops being true visible; "only" is a claim about every product on the market.
+    alternatives:
+      - "No comparison at all: the page would not say why it exists"
+
+  - category: Content
+    chose: "Answer 'no dependencies between work items' with the approved, ordered specification"
+    over: "Promising linked, ordered child work items"
+    reason: |
+      The review of this spec found that parent linking has no caller since 2026-09-22-b3d7 and that
+      an approved cut files one work item. What orders the work is the specification a person
+      approved, executed phase after phase, so that is what the page says.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Extract a base layout with root-absolute assets before adding the second page"
+    over: "Copying index.njk's head and nav into the new page"
+    reason: |
+      index.njk was one monolithic page with relative asset paths and page-local anchors; a page at
+      /azure-devops/ would have broken every stylesheet, image and nav link, and a copied head is the
+      second copy that drifts.
+    alternatives: []
+
+  - category: Implementation
+    chose: "A zero-dependency link check that runs as postbuild"
+    over: "Relying on the Eleventy build, or adding a link-checker package"
+    reason: |
+      Eleventy writes a page with a broken image path without complaint. Running the check as
+      postbuild makes the Vercel build fail on a missing target, and forty lines of node need no
+      dependency to keep current.
+    alternatives: []
+
+  - category: Content
+    chose: "Recount the repository figures by the published method, and change the method's wording only where the gate itself changed"
+    over: "Leaving the August snapshot on the landing page, README and built-by-the-method page"
+    reason: |
+      The figures are presented as current and point at a method anyone can rerun. Rerunning it at
+      the p0457 commit reproduced the published numbers (422 h vs 430, 2,579 vs 2,587 decisions),
+      so the method is sound and the new figures are comparable. The monthly phase counts could not
+      be reproduced by any method stated on the page and were dropped rather than guessed; "31
+      projects" had no stated method either and matches no count of csproj files.
+    alternatives:
+      - "Dating the old snapshot instead: honest, but the page would advertise half the project"
+
+  - category: Content
+    chose: "Remove claims the code does not back: OpenAI-compatible endpoints, approval-then-headless, custom pipelines in agentsmith.yml, retired pipelines"
+    over: "Keeping the landing copy and fixing only the numbers"
+    reason: |
+      The OpenAI client builder takes no endpoint, so Groq, vLLM and LM Studio cannot be configured;
+      the code preset has no plan-approval step; the pipeline reference found no user-defined
+      pipelines; autonomous and skill-manager are retired. A site that is the first thing a
+      reader believes must not be the place those survive.
+    alternatives: []

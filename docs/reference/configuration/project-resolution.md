@@ -1,125 +1,126 @@
-# Project Resolution Strategies
+# Project resolution strategies
 
 !!! note "Which surface reads this"
-    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
+    The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md) (the project drawer's **routing** tab); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-When a ticket event arrives — by webhook or polling — Agent Smith has to answer one question: *which project owns this ticket?* The `project_resolution` block on every trigger configures the answer.
+When a ticket event arrives, by webhook or by polling, Agent Smith has to answer one question: *which project owns this ticket?* Each project answers it with one resolution rule.
 
-This page covers the four strategies (`tag`, `area-path`, `repo`, `to_address`), when to pick each, and a copy-pasteable YAML example for each. The shared mechanism (the `ProjectResolver` service, the `IncomingTicketEnvelope`, the matching pass) was introduced in p0140a; the per-strategy semantics are listed below.
+This page covers the four strategies (`tag`, `area_path`, `repo`, `to_address`), when to pick each, and a YAML example for each.
 
-> **Required on every trigger.** `project_resolution` lives inside the platform trigger block (`github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger`). Missing or unparseable values are rejected by the validator at config-load.
+## Where the rule lives
+
+The short form sits on the project and names the strategy as its key:
+
+```yaml
+projects:
+  todolist:
+    agent: default-claude
+    tracker: acme-jira
+    repos: [acme/todolist-api]
+    resolution:
+      tag: todolist
+```
+
+The long form sits inside a platform trigger block (`github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger`), for a project that overrides its tracker's workflow anyway:
+
+```yaml
+    jira_trigger:
+      project_resolution:
+        strategy: tag
+        value: todolist
+```
+
+Both produce the same rule. The trigger type always follows the tracker's type.
 
 ## How resolution runs
 
-1. A ticket event arrives. The platform handler builds an `IncomingTicketEnvelope` containing the ticket id, labels, area path (ADO only), source repo URL (when known), and to-address (Email — p0141).
-2. `ProjectResolver.Resolve(envelope)` walks every project's trigger and asks "does this project's `project_resolution` match this envelope?"
-3. The match list is returned. **Zero matches** → structured log entry; optional tracker comment if `TrackerConnection.ZeroMatchComment` is configured (p0140b). **One match** → normal claim and spawn. **Two or more matches** → all projects claim and spawn in parallel; the `agent_smith_ambiguous_resolution_total` counter increments once per matched (project, pipeline). See [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) for the multi-repo project model.
+1. A ticket event arrives. The platform handler builds an `IncomingTicketEnvelope` with the ticket id, its labels, and, on a webhook, the area path (Azure DevOps) and the source repo URL where the platform sends one.
+2. `ProjectResolver` walks every project's trigger and asks whether its rule matches the envelope.
+3. **Zero matches**: a log line per project saying why it didn't match, and a tracker comment if the tracker has `zero_match_comment: true`. **One match**: the ticket is claimed and runs. **Two or more**: every matching project claims and runs, and the `agent_smith_ambiguous_resolution_total` counter goes up once per matched (project, pipeline).
 
-The four strategies differ only in *what* `Resolve` compares against. Their YAML shape is uniform:
+Within a matched project, the tracker's label map picks the pipeline. When the map has entries and none matches, the ticket is dropped for that project, not sent to a default.
 
-```yaml
-project_resolution:
-  strategy: tag | area-path | repo | to_address
-  value: <strategy-specific-string>
-```
+Two things stop a match before any rule is asked. A ticket carrying the `phase-epic` label marks a record rather than work and is never routed. And a trigger that carries a blocking startup finding (a missing park status, say) doesn't start runs until the finding is fixed.
+
+Polling builds its envelope from the ticket alone, which has labels but no area path and no source repo. So on the polling path only `tag` can match.
 
 ---
 
-## `tag` — most common
+## `tag`: the common one
 
-A label on the ticket marks it for this project. The resolver matches when `envelope.Labels` contains the `value` string (case-sensitive, exact-match per label entry).
+A label on the ticket marks it for this project. The rule matches when any of the ticket's labels equals `value`, ignoring case.
 
 ### When to use
 
-The default choice. Works on all four trackers (GitHub, GitLab, Azure DevOps tags, Jira labels). Fits the multi-tenant pattern: one shared tracker hosting work for many teams, each team's project distinguished by a per-team tag.
+The default choice. Works on all four trackers (GitHub and GitLab labels, Azure DevOps tags, Jira labels), on webhooks and on polling. It fits the shared-tracker pattern: one board holding work for many teams, each team's project picked out by a per-team tag.
 
 ### YAML example
 
-A 5-project setup against one shared Jira install. Each project claims tickets tagged with its team slug:
+Three projects against one Jira site, each claiming tickets tagged with its own slug:
 
 ```yaml
 trackers:
   shared-jira:
-    type: Jira
+    type: jira
     url: https://acme.atlassian.net/
+    project: TL
     auth: jira_token
     open_states: ["To Do", "In Progress"]
     done_status: "In Review"
+    pipeline_from_label:
+      bug: code
+      feature: code
 
 projects:
-  agentsmith-backend:
+  todolist-backend:
     agent: claude-default
     tracker: shared-jira
-    repos: [backend-repo]
-    jira_trigger:
-      assignee_name: "Agent Smith"
-      project_resolution:
-        strategy: tag
-        value: agentsmith-backend
-      pipeline_from_label:
-        bug: code
-        feature: code
-      default_pipeline: code
-  agentsmith-frontend:
+    repos: [acme/todolist-api]
+    resolution:
+      tag: todolist-backend
+  todolist-frontend:
     agent: claude-default
     tracker: shared-jira
-    repos: [frontend-repo]
-    jira_trigger:
-      assignee_name: "Agent Smith"
-      project_resolution:
-        strategy: tag
-        value: agentsmith-frontend
-      pipeline_from_label:
-        bug: code
-      default_pipeline: code
-  agentsmith-sdk:
+    repos: [acme/todolist-web]
+    resolution:
+      tag: todolist-frontend
+  todolist-sdk:
     agent: claude-default
     tracker: shared-jira
-    repos: [sdk-repo]
-    jira_trigger:
-      assignee_name: "Agent Smith"
-      project_resolution:
-        strategy: tag
-        value: agentsmith-sdk
-      pipeline_from_label:
-        bug: code
-      default_pipeline: code
+    repos: [acme/todolist-sdk]
+    resolution:
+      tag: todolist-sdk
 ```
 
 ### Worked example
 
-A Jira issue is filed in the shared install with the labels `bug` + `agentsmith-backend`. Trigger flow:
+A Jira issue carries the labels `bug` and `todolist-backend` and is assigned to the Agent Smith user.
 
-1. Jira webhook arrives at `/webhook/jira`. `JiraAssigneeWebhookHandler` confirms the assignee is `Agent Smith` and builds an envelope with `Labels = ["bug", "agentsmith-backend"]`.
-2. `ProjectResolver.Resolve` finds one match: project `agentsmith-backend` (its `project_resolution.value` is in the label list). The other two projects don't match.
-3. `SpawnPipelineRunsUseCase` enqueues one `PipelineRequest` for `agentsmith-backend / code / backend-repo`.
+1. The Jira webhook arrives at `/webhook/jira`. `JiraAssigneeWebhookHandler` confirms the assignee and builds an envelope with `Labels = ["bug", "todolist-backend"]`.
+2. `ProjectResolver` finds one match, `todolist-backend`.
+3. The tracker's label map turns `bug` into `code`, and one `code` run starts for `todolist-backend`.
 
-If the issue had been labelled `bug + agentsmith-backend + agentsmith-sdk`, two projects would have matched. Both would have spawned. The `agent_smith_ambiguous_resolution_total` counter would have incremented twice (once per matched (project, pipeline)). Each run's Plan phase then decides whether the work is genuinely relevant for that repo.
-
-> **Pitfall**: tag matching is case-sensitive on GitHub, GitLab, and Jira and is normalised to lowercase on Azure DevOps (ADO stores tags case-insensitively). When porting a project from one platform to another, double-check the `value` casing — a project that worked on ADO with `value: AgentSmithBackend` will silently match nothing on a migrated GitHub mirror.
+Labelled `bug`, `todolist-backend` and `todolist-sdk`, the issue would have matched two projects and started two runs, and the ambiguity counter would have gone up twice.
 
 ---
 
-## `area-path` — Azure DevOps only
+## `area_path`: Azure DevOps, webhooks
 
-The work item's `System.AreaPath` field matches `value`. Supports hierarchical match: a configured value matches itself **and** every sub-path below it.
+The work item's `System.AreaPath` matches `value`, hierarchically: a configured path matches itself and every path below it, ignoring case.
 
 ### When to use
 
-Multi-tenant Azure DevOps installs where one organisation/project hosts many teams' work, with each team owning a subtree of the area-path hierarchy. Common shape: one big ADO project for the whole company, area paths used to slice it.
-
-`area-path` is not available on the other three trackers — the GitHub / GitLab / Jira `Ticket` entity has no area-path equivalent.
+Azure DevOps organisations where one project hosts many teams' work and each team owns a subtree of the area-path hierarchy. Only the Azure DevOps webhook carries an area path; the other trackers, and polling, have none, so a project resolving by area path is reached by Azure DevOps webhooks only.
 
 ### YAML example
 
 ```yaml
 trackers:
   contoso-ado:
-    type: AzureDevOps
-    url: https://dev.azure.com/contoso
-    auth: ado_pat
+    type: azure_devops
     organization: contoso
     project: ContosoMain
+    auth: ado_pat
     open_states: ["New", "Active", "Committed"]
     done_status: "In Review"
 
@@ -128,130 +129,71 @@ projects:
     agent: claude-default
     tracker: contoso-ado
     repos: [billing-repo]
-    azuredevops_trigger:
-      project_resolution:
-        strategy: area-path
-        value: 'ContosoMain\\Billing'
-      pipeline_from_label:
-        bug: code
-      default_pipeline: code
+    resolution:
+      area_path: 'ContosoMain\Billing'
 ```
 
 ### Worked example
 
-Work item filed under `ContosoMain\Billing\Invoicing` (a child of the configured area path).
+A work item filed under `ContosoMain\Billing\Invoicing` is updated.
 
-1. ADO `workitem.updated` webhook arrives. `AzureDevOpsWorkItemWebhookHandler` builds an envelope with `AreaPath = "ContosoMain\\Billing\\Invoicing"`.
-2. `ProjectResolver.Resolve` calls `AreaPathNormalizer.IsAtOrUnder(envelopePath, projectValue)`. `ContosoMain\Billing\Invoicing` is under `ContosoMain\Billing` → match.
-3. `contoso-billing` claims the ticket and spawns its `code` pipeline against `billing-repo`.
+1. The `workitem.updated` webhook arrives. `AzureDevOpsWorkItemWebhookHandler` builds an envelope with that area path.
+2. `ContosoMain\Billing\Invoicing` is under `ContosoMain\Billing`, so `contoso-billing` matches.
 
-A work item filed directly at `ContosoMain\Billing` (not a sub-path) also matches — exact-match is included in the hierarchical match.
+A work item filed directly at `ContosoMain\Billing` matches too. One at `ContosoMain\Shipping` doesn't.
 
-A work item filed at `ContosoMain\Shipping` does **not** match — different subtree.
-
-> **Pitfall — YAML escaping**: backslash is the area-path separator, and YAML treats `\\` inside a single-quoted string as a single literal backslash and `\\` inside a double-quoted string as a YAML escape sequence. Always write the value as a single-quoted string with the literal hierarchy, e.g. `'ContosoMain\Billing'`. If you use double quotes, you must escape each backslash: `"ContosoMain\\Billing"`. The deserialised string the resolver compares against is `ContosoMain\Billing` — single backslashes. Forgetting the escape produces a value that silently never matches any work item.
-
-> **Slash-vs-backslash equivalence**: `AreaPathNormalizer` treats `/` and `\` identically, so `'ContosoMain/Billing'` and `'ContosoMain\Billing'` are equivalent. Pick one style and stick with it for readability.
+> **Pitfall, YAML escaping**: backslash is the area-path separator. Write the value single-quoted with single backslashes, `'ContosoMain\Billing'`. In double quotes every backslash has to be doubled, `"ContosoMain\\Billing"`. `/` and `\` are treated alike, so `'ContosoMain/Billing'` works as well and dodges the problem.
 
 ---
 
-## `repo` — single-repo GitHub URL identity
+## `repo`: the ticket's own repo, single-repo projects
 
-The source repo URL on the incoming envelope matches `value` exactly (after URL normalisation: scheme lowercased, trailing slash and `.git` stripped).
+The ticket's source repo URL, as the webhook payload carries it, equals the URL of the project's only repository (compared ignoring case). The configured value names the rule; what is compared is the project's repo.
 
 ### When to use
 
-Single-repo GitHub setups where the ticket is filed *on the repo itself* (a GitHub Issue), and you want the project resolution to key off the repo URL directly rather than a tag. This is the simplest, least-configurable strategy — there is nothing for the operator to label or tag.
+A single-repo GitHub or GitLab project whose issues are filed on the repo itself, where you'd rather not label anything. Webhooks only, since a polled ticket carries no source repo.
 
 ### Validator constraint
 
-`strategy: repo` requires `project.repos.length == 1`. The `value` is matched against the sole repo's URL. The validator rejects a project with `strategy: repo` and two or more `repos:` entries at config-load with:
+`repo` needs a project with exactly one entry in `repos:`. A project with more is refused when the configuration loads:
 
 ```
-Project 'X' uses project_resolution.strategy=repo but has 3 repos. The repo strategy is single-repo only — use 'tag' or 'area-path' for multi-repo projects.
+Project 'X': github project_resolution.strategy=repo requires exactly one entry in repos (has 3). Use strategy=tag or area_path for multi-repo projects, since the webhook payload's repo URL alone cannot disambiguate which repo of the project the ticket belongs to.
 ```
-
-Multi-repo projects must use `tag`, `area-path`, or `to_address`.
 
 ### YAML example
 
 ```yaml
 repos:
   acme-cli:
-    type: GitHub
-    url: https://github.com/acme/cli
+    type: github
+    url: https://github.com/acme-org/cli
     auth: github_token
 
 projects:
   acme-cli:
     agent: claude-default
-    tracker: github-acme-cli   # GitHub ticket source is the same repo
+    tracker: acme-cli-issues     # a GitHub tracker on the same repo
     repos: [acme-cli]
-    github_trigger:
-      project_resolution:
-        strategy: repo
-        value: https://github.com/acme/cli
-      pipeline_from_label:
-        bug: code
-        feature: code
-      default_pipeline: code
+    resolution:
+      repo: https://github.com/acme-org/cli
 ```
 
-### Worked example
-
-A GitHub issue is filed on `https://github.com/acme/cli` and labelled `bug`.
-
-1. `issues` webhook arrives. `GitHubIssueWebhookHandler` builds an envelope with `SourceRepoUrl = "https://github.com/acme/cli"`.
-2. `ProjectResolver.Resolve` matches `acme-cli` (URL identity, case-insensitive on scheme/host, trailing `.git` stripped).
-3. `acme-cli` claims and spawns `code` against itself.
-
-> **Pitfall**: `https://github.com/acme/cli` and `https://github.com/acme/cli.git` are normalised to the same value, but `git@github.com:acme/cli.git` (SSH form) is **not** — keep the `value` in HTTPS form, the same form the webhook payload carries.
+> **Pitfall**: the comparison is exact apart from case. Configure the repo with the same URL form the webhook sends (`https://github.com/acme-org/cli`); a `.git` suffix or an SSH URL won't match.
 
 ---
 
-## `to_address` — Email (forward reference)
+## `to_address`: reserved
 
-The ticket's `to` address matches `value`. Used by the Email tracker introduced in p0141.
-
-### Status
-
-**Defined now, activated by p0141.** The strategy is parseable in `agentsmith.yml` today and survives config-load validation, but no incoming envelope populates the `ToAddress` field yet — the Email `ITicketProvider` lands in p0141. Configuring `strategy: to_address` against a non-Email tracker is rejected by the validator (the trigger block must match the tracker's type, see the [schema reference](agentsmith-yml-schema.md#common-mistakes)).
-
-### YAML example (for when p0141 ships)
-
-```yaml
-trackers:
-  support-mailbox:
-    type: Email
-    url: imap.acme.com
-    auth: imap_credentials
-
-projects:
-  acme-support:
-    agent: claude-default
-    tracker: support-mailbox
-    repos: [support-tools]
-    email_trigger:
-      project_resolution:
-        strategy: to_address
-        value: support@example.com
-      pipeline_from_label:
-        bug: code
-      default_pipeline: code
-```
-
-### How it will work
-
-The Email provider parses the `To:` header on the inbound message, normalises (lowercase, strip whitespace), and populates `IncomingTicketEnvelope.ToAddress`. `ProjectResolver` matches when the envelope's `ToAddress` equals the configured `value`. Multi-tenant mailboxes (`support@`, `bugs@`, `urgent@` all aliased to one inbox) resolve to different projects by to-address.
-
-Watch p0141's release notes for activation.
+The ticket's to-address equals `value`, ignoring case. The strategy parses and validates, but none of the four trackers delivers a to-address, so a project resolving by it matches nothing today.
 
 ---
 
 ## See also
 
-- [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) — the multi-repo project model.
-- [Metrics](../operations/metrics.md) — `agent_smith_ambiguous_resolution_total` and the cost-of-ambiguity dashboard.
-- [agentsmith.yml Schema](agentsmith-yml-schema.md) — catalog reference; trigger-block / tracker-type cross-validation.
-- [Webhooks](webhooks.md) — the ingress path that builds the `IncomingTicketEnvelope`.
-- [Polling](../../trigger-it/polling.md) — the alternative ingress. Polling supports `strategy: tag` only (the polled `Ticket` entity has Labels but not AreaPath / SourceRepoUrl / ToAddress).
+- [Repos: multi-repo](../../connect-your-stuff/repos-multi.md), the multi-repo project model.
+- [Metrics](../operations/metrics.md), `agent_smith_ambiguous_resolution_total`.
+- [agentsmith.yml reference](agentsmith-yml.md#projects), every project key.
+- [Webhooks](webhooks.md), the ingress path that builds the envelope.
+- [Polling](../../trigger-it/polling.md), the other ingress, where only `tag` applies.

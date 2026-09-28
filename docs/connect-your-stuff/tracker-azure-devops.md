@@ -20,7 +20,7 @@ Open the dashboard, switch the rail to **Configuration**, and work down the cata
 
 **Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then set a model per role: a cheap one for `scout`, the good one for `primary` and `coding`. If you want dollar figures on your runs rather than just token counts, add the pricing section while you're in there.
 
-**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard.
+**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard rule.
 
 **Trackers.** New tracker, type `azure_devops`. The form switches to the Azure fields once you pick the type: organization, project, URL, auth secret. Then the workflow, which the tracker owns for every project routed to it:
 
@@ -28,10 +28,12 @@ Open the dashboard, switch the rail to **Configuration**, and work down the cata
 - **Done status**, where a finished run moves the ticket.
 - **Failed status**, where a failed run parks it. Leave it empty and the status stays put.
 - **Needs-clarification status**, where a ticket goes when the agent has questions it won't guess at.
+- **Pipeline by label** and **Default pipeline**, which label runs which pipeline, and what a work item runs when no label matched. Both are picked from the pipelines that exist.
+- **Work item kind by filing role**, which work-item type a ticket Agent Smith files is created as (see below).
 
 ![Editing a tracker in the studio](../assets/screenshots/config-tracker-drawer.png)
 
-**Projects.** New project. Pick the agent and the tracker from the dropdowns, tick the repos, and set the resolution strategy. For Azure DevOps that's `tag`, `area-path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. The wiring preview at the bottom of the drawer draws what you've built, and **Create** stays disabled until every reference resolves.
+**Projects.** New project. Pick the agent and the tracker on the identity tab, the repos on the repos tab, and set the resolution strategy on the routing tab. For Azure DevOps that's `tag`, `area_path`, or `repo`. Tag is the common one: tag a work item `TodoList` and it routes to this project. **Create** stays disabled until every reference resolves, and once saved, the project card expands into a graph of what you've wired.
 
 ![The New Project drawer](../assets/screenshots/config-new-project.png)
 
@@ -46,8 +48,6 @@ The CLI reads this shape directly, and a server takes it through `agent-smith co
 
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/holgerleichsenring/agent-smith/main/config/agentsmith.schema.json
-#
-# Catalog-first schema (p0139). Project-resolution-by-tag (p0140a).
 
 deployment:
   registry: holgerleichsenring
@@ -99,6 +99,12 @@ trackers:
     auth: azure_devops_token
     open_states:  [New, Active]
     done_status:  Resolved
+    needs_clarification_status: Blocked
+    work_item_kinds:
+      work: User Story     # an approved cut's one work ticket
+      phase: User Story    # a single phase filed from a design conversation
+      bug: Bug
+      chat: Task           # "create a ticket" from chat
     polling:
       enabled: true
       interval_seconds: 60
@@ -120,7 +126,6 @@ projects:
       trigger_statuses: [New, Active]
       done_status: Resolved
       pipeline_from_label:
-        agent-smith:init:               init-project
         agent-smith:bug:                code
         agent-smith:feature:            code
         agent-smith:security-scan:      security-scan
@@ -142,10 +147,12 @@ projects:
     tracker: acme-platform
     repos: [todolist-api, todolist-worker, todolist-web, todolist-docs]
     resolution:
-      tag: TodoList                    # or: area_path: AcmeMain/Platform / repo: <clone url>
+      tag: TodoList                    # or: area_path: AcmeMain/Platform
 ```
 
-The explicit `azuredevops_trigger:` block still works and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
+The explicit `azuredevops_trigger:` block works too and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
+
+`work_item_kinds` maps the roles Agent Smith files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `phase` (a single phase filed from a design conversation), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
 
 ## Authentication
 
@@ -168,7 +175,7 @@ Three ways, pick one:
 
 - **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (the platform is auto-detected from the payload). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
 - **Polling**. Agent Smith asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). Turn it on in the tracker's polling section and set the interval there; the running server picks the change up without a restart.
-- **Manual CLI**. `agent-smith fix --ticket 54 --project azuredevops-todolist` — explicit, useful for testing the config. See [Trigger from CLI](../trigger-it/cli.md).
+- **Manual CLI**. `agent-smith code --ticket 54 --project azuredevops-todolist` — explicit, useful for testing the config. See [Trigger from CLI](../trigger-it/cli.md).
 
 ## What gets written back to the ticket
 
@@ -187,9 +194,9 @@ When a run fails:
 - The `agent-smith:failed` label gets added.
 - A new comment with the failed-step name and the error message.
 
-By default the run lifecycle is carried as `agent-smith:*` labels. The tracker can opt into native state transitions instead via a `lifecycle_status_names:` map (pending / enqueued / in-progress / done / failed → your work-item state names); labels remain the always-available carrier.
+The run lifecycle is carried as `agent-smith:*` tags. A board with its own vocabulary can rename them with a `label_names:` map on the tracker (keys `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set`); tags written under an older name are still recognised.
 
-When a ticket is too thin to act on (title-only, or the planner needs a decision), Agent Smith doesn't guess: it posts its open questions as a work-item comment and parks the ticket in `needs_clarification_status` (settable on the tracker or the project). Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
+When a ticket is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as a work-item comment and parks the ticket in `needs_clarification_status` (settable on the tracker or the project). Without one, a project whose pipeline can park gets a blocking startup finding and its trigger stays off until you set it. Answering the questions resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 
 ## Next
 

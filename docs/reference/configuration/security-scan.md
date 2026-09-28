@@ -3,125 +3,86 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Advanced configuration for the security-scan pipeline, including DAST scanning, automatic vulnerability fixing, and trend analysis.
+Settings for the security-scan and api-security-scan pipelines: the scan master's budget, the scanner tool files, auto-fix and trend analysis.
 
-## DAST (OWASP ZAP)
+## Scan master budget
 
-Dynamic Application Security Testing runs OWASP ZAP against a live application to find runtime vulnerabilities invisible in source code -- XSS, CSRF, auth bypass, header misconfiguration.
-
-```yaml
-projects:
-  my-api:
-    dast:
-      enabled: true
-      target: https://staging.my-api.example.com
-      scan_type: baseline         # baseline | full-scan | api-scan
-      auth:
-        type: bearer
-        token_env: DAST_TOKEN     # env var containing the auth token
-```
-
-| Scan Type | Duration | What It Finds |
-|-----------|----------|---------------|
-| `baseline` | ~2 min | Headers, TLS, passive findings (default) |
-| `full-scan` | ~10 min | Active injection tests -- use on staging only |
-| `api-scan` | ~5 min | REST API specific, uses OpenAPI spec |
-
-ZAP runs as a Docker container using the same `docker cp` pattern as Nuclei (no volume mounts). Two dedicated LLM skills process ZAP findings:
-
-- **dast-analyst** -- correlates ZAP findings with static analysis results, maps to OWASP Top 10
-- **dast-false-positive-filter** -- removes known ZAP false positive patterns
-
-## Auto-Fix
-
-When enabled, Critical and High findings are automatically submitted as fix PRs. This is the only security tool that fixes vulnerabilities, not just reports them.
+The scan master (security-master, api-security-master, and the pr-review master) runs on its own limits, separate from the coding master's. They sit on the agent entry the scan uses:
 
 ```yaml
-projects:
-  my-api:
-    auto_fix:
-      enabled: false               # explicit opt-in required
-      severity_threshold: High     # Critical | High
-      confirm_before_fix: true     # ask via dialogue before spawning fix
-      max_concurrent: 3            # max parallel fix jobs
-      excluded_patterns:
-        - "**/*.generated.cs"
-        - "**/Migrations/**"
+agents:
+  claude-scan:
+    type: claude
+    scan_min_source_reads: 6               # read floor; below it the master is driven once more
+    scan_master_loop_iterations: 100       # tool iterations per pass
+    scan_master_max_output_tokens: 32000   # output budget for the closing findings array
+    scan_context_window_tokens: 200000     # input window assumed when the model role states none
 ```
 
-The auto-fix flow:
+| Key | Default | What it does |
+|-----|---------|--------------|
+| `scan_min_source_reads` | 6 | Distinct source files the master must read. Below it, the master is re-prompted once to review every area; the passes' findings are combined. |
+| `scan_master_loop_iterations` | 100 | Tool-call iterations per pass. The ceiling the pass ran under is recorded with the run and shown in the scan's account. |
+| `scan_master_max_output_tokens` | 32000 | Output budget for the master's final answer. A findings array cut off at this limit is recovered and marked as recovered. |
+| `scan_context_window_tokens` | 200000 | Input window the scan assumes, so its conversation can compact instead of running into the provider's limit. A model role that states `context_window_tokens` wins. Set to 0 or less to state nothing. |
 
-1. Security scan completes, findings extracted
-2. Critical/High findings grouped by file and category
-3. If `confirm_before_fix: true`, the agent asks for approval via [Interactive Dialogue](../concepts/interactive-dialogue.md)
-4. Separate fix jobs spawn (K8s jobs or Docker containers)
-5. Each fix job runs the `code` pipeline with a security-specific system prompt
-6. PRs are created with branch naming: `security-fix/cwe-{id}-{slug}`
+What these limits did on a given run shows in the account under **What this scan looked for**; see [Security Scan](../pipelines/security-scan.md#the-scans-account).
 
-!!! warning "Auto-fix is opt-in"
-    `auto_fix.enabled` defaults to `false`. Fix jobs run as separate containers and do not block the security scan.
+## Scanner tool files
 
-## Trend Analysis
+Nuclei, Spectral and OWASP ZAP run in the api-security-scan pipeline. Each reads a YAML file, looked up in `$AGENTSMITH_CONFIG_DIR`, then `$AGENTSMITH_CONFIG_DIR/config/`, then `./config/`, the working directory, and the install directory's `config/`. A missing file means the built-in defaults.
 
-Git-based security trend analysis tracks findings over time without any external database. Every security scan writes structured data to `result.md` with YAML frontmatter, and Git history serves as the time series.
+`nuclei.yaml`:
 
 ```yaml
-projects:
-  my-api:
-    security_trend:
-      enabled: true
-      lookback_scans: 10           # how many past scans to analyze
-      commit_snapshot: true        # commit SARIF snapshot to default branch
+tags: "api,auth,token,cors,ssl"
+exclude_tags: "dos,fuzz"
+severity: "critical,high,medium,low"
+timeout: 10
+retries: 1
+concurrency: 10
+rate_limit: 50
+container_timeout: 180
 ```
 
-### result.md Security Block
-
-Each security scan adds a `security:` block to the run result frontmatter:
+`spectral.yaml` is the Spectral ruleset. The scan fails its Spectral step when none is found.
 
 ```yaml
-security:
-  findings_critical: 2
-  findings_high: 7
-  findings_medium: 14
-  findings_retained: 9
-  findings_auto_fixed: 3
-  scan_types: [static, git-history, dependency, zap]
-  new_since_last: 4
-  resolved_since_last: 2
-  top_categories: [secrets, injection, config]
+extends:
+  - "https://unpkg.com/@stoplight/spectral-owasp-ruleset@2.0.1/dist/ruleset.mjs"
+rules: {}
 ```
 
-### Trend Output
+`zap.yaml`:
 
-The trend appears in `result.md`, Slack notifications, and PR comments:
-
-```
-| Metric | Last Scan | This Scan | Delta |
-|--------|-----------|-----------|-------|
-| Critical | 3 | 2 | -1 |
-| High | 8 | 7 | -1 |
-| Retained | 11 | 9 | -2 |
-| Auto-Fixed | 0 | 3 | +3 |
+```yaml
+container_timeout: 300
 ```
 
-### CLI
+ZAP picks its own mode: `api-scan` when an OpenAPI description was loaded, `baseline` otherwise. A scanner that reaches its `container_timeout` is reported as cut off, with the limit, and never as a clean result. See [API Scan](../pipelines/api-scan.md#a-cut-off-scanner-says-so).
+
+## Auto-fix
+
+The security-scan pipeline has a `SpawnFix` step that can turn Critical and High findings into fix jobs, each running the `code` pipeline, grouped by file and category, optionally confirmed through [Interactive Dialogue](../concepts/interactive-dialogue.md) first.
+
+The step runs with its defaults: disabled, severity threshold High, confirmation on, at most 3 concurrent jobs. No configuration key turns it on, so every scan logs "Auto-fix disabled, skipping" at this step.
+
+## Trend analysis
+
+Trend analysis needs no configuration. `SecurityTrend` reads the snapshots under `.agentsmith/security/` in the scanned repository and compares the current scan with the most recent one: new findings, resolved findings, and the change in Critical and High counts. `SecuritySnapshotWrite` then writes the current snapshot there as `{date}-{branch}.yaml`. The counts come from the raw scanner findings, so runs compare like with like whatever the master kept.
+
+The snapshot is written into the scan's checkout. For the next scan to compare against it, the file has to reach the repository.
 
 ```bash
-# View trend for a project
-agent-smith security-trend --project my-api
+# View the trend from snapshots in a checked-out repository
+agent-smith security-trend --project ./my-api
 
 # Dry run -- show what would be analyzed without executing
-agent-smith security-trend --project my-api --dry-run
+agent-smith security-trend --project ./my-api --dry-run
 ```
 
-## Confidence Calibration & False-Positive Rules
+## False-positive rules
 
-Security skills use a confidence calibration table and framework-specific false-positive rules defined in:
-
-- `config/skills/observation-schema.md` — confidence bands (Low 0–30, Medium 31–69, High 70–100)
-- `config/skills/security/security-principles.md` — exclusions and 12 framework-specific precedents (React XSS, GitHub Actions, env vars, etc.)
-- `config/skills/api-security/api-security-principles.md` — API-specific exclusions and 8 precedents
-
-These files govern all security skill roles. Edit them to adjust false-positive filtering for your codebase.
+The masters' filtering rules ship in their skills (`security-master`, `api-security-master`) in the skills catalog; see [Skills Catalog](../../how-it-works/skills-catalog.md) to pin or override them. Project-specific exclusions go in your repository's principles, which `LoadCodingPrinciples` loads and hands to the master. Dismissals recorded in the project's memory reach the master through `LoadMemoryIndex`.
 
 See also: [Security Scan Pipeline](../pipelines/security-scan.md) for the full pipeline documentation.

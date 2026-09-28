@@ -1,78 +1,94 @@
 # CI/CD Integration
 
-Agent Smith can run directly inside your CI/CD pipeline to perform security scans, API audits, and code analysis on every build. There are two approaches depending on your environment.
+Agent Smith can run inside your CI/CD pipeline to scan the code of every build (`security-scan`) or a running API against its OpenAPI description (`api-scan`). The CLI runs one scan, writes its reports and exits.
 
-## Binary Approach (Recommended)
+## What a CI run needs
 
-Download the self-contained binary for your runner's platform. No Docker, no .NET runtime, no dependencies.
+A configuration file with one agent in it. Commit it to the repository, for example as `ci/agentsmith.yml`:
+
+```yaml
+agents:
+  ci-scan:
+    type: claude
+    model: claude-sonnet-4-6
+```
+
+The `claude` agent reads `ANTHROPIC_API_KEY` from the environment, so set that as a masked CI secret. Any other agent type works the same way with its own key (`OPENAI_API_KEY`, `AZURE_OPENAI_API_KEY`, `GEMINI_API_KEY`); see [AI providers](../../connect-your-stuff/ai-providers.md).
+
+Without `--config`, the CLI looks for `./.agentsmith/agentsmith.yml`, then `./config/agentsmith.yml`, then `~/.agentsmith/agentsmith.yml`. The examples on these pages pass `--config` explicitly.
+
+`security-scan`, and `api-scan` when you give it source, also need the scanned repository to carry its `.agentsmith/` context files (a `context.yaml` and a `principles.md`). Without them the scan stops at its bootstrap gate. See [Context file](../concepts/context-file.md).
+
+## Binary approach (recommended)
+
+Download the self-contained binary for your runner's platform. No Docker and no .NET runtime are needed: the CLI runs its sandbox in-process, on the runner itself.
 
 ```bash
-# Download (one line)
 curl -fsSL -o agent-smith \
   https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
-
 chmod +x agent-smith
 
-# Run a security scan
+# Scan the checked-out repository
 ./agent-smith security-scan \
-  --repo . \
-  --output console,sarif \
+  --config ci/agentsmith.yml \
+  --agent ci-scan \
+  --source-path . \
+  --output console,sarif,markdown \
   --output-dir ./results
 ```
 
 Available platforms:
 
-| Platform         | Binary name               |
-|------------------|---------------------------|
-| Linux x64        | `agent-smith-linux-x64`   |
-| Linux ARM64      | `agent-smith-linux-arm64` |
-| macOS x64        | `agent-smith-osx-x64`     |
-| macOS ARM64      | `agent-smith-osx-arm64`   |
-| Windows x64      | `agent-smith-win-x64`     |
+| Platform         | Binary name                   |
+|------------------|-------------------------------|
+| Linux x64        | `agent-smith-linux-x64`       |
+| Linux ARM64      | `agent-smith-linux-arm64`     |
+| macOS x64        | `agent-smith-osx-x64`         |
+| macOS ARM64      | `agent-smith-osx-arm64`       |
+| Windows x64      | `agent-smith-win-x64.exe`     |
+
+`latest` follows every release. Pin a version in a pipeline you depend on by replacing `latest/download` with `download/v<version>`.
 
 !!! tip "Why binary over Docker?"
-    The binary approach is faster (no image pull), simpler (no Docker-in-Docker), and works on any runner that can execute a native binary. Choose Docker Compose only when you need the full stack (dispatcher, Redis, webhooks).
+    The binary is faster (no image pull), simpler (no Docker-in-Docker), and works on any runner that can execute a native binary. `api-scan` runs Nuclei, Spectral and ZAP in containers when a Docker or Podman socket is available and falls back to local processes otherwise, see [Tool configuration](../configuration/tools.md).
 
-## Docker Compose Approach
+## Docker approach
 
-Use when you need the full Agent Smith stack, including tool containers (Nuclei, Spectral) or the dispatcher.
-
-```yaml
-# docker-compose.ci.yml
-services:
-  agentsmith:
-    image: holgerleichsenring/agent-smith:latest
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-    volumes:
-      - .:/app/repo
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["security-scan", "--repo", "/app/repo", "--output", "console,sarif", "--output-dir", "/app/repo/results"]
-```
+The CLI is also published as the `holgerleichsenring/agent-smith-cli` image. Its entrypoint is the CLI, so the container arguments are the command line.
 
 ```bash
-docker compose -f docker-compose.ci.yml run --rm agentsmith
+docker run --rm \
+  -e ANTHROPIC_API_KEY \
+  -v "$PWD":/repo \
+  -v "$PWD/results":/output \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  holgerleichsenring/agent-smith-cli:latest \
+  security-scan --config /repo/ci/agentsmith.yml --agent ci-scan \
+    --source-path /repo --output console,sarif,markdown --output-dir /output
 ```
 
 !!! warning "Docker socket access"
-    The Docker Compose approach requires Docker socket access (`/var/run/docker.sock`) for tool containers like Nuclei and Spectral. Some CI environments restrict this.
+    Mounting `/var/run/docker.sock` lets `api-scan` start its tool containers (Nuclei, Spectral, ZAP) next to the CLI container. Some CI environments restrict this. `security-scan` does not need it.
 
-## Pipeline-Specific Guides
+## Pipeline-specific guides
 
-- [Azure DevOps](azure-devops.md) — Pipeline tasks, `##vso` summary tabs, artifact publishing
-- [GitHub Actions](github-actions.md) — Workflow steps, SARIF upload to Security tab
-- [GitLab CI](gitlab-ci.md) — Job definitions, artifact reports
+- [Azure DevOps](azure-devops.md): pipeline tasks, `##vso` summary tabs, artifact publishing
+- [GitHub Actions](github-actions.md): workflow steps, SARIF upload to the Security tab
+- [GitLab CI](gitlab-ci.md): job definitions, artifact reports
 
-## Output Formats
+## Output formats
 
-Agent Smith supports multiple output strategies via the `--output` flag:
+The `--output` flag takes a comma-separated list. The default is `console`.
 
-| Format       | Flag         | Use case                          |
-|-------------|-------------|-----------------------------------|
-| Console     | `console`   | Human-readable terminal output    |
-| Summary     | `summary`   | Compact one-page report           |
-| Markdown    | `markdown`  | Rich report for PR comments       |
-| SARIF       | `sarif`     | Standard format for security tools |
+| Format      | Flag        | What it produces                                   |
+|-------------|-------------|----------------------------------------------------|
+| Console     | `console`   | Findings printed to stdout                         |
+| Summary     | `summary`   | A compact findings summary on stdout               |
+| Markdown    | `markdown`  | `findings.md` in the output directory              |
+| SARIF       | `sarif`     | `findings.sarif` (SARIF 2.1.0) in the output directory |
 
-Combine them: `--output console,sarif,markdown --output-dir ./results`
+The output directory is the first writable one of `--output-dir`, `/output` and `./agentsmith-output`.
+
+## Exit codes and gating
+
+The command exits with 1 when the run fails and 0 otherwise. Findings alone do not change the exit code. To fail a build on findings, read the SARIF file: Critical and High findings carry the level `error`, Medium `warning`, Low `note`. Each guide shows a gate step that does this with `jq`.

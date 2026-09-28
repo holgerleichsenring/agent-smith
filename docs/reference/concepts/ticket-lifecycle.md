@@ -2,7 +2,7 @@
 
 Every pipeline triggered from a ticket — webhook or poll — passes through the same lifecycle. The state is mirrored on the ticket itself (as a label or tag), so an operator can inspect status without touching Redis or logs.
 
-Since p0262 the **database is the system of record** for run state. The tracker's status or lifecycle label is a best-effort projection, written after the database transition — a lost or delayed label update never changes what a run actually is. Re-running a ticket therefore means moving it back into one of the configured trigger statuses, not fiddling with lifecycle labels. Runs waiting on operator answers park in the configured `needs_clarification_status` (p0318); see [Spec Dialogue](../../how-it-works/spec-dialogue.md).
+The **database is the system of record** for run state. The tracker's status or lifecycle label is a best-effort projection, written after the database transition — a lost or delayed label update never changes what a run actually is. Re-running a ticket therefore means moving it back into one of the configured trigger statuses, not fiddling with lifecycle labels. Runs waiting on operator answers park in the configured `needs_clarification_status`; see [Spec Dialogue](../../how-it-works/spec-dialogue.md#the-clarification-gate).
 
 ## States
 
@@ -11,10 +11,14 @@ Since p0262 the **database is the system of record** for run state. The tracker'
 | **Pending** | _no lifecycle label_ or `agent-smith:pending` | Ticket is eligible to be claimed. Default for any new triggered ticket. |
 | **Enqueued** | `agent-smith:enqueued` | A receiver has claimed the ticket and pushed a `PipelineRequest` onto the Redis job queue. |
 | **InProgress** | `agent-smith:in-progress` | A consumer pulled the request and a pipeline is running. Heartbeat is being renewed in Redis. |
+| **Waiting** | `agent-smith:waiting` | The run parked on a question and is waiting for a person to answer it. |
 | **Done** | `agent-smith:done` | Pipeline finished successfully. |
+| **Shortfall** | `agent-smith:shortfall` | The run delivered the phases it verified and fell short of the rest. A done that says so, never Failed. |
 | **Failed** | `agent-smith:failed` | Pipeline failed. Error is posted as a comment on the ticket. |
 
-The `agent-smith:` prefix marks lifecycle labels owned by the framework. Other labels are left untouched on every transition.
+When a run ends, the label is chosen in this order: Failed if the run failed, Waiting if it parked on a person, Shortfall if it delivered only part of the work, Done otherwise.
+
+These are the framework's lifecycle labels. Other labels, including other `agent-smith:` ones such as your trigger labels, are left untouched on every transition. A tracker can rename any of them with `label_names`, or carry the lifecycle as native statuses with `lifecycle_status_names`; see [Trigger it: labels](../../trigger-it/labels.md#labels-the-framework-writes).
 
 ## State diagram
 
@@ -49,7 +53,7 @@ The `agent-smith:` prefix marks lifecycle labels owned by the framework. Other l
 
 | Transition | Owner | When |
 |------------|-------|------|
-| Pending → Enqueued | `TicketClaimService.ClaimAsync` | Webhook or poll fires; pre-checks pass; SETNX claim-lock acquired. **Emits exactly one `ClaimRequest` per ticket** — multi-repo projects don't fan out at this layer (p0158a). |
+| Pending → Enqueued | `TicketClaimService.ClaimAsync` | Webhook or poll fires; pre-checks pass; SETNX claim-lock acquired. **Emits exactly one `ClaimRequest` per ticket** — multi-repo projects don't fan out at this layer. |
 | Enqueued → InProgress | `PipelineExecutor` | Consumer dequeues a `PipelineRequest`, before the first command runs |
 | InProgress → Done | `PipelineExecutor` (via `LifecycleScope.Dispose`) | All pipeline commands succeeded |
 | InProgress → Failed | `PipelineExecutor` (via `LifecycleScope.MarkFailed` + Dispose) | Any command failed; error comment posted to ticket |
@@ -57,7 +61,7 @@ The `agent-smith:` prefix marks lifecycle labels owned by the framework. Other l
 | Enqueued → Enqueued (re-push) | `EnqueuedReconciler` | Ticket is Enqueued but the queue has no entry and no in-flight pipeline owns it |
 
 !!! info "Single ClaimRequest per ticket"
-    `ClaimRequest` and `PipelineRequest` no longer carry a `RepoName` field (removed in p0158a). For a multi-repo project, one claim → one pipeline run → N sandboxes routed by path-prefix → N pull requests. See [Multi-repo](../../how-it-works/multi-repo.md) for the run-side flow.
+    `ClaimRequest` and `PipelineRequest` carry no `RepoName` field. For a multi-repo project, one claim → one pipeline run → N sandboxes routed by path-prefix → N pull requests. See [Multi-repo](../../how-it-works/multi-repo.md) for the run-side flow.
 
 ## Concurrency primitives
 
@@ -100,7 +104,11 @@ The lifecycle is the source of truth, so transitions must be atomic against conc
 | Pipeline command fails mid-run | Working tree on the consumer's `/tmp` is gone when the pod restarts | `PersistWorkBranchHandler` pushes a `[wip]` commit on `agent-smith/{ticketId}` before MarkFailed; next run resumes from `origin/{branch}` — see [Branch Persistence](branch-persistence.md) |
 | Redis loss + restart | Queue is empty, all heartbeats gone | EnqueuedReconciler re-enqueues every Enqueued ticket within 10 minutes; StaleJobDetector reverts orphaned InProgress within ~3 minutes |
 | Network partition between receiver and consumer pods | Nothing — receiver only enqueues, consumer pulls when reachable | Self-heals once partition lifts |
-| Operator manually deletes lifecycle label | Ticket appears Pending again | Next webhook/poll re-claims it |
+| Operator manually deletes lifecycle label | Nothing — the run state is in the database | Whether the ticket triggers again depends on its status, not the label |
+
+## When the ticket can't be moved
+
+At the end of a run the framework moves the ticket to its configured done (or parked) status. If the tracker refuses that status, or the ticket's workflow has no transition to it, the ticket is not claimed again on the next poll: every later claim is refused with a message naming the status that couldn't be reached. The usual cause is the work-item type rather than the status. A tracker without a `work_item_kinds` map files every ticket as the provider's default type, and a status that type doesn't have can never be reached. Correct the status on the tracker or on the project; saving either releases the ticket. Resuming a parked run is not blocked by this.
 
 ## Observability
 

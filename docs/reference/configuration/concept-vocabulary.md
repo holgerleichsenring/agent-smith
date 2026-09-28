@@ -53,7 +53,7 @@ Add new concepts to your project's `concept-vocabulary.yaml` — they pick up si
 
 Output is one error per line in the form `<subject>: <concept>: <message>`, sorted by subject then concept. Exit code is `0` on a clean tree, `1` on any error.
 
-Run locally before committing vocabulary or handler changes; wire into CI once `activates_when` ships in real skills (D3 / p0127). For unparseable expressions the verb prints the offending offset and token from the activation expression parser (p0125b), so operators can fix the SKILL.md frontmatter directly.
+Run it locally before committing vocabulary or handler changes, or in CI. For an unparseable expression the verb prints the offending offset and token from the activation expression parser, so you can fix the SKILL.md frontmatter directly.
 
 ```bash
 $ agent-smith validate-concepts --skills-path agent-smith-skills/skills
