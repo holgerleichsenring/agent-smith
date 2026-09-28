@@ -206,7 +206,6 @@ public sealed class NonDiCtorRuleTests
         services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
         services.AddSingleton(new ServerContext("/tmp/agentsmith.yml"));
         AddNullRedisStack(services);
-        services.AddSingleton(Mock.Of<IJobSpawner>());
         var configuration = new ConfigurationBuilder().Build();
         services.AddCoreDispatcherServices()
                 .AddServerCompositionOverrides()
@@ -216,13 +215,11 @@ public sealed class NonDiCtorRuleTests
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()
-                .AddOrchestratorGlobalConfig()
                 .AddSlackAdapter()
                 .AddTeamsAdapter()
                 .AddIntentHandlers()
                 .AddWebhookHandlers()
                 .AddLongRunningServices();
-        services.AddJobSpawnerOptions(configuration);
         return services;
     }
 

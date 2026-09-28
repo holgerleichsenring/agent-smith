@@ -8,8 +8,8 @@ namespace AgentSmith.Application.Services.Preflight;
 /// p0324: registers the preflight runner plus every composition-neutral check, in
 /// the order they run and print. The composition root must additionally register the
 /// backend-specific probe seams: <see cref="IPreflightSandboxProbe"/> and
-/// <see cref="IPreflightInfraProbe"/> (CLI: round-trip + env probes; server: job
-/// spawner + shared multiplexer/DbContext probes).
+/// <see cref="IPreflightInfraProbe"/> (CLI: round-trip + env probes; server: the sandbox
+/// backend's own probe + shared multiplexer/DbContext probes).
 /// </summary>
 public static class PreflightServiceCollectionExtensions
 {

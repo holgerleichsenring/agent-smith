@@ -20,9 +20,9 @@ namespace AgentSmith.Server.Services.Adapters;
 /// <para>
 /// This channel carries the spec dialog and nothing else: no run-trigger conversation is
 /// created on it, and the cross-adapter dispatchers key by the conversation's stored
-/// platform rather than iterating adapters, so the progress / completion / error methods
-/// are never dispatched here. They are implemented as what they are — a logged arrival,
-/// never a silent success.
+/// platform rather than iterating adapters, so the answered-question and clarification
+/// methods are never dispatched here. They are implemented as what they are — a logged
+/// arrival, never a silent success.
 /// </para>
 /// </summary>
 public sealed class DashboardAdapter(
@@ -60,24 +60,9 @@ public sealed class DashboardAdapter(
         return null;
     }
 
-    public Task SendProgressAsync(string channelId, int step, int total, string commandName,
-        CancellationToken cancellationToken) =>
-        NotCarriedHere(nameof(SendProgressAsync), channelId);
-
-    public Task SendDoneAsync(string channelId, string summary, string? prUrl,
-        CancellationToken cancellationToken) =>
-        NotCarriedHere(nameof(SendDoneAsync), channelId);
-
-    public Task SendErrorAsync(string channelId, ErrorContext errorContext,
-        CancellationToken cancellationToken) =>
-        NotCarriedHere(nameof(SendErrorAsync), channelId);
-
     public Task UpdateQuestionAnsweredAsync(string channelId, string messageId,
         string questionText, string answer, CancellationToken cancellationToken) =>
         NotCarriedHere(nameof(UpdateQuestionAnsweredAsync), channelId);
-
-    public Task SendDetailAsync(string channelId, string text, CancellationToken cancellationToken) =>
-        NotCarriedHere(nameof(SendDetailAsync), channelId);
 
     public Task SendClarificationAsync(string channelId, string suggestion,
         CancellationToken cancellationToken) =>

@@ -73,11 +73,11 @@ public sealed class ChatRunInteractionTests : IDisposable
     }
 
     private SlackInteractionHandler SlackHandler() => new(
-        _chat.Get<ChatRunAnswerRouter>(), null!, null!, null!, null!,
+        _chat.Get<ChatRunAnswerRouter>(), null!, null!, null!,
         new SlackAdapter(
             new SlackApiClient(new HttpClient(_slackApi), new SlackAdapterOptions { BotToken = "t" },
                 NullLogger<SlackApiClient>.Instance),
-            new SlackTypedQuestionBlockBuilder(), new SlackMessageBlockBuilder(), new SlackProgressFormatter(),
+            new SlackTypedQuestionBlockBuilder(), new SlackMessageBlockBuilder(),
             NullLogger<SlackAdapter>.Instance),
         NullLogger<SlackInteractionHandler>.Instance);
 

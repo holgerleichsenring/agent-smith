@@ -37,12 +37,11 @@ public sealed class SettingsRoundTripTests
         h.Import("orchestrator:\n  max_run_wall_time_seconds: 1800\n");
 
         h.Store.SaveSetting("orchestrator",
-            Doc("""{"registry":"ghcr.io/sample","version":"1.2.3","maxRunWallTimeSeconds":5400}"""),
+            Doc("""{"maxRunWallTimeSeconds":5400}"""),
             new ChangeAttribution("alice"));
 
         // The assembled runtime value is the saved one.
         var raw = h.Assembler.Assemble(h.DocStore.LoadAll());
-        raw.Orchestrator.Registry.Should().Be("ghcr.io/sample");
         raw.Orchestrator.MaxRunWallTimeSeconds.Should().Be(5400);
 
         // GetSetting reads the same value back, typed — serialized the same camelCase

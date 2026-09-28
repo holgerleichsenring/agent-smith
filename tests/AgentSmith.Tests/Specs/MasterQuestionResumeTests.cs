@@ -134,7 +134,7 @@ public sealed class MasterQuestionResumeTests
         RecordingWriter writer, RecordingPoster poster, IMasterAnswerIntake? intake = null) =>
         new(poster, new FixedParkStatus(),
             new MasterQuestionCheckpoint(
-                writer, new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
+                writer, new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             intake ?? new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
             new Application.Services.Lifecycle.UnmovedTicketReport(

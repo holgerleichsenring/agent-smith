@@ -6,7 +6,6 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
-using AgentSmith.Server.Contracts;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Services.Lifecycle;
@@ -15,11 +14,11 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// p0330: the durable cancel guarantee. The cancel endpoint persists
 /// CancelRequested + a kill deadline and lets the cooperative token race the
 /// grace window; this enforcer scans the DB for flagged, non-terminal runs whose
-/// deadline elapsed and force-kills them — TerminateAsync on the spawned
-/// orchestrator's Job/container, then finalize 'cancelled' via the event path
-/// (single-writer projector), release the lease, terminalize the ticket. All
-/// state lives in the run row, so a server restart inside the grace window still
-/// guarantees the kill. Runs under the housekeeping leader.
+/// deadline elapsed and finalizes them 'cancelled' via the event path (single-writer
+/// projector), releases the lease and terminalizes the ticket. Every run executes in the
+/// server, so there is no process to kill: the cooperative token stops the pipeline and the
+/// sandbox reapers remove what it left. All state lives in the run row, so a server restart
+/// inside the grace window still reaches the terminal. Runs under the housekeeping leader.
 /// </summary>
 public sealed class CancelEnforcer(
     IServiceProvider services,
@@ -27,14 +26,12 @@ public sealed class CancelEnforcer(
     IActiveRunLease lease,
     CancelledTicketFinalizer ticketFinalizer,
     CancelTerminalWriter terminalWriter,
-    RunTerminator terminator,
     TimeProvider timeProvider,
     ILogger<CancelEnforcer> logger)
 {
     // p0348: the wall-time ceiling for a RUNNING run. PipelineRunWatchdog enforces this
-    // only over the in-memory registry (in-process runs); a spawned orchestrator run or
-    // one that outlived a restart is never registered, so this DB-backed scan closes
-    // that gap for every run — including the spawned #19106 migration.
+    // only over the in-memory registry; a run that outlived a restart is never registered,
+    // so this DB-backed scan closes that gap for every run.
     // p0353: read LIVE per scan (was a boot-frozen IOptions) so a Config Studio edit to
     // orchestrator.max_run_wall_time_seconds applies without a restart.
     private TimeSpan CurrentMaxWallTime() => TimeSpan.FromSeconds(
@@ -47,7 +44,6 @@ public sealed class CancelEnforcer(
     /// shared with the projector (RunEventApplier), which stamps this same grace
     /// onto the deadline for a watchdog/wall-time cancel so it too gets enforced.</summary>
     public static readonly TimeSpan KillGrace = CancelPolicy.KillGrace;
-    public static TimeSpan TerminateRetryWindow => RunTerminator.RetryWindow;
     private static readonly TimeSpan ScanInterval = TimeSpan.FromSeconds(15);
 
     public async Task RunAsync(CancellationToken ct)
@@ -116,12 +112,8 @@ public sealed class CancelEnforcer(
     private async Task<bool> EnforceAsync(Run run, CancellationToken ct)
     {
         logger.LogWarning(
-            "Enforcing cancel for run {RunId} (job={JobId}, reason={Reason}) — grace elapsed",
-            run.Id, run.JobId ?? "—", run.CancelReason ?? "operator");
-        // The kill must land BEFORE the row is finalized: a terminate failure
-        // (k8s API down) leaves the row non-terminal so the next scan retries —
-        // finalizing first would mark the run cancelled while the pod keeps billing.
-        if (!await terminator.TryTerminateAsync(run, ct)) return false;
+            "Enforcing cancel for run {RunId} (reason={Reason}) — grace elapsed",
+            run.Id, run.CancelReason ?? "operator");
 
         // p0355: the summary + ticket comment now reflect the TYPED reason on the row
         // (reap / wall-time / budget / operator …) instead of always reading "operator".

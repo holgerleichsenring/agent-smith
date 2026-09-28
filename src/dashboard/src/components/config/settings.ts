@@ -43,9 +43,9 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
 
 // The one-line subtitle under each settings title in the studio content area.
 export const SETTING_SUBTITLE: Record<SettingKey, string> = {
-  orchestrator: "orchestrator image pin and the run wall-time ceiling",
+  orchestrator: "the run wall-time ceiling",
   sandbox: "sandbox agent image and per-step / per-command timeouts",
-  deployment: "the single image pin feeding both orchestrator and sandbox when unset",
+  deployment: "the image pin feeding the sandbox agent when it names none",
   registries: "private package feeds the agent authenticates against",
   primary_provider: "the default agent provider when a project names none",
   limits: "per-skill agentic loop ceilings — tool calls, tokens, sub-agents",

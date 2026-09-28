@@ -11,7 +11,11 @@ using StackExchange.Redis;
 
 namespace AgentSmith.Server.Extensions;
 
-/// <summary>The Kubernetes sandbox backend's service registrations.</summary>
+/// <summary>
+/// The Kubernetes sandbox backend's service registrations. The client is in-cluster when the
+/// server runs in a pod and reads the kubeconfig otherwise, so an out-of-cluster server still
+/// creates its sandboxes.
+/// </summary>
 internal static class KubernetesSandboxRegistrations
 {
     internal static void Register(IServiceCollection services)
@@ -21,7 +25,7 @@ internal static class KubernetesSandboxRegistrations
             Namespace = Environment.GetEnvironmentVariable("K8S_NAMESPACE") ?? "default",
             RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379"
         };
-        services.AddSingleton<IKubernetes>(_ => new Kubernetes(KubernetesClientConfiguration.InClusterConfig()));
+        services.AddSingleton<IKubernetes>(_ => new Kubernetes(KubernetesClientConfigLoader.ForThisProcess().Load()));
         services.AddSingleton(options);
         // p0465: ownership is the identity of the liveness store, derived from the
         // Redis endpoint the sandbox itself is handed.
@@ -43,6 +47,7 @@ internal static class KubernetesSandboxRegistrations
             sp.GetRequiredService<IKubernetes>(),
             sp.GetRequiredService<KubernetesSandboxOptions>(),
             sp.GetRequiredService<ILogger<KubernetesCapacityProbe>>()));
+        services.AddSingleton<IPreflightSandboxProbe, KubernetesSandboxBackendProbe>();
         // p0355: the corpse-pod sweep. Replaces the no-op default so lingering
         // sandbox pods (owning replica gone) stop holding the ResourceQuota.
         services.RemoveAll<ISandboxCorpseReaper>();

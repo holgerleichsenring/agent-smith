@@ -16,7 +16,7 @@ internal static class StartupProbeExtensions
         services.AddSingleton<IStartupProbe, ConfigFileProbe>();
         services.AddSingleton<IStartupProbe, PersistenceProbe>();
         services.AddSingleton<IStartupProbe, RedisProbe>();
-        services.AddSingleton<IStartupProbe, SpawnerProbe>();
+        services.AddSingleton<IStartupProbe, SandboxBackendProbe>();
         // Last two: they resolve the loaded configuration, which the probes above explain
         // the state of when it comes back empty.
         services.AddSingleton<IStartupProbe, ConfigurationProbe>();

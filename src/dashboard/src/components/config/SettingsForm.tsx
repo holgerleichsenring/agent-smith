@@ -112,11 +112,6 @@ function OrchestratorForm({
   const set = patcher(value, onChange);
   return (
     <>
-      <TextField label="Registry" value={value.registry} onChange={(v) => set({ registry: v })} mono
-        placeholder="ghcr.io/your-org" testId="setting-orchestrator-registry"
-        help="the registry the orchestrator image is pulled from" />
-      <TextField label="Version" value={value.version} onChange={(v) => set({ version: v })} mono
-        placeholder="0.49.0" testId="setting-orchestrator-version" help="orchestrator image tag" />
       <NumberField label="Max run wall-time (seconds)" value={value.maxRunWallTimeSeconds}
         onChange={(v) => set({ maxRunWallTimeSeconds: keep(v, value.maxRunWallTimeSeconds) })} testId="setting-orchestrator-walltime"
         help="a run older than this is cancelled by the watchdog" />

@@ -16,9 +16,6 @@ metadata:
     app.kubernetes.io/name: agentsmith
     app.kubernetes.io/component: rbac
 rules:
-  - apiGroups: ["batch"]
-    resources: ["jobs"]
-    verbs: ["create", "delete", "get", "list", "watch"]
   # ISandbox Kubernetes backend (p0116) — Server creates ephemeral Sandbox-Pods
   # per pipeline run and communicates with the Agent over Redis. NO pods/exec
   # is required.

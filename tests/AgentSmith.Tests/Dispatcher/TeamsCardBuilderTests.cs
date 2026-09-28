@@ -110,38 +110,6 @@ public sealed class TeamsCardBuilderTests
     }
 
     [Fact]
-    public void ProgressCard_ContainsStepInfo()
-    {
-        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildProgressCard(3, 10, "code");
-        var json = card.ToJsonString();
-
-        json.Should().Contain("[3/10]");
-        json.Should().Contain("code");
-        json.Should().Contain("AdaptiveCard");
-    }
-
-    [Fact]
-    public void DoneCard_ContainsSummaryAndPrLink()
-    {
-        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildDoneCard("All tests pass", "https://github.com/org/repo/pull/1");
-        var json = card.ToJsonString();
-
-        json.Should().Contain("All tests pass");
-        json.Should().Contain("View Pull Request");
-        json.Should().Contain("https://github.com/org/repo/pull/1");
-    }
-
-    [Fact]
-    public void ErrorCard_ContainsErrorAndLogLink()
-    {
-        var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildErrorCard("Build failed", "https://logs.example.com/123");
-        var json = card.ToJsonString();
-
-        json.Should().Contain("Build failed");
-        json.Should().Contain("View Logs");
-    }
-
-    [Fact]
     public void ClarificationCard_ContainsConfirmAndHelpActions()
     {
         var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder()).BuildClarificationCard("fix ticket #42");

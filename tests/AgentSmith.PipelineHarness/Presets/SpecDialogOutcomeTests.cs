@@ -691,20 +691,8 @@ public sealed partial class SpecDialogOutcomeTests
         public Task SendMessageAsync(string channelId, string text, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task SendProgressAsync(string channelId, int step, int total, string commandName,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendDoneAsync(string channelId, string summary, string? prUrl,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendErrorAsync(string channelId, ErrorContext errorContext,
-            CancellationToken cancellationToken) => Task.CompletedTask;
-
         public Task UpdateQuestionAnsweredAsync(string channelId, string messageId, string questionText,
             string answer, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task SendDetailAsync(string channelId, string text, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
 
         public Task SendClarificationAsync(string channelId, string suggestion,
             CancellationToken cancellationToken) => Task.CompletedTask;
@@ -743,15 +731,6 @@ public sealed partial class SpecDialogOutcomeTests
             _answers.GetOrAdd($"{jobId}:{questionId}",
                 _ => new TaskCompletionSource<DialogAnswer>(TaskCreationOptions.RunContinuationsAsynchronously));
 
-        public Task PublishAsync(BusMessage message, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
-
-        public Task PublishAnswerAsync(
-            string jobId, string questionId, string content, CancellationToken cancellationToken) =>
-            PublishAnswerAsync(jobId,
-                new DialogAnswer(questionId, content, null, DateTimeOffset.UtcNow, "U-harness"),
-                cancellationToken);
-
         public async IAsyncEnumerable<BusMessage> SubscribeToJobAsync(
             string jobId, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
@@ -765,13 +744,6 @@ public sealed partial class SpecDialogOutcomeTests
             }
             yield break;
         }
-
-        public Task<BusMessage?> ReadAnswerAsync(
-            string jobId, TimeSpan timeout, CancellationToken cancellationToken) =>
-            Task.FromResult<BusMessage?>(null);
-
-        public Task CleanupJobAsync(string jobId, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
     }
 
     private sealed class StubSkillsCatalogResolver : ISkillsCatalogResolver

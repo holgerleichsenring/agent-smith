@@ -77,10 +77,10 @@ public sealed class SlackMessageDispatcher(
                 await securityHandler.HandleAsync(sec, ct);
                 break;
             case HelpIntent:
-                await helpHandler.SendHelpAsync(channelId, ct);
+                await helpHandler.SendHelpAsync(platform, channelId, ct);
                 break;
             case GreetingIntent:
-                await helpHandler.SendGreetingAsync(channelId, ct);
+                await helpHandler.SendGreetingAsync(platform, channelId, ct);
                 break;
             case ErrorIntent error:
                 await adapters.SendMessageAsync(
@@ -90,7 +90,7 @@ public sealed class SlackMessageDispatcher(
                 await HandleClarificationAsync(c, channelId, ct);
                 break;
             default:
-                await helpHandler.SendUnknownAsync(channelId, intent.RawText, ct);
+                await helpHandler.SendUnknownAsync(platform, channelId, intent.RawText, ct);
                 break;
         }
     }
@@ -100,7 +100,7 @@ public sealed class SlackMessageDispatcher(
     {
         var pending = new PendingClarification(c.Suggestion, c.RawText, c.UserId);
         await clarificationState.SetAsync(c.Platform, channelId, pending, ct);
-        await helpHandler.SendClarificationAsync(channelId, c.Suggestion, ct);
+        await helpHandler.SendClarificationAsync(c.Platform, channelId, c.Suggestion, ct);
     }
 
     private async Task SendErrorSafeAsync(

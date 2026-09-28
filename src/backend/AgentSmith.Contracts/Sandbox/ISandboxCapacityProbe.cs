@@ -27,34 +27,21 @@ public interface ISandboxCapacityProbe
 }
 
 /// <summary>
-/// p0320b: a run's REAL admission footprint — the orchestrator pod (null when the
-/// composition executes the pipeline in-process, e.g. CLI) plus one sandbox per
-/// repo. Probing a single sandbox admitted multi-repo runs that then crashed into
-/// the quota mid-run; admission must reserve room for everything the run spawns.
+/// p0320b: a run's REAL admission footprint — one sandbox per repo and toolchain image.
+/// Probing a single sandbox admitted multi-repo runs that then crashed into the quota
+/// mid-run; admission must reserve room for everything the run spawns. The pipeline itself
+/// runs in the server, so it adds no pod of its own.
 /// </summary>
-public sealed record RunFootprint(ResourceLimits? Orchestrator, IReadOnlyList<ResourceLimits> Sandboxes)
+public sealed record RunFootprint(IReadOnlyList<ResourceLimits> Sandboxes)
 {
     /// <summary>
     /// p0489: the one mapping from a computed breakdown to the probe's footprint,
     /// shared by every admission path. The breakdown carries per-pod k8s LIMITs; the
-    /// probe reserves against them (request folded to the limit — conservative). The
-    /// synthetic "orchestrator" pod maps to the orchestrator slot, the rest to sandboxes.
+    /// probe reserves against them (request folded to the limit — conservative).
     /// </summary>
-    public static RunFootprint From(RunFootprintBreakdown breakdown)
-    {
-        ResourceLimits? orchestrator = null;
-        var sandboxes = new List<ResourceLimits>();
-        foreach (var pod in breakdown.Pods)
-        {
-            var limits = new ResourceLimits(pod.CpuLimit, pod.CpuLimit, pod.MemLimit, pod.MemLimit);
-            if (pod.Repo == OrchestratorPodName && orchestrator is null) orchestrator = limits;
-            else sandboxes.Add(limits);
-        }
-        return new RunFootprint(orchestrator, sandboxes);
-    }
-
-    /// <summary>The breakdown's synthetic pod name for the orchestrator slot.</summary>
-    public const string OrchestratorPodName = "orchestrator";
+    public static RunFootprint From(RunFootprintBreakdown breakdown) =>
+        new([.. breakdown.Pods.Select(pod =>
+            new ResourceLimits(pod.CpuLimit, pod.CpuLimit, pod.MemLimit, pod.MemLimit))]);
 }
 
 /// <summary>

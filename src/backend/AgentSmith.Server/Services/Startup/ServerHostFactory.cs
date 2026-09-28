@@ -31,9 +31,6 @@ public static class ServerHostFactory
         var auth = TokenAuthority();
         ConfigureHost(builder);
         ConfigureServices(builder, auth);
-        await builder.Services.AddJobSpawnerAsync(
-            builder.Configuration,
-            LoggerFactory.Create(b => b.AddConsole()).CreateLogger("Startup"));
         builder.Services.AddServerPreflight(auth).AddStartupProbes().AddBuildIdentity().AddFailureReasons();
         // A test substitutes an absent dependency here; production passes nothing.
         substitutions?.Invoke(builder.Services);
@@ -49,7 +46,7 @@ public static class ServerHostFactory
     }
 
     // p0391b: this is the first eager singleton resolution, and it drags in the loaded
-    // configuration, the Redis multiplexer and the composed spawner. The runner turns a
+    // configuration, the Redis multiplexer and the composed sandbox backend. The runner turns a
     // probe that throws into a finding — but only once it exists, so a failure to BUILD it
     // was still an unreported dead process. The findings list is registered unconditionally
     // and needs nothing, so it can always carry the reason.

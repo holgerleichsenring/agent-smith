@@ -14,15 +14,6 @@ public sealed class TeamsCardBuilder(
     public JsonObject BuildQuestionCard(DialogQuestion question) =>
         questionCardBuilder.Build(question);
 
-    public JsonObject BuildProgressCard(int step, int total, string commandName) =>
-        statusCardBuilder.BuildProgress(step, total, commandName);
-
-    public JsonObject BuildDoneCard(string summary, string? prUrl) =>
-        statusCardBuilder.BuildDone(summary, prUrl);
-
-    public JsonObject BuildErrorCard(string friendlyError, string? logUrl) =>
-        statusCardBuilder.BuildError(friendlyError, logUrl);
-
     public JsonObject BuildInfoCard(string title, string text) =>
         statusCardBuilder.BuildInfo(title, text);
 

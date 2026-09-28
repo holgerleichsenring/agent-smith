@@ -18,7 +18,6 @@ internal sealed class StubConfigResolver : IConfigResolver
         ResolvedValue<int>.Global(300),
         ResolvedValue<ResourceLimits>.Global(ResourceLimits.Default),
         ResolvedValue<string>.Global("agent-smith-sandbox-agent:test"),
-        ResolvedValue<string>.Global("agent-smith-orchestrator:test"),
         ResolvedValue<string>.PerRun(),
         ResolveCostCap(project.Pipeline));
 

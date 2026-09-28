@@ -1,20 +1,19 @@
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Adapters;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Handlers;
 
 /// <summary>
-/// Sends help, greeting, unknown, and clarification messages to the user.
-/// Extracted from SlackMessageDispatcher for single-responsibility.
+/// Sends help, greeting, unknown, and clarification messages to the user, on the platform
+/// the message came from. Extracted from SlackMessageDispatcher for single-responsibility.
 /// </summary>
 public sealed class HelpHandler(
-    IPlatformAdapter adapter,
+    PlatformAdapters adapters,
     ILogger<HelpHandler> logger)
 {
-    public async Task SendHelpAsync(string channelId, CancellationToken ct)
+    public async Task SendHelpAsync(string platform, string channelId, CancellationToken ct)
     {
-        await adapter.SendMessageAsync(channelId,
+        await adapters.SendMessageAsync(platform, channelId,
             ":robot_face: *Agent Smith — here's what I can do:*\n\n" +
             "*Fix a ticket*\n  `fix #58` or `fix #58 in my-project`\n\n" +
             "*List tickets*\n  `list tickets` or `list tickets in my-project`\n\n" +
@@ -23,25 +22,25 @@ public sealed class HelpHandler(
             "_I also understand free-form text — just describe what you need._", ct);
     }
 
-    public async Task SendGreetingAsync(string channelId, CancellationToken ct)
+    public async Task SendGreetingAsync(string platform, string channelId, CancellationToken ct)
     {
-        await adapter.SendMessageAsync(channelId,
+        await adapters.SendMessageAsync(platform, channelId,
             ":wave: Hey! I'm Agent Smith — AI orchestration for code, legal, security, and workflows.\n" +
             "Type `help` to see what I can do.", ct);
     }
 
     public async Task SendUnknownAsync(
-        string channelId, string originalInput, CancellationToken ct)
+        string platform, string channelId, string originalInput, CancellationToken ct)
     {
-        await adapter.SendMessageAsync(channelId,
+        await adapters.SendMessageAsync(platform, channelId,
             $":shrug: I didn't understand: \"{originalInput}\"\n\n" +
             "Type `help` to see what I can do.", ct);
     }
 
     public async Task SendClarificationAsync(
-        string channelId, string suggestion, CancellationToken ct)
+        string platform, string channelId, string suggestion, CancellationToken ct)
     {
-        await adapter.SendClarificationAsync(channelId, suggestion, ct);
+        await adapters.SendClarificationAsync(platform, channelId, suggestion, ct);
         logger.LogInformation("Sent clarification to {ChannelId}: {Suggestion}", channelId, suggestion);
     }
 }

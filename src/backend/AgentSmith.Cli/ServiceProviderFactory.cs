@@ -15,8 +15,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Cli;
 
 /// <summary>
-/// Builds the DI container for one-shot CLI runs — interactive (console dialogue and
-/// progress) or spawned-job (Redis, when jobId + redisUrl come from the server).
+/// Builds the DI container for one-shot CLI runs: console dialogue and progress, and a
+/// run record in the CLI's own store.
 /// </summary>
 internal static class ServiceProviderFactory
 {
@@ -24,16 +24,15 @@ internal static class ServiceProviderFactory
     /// container without deciding what config it runs on — as a trailing optional
     /// parameter it was simply never passed by `run`. See CliConfigCompositionTests.</summary>
     public static ServiceProvider Build(
-        string configPath, bool verbose, bool headless,
-        string jobId = "", string redisUrl = "")
+        string configPath, bool verbose, bool headless)
     {
-        return BuildProvider(BuildServices(verbose, headless, jobId, redisUrl, configPath));
+        return BuildProvider(BuildServices(verbose, headless, configPath));
     }
 
     /// <summary>p0324: the CLI graph plus the doctor verb's preflight and probe seams.</summary>
     public static ServiceProvider BuildDoctor(bool verbose, string configPath)
     {
-        var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
+        var services = BuildServices(verbose, headless: true, configPath);
         services.AddDoctorPreflight();
         return BuildProvider(services);
     }
@@ -41,13 +40,13 @@ internal static class ServiceProviderFactory
     /// <summary>p0326: the CLI graph plus the demo preflight, materializer and runner.</summary>
     public static ServiceProvider BuildDemo(bool verbose, string configPath)
     {
-        var services = BuildServices(verbose, headless: true, jobId: "", redisUrl: "", configPath);
+        var services = BuildServices(verbose, headless: true, configPath);
         services.AddDemo();
         return BuildProvider(services);
     }
 
     private static ServiceCollection BuildServices(
-        bool verbose, bool headless, string jobId, string redisUrl, string configPath)
+        bool verbose, bool headless, string configPath)
     {
         var services = new ServiceCollection();
         services.AddLogging(builder =>
@@ -65,7 +64,7 @@ internal static class ServiceProviderFactory
         // 2026-08-28-2af6: `archive export|import` — the store copy that crosses providers.
         services.AddDataArchive();
         services.AddSingleton<ConfiguredStoreFactory>();
-        services.AddCliInteraction(headless, jobId, redisUrl);
+        services.AddCliInteraction(headless);
 
         if (!string.IsNullOrWhiteSpace(configPath))
         {
@@ -75,7 +74,7 @@ internal static class ServiceProviderFactory
             // configured" — run 0adc lost its feed credentials. Last binding wins.
             services.AddSingleton<AgentSmithConfig>(sp =>
                 sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
-            services.AddCliRunRecording(jobId, redisUrl);
+            services.AddCliRunRecording();
         }
 
         return services;

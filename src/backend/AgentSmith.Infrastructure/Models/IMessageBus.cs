@@ -3,47 +3,15 @@ using AgentSmith.Infrastructure.Services.Bus;
 namespace AgentSmith.Infrastructure.Models;
 
 /// <summary>
-/// Abstraction over Redis Streams for agent ↔ dispatcher communication.
-/// Agent containers publish progress/questions/done to the outbound stream.
-/// The dispatcher publishes answers to the inbound stream.
+/// Reads a job's outbound Redis stream (job:{jobId}:out): the spec dialog relays the questions
+/// its turn asks there into the conversation's thread.
 /// </summary>
 public interface IMessageBus
 {
     /// <summary>
-    /// Publishes a message to the agent's outbound stream (job:{jobId}:out).
-    /// Used by: agent container (RedisProgressReporter).
-    /// </summary>
-    Task PublishAsync(BusMessage message, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Publishes an answer to the agent's inbound stream (job:{jobId}:in).
-    /// Used by: dispatcher when user responds to a question.
-    /// </summary>
-    Task PublishAnswerAsync(string jobId, string questionId, string content,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Subscribes to all outbound messages from a specific job.
-    /// The dispatcher calls this after spawning a K8s Job to relay
-    /// progress/questions/done to the chat platform.
-    /// Returns an async enumerable that completes when the job finishes
-    /// (Done or Error message received) or the token is cancelled.
+    /// Every outbound message of one job, in order. Completes when the job reports Done or
+    /// Error, or when the token is cancelled.
     /// </summary>
     IAsyncEnumerable<BusMessage> SubscribeToJobAsync(string jobId,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Reads the next answer for a specific job from the inbound stream.
-    /// Blocks until an answer arrives or the timeout elapses.
-    /// Used by: agent container (RedisProgressReporter) waiting for user reply.
-    /// Returns null on timeout.
-    /// </summary>
-    Task<BusMessage?> ReadAnswerAsync(string jobId, TimeSpan timeout,
-        CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Deletes both streams for a job (cleanup after completion).
-    /// Called by the dispatcher after receiving Done or Error.
-    /// </summary>
-    Task CleanupJobAsync(string jobId, CancellationToken cancellationToken);
 }

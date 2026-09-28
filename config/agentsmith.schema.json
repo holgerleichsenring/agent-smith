@@ -174,7 +174,7 @@
     "deployment": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Single deployment-wide image pin feeding the sandbox-agent image (and the orchestrator image). Left unset, the sandbox agent's tag is derived from the running server's release.",
+      "description": "Single deployment-wide image pin feeding the sandbox-agent image. Left unset, the sandbox agent's tag is derived from the running server's release.",
       "properties": { "registry": {"type": "string"}, "version": {"type": "string"} }
     },
     "sandbox": {
@@ -224,14 +224,9 @@
     },
     "orchestrator": {
       "type": "object",
-      "description": "Orchestrator container defaults.",
+      "description": "Run limits. Every run executes in the server; its sandboxes are the only pods it starts.",
       "additionalProperties": false,
       "properties": {
-        "registry": {
-          "type": "string",
-          "description": "Registry of the orchestrator image. The deployment pin wins when this is unset."
-        },
-        "version": { "type": "string", "description": "Orchestrator image tag." },
         "max_run_wall_time_seconds": {
           "type": "integer",
           "description": "A run older than this is cancelled. Default 1800."
@@ -754,16 +749,6 @@
             }
           },
           "additionalProperties": false
-        },
-        "orchestrator": {
-          "type": "object",
-          "description": "Per-project orchestrator container overrides.",
-          "additionalProperties": false,
-          "properties": {
-            "registry": { "type": "string" },
-            "version": { "type": "string" },
-            "resources": { "$ref": "#/$defs/resourceLimits" }
-          }
         }
       }
     },

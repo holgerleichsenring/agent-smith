@@ -28,13 +28,24 @@ public sealed class PlatformAdapters(
     public async Task SendMessageAsync(
         string platform, string channelId, string text, CancellationToken cancellationToken)
     {
-        if (!_byPlatform.TryGetValue(platform, out var adapter))
-        {
-            logger.LogWarning(
-                "No platform adapter for '{Platform}' — the message was not delivered: {Text}",
-                platform, text);
-            return;
-        }
-        await adapter.SendMessageAsync(channelId, text, cancellationToken);
+        if (Find(platform, text) is { } adapter)
+            await adapter.SendMessageAsync(channelId, text, cancellationToken);
+    }
+
+    /// <summary>Asks the named platform's channel to confirm a guessed command, or says so.</summary>
+    public async Task SendClarificationAsync(
+        string platform, string channelId, string suggestion, CancellationToken cancellationToken)
+    {
+        if (Find(platform, suggestion) is { } adapter)
+            await adapter.SendClarificationAsync(channelId, suggestion, cancellationToken);
+    }
+
+    private IPlatformAdapter? Find(string platform, string text)
+    {
+        if (_byPlatform.TryGetValue(platform, out var adapter)) return adapter;
+        logger.LogWarning(
+            "No platform adapter for '{Platform}' — the message was not delivered: {Text}",
+            platform, text);
+        return null;
     }
 }

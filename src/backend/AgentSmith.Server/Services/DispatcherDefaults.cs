@@ -10,25 +10,6 @@ internal static class DispatcherDefaults
     // --- Redis ---
     public const string RedisUrl = "localhost:6379";
 
-    // --- Spawner ---
-    public const string SpawnerType = "kubernetes";
-    public const string SpawnerTypeDocker = "docker";
-
-    // --- Agent image ---
-    // AgentImage const removed in p0137a — the orchestrator image is now resolved
-    // through IOrchestratorImageResolver (per-project + global agentsmith.yml).
-    public const string ImagePullPolicy = "IfNotPresent";
-
-    // --- Kubernetes ---
-    public const string K8sNamespace = "default";
-    public const string K8sSecretName = "agentsmith-secrets";
-    public const string K8sApiPatch = "https://host.docker.internal:";
-    public const string K8sApiLocal = "https://127.0.0.1:";
-
-    // --- Docker ---
-    public const string DockerSocketUnix = "unix:///var/run/docker.sock";
-    public const string DockerSocketWindows = "npipe://./pipe/docker_engine";
-
     // --- Platforms ---
     public const string PlatformSlack = "slack";
     public const string PlatformTeams = "teams";

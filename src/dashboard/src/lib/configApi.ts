@@ -42,7 +42,6 @@ export interface ResolvedSettings {
   runCommandTimeoutSeconds: ResolvedValue<number>;
   sandboxResources: ResolvedValue<ResourceSummary>;
   agentImage: ResolvedValue<string>;
-  orchestratorImage: ResolvedValue<string>;
   toolchainImage: ResolvedValue<string>;
   costCap: ResolvedValue<CostCap>;
   resolutionError: string | null;
@@ -112,8 +111,6 @@ export interface ConfigSandbox {
 }
 
 export interface ConfigOrchestrator {
-  registry: string;
-  version: string;
   maxRunWallTimeSeconds: number;
 }
 
@@ -748,8 +745,6 @@ export type SettingKey =
   | "trace";
 
 export interface OrchestratorSetting {
-  registry: string;
-  version: string;
   maxRunWallTimeSeconds: number;
 }
 

@@ -11,31 +11,14 @@ public class DeploymentDefaultsApplierTests
     private readonly DeploymentDefaultsApplier _applier = new();
 
     [Fact]
-    public void Apply_DeploymentVersion_FeedsOrchestratorAndSandbox()
+    public void Apply_DeploymentVersion_FeedsTheSandboxAgent()
     {
         var raw = new RawAgentSmithConfig { Deployment = new DeploymentConfig { Registry = "reg", Version = "1.2.3" } };
 
         _applier.Apply(raw);
 
-        raw.Orchestrator.Registry.Should().Be("reg");
-        raw.Orchestrator.Version.Should().Be("1.2.3");
         raw.Sandbox.AgentRegistry.Should().Be("reg");
         raw.Sandbox.AgentVersion.Should().Be("1.2.3");
-    }
-
-    [Fact]
-    public void Apply_LegacyOrchestratorBlockSet_WinsOverDeployment()
-    {
-        var raw = new RawAgentSmithConfig
-        {
-            Deployment = new DeploymentConfig { Registry = "reg", Version = "1.2.3" },
-            Orchestrator = new OrchestratorGlobalConfig { Registry = "legacy-reg", Version = "9.9.9" },
-        };
-
-        _applier.Apply(raw);
-
-        raw.Orchestrator.Registry.Should().Be("legacy-reg");
-        raw.Orchestrator.Version.Should().Be("9.9.9");
     }
 
     [Fact]
@@ -70,7 +53,6 @@ public class DeploymentDefaultsApplierTests
 
         _applier.Apply(raw);
 
-        raw.Orchestrator.Version.Should().BeEmpty();
         raw.Sandbox.AgentVersion.Should().BeEmpty();
         raw.Sandbox.AgentRegistry.Should().Be(AgentImageDefaults.DefaultRegistry);
     }

@@ -146,7 +146,6 @@ The long-running deployment: one ASP.NET Core process with one DI tree.
 | Health | `GET /health`: liveness, the startup preflight verdict and every background subsystem's state (`SubsystemHealthSection`) |
 | Hosted services | `QueueConsumerHostedService`, `PollerLeaderHostedService`, `HousekeepingLeaderHostedService`, `CapacityQueuePumpHostedService`, `ActiveRunReaperHostedService`, `ConfigStoreReloadHostedService`, `SkillsCatalogReloadHostedService`, `RunRetentionHostedService`, `RepoDiscoveryRefreshHostedService` |
 | Sandboxes | `DockerSandboxFactory`, `KubernetesSandboxFactory` |
-| Jobs | `IJobSpawner` with `DockerJobSpawner` and `KubernetesJobSpawner` |
 | Chat | `IPlatformAdapter` with `SlackAdapter`, `TeamsAdapter`, `DashboardAdapter`; `IntentEngine` and `ChatIntentParser` turn a message into an intent |
 
 ---

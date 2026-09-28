@@ -25,7 +25,7 @@ It defines seven services:
 | `migrate` | `holgerleichsenring/agent-smith-cli` | One-shot `agentsmith database migrate` — applies schema migrations, then exits. The server waits for it. |
 | `redis` | `redis:7-alpine` | In-flight queue, change notifications, leases. AOF persistence on a volume. |
 | `dashboard` | `holgerleichsenring/agentsmith-dashboard` | Optional (compose profile `dashboard`), port 3000, proxies to the server. |
-| `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the spawner injects into per-repo sandbox containers. Just needs to be present. |
+| `sandbox-agent` | `holgerleichsenring/agent-smith-sandbox-agent` | Not a service — the carrier image the server injects into per-repo sandbox containers. Just needs to be present. |
 | `agentsmith` | `holgerleichsenring/agent-smith-cli` | One-shot CLI for ad-hoc runs against the same config. |
 | `ollama` | `ollama/ollama` | Optional local model server, for running against Ollama instead of a hosted provider. |
 
@@ -33,7 +33,7 @@ The env vars that matter on the server:
 
 ```bash
 REDIS_URL=redis:6379          # host:port — no scheme prefix
-SPAWNER_TYPE=docker           # spawn runs as Docker containers on this host
+SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
 AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
 ```
@@ -155,7 +155,7 @@ That one number is the upgrade. The sandbox-agent tag is derived from the releas
 # agentsmith.yml, optional
 deployment:
   registry: my-mirror.example/agent-smith
-  version: 0.108.0       # fills sandbox.agent_version and the orchestrator tag where unset
+  version: 0.108.0       # fills sandbox.agent_version where it is unset
 ```
 
 A pinned tag is reported as an advisory finding and never refused. The installation page in the dashboard shows, per project, which agent tag is in use and whether it was derived or pinned.

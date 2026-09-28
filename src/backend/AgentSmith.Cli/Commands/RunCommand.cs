@@ -19,15 +19,10 @@ internal static class RunCommand
         var dryRunOption = new Option<bool>("--dry-run", "Parse intent and show pipeline, but don't execute");
         var headlessOption = new Option<bool>("--headless", "Run without interactive prompts");
         var pipelineOption = new Option<string>("--pipeline", () => string.Empty, "Override pipeline name");
-        var jobIdOption = new Option<string>("--job-id", () => string.Empty, "Redis Streams job ID");
-        var redisUrlOption = new Option<string>("--redis-url", () => string.Empty, "Redis connection URL");
-        var channelIdOption = new Option<string>("--channel-id", () => string.Empty, "Source channel ID");
-        var platformOption = new Option<string>("--platform", () => string.Empty, "Source platform");
 
         var cmd = new Command("run", "Execute a pipeline (ticket, analysis, scan)")
         {
-            inputArg, configOption, dryRunOption, verboseOption, headlessOption,
-            jobIdOption, redisUrlOption, channelIdOption, platformOption, pipelineOption
+            inputArg, configOption, dryRunOption, verboseOption, headlessOption, pipelineOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -37,11 +32,9 @@ internal static class RunCommand
             var dryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var headless = ctx.ParseResult.GetValueForOption(headlessOption);
-            var jobId = ctx.ParseResult.GetValueForOption(jobIdOption) ?? string.Empty;
-            var redisUrl = ctx.ParseResult.GetValueForOption(redisUrlOption) ?? string.Empty;
             var pipelineOverride = ctx.ParseResult.GetValueForOption(pipelineOption) ?? string.Empty;
 
-            var provider = ServiceProviderFactory.Build(configPath, verbose, headless, jobId, redisUrl);
+            var provider = ServiceProviderFactory.Build(configPath, verbose, headless);
 
             if (dryRun)
             {
@@ -70,16 +63,6 @@ internal static class RunCommand
             {
                 result = CommandResult.Fail($"Unhandled exception: {ex.Message}");
                 Console.Error.WriteLine($"Fatal: {ex}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(jobId))
-            {
-                var reporter = provider.GetRequiredService<IProgressReporter>();
-                if (result.IsSuccess)
-                    await reporter.ReportDoneAsync(result.Message, result.PrUrl, CancellationToken.None);
-                else
-                    await reporter.ReportErrorAsync(
-                        result.Message, result.FailedStep, result.TotalSteps, result.StepName, CancellationToken.None);
             }
 
             Console.WriteLine(result.IsSuccess ? $"Success: {result.Message}" : $"Failed: {result.Message}");

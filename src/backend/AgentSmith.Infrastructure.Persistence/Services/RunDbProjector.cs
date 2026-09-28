@@ -11,7 +11,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// from the run stream into the relational store. Typed run facts go through
 /// <see cref="RunEventApplier"/>; the raw event trail is BATCHED (flushed per N
 /// events or on RunFinished) so the per-event payload writes don't dominate. The
-/// spawned job never touches the DB — only this server-side projector does.
+/// pipeline never writes these rows itself — only this server-side projector does.
 /// </summary>
 public sealed class RunDbProjector(
     IServiceScopeFactory scopeFactory,

@@ -34,7 +34,6 @@ function project(name: string): ConfigProject {
       runCommandTimeoutSeconds: rv(120),
       sandboxResources: rv({ cpuRequest: "1", cpuLimit: "2", memoryRequest: "1Gi", memoryLimit: "2Gi" }),
       agentImage: rv("agent:1"),
-      orchestratorImage: rv("orch:1"),
       toolchainImage: rv(null, "run-resolved"),
       costCap: rv({ usd: 5, tokens: 1_000_000 }, "override"),
       resolutionError: null,
@@ -59,7 +58,7 @@ function snapshot(over: Partial<ConfigSnapshot> = {}): ConfigSnapshot {
     edges: [],
     globals: {
       sandbox: { agentRegistry: "r", agentVersion: "1", stepTimeoutSeconds: 600, runCommandTimeoutSeconds: 120 },
-      orchestrator: { registry: "r", version: "1", maxRunWallTimeSeconds: 3600 },
+      orchestrator: { maxRunWallTimeSeconds: 3600 },
       limits: { maxToolCallsPerSkill: 1, maxLlmCallsPerSkill: 1, maxConcurrentSkillCalls: 1, maxSubAgentsPerRun: 1 },
       costCap: { usd: 5, tokens: 1 },
       persistenceProvider: "postgres",
@@ -125,9 +124,9 @@ describe("ConfigView drift story (p0345c)", () => {
     expect(screen.getByTestId("config-wiring-agent-sample")).toHaveTextContent("azure_openai");
     expect(screen.getByTestId("config-wiring-tracker-sample")).toHaveTextContent("azdo");
     expect(screen.getByTestId("config-wiring-repo-sample-Sample.Server")).toHaveTextContent("Sample.Server");
-    // 2 overrides, 4 global defaults, 1 run-resolved in the fixture.
+    // 2 overrides, 3 global defaults, 1 run-resolved in the fixture.
     expect(screen.getByTestId("config-provenance-sample")).toHaveTextContent(
-      "2 explicit · 4 default · 1 per-run",
+      "2 explicit · 3 default · 1 per-run",
     );
     // No read recorded yet → the freshness line says so instead of faking an age.
     expect(screen.getByTestId("config-read-freshness")).toHaveTextContent("no config read recorded");

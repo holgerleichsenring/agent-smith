@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -28,7 +27,7 @@ public sealed class RunFootprintCalculatorTests
         language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "api"), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
 
-        var footprint = await Calculator(language, orchestrator: null)
+        var footprint = await Calculator(language)
             .CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().HaveCount(4, "server splits sdk8 + sdk9 (distinct images); client + api one each");
@@ -47,7 +46,7 @@ public sealed class RunFootprintCalculatorTests
             .ReturnsAsync([Discovery("api"), Discovery("encrypter"), Discovery("test-data-generator"),
                 Discovery("client-api-generator"), Discovery("okta")]);
 
-        var footprint = await Calculator(language, orchestrator: null)
+        var footprint = await Calculator(language)
             .CalculateAsync(project, "code", CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle("all five contexts share one toolchain image");
@@ -67,7 +66,7 @@ public sealed class RunFootprintCalculatorTests
             .Returns<ResolvedProject, string?, ContextYamlStackResources?>(
                 (_, _, res) => new ResourceLimits("250m", "1", "1Gi", res?.MemoryLimit ?? "1Gi"));
         var calc = new RunFootprintCalculator(
-            language.Object, resource.Object, NoOrchestrator(), NullLogger<RunFootprintCalculator>.Instance);
+            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance);
 
         var footprint = await calc.CalculateAsync(project, "code", CancellationToken.None);
 
@@ -76,41 +75,28 @@ public sealed class RunFootprintCalculatorTests
     }
 
     [Fact]
-    public async Task FootprintCalculator_IncludesOrchestrator_AndSumsLimits()
+    public async Task RunFootprint_ContainsNoOrchestratorPod()
     {
         var project = Project("only");
         var language = new Mock<ISandboxLanguageResolver>();
         language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
-        var orchestrator = new ResourceLimits("100m", "500m", "128Mi", "1Gi");
 
-        var footprint = await Calculator(language, orchestrator)
-            .CalculateAsync(project, "code", CancellationToken.None);
+        var footprint = await Calculator(language).CalculateAsync(project, "code", CancellationToken.None);
 
-        footprint.Pods.Should().HaveCount(2, "one sandbox + the orchestrator");
-        footprint.Pods.Should().ContainSingle(p => p.Repo == "orchestrator");
-        footprint.TotalMemBytes.Should().Be(5L * 1024 * 1024 * 1024); // 4Gi sandbox + 1Gi orchestrator
+        footprint.Pods.Should().ContainSingle("the pipeline runs in the server; only the sandbox is a pod");
+        footprint.Pods.Should().NotContain(p => p.Repo == "orchestrator");
+        footprint.TotalMemBytes.Should().Be(4L * 1024 * 1024 * 1024); // the 4Gi sandbox alone
     }
 
-    private static RunFootprintCalculator Calculator(
-        Mock<ISandboxLanguageResolver> language, ResourceLimits? orchestrator)
+    private static RunFootprintCalculator Calculator(Mock<ISandboxLanguageResolver> language)
     {
         var resource = new Mock<ISandboxResourceResolver>();
         resource.Setup(r => r.Resolve(
                 It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextYamlStackResources?>()))
             .Returns(ResourceLimits.Default); // 250m/1000m/1Gi/4Gi
-        var orchestratorResolver = new Mock<IOrchestratorResourceResolver>();
-        orchestratorResolver.Setup(o => o.Resolve(It.IsAny<ResolvedProject>())).Returns(orchestrator);
         return new RunFootprintCalculator(
-            language.Object, resource.Object, orchestratorResolver.Object,
-            NullLogger<RunFootprintCalculator>.Instance);
-    }
-
-    private static IOrchestratorResourceResolver NoOrchestrator()
-    {
-        var m = new Mock<IOrchestratorResourceResolver>();
-        m.Setup(o => o.Resolve(It.IsAny<ResolvedProject>())).Returns((ResourceLimits?)null);
-        return m.Object;
+            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance);
     }
 
     private static ResolvedProject Project(params string[] repos) => new()

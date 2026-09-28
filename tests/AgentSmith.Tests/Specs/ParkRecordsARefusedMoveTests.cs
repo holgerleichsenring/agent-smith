@@ -229,7 +229,7 @@ public sealed class ParkRecordsARefusedMoveTests
             new ClarificationParkStatusResolver(),
             new MasterQuestionCheckpoint(
                 writer ?? new RecordingWriter(),
-                new DialogueJobIdentity(new Mock<IProgressReporter>().Object),
+                new DialogueJobIdentity(),
                 NullLogger<MasterQuestionCheckpoint>.Instance),
             new MasterAnswerIntake(Mock.Of<IDialogueTrail>(), NullLogger<MasterAnswerIntake>.Instance),
             Report(),

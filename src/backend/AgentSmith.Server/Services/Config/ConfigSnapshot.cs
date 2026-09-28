@@ -91,7 +91,6 @@ public sealed record ConfigResolvedSettings(
     ConfigResolvedValue<int> RunCommandTimeoutSeconds,
     ConfigResolvedValue<ConfigResourceSummary> SandboxResources,
     ConfigResolvedValue<string> AgentImage,
-    ConfigResolvedValue<string> OrchestratorImage,
     ConfigResolvedValue<string> ToolchainImage,
     ConfigResolvedValue<ConfigCostCapValue> CostCap,
     string? ResolutionError);

@@ -54,7 +54,7 @@ Required fields:
 - `repos` (always a list, even with one entry)
 
 Everything else (`resolution`, `templates`, `default_pipeline`,
-`pipelines`, the per-platform trigger blocks, `sandbox`, `orchestrator`)
+`pipelines`, the per-platform trigger blocks, `sandbox`)
 is listed in the [reference](agentsmith-yml.md#projects). A trigger block
 must match the tracker's `type`; the validator rejects a `jira_trigger` on
 a GitHub tracker.

@@ -3,7 +3,6 @@ using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
-using AgentSmith.Application.Services.Orchestrator;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Sandbox;
@@ -71,13 +70,8 @@ public static class PipelineExecutionExtensions
         // p0355: default corpse reaper — nothing to reap (no pod backend). The
         // Kubernetes backend swaps in the real pod sweep. TryAdd so that wins.
         services.TryAddSingleton<ISandboxCorpseReaper, NoOpSandboxCorpseReaper>();
-        // p0320b: default orchestrator sizing — null (in-process compositions spawn
-        // no orchestrator pod). The Server composition replaces it with the
-        // JobSpawnerOptions-backed resolver.
-        services.TryAddSingleton<IOrchestratorResourceResolver, NullOrchestratorResourceResolver>();
         services.AddAgentImageResolution();
         services.AddSingleton<ISandboxSecretsResolver, SandboxSecretsResolver>();
-        services.AddSingleton<IOrchestratorImageResolver, OrchestratorImageResolver>();
         // p0270a: the single config resolution pass — owns timeout + cost-cap
         // resolution and composes the resolvers above, so the run path and the
         // dashboard read one materialized resolution.

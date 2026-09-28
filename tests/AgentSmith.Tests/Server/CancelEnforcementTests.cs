@@ -11,7 +11,6 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
-using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Lifecycle;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -24,15 +23,14 @@ namespace AgentSmith.Tests.Server;
 
 /// <summary>
 /// p0330: cancel is persistent state, enforced. The enforcer scans the DB for
-/// CancelRequested + elapsed kill deadline and force-kills via IJobSpawner —
+/// CancelRequested + elapsed kill deadline and finalizes it 'cancelled' —
 /// state lives ONLY in the run row, so it survives a server restart by
-/// construction. Terminal transitions are set-once: a late RunFinished from a
-/// killed pod cannot overwrite 'cancelled'.
+/// construction. Terminal transitions are set-once: a late RunFinished cannot
+/// overwrite 'cancelled'.
 /// </summary>
 public sealed class CancelEnforcementTests : IDisposable
 {
     private readonly SqliteConnection _connection;
-    private readonly Mock<IJobSpawner> _spawner = new();
     private readonly Mock<IActiveRunLease> _lease = new();
     private readonly Mock<ITicketProvider> _ticketProvider = new();
     private readonly List<RunEvent> _published = [];
@@ -82,35 +80,34 @@ public sealed class CancelEnforcementTests : IDisposable
     }
 
     [Fact]
-    public async Task Cancel_SpawnedRun_TerminatesJobAndFinalizesCancelled()
+    public async Task Cancel_DeadlineElapsed_FinalizesCancelled()
     {
-        await SeedRunAsync("run-spawned", jobId: "abc123def456",
+        await SeedRunAsync("run-cancelled", jobId: "abc123def456",
             cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1));
 
         var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
 
         enforced.Should().Be(1);
-        _spawner.Verify(s => s.TerminateAsync("abc123def456", It.IsAny<CancellationToken>()), Times.Once);
         var finished = _published.OfType<RunFinishedEvent>().Single();
-        finished.RunId.Should().Be("run-spawned");
+        finished.RunId.Should().Be("run-cancelled");
         finished.Status.Should().Be("cancelled");
         _lease.Verify(l => l.ReleaseAsync(
-            "p1", new TicketId("42"), "run-spawned", It.IsAny<CancellationToken>()), Times.Once);
+            "p1", new TicketId("42"), "run-cancelled", It.IsAny<CancellationToken>()), Times.Once);
         _ticketProvider.Verify(p => p.FinalizeAsync(
             new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
 
         // The event path finalizes the row (single-writer projector).
         await ApplyAsync(finished);
         using var check = new AgentSmithDbContext(Options());
-        var run = check.Runs.Single(r => r.Id == "run-spawned");
+        var run = check.Runs.Single(r => r.Id == "run-cancelled");
         run.Status.Should().Be("cancelled");
         run.FinishedAt.Should().NotBeNull();
     }
 
     // The deadline is DURABLE: nothing was registered in this "process" (no
-    // registry entry, no timer) — the row alone drives the kill after a restart.
+    // registry entry, no timer) — the row alone drives the finalize after a restart.
     [Fact]
-    public async Task Enforcer_DeadlineElapsedAfterRestart_StillKills()
+    public async Task Enforcer_DeadlineElapsedAfterRestart_StillFinalizes()
     {
         await SeedRunAsync("run-restart", jobId: "feedbeef0001",
             cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddMinutes(-5));
@@ -119,7 +116,6 @@ public sealed class CancelEnforcementTests : IDisposable
         var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
 
         enforced.Should().Be(1);
-        _spawner.Verify(s => s.TerminateAsync("feedbeef0001", It.IsAny<CancellationToken>()), Times.Once);
         _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
     }
 
@@ -132,21 +128,6 @@ public sealed class CancelEnforcementTests : IDisposable
         var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
 
         enforced.Should().Be(0, "the cooperative token still owns the grace window");
-        _spawner.Verify(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _published.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task Enforcer_TerminateThrows_RowStaysNonTerminal_ForRetry()
-    {
-        _spawner.Setup(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("k8s API down"));
-        await SeedRunAsync("run-retry", jobId: "bbbb00000000",
-            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1));
-
-        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
-
-        enforced.Should().Be(0, "finalizing before the kill lands would mark a still-billing pod cancelled");
         _published.Should().BeEmpty();
     }
 
@@ -195,32 +176,11 @@ public sealed class CancelEnforcementTests : IDisposable
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    /// <summary>
-    /// 2026-08-24-ca23: a pause never clears the job id, so the row still names the pod that
-    /// died when it parked. Keying "nothing to kill" on the job id would spend the whole
-    /// ten-minute retry window terminating a corpse; the waiting status is the honest test.
-    /// </summary>
-    [Fact]
-    public async Task Cancel_ParkedRun_DoesNotSpendTheTerminateRetryWindowOnAStaleJobId()
-    {
-        _spawner.Setup(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("that pod died at the park"));
-        await SeedRunAsync("run-parked-stale", jobId: "eeee00000000",
-            cancelRequested: true, deadline: DateTimeOffset.UtcNow.AddSeconds(-1),
-            status: "waiting_for_input");
-
-        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
-
-        enforced.Should().Be(1, "a parked run holds nothing to terminate");
-        _spawner.Verify(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    // p0348: a spawned run that outran the wall-time ceiling (never registered in
+    // p0348: a run that outran the wall-time ceiling (never registered in
     // the in-memory watchdog) is flagged cancel-requested with a kill deadline by
     // the DB-backed scan, then enters the normal enforcement path.
     [Fact]
-    public async Task Enforcer_WallTimeOverdueSpawnedRun_FlaggedForCancel()
+    public async Task Enforcer_WallTimeOverdueRun_FlaggedForCancel()
     {
         _orchestrator = new OrchestratorGlobalConfig { MaxRunWallTimeSeconds = 60 };
         using (var ctx = new AgentSmithDbContext(Options()))
@@ -282,27 +242,7 @@ public sealed class CancelEnforcementTests : IDisposable
         var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
 
         enforced.Should().Be(1);
-        _spawner.Verify(s => s.TerminateAsync("ffff00000000", It.IsAny<CancellationToken>()), Times.Once);
         _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
-    }
-
-    // p0357 (p0330b): terminate retries are bounded — past the retry window an
-    // unkillable pod no longer blocks the finalize; the run reaches terminal.
-    [Fact]
-    public async Task Enforcer_UnkillablePod_FinalizesAfterBoundedRetries_NotStuck()
-    {
-        _spawner.Setup(s => s.TerminateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new InvalidOperationException("job gone (404)"));
-        await SeedRunAsync("run-unkillable", jobId: "dead00000000",
-            cancelRequested: true,
-            deadline: DateTimeOffset.UtcNow - RunTerminator.RetryWindow - TimeSpan.FromMinutes(1));
-
-        var enforced = await NewEnforcer().RunOnceAsync(CancellationToken.None);
-
-        enforced.Should().Be(1, "past the retry window the run must still reach terminal");
-        _published.OfType<RunFinishedEvent>().Single().Status.Should().Be("cancelled");
-        _ticketProvider.Verify(p => p.FinalizeAsync(
-            new TicketId("42"), It.IsAny<string>(), "Rejected", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -343,7 +283,6 @@ public sealed class CancelEnforcementTests : IDisposable
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddScoped<RunRepository>();
-        services.AddSingleton(_spawner.Object);
         // p0353: CancelEnforcer reads the wall-time LIVE from the loader each scan.
         // The stub returns the mutable _orchestrator so the wall-time test still lowers it.
         var loader = new Mock<IConfigurationLoader>();
@@ -359,7 +298,6 @@ public sealed class CancelEnforcementTests : IDisposable
         return new CancelEnforcer(
             provider, _events, _lease.Object, NewFinalizer(),
             new CancelTerminalWriter(provider),
-            new RunTerminator(provider, TimeProvider.System, NullLogger<RunTerminator>.Instance),
             TimeProvider.System, NullLogger<CancelEnforcer>.Instance);
     }
 

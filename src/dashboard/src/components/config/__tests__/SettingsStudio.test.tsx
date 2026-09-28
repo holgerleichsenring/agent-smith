@@ -10,7 +10,7 @@ import { resetCapabilitiesCache } from "../useCapabilities";
 // registries list — plus the dirty-gated Save.
 
 const FIXTURES: Record<string, unknown> = {
-  orchestrator: { registry: "ghcr.io/x", version: "1.0.0", maxRunWallTimeSeconds: 1800 },
+  orchestrator: { maxRunWallTimeSeconds: 1800 },
   skills: { source: 0, version: "v3", path: null, url: null, sha256: null, cacheDir: "" },
   pipeline_cost_cap: {
     default: { usd: 5, tokens: 500000 },
@@ -74,7 +74,7 @@ describe("SettingsStudio", () => {
     render(<SettingsStudio settingKey="orchestrator" />);
     const walltime = await screen.findByTestId("setting-orchestrator-walltime");
     expect(walltime).toHaveValue(1800);
-    expect(screen.getByTestId("setting-orchestrator-registry")).toHaveValue("ghcr.io/x");
+    expect(screen.queryByTestId("setting-orchestrator-registry")).toBeNull();
     expect(screen.getByRole("heading", { name: /Orchestrator/ })).toBeInTheDocument();
   });
 
@@ -91,7 +91,7 @@ describe("SettingsStudio", () => {
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith(
       "orchestrator",
-      expect.objectContaining({ maxRunWallTimeSeconds: 3600, registry: "ghcr.io/x" }),
+      expect.objectContaining({ maxRunWallTimeSeconds: 3600 }),
     );
   });
 

@@ -100,7 +100,7 @@ public sealed class RunSnapshotMapperTests
         {
             Id = "run-1", Pipeline = "code", Status = "success",
             StartedAt = start, FinishedAt = start.AddMinutes(10),
-            JobId = "job-1", // p0330: a spawned orchestrator pod lived start->finish
+            JobId = "job-1", // a legacy spawned orchestrator pod lived start->finish
             Sandboxes =
             [
                 // 8 minutes x 1Gi declared request = 8 Gi·min.
@@ -117,10 +117,10 @@ public sealed class RunSnapshotMapperTests
             ],
         };
 
-        // Orchestrator: 10 minutes x 512Mi = 5 Gi·min. Total 8 + 5 + 5 = 18.
-        var snap = RunSnapshotMapper.ToSnapshot(run, orchestratorMemoryRequest: "512Mi");
+        // Orchestrator: 10 minutes x the default 1Gi request = 10 Gi·min. Total 8 + 5 + 10 = 23.
+        var snap = RunSnapshotMapper.ToSnapshot(run);
 
-        snap.ReservedGiMinutes.Should().BeApproximately(18.0, 0.001);
+        snap.ReservedGiMinutes.Should().BeApproximately(23.0, 0.001);
     }
 
     [Fact]

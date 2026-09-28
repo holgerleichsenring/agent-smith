@@ -596,11 +596,7 @@ public sealed class ExecutePipelineUseCase(
                 Project: projectConfig.Name,
                 Platform: request.TicketId is not null
                     ? projectConfig.Tracker.Type.ToString().ToLowerInvariant()
-                    : null,
-                // p0330: a spawned orchestrator's JOB_ID (the --job-id handle) rides
-                // on RunStarted so the server can force-kill the Job/container by
-                // runId. Null in-process/interactively — nothing spawned to kill.
-                JobId: progressReporter.JobId),
+                    : null),
             ct);
     }
 
