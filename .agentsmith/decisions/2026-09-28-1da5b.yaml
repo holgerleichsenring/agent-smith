@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-1da5b
+
+decisions:
+  - category: Implementation
+    chose: "Skip the SEND on the dashboard"
+    over: "Composing an empty opening line for the page"
+    reason: |
+      A composed reply is a function from a dialect to a string; it cannot express "no message".
+      The empty string it would return still travels the whole road — composer, messenger, adapter,
+      hub push, every step unconditional. The page absorbs it without drawing a bubble, but the
+      same handler that absorbs it resets the turn's working state and flips the flag that decides
+      whether a proposal card gets a turn of its own. Sending nothing is not the same as not
+      sending, and the command handler is the only place that knows both the platform and whether a
+      line exists at all.
+    alternatives:
+      - "An empty string through Wording: an established shape elsewhere, but that one lands in a question rather than a message push"
+
+  - category: Implementation
+    chose: "Only the OPENING send is skipped; every other composed line still travels"
+    over: "Silencing the handler on the dashboard"
+    reason: |
+      A conversation that is already open, a project choice that has to be made and an unknown
+      project name all carry information the page cannot show any other way. Only the opening line
+      is redundant, because everything it says is already on screen — the session id in the header,
+      the project and its repositories in the scope pane, and the button it names is the one
+      labelled New conversation.
+    alternatives:
+      - "Removing the composer method: chat still needs it, where a command opens the dialog and nothing renders a scope"
+
+  - category: Implementation
+    chose: "The opening is still performed, and a test says so"
+    over: "Trusting that skipping a message cannot skip a session"
+    reason: |
+      The send and the open sat in one expression, so the change had to take them apart. A session
+      that failed to open would be invisible until the first message had nowhere to be routed —
+      which is exactly the kind of failure this phase's own subject makes hard to notice.
+    alternatives:
+      - "Leaving it to the routing tests: they run on chat, where the send was never skipped"
+
+  - category: Architecture
+    chose: "The ingest route offers a handle on the work it does not await"
+    over: "Leaving the tests to synchronise on something else"
+    reason: |
+      Removing the opening line took away the only thing those tests could wait for. The route
+      dispatches through Task.Run and drops the handle, so from that moment nothing in the process
+      can tell whether the work finished, failed, or is still running — not a caller, not a
+      diagnostic, not a test. Its own test file admitted the weakness in writing: a test waits for
+      the effect it is about to assert on. The effect it had been waiting for was a sentence
+      written for a person, which is not a completion, and the class was deterministic only by
+      accident. With the sentence gone it failed two of twenty-four, a different two each run.
+      Nothing is registered for the observer in production, so the route behaves exactly as it did;
+      what it gains is that the work is observable at all.
+    alternatives:
+      - "Waiting on the session row: it appears while the dispatched task is still going, so it is a race dressed as a wait"
+      - "Opening the session directly in the fixture: deterministic, but then no test exercises the route that opens it"
+
+  - category: Implementation
+    chose: "The fixture waits for the dispatched work, and the fire-and-forget test still does not"
+    over: "Awaiting the dispatch inside the ingest helper"
+    reason: |
+      One test exists precisely to prove the request answers BEFORE the turn has run — a turn runs
+      a master whose approval gate waits up to fifteen minutes, and the request cannot hold that.
+      An ingest helper that awaited the work would deadlock it against its own blocking stub. So
+      the wait is a separate step that a test takes when it needs the work finished, which is what
+      the file already says it does.
+    alternatives:
+      - "Awaiting everywhere: the one test that documents the design would have to opt out, which inverts the default"

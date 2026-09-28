@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-1da5d
+goal: "A design conversation can ask what this framework itself did about its ticket — which runs, which phases, which pull requests it opened — without confusing that with what the board shows."
+
+applies_to: "backend (a port over the framework's own run record, and the tool a design turn reaches it through)"
+
+requires: ["2026-09-28-1da5c"]
+
+scope:
+  in: "The runs this framework recorded against the bound ticket, the phases they were on and the pull requests they opened, reaching a design turn as an answer it can reason from."
+  out: "What the TRACKER shows, which is 2026-09-28-1da5c. Anything that acts on the answer."
+
+decisions:
+  - key: |
+      THE RECORD EXISTS AND THE TURN CANNOT REACH IT — WHICH THE FIRST CUT OF 1da5c ASSUMED
+      OTHERWISE. Runs are stored by project and ticket, with their pull requests, their phases and
+      any parked question, and a reader composes all of it. But that reader has exactly two
+      references in the whole source tree: a page endpoint and its registration. It is a PAGE read,
+      addressed by dialog id, and the seeds a design turn is built with carry no run record at all.
+      So this is a second port and a second seed, not a field on the first.
+  - key: |
+      "THE RUN SAYS IT IS DONE" AND "THE BOARD SAYS IT IS DONE" ARE NOT ONE CLAIM. A run this
+      framework finished is a fact about this framework; a branch somebody pushed by hand and a
+      pull request opened outside a run are facts about the tracker and invisible here. Merging the
+      two would produce an answer more confident than either source — so the two ports stay two,
+      and each answer names where it came from.
+  - key: |
+      IT IS THE CHEAPER HALF AND STILL ITS OWN PHASE. No tracker is called, no credential is
+      resolved, no per-tracker behaviour differs — it is a store read this framework already
+      performs for a page. Folding it into the tracker-side phase would have hidden a second port,
+      a second context key and a second tool behind a decision about Azure DevOps relations.
+
+steps:
+  - id: the-run-record-answers-for-a-ticket
+    path: "src/backend/AgentSmith.Contracts/Dialogue, src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Add a port answering what this framework recorded against one ticket, over the reader that already composes it for the page."
+      - "Address it by the bound ticket rather than by a dialog, so a turn can ask about its own ticket."
+
+  - id: the-conversation-can-ask
+    path: "src/backend/AgentSmith.Contracts/Commands, src/backend/AgentSmith.Application/Services/Tools, src/backend/AgentSmith.Application/Services/Handlers, src/backend/AgentSmith.Server/Services/SpecDialog"
+    action: "Seed it on a bound conversation's turn and build a tool from it beside the others, so an unbound conversation carries none."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert that the answer names this framework as its source, that a ticket with no runs is not a refusal, and that an unbound conversation carries no tool."
+
+tests:
+  - "TicketRuns_ABoundTicket_AnswersTheRunsThisFrameworkRecorded"
+  - "TicketRuns_ATicketWithNoRuns_IsNotARefusal"
+  - "TicketRuns_TheAnswer_NamesThisFrameworkAsItsSource"
+  - "TicketRunsTool_AConversationBoundToNoTicket_CarriesNoTool"
+
+done:
+  - "a bound conversation can be asked what this framework did about its ticket, and the answer says that is what it is"
+  - "nothing merges the framework's record with the tracker's"
+  - "build green, full suite green"

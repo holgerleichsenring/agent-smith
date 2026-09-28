@@ -43,10 +43,22 @@ public sealed class AzureDevOpsTicketSearch : ITicketSearch
         string text, int limit, CancellationToken cancellationToken)
     {
         if (AzureDevOpsTextMatchClause.For(text) is not { } match) return TicketSearchResult.None;
-        var where = $"{AzureDevOpsOpenScope.Where(_project, _openStates)} AND {match}";
+        var scope = AzureDevOpsOpenScope.Where(_project, _openStates);
         try
         {
-            var tickets = await _runner.RunAsync(where, limit + 1, cancellationToken);
+            var tickets = await _runner.RunAsync($"{scope} AND {match}", limit + 1, cancellationToken);
+            // 2026-09-28-1da5a: the number prefix is its OWN query, ordered by id. Or-ed into the
+            // one above it would compete for the same cap under an ordering by last change — so a
+            // wanted row could be missing while the query worked, and a real title match could be
+            // evicted by prefix noise.
+            if (TicketNumberPrefix.Of(text) is { } prefix)
+            {
+                var numbered = await _runner.RunAsync(
+                    $"{scope} AND {AzureDevOpsIdPrefixClause.For(prefix)}", limit + 1,
+                    cancellationToken, orderBy: "[System.Id] ASC");
+                tickets = [.. tickets, .. numbered.Where(n => tickets.All(t => t.Id.Value != n.Id.Value))];
+            }
+
             return TicketSearchResult.Of(
                 tickets.Select(t => new TicketSearchHit(t.Id, t.Title, t.Kind)), limit);
         }
