@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-89f1i
+goal: "Criteria met on the Overview counts what today's coding runs were judged on, with operator overrules applied, instead of a number frozen since the step that fed it was removed."
+
+applies_to: "backend (expectation metrics endpoint) and dashboard (Overview criteria cards)"
+
+requires: ["2026-09-28-89f1e"]
+
+scope:
+  in: "The metric recomputed from each run's acceptance snapshot and criterion judgements, a new response shape and the Overview cards that read it."
+  out: "Dropping the old RunExpectations table: it stays as history."
+
+decisions:
+  - key: |
+      THE METRIC HAS BEEN FROZEN SINCE p0393 removed the step that wrote its rows. It is re-sourced from
+      what runs are judged by now: the acceptance snapshot on the run and the operator's criterion
+      judgements, joined by the criterion key.
+  - key: |
+      THE DEFINITION IS WRITTEN DOWN. Runs of pipeline `code`; criteria of the snapshot except the
+      synthetic account row; share = met / (met + unmet + unproven), not_applicable counted in neither;
+      bucketed by the run's finished date in UTC, per project and month. An overrule counts when the
+      machine status it answered is still the snapshot's status; otherwise it is stale, shown, and not
+      counted.
+  - key: |
+      THE SHAPE CHANGES, SO THE CARDS CHANGE. Ratification counts cannot express a share of criteria; the
+      endpoint keeps its route and returns the new shape, and the Overview cards are rewritten to it.
+
+steps:
+  - id: backend
+    action: "ExpectationMetrics computed from Run.AcceptanceJson and RunCriterionJudgement per the definition; new response shape."
+  - id: dashboard
+    action: "expectationsApi, expectationTotals, useExpectationMetrics, CriteriaMetCard, ExpectationMetricsView, ExpectationProjectCard on the new shape."
+  - id: docs
+    action: "operations/dashboard.md states what Criteria met counts."
+
+tests:
+  - "ExpectationMetrics_AggregatesFromAcceptanceSnapshot_PerProjectPerMonth"
+  - "ExpectationMetrics_NotApplicableExcluded_UnprovenCountsAgainst"
+  - "ExpectationMetrics_OverruleOnCurrentStatus_Counts"
+  - "ExpectationMetrics_StaleOverrule_NotCounted"
+  - "ExpectationMetrics_ScanRuns_NotCounted"
+  - "CriteriaMetCard_RendersShareAndCounts (vitest)"
+
+done:
+  - "Criteria met changes when a new coding run is judged"
+  - "an operator overrule on the current status moves the share"
+  - "build, dashboard and all tests green"
