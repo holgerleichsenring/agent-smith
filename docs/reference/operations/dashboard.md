@@ -122,7 +122,7 @@ A ticket the agent judged not implementable is parked and doesn't come back on a
 
 - **Spend · 7 days**, today and the trailing week with the LLM calls behind it. The panel **Where the money went** breaks the week down by repo and pipeline. Every figure is grouped from the run list the dashboard already holds; there's no separate cost endpoint and no second truth.
 - **Runs**, the same buckets the rail counts, with the finished ones split into succeeded, failed and cancelled.
-- **Criteria met**, expectation hit rate and first-PR acceptance per project, from the recorded ratification outcomes. A rate never renders as 0% without a measurement.
+- **Criteria met**, the share of acceptance criteria that finished `code` runs met: met over met, unmet and unproven, with not-applicable criteria counted on neither side. The panel **Criteria outcomes** breaks it down per project and per month of the run's finish (UTC). An operator's overrule of a criterion counts while the status it answered is still the run's; once the run has been judged differently it is shown as stale and not applied. Runs of other pipelines are not counted, and a share never renders as 0% without a measurement.
 
 ## System
 

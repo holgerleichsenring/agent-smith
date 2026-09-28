@@ -44,6 +44,38 @@ vi.mock("@/lib/catalogApi", () => ({
 }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
 
+// Five judged criteria over two runs: 3 met, 1 unmet, 1 unproven, 2 not applicable
+// (in neither side), one overrule applied and one left stale.
+const alphaCounts = {
+  met: 3,
+  unmet: 1,
+  unproven: 1,
+  notApplicable: 2,
+  overruled: 1,
+  staleOverrules: 1,
+  judged: 5,
+  share: 0.6,
+};
+const alphaCriteria = {
+  runs: 2,
+  counts: alphaCounts,
+  projects: [{ project: "alpha", runs: 2, counts: alphaCounts, months: [] }],
+};
+const noCriteria = {
+  runs: 0,
+  counts: {
+    met: 0,
+    unmet: 0,
+    unproven: 0,
+    notApplicable: 0,
+    overruled: 0,
+    staleOverrules: 0,
+    judged: 0,
+    share: null,
+  },
+  projects: [],
+};
+
 const mockedExpectations = expectationsApi as unknown as {
   fetchExpectationMetrics: ReturnType<typeof vi.fn>;
 };
@@ -68,7 +100,7 @@ describe("System & overview pages — parity design system (p0343d)", () => {
     HUB.overview = null;
     HUB.systemActivity = null;
     mockedExpectations.fetchExpectationMetrics.mockReset();
-    mockedExpectations.fetchExpectationMetrics.mockResolvedValue({ total: 0, projects: [] });
+    mockedExpectations.fetchExpectationMetrics.mockResolvedValue(noCriteria);
   });
 
   it("SystemPages_AllRoutes_RenderParityShell", async () => {
@@ -145,27 +177,13 @@ describe("System & overview pages — parity design system (p0343d)", () => {
     await screen.findByTestId("expectations-empty");
     overview.unmount();
 
-    // EXPECTATIONS — overall rates from the recorded ratification outcomes.
-    mockedExpectations.fetchExpectationMetrics.mockResolvedValue({
-      total: 5,
-      projects: [
-        {
-          project: "alpha",
-          counts: { total: 5, verbatim: 1, edited: 2, rejected: 1, unratified: 1 },
-          expectationHitRate: 0.25,
-          firstPrAcceptance: 0.6,
-          averageEditDistance: 8,
-          months: [],
-        },
-      ],
-    });
+    // CRITERIA — the share of judged criteria met, overrules applied.
+    mockedExpectations.fetchExpectationMetrics.mockResolvedValue(alphaCriteria);
     render(<OverviewView />);
-    expect(await screen.findByTestId("exp-metric-negotiated")).toHaveTextContent("5");
-    // 1 verbatim / 4 human-ratified (5 − 1 unratified) = 25%
-    expect(screen.getByTestId("exp-metric-hit-rate")).toHaveTextContent("25%");
-    // (1 verbatim + 2 edited) / 5 negotiated = 60%
-    expect(screen.getByTestId("exp-metric-acceptance")).toHaveTextContent("60%");
-    expect(screen.getByTestId("exp-metric-edit-distance")).toHaveTextContent("8");
-    expect(screen.getByTestId("exp-metric-hit-rate").className).toContain("metric");
+    expect(await screen.findByTestId("exp-metric-runs")).toHaveTextContent("2");
+    // 3 met of 5 judged (met + unmet + unproven); not applicable is in neither.
+    expect(screen.getByTestId("exp-metric-share")).toHaveTextContent("60%");
+    expect(screen.getByTestId("exp-metric-overruled")).toHaveTextContent("1 stale");
+    expect(screen.getByTestId("exp-metric-share").className).toContain("metric");
   });
 });

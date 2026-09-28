@@ -164,8 +164,8 @@ internal static class RelationalPersistenceExtensions
         // queue removal) before the record delete.
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<Services.Lifecycle.RunDeleter>();
-        // p0329: ratification outcomes → expectation-metrics read surface.
-        services.AddScoped<ExpectationMetricsRepository>().AddScoped<CriterionJudgementRepository>();
+        // The Criteria met read surface and the operator judgements it applies.
+        services.AddScoped<CriteriaMetRepository>().AddScoped<CriterionJudgementRepository>();
         services.AddScoped<RunRetentionService>();
 
         // p0246e: mirror the durable markdown slots into the DB so result.md / plan.md

@@ -1,11 +1,10 @@
 import type { ExpectationRead } from "@/hooks/useExpectationMetrics";
-import { ratifiedCount, sumOutcomeCounts } from "@/lib/expectationTotals";
+import { judgedSentence, percentOrDash } from "@/lib/expectationTotals";
 import { OverviewCard } from "@/components/overview/OverviewCard";
 
-// 2026-08-27-559e: how often a draft was ratified verbatim, as one figure with
-// its proportion drawn beneath it. It is the panel's own hit rate — the same
-// sum over the same per-project counts — so the card and the panel below it
-// cannot disagree.
+// The share of criteria finished coding runs met, operator overrules applied, as one
+// figure with its proportion drawn beneath it. It reads the same counts as the panel
+// below it, so the two cannot disagree.
 
 interface CriteriaReading {
   value: string;
@@ -26,20 +25,22 @@ export function CriteriaMetCard({ read }: { read: ExpectationRead }) {
   );
 }
 
-// A rate never renders as 0% without a measurement: an unread, failed, empty or
-// wholly unratified installation gets a dash and a sentence, not a number.
+// A share never renders as 0% without a measurement: an unread, failed or unjudged
+// installation gets a dash and a sentence, not a number.
 function criteriaReading({ data, error }: ExpectationRead): CriteriaReading {
-  if (error) return { value: "—", detail: "Criteria outcomes unavailable" };
-  if (!data) return { value: "—", detail: "Reading ratification outcomes…" };
-  const sum = sumOutcomeCounts(data.projects);
-  const ratified = ratifiedCount(sum);
-  if (ratified <= 0) {
-    return { value: "—", detail: `${sum.total} negotiated · none ratified yet` };
+  if (error) return { value: "—", detail: "Criteria unavailable" };
+  if (!data) return { value: "—", detail: "Reading judged criteria…" };
+  const { counts } = data;
+  if (counts.share === null) {
+    return { value: "—", detail: `${runsPhrase(data.runs)} · no criterion judged yet` };
   }
-  const share = sum.verbatim / ratified;
   return {
-    value: `${Math.round(share * 100)}%`,
-    share,
-    detail: `${sum.verbatim} of ${ratified} ratified criteria verified`,
+    value: percentOrDash(counts.share),
+    share: counts.share,
+    detail: `${judgedSentence(counts)} · ${runsPhrase(data.runs)}`,
   };
+}
+
+function runsPhrase(runs: number): string {
+  return `${runs} coding run${runs === 1 ? "" : "s"}`;
 }
