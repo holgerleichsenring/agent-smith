@@ -21,17 +21,17 @@ I built it because most AI coding tools stop at a suggestion in your editor and 
 
 ## What it does
 
-You drop a ticket into your tracker. Agent Smith reads it, clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), writes the code, runs the tests, opens one pull request per repo with the changes cross-linked, and writes the ticket back as resolved with every PR URL in the comment.
+You drop a ticket into your tracker. Agent Smith reads it and derives a specification: the phases the work needs and, per phase, what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), works the phases in order, runs the verification each repository declares, opens one pull request per repo with the changes cross-linked, and writes the ticket back with every PR URL in the comment.
 
-The reasoning the agent followed lands on disk in `.agentsmith/runs/{run-id}/` — a `plan.md`, a `result.md` with token usage and dollar cost, and a `decisions.md` for the non-obvious choices. Read it six months later when you've forgotten why.
+Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://agent-smith.org/azure-devops/) says why that matters.
 
-## The loop under the hood
+The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it six months later when you've forgotten why.
 
-Seen from the inside, every coding run is one control loop. The ticket gets sized into a dollar-and-token budget at admission, the plan gets ratified before a line of code changes, and the loop keeps going only while it makes real forward progress. The exit is a verification cross-checked against the real committed diff — a run can't report green without a matching change.
+## What decides that a run delivered
 
-![The coding master control loop: admit, plan, the execute loop, land](docs/assets/coding-loop.svg)
+Green tests aren't the verdict. After a phase's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.agent-smith.org/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/) walks through a run step by step.
 
-Component names on the stages map one-to-one to the C# types that own them. The [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/#the-control-loop-up-close) walks through every stage.
+If you'd rather think the change through first, the dashboard's [Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 
 ## The dashboard
 
@@ -39,7 +39,7 @@ A live mission-control view of every run — what's waiting on you, what's in fl
 
 ![Agent Smith dashboard — runs overview](docs/assets/screenshots/dashboard-runs.png)
 
-When a run hits a decision it shouldn't make alone, it pauses and asks. Your answer resumes it immediately — no tokens burning while it waits. Every run keeps a five-beat story (ticket → plan → build → verify → outcome) you can open:
+When a run hits a decision it shouldn't make alone, it pauses and asks. Your answer resumes it — no tokens burning while it waits. Every run keeps a five-beat story (ticket → plan → build → verify → outcome) you can open:
 
 ![Run detail — the story of a run](docs/assets/screenshots/run-detail.png)
 
@@ -56,23 +56,23 @@ Configuration is a picked-not-typed catalog: agents, trackers, repos and connect
 | GitHub Issues | Azure OpenAI | Kubernetes |
 | GitLab Issues | Google Gemini | |
 | | Ollama (local) | |
-| | OpenAI-compatible (Groq, vLLM, LM Studio, …) | |
+| | GitHub Copilot (on your seat) | |
 
-The skills — the role definitions for what an architect / reviewer / security analyst does in a run — are developed in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), and every release ships with its catalog embedded. The binary you download carries the exact skills it was tested with; there is nothing to pin and nothing to fetch on first run. A `skills:` block in the config is only for overriding that (skills development, air-gap mirrors).
+The skills — the masters that drive each pipeline and the rules they follow — are developed in a [separate repo](https://github.com/holgerleichsenring/agent-smith-skills), and every release ships with its catalog embedded. The binary you download carries the exact skills it was tested with; there is nothing to pin and nothing to fetch on first run. A `skills:` block in the config is only for overriding that (skills development, air-gap mirrors).
 
 ## Built by the method it teaches
 
-Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over six months, by me and one language model. The numbers below are the receipts.
+Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over seven months, by me and one language model. The numbers below are the receipts.
 
 |  |  |
 |---|---|
-| **610** | completed phases, each specified before a line of code existed |
-| **2,587** | recorded decisions, each naming the alternative it beat |
-| **244,753** | lines of C# across 3,044 files in 31 projects |
-| **3,760** | automated tests, gating every single commit |
-| **~500 h** | of human time, roughly 50 minutes per completed phase |
+| **968** | completed phases, each specified before a line of code existed |
+| **5,062** | recorded decisions, each naming the alternative it beat |
+| **432,267** | lines of C# across 4,803 files |
+| **7,038** | automated tests, gating every single commit |
+| **~650 h** | of human time, roughly 40 minutes per completed phase |
 
-Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/phase-gate.sh) that lets a phase commit through once the build, all 3,760 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
+Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/phase-gate.sh) that lets a phase commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
 The `principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
@@ -112,8 +112,7 @@ For your real systems, drop an `agentsmith.yml` in a working directory:
 agents:
   default-openai:
     type: openai
-    models:
-      primary: { model: gpt-4.1 }
+    model: gpt-4.1        # every role on one model; see AI providers for a model per role
 
 repos:
   todolist:
@@ -124,7 +123,7 @@ repos:
 trackers:
   acme-issues:
     type: github
-    organization: acme-org
+    url: https://github.com/acme-org/todolist    # the repo whose issues are the tickets
     auth: github_token
 
 projects:
@@ -145,7 +144,7 @@ export OPENAI_API_KEY=sk-...
 export GITHUB_TOKEN=ghp_...
 
 agent-smith doctor
-agent-smith fix --ticket 54 --project todolist
+agent-smith code --ticket 54 --project todolist
 ```
 
 `doctor` actually probes everything — it calls the LLM, authenticates against the tracker, spawns a throwaway sandbox — and names what's broken with a fix hint, before a run spends tokens on it. The [first-run page](https://docs.agent-smith.org/get-it-running/first-run/) shows the end-to-end output.
@@ -155,17 +154,16 @@ agent-smith fix --ticket 54 --project todolist
 `code` is the headline because shipping a change is the one most people show up for — one pipeline for bug, feature and phase tickets alike, because what differs between them is the specification it derives, not the steps it runs. The rest of the box:
 
 - `pr-review` — reviews a PR diff and posts line-anchored findings as comments; re-review on push replaces them.
-- `security-scan` — multi-role code security review, including git-history secrets.
-- `api-security-scan` — Nuclei + Spectral + an AI panel against a live API.
-- `legal-analysis` — contract review with five legal specialists.
-- `mad-discussion` — multi-agent design discussion when you want to argue something out.
-- `init-project` — bootstraps `.agentsmith/context.yaml` per repo in a project.
-- `autonomous` — open-ended operator-driven loop.
-- `skill-manager` — author / lint / validate skills.
+- `security-scan` — a security master reviews the code, reconciles it with the scanners, and every finding it delivers has to survive a refuter.
+- `api-security-scan` — Nuclei, Spectral and ZAP against a live API, judged by the same kind of master.
+- `legal-analysis` — contract review.
+- `mad-discussion` — multi-perspective design discussion when you want to argue something out.
+- `init-project` — bootstraps `.agentsmith/contexts/<name>/` per component in each repo of a project.
+- `spec-dialog` — the design conversation that ends in a filed ticket with an approved specification.
 
-Same orchestrator, different roles. You can define your own in `agentsmith.yml` too — see the [pipeline reference](https://docs.agent-smith.org/reference/pipelines/).
+Same orchestrator, different masters. The [pipeline reference](https://docs.agent-smith.org/reference/pipelines/) has each one.
 
-And two things that took the longest to get right, so I'll name them here: before a run writes code it negotiates the expectation with you — what must be true afterwards, ratified on the ticket, and that ratified block is what the PR gets reviewed against. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a chat side to this ([spec dialogue](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): discuss the work in Slack or Teams, and it drafts the phases and files the tickets.
+And two things that took the longest to get right, so I'll name them here: a run doesn't take its own word for being done — every acceptance criterion gets a verdict with evidence from a reader that never saw the work being done. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a conversational side ([Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) in the dashboard, or [Slack and Teams](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): talk the change through, approve the specification, and it files the ticket.
 
 ## Where the docs are
 
@@ -173,7 +171,7 @@ And two things that took the longest to get right, so I'll name them here: befor
 - **[Connect your stuff](https://docs.agent-smith.org/connect-your-stuff/tracker-azure-devops/)** — tracker + repos + AI provider, with a copy-pasteable YAML per system.
 - **[Trigger it](https://docs.agent-smith.org/trigger-it/webhooks/)** — webhooks, polling, labels, CLI.
 - **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes with honest capacity quotas.
-- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the expectation contract, the spec dialogue.
+- **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the delivery account, Work it out.
 - **[Dashboard](https://docs.agent-smith.org/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
 
 ## License

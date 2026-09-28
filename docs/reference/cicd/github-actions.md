@@ -1,8 +1,10 @@
 # GitHub Actions
 
-## Binary Download + API Scan
+The examples assume the repository carries `ci/agentsmith.yml` with an agent named `ci-scan`, as described on the [CI/CD overview](index.md#what-a-ci-run-needs).
 
-Download the binary, run a scan, and upload SARIF results to the GitHub Security tab.
+## Security scan with SARIF upload
+
+Run the security-scan pipeline (static patterns, git history, dependency audit, the security master's review) and upload the SARIF results to the repository's Security tab.
 
 ```yaml
 # .github/workflows/security-scan.yml
@@ -15,64 +17,7 @@ on:
     branches: [main]
 
 permissions:
-  security-events: write  # Required for SARIF upload
-  contents: read
-
-jobs:
-  api-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Agent Smith
-        run: |
-          curl -fsSL -o agent-smith \
-            https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
-          chmod +x agent-smith
-
-      - name: Run API Security Scan
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          ./agent-smith api-scan \
-            --repo ${{ github.workspace }} \
-            --output console,sarif,summary \
-            --output-dir ./results
-
-      - name: Upload SARIF to GitHub Security
-        if: always()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: ./results/results.sarif
-          category: agent-smith-api-scan
-
-      - name: Upload Report Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-report
-          path: ./results/
-```
-
-!!! tip "GitHub Security Tab"
-    The `github/codeql-action/upload-sarif@v3` action uploads findings to the **Security** tab of your repository. Findings appear alongside CodeQL results, with full code location links and severity levels.
-
-## Security Scan with SARIF Upload
-
-Run the full security-scan pipeline (static patterns, git history, dependency audit, AI specialist panel) and upload SARIF results to the GitHub Security tab.
-
-```yaml
-# .github/workflows/security-scan.yml
-name: Agent Smith Code Security Scan
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  security-events: write
+  security-events: write  # required for SARIF upload
   contents: read
 
 jobs:
@@ -81,7 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 500  # Required for git history scanning
+          fetch-depth: 500  # history for the git history scan
 
       - name: Download Agent Smith
         run: |
@@ -94,44 +39,85 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           ./agent-smith security-scan \
-            --repo . \
-            --output sarif \
-            --output-dir ./security-results
+            --config ci/agentsmith.yml \
+            --agent ci-scan \
+            --source-path . \
+            --output console,sarif,markdown \
+            --output-dir ./results
 
       - name: Upload SARIF
         if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: ./security-results/findings.sarif
+          sarif_file: ./results/findings.sarif
           category: agent-smith-security-scan
 
-      - name: Upload Report Artifact
+      - name: Upload report artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-scan-report
-          path: ./security-results/
+          path: ./results/
 ```
 
+!!! tip "GitHub Security tab"
+    `github/codeql-action/upload-sarif` puts the findings in the **Security** tab of your repository, next to CodeQL results, with code locations and severity levels.
+
 !!! tip "Git history scanning"
-    Set `fetch-depth: 500` on the checkout step so the `GitHistoryScan` step can scan commit history for leaked secrets. Without sufficient history, only the current tree is scanned.
+    Set `fetch-depth` on the checkout step so the `GitHistoryScan` step has commits to read. It scans the last 500. With the default shallow clone only the current commit is available.
 
-## PR Comment with Findings
+## API scan
 
-Post a Markdown summary as a PR comment:
+`api-scan` probes a running API, so it needs the OpenAPI description (`--swagger`, a path or URL) and the base URL (`--target`). Point it at a test or staging deployment. GitHub-hosted Ubuntu runners have Docker, so Nuclei, Spectral and ZAP run in containers.
+
+```yaml
+  api-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Agent Smith
+        run: |
+          curl -fsSL -o agent-smith \
+            https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-linux-x64
+          chmod +x agent-smith
+
+      - name: Run API security scan
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ./agent-smith api-scan \
+            --config ci/agentsmith.yml \
+            --agent ci-scan \
+            --swagger https://api.staging.example.com/swagger/v1/swagger.json \
+            --target https://api.staging.example.com \
+            --output console,sarif,markdown \
+            --output-dir ./api-results
+
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ./api-results/findings.sarif
+          category: agent-smith-api-scan
+```
+
+## PR comment with findings
+
+Post the Markdown report as a sticky PR comment:
 
 ```yaml
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          path: ./results/summary.md
+          path: ./results/findings.md
           header: agent-smith-scan
 ```
 
-## Self-Hosted Runners (ARM64)
+## Other runners
 
-For ARM64 runners (e.g., Graviton):
+For ARM64 runners, download `agent-smith-linux-arm64`. On macOS runners, use `agent-smith-osx-arm64` (Apple silicon) or `agent-smith-osx-x64`:
 
 ```yaml
       - name: Download Agent Smith (ARM64)
@@ -141,43 +127,28 @@ For ARM64 runners (e.g., Graviton):
           chmod +x agent-smith
 ```
 
-## macOS Runners
+## Quality gate
+
+Fail the workflow when Critical or High findings are present. They carry the SARIF level `error`:
 
 ```yaml
-  api-scan-macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download Agent Smith
-        run: |
-          curl -fsSL -o agent-smith \
-            https://github.com/holgerleichsenring/agent-smith/releases/latest/download/agent-smith-osx-arm64
-          chmod +x agent-smith
-```
-
-## Quality Gate
-
-Fail the workflow when findings exceed a threshold:
-
-```yaml
-      - name: Check Findings
+      - name: Check findings
         if: always()
         run: |
-          if [ -f ./results/results.sarif ]; then
-            ERRORS=$(jq '[.runs[].results[] | select(.level == "error")] | length' ./results/results.sarif)
-            echo "Critical findings: $ERRORS"
+          if [ -f ./results/findings.sarif ]; then
+            ERRORS=$(jq '[.runs[].results[] | select(.level == "error")] | length' ./results/findings.sarif)
+            echo "Critical or high findings: $ERRORS"
             if [ "$ERRORS" -gt 0 ]; then
-              echo "::error::Found $ERRORS critical security findings"
+              echo "::error::Found $ERRORS critical or high security findings"
               exit 1
             fi
           fi
 ```
 
-## Secrets Configuration
+## Secrets configuration
 
-Add these in **Settings > Secrets and variables > Actions**:
+Add this in **Settings > Secrets and variables > Actions**:
 
-| Secret              | Required | Description              |
-|---------------------|----------|--------------------------|
-| `ANTHROPIC_API_KEY` | Yes      | Claude API key           |
-| `GITHUB_TOKEN`      | Auto     | Provided by Actions runtime |
+| Secret              | Required | Description                                |
+|---------------------|----------|--------------------------------------------|
+| `ANTHROPIC_API_KEY` | Yes      | Key for the `claude` agent; use your provider's variable for another agent type |

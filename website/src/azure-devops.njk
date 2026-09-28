@@ -1,0 +1,112 @@
+---
+layout: layouts/base.njk
+permalink: /azure-devops/
+title: "Agent Smith for Azure DevOps — from work item to pull request"
+description: "Agent Smith takes an Azure Boards work item, writes the code in a sandbox, verifies it, and opens the pull request in Azure Repos. Self hosted, with your own Azure OpenAI or any other provider."
+---
+<section class="hero">
+  <div class="hero-inner">
+    <h1 class="hero-headline">Azure Boards in, Azure Repos out</h1>
+    <p class="hero-sub">
+      Agent Smith picks up a work item from Azure Boards, clones your Azure Repos into a sandbox, writes the change, runs your tests, and opens the pull request in Azure Repos. Then it moves the work item to the state you called done.
+    </p>
+    <p class="hero-sub hero-sub-secondary">
+      No GitHub mirror in between. It runs in your own estate and calls the model you already pay for.
+    </p>
+    <div class="hero-actions">
+      <a href="{{ site.docsUrl }}/connect-your-stuff/tracker-azure-devops/" class="btn btn-primary">Wire up Azure DevOps</a>
+      <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-tertiary">View on GitHub</a>
+    </div>
+  </div>
+</section>
+
+<section class="prose-section" id="gap">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">Why this page exists</h2>
+    <p class="prose">
+      If your tickets live in Azure Boards and your code lives in Azure Repos, you have probably asked whether Copilot can take a work item and hand back a pull request. It can, as long as the code sits on GitHub. Microsoft says so on its own page: the integration "requires GitHub repositories and GitHub App authentication. Azure Repos (Azure DevOps Git repositories) aren't supported" (<a class="prose-link" href="https://learn.microsoft.com/en-us/azure/devops/boards/github/work-item-integration-github-copilot?view=azure-devops">Use GitHub Copilot with Azure Boards</a>, as of its update on 2026-07-23).
+    </p>
+    <p class="prose">
+      Copilot's code review did make it to Azure Repos (<a class="prose-link" href="https://learn.microsoft.com/en-us/azure/devops/release-notes/2026/sprint-279-update">public preview since August 2026</a>). Reviewing a pull request somebody already wrote is a different job, though. Writing it from the ticket is the part that is missing, and that is the part Agent Smith does.
+    </p>
+    <p class="prose">
+      If Microsoft ships Azure Repos support tomorrow, this page gets a new date. I'd still run Agent Smith there, for the reasons further down.
+    </p>
+  </div>
+</section>
+
+<section class="prose-section prose-section-cream" id="flow">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">What happens to a work item</h2>
+
+    <h3 class="prose-heading">It routes by tag, area path or repository</h3>
+    <p class="prose">
+      A project in Agent Smith says which work items belong to it: tag them <code class="inline-code">TodoList</code>, put them under an area path, or name the repository. A service hook posts to Agent Smith when a work item changes, or it polls with WIQL if you can't open a port to it. Comments and image attachments on the work item go to the model along with the description.
+    </p>
+
+    <h3 class="prose-heading">Every repository gets its own sandbox</h3>
+    <p class="prose">
+      A product spread over four Azure Repos gets four sandboxes, each on the toolchain image that repository builds with. The agent works in all of them at once and opens one pull request per repository, and each pull request links to the others.
+    </p>
+
+    <h3 class="prose-heading">Green means your tests passed</h3>
+    <p class="prose">
+      Each repository declares how it is verified, and the run is only called done when those commands pass on the change it actually committed. A red verification still opens the pull request, as a draft, so the work is there to look at and nothing unverified looks mergeable. Afterwards every acceptance criterion gets its own verdict, with the evidence it rests on. You can overrule a verdict you disagree with, and the reason you give is kept.
+    </p>
+
+    <h3 class="prose-heading">The work item hears back</h3>
+    <p class="prose">
+      The work item moves to your done state and gets a comment with every pull request link and the run id. If the ticket is too thin to act on, it goes to your needs-clarification state with the questions, and your answer in the comments resumes the run.
+    </p>
+  </div>
+</section>
+
+<section class="prose-section" id="before">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">Before there is a work item</h2>
+    <p class="prose">
+      A ticket is often one line long, and the thinking it needs hasn't happened yet. So the dashboard has a page called Work it out, where you talk the change through with an agent that reads your actual repositories while it answers. When you both agree, it proposes a specification: one phase, or several in an order. You approve that, and Agent Smith files one work item in Azure Boards, with the work item type you mapped for it (User Story, Bug, whatever your process uses).
+    </p>
+    <p class="prose">
+      The run then works exactly that approved specification, phase by phase. A phase only starts once the one before it has verified. Microsoft's page lists as a limitation that Copilot "doesn't handle dependencies between work items". With Agent Smith you don't split the dependency across work items in the first place. The order is in the specification you approved.
+    </p>
+    <p class="prose">
+      <a class="prose-link" href="{{ site.docsUrl }}/how-it-works/work-it-out/">How Work it out works</a>
+    </p>
+  </div>
+</section>
+
+<section class="prose-section prose-section-cream" id="estate">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">It stays in your estate</h2>
+    <p class="prose">
+      Agent Smith runs on your Kubernetes cluster or on a single Docker host. It needs a Personal Access Token with Code and Work Items read and write, and nothing on GitHub. For the model, point it at your Azure OpenAI deployment and the code never leaves your tenant. Anthropic, OpenAI, Gemini or a local Ollama work too, and you can pick a different model for each role.
+    </p>
+    <p class="prose">
+      Sign-in to the dashboard goes through your own OpenID Connect authority, Entra ID included, and roles map from your groups. Every run keeps its full trail of tool calls, and what it cost.
+    </p>
+    <p class="prose">
+      <a class="prose-link" href="{{ site.docsUrl }}/host-it/kubernetes/">Kubernetes</a> · <a class="prose-link" href="{{ site.docsUrl }}/host-it/docker-compose/">Docker Compose</a> · <a class="prose-link" href="{{ site.docsUrl }}/connect-your-stuff/ai-providers/">AI providers</a> · <a class="prose-link" href="{{ site.docsUrl }}/reference/security/access-control/">Access control</a>
+    </p>
+  </div>
+</section>
+
+<section class="prose-section" id="others">
+  <div class="section-wrap section-narrow">
+    <h2 class="section-title">And if half your teams are on Jira</h2>
+    <p class="prose">
+      It's the same product. Jira, GitHub Issues and GitLab work as trackers, and GitHub and GitLab as code hosts, so one installation can serve an Azure DevOps team and a Jira team side by side. The <a class="prose-link" href="/">main page</a> tells that story.
+    </p>
+  </div>
+</section>
+
+<section class="cta-section">
+  <div class="section-wrap section-narrow">
+    <h2 class="cta-title">Have a look</h2>
+    <p class="cta-sub">The Azure DevOps guide wires a tracker, four repositories and a project in the configuration studio.</p>
+    <div class="cta-actions">
+      <a href="{{ site.docsUrl }}/connect-your-stuff/tracker-azure-devops/" class="btn btn-on-dark">Wire up Azure DevOps</a>
+      <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-secondary-on-dark">View on GitHub</a>
+    </div>
+  </div>
+</section>

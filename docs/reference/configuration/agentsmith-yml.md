@@ -1,337 +1,274 @@
-# agentsmith.yml Reference
+# agentsmith.yml reference
 
 !!! note "Which surface reads this"
-    This page documents the file format. A **server** reads only `persistence:` and `secrets:` from it and keeps everything else in its database, edited in the [Config studio](../../configure-it/config-studio.md). The **CLI** reads the whole file. Same shape either way, and `agent-smith config import` takes exactly this document. See [Where configuration lives](../../configure-it/index.md).
+    This page documents the file format. A **server** reads only the bootstrap slice (`persistence:`, `secrets:`, `auth:`) from it and keeps everything else in its database, edited in the [Config studio](../../configure-it/config-studio.md). The **CLI** reads the whole file. Same shape either way, and `agent-smith config import` takes exactly this document. See [Where configuration lives](../../configure-it/index.md).
 
+The file is a set of named **catalogs** (agents, trackers, connections, repos, MCP servers, secrets) plus **projects** that wire catalog entries together by name, plus a handful of global settings blocks. Names are matched without regard to case, so `TodoList` and `todolist` are the same project; two entries of one catalog that differ only in case are refused.
 
-Complete reference for the main configuration file.
+The annotated `config/agentsmith.example.yml` in the repo is the fullest worked example, and `config/agentsmith.schema.json` gives your editor completion (see [agentsmith.yml](../../configure-it/yaml.md#editor-support)).
 
-!!! warning "Drift notice — 2026-05-22"
-    Sections below show the **inline-per-project** schema (one `source`/`tickets`/`agent` block per project) used before p0139. The current schema is **catalog-based**: top-level `agents:`, `trackers:`, `repos:` catalogs that projects reference by name, with multi-repo support (p0140) via `projects.{name}.repos: [name, name, ...]`. For the up-to-date schema see [Repos: multi-repo](../../connect-your-stuff/repos-multi.md) and the [schema reference](agentsmith-yml-schema.md) in this directory. A full rewrite of this page is tracked as a follow-up.
-
-## Full Annotated Example (legacy inline shape — superseded)
+## A complete small example
 
 ```yaml
-# ─── Projects ────────────────────────────────────────────────────────
+agents:
+  default-claude:
+    type: claude
+    models:
+      scout:         { model: claude-haiku-4-5-20251001 }
+      primary:       { model: claude-sonnet-4-6 }
+      planning:      { model: claude-sonnet-4-6 }
+      summarization: { model: claude-haiku-4-5-20251001 }
+    pricing:
+      models:
+        claude-sonnet-4-6:         { input_per_million: 3.0, output_per_million: 15.0, cache_read_per_million: 0.30 }
+        claude-haiku-4-5-20251001: { input_per_million: 1.0, output_per_million: 5.0,  cache_read_per_million: 0.10 }
+
+connections:
+  acme:
+    type: github
+    owner: acme-org
+    auth: github_token
+
+trackers:
+  acme-issues:
+    type: github
+    url: https://github.com/acme-org/todolist-api
+    auth: github_token
+    open_states: [open]
+    done_status: closed
+    default_pipeline: code
+    pipeline_from_label:
+      agent-smith:bug:     code
+      agent-smith:feature: code
+
 projects:
-  my-api:                           # Project key (used in CLI: --project my-api)
-    source:
-      type: GitHub                  # GitHub | AzureDevOps | GitLab | Local
-      url: https://github.com/owner/repo
-      auth: token                   # Auth method (resolved from secrets)
-      # default_branch: main        # PR target branch (auto-detected if omitted)
+  todolist:
+    agent: default-claude
+    tracker: acme-issues
+    repos:
+      - acme/todolist-api
+      - acme/todolist-web
+    resolution:
+      tag: todolist
 
-    tickets:
-      type: GitHub                  # GitHub | AzureDevOps | Jira | GitLab
-      url: https://github.com/owner/repo
-      auth: token
-      # open_states: ["New", "Active"]  # States considered "open" (ADO whitelist)
-      # done_status: "Closed"           # Target state when closing
-      # close_transition_name: "Close"  # Jira transition name for closing
-      # extra_fields: []                # Additional ADO fields to fetch
-      # Azure DevOps only:
-      # organization: my-org
-      # project: my-project
-
-    agent:
-      type: Claude                  # Claude | OpenAI | Gemini | Ollama
-      model: claude-sonnet-4-20250514
-
-      retry:
-        max_retries: 5
-        initial_delay_ms: 2000
-        backoff_multiplier: 2.0
-        max_delay_ms: 60000
-
-      cache:                        # Anthropic prompt caching (Claude only)
-        is_enabled: true
-        strategy: automatic
-
-      compaction:                   # Context window management — see docs/concepts/context-compaction.md
-        is_enabled: true
-        threshold_iterations: 8     # Fire when iterations >= N (boolean OR with max_context_tokens)
-        max_context_tokens: 80000   # Fire when estimated tokens >= N (boolean OR with threshold_iterations)
-        keep_recent_iterations: 3   # Claude compactor knob; OpenAi compactor keeps 2 complete tool-call rounds
-        summary_model: claude-haiku-4-5-20251001  # Claude compactor — summarizer model
-        deployment_name: gpt-4o-mini-deployment   # OpenAI/Azure compactor — summarizer deployment override (cheaper than primary)
-        # Provider availability:
-        #   claude        ✓  ClaudeContextCompactor (p0008)
-        #   openai        ✓  OpenAiContextCompactor (p0114)
-        #   azure-openai  ✓  OpenAiContextCompactor (p0114)
-        #   gemini        ✗  NoOp placeholder — same long-loop cost; follow-up phase
-        #   ollama        ✗  NoOp placeholder — same long-loop cost; follow-up phase
-
-      models:                       # Multi-model routing (optional)
-        # max_tokens is the OUTPUT cap. context_window_tokens (optional, unset by
-        # default) is the INPUT window the DEPLOYMENT behind the role accepts — the
-        # model name does not imply it. State it and the tool loop for that role folds
-        # its history and finalises before the provider refuses; leave it unset and
-        # nothing is derived. Preflight's context-window check reports a compaction
-        # threshold that could never fire below a stated window.
-        scout:
-          model: claude-haiku-4-5-20251001
-          max_tokens: 4096
-          context_window_tokens: 200000
-        primary:
-          model: claude-sonnet-4-20250514
-          max_tokens: 8192
-        planning:
-          model: claude-sonnet-4-20250514
-          max_tokens: 4096
-        summarization:
-          model: claude-haiku-4-5-20251001
-          max_tokens: 2048
-
-      pricing:                      # USD per million tokens
-        models:
-          claude-sonnet-4-20250514:
-            input_per_million: 3.0
-            output_per_million: 15.0
-            cache_read_per_million: 0.30
-          claude-haiku-4-5-20251001:
-            input_per_million: 0.80
-            output_per_million: 4.0
-            cache_read_per_million: 0.08
-
-    pipeline: code                  # Default pipeline for this project
-    skills_path: skills/coding      # Relative to config/ directory
-    coding_principles_path: .agentsmith/principles.md
-
-    # ─── Trigger config ────────────────────────────────────────────
-    # One section per platform; pick the one matching tickets.type.
-    # All four shapes are identical (Jira adds assignee_name).
-    github_trigger:
-      pipeline_from_label:
-        agent-smith: code
-        security-review: security-scan
-      default_pipeline: code
-      trigger_statuses: []          # empty = all states allowed
-      done_status: "In Review"      # post-PR transition
-
-    # gitlab_trigger:    # same shape
-    # azuredevops_trigger:  # same shape (uses tags instead of labels)
-    # jira_trigger:
-    #   assignee_name: "Agent Smith"      # required for Jira gating
-    #   pipeline_from_label: { ... }
-    #   ...
-
-    # ─── Polling (alternative ingress to webhooks) ─────────────────
-    polling:
-      enabled: false                # default: webhook-only
-      interval_seconds: 60
-      jitter_percent: 10            # ±% applied to the interval
-
-# ─── Process-wide queue (consumer + receiver) ──────────────────────
-agent:
-  queue:
-    max_parallel_jobs: 4            # SemaphoreSlim cap on PipelineQueueConsumer
-    consume_block_seconds: 5        # LPOP poll interval
-    shutdown_grace_seconds: 30      # in-flight grace on SIGTERM
-    redis_retry_interval_seconds: 30 # subsystems poll IConnectionMultiplexer.IsConnected
-                                     # at this cadence when Redis is configured but
-                                     # unreachable; once connected they start their work
-
-# ─── Pipelines ───────────────────────────────────────────────────────
-pipelines:
-  code:
-    commands:
-      - FetchTicketCommand
-      - CheckoutSourceCommand
-      - BootstrapProjectCommand
-      - LoadCodeMapCommand
-      - LoadCodingPrinciplesCommand
-      - LoadContextCommand
-      - AnalyzeCodeCommand
-      - GeneratePlanCommand
-      - ApprovalCommand
-      - AgenticExecuteCommand
-      - TestCommand
-      - WriteRunResultCommand
-      - CommitAndPRCommand
-
-# ─── Tool Runner ─────────────────────────────────────────────────────
-tool_runner:
-  type: auto                        # auto | docker | podman | process
-  # socket: unix:///var/run/docker.sock
-  images:
-    nuclei: projectdiscovery/nuclei:latest
-    spectral: stoplight/spectral:6
-
-# ─── Secrets ─────────────────────────────────────────────────────────
 secrets:
-  github_token: ${GITHUB_TOKEN}
-  anthropic_api_key: ${ANTHROPIC_API_KEY}
-  # openai_api_key: ${OPENAI_API_KEY}
-  # gemini_api_key: ${GEMINI_API_KEY}
-  # azure_devops_token: ${AZURE_DEVOPS_TOKEN}
+  claude_api_key: ${ANTHROPIC_API_KEY}
+  github_token:   ${GITHUB_TOKEN}
 ```
 
-## Section Reference
+The prices above are placeholders; put in what your provider charges.
 
-### projects
+## agents
 
-Each key under `projects` defines a project. Use `--project <key>` on the CLI to select which project to run.
+One entry per LLM configuration. A project names one with `agent:`.
 
-| Field | Required | Description |
-|-------|----------|-------------|
-| `source.type` | Yes | Source provider: `GitHub`, `AzureDevOps`, `GitLab`, `Local` |
-| `source.url` | Yes* | Repository URL (*not required for `Local`) |
-| `source.path` | No | Local path (for `Local` type) |
-| `source.auth` | Yes | Auth method: `token` |
-| `source.default_branch` | No | PR target branch. If omitted, read from remote API (cached per run); last resort `main` |
-| `tickets.type` | Yes | Ticket provider: `GitHub`, `AzureDevOps`, `Jira`, `GitLab` |
-| `tickets.url` | Yes | Ticket system URL |
-| `tickets.organization` | No | Azure DevOps organization name |
-| `tickets.project` | No | Azure DevOps project name |
-| `tickets.open_states` | No | Whitelist of states considered "open" for `ListOpenAsync` (ADO only, default: `New`, `Active`, `Committed`) |
-| `tickets.done_status` | No | Target state when closing a ticket (default: `Closed` for ADO, `Done` for Jira) |
-| `tickets.close_transition_name` | No | Jira only: transition name for closing (default: `Close`) |
-| `tickets.extra_fields` | No | Additional fields to fetch from work items (ADO only, e.g. custom fields). Missing fields map to null |
-| `pipeline` | Legacy* | Single-pipeline form: pipeline name. Translated by the loader into a single-element `pipelines:` list with `default_pipeline = <name>`. *Use `pipelines:` for new configs. |
-| `pipelines` | Yes** | Multi-pipeline form (p0106): list of `{ name, agent?, skills_path?, coding_principles_path? }`. Each entry's optional fields override the project-level value. **Required if `pipeline:` is not set. |
-| `default_pipeline` | No | Pipeline name to use when CLI / fallback paths omit an explicit choice. Required when `pipelines:` has more than one entry; auto-set from `pipeline:` for legacy configs. |
-| `skills_path` | No | Project-level skills directory. Optional — `pipelines[].skills_path` overrides; otherwise the per-pipeline default applies (`security-scan` → `skills/security`, etc.). |
-| `coding_principles_path` | No | Path to coding conventions file (overridable per pipeline). |
+| Key | Description |
+|-----|-------------|
+| `type` | `claude`, `openai`, `azure_openai`, `gemini`, `ollama`, `copilot`. See [AI providers](../../connect-your-stuff/ai-providers.md) |
+| `endpoint`, `api_version` | provider endpoint (Azure OpenAI, Ollama, OpenAI-compatible) |
+| `api_key_secret` | which entry of `secrets:` holds the key, when the provider default isn't it |
+| `model`, `deployment` | the agent's own model, used for writing code (the studio shows it as the `coding` role) |
+| `models.<role>` | the model per role, see below |
+| `pricing.models.<model>` | `input_per_million`, `output_per_million`, `cache_read_per_million` in USD |
+| `cache` | `is_enabled` (default `true`), `strategy` (default `automatic`), prompt caching |
+| `retry` | `max_retries` (5), `initial_delay_ms` (2000), `backoff_multiplier` (2.0), `max_delay_ms` (60000) |
+| `network_timeout_seconds` | how long one provider call may take, default 300 |
 
-#### Multiple pipelines per project (p0106)
+### agents.models
 
-A project that runs more than one pipeline (e.g. both `code` and `security-scan` on the same repo) declares them under `pipelines:`. Per-pipeline overrides shadow the project-level defaults; missing fields inherit:
+| Role | Used for | Unset means |
+|------|----------|-------------|
+| `scout` | code analysis, file discovery | |
+| `primary` | the agentic work | |
+| `planning` | cutting the work into phases | |
+| `summarization` | condensing long histories | |
+| `reasoning` | extended thinking | `primary` |
+| `context_generation` | discovering components and writing each `context.yaml` | `primary` |
+| `code_map_generation` | the repo analyzer | `scout` |
+
+Each role takes:
 
 ```yaml
-projects:
-  my-project:
-    source: { type: GitHub, url: ..., auth: token }
-    tickets: { type: GitHub, url: ..., auth: token }
-    agent: { type: Claude, model: claude-sonnet-4-20250514 }
-    pipelines:
-      - name: code                       # uses project agent, skills/coding default
-      - name: security-scan                 # uses project agent, skills/security default
-        skills_path: skills/my-custom-security
-      - name: api-security-scan
-        agent: { type: OpenAI, model: gpt-4.1 }   # different model just for this pipeline
-    default_pipeline: code                  # picked by CLI when --pipeline is omitted
+model: claude-sonnet-4-6
+max_tokens: 8192               # the OUTPUT cap
+deployment: gpt4-1-deployment  # Azure OpenAI deployment name, when it differs from the model
+context_window_tokens: 200000  # optional: the INPUT window the deployment accepts
 ```
 
-**Skills-path resolution chain:** `pipelines[].skills_path` → preset default for the pipeline name every preset resolves its skills from the catalog root `skills/`) → `skills`.
+`context_window_tokens` is unset by default, because the model name doesn't imply it. State it and the tool loop for that role folds its history and finishes before the provider refuses; preflight reports a compaction threshold that could never fire below a stated window.
 
-**Pipeline-name selection chain (CLI / fallback):** explicit `--pipeline` flag → `default_pipeline` → single-element shortcut (only when `pipelines:` has exactly one entry) → error listing declared pipelines.
+Every model a role uses needs a `pricing` entry. The studio refuses to save an agent without one. Tokens nothing can price are counted, and the run's cost is then marked incomplete rather than shown as a total.
 
-The legacy `pipeline: <name>` single-string form continues to work — the loader synthesizes `pipelines: [{ name: <name> }]` and `default_pipeline: <name>` automatically. Trigger references (`pipeline_from_label`, `default_pipeline` in trigger blocks) are validated at load time and fail loud on unknown pipeline names.
+## connections
 
-### agent
+A discovery scope: host, org and auth once, and repos found under it by the provider API.
 
-See [AI providers](../../connect-your-stuff/ai-providers.md) for provider-specific configuration.
+| Key | Description |
+|-----|-------------|
+| `type` | `github`, `gitlab`, `azure_devops` |
+| `owner` | GitHub owner or org |
+| `group` | GitLab group, a subgroup path works too |
+| `organization`, `project` | Azure DevOps organization and project |
+| `host` | API host for GitHub Enterprise or self-managed GitLab |
+| `auth` | name of an entry in `secrets:` |
+| `default_branch` | fallback only, used when the platform can't say what a repo's default branch is |
 
-| Field | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `type` | Yes | `claude` | Provider: `Claude`, `OpenAI`, `Gemini`, `Ollama` |
-| `model` | Yes | -- | Default model identifier |
-| `endpoint` | No | -- | Custom API endpoint (Ollama, OpenAI-compatible) |
-| `api_key_secret` | No | -- | Override which secret holds the API key |
+A project references a connection's repos as `<connection>/<repo>`: exactly (`acme/todolist-api`) or by wildcard rule (`acme/todolist-*`, `"!acme/todolist-legacy"`). [agentsmith.yml schema](agentsmith-yml-schema.md#repos-entry-forms) has how each form resolves. GitLab repos found under a group are named by their path relative to it (`team-platform/todolist-api`).
 
-### agent.models
+## repos
 
-Route different task types to different models for cost optimization.
+One entry per individual repository, for a repo no connection covers.
 
-| Task | Used For | Typical Model |
-|------|----------|---------------|
-| `scout` | Code analysis, file discovery | Small/fast (Haiku, GPT-4.1-mini) |
-| `primary` | Agentic code execution | Large/capable (Sonnet, GPT-4.1) |
-| `planning` | Plan generation | Large/capable |
-| `summarization` | Context compaction | Small/fast |
-| `context_generation` | Component discovery + writing each context.yaml (tool-bearing, reads the repo) | Large/capable |
-| `code_map_generation` | Auto-generating code-map.yaml | Small/fast |
-| `reasoning` | Extended thinking (optional) | Reasoning model |
+| Key | Description |
+|-----|-------------|
+| `type` | `github`, `gitlab`, `azure_devops`, `local` |
+| `url` | clone URL (remote types) |
+| `path` | filesystem path (`local`) |
+| `organization`, `project` | Azure DevOps |
+| `auth` | name of an entry in `secrets:` |
+| `default_branch` | fallback only, see below |
 
-Each assignment has:
+**Default branch.** The repository's own default branch, as the platform reports it, always wins. A configured `default_branch` (on the repo, on a project's repo item, or on the connection) applies only when the platform has no answer, and `main` when nothing does. When a configured value disagrees with the repository, the run logs a warning naming both.
+
+## trackers
+
+Where tickets come from and how their workflow looks. The tracker owns the workflow for every project routed to it.
+
+| Key | Description |
+|-----|-------------|
+| `type` | `github`, `gitlab`, `azure_devops`, `jira` |
+| `url` | GitHub: the repository whose issues are the tickets. Jira: the site. Azure DevOps: optional |
+| `organization`, `project` | Azure DevOps organization and project. GitLab: `project` is the project path. Jira: `project` is the project key |
+| `auth` | name of an entry in `secrets:` |
+| `open_states` | states a ticket may be in to be picked up |
+| `trigger_statuses` | states that start a run, falls back to `open_states` |
+| `done_status` | where a finished run moves the ticket |
+| `failed_status` | where a failed run moves it; must lie outside `trigger_statuses` |
+| `needs_clarification_status` | where a run parks a ticket it has questions about |
+| `not_implementable_status` | where a ticket goes that can't be implemented as written; falls back to `needs_clarification_status` |
+| `close_transition_name` | Jira: the transition that reaches `done_status` |
+| `pipeline_from_label` | label → pipeline. Matched in order, first hit wins. With entries, a ticket matching none isn't routed |
+| `default_pipeline` | what a ticket runs when the label map is empty. Unset everywhere means `code`, with a startup finding |
+| `label_names` | renames the labels the framework writes. Keys: `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set` |
+| `lifecycle_status_names` | Jira: lifecycle state → native workflow status, instead of carrying the lifecycle only as labels |
+| `work_item_kinds` | Azure DevOps and Jira: filing role (`work`, `bug`, `phase`, `chat`) → work-item or issue type. GitHub and GitLab ignore it |
+| `extra_fields` | additional work-item fields to fetch |
+| `zero_match_comment` | comment on a ticket no project matched |
+| `polling` | `enabled` (false), `interval_seconds` (60), `jitter_percent` (10). See [Polling](../../trigger-it/polling.md) |
+| `endpoints` | Jira: override individual REST paths |
+
+A label the framework writes may not be spelled like one of your routing words (a `pipeline_from_label` key or a project's resolution value); that configuration is refused. The tracker pages under [Connect your stuff](../../connect-your-stuff/tracker-azure-devops.md) show each type in context.
+
+The pipelines a label map or `default_pipeline` may name are the ones a ticket can be routed to: `code`, `security-scan`, `api-security-scan`, `pr-review`, `mad-discussion`, `legal-analysis`. The retired names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer run. Write `code`.
+
+## projects
+
+A project wires one agent, one tracker and a set of repos, and says how a ticket finds it.
+
+| Key | Description |
+|-----|-------------|
+| `agent` | name from `agents:` |
+| `tracker` | name from `trackers:` |
+| `repos` | list of repo references, always a list. See [repos entry forms](agentsmith-yml-schema.md#repos-entry-forms) |
+| `resolution` | how a ticket finds this project, one entry `{ strategy: value }`: `tag`, `area_path`, `repo`, `to_address`. See [Project resolution](project-resolution.md) |
+| `templates` | what this project's contexts are built after. See [Project templates](../../configure-it/templates.md) |
+| `default_pipeline` | the project's default pipeline (CLI runs and fallback paths). What a *ticket* runs is decided by the tracker's routing |
+| `pipelines` | pipelines this project hosts with their own overrides: `name`, `agent`, `skills_path`, `coding_principles_path` |
+| `coding_principles_path`, `skills_path` | project-level overrides |
+| `github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger` | a full trigger block, overriding the tracker field by field. Must match the tracker's type |
+| `sandbox` | per-project sandbox overrides, see below |
+| `orchestrator` | per-project orchestrator overrides |
+
+### Trigger blocks
+
+Only needed when one project departs from its tracker's workflow. Every field is optional and overrides the tracker's.
+
+| Key | Description |
+|-----|-------------|
+| `project_resolution` | `{ strategy, value }`, the long form of `resolution:` |
+| `pipeline_from_label`, `default_pipeline` | as on the tracker |
+| `trigger_statuses`, `done_status`, `failed_status`, `needs_clarification_status`, `not_implementable_status` | as on the tracker |
+| `in_progress_status` | the status a parked run's ticket returns to when the run resumes; outside `trigger_statuses` |
+| `comment_keyword` | a keyword in a ticket comment that triggers |
+| `pr_trigger_label` | GitHub and GitLab: a pull request label that asks for a review. `security-review` always does too |
+| `assignee_name` | Jira: the webhook starts work when an issue is assigned to this user, default `Agent Smith` |
+| `secret` | Jira: the webhook shared secret, see [Webhooks](webhooks.md) |
+
+### projects.templates
 
 ```yaml
-model: model-id
-max_tokens: 8192
+templates:
+  - context: api                 # a context of this project
+    context_repo: todolist-api   # optional, when two repos declare the context name
+    project: acme-orders         # the project the template belongs to
+    repo: orders-api             # one repo ref of that project, no wildcard
+    template_context: service    # the context inside that repo
+    revision: v2.4.0             # optional: tag, branch or commit; empty = default branch
 ```
 
-### secrets
+Refused: an unknown project, a repo that project doesn't carry, a wildcard repo, a `context_repo` this project doesn't carry, and a cycle. [Project templates](../../configure-it/templates.md) explains what reads them.
 
-Secrets use `${ENV_VAR}` syntax to reference environment variables. Agent Smith resolves them at startup.
+### projects.sandbox
+
+| Key | Description |
+|-----|-------------|
+| `toolchain_image` | one image for the whole project, wins over everything else |
+| `images` | language → image, overrides the built-in image per language |
+| `resources` | cpu and memory requests and limits, all four or none |
+| `step_timeout_seconds`, `run_command_timeout_seconds` | override the global timeouts |
+| `agent_registry`, `agent_version` | override the sandbox agent image |
+| `hold_seconds` | how long this project's design conversations hold their sandboxes between turns |
+| `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
+
+Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
+
+## secrets
+
+Names mapped to environment variable references. The file never holds a value, and a config that carries a raw secret is refused.
 
 ```yaml
 secrets:
-  github_token: ${GITHUB_TOKEN}
+  github_token:      ${GITHUB_TOKEN}
   anthropic_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-!!! warning
-    Never commit actual API keys to `agentsmith.yml`. Always use `${ENV_VAR}` references and set the variables in your environment, CI/CD pipeline, or Kubernetes secrets.
+The tracker connections read their tokens from fixed environment variables (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN`, `JIRA_EMAIL` and `JIRA_TOKEN`), so export those under exactly these names.
 
-### agent.pricing
+## pipeline_triggers
 
-Pricing is configured per model in USD per million tokens. This drives the cost tracking displayed in run results.
+A global label → pipeline map, used when neither the project's trigger nor its tracker declares a `pipeline_from_label`. There's no studio screen for it; on a server, edit it through export and import.
 
 ```yaml
-pricing:
-  models:
-    claude-sonnet-4-20250514:
-      input_per_million: 3.0
-      output_per_million: 15.0
-      cache_read_per_million: 0.30   # Claude-specific
+pipeline_triggers:
+  agent-smith:bug:     code
+  agent-smith:feature: code
+  security-review:     security-scan
 ```
 
-!!! note
-    `cache_read_per_million` only applies to Anthropic models with prompt caching enabled. Omit it for other providers.
+## Global settings
 
-### Trigger sections (`github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger`)
+These blocks apply to every project unless a project overrides them. On a server they're the [Settings](../../configure-it/settings.md) groups.
 
-Per-project trigger configuration. Both webhooks and polling read this. The shape is shared across platforms; Jira extends it with `assignee_name` and `comment_keyword`.
+| Block | What it sets |
+|-------|--------------|
+| `deployment` | `registry`, `version`: one image pin for orchestrator and sandbox agent |
+| `orchestrator` | orchestrator image, `max_run_wall_time_seconds` (1800) |
+| `sandbox` | agent image, `step_timeout_seconds` (900), `run_command_timeout_seconds` (300), `max_concurrent_sandboxes`, `hold_seconds` (180), registry trust and pull secrets |
+| `registries` | private package feeds the agent authenticates against in the sandbox |
+| `primary_provider` | the agent used when a project names none |
+| `limits` | per-skill ceilings of the agentic loop |
+| `pipeline_cost_cap` | money and token caps per run, see [Pipeline cost cap](pipeline-cost-cap.md) |
+| `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
+| `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url` |
+| `skills` | an override for where the skill catalog comes from; normally unset |
+| `pipeline_storage` | how long in-flight run artifacts stay in Redis |
+| `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `pipeline_from_label` | map | `{}` | Trigger label → pipeline name, matched in config order |
-| `default_pipeline` | string | `code` | Used when no label entry matches |
-| `trigger_statuses` | list | `[]` | Allowed native ticket states (empty = all — discouraged, see note). The trigger decision rests on this, not on lifecycle tags. |
-| `done_status` | string | `"In Review"` | Native status set after a successful run (PR created) |
-| `failed_status` | string? | falls back to `done_status` | Native status a **failed** run moves the ticket to, so a processed ticket never stays in a trigger state. Must be **outside** `trigger_statuses` (validated at load) or the ticket would be re-claimed in a loop. |
-| `comment_keyword` | string? | none | Optional keyword that re-triggers on comment |
-| `assignee_name` | string | — | **Jira only**: required for assignee-based gating |
+## Bootstrap and file-only blocks
 
-See [Label-Based Triggers](../../trigger-it/labels.md) for per-platform examples and matching rules.
-
-### `polling` (per project)
-
-Opt-in alternative to webhooks. When enabled, Agent Smith pulls eligible tickets on an interval and routes them through the same `TicketClaimService` as webhooks.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | bool | `false` | Whether to poll this project |
-| `interval_seconds` | int | `60` | Base sleep between poll cycles |
-| `jitter_percent` | int | `10` | Random ±% applied to the interval (avoids thundering herd) |
-
-All four platforms support polling. Each provider implements `ITicketProvider.ListByLifecycleStatusAsync(Pending)` natively (GitHub via Issues+labels, GitLab via Issues+labels, Azure DevOps via WIQL on `[System.Tags]`, Jira via JQL search). Jira is label-mode only — native-status-mode polling is deferred. Set `tickets.project` for Jira if your instance hosts multiple projects so the JQL is scoped.
-
-`pipeline_from_label` is honored on the polling path as of p0099a — same first-match semantics as webhooks; lifecycle labels (`agent-smith:*`) are filtered before matching.
-
-See [Polling](../../trigger-it/polling.md) for per-platform listing details, required token scopes, and the polling-vs-webhooks decision matrix.
-
-### `agent.queue` (root-level)
-
-Process-wide queue settings. The queue is shared across all projects on a given pod; one `agentsmith:queue:jobs` Redis list backs the entire deployment.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `max_parallel_jobs` | int | `4` | `SemaphoreSlim` cap on concurrent pipelines per pod (backpressure knob) |
-| `redis_retry_interval_seconds` | int | `30` | How often subsystems re-check `IConnectionMultiplexer.IsConnected` while Redis is configured but unreachable. Lower = faster recovery, more polling noise. (p0101) |
-| `consume_block_seconds` | int | `5` | LPOP polling interval inside the consumer loop |
-| `shutdown_grace_seconds` | int | `30` | Time to await in-flight pipelines on graceful shutdown |
-
-`max_parallel_jobs` is the only knob that throttles pipeline concurrency. Webhook receivers never block on pipeline execution — they only enqueue, which is O(ms). Increase if your AI provider has headroom; decrease if you're hitting rate limits.
-
-### tool_runner
-
-Controls how security scanning tools (Nuclei, Spectral) are executed.
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| `type` | `auto` | `auto` detects Docker socket, falls back to process |
-| `socket` | -- | Custom Docker/Podman socket path |
-| `docker_hostname` | `host.docker.internal` | Hostname used to reach the host from inside a container. Change for Podman (`host.containers.internal`) or custom networking |
-| `images.nuclei` | `projectdiscovery/nuclei:latest` | Nuclei container image |
-| `images.spectral` | `stoplight/spectral:6` | Spectral container image |
+| Block | Description |
+|-------|-------------|
+| `persistence` | `provider` (`sqlite`, `postgresql`, `mysql`, `sqlserver`) and `connection_string`. Replaced by `AGENTSMITH_PERSISTENCE_PROVIDER` + `AGENTSMITH_PERSISTENCE_CONNECTION` when both are set |
+| `auth` | the token authority dashboard sign-in validates against |
+| `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE` overrides it, and on a server it's the only switch |
+| `tool_runner` | how the api-scan tools run, see [Tool configuration](tools.md) |

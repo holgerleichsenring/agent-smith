@@ -3,27 +3,26 @@
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. `agent-smith config import` moves one into the other. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith can be triggered and controlled directly from pull request comments. Two scenarios share the same webhook infrastructure.
+Agent Smith can be started and answered from pull request comments, and a label on a pull request can ask for a security scan. All of it arrives through the same webhook receiver.
 
-## Scenario A: Start a New Job
+## Start a new job
 
-Write a comment on any PR to start a pipeline:
+Write a comment on a PR that starts with `/agent-smith` (or the short `/as`):
 
 ```
-/agent-smith fix                         # code pipeline for this PR
+/agent-smith review                      # PR review of this pull request
+/agent-smith security scan               # security scan
 /agent-smith fix #123 in my-api          # code pipeline for a specific ticket
-/agent-smith security-scan               # security scan for this PR
-/agent-smith review                      # PR review pipeline
-/agent-smith help                        # list available commands
+/as review
 ```
 
-The short alias `/as` is also supported (`/as fix`, `/as security-scan`).
+Everything after the prefix is read as free text, in any language, and resolved to a pipeline and an optional ticket reference. A comment can start three pipelines: `code`, `security-scan` and `pr-review`. A comment that resolves to anything else is ignored.
 
-Without parameters (`/agent-smith fix`), the PR description and comments are used directly as context -- no separate ticket needed.
+`/agent-smith help` is recognized and logged, and posts nothing back. A comment that does not start with a prefix is ordinary conversation and is ignored.
 
-## Scenario B: Control a Running Job
+## Answer a running job
 
-When Agent Smith posts a question in the PR (via [Interactive Dialogue](../concepts/interactive-dialogue.md)), respond with:
+When a running job asks a question on the PR (via [Interactive Dialogue](../concepts/interactive-dialogue.md)), answer with:
 
 ```
 /approve                                 # confirm (yes)
@@ -32,86 +31,64 @@ When Agent Smith posts a question in the PR (via [Interactive Dialogue](../conce
 /reject The naming convention is wrong   # reject with reason
 ```
 
-Commands are case-insensitive. The answer is forwarded to the running job via Redis, and the pipeline continues.
+Commands are case-insensitive. The answer is forwarded to the running job, and the pipeline continues.
 
-## Webhook Setup (GitHub)
+## Ask for a security scan with a label
 
-1. Go to **Repository Settings** > **Webhooks** > **Add webhook**
-2. **Payload URL:** `https://your-agent-smith-host/webhook`
-3. **Content type:** `application/json`
-4. **Secret:** a strong random string (same as `GITHUB_WEBHOOK_SECRET` env var)
-5. **Events:** select "Issue comments" and "Pull request review comments"
-
-The webhook handler responds to two GitHub event types:
-
-| Event | Action | Meaning |
-|-------|--------|---------|
-| `issue_comment` | `created` | Comment on a PR (GitHub treats PRs as issues) |
-| `pull_request_review_comment` | `created` | Inline code comment on a PR |
-
-## Security
-
-### Signature Verification
-
-All incoming webhooks are verified using HMAC-SHA256. The `X-Hub-Signature-256` header must match the configured secret:
-
-```yaml
-webhooks:
-  github_secret: ${GITHUB_WEBHOOK_SECRET}
-```
-
-In development mode (no secret configured), signature verification is skipped.
-
-### Access Control
+Putting the label `security-review` on a pull request starts a **security-scan** of that repository. The word is yours to choose: set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`, and that label triggers too.
 
 ```yaml
 projects:
-  my-api:
-    pr_commands:
-      enabled: true
-      require_member: true         # only repo members can issue commands
-      allowed_pipelines:           # restrict which pipelines can be started
-        - code
-        - security-scan
-        - pr-review
+  todolist:
+    github_trigger:
+      pr_trigger_label: needs-security-review
 ```
 
-- **`require_member: true`** -- checks `author_association` in the webhook payload. Only repository members, collaborators, and owners can execute commands.
-- **`allowed_pipelines`** -- limits which pipelines can be triggered via PR comments. Commands for unlisted pipelines are rejected.
-- **Duplicate protection** -- if a job is already running for the PR, a second `/agent-smith` command is rejected with a message to wait.
+Setting it adds a word rather than replacing one: `security-review` keeps triggering, so pull requests already carrying it still work. The label is matched case-insensitively. On GitHub this is the `pull_request` event with action `labeled`; on GitLab, any update to a merge request that carries the label.
 
-## How It Works
+Opening or updating a pull request starts a [PR review](../pipelines/pr-review.md) on its own, without a label or a comment.
+
+## Who may issue commands
+
+On GitHub, only comments whose `author_association` is `OWNER`, `MEMBER`, `COLLABORATOR` or `CONTRIBUTOR` are acted on; anyone else is ignored. The GitLab and Azure DevOps handlers do not check the author, so restrict who can comment on those repositories if that matters to you.
+
+The set of pipelines a comment may start is fixed in code. It is deliberately narrower than what a configured label may route to, because a comment is a lower-trust surface than your configuration.
+
+## Webhook setup
+
+The receiver listens at `POST /webhook` and detects the platform from the delivery. Configure a secret on each platform and set the matching environment variable on the server: `GITHUB_WEBHOOK_SECRET`, `GITLAB_WEBHOOK_TOKEN` or `AZDO_WEBHOOK_SECRET`. A platform with no secret is not verified at all. See [Webhook Configuration](../configuration/webhooks.md).
+
+On GitHub, subscribe to:
+
+| Event | Action | Used for |
+|-------|--------|----------|
+| `issue_comment` | `created` | Comment on a PR (GitHub treats PRs as issues) |
+| `pull_request_review_comment` | `created` | Inline code comment on a PR |
+| `pull_request` | `opened`, `synchronize`, `labeled` | PR review on open and push; security scan on the review label |
+
+## How it works
 
 ```
-GitHub PR Comment
+PR comment / PR label / PR event
     |
     v
-POST /webhook (HMAC-SHA256 verified)
+POST /webhook (signature verified when a secret is configured)
     |
-    v
-GitHubPrCommentWebhookHandler
+    +-- comment  --> /agent-smith or /as  --> pipeline resolved from the text --> job starts
+    |            --> /approve or /reject  --> answer forwarded to the running job
+    |            --> anything else        --> ignored
     |
-    v
-CommentIntentParser  (regex: /agent-smith, /approve, /reject)
+    +-- label    --> security-review or pr_trigger_label --> security-scan starts
     |
-    v
-CommentIntentRouter
-    |
-    +-- NewJob?     --> IJobEnqueuer --> container/K8s job starts
-    +-- Approve?    --> Redis job:{id}:in --> running job continues
-    +-- Reject?     --> Redis job:{id}:in --> running job aborts
-    +-- Help?       --> reply with command list
-    +-- Unknown?    --> ignored (not every comment is a command)
+    +-- opened / updated --> pr-review starts (or the pipeline a mapped PR label names)
 ```
 
-All acknowledgments and status updates are posted back as PR comments.
+## Platform support
 
-## Platform Support
-
-| Platform | Status |
-|----------|--------|
-| GitHub | Supported (p0059) |
-| GitLab | Planned (p0059b) |
-| Azure DevOps | Planned (p0059c) |
+| Platform | Comment commands | Review label | Review on open/update |
+|----------|------------------|--------------|-----------------------|
+| GitHub | Supported | Supported | Supported |
+| GitLab (merge requests) | Supported | Supported | Supported |
+| Azure DevOps | Supported | — | Supported |
 
 See also: [Webhook Configuration](../configuration/webhooks.md) for the full configuration reference.

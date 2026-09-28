@@ -1,86 +1,90 @@
-# Self-Documentation
+# Self-documentation
 
-Agent Smith doesn't just run tasks — it records why it was built the way it was. Every feature has a phase. Every phase has a rationale. Every run has a cost.
+Agent Smith doesn't just run tasks, it records why it was built the way it was. Every feature has a phase. Every phase has a rationale. Every run has a cost.
 
 This is not documentation written after the fact. It is documentation produced as a side effect of the work itself.
 
-## The Three Layers
+## The three layers
 
 ### Layer 1: Phases (the "what" and "why")
 
-Every capability in Agent Smith originated in a phase document. Phases live in `.agentsmith/phases/` and move through `planned/` → `active/` → `done/`. Each document contains:
+Every capability in Agent Smith originated in a phase spec. Phases are YAML files in `.agentsmith/phases/` and move through `planned/` → `active/` → `done/`. Each spec states:
 
-- The problem being solved
-- Design decisions and alternatives considered
-- Files to create and modify
-- Definition of done
-
-Example: Phase 64 introduced typed skill orchestration because free-form discussion between skills produced too much noise and consumed too many tokens. The decision — and its reasoning — is permanently recorded.
+- The goal, in one sentence
+- Which part of the system it applies to, and which earlier phases it requires
+- The scope, the steps and the tests
+- The definition of done
 
 ```
 .agentsmith/phases/
 ├── done/
-│   ├── p0001-core-infrastructure.md
-│   ├── p0006-retry-resilience.md
-│   ├── p0034-multi-skill.md
-│   ├── p0054-91-pattern-scanner.md
-│   ├── p0055-findings-compression.md
-│   └── p0064-typed-skill-orchestration.md
+│   ├── p0001-core-infrastructure.yaml
+│   ├── p0064-typed-skill-orchestration.yaml
+│   ├── 2026-09-27-481bf-ticket-kind-is-a-word.yaml
+│   └── ...
 ├── active/
-│   └── (max 1 at a time)
+│   └── 2026-09-28-057db-docs-current-state-voice.yaml
 └── planned/
-    └── p0066-docs-enhancement.md
+    └── ...
 ```
+
+The older phases carry counter ids like `p0064`; newer ones carry an id minted from the date, like `2026-09-27-481bf`. See [Phase workflow](../architecture/phase-workflow.md) for how ids are minted and how a phase moves through the directories.
+
+The `code` pipeline keeps the same record in the repositories it works on: every phase a run executes is written to that repository's `.agentsmith/phases/done/` and indexed in its `context.yaml`, and ships with the pull request.
 
 ### Layer 2: Runs (the "how much" and "what happened")
 
-Every pipeline execution produces a `result.md` with machine-readable frontmatter:
+Every run leaves a directory under `.agentsmith/runs/<run-id>/` in the repository it worked on, with a `plan.md` and a `result.md`. The `result.md` carries machine-readable frontmatter:
 
 ```yaml
 ---
-run: r0047
-pipeline: security-scan
-project: my-api
-branch: main
-duration: 4m 12s
-cost: $0.34
-llm_calls: 9
-tokens_in: 52196
-tokens_out: 12679
-findings: 16
+ticket: "#57 — GET /todos returns 500 when database is empty"
+date: 2026-05-20
+result: success
+type: fix
+duration_seconds: 252
+run_id: 2026-05-20T22-27-43-8a3f
+pipeline_name: code
+tokens:
+  input: 52196
+  output: 12679
+  cache_read: 30114
+  total: 94989
+cost:
+  total_usd: 0.3400
 ---
 ```
 
-The run result captures which commands ran, in what order, what the token usage was per step, and what the pipeline produced. Combined with the git diff, the full story of each execution is recoverable.
+Below the frontmatter it lists the changed files, the decisions, and the execution trail. Combined with the git diff, the full story of each execution is recoverable. See [Cost tracking](cost-tracking.md) for the cost fields.
 
 ### Layer 3: Decisions (the "why not")
 
-`decisions.md` captures architectural choices with alternatives considered and outcomes tracked. Not what was done — why it was chosen over alternatives.
+Decisions are YAML files in `.agentsmith/decisions/`, one per phase (`decisions/<phase-id>.yaml`) or per run (`decisions/<run-id>.yaml`). Each entry records what was chosen and, in the phase files, what it was chosen over and why:
 
-```markdown
-## Use deterministic skill graph instead of LLM triage
+```yaml
+phase: 2026-09-27-481bf
 
-**Date:** 2026-03-15
-**Phase:** p0064
-**Choice:** Build execution graph from skill metadata (runs_after/runs_before)
-**Alternatives:**
-  - LLM-based triage (status quo) — flexible but expensive and non-deterministic
-  - Hardcoded pipeline order — simple but not extensible
-**Outcome:** ~80% token reduction, reproducible execution order, no triage LLM call
+decisions:
+  - category: Implementation
+    chose: "The kind is the tracker's own word, with an icon only for the few every tracker means the same by"
+    over: "A set of kinds of ours, drawn as icons"
+    reason: |
+      Process templates define their own work-item types, so a closed set over an open
+      vocabulary either mislabels something or silently shows nothing.
 ```
 
-## Why This Matters
+## Why this matters
 
 Most AI tools are black boxes. You don't know why they do what they do, how much it costs, or what they decided not to do.
 
 Agent Smith is an audit trail. Six months after a pipeline ran, you can answer:
 
-- **What did it find?** → `result.md` with findings list
-- **What did it cost?** → Token usage and USD in frontmatter
-- **Why was it built that way?** → Phase document with rationale
-- **What alternatives were considered?** → `decisions.md`
+- **What did it change?** `result.md` lists the changed files
+- **What did it cost?** Token usage and USD in the frontmatter
+- **Why was it built that way?** The phase spec with its goal and scope
+- **What alternatives were considered?** The decision file for that phase or run
 
-## Exploring Your Project's History
+## Exploring your project's history
 
 ```bash
 # See all phases
@@ -90,14 +94,14 @@ ls .agentsmith/phases/done/
 ls .agentsmith/runs/
 
 # Find when a decision was made
-grep -r "Repository Pattern" .agentsmith/
+grep -r "Repository" .agentsmith/decisions/
 
-# See what changed between phases
-diff .agentsmith/phases/done/p0054-*.yaml .agentsmith/phases/done/p0055-*.yaml
+# Read the decisions behind one phase
+cat .agentsmith/decisions/p0057a.yaml
 ```
 
 ## Related
 
-- [Phases & Runs](phases-and-runs.md) — the lifecycle and structure of phases and runs
-- [Decision Logging](decisions.md) — how architectural decisions are captured
-- [Cost Tracking](cost-tracking.md) — token usage and cost analysis
+- [Phases & runs](phases-and-runs.md): the lifecycle and structure of phases and runs
+- [Decision logging](decisions.md): how the agent records its decisions during a run
+- [Cost tracking](cost-tracking.md): token usage and cost analysis

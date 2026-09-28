@@ -197,7 +197,7 @@ list tickets in my-project
 fix #1 in my-project
 ```
 
-The project name must match a key in your `agentsmith.yml` configuration.
+The project name must match a key in your `agentsmith.yml` configuration. Use the ticket id the way your tracker writes it: `#1` for GitHub, GitLab and Azure DevOps, the issue key for Jira (`fix PROJ-12 in my-project`).
 
 ---
 
@@ -207,10 +207,14 @@ The project name must match a key in your `agentsmith.yml` configuration.
 |---------|---------|
 | Fix a ticket | `fix #65 in my-project` |
 | Fix (with mention) | `@Agent Smith fix #65 in my-project` |
+| Fix a Jira ticket | `fix PROJ-12 in my-project` |
 | List open tickets | `list tickets in my-project` |
 | Create a ticket | `create ticket "Title here" in my-project` |
 | Security scan | `scan my-project for security issues` |
+| Start a design conversation | `@Agent Smith /spec my-project` |
 | Help | `help` |
+
+`/spec` opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in the thread of the message that asked for it, and every later message in that thread continues it. Send it with the mention: a message that starts with `/` is taken by Slack as a slash command. Approving a proposal from Slack files the ticket but never moves it into a trigger status, so the run starts only when the status the ticket is created in already triggers. Otherwise move it into a trigger status in the tracker.
 
 ---
 

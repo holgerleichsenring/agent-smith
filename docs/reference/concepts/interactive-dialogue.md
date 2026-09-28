@@ -22,17 +22,16 @@ During the agentic loop, the agent can ask questions via the `ask_human` tool:
 ```json
 {
   "name": "ask_human",
-  "input_schema": {
-    "properties": {
-      "question_type": { "enum": ["confirmation", "choice", "free_text", "approval"] },
-      "text": { "description": "The question to ask" },
-      "context": { "description": "Why are you asking? Max 300 chars" },
-      "choices": { "description": "Only for type=choice" },
-      "default_answer": { "description": "Used on timeout" }
-    }
+  "parameters": {
+    "question": "Question text to display to the human.",
+    "context": "Optional context block shown alongside the question.",
+    "choices": [{ "label": "Short choice label", "description": "Optional explanation" }],
+    "recommended_index": "Optional 0-based index of the recommended choice"
   }
 }
 ```
+
+With choices it's a Choice question, without them a FreeText one.
 
 The agent is instructed to ask sparingly. Good reasons to ask:
 
@@ -41,15 +40,19 @@ The agent is instructed to ask sparingly. Good reasons to ask:
 - Destructive operations (delete, rename, breaking change)
 - Multiple equally valid architectural options
 
-The agent should **not** ask about implementation details it can decide itself, and should prefer logging a decision in `decisions.md` over asking.
+The agent should **not** ask about implementation details it can decide itself; it records those with `log_decision` instead.
 
 ## Channels
 
 The same dialogue logic works across all channels:
 
-### Slack
+### Slack and Teams
 
-Block Kit renders each question type with appropriate controls -- buttons for Confirmation, numbered options for Choice, free-text prompt for FreeText. Approval includes optional comment via next message.
+Slack renders each question type with Block Kit controls, Teams as an Adaptive Card — buttons for Confirmation, Approval and each choice, a free-text prompt for FreeText.
+
+### Dashboard
+
+A run waiting on a question shows it on the run's page, and the [Work it out](../../how-it-works/work-it-out.md) page shows a design conversation's questions and approvals inline.
 
 ### CLI
 
@@ -61,14 +64,15 @@ Questions are posted as structured PR comments. The human responds with `/approv
 
 ## Timeout Handling
 
-Every question has a configurable timeout (default: 5 minutes for Slack/CLI, 24 hours for PR comments). When the timeout expires, the `default_answer` is used and the pipeline continues.
+A question asked inside a run doesn't hold compute while it waits. The run keeps its sandbox open for a short window expecting a fast answer, then checkpoints and parks; an answer that arrives later resumes it. Two settings in the top-level `dialogue:` block govern this:
 
 ```yaml
-agent:
-  dialogue:
-    timeout_seconds: 300
-    default_on_timeout: yes
+dialogue:
+  hot_wait_seconds: 600            # how long the sandbox stays open for a fast answer
+  approval_timeout_seconds: 259200 # how long the question stays answerable (three days)
 ```
+
+The full loop is on [Expectations & durable dialogue](../../how-it-works/expectations.md). A design conversation's approval question waits fifteen minutes; see [Spec dialogue](../../how-it-works/spec-dialogue.md#confirming).
 
 ## Dialogue Trail
 
@@ -98,7 +102,8 @@ AgenticLoop / Pipeline Handler
     v
 IDialogueTransport          (publishes questions, waits for answers)
     |
-    +-- RedisDialogueTransport   (Slack, PR comments -- via Redis streams)
+    +-- DurableDialogueTransport (server -- answers land in a durable inbox first,
+    |                             then on the Redis stream for a waiting run)
     +-- ConsoleDialogueTransport (CLI -- interactive prompt)
 ```
 

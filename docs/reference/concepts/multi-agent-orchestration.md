@@ -1,99 +1,93 @@
-# Multi-Agent Orchestration
+# Multi-agent orchestration
 
 !!! note "Which surface reads this"
     The YAML on this page is the file format. On a server the same values live in the database and are edited under **Configuration → Limits** in the [Config studio](../../configure-it/config-studio.md); the CLI reads them from `agentsmith.yml`. See [Where configuration lives](../../configure-it/index.md).
 
-Agent Smith coordinates multiple specialized AI skills to analyze, plan, review, and synthesize results. Each skill has typed inputs, typed outputs, and a role that's assigned per ticket by the [triage step](triage.md).
+Every model-driven pipeline in Agent Smith runs one agent at its centre: a master. The master is a skill with `role: master` in the [skills catalog](../configuration/skills.md), and it runs an open tool loop at the pipeline's `AgenticMaster` step. When the work splits into independent pieces, the master can hand them to child agents that run in parallel and report back. That is the whole orchestration model: one master, any number of children up to a budget, one level deep.
 
-The model has two layers: **roles** (what a skill does in a given run) and **phases** (when in the pipeline a role acts).
+## Which master a pipeline runs
 
-## Roles
+The pipeline's name picks the master:
 
-| Role | What it does | Output | Veto? |
-|---|---|---|---|
-| `Lead` | Sets the plan downstream skills compare against. One per phase. | `plan` (typed observations) | No |
-| `Analyst` | Contributes perspective. No veto power. | `list` of observations | No |
-| `Reviewer` | Compares actual code/diff against the plan. Evidence-required. | `list` of observations | No |
-| `Filter` | Reduces a finding list (drops duplicates/false positives) or synthesizes a final artifact. | `list` or `artifact` | No |
-
-A single skill may declare multiple supported roles (`roles_supported: [lead, analyst, reviewer]`); triage picks one role per phase based on activation criteria.
-
-## Phases
-
-Structured pipelines (`code`, `security-scan`, `api-security-scan`) declare three phases.
-
-| Phase | Round # | Typical roles | What happens |
-|---|---|---|---|
-| `Plan` | 1 | Lead, Analysts | Lead emits a plan; analysts contribute perspective. |
-| `AgenticStep` | — | (no triage roles) | Developer agent writes code following the plan. Only in `code`. |
-| `Review` | 2 | Lead (sometimes), Reviewers | Reviewers compare diff against the plan via `{{plan}}` template token. |
-| `Final` | 3 | Filter | Reduces or synthesizes the run's output. |
-
-```mermaid
-graph LR
-    Triage --> Plan
-    Plan --> AgenticStep
-    AgenticStep --> Review
-    Review --> Final
-    Final --> Output
-
-    style Triage fill:#4a4a4a,color:#fff
-    style Plan fill:#27ae60,color:#fff
-    style Review fill:#2980b9,color:#fff
-    style Final fill:#c0392b,color:#fff
-```
-
-For `security-scan` and `api-security-scan` the `AgenticStep` is omitted — they read-only-scan, so phases run back-to-back.
-
-For `legal-analysis`, `mad-discussion`, `init-project`, `skill-manager`, and `autonomous`, triage falls back to the legacy LLM strategy that picks Lead + Participants. Phases don't apply; the run is one open round driven by `ConvergenceCheck`.
-
-## Plan artifact threading
-
-After the Plan phase, the Lead's observations are stored in `PipelineContext` as a `PlanArtifact`. Review-phase skills with a `{{plan}}` placeholder in their `## as_reviewer` body get it substituted at prompt-build time. Reviewers without a same-run lead see `(no plan provided)` and run as generic reviewers.
-
-## Confidence threshold
-
-Every observation carries a `Confidence` (0–100) and `Blocking` flag. Observations with `Blocking=true` and `Confidence<70` are auto-downgraded to `Blocking=false` with a structured log entry. The high-confidence threshold prevents speculation from breaking the pipeline; low-confidence concerns still surface in the final report but don't gate.
-
-## Filter mode
-
-Filter skills execute as a separate `FilterRoundCommand` (not a `SkillRoundCommand`). The output mode is read from `output_contract.output_type[Filter]`:
-
-- `List` → the LLM returns a reduced JSON observation list; the framework replaces the in-context observation list with the reduced one (IDs reassigned).
-- `Artifact` → the LLM returns synthesized text; the framework stores it under `SkillOutputs[skillName]` for downstream consumption (final report, deliver step).
-
-Unlike the legacy `Gate` role, Filter has no veto. Reductions and syntheses are observable and downstream pipeline steps continue regardless.
-
-## Skill contract
-
-Skills declare their roles, activation criteria, and output contract in `SKILL.md` frontmatter. See the [skills.md reference](../configuration/skills.md) and the [migration guide](../configuration/skills/migration.md) for the full schema and a before/after example.
-
-The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` enum (`Lead`/`Contributor`/`Gate`/`Executor`), and the deterministic `SkillGraphBuilder` are all retired in p0111c. The current pipeline order is decided per ticket by the LLM-driven triage step, not by topological sort over skill metadata.
-
-## Pipelines using this pattern
-
-| Pipeline | Shape today |
+| Pipeline | Master |
 |---|---|
-| `code` | Master-based: expectation → plan → approval → `coding-agent-master` executes and verifies in one loop (see [Methodology](../../how-it-works/methodology.md)) |
-| `security-scan`, `api-security-scan` | Scan master + roles on a read-only surface; delivery = curated triage + uncovered High+ scanner facts |
-| `legal-analysis` | `legal-analyst-master` + specialist sub-agents |
-| `mad-discussion` | Perspective masters + `mad-synthesizer` |
-| `init-project`, `skill-manager`, `autonomous` | Single open round |
+| `code` | `coding-agent-master`, once per derived phase (each phase runs master, then `VerifyPhase`; see [Methodology](../../how-it-works/methodology.md)) |
+| `security-scan` | `security-master` |
+| `api-security-scan` | `api-security-master` |
+| `pr-review` | `pr-review-master` |
+| `legal-analysis` | `legal-analyst-master` |
+| `mad-discussion` | `mad-discussion-master` |
+| `spec-dialog` | `design-partner-master` (see [Spec dialogue](../../how-it-works/spec-dialogue.md)) |
 
-## Sub-agents (p0177)
+Any pipeline name not in this table resolves to `coding-agent-master`.
 
-The master can fan work out to sub-agents: it calls the `spawn_agents` tool with a name and an activity per child, the children run in parallel inside the same run — sharing the run's sandboxes and its cost budget — and the master reads their results back with `read_sub_agent_observations`. One master, n children, one level deep; children can't spawn grandchildren.
+The master's `output_schema` decides its tool surface. A master that declares `output_schema: observation` (the scan and review masters) gets a read-only surface and emits findings. A master without it is a coding master: it can read and write files in the run's sandboxes, gets `update_progress` for its progress ledger and `ensure_repo_sandbox` to bring in a repository the scoping step left out. The design partner gets a read-only surface of its own.
 
-The limits live in `agentsmith.yml`:
+## Spawning children
+
+Every master surface carries two extra tools as long as `limits.max_sub_agents_per_run` is above zero (for the design partner, `limits.max_sub_agents_per_dialog_turn`):
+
+- `spawn_agents` takes a list of tasks and runs them in parallel.
+- `read_sub_agent_observations` returns one child's full final answer.
+
+Each task the master passes to `spawn_agents` carries:
+
+| Field | Meaning |
+|---|---|
+| `name` | A descriptive role name for the child. Generic names (`worker`, `helper`, `agent`, `agent1`, `sub2`, `child3` and similar) are refused before any model call. |
+| `activity` | A one-line description of what the child is doing. |
+| `task_description` | The work itself. |
+| `inherited_context` | `pipeline_goal`, `prior_context_slice` and an optional `system_prompt_block`, so the child does not have to rediscover the run's goal. |
+| `output_hint` | Optional: the shape the master wants back. |
+
+The child's prompt is built from exactly these fields. It does not see the master's conversation.
+
+## What a child may do
+
+A child runs its own tool loop with the master's base surface:
+
+- It works in the same sandboxes as the master, so its reads and writes land in the same working copy.
+- A child of a scan master is read-only, like its parent. A child of a coding master can read and write.
+- A child never gets `spawn_agents` or `read_sub_agent_observations`, so it cannot spawn grandchildren. It also never gets `update_progress` or `ensure_repo_sandbox`; the ledger and the repository scope stay with the master.
+- A child of a design turn additionally loses `ask_human` and `remember`. A conversation holds one pending question at a time, and the read-only source scope refuses a memory write.
+
+A child has no budget fence and no ledger reminders. Its only bound is its iteration ceiling: `max_sub_agent_loop_iterations` on the agent the run uses (default 100), or `limits.max_dialog_sub_agent_loop_iterations` (default 20) for a child of a design turn.
+
+## How results come back
+
+`spawn_agents` waits until every child has finished and returns one row per task, in the order the master listed them:
+
+| Field | Meaning |
+|---|---|
+| `status` | `Succeeded` or `Failed`. |
+| `sub_agent_id` | The id to pass to `read_sub_agent_observations`. |
+| `name` | The child's name. |
+| `observations_count`, `tool_calls` | How much the child did. |
+| `cost_usd` | What the child spent. |
+| `reason` | Set on refusals: `invalid_name` or `budget_exhausted`. |
+
+The row carries counts, not content. To use what a child found, the master calls `read_sub_agent_observations` with the child's `sub_agent_id` and gets the child's final answer back as text.
+
+A failed child does not stop its siblings; it comes back as a `Failed` row and the master decides what to do next. Each call to `spawn_agents` is also written to the run's decision log with every child's name, activity, status and cost, and the failure reason for a child that failed.
+
+## Limits
 
 ```yaml
 limits:
-  max_concurrent_sub_agents: 4
-  max_sub_agents_per_run: 20
-  max_sub_agents_per_dialog_turn: 4
-  max_dialog_sub_agent_loop_iterations: 20
+  max_concurrent_sub_agents: 4               # children in flight at once
+  max_sub_agents_per_run: 20                 # children across all spawn_agents calls in one run; 0 removes the tools
+  max_sub_agents_per_dialog_turn: 4          # the same count for one design turn; 0 removes the tools there
+  max_dialog_sub_agent_loop_iterations: 20   # iteration ceiling for a design turn's child
+
+agents:
+  claude-default:
+    max_sub_agent_loop_iterations: 100       # iteration ceiling for every other child
 ```
 
-A design turn (the spec-dialog pipeline) fans out too, read-only: it gates on `max_sub_agents_per_dialog_turn` and builds its own budget from that number, its children run under `limits.max_dialog_sub_agent_loop_iterations` rather than the far larger `agent.max_sub_agent_loop_iterations`, and their surface drops `ask_human` and `remember` — a design conversation holds one pending question, and the read-only source scope refuses a memory write. The design surface itself never gets `ensure_repo_sandbox` or `update_progress`.
+The per-run count is a budget that `spawn_agents` reserves from. When a call asks for more children than are left, the ones that fit run and the rest come back as `Failed` with `reason: budget_exhausted`, without a model call. A design turn builds a budget of its own from `max_sub_agents_per_dialog_turn`, so one conversation turn cannot open twenty children.
 
-`spawn_agents` is opt-in per pipeline. In the dashboard each child shows up by its name with its own activity line and cost attribution under the parent run.
+Children's model usage is added to the run's cost tracker, so it counts against the run's [cost cap](../configuration/pipeline-cost-cap.md) and shows up in the run's total.
+
+## In the dashboard
+
+A run's activity feed shows a "Sub-agent spawn" row per child with its name and activity, and a "Sub-agent done" row with its status, counts and cost.

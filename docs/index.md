@@ -8,7 +8,9 @@ This page is the orientation. There's a fast-path link list at the bottom — if
 
 ## What it does, in one paragraph
 
-You drop a ticket into your tracker. Agent Smith reads it, clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), generates a plan, lets you approve it (or runs headless if you've told it to), writes the code, runs the tests, opens one pull request per repo with the changes cross-linked, and writes the ticket back as resolved with every PR URL in the comment.
+You drop a ticket into your tracker. Agent Smith reads it and derives a specification from it: the phases the work needs and, per phase, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the phases in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
+
+If you'd rather think the change through first, [Work it out](how-it-works/work-it-out.md) in the dashboard is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](assets/lifecycle.svg)
 
@@ -18,7 +20,7 @@ The dashboard is a live mission-control view of every run — what's waiting on 
 
 ![Agent Smith dashboard — runs overview](assets/screenshots/dashboard-runs.png)
 
-A run that hits a decision it shouldn't make alone pauses and asks; your answer resumes it immediately, no tokens burning while it waits. Every run keeps a five-beat story — ticket → plan → build → verify → outcome — you can open:
+A run that hits a decision it shouldn't make alone pauses and asks; your answer resumes it, and no tokens burn while it waits. Every run keeps a five-beat story — ticket → plan → build → verify → outcome — you can open, and the verify beat shows each acceptance criterion with its verdict and the evidence behind it:
 
 ![Run detail — the story of a run](assets/screenshots/run-detail.png)
 
@@ -28,16 +30,15 @@ Configuration for a server lives in the database and gets edited right here: age
 
 ## What lands on disk after a run
 
-Every run gets a directory under `.agentsmith/runs/`. The directory name is the run id — a UTC timestamp plus a 4-hex collision suffix plus a slug.
+Every run gets a directory under `.agentsmith/runs/`, named by the run id: a UTC timestamp plus a 4-hex collision suffix.
 
 ```
-.agentsmith/runs/2026-05-22T14-03-11-9f2a-fix-login-bug/
-├── plan.md       — the plan the agent followed, role-by-role
-├── result.md     — what got done, cost in tokens and USD
-└── decisions.md  — non-obvious choices made during the run
+.agentsmith/runs/2026-05-22T14-03-11-9f2a/
+├── plan.md       — the master's working plan, when it wrote one
+└── result.md     — what got done, the delivery account, cost in tokens and USD
 ```
 
-`plan.md` and `decisions.md` are the why-record. Six months later, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason I built it this way — I got tired of code I couldn't reverse-engineer.
+Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Six months later, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason I built it this way — I got tired of code I couldn't reverse-engineer.
 
 ## What's supported
 
@@ -59,11 +60,11 @@ Every run gets a directory under `.agentsmith/runs/`. The directory name is the 
 | Azure OpenAI | Same as OpenAI plus per-deployment routing. |
 | Google Gemini | First-class. |
 | Ollama | Local models. No API key, no internet. |
-| OpenAI-compatible | Groq, LM Studio, vLLM, your own endpoint. |
+| GitHub Copilot | Runs on a Copilot seat you already pay for. |
 
 See [Connect your AI provider](connect-your-stuff/ai-providers.md) for the config blocks.
 
-**Skills** — the role definitions (architect, backend dev, security analyst, contract reviewer, …) are developed in a separate repo, `github.com/holgerleichsenring/agent-smith-skills`, and every release ships with its catalog embedded: the binary you download already carries the exact skills it was tested with. Nothing to pin, nothing to fetch on first run. A `skills:` block in `agentsmith.yml` is only for overriding that — skills development, air-gap mirrors. See [Skills catalog](how-it-works/skills-catalog.md).
+**Skills** — the masters that drive each pipeline and the rules they follow are developed in a separate repo, `github.com/holgerleichsenring/agent-smith-skills`, and every release ships with its catalog embedded: the binary you download already carries the exact skills it was tested with. Nothing to pin, nothing to fetch on first run. A `skills:` block in `agentsmith.yml` is only for overriding that — skills development, air-gap mirrors. See [Skills catalog](how-it-works/skills-catalog.md).
 
 ## Get running today
 
@@ -74,16 +75,18 @@ The pages below are the fast-path. The only thing step 2 needs is an API key for
 3. [Connect your tracker](connect-your-stuff/tracker-azure-devops.md) — pick the page for your tracker.
 4. [Connect your repos](connect-your-stuff/repos-mono.md) — single repo, or [multi-repo](connect-your-stuff/repos-multi.md) if your project spans more than one.
 5. [Connect your AI provider](connect-your-stuff/ai-providers.md) — the config block for the provider you have.
-6. Point the loop at a real ticket: `agent-smith fix --ticket 54 --project todolist` — the [first-run page](get-it-running/first-run.md) walks it end to end. `agent-smith doctor` before that tells you whether the wiring holds.
+6. Point the loop at a real ticket: `agent-smith code --ticket 54 --project todolist` — the [first-run page](get-it-running/first-run.md) walks it end to end. `agent-smith doctor` before that tells you whether the wiring holds.
 
 Then [pick a trigger mode](trigger-it/webhooks.md) (webhook is what you want for production) and [pick a host setup](host-it/docker-compose.md) (docker-compose is the easiest, k8s is what you want for shared use). Once it runs server-side, the [dashboard](reference/operations/dashboard.md) is where you watch it: live step timeline, per-call LLM cost with the cached share, queued runs with their position, a cancel button that actually kills things.
 
 ## How it works, when you have time
 
-- [Methodology](how-it-works/methodology.md) — the spec-first plan→review→verify→execute flow and why.
+- [Methodology](how-it-works/methodology.md) — spec first, then code, then an account of what got delivered, and why.
 - [Lifecycle](how-it-works/lifecycle.md) — what happens between ticket-in and ticket-back.
-- [Spec dialogue](how-it-works/spec-dialogue.md) — the conversational side: discuss work in Slack/Teams, file phases and epics, get asked when a ticket is too thin.
-- [Expectations & durable dialogue](how-it-works/expectations.md) — the ratified expectation as the run's acceptance contract, and how a run waits days for your answer without burning compute.
+- [The delivery account](how-it-works/delivery-account.md) — every acceptance criterion gets a verdict with evidence, and you can overrule one.
+- [Spec dialogue](how-it-works/spec-dialogue.md) — the conversation before the ticket, in Slack, Teams or the dashboard.
+- [Work it out](how-it-works/work-it-out.md) — the dashboard page for that conversation, and ticket conversations.
+- [Expectations & durable dialogue](how-it-works/expectations.md) — the done-list as the run's contract, and how a run waits days for your answer without burning compute.
 - [Multi-repo pipelines](how-it-works/multi-repo.md) — one ticket, N sandboxes, N pull requests.
 - [Skills catalog](how-it-works/skills-catalog.md) — where skills live, how versioning works.
 

@@ -1,65 +1,81 @@
 # Branch Persistence
 
-Pipeline runs do real work — generated plans, agentic edits, test runs. When a pod restarts mid-pipeline, that work is on a `/tmp` working tree that the next pod cannot see. Without intervention, the next attempt would re-run every analyzer call from scratch, which is both expensive (tokens) and non-idempotent for any LLM round.
-
-Branch persistence is the framework's mitigation: every ticket gets a deterministic work-branch on the source remote, and the failure path of every pipeline pushes the working tree to that branch as a `[wip]` commit before the lifecycle is marked Failed.
+Every ticket gets one work branch on the source remote, and everything about the ticket lives there: the approved specification, the code the runs write, and the partial work of a run that failed. A pod that restarts mid-run loses its `/tmp` working tree, and a second run on the same ticket starts in a fresh sandbox. The branch is how the second run sees what the first one did, instead of re-running every analyzer call from scratch — which is both expensive (tokens) and non-idempotent for any LLM round.
 
 ## Branch naming
 
-The work-branch name is derived from the ticket id. It is **stable** — the same ticket on the same source produces the same branch every time, so a re-run can find the previous attempt's state.
+The work branch is `agent-smith/{ticketId}`, for example `agent-smith/18693`. The name is **stable**: the same ticket produces the same branch every time, so the branch is cut once per ticket and every later run on that ticket reuses it. Composition lives in `TicketBranchNamer` (`AgentSmith.Application.Services`), a static helper.
 
-| Form | When it applies | Example |
-|------|-----------------|---------|
-| `agent-smith/{ticketId}` | One-repo-per-ticket-system deployments (the reference deployment pattern, no project disambiguation needed) | `agent-smith/18693` |
-| `agent-smith/{platform}/{projectSlug}/{ticketId}` | Multi-platform / multi-project deployments where ticket ids may collide across systems | `agent-smith/azurerepos/engineering/18693` |
+A run that is handed a branch instead of composing one from its ticket (a pull-request review works on the PR's head branch, a scan on the branch it was asked to scan, project initialisation on `agentsmith/init`) uses that branch and leaves its base alone.
 
-Slug rules for the hierarchical form:
+## The specification on the ticket branch
 
-- Lower-cased, non-alphanumeric runs collapsed to `-`, leading/trailing `-` trimmed
-- Slugs longer than 64 characters are truncated and suffixed with a 7-char SHA-1 hash of the original slug to keep the result deterministic
-- A `projectName` that slugifies to empty (e.g. `"!!!---???"`) is rejected at compose time as a configuration error
+When a [spec dialogue](../../how-it-works/spec-dialogue.md) files a phase or an epic, the approved specification is written to the ticket's branch before any run starts, under `.agentsmith/specs/<provider>-<ticketId>/` with a `set.yaml` index. If the branch doesn't exist yet, it is created at the head of the default branch. The write is an ordinary commit and never forces.
 
-Composition lives in `TicketBranchNamer` (`AgentSmith.Application.Services`) — a static helper. There is no DI registration; builders call it directly.
+The run that claims the ticket reads its specification from there. If the branch carries nothing (the write failed at filing time, say) and the server holds the approval record, the run publishes the set to the branch from that record. With neither, the ticket is parked, and the park names the path it found empty.
 
-## The resume path
+## Cutting and reusing the branch
 
-When `CheckoutSourceCommand` runs, it composes the work-branch name from the ticket and asks the source provider to check out that branch. The provider's `CheckoutBranch` does:
+Each repository is cloned fresh into the run's sandbox, and the run checks out the work branch:
 
-1. Look for a local branch with that name. If found, check it out — done.
-2. Fetch from `origin`.
-3. Look for `refs/remotes/origin/{branch}`. If found, create a local tracking branch from it and check it out — **resume**.
-4. Otherwise, create a fresh branch from the current `HEAD` (legacy behavior — first attempt for this ticket).
+1. If `agent-smith/{ticketId}` exists on the remote, the run checks it out and continues from it.
+2. Otherwise it resolves the branch's base and cuts `agent-smith/{ticketId}` from it. The base is the clone's default branch (`origin/HEAD`), or the parent's branch for a ticket with a parent (see [Parent branches](#parent-branches)).
 
-This means: if a previous pipeline run pushed a `[wip]` commit, the next run picks up exactly where the prior run stopped. No replays of expensive analyzer calls; the agentic loop sees the prior tool output as committed file state.
+The base is resolved per repository, and the same base is used for three things: cutting the branch, merging newer base commits, and opening the pull request.
+
+### Catching up with the base
+
+A reused work branch may be behind its base: other work was merged while this ticket was parked or failed. Before the run does anything else it merges the base into the work branch (a merge, never a rebase).
+
+If that merge conflicts, the run stops. The merge is aborted, nothing is pushed, and the failure names the conflicting paths:
+
+```
+merging 'origin/main' into 'agent-smith/18693' conflicts in 2 path(s): src/Api/TodoController.cs, src/Api/Startup.cs.
+The merge was aborted, so the branch is unchanged — resolve the conflict on 'agent-smith/18693',
+or delete it to start again from 'origin/main'.
+```
+
+### The pull request
+
+The pull request goes against the base its branch was cut from: the default branch, or the parent's branch. If a pull request for the branch already exists against a different base, it is moved to the right one. That works on GitHub, GitLab and Azure Repos; a local repository opens no pull request.
+
+## Parent branches
+
+A ticket labelled `phase-parent:<id>` (see [labels](../../trigger-it/labels.md#phase-tickets)) is one slice of a larger piece of work. Its branch is cut from the parent's branch, `agent-smith/<id>`, instead of from the default branch, and its pull request targets the parent's branch.
+
+If the parent's branch doesn't exist yet in a repository, the first run that needs it publishes it there, at the default branch's head. The push only creates; it never overwrites. When two runs race to publish it, the one that loses adopts the branch the other one pushed. That happens once per repository.
+
+The run also reads the parent ticket's text as background for deriving its own specification, capped at 20,000 characters with the opening kept. If the parent can't be read, the run says so and proceeds on its own ticket.
 
 ## The persist path
 
-`PipelineExecutor` wraps every pipeline run. When any step returns a failed `CommandResult`, the executor invokes `PersistWorkBranchHandler` **before** calling `lifecycle.MarkFailed()`. The handler runs in its own try/catch — a persist failure must never mask the original pipeline failure.
+When a step fails, `PipelineErrorHandler` posts the failure comment on the ticket, then pushes the working tree to the work branch as a `[wip]` commit, then marks the ticket Failed. Persisting runs in its own try/catch — a persist failure never masks the original failure. It is skipped when the run failed before checkout (there is no working tree) and for pipelines that don't change code.
 
-The handler:
+`PersistWorkBranchHandler` works per repository, in that repository's sandbox:
 
-1. Reads the `Repository` from the pipeline context. If absent (the pipeline failed before checkout), records `Unknown` and returns Fail.
-2. Builds a `[wip] agent-smith run {runId}` commit message with three trailers (`Run-Id`, `Pipeline`, `Failed-Step`) so the commit is searchable from a log line.
-3. Calls `ISourceProvider.CommitAndPushAsync`.
-4. Classifies any thrown exception into a `PersistFailureKind` and stamps it onto `ContextKeys.PersistFailureKind` for the executor's logging wrapper to route on.
+1. Checks for working changes and stages them with `git add -A`. Nothing staged means `NoChanges`.
+2. Commits with the message `[wip] agent-smith run {runId}` and three trailers (`Run-Id`, `Pipeline`, `Failed-Step`), so the commit is searchable from a log line.
+3. Pushes with `--force-with-lease`. If the lease is stale, it fetches and tries once more.
+
+The results of all repositories are combined; the worst one decides.
 
 ### Failure kinds
 
 | Kind | Trigger | Operator action |
 |------|---------|-----------------|
-| `NoChanges` | Working tree was clean (provider returned an empty-commit signal) | Informational — the pipeline failed before producing any file changes; nothing to persist |
-| `AuthDenied` | Push rejected with HTTP 401/403 or "unauthorized" | Check the source-provider PAT/credentials; the pipeline run still has output in logs |
-| `RemoteDivergent` | Push rejected as `non-fast-forward` | Two pipeline runs raced on the same ticket; investigate the older branch on the remote and decide which to keep — the framework refuses to force-push |
-| `NetworkBlip` | `HttpRequestException` during push | Transient — operator can re-trigger the ticket and the resume path will pick up the local state if the next run lands on the same pod, otherwise the work is lost |
+| `NoChanges` | Nothing to commit | Informational — the step failed before producing any file changes; nothing to persist |
+| `AuthDenied` | Push rejected with 401/403, "authentication" or "unauthorized" | Check the source-provider PAT/credentials; the run's output is still in the logs |
+| `RemoteDivergent` | Push rejected (`non-fast-forward` or `rejected`) | The remote branch moved under the run; look at the branch on the remote and decide what to keep |
+| `NetworkBlip` | `HttpRequestException` during the push | Transient; the partial work of this run is lost, re-trigger the ticket |
 | `Unknown` | Anything else | Inspect the log for the underlying exception |
 
-Persist failures are logged at `Error` (or `Warning` for `NetworkBlip`) — they show up in the run telemetry next to the original pipeline failure, not in place of it.
+Persist failures are logged at `Error` (or `Warning` for `NetworkBlip`) next to the original failure, not in place of it.
 
 ## What this does not protect
 
-- **Pipeline failure between commands within a single transactional step**: persistence happens at command boundaries. A handler that produces partial in-memory state without writing to disk is unaffected.
-- **A successful run**: persistence runs only on the failure path. Successful runs commit and push as part of `CommitAndPRCommand` and do not need the WIP fallback.
-- **First-attempt failures with no checkout**: if the pipeline fails before `CheckoutSourceCommand`, there is no working tree to persist (`Unknown` kind, no commit pushed).
+- **State that never reached disk.** Persistence happens at step boundaries. A handler that holds partial state in memory loses it.
+- **A successful run.** Persistence runs only on the failure path. Successful runs commit and push as part of `CommitAndPRCommand`.
+- **Failures before checkout.** With no working tree there is nothing to persist.
 
 ## Related
 

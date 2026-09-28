@@ -1,103 +1,76 @@
 # Context Compaction
 
-Long agentic runs (ProjectAnalyzer, AgenticExecute) accumulate the full conversation history each turn — every tool result, every assistant response. Without intervention this is **quadratic** in token cost: by iteration 20 the model re-processes 20× the prior tool output. Real numbers from a production trace: ProjectAnalyzer hit ~864k input tokens for a single .NET solution analysis (~$1.73 at gpt-4.1 input pricing).
+A long agentic loop re-sends its whole conversation on every turn: every tool result, every assistant reply. Left alone, the input grows with each iteration and the run pays for the same tool output over and over, until it hits the model's context window and dies with an HTTP 400.
 
-Compaction summarizes the older prefix of the conversation when a threshold is crossed, keeping the recent tail verbatim. Same conceptual algorithm as p0008's Claude compactor, ported to OpenAI / Azure-OpenAI in p0114.
+Compaction keeps that in check. Once the conversation gets too big, the older middle is folded into a running summary and the model keeps working on a smaller view of the same thread.
+
+## One middleware for every provider
+
+Compaction is a single provider-agnostic `CompactingChatClient` that sits in the chat-client chain below the function-invoking loop. Because the loop re-enters the chain on every tool iteration, the compactor sees each call and can reduce it mid-pass. Claude, OpenAI, Azure OpenAI, Gemini and Ollama all get the same behaviour; there is no per-provider compactor.
+
+It runs in two places:
+
+- The coding master's open loop always carries it (when `is_enabled` is true).
+- Any other tool loop whose model role states a `context_window_tokens` gets it too, for example the scout sweep. A role without a stated window runs without compaction.
 
 ## Trigger
 
-Compaction fires between rounds when **either**:
+Compaction fires on token pressure only:
 
 ```
-currentIterations >= CompactionConfig.ThresholdIterations
-  OR
-estimatedAccumulatedTokens >= CompactionConfig.MaxContextTokens
+estimated tokens of the forwarded view >= max_context_tokens × max_context_tokens_trigger_ratio
 ```
 
-Boolean OR (no max(), no AND). Defaults: `ThresholdIterations=8`, `MaxContextTokens=80000`.
+Defaults are `max_context_tokens: 200000` and `max_context_tokens_trigger_ratio: 0.7`, so the first fold happens around 140k estimated tokens. When the role states a `context_window_tokens`, the threshold is the smaller of `max_context_tokens` and that window. A ratio of 0 or below switches the trigger off.
 
-The estimate uses a `chars / 4` heuristic — accurate to ±5% for English text. It only feeds the trigger decision; the **post-compaction savings number** is the authoritative `usage.prompt_tokens` from the next API response.
+The estimate is a `chars / 4` count over message text and tool results. It only decides when to fold.
 
-## What's preserved, what's summarized
+`threshold_iterations` is still parsed so old files load, but it does nothing. A non-default value logs a deprecation warning at startup.
+
+## What the model sees after a fold
 
 ```
-[ system prompt          ]   ← preserved verbatim (cache-stable)
-[ initial user prompt    ]   ↘
-[ assistant + tool_calls ]    │
-[ tool result            ]    │  ← summarized into a single
-[ assistant + tool_calls ]    │  [Context Summary] user message
-[ tool result            ]    │
-[ assistant text         ]   ↗
-[ assistant + tool_calls ]   ↘
-[ tool result            ]    │  ← TAIL: kept verbatim
-[ assistant + tool_calls ]    │  (last 2 complete tool-call rounds)
-[ tool result            ]   ↗
+[ system prompt(s)       ]   pinned, verbatim
+[ initial user message   ]   pinned, verbatim (ticket, conversation, attachments)
+[ context summary        ]   the folded middle, extended incrementally
+[ current state          ]   ledger + working state, re-rendered on every call
+[ recent tail            ]   the last rounds, verbatim
 ```
 
-A "round" is one of:
-- `AssistantChatMessage` with tool_calls + all `ToolChatMessage` responses to those `tool_call_id`s.
-- A bare `AssistantChatMessage` with no tool_calls (terminal reply).
+- The initial user message is pinned. It carries the ticket and its attachments, and a paraphrase of it is how a model ends up re-deriving things the ticket spelled out.
+- The tail keeps roughly the last `keep_recent_iterations` rounds (at least four messages) and never starts on an orphaned tool result, so every provider still gets a valid call/result transcript.
+- The summary is framed as subordinate: where it conflicts, the ticket and the current-state block win.
 
-Walking backward, the boundary **never splits a round mid-pair** — the OpenAI API rejects payloads where a tool message references a `tool_call_id` without the matching assistant message in the same array. `ToolCallRoundIdentifier` enforces this invariant.
+After the first fold the view grows append-only with a byte-stable prefix. A new fold happens only when the view itself crosses the threshold again. That keeps provider prompt caches warm between folds instead of rewriting the prefix every turn.
 
-## Provider availability
+## The summarizer
 
-| Provider | Compactor | Notes |
-|---|---|---|
-| Claude | `ClaudeContextCompactor` (p0008) | Uses Anthropic native `cache_control: ephemeral` — verifiable cache hits |
-| OpenAI | `OpenAiContextCompactor` (p0114) | Uses chat-completions; opaque automatic prompt caching |
-| Azure-OpenAI | `OpenAiContextCompactor` (p0114) | Same impl; Azure delegates via shared composition |
-| Gemini | NoOp (placeholder) | Same long-loop quadratic cost as the others — **NOT** "doesn't need it". Follow-up phase. |
-| Ollama | NoOp (placeholder) | Local model still re-processes the full history each turn. Follow-up phase. |
+The summary call goes through the agent's `summarization` model role (see [AI providers](../../connect-your-stuff/ai-providers.md)), with up to 1024 output tokens per fold. `summary_model` and `deployment_name` under `compaction:` are still accepted but do not pick the summarizer; configure `models.summarization` instead.
+
+A summarizer failure is not fatal. The compactor logs a warning ("Context compaction summarizer failed — forwarding the full history") and forwards the unreduced view.
+
+## When folding is not enough
+
+If a role states a `context_window_tokens` and the forwarded view still reaches 85% of it, the loop is finalized: tool calling is switched off for one turn and the model is told to answer from the evidence it already has. A shallow answer beats a context-length error.
 
 ## Configuration
 
 ```yaml
-agent:
-  type: azure-openai
-  model: gpt-4.1
-  compaction:
-    is_enabled: true                    # default true; disable for traceability/regulated runs
-    threshold_iterations: 8             # fire once iterations reach this
-    max_context_tokens: 80000           # fire once estimate reaches this
-    keep_recent_iterations: 3           # legacy field; OpenAi compactor keeps 2 complete rounds
-    summary_model: claude-haiku-4-5     # used by Claude compactor
-    deployment_name: gpt-4o-mini-deployment  # NEW p0114: route summarizer to a smaller deployment
+agents:
+  claude-default:
+    type: claude
+    compaction:
+      is_enabled: true                      # default true
+      max_context_tokens: 200000            # default 200000
+      max_context_tokens_trigger_ratio: 0.7 # default 0.7; 0 disables the trigger
+      keep_recent_iterations: 3             # size of the verbatim tail
+    models:
+      summarization:
+        model: claude-haiku-4-5-20251001
 ```
 
-`deployment_name` is the most impactful operator knob: compaction is summarization, which doesn't need the primary model. Routing it to `gpt-4o-mini-deployment` (or equivalent) cuts the summarization-call cost by ~5× without degrading the summary quality.
-
-## Failure handling
-
-Summarizer failures are **non-fatal**:
-
-- HTTP 429 (rate-limited summarizer deployment), 5xx, malformed response — caught at the compactor.
-- Compactor returns `OpenAiCompactionResult(messages: original, Event: ForFailure(...))` — agentic loop continues with un-compacted history.
-- Failure is logged at WARN with the original exception type + reason.
-
-Pretending compaction succeeded with a broken summary is worse than running on the full history.
-
-## Audit trail
-
-Every `CompactionEvent` carries a `PromptHash` (8-char SHA-256 prefix of the resolved summarization-prompt). Operators correlating output regressions to prompt drift can diff hashes across runs. The prompt is loaded via `IPromptCatalog.Get("openai-context-compactor-system")` — operators can override it locally via `IPromptOverrideSource` (consistent with all other prompts in the codebase).
-
-Log line for a successful compaction:
+A successful fold logs one line:
 
 ```
-info  Compacted 24→3 messages; verified 18000 input tokens (saved est. 116000; summarizer cost 1200 tokens; prompt bae9264d)
+info  Compaction fold #1: 58 -> 12 messages (watermark 50, folded 44 new)
 ```
-
-The `verified` figure is the next API response's `usage.prompt_tokens` — ground truth, not estimate.
-
-## Sequence assumption
-
-The compaction point fires **synchronously between rounds**, never mid-tool-call. Every call site has an inline comment:
-
-```csharp
-// COMPACTION POINT — runs synchronously between rounds, after a complete
-// assistant→tool-results round. Must NEVER fire while a tool_call is
-// in-flight or unanswered. Future parallelization of the agentic loop
-// must move this point or guard it explicitly.
-```
-
-If the agentic loop ever gets parallel-fanout for independent tool calls, this assumption breaks and the compaction point must be moved or guarded.
