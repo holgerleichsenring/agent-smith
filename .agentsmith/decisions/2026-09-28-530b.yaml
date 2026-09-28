@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-530b
+
+decisions:
+  - category: Security
+    chose: "Check the address in the handler's connect callback"
+    over: "Resolving and checking the URL host before the request"
+    reason: "A check before the request misses DNS rebinding and every redirect hop. The connect callback sees the address actually dialled, redirects included."
+
+  - category: Security
+    chose: "An operator CIDR allowance; empty by default"
+    reason: "On-premises estates may host documentation internally. The refusal names the setting instead of failing silently."
+
+  - category: Implementation
+    chose: "Give fetched content its own untrusted markers, parallel to the ticket markers"
+    over: "Reusing or renaming the ticket markers"
+    reason: "The ticket markers say TICKET, and the skill-side contract references those strings (TicketPromptDelimiters.cs:15-23)."
+
+  - category: Security
+    chose: "The guarded handler does not use a proxy (UseProxy false), and IPv4-mapped, NAT64 and 6to4 addresses are unwrapped before classification"
+    over: "Honouring HTTP(S)_PROXY with a pre-send resolution check"
+    reason: "Review: through a proxy the connect callback dials the proxy and never sees the target, so the guarantee would be void. An estate that needs a proxy for web_fetch is an open question for the operator."
+
+  - category: Scope
+    chose: "In-process http_request stays unguarded, with the reason stated; the attachment loaders are the separate hotfix"
+    reason: "In-process run_command can call curl directly (HttpRequestStep.cs:22), so guarding one tool there protects nothing (InProcessSandbox.cs:10-13). The loader leak is handled by the parent as a separate hotfix."

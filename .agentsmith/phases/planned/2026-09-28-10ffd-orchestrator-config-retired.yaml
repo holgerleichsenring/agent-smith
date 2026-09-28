@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-10ffd
+goal: "The job path's configuration, deploy settings and docs are retired: a configuration that still names them loads with a warning, and nothing documents a path that no longer exists."
+
+applies_to: "backend (configuration model, config studio, dashboard project panel) and deploy/docs"
+
+requires: ["2026-09-28-10ffb"]
+
+scope:
+  in: >
+    - The spawner settings are retired: the per-project orchestrator block (ResolvedProject.cs:36;
+      RawProjectEntry.cs:46), and the top-level block's image, version and resources. They stay
+      parseable; a value in them is announced at startup by a new OrchestratorConfigDeprecationWarner,
+      which reads the raw configuration, and has no effect.
+    - The top-level block's MaxRunWallTimeSeconds (OrchestratorGlobalConfig.cs:38) is live and stays.
+      It is read by ExecutePipelineUseCase.cs:113, CancelEnforcer.cs:43,
+      HousekeepingLeaderHostedService.cs:104 and ConfigSnapshotMapper.cs:109-111, and the Settings form
+      edits it.
+    - deployment's feed into the retired settings (DeploymentDefaultsApplier.cs:21, 25-29) is dropped,
+      so a deployment-pinned install is not warned about values it never wrote. They leave the schema's documentation, the config
+    studio (ConfigResolutionPass.cs:21, 29, 46; ResolvedProjectSettings.cs:25; ConfigSnapshot.cs:94;
+    ConfigSnapshotMapper.cs:89) and the dashboard project panel (ProjectDetailPanel.tsx:174;
+    configApi.ts:45). Deploy loses AGENTSMITH_IMAGE, IMAGE_PULL_POLICY, K8S_SECRET_NAME and
+    JobSpawner__* (8-deployment-server.yaml:181-203), the batch/jobs rule of the agentsmith-job-manager
+    Role (2-rbac.yaml:13, 19-21), and compose's SPAWNER_TYPE and AGENTSMITH_IMAGE
+    (docker-compose.example.yml:80, 159, 161). Compose keeps running the server as root: the Docker
+    sandbox backend still uses the mounted socket (SandboxBackend.cs:5), and the image's user is
+    uid 1000 (Server/Dockerfile:57, 114). Only the comment that ties root to the spawner changes
+    (:147). The twelve docs pages that describe
+    spawned jobs, the example configuration (config/agentsmith.example.yml:29, 128), and the
+    constants and comments that name them are brought up to date.
+  out: >
+    Making the blocks a hard error: p0281e plans that for legacy blocks
+    (Loader_LegacyOrchestratorBlock_ThrowsWithMigrationHint). This phase warns, and p0281e's throw
+    remains its own decision, not edited here.
+
+decisions:
+  - key: |
+      THE TOP-LEVEL BLOCK IS NOT DEAD. MaxRunWallTimeSeconds lives in it and is enforced at run start,
+      by the cancel enforcer and by housekeeping, and it is a config-in-database document with a
+      dashboard form (ConfigDocTypes.cs:27; SettingsForm.tsx:52-118). Only the spawner settings
+      inside it are retired.
+  - key: |
+      A WARNING, BECAUSE THAT IS THE PRECEDENT. Unknown keys are ignored silently
+      (YamlConfigurationLoader.cs:84, IgnoreUnmatchedProperties), so dropping the model would silence
+      the block without telling anyone. The precedent is a dedicated warner called by StartupAnnouncer
+      (StartupAnnouncer.cs:14-15, 22-23). This phase adds OrchestratorConfigDeprecationWarner there, and
+      it reads the raw configuration, before defaults are applied.
+  - key: |
+      THE ROLE NAME STAYS. Renaming agentsmith-job-manager would force a RoleBinding migration in
+      every deployment for a cosmetic gain; its rules shrink to what the server uses.
+  - key: |
+      SERIES: fourth of 2026-09-28-10ff. Suggested order: after 10ffb, alongside 10ffc.
+
+steps:
+  - id: config
+    path: "src/backend/AgentSmith.Contracts, src/backend/AgentSmith.Infrastructure.Core, src/backend/AgentSmith.Application, src/dashboard"
+    action: "Keep the retired settings parseable and warned; keep MaxRunWallTimeSeconds; drop the deployment feed; remove the retired settings from the schema documentation, the studio projection and the dashboard panel; migrate ConfigResolutionPassTests, ConfigSnapshotMapperTests, OrchestratorImageResolverTests, StubOrchestratorImageResolver and the dashboard tests ProjectSelect.test.tsx, ProjectDetailPanel.test.tsx and ConfigView.test.tsx."
+    new:
+      - "OrchestratorConfigDeprecationWarner: announces retired spawner settings found in the raw configuration"
+  - id: deploy-docs
+    path: "deploy, docs, config/agentsmith.example.yml"
+    action: "Remove the job-path settings and rules; rewrite the docs pages configure-it/settings.md, connect-your-stuff/repos-multi.md, host-it/kubernetes.md, docker-compose.md, install.md, docker-k8s-troubleshooting.md, setup/slack.md, setup/teams.md, chat-gateway.md, agentsmith-yml.md, capacity.md, architecture/layers.md, sandbox-agent.md and sandbox-architecture.md; update AgentImageDefaults.OrchestratorImageName, the DispatcherDefaults spawner constants and the ChatIntent comments."
+
+tests:
+  - "OrchestratorConfigDeprecationWarner_RetiredSettingsPresent_WarnsOnce"
+  - "OrchestratorConfigDeprecationWarner_OnlyDeploymentDefaults_DoesNotWarn"
+  - "OrchestratorConfig_MaxRunWallTimeSeconds_StillEnforced"
+  - "ConfigSnapshotMapper_Project_HasNoOrchestratorSettings"
+
+done:
+  - "an existing configuration with spawner settings loads, warns once, and behaves as without them; the run wall-time limit is unchanged"
+  - "no deploy file, docs page or example names a spawned job"
+  - "build green, full suite green, dashboard tests green"

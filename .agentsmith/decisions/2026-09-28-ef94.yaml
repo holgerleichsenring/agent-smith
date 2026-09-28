@@ -3,9 +3,9 @@ phase: 2026-09-28-ef94
 
 decisions:
   - category: Scope
-    chose: "Minted anew; it follows 2026-09-28-23a2a in prose"
+    chose: "Minted anew; follows the 2026-09-28-23a2 series in prose"
     over: "A fifth letter of the 23a2 series"
-    reason: "The review of 23a2a found it after the series was minted, and CLAUDE.md says a later addition mints anew."
+    reason: "A review of the series found it after the series was minted, and CLAUDE.md says a later addition mints anew."
 
   - category: Security
     chose: "Strip the declared secret names (AgentSecretNames.For) from in-process step environments"
@@ -33,7 +33,7 @@ decisions:
     reason: |
       An in-process step runs as the same user as its parent, whose environment and arguments stay
       readable through /proc/$PPID. The boundary for repository code is the container sandbox
-      (23a2a, 23a2b).
+      (2026-09-28-2f8c, 23a2b).
 
   - category: Scope
     chose: "The secrets-block source names moved to 2026-09-28-c657"

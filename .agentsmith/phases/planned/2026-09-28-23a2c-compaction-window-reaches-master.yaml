@@ -77,6 +77,10 @@ decisions:
       check that currently gives wrong advice in both directions. It stays because a 128k master
       finalises today where it should fold.
 
+  - key: |
+      SERIES AND ORDER: a member of 2026-09-28-23a2 (the OpenHands comparison), independent of the
+      sandbox work. Suggested order: after the web_fetch guard (2026-09-28-530b), before 23a2b.
+
 steps:
   - id: the-master-is-clamped
     path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"

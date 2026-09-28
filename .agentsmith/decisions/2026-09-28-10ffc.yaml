@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-10ffc
+
+decisions:
+  - category: Scope
+    chose: "Keep CliInfraPreflightProbe"
+    over: "Removing the CLI's Redis probe along with job mode"
+    reason: "It already reports Redis as not required (CliInfraPreflightProbe.cs:20-23); a set REDIS_URL means doctor is pointed at a server deployment. Accepted from review."
+
+  - category: Scope
+    chose: "The migrate init container keeps the CLI image, and this is named"
+    reason: "It runs a one-shot migration, not a pipeline (8-deployment-server.yaml:34). The operator rule targets spawning the CLI as a run image."

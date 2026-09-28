@@ -19,13 +19,15 @@ decisions:
     reason: "Staged registry auth replaces it. Recorded so the break is a decision, not a surprise."
 
   - category: Scope
-    chose: "Exclude registry tokens from 23a2b's mask list by decision"
+    chose: "Registry tokens join 23a2b's mask list (operator ruling 2026-09-28)"
+    over: "Excluding them because the model can be handed one on purpose"
     reason: |
       Review refuted the claim that a container sandbox never sees the secrets block: registry tokens
-      are staged into auth files there (StagedAuthFileWriter.cs:37-40). They are also handed to the
-      model on purpose (AgenticMasterHandler.cs:286), so masking them protects nothing.
+      are staged into auth files there (StagedAuthFileWriter.cs:37-40). Private feeds are in use, so a
+      staged token printed by a build must not reach the trace or the model; get_artifact_credentials
+      remains the deliberate hand-over (AgenticMasterHandler.cs:286).
 
   - category: Implementation
     chose: "The in-process factory reads the configuration at CreateAsync"
-    over: "Accepting the startup snapshot, as 4722b did for the spawners"
+    over: "Accepting the startup snapshot, as 4722b did"
     reason: "Every run already reloads the configuration (ExecutePipelineUseCase.cs:265), so a secret added in Studio should be stripped from the next run, not after a restart."

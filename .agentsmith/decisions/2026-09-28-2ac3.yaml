@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-2ac3
+
+decisions:
+  - category: Security
+    chose: "Redact the Redis password in startup findings and logs, as a small phase of its own"
+    over: "Folding the redaction into ef94"
+    reason: "ef94 is about the in-process step environment; the redaction is independent and cheap. It was carried over from the review of the withdrawn per-job Redis ACL phase."
+
+  - category: Scope
+    chose: "Document the interim Redis password step, including what it does not protect before the transport change"
+    reason: "requirepass with REDIS_URL=host:port,password=… works today without code (RedisExtensions.cs:87), but every sandbox still receives the URL until 2026-09-28-2f8c ships."
+
+  - category: Security
+    chose: "Never echo the configured value: print endpoints or '(value hidden)', in both the URL finding and the probe finding"
+    over: "Redacting a password= element"
+    reason: "Review: the URI form the template ships puts the password in the host part (4-secret-template.yaml:74), and RedisProbe publishes raw client errors (RedisProbe.cs:25; InfraConnectivityProbe.cs:43)."
+
+  - category: Security
+    chose: "Both fail-open cases are named: optional false for a missing key, a guarded start for an empty one"
+    reason: "Review corrected the earlier reasoning: a missing optional key leaves the literal, readable variable reference as the password; an empty value disables requirepass, and optional false does not catch it."
