@@ -9,12 +9,16 @@ public interface IPrDiffProvider
 }
 
 /// <summary>
-/// Represents the diff of a pull request / merge request.
+/// Represents the diff of a pull request / merge request. HeadBranch and Author are the
+/// branch the pull request comes from and who opened it, as the host reports them — what a
+/// run started from a bare pull-request number needs to check the head out.
 /// </summary>
 public sealed record PrDiff(
     string BaseSha,
     string HeadSha,
-    IReadOnlyList<ChangedFile> Files);
+    IReadOnlyList<ChangedFile> Files,
+    string? HeadBranch = null,
+    string? Author = null);
 
 /// <summary>
 /// A single file changed in a PR/MR diff.

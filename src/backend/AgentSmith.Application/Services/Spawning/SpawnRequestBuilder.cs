@@ -36,7 +36,7 @@ internal static class SpawnRequestBuilder
             ProjectName: project.Name,
             TicketId: new TicketId(envelope.TicketId!),
             PipelineName: pipelineName,
-            InitialContext: BuildInitialContext(matchedTrigger, approvedSetJson),
+            InitialContext: BuildInitialContext(matchedTrigger, approvedSetJson, envelope.RequestedByName),
             PlanAnswers: planAnswers,
             ExistingRunId: existingRunId);
 
@@ -60,13 +60,17 @@ internal static class SpawnRequestBuilder
             // Never null for a funnel entry — the pump launches only entries that
             // carry an envelope (null marks the projector's TOCTOU backstop ones).
             InitialContextJson: JsonSerializer.Serialize(
-                BuildInitialContext(matchedTrigger, approvedSetJson) ?? new Dictionary<string, object>()),
+                BuildInitialContext(matchedTrigger, approvedSetJson, envelope.RequestedByName)
+                ?? new Dictionary<string, object>()),
             PlanAnswersJson: planAnswers is null ? null : JsonSerializer.Serialize(planAnswers));
 
     private static Dictionary<string, object>? BuildInitialContext(
-        WebhookTriggerConfig trigger, string? approvedSetJson)
+        WebhookTriggerConfig trigger, string? approvedSetJson, bool requestedByName)
     {
         var ctx = new Dictionary<string, object>();
+        // A person named this run in chat: it rides the queue row too, so the pump's claim
+        // reads the same answer the immediate claim does.
+        if (requestedByName) ctx[ContextKeys.RequestedByName] = true;
         // 2026-09-17-0e79a: the set a person approved, whole, under one key.
         if (!string.IsNullOrEmpty(approvedSetJson))
             ctx[ContextKeys.ApprovedSpecSet] = approvedSetJson;

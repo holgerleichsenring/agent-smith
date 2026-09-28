@@ -1,4 +1,6 @@
-using AgentSmith.Application.Services.Orchestrator;
+using AgentSmith.Application.Services.Dialogue;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
@@ -7,20 +9,20 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.ChatLaunch;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Infrastructure.Models;
 using FluentAssertions;
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using StackExchange.Redis;
 using System.Text.Json.Nodes;
 
 namespace AgentSmith.Tests.Dispatcher;
 
 public sealed class SlackModalSubmissionHandlerTests
 {
-    private readonly Mock<IJobSpawner> _spawner = new();
+    private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
     private readonly Mock<IPlatformAdapter> _adapter = new();
     private readonly Mock<IConfigurationLoader> _configLoader = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactory = new();
@@ -33,50 +35,33 @@ public sealed class SlackModalSubmissionHandlerTests
     public SlackModalSubmissionHandlerTests()
     {
         _adapter.Setup(a => a.Platform).Returns("slack");
-
-        // Build real handlers with mocked dependencies
-        var redis = new Mock<IConnectionMultiplexer>();
-        var db = new Mock<IDatabase>();
-        redis.Setup(r => r.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(db.Object);
-
-        var stateManager = new ConversationStateManager(
-            redis.Object,
-            NullLogger<ConversationStateManager>.Instance,
-            NullLoggerFactory.Instance);
-
-        var messageBus = new Mock<IMessageBus>();
-        var messageRouter = new Mock<IBusMessageRouter>();
-        var listener = new MessageBusListener(
-            messageBus.Object,
-            messageRouter.Object,
-            NullLogger<MessageBusListener>.Instance);
-
-        var orchestratorImageResolver = new Mock<IOrchestratorImageResolver>();
-        orchestratorImageResolver
-            .Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
-            .Returns("agentsmith-cli:test");
-        var orchestratorResourceResolver = new Mock<IOrchestratorResourceResolver>();
-        orchestratorResourceResolver
-            .Setup(r => r.Resolve(It.IsAny<ResolvedProject>()))
-            .Returns(ResourceLimits.Default);
         _configLoader
             .Setup(l => l.LoadConfig(It.IsAny<string>()))
             .Returns(new AgentSmithConfig
             {
-                Projects = new() { ["my-project"] = new ResolvedProject { Name = "my-project" } },
+                Projects = new()
+                {
+                    ["my-project"] = new ResolvedProject
+                    {
+                        Name = "my-project",
+                        Repos = [new RepoConnection { Name = "repo-a" }],
+                        Tracker = new TrackerConnection { Type = TrackerType.GitHub },
+                    },
+                },
             });
+        _spawn.Setup(s => s.ExecuteAsync(
+                It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+                It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()))
+            .ReturnsAsync(new SpawnResult([ClaimResult.Claimed()], "run-1"));
         var serverContext = new ServerContext("/tmp/agentsmith.yml");
+        var announcer = new ChatLaunchAnnouncer(_adapter.Object, new RunAnswerLink(new AgentSmithConfig()));
 
         var fixHandler = new FixTicketIntentHandler(
-            _spawner.Object,
-            _adapter.Object,
-            stateManager,
-            listener,
-            orchestratorImageResolver.Object,
-            orchestratorResourceResolver.Object,
-            _configLoader.Object,
-            serverContext,
-            NullLogger<FixTicketIntentHandler>.Instance);
+            new ChatTicketRunLauncher(
+                _configLoader.Object, serverContext, _spawn.Object,
+                NullLogger<ChatTicketRunLauncher>.Instance),
+            announcer);
 
         var listHandler = new ListTicketsIntentHandler(
             _adapter.Object,
@@ -91,22 +76,14 @@ public sealed class SlackModalSubmissionHandlerTests
             TestSupport.ApprovedSetDoubles.Kinds(),
             NullLogger<CreateTicketIntentHandler>.Instance);
 
-        var initHandler = new InitProjectIntentHandler(
-            _spawner.Object,
-            _adapter.Object,
-            stateManager,
-            listener,
-            orchestratorImageResolver.Object,
-            orchestratorResourceResolver.Object,
-            _configLoader.Object,
-            serverContext,
-            NullLogger<InitProjectIntentHandler>.Instance);
-
+        // The init and security-review doors write run rows; their own tests drive them over
+        // a real store (ChatRunLaunchTests). Nothing below selects either command.
         _sut = new SlackModalSubmissionHandler(
             fixHandler,
             listHandler,
             createHandler,
-            initHandler,
+            null!,
+            null!,
             new SlackAdapter(
                 new SlackApiClient(
                     new HttpClient(_slackApi),
@@ -119,57 +96,50 @@ public sealed class SlackModalSubmissionHandlerTests
             NullLogger<SlackModalSubmissionHandler>.Instance);
     }
 
-    [Fact]
-    public async Task HandleAsync_FixBug_SpawnsJobWithFixBugPipeline()
+    [Theory]
+    [InlineData("fix_bug")]
+    [InlineData("fix_bug_no_tests")]
+    [InlineData("add_feature")]
+    public async Task HandleAsync_CodingCommand_StartsTheCodePipelineThroughTheSpawnFunnel(string command)
     {
-        _spawner.Setup(s => s.SpawnAsync(
-                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("job-123");
-
-        var payload = BuildPayload("fix_bug", "my-project", ticketId: "42");
+        var payload = BuildPayload(command, "my-project", ticketId: "42");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _spawner.Verify(s => s.SpawnAsync(
-            It.Is<JobRequest>(r =>
-                r.InputCommand.Contains("#42") &&
-                r.Project == "my-project" &&
-                r.PipelineOverride == "code"),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(),
+            It.Is<ResolvedProject>(p => p.Name == "my-project"),
+            "code",
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "42" && e.RequestedByName),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Once);
+        _adapter.Verify(a => a.SendMessageAsync(
+            "C123", It.Is<string>(t => t.Contains("run-1")), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task HandleAsync_FixBugNoTests_SpawnsJobWithFixNoTestPipeline()
+    public async Task HandleAsync_MadDiscussion_StartsMadDiscussionOnTheTicket()
     {
-        _spawner.Setup(s => s.SpawnAsync(
-                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("job-123");
-
-        var payload = BuildPayload("fix_bug_no_tests", "my-project", ticketId: "42");
+        var payload = BuildPayload("mad_discussion", "my-project", ticketId: "58");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _spawner.Verify(s => s.SpawnAsync(
-            It.Is<JobRequest>(r => r.PipelineOverride == "code"),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _spawn.Verify(s => s.ExecuteAsync(
+            It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), "mad-discussion",
+            It.Is<IncomingTicketEnvelope>(e => e.TicketId == "58"),
+            It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task HandleAsync_AddFeature_SpawnsJobWithAddFeaturePipeline()
+    public async Task HandleAsync_LegalAnalysis_IsNoLongerACommand()
     {
-        _spawner.Setup(s => s.SpawnAsync(
-                It.IsAny<JobRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("job-123");
-
-        var payload = BuildPayload("add_feature", "my-project", ticketId: "58");
+        var payload = BuildPayload("legal_analysis", "my-project");
 
         await _sut.HandleAsync(payload, CancellationToken.None);
 
-        _spawner.Verify(s => s.SpawnAsync(
-            It.Is<JobRequest>(r =>
-                r.InputCommand.Contains("#58") &&
-                r.PipelineOverride == "code"),
-            It.IsAny<CancellationToken>()), Times.Once);
+        _slackApi.Posts.Should().ContainSingle().Which.Should().Contain("Invalid command");
+        _spawn.VerifyNoOtherCalls();
     }
 
     [Fact]

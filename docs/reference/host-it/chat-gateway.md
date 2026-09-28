@@ -1,20 +1,19 @@
 # Chat Gateway (Slack / Teams)
 
-The server doubles as a gateway between chat platforms and Agent Smith. Users trigger pipelines from Slack or Teams, and progress streams back into the thread. There is no separate process for it: `AgentSmith.Server` receives the chat events on the same port as the webhooks (8081).
+The server doubles as a gateway between chat platforms and Agent Smith. Users start runs from Slack or Teams, and the server runs them exactly like a run a webhook or the poller started: admitted against capacity, queued, and executed in the server's sandboxes. There is no separate process for it: `AgentSmith.Server` receives the chat events on the same port as the webhooks (8081).
 
 ## Architecture
 
 ```
-┌─────────┐   HTTPS    ┌──────────────────────┐   Redis   ┌──────────┐
-│  Slack  │───────────▶│  AgentSmith.Server   │◀─────────▶│  Redis   │
-│  Teams  │            │                      │           └──────────┘
-└─────────┘            │  platform adapter    │                ▲
-                       │  intent engine       │           progress
-                       │  job spawner         │                │
-                       └──────────┬───────────┘           ┌────┴─────┐
-                                  │                       │  run     │
-                          K8s Job or Docker container ───▶│  (job)   │
-                                                          └──────────┘
+┌─────────┐   HTTPS    ┌──────────────────────┐  enqueue  ┌──────────┐
+│  Slack  │───────────▶│  AgentSmith.Server   │──────────▶│  Redis   │
+│  Teams  │◀───────────│                      │           │  queue   │
+└─────────┘  run id    │  platform adapter    │           └────┬─────┘
+                       │  intent engine       │                │
+                       │  run launcher        │◀───────────────┘
+                       └──────────┬───────────┘   queue consumer
+                                  │
+                           sandboxes (Kubernetes or Docker)
 ```
 
 ## How it works
@@ -23,9 +22,9 @@ The server doubles as a gateway between chat platforms and Agent Smith. Users tr
 2. **The platform adapter** receives it (Slack Events API at `/slack/events`, Teams at `/api/teams/messages`) and checks the platform's signature.
 3. **The intent engine** parses the message: regex patterns first, and an LLM call on the agent's `reasoning` model for input the patterns don't match.
 4. **The project resolver** maps `my-api` to a configured project.
-5. **The job spawner** starts the run in its own container, a Kubernetes Job or a Docker container depending on `SPAWNER_TYPE`.
-6. **Progress streams** through Redis back to the server, which relays it into the originating channel or thread.
-7. **The container ends** when the pipeline completes.
+5. **The run launcher** starts the run through the same door every other run uses (see [Chat runs go through the queue](#chat-runs-go-through-the-queue)).
+6. **The server answers in the channel** with the run id the run is queued under, and a link to the run in the dashboard when `dialogue.dashboard_url` is set.
+7. **The run executes in the server**, in the sandboxes the server is configured with, and shows up on the runs board under that id. Its questions and its outcome are on the run's dashboard page.
 
 ## Supported platforms
 
@@ -68,11 +67,11 @@ Nothing extra to deploy: the server from [docker-compose](../../host-it/docker-c
 
 | Message | What it does |
 |---------|--------------|
-| `fix #42 in my-api` | Runs the `code` pipeline for ticket 42 in project `my-api` |
+| `fix #42 in my-api` | Runs the `code` pipeline for ticket 42 in project `my-api` (a fix always runs `code`) |
 | `fix PROJ-42 in my-api` | The same with a Jira key; `ticket` and `fix` are optional (`#42`, `PROJ-42`) |
 | `list tickets in my-api` | Lists the project's open tickets (Jira included) |
 | `create ticket "Title" in my-api` | Files a ticket; a second quoted string adds a description |
-| `security-review my-api` / `security-review PR#12 in my-api` | Runs a security review |
+| `security-review my-api` / `security-review PR#12 in my-api` | Runs `security-scan` on the project, or on the head of pull request 12 — a pull request needs a project with exactly one repo |
 | `init my-api` | Runs `init-project` for the project (see [Onboarding](../setup/onboarding.md)) |
 | `help` | Shows the available commands |
 
@@ -80,20 +79,16 @@ When the engine can't tell the project or the command, it asks in the thread. Th
 
 ### Slash command and modal
 
-The slash command opens a modal where you pick a command and a project: Fix Bug, Fix Bug (no tests), Add Feature, Security Review, MAD Discussion, Legal Analysis, List Tickets, Create Ticket, Init Project.
+The slash command opens a modal where you pick a command and a project: Fix Bug, Fix Bug (no tests), Add Feature, Security Review, MAD Discussion, List Tickets, Create Ticket, Init Project. The three coding commands run `code` on the ticket you pick, MAD Discussion runs `mad-discussion` on it, and Security Review runs `security-scan` on the project. [Legal analysis](../pipelines/legal-analysis.md) needs a document and is a CLI pipeline, so the modal does not offer it.
 
-## One container per request
+## Chat runs go through the queue
 
-Each request runs in its own container:
+A run started from chat is admitted, queued and executed like a run a webhook or the poller started:
 
-- **Kubernetes:** a `batch/v1` Job running the CLI image in the server's namespace.
-- **Docker:** a container through the Docker socket, removed when it's done.
+- **A ticket run** (`fix`, the modal's coding commands, MAD Discussion) goes through the same spawn path as a polled ticket. It speaks for the project's tracker, so the run moves the ticket to the tracker trigger's `done_status` or `failed_status` like any routed run. A ticket that already has a run in flight is refused, and a run that does not fit the capacity budget waits in the capacity queue — the reply says so and names the run id it waits under. Because a person named the run, it is not asked whether a label would have routed that pipeline, and a waiting run is not dropped when the ticket sits outside the trigger's `trigger_statuses`.
+- **A run without a ticket** (`security-review`, `init`) is admitted on the spot, like the dashboard's **Initialize** button: it starts, or it is refused with the reason — it never waits in the capacity queue, which re-checks a ticket and this run has none. Its row is on the runs board with trigger `manual` from the moment the reply names it.
 
-That keeps each run isolated, lets Kubernetes enforce CPU and memory limits, and cleans up after itself.
-
-## Orphan job detection
-
-The server runs an `OrphanJobDetector` that periodically looks for jobs whose container stopped without reporting completion, clears their state and tells the originating channel.
+See [Capacity](../operations/capacity.md) for how admission and the queue work.
 
 ## Environment variables
 
@@ -105,9 +100,5 @@ The server runs an `OrphanJobDetector` that periodically looks for jobs whose co
 | `TEAMS_APP_PASSWORD` | Azure AD App Registration client secret | Teams |
 | `TEAMS_TENANT_ID` | Azure AD tenant ID | Teams |
 | `REDIS_URL` | Redis connection, `host:port` | Yes |
-| `SPAWNER_TYPE` | `kubernetes` (default) or `docker` | Yes |
-| `K8S_NAMESPACE` | Namespace for spawned pods | K8s only |
-| `K8S_SECRET_NAME` | Secret to mount in spawned pods | K8s only |
-| `IMAGE_PULL_POLICY` | Image pull policy for spawned pods | K8s only |
 
-The image a spawned run uses comes from `deployment.version` (and `deployment.registry`), set under **Configuration → Deployment**.
+Chat runs need nothing chat-specific beyond these: they run in the sandboxes the server is already configured with.

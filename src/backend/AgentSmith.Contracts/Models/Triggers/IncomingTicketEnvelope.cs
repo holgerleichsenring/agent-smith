@@ -29,4 +29,11 @@ public sealed record IncomingTicketEnvelope
     /// </para>
     /// </summary>
     public bool HasApprovedRecord { get; init; }
+
+    /// <summary>
+    /// True when a person asked for this ticket's run by name — a chat command — rather than
+    /// a label or a poll routing it. The spawn funnel seeds it into the run's initial context
+    /// (ContextKeys.RequestedByName), where the claim and the capacity queue read it.
+    /// </summary>
+    public bool RequestedByName { get; init; }
 }

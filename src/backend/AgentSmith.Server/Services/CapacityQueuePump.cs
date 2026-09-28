@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Application.Services.Triggers;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -10,16 +11,14 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Server.Services;
 
 /// <summary>
-/// p0320c: the capacity queue's dequeue point. Every tick it peeks the HEAD entry
-/// (strict FIFO — nothing behind it is considered), re-validates the ticket's
-/// native status against the project's trigger config (the operator may have
-/// closed it → drop the entry and cancel its queued run row), and on admission
-/// claims with the reserved run id so the queued Run row becomes the running row.
-/// p0336: admission is the capacity-budget reservation — the head's pre-computed
-/// footprint (recorded at enqueue) is reserved atomically; it launches only when
-/// the full footprint fits the remaining budget, else it keeps its place. Entries
-/// without an envelope (InitialContextJson null — the projector's TOCTOU backstop)
-/// are left for the poller funnel, which claims a head ticket with a fresh envelope.
+/// p0320c: the capacity queue's dequeue point. Every tick it peeks the HEAD entry (strict
+/// FIFO), re-validates the ticket's native status against the project's trigger config (the
+/// operator may have closed it → drop the entry and cancel its queued run row), and on
+/// admission claims with the reserved run id so the queued Run row becomes the running row.
+/// p0336: admission is the capacity-budget reservation of the head's pre-computed footprint;
+/// it launches only when the full footprint fits, else it keeps its place. Entries without
+/// an envelope (InitialContextJson null — the projector's TOCTOU backstop) are left for the
+/// poller funnel, which claims a head ticket with a fresh envelope.
 /// </summary>
 public sealed class CapacityQueuePump(
     ICapacityQueue queue,
@@ -74,10 +73,9 @@ public sealed class CapacityQueuePump(
             await drop.DropAsync(head, $"project '{head.Project}' is no longer configured", ct);
             return;
         }
-        // p0327: a resume entry skips the trigger-status re-validation — the
-        // ticket sits legitimately in its WORKING status mid-run; dropping it
-        // would cancel a run that merely asked a question.
-        if (!head.IsResume && !await IsStillTriggeredAsync(project, head, ct))
+        // p0327: a resume skips the trigger-status re-validation (the ticket sits in its WORKING
+        // status mid-run), and so does a run a person named in chat, which no status routed.
+        if (!head.IsResume && !IsRequestedByName(head) && !await IsStillTriggeredAsync(project, head, ct))
         {
             await drop.DropAsync(head, "ticket left its trigger statuses", ct);
             return;
@@ -129,8 +127,9 @@ public sealed class CapacityQueuePump(
         PlanAnswers: Deserialize<Dictionary<string, string>>(head.PlanAnswersJson),
         ExistingRunId: head.ReservedRunId);
 
-    // Same JSON round-trip as the Redis job queue, so context values reach the
-    // pipeline with identical semantics to a normally enqueued request.
+    private static bool IsRequestedByName(CapacityQueueEntry head) => Deserialize<Dictionary<string, object>>(head.InitialContextJson).IsRequestedByName();
+
+    // Same JSON round-trip as the Redis job queue, so context values reach the pipeline alike.
     private static T? Deserialize<T>(string? json) where T : class =>
         json is null ? null : JsonSerializer.Deserialize<T>(json);
 }

@@ -3,6 +3,7 @@ using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -24,7 +25,7 @@ internal static class WebhookEndpointsExtensions
         services.AddPrCommentAuthorTrust();
         services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<PrReviewRouteResolver>();
-        services.AddSingleton<PrRunContextFactory>();
+        services.TryAddSingleton<PrRunContextFactory>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

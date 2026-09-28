@@ -115,7 +115,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
     public async Task ChatDispatch_NeverMovesATicket()
     {
         var dispatcher = new SlackMessageDispatcher(
-            null!, null!, null!, null!, null!, null!, null!, _router, null!,
+            null!, null!, null!, null!, null!, null!, null!, null!, _router, null!,
             NullLogger<SlackMessageDispatcher>.Instance);
 
         await dispatcher.DispatchAsync("/spec", "U1", "C1", CancellationToken.None, "th-1", "slack");
