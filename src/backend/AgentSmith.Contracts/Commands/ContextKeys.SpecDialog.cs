@@ -83,4 +83,8 @@ public static partial class ContextKeys
     /// <summary>2026-09-28-1da5d: what THIS framework did about that ticket — its runs, their
     /// phases and the pull requests they opened. A different claim from what the board shows.</summary>
     public const string SpecDialogTicketRuns = "SpecDialogTicketRuns";
+
+    /// <summary>2026-09-28-1da5e: the concrete strings this framework would use for this ticket —
+    /// rendered from the code that decides them, so nothing can restate and then drift.</summary>
+    public const string SpecDialogFrameworkFacts = "SpecDialogFrameworkFacts";
 }
