@@ -206,8 +206,6 @@ Opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in this conversatio
 | `TEAMS_APP_PASSWORD` | Azure AD App Registration client secret | Yes |
 | `TEAMS_TENANT_ID` | Azure AD tenant ID | Yes |
 | `REDIS_URL` | Redis connection string | Yes |
-| `SPAWNER_TYPE` | `kubernetes` or `docker` | Yes |
-| `AGENTSMITH_IMAGE` | Docker image for spawned agent jobs | Yes |
 
 ---
 
@@ -228,11 +226,12 @@ Opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in this conversatio
 - The `TEAMS_APP_ID` must match the App Registration's Application ID exactly
 - The `TEAMS_APP_PASSWORD` may have expired — create a new client secret
 
-### Bot responds but can't start jobs
+### Bot responds but the run does not start
 
-- Check `SPAWNER_TYPE` is set (`docker` for local, `kubernetes` for production)
-- For Docker: verify the Docker socket is mounted (`/var/run/docker.sock`)
-- For K8s: verify `K8S_NAMESPACE` and `K8S_SECRET_NAME` are set
+- The reply says why: an unknown project, a ticket that already has a run in flight, or a
+  run that does not fit the capacity budget right now (a ticket run then waits in the
+  capacity queue under the run id the reply names)
+- Otherwise find the run id on the dashboard's runs board and read its trail
 
 ### Sideload fails
 
@@ -270,6 +269,5 @@ Update the messaging endpoint in Azure Portal > Azure Bot > Configuration.
 - [ ] `TEAMS_APP_ID` set in K8s Secret / environment
 - [ ] `TEAMS_APP_PASSWORD` set in K8s Secret / environment
 - [ ] `TEAMS_TENANT_ID` set in K8s Secret / environment
-- [ ] `SPAWNER_TYPE` set (`docker` or `kubernetes`)
 - [ ] Messaging endpoint set to production URL
 - [ ] Redis running

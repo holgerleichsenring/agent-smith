@@ -13,7 +13,7 @@ public abstract record ChatIntent
 
 /// <summary>
 /// User wants to fix a specific ticket: "fix #65 in todo-list"
-/// Spawns a K8s Job. Interactive (progress + questions).
+/// Started through the server's spawn funnel; no pipeline named means <c>code</c>.
 /// </summary>
 public sealed record FixTicketIntent : ChatIntent
 {
@@ -44,7 +44,7 @@ public sealed record CreateTicketIntent : ChatIntent
 
 /// <summary>
 /// User wants to initialize a project: "init todo-list"
-/// Spawns a K8s Job that runs BootstrapProject + InitCommit.
+/// Started through the same launcher as the dashboard's init button.
 /// </summary>
 public sealed record InitProjectIntent : ChatIntent
 {
@@ -53,7 +53,7 @@ public sealed record InitProjectIntent : ChatIntent
 
 /// <summary>
 /// User wants a security review: "/security-review PR#42 in my-api"
-/// Spawns a K8s Job running the security-scan pipeline.
+/// A ticketless security-scan run, pinned to the pull request's head when one is named.
 /// </summary>
 public sealed record SecurityReviewIntent : ChatIntent
 {

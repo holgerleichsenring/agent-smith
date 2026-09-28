@@ -17,6 +17,7 @@ public sealed class SlackMessageDispatcher(
     ListTicketsIntentHandler listHandler,
     CreateTicketIntentHandler createHandler,
     InitProjectIntentHandler initHandler,
+    SecurityReviewIntentHandler securityHandler,
     HelpHandler helpHandler,
     ClarificationStateManager clarificationState,
     SpecDialogRouter specDialogRouter,
@@ -71,12 +72,7 @@ public sealed class SlackMessageDispatcher(
                 await initHandler.HandleAsync(init, ct);
                 break;
             case SecurityReviewIntent sec:
-                await fixHandler.HandleAsync(new FixTicketIntent
-                {
-                    RawText = sec.RawText, UserId = sec.UserId, ChannelId = sec.ChannelId,
-                    Platform = sec.Platform, TicketId = string.Empty, Project = sec.Project,
-                    PipelineOverride = "security-scan"
-                }, ct);
+                await securityHandler.HandleAsync(sec, ct);
                 break;
             case HelpIntent:
                 await helpHandler.SendHelpAsync(channelId, ct);

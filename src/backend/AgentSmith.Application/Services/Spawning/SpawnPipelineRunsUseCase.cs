@@ -145,6 +145,6 @@ public sealed class SpawnPipelineRunsUseCase(
         logger.LogInformation(
             "Spawn for project={Project} pipeline={Pipeline} ticket={Ticket} → outcome={Outcome}",
             project.Name, pipelineName, envelope.TicketId, result.Outcome);
-        return new SpawnResult(new[] { result });
+        return new SpawnResult(new[] { result }, result.Outcome == ClaimOutcome.Claimed ? runId : null);
     }
 }

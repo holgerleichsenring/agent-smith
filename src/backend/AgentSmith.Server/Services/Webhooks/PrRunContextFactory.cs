@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Providers;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
@@ -7,7 +8,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// The initial run context for a run a pull request started — its number, head, base,
 /// author, the head branch to check out, and the configured repo it belongs to. Each host's
 /// payload is read by its own method; the context they produce is built in one place, so a
-/// review and a label-triggered scan of the same pull request see the same code.
+/// review, a label-triggered scan and a chat-requested scan of the same pull request see the
+/// same code.
 /// </summary>
 public sealed class PrRunContextFactory
 {
@@ -31,6 +33,13 @@ public sealed class PrRunContextFactory
             Author: Text(root, "user", "username"),
             HeadBranch: Text(attrs, "source_branch")), repoName);
     }
+
+    /// <summary>A pull request known only by its number — a chat command names nothing else —
+    /// read back from the host through its diff provider.</summary>
+    public Dictionary<string, object> FromDiff(string prNumber, PrDiff diff, string repoName) =>
+        Build(new PullRequestFacts(
+            Number: prNumber, HeadSha: diff.HeadSha, BaseSha: diff.BaseSha,
+            Author: diff.Author, HeadBranch: diff.HeadBranch), repoName);
 
     private static Dictionary<string, object> Build(PullRequestFacts pr, string repoName)
     {

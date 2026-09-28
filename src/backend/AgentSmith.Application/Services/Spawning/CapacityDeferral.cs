@@ -45,7 +45,7 @@ internal sealed class CapacityDeferral(
             "Spawn deferred to capacity queue for project={Project} pipeline={Pipeline} "
             + "ticket={Ticket} run={RunId}: {Reason}",
             project.Name, pipelineName, envelope.TicketId, reservedRunId, reason);
-        return new SpawnResult(new[] { ClaimResult.Queued(reason) });
+        return new SpawnResult(new[] { ClaimResult.Queued(reason) }, reservedRunId);
     }
 
     // 2026-09-21-5c17: the refusal that was actually RECEIVED is what a waiting run says. The

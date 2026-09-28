@@ -10,7 +10,6 @@ public enum ModalCommandType
     AddFeature,
     SecurityReview,
     MadDiscussion,
-    LegalAnalysis,
     ListTickets,
     CreateTicket,
     InitProject
