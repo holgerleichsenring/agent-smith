@@ -1,0 +1,176 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-23a2a
+goal: "A container sandbox reaches Redis with a credential that opens its own job's keys and nothing else, so a repository script can no longer forge steps, jobs or run liveness."
+
+applies_to: "backend (sandbox provisioning, Sandbox.Agent connection, startup findings) and deploy (Redis authentication in the k8s manifests and the compose example)"
+
+requires: []
+
+scope:
+  in: >
+    A per-job Redis ACL user for every Kubernetes and Docker sandbox, named by owner and job, its
+    password derived so any replica can re-create it; the agent handed that user instead of the
+    server's REDIS_URL; the user deleted on every path a sandbox ends, including a failed creation;
+    re-created for owned live sandboxes after Redis loses it; the agent's connection narrowed and its
+    handshake proven against real Redis; a blocking startup finding when per_job cannot work; Redis
+    authentication in the shipped manifests in the one URL format the server parses.
+  out: >
+    The in-process backend and the spawned CLI job pods that run it: they receive the full REDIS_URL
+    in their own environment (KubernetesJobSpawner.cs:27-28, DockerJobSpawner.cs:136,
+    AgentSecretBinding.cs:26) and every run_command inherits it (InProcessSandbox.cs:155-187). That is
+    fixed by stripping the framework's secret variables from in-process step environments, phase
+    2026-09-28-ef94 (sandbox-inprocess-secret-env), minted for this series' follow-up. Network
+    reachability (2026-09-28-23a2d). Container hardening (p0377). Rotating the server's own Redis
+    password.
+
+decisions:
+  - key: |
+      TODAY THE SANDBOX HOLDS THE SERVER'S OWN REDIS CREDENTIAL. Both backends pass the server's
+      REDIS_URL verbatim as argument and environment variable (PodSpecBuilder.cs:86-88, 121-125;
+      DockerContainerSpecBuilder.cs:57-59, 78-82), read from the server's own environment
+      (KubernetesSandboxRegistrations.cs:19-23, DockerSandboxRegistrations.cs:108-110). Adding a
+      password to that URL hands the password to every sandbox.
+  - key: |
+      WHAT A SCRIPT CAN DO WITH IT: DRIVE THE SERVER. run_command is an unrestricted shell by design
+      (FilesystemToolHost.cs:23-26). With the server's credential a repository script can LPUSH a
+      forged step into another sandbox (RedisKeys.cs:7), RPUSH a PipelineRequest the server will run
+      with its own tokens (RedisJobQueue.cs:19-30), remove runs from the active set the reapers judge
+      liveness by (EventStreamKeys.cs:11) and bump the config epoch (RedisConfigReloadSignal.cs:17).
+      It can also read the GIT_TOKEN that git steps carry in Step.Env (CheckoutStepFactory.cs:38) —
+      one installation-wide token per platform (GitTokenResolver.cs:21-27), which the sandbox's own
+      git steps already receive, so this is the smaller of the harms.
+  - key: |
+      THE AGENT'S RIGHTS, READ OFF ITS CALLS. RPOP sandbox:{job}:in (RedisJobBus.cs:48), LPUSH
+      sandbox:{job}:results (:64), XADD sandbox:{job}:events (RedisEventChannel.cs:91), SETEX and DEL
+      sandbox:{job}:heartbeat (a StringSet with expiry, HeartbeatLoop.cs:59; KeyDelete :76 — the
+      2.8.16 client, Sandbox.Agent.csproj:15, sends SETEX), read-only SISMEMBER on
+      agentsmith:runs:active (RedisJobBus.cs:70) via a Redis 7 %R~ selector (redis:7-alpine,
+      6-deployment-redis.yaml:22). Plus the handshake the agent keeps: PING, CLIENT SETNAME, CLIENT
+      SETINFO. The agent sets its server version explicitly and maps out CONFIG, INFO, CLUSTER and the
+      configuration channel, so it needs no INFO for version detection. The real-Redis test is the
+      authority on the final list.
+  - key: |
+      THE PASSWORD IS DERIVED, NOT STORED. ACL users are never persisted to RDB or AOF; without an
+      aclfile any Redis restart loses them. A replica knows only the sandboxes it created, while the
+      leader's reapers act on every owned pod (HeldConversationReader.cs:11-15). A password of
+      HMAC(server Redis credential, owner + job id) lets whichever replica holds the leader lease
+      re-create every owned user from the pod or container list alone. The server credential is the
+      natural key: every replica has it, and per_job means nothing without it.
+  - key: |
+      RE-CREATION RACES THE AGENT. After a restart the agent's reconnect fails until its user exists;
+      its run-alive probe turns any error into "not active" (JobLoop.cs:84-95) and its heartbeat stops.
+      The test bounds re-creation below the liveness watcher's tolerance, not merely "eventually".
+  - key: |
+      THE USER NAME CARRIES THE OWNER. ACL users are global to a Redis, but each server's reapers list
+      only its own namespace or daemon (KubernetesSandboxCorpseReaper.cs:55-74,
+      SandboxOrphanReaper.cs:70-82) and ownership is the store fingerprint or an override
+      (SandboxOwnerIdentityResolver.cs:23-29). Naming users sbx-{owner}-{job}-{created} and sweeping
+      only one's own prefix keeps a server from deleting a neighbour's users.
+  - key: |
+      A USER CAN LEAK BEFORE A SANDBOX EXISTS. The quota 403 is re-queued as capacity
+      (KubernetesSandboxFactory.cs:32-41), a pod may never become ready (:46-47), a Docker loader or
+      toolchain start can fail (DockerSandboxFactory.cs:96-106, 138-139). Each deletes the user it
+      provisioned. On the success side there is one removal path per backend (disposal) plus the
+      reapers.
+  - key: |
+      PER_JOB BY DEFAULT, REFUSED LOUDLY WHERE IT CANNOT WORK. A managed Redis may deny ACL commands;
+      the server probes ACL SETUSER at startup and records a blocking StartupFinding naming
+      sandbox.redis_scoping (the mechanism RedisExtensions.cs:98-104 already uses). The server
+      credential needs +acl|setuser, +acl|deluser and +acl|users. shared is the explicit opt-out.
+      A default user that accepts unauthenticated connections is reported too, because it makes
+      per-job users decorative.
+  - key: |
+      AN OLDER AGENT IMAGE. An operator may pin the agent version (SandboxGlobalConfig.cs:16-26);
+      an older image runs the default handshake. The real-Redis test runs that default handshake
+      under a job user: if it survives, nothing more is needed; if not, per_job refuses a pinned
+      version below this release by name. Both outcomes are specified; the test picks one.
+  - key: |
+      ONE URL FORMAT. The server parses host:port and says so (RedisExtensions.cs:98-104; the
+      troubleshooting page, docker-k8s-troubleshooting.md:15), yet the secret template ships a URI
+      (4-secret-template.yaml:74). The manifests move to host:port,password=… with a password
+      alphabet free of ',' and '='; probes and the compose healthcheck authenticate via
+      REDISCLI_AUTH (6-deployment-redis.yaml:41-52; docker-compose.example.yml:103-104); the password
+      comes from a secret, not a literal arg. The compose file still publishes 6379 on the host
+      (:101-102), which the template now comments on.
+  - key: |
+      THE JOB PASSWORD IS VISIBLE IN THE POD SPEC. It rides in args and env like the URL today;
+      acceptable only because it is job-scoped and dies with the job.
+  - key: |
+      SPLIT: NETWORK IS 2026-09-28-23a2d; IN-PROCESS IS 2026-09-28-ef94. A NetworkPolicy cannot
+      isolate Redis, which the sandbox must reach; and the in-process path has no Redis hop of its own
+      to scope — its leak is the inherited environment. Both ship complete without this one.
+  - key: |
+      FILE-LENGTH RATCHET. DockerSandboxFactory is 144 of 144 (file-length-baseline.tsv:68), so its
+      provisioning call is paid for by extraction. KubernetesSandboxRegistrations constructs the
+      factory with new (KubernetesSandboxRegistrations.cs:32-39), so its constructor change is listed.
+
+steps:
+  - id: a-job-user-is-provisioned
+    path: "src/backend/AgentSmith.Server/Services/Sandbox"
+    action:
+      - "Before the container starts, create sbx-{owner}-{job}-{created} with the derived password and the rights above."
+      - "Compose the sandbox URL from the server endpoint and that user; the owner identity keeps deriving from the SERVER's URL (SandboxOwnerIdentityResolver.cs:41-48 reads endpoints and database only)."
+      - "Delete the user on every creation failure path."
+    new:
+      - "SandboxRedisCredentials: provisions, deletes and re-creates per-job ACL users"
+      - "SandboxRedisPassword: derives a job password from the server credential"
+      - "SandboxRedisUrl: composes a sandbox URL from the server endpoint and a job user"
+    modify:
+      - "KubernetesSandboxFactory, DockerSandboxFactory (extraction keeps it at or under 144): provision, pass the job URL, delete on failure"
+      - "KubernetesSandboxRegistrations, DockerSandboxRegistrations: the constructor changes"
+      - "PodSpecBuilder, DockerContainerSpecBuilder: take the job URL"
+
+  - id: the-user-dies-with-the-sandbox
+    action:
+      - "Delete on disposal (KubernetesSandbox, DockerSandbox) and in the corpse and orphan reapers."
+      - "Sweep this owner's users whose job has no owned pod or container and whose stamped creation is older than the sandbox start timeout."
+      - "On Redis connection restore, the leader re-creates the users of every owned live sandbox."
+
+  - id: the-agent-asks-for-nothing-else
+    path: "src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs"
+    action: "Set the server version, disable the configuration channel and tie-breaker, map out CONFIG, INFO and CLUSTER."
+
+  - id: scoping-is-a-setting
+    path: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs, src/backend/AgentSmith.Server/Services"
+    action:
+      - "sandbox.redis_scoping: per_job (default) or shared; shared hands the server URL and logs a warning per sandbox."
+      - "Startup probe: ACL rights missing under per_job is a blocking finding naming the setting; an unauthenticated default user is reported."
+
+  - id: redis-is-authenticated
+    path: "deploy/k8s, deploy/docker-compose.example.yml, deploy/apply-k8s-secret.sh"
+    action: "Password from the secret, redis-url as host:port,password=…, probes via REDISCLI_AUTH, and a note that sandboxes receive a job user and never this password."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests (gains Testcontainers.Redis), tests/AgentSmith.Sandbox.Agent.Tests"
+    action:
+      - "Server-side ACL tests in AgentSmith.Tests against real Redis via a fixture like RedisJobBusFixture.cs:7-9."
+      - "Agent-side handshake tests in AgentSmith.Sandbox.Agent.Tests, which already has the fixture."
+
+tests:
+  - "SandboxRedisCredentials_Provision_AgentLoopRunsOnItsOwnKeys"
+  - "SandboxRedisCredentials_Provision_AnotherJobsKeysAreRefused"
+  - "SandboxRedisCredentials_Provision_JobQueueAndConfigEpochAreRefused"
+  - "SandboxRedisCredentials_Provision_ActiveRunSetIsReadOnly"
+  - "SandboxRedisCredentials_Provision_MonitorKeysAndConfigGetAreRefused"
+  - "SandboxRedisCredentials_Delete_UserNoLongerAuthenticates"
+  - "SandboxRedisCredentials_Sweep_OnlyOwnPrefixAndOnlyPastTheStartTimeout"
+  - "SandboxRedisCredentials_RedisRestarted_OwnedUsersRecreatedWithinLivenessTolerance"
+  - "SandboxRedisPassword_Derive_SameInputsSamePasswordOnAnyReplica"
+  - "SandboxRedisUrl_Compose_CarriesTheJobUserNotTheServerPassword"
+  - "RedisJobBus_ConnectAsJobUser_HandshakeSucceeds"
+  - "RedisJobBus_DefaultHandshakeAsJobUser_OutcomeDecidesTheVersionFloor"
+  - "KubernetesSandboxFactory_QuotaRefusedOrNeverReady_UserIsDeleted"
+  - "DockerSandboxFactory_ToolchainStartFails_UserIsDeleted"
+  - "PodSpecBuilder_JobUrl_ReplacesTheServerUrlInArgsAndEnv"
+  - "DockerContainerSpecBuilder_JobUrl_ReplacesTheServerUrlInCmdAndEnv"
+  - "SandboxRedisScoping_AclRefused_BlockingFindingNamesTheSetting"
+  - "SandboxRedisScoping_Shared_HandsTheServerUrlAndWarns"
+  - "SandboxRedisScoping_DefaultUserNoPass_IsReported"
+
+done:
+  - "no Kubernetes or Docker sandbox receives the server's Redis URL; each receives a user scoped to its job"
+  - "against real Redis a job user cannot touch another job's keys, the job queue, the config epoch or write the active-run set"
+  - "no ACL user outlives its sandbox, a failed creation, or another server's sweep; a Redis restart does not kill a live sandbox"
+  - "per_job on a Redis without ACL rights is a blocking startup finding; shared is explicit and logged"
+  - "the shipped manifests authenticate Redis in host:port form"
+  - "build green, full suite green"

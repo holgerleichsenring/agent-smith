@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-ef94
+
+decisions:
+  - category: Scope
+    chose: "Minted anew; it follows 2026-09-28-23a2a in prose"
+    over: "A fifth letter of the 23a2 series"
+    reason: "The review of 23a2a found it after the series was minted, and CLAUDE.md says a later addition mints anew."
+
+  - category: Security
+    chose: "Strip the declared secret names (AgentSecretNames.For) from in-process step environments"
+    over: "An allowlisted environment, or masking the output"
+    reason: |
+      Removing a value beats masking it. A declared list is a field (AgentSecretNames.cs:29-46, which
+      includes REDIS_URL through AgentSecretBinding.cs:26); matching a *TOKEN* pattern would be a
+      heuristic. An empty allowlisted environment would break toolchains that read proxy and SDK
+      settings from the host.
+
+  - category: Implementation
+    chose: "The strip list is a required constructor argument of InProcessSandbox"
+    over: "An optional parameter that defaults to stripping nothing"
+    reason: "With an optional default, a new construction site could leak silently. The three production sites all pass the list (InProcessSandboxFactory.cs:24, SecurityTrendCommand.cs:52, CompileWikiCommand.cs:73)."
+
+  - category: Scope
+    chose: "Variables used only by the secrets block stay out of scope until a source-name field exists"
+    reason: |
+      ConfigSecretResolver replaces ${NAME} with its value and keeps no record of NAME
+      (ConfigSecretResolver.cs:19-25). Naming those variables means carrying the source name on the
+      resolved secret. That field is the fix, and it is a phase of its own.

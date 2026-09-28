@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-23a2d
+
+decisions:
+  - category: Scope
+    chose: "A member of series 2026-09-28-23a2 (the OpenHands comparison), split out of 23a2a"
+    over: "Folding the network half into 23a2a"
+    reason: |
+      A NetworkPolicy cannot isolate Redis, which the sandbox must reach, so the network half answers
+      a different question and ships complete without 23a2a. It was split before the series was
+      committed, so it takes a letter of the series.
+
+  - category: Architecture
+    chose: "Two static policies: an always-part on app=agentsmith-sandbox and a public part on egress=open"
+    over: "One static policy allowing public egress to every sandbox"
+    reason: |
+      NetworkPolicies union their allows, so a blanket public allowance could never be narrowed by
+      p0304's per-run policy. The label uses p0304's own mode word (p0304-sandbox-egress-allowlist.yaml:12)
+      rather than a new egress-mode=public vocabulary. Accepted from review.
+
+  - category: Scope
+    chose: "Record that p0304 needs a successor spec; neither write nor edit it here"
+    over: "Editing p0304 in place"
+    reason: |
+      p0304 creates no policy in open mode (:28) and switches a live pod from setup to agent phase
+      (:18), which needs a pod patch the RBAC does not grant (2-rbac.yaml:25-27). That changes
+      another phase's design, so it is recorded here and not fixed.
+
+  - category: Security
+    chose: "Except 168.63.129.16/32 as well as the private, link-local and shared ranges"
+    reason: "The Azure WireServer is a public-range address that AKS pods can reach. Accepted from review."
+
+  - category: Scope
+    chose: "Job pods (app=agentsmith) are out of scope, with a named follow-up"
+    over: "Covering them with the sandbox policy"
+    reason: |
+      Review showed that spawned job pods run repository commands in-process with every agent secret
+      (KubernetesJobSpawner.cs:87-88, 113-131). Their secrets belong to ef94. Their network reaches
+      model endpoints, trackers and Redis, and nobody has measured that map; a policy written without
+      it would break runs. A job-pod network-policy phase will be minted when the work is taken up.
+
+  - category: TradeOff
+    chose: "External Redis is an operator allowance in the manifest; no preflight check"
+    over: "A preflight finding when REDIS_URL is not the in-cluster Service"
+    reason: |
+      Rejected half of review finding 6. Comparing the URL's host with the string "redis" is a guess,
+      and the server has no RBAC to read Services (2-rbac.yaml:18-39), so it cannot check properly.
+      The template names the external case next to the Redis rule instead.
+
+  - category: Tooling
+    chose: "Reachability is a manual acceptance step; the suite proves the selectors match the builder"
+    over: "A done-criterion the gate cannot check"
+    reason: "A CNI that does not enforce NetworkPolicy accepts the manifest without a word, and no test tier here runs a cluster."
+
+  - category: Scope
+    chose: "The goal claims the in-cluster path only"
+    over: "Claiming nothing else inside the cluster is reachable"
+    reason: "Public egress still reaches the server's public ingress (9-ingress.yaml); authentication and webhook signatures defend that path. Accepted from review."

@@ -1,0 +1,114 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-23a2c
+goal: "A coding master whose role states a window folds against that window before the finaliser ends its pass, and the context-window check judges the race the chain actually runs."
+
+applies_to: "backend (chat-client chain composition, the compaction estimator, the context-window preflight check)"
+
+requires: []
+
+scope:
+  in: >
+    The master's compaction settings pass through the window clamp every other tool loop already
+    gets, keeping today's unclamped settings when no window is stated; the estimator counts a tool
+    call's argument values by length; the preflight check compares the clamped fold trigger with the
+    finaliser's bound, reports an agent with no models block as stating no window, and stops advising
+    a max_context_tokens cut the clamp now makes unnecessary.
+  out: >
+    The worker-mode timeouts at ~380k characters: this phase does not fix them and is not needed to
+    (decisions). A built-in window per model or transport (WindowDerivedCompaction.cs:5-11). Counting
+    tool schemas and a transport's own envelope, which no estimator in this tree sees.
+
+decisions:
+  - key: |
+      THE MASTER NEVER GETS THE CLAMP. The chain computes
+      `masterLoopHooks?.Compaction ?? windowCompaction.Derive(compaction, window)`
+      (ChatClientFactory.cs:184-185); the coding master always has hooks carrying the agent's raw
+      setting (MasterLoopHooksFactory.cs:74; hooks are null only for the scan and spec-dialog
+      masters, AgenticMasterHandler.cs:356-358), so Derive (WindowDerivedCompaction.cs:21-35) never
+      runs for it. Scout, scan and code-map already pass hooks null and get it (ProjectAnalyzer.cs:71-72).
+  - key: |
+      WHAT IT COSTS: THE FINALISER WINS. With a stated window the finaliser sits in every tool loop
+      (ChatClientFactory.cs:180-183) and ends it at 0.85 × window (ContextPressureFinalizingChatClient.cs:27,
+      41-42); the master folds at 200000 × 0.7 = 140000 estimated tokens (CompactionConfig.cs:30, 38).
+      Below a window of ~164700 the finaliser fires first and a master is told to stop and answer
+      instead of folding. The preflight check only catches trigger ≥ window
+      (ContextWindowThresholdCheck.cs:51-54), so windows from 140001 to ~164700 pass it while the
+      master still finalises first — and for scout, which is clamped, its Fail is a false alarm.
+  - key: |
+      PREMISE REFUTED: THE CLAMP IS NOT WHY WORKER MODE TIMED OUT, AND THIS PHASE IS NOT NEEDED FOR IT
+      TO FOLD. The compactor triggers only on the ESTIMATED size of the forwarded view, 4 characters
+      per token (CompactingChatClient.cs:88-89, 228-242); git history of that file shows no trigger on
+      reported usage. The master folds at 140000 estimated tokens, ~560000 characters; the failing
+      prompt was ~380000 rendered characters. That run's agent, per the operator's replay notes,
+      declared no models block, so no window existed to clamp to (ChatClientFactory.cs:240-249).
+      Setting compaction.max_context_tokens to ~100000 on that agent makes it fold at ~280000
+      characters TODAY, and the check's hint already names that knob (ContextWindowThresholdCheck.cs:62).
+      Stating context_window_tokens instead would declare a false window and arm the finaliser at
+      0.85 of it. Folding only reduces input; nothing shows the 300 s timeouts (AgentConfig.cs:31,
+      ExternalWorkerCliOptionsFactory.cs:24) are prompt size alone.
+  - key: |
+      THE HOOK FIELD STAYS, CLAMPED. Removing MasterLoopHooks.Compaction and passing the setting as
+      request.Compaction (as scan does) would lose a distinction the field carries: the master
+      compacts even with no window stated, while a scout with no window deliberately does not
+      (ScoutContextWindowTests.cs Role_TheWindowIsAbsent_NoThresholdIsDerived). The expression
+      becomes Derive(hooks?.Compaction ?? compaction, window) ?? hooks?.Compaction.
+  - key: |
+      THE ESTIMATOR GETS CLOSER, NOT EXACT. A tool call counts its name plus 16 characters per argument
+      (CompactingChatClient.cs:237), so a 20000-character write_file counts as a few dozen. Arguments
+      counted by the length of their JSON text form bring the view closer to what is sent; tool
+      schemas (ContextPressureFinalizingChatClient.cs:22-26), a worker's envelope and JSON escaping
+      remain uncounted. A non-string, non-JSON argument is counted by its JSON serialization, never
+      by ToString, which names a type.
+  - key: |
+      THE FINALISER'S RATIO IS STATED ONCE WHERE THE CHECK CAN READ IT. HardBoundRatio is private to an
+      internal Infrastructure type (ContextPressureFinalizingChatClient.cs:18-27); the check is in
+      Application. It moves to Contracts and both read it.
+  - key: |
+      THE CLAIM IS SCOPED. A fold keeps the pinned head and the recent tail
+      (CompactingChatClient.cs:199-216) and forwards unchanged when nothing is foldable (:123-124);
+      a head plus tail already above 0.85 × window still finalises. The done-criterion says so.
+  - key: |
+      OPENHANDS AGREES ON THE MINIMUM ONLY. Its condenser limit is min(condenser max_tokens, the
+      model's effective input window) (llm_summarizing_condenser.py:126-134) — the rule Derive
+      applies. It gets the window from a model table and counts with a tokenizer; this tree rejects
+      the table and keeps the estimate.
+  - key: |
+      DOES IT EARN ITS PLACE? Smaller than drafted: a one-expression fix, an estimator line, and a
+      check that currently gives wrong advice in both directions. It stays because a 128k master
+      finalises today where it should fold.
+
+steps:
+  - id: the-master-is-clamped
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs"
+    action: "Clamp the hooks' settings against a stated window; unstated keeps today's. The file stays at or under 260 lines."
+
+  - id: arguments-are-counted
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs"
+    action: "Count tool-call argument values by their JSON text length; the file stays at or under 243 lines."
+
+  - id: the-check-judges-the-real-race
+    path: "src/backend/AgentSmith.Application/Services/Preflight/Checks/ContextWindowThresholdCheck.cs, src/backend/AgentSmith.Contracts"
+    action:
+      - "State the finaliser bound once in Contracts; the finaliser and the check read it."
+      - "Fail a role whose CLAMPED trigger is not below the finaliser bound; list an agent without a models block as stating no window, with max_context_tokens as the knob."
+      - "The existing Preflight_AThresholdAtOrAboveTheWindow_IsReported (ContextWindowThresholdCheckTests.cs:16-23) inverts: 128000/200000/0.7 now passes."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests/Factories, tests/AgentSmith.Tests/Services"
+    action: "Drive the real ChatClientFactory for TaskType.Primary with master hooks, as ScoutContextWindowTests.cs:130-131 does for the scout; the harness adapter composes neither compactor nor finaliser (ScriptedChatClientFactoryAdapter.cs:42-55), so it cannot pin this."
+
+tests:
+  - "Master_StatedWindowBelowTheDefaultThreshold_FoldsBeforeTheFinaliserFires"
+  - "Master_NoWindowStated_CompactsAsItDoesToday"
+  - "Master_ExplicitSmallerMaxContextTokens_IsKept"
+  - "CompactingChatClient_EstimateTokens_CountsArgumentValuesByJsonLength"
+  - "ContextWindowThresholdCheck_DefaultCompactionAgainst128kWindow_Passes"
+  - "ContextWindowThresholdCheck_ClampedTriggerAtTheFinaliserBound_FailsNamingTheRole"
+  - "ContextWindowThresholdCheck_AgentWithoutModels_ListedAsUnstated"
+  - "ContextPressureFinalizingChatClient_ReadsTheSharedBound"
+
+done:
+  - "a coding master whose role states a window folds at 0.7 of it and is not finalised before its first fold, unless the pinned head and kept tail alone exceed the finaliser bound"
+  - "a master whose role states no window behaves exactly as today"
+  - "the check reports the configurations that finalise before folding and no others"
+  - "build green, full suite green"

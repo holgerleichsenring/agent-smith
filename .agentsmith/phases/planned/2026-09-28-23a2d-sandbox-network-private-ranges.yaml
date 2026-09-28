@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-28-23a2d
+goal: "A Kubernetes sandbox pod cannot reach the server, other pods or the node's metadata endpoints over the cluster network, accepts no connection, and carries no service-account token."
+
+applies_to: "deploy (k8s NetworkPolicy manifests) and backend (sandbox pod label and token mount)"
+
+requires: []
+
+scope:
+  in: >
+    Static NetworkPolicies in deploy/k8s on the pods the server stamps app=agentsmith-sandbox: no
+    ingress; egress to the in-cluster Redis and cluster DNS; for pods labelled egress=open (p0304's
+    word), egress to public IPv4 except private, link-local, shared-address and the Azure WireServer
+    address, with a commented allowance for operator CIDRs (on-premises git hosts, package feeds,
+    scan targets, an external Redis); automountServiceAccountToken false.
+  out: >
+    Spawned CLI job pods (app=agentsmith, KubernetesJobSpawner.cs:113-131), which run repository
+    commands in-process with every agent secret: their secrets are ef94's
+    (2026-09-28-ef94); their network needs its own measured egress map (model endpoints, trackers,
+    Redis) and is a job-pod network-policy phase to be minted when taken up. The public path to the
+    server's own ingress (9-ingress.yaml), defended by authentication and webhook signatures, not by
+    this policy. IPv6: the policy covers IPv4 only; a dual-stack cluster needs ::/0 rules with v6
+    private and link-local excepts, named in the manifest. The Docker backend, which joins the
+    server's network to reach Redis by name (DockerSandboxFactory.cs:47-78) and needs a proxy or host
+    firewall — p0304's docker step; 23a2a already scopes its Redis credential. Container hardening
+    (p0377), per-pipeline allowlists (p0304), runtimeClass (node configuration).
+
+decisions:
+  - key: |
+      THERE IS NO NETWORKPOLICY TODAY. deploy/k8s holds namespace, RBAC, configmap, secret, Redis,
+      server, dashboard, ingress and a PVC. Sandbox pods run in the server's namespace
+      (KubernetesSandboxRegistrations.cs:21; 8-deployment-server.yaml:177), so a repository script
+      can reach the server service (7-service-server.yaml) and any pod the network routes to.
+  - key: |
+      NOTHING NEEDS TO REACH A SANDBOX. The server drives it through Redis and watches it through the
+      API; no pods/exec is required (2-rbac.yaml:22-24).
+  - key: |
+      THE TOKEN IS REMOVED BECAUSE NOTHING USES IT, NOT BECAUSE IT GRANTS MUCH. The pod names no
+      service account (PodSpecBuilder.cs:24-32) and runs as the namespace default, which has no
+      RoleBinding in these manifests (2-rbac.yaml:49-52). The agent talks only to Redis
+      (Sandbox.Agent/Program.cs:61-80); a token that authenticates to the API server is still one
+      more credential a script can present.
+  - key: |
+      ON-PREMISES ESTATES LIVE IN PRIVATE RANGES. Clone runs inside the sandbox
+      (CheckoutStepFactory.cs:30-38), and so does http_request (FilesystemToolHost.cs:427-446), whose
+      targets in an api scan are whatever API the operator points it at, internal ones included (AgenticToolSurface.cs:48-51). Blocking RFC1918
+      without an allowance breaks exactly the self-hosted installations this product is for, so the
+      manifest carries an explicit, commented allowance for operator CIDRs.
+  - key: |
+      168.63.129.16 IS EXCEPTED. The Azure WireServer is a public-range address reachable from every
+      AKS pod; 169.254.0.0/16 covers the IMDS address but not this one.
+  - key: |
+      NETWORKPOLICIES ARE ADDITIVE, AND THE WORD IS p0304'S. A static public allowance on every sandbox
+      could never be narrowed by a later per-run policy, because Kubernetes unions allows. The
+      always-needed part selects every sandbox; the public part selects egress=open, the mode name
+      p0304 already uses (p0304-sandbox-egress-allowlist.yaml:12), which the builder stamps today.
+      p0304 as written creates no policy for open mode (:28) and switches setup to agent phase on a
+      live pod (:18), which needs a pod patch the RBAC does not grant (2-rbac.yaml:25-27): it needs a
+      successor spec, which this phase does not write.
+  - key: |
+      REDIS OUTSIDE THE CLUSTER IS THE OPERATOR'S ALLOWANCE, NOT A GUESS. The rule allows
+      app=redis:6379, which matches 6-deployment-redis.yaml:15-18. A REDIS_URL naming an external or
+      managed endpoint is blocked unless its CIDR and port are added; the template says so. A
+      preflight comparing the URL's host with the Service name would be a string guess, and the
+      server has no RBAC to read Services.
+  - key: |
+      DNS VARIES. The rule selects namespace kube-system AND pods k8s-app=kube-dns on 53 UDP/TCP.
+      NodeLocal DNSCache (169.254.20.10, inside an excepted range) and OpenShift (openshift-dns,
+      port 5353) are named in the manifest as variants to edit.
+  - key: |
+      ENFORCEMENT CANNOT BE PROVEN BY THE SUITE. A CNI that does not enforce NetworkPolicy accepts the
+      manifest and enforces nothing. The automated proof is that the manifest selects what the builder
+      stamps — a new mechanism, since no test reads deploy/k8s today; reachability is a manual
+      acceptance step by the operator on their CNI.
+
+steps:
+  - id: the-pod-says-its-egress-mode
+    path: "src/backend/AgentSmith.Server/Services/Sandbox"
+    action:
+      - "Stamp egress=open on every sandbox pod, the key and value stated beside the other label keys (SandboxPodLabels.cs:17-26)."
+      - "Set automountServiceAccountToken false on the sandbox pod spec."
+    modify:
+      - "SandboxPodLabels: the egress key and its one value"
+      - "PodSpecBuilder: the token mount off"
+
+  - id: the-policies-ship
+    path: "deploy/k8s"
+    action:
+      - "On app=agentsmith-sandbox: no ingress; egress to app=redis on 6379 and to kube-system k8s-app=kube-dns on 53 UDP/TCP."
+      - "On app=agentsmith-sandbox, egress=open: egress to 0.0.0.0/0 except 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10 and 168.63.129.16/32; commented allowances for operator CIDRs, external Redis, DNS variants and IPv6."
+    new:
+      - "deploy/k8s/13-networkpolicy-sandbox.yaml"
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests/Sandbox"
+    action: "Read the shipped manifest; assert its selectors are the labels the builder stamps, its Redis selector is the Redis deployment's label, and its excepts are the listed ranges."
+    new:
+      - "SandboxNetworkPolicyManifestTests: the first test that reads deploy/k8s"
+
+tests:
+  - "PodSpecBuilder_AnyPod_CarriesEgressOpen"
+  - "PodSpecBuilder_AnyPod_DoesNotMountTheServiceAccountToken"
+  - "SandboxNetworkPolicyManifest_Selectors_MatchTheLabelsTheBuilderStamps"
+  - "SandboxNetworkPolicyManifest_RedisRule_MatchesTheRedisDeploymentLabel"
+  - "SandboxNetworkPolicyManifest_OpenRule_ExceptsPrivateLinkLocalSharedAndWireServer"
+  - "SandboxNetworkPolicyManifest_Ingress_IsDenied"
+
+done:
+  - "a sandbox pod has no service-account token mounted"
+  - "a renamed label or a dropped except fails a test"
+  - "manual acceptance (operator, on a CNI that enforces NetworkPolicy): a sandbox reaches a public host, DNS and Redis, and not the server service, another pod, 169.254.169.254 or 168.63.129.16"
+  - "build green, full suite green"
