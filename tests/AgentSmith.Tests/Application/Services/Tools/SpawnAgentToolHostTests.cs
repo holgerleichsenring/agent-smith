@@ -18,6 +18,17 @@ namespace AgentSmith.Tests.SubAgents;
 public sealed class SpawnAgentToolHostTests
 {
     [Fact]
+    public void SpawnAgentsTool_Description_DoesNotAdvertiseToolProfile()
+    {
+        var method = typeof(SpawnAgentToolHost).GetMethod(nameof(SpawnAgentToolHost.SpawnAgents))!;
+        var texts = method.GetParameters()
+            .Select(p => p.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()?.Description ?? "")
+            .Append(method.GetCustomAttribute<System.ComponentModel.DescriptionAttribute>()!.Description);
+
+        texts.Should().NotContain(t => t.Contains("tool_profile"));
+    }
+
+    [Fact]
     public async Task SpawnAgentToolHost_GenericName_TaskFailsWithoutLlmCall()
     {
         var loopRunner = new CountingLoopRunner();

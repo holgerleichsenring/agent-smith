@@ -96,7 +96,7 @@ The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ..
 
 ## Pull request review label
 
-On GitHub and GitLab, a label on a pull request or merge request can ask for a review, which runs `security-scan` on that repository. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
+On GitHub and GitLab, adding a label to a pull request or merge request can ask for a review, which runs `security-scan` on the pull request's head branch, for a repository a project configures. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
 
 ```yaml
 projects:

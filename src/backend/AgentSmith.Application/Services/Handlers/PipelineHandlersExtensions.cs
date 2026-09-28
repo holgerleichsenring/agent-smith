@@ -127,7 +127,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<GenerateDocsContext>, GenerateDocsHandler>();
         // p0355: scopes the test/doc passes to the repos that actually changed.
         services.AddTransient<RepoDiffPartitioner>().AddTransient<PostExecutePassTools>();
-        services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>();
+        services.AddTransient<ICommandHandler<AcquireSourceContext>, AcquireSourceHandler>().AddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>();
         services.AddTransient<ICommandHandler<BootstrapDocumentContext>, BootstrapDocumentHandler>();
         services.AddTransient<ICommandHandler<DeliverOutputContext>, DeliverOutputHandler>();
         services.AddTransient<ICommandHandler<SessionSetupContext>, SessionSetupHandler>();

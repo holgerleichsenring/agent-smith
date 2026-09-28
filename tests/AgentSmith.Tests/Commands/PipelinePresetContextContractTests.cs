@@ -224,7 +224,7 @@ public sealed class PipelinePresetContextContractTests
             // consumers in any current preset: PipelineNameInitializer,
             // BootstrapCheck, BootstrapGate, BootstrapDocument, BootstrapDispatch,
             // Approval, Test, WriteRunResult, CommitAndPR, InitCommit, PrCrossLink,
-            // SessionSetup, SpawnNuclei, SpawnSpectral, SpawnZap, SpawnFix,
+            // SessionSetup, SpawnNuclei, SpawnSpectral, SpawnZap,
             // StaticPatternScan, GitHistoryScan, DependencyAudit, SecurityTrend,
             // SecuritySnapshotWrite, DeliverFindings, DeliverOutput,
             // CompileFindings, CompileDiscussion, CompileKnowledge,

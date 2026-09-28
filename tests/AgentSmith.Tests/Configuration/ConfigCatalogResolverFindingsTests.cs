@@ -117,6 +117,33 @@ public sealed class ConfigCatalogResolverFindingsTests
             f.Project == "broken" && f.Field == "resolution" && f.IsBlocking);
     }
 
+    [Fact]
+    public void ConfigCatalogResolver_RetiredConfidenceThreshold_NeverDisablesTheProject()
+    {
+        // confidence_threshold has no reader; a value the old range check refused must not
+        // take the project down with it.
+        var raw = new RawConfigYaml().Deserialize("""
+            agents:
+              a: { type: Claude }
+            repos:
+              r: { type: GitHub, url: https://x, auth: t }
+            trackers:
+              t: { type: GitHub, auth: t }
+            projects:
+              demo:
+                agent: a
+                tracker: t
+                repos: [r]
+                pipelines:
+                  - { name: pr-review, confidence_threshold: 150 }
+            """);
+
+        var resolved = Resolve(raw);
+
+        resolved.Config.Projects.Should().ContainKey("demo");
+        resolved.Findings.Should().NotContain(f => f.IsBlocking);
+    }
+
     private static (AgentSmithConfig Config, IReadOnlyList<StartupFinding> Findings) Resolve(
         RawAgentSmithConfig raw)
     {

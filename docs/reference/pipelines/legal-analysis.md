@@ -8,13 +8,13 @@ The **legal-analysis** pipeline reads a contract or other legal document and pro
 |---|---------|-------------|
 | 1 | LoadCatalog | Pulls and verifies the skill catalog |
 | 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
-| 3 | AcquireSource | Copies the document into the run's sandbox |
+| 3 | AcquireSource | Copies the document into the run's sandbox, byte for byte |
 | 4 | EnsurePrerequisites | Installs MarkItDown in the sandbox |
 | 5 | BootstrapDocument | Converts the document to Markdown and classifies the contract type |
 | 6 | LoadCodingPrinciples | Loads the principles that frame the analysis |
 | 7 | LoadMemoryIndex | Loads the project's recorded memory |
 | 8 | AgenticMaster | Runs the legal-analyst-master over the document |
-| 9 | DeliverOutput | Delivers the analysis |
+| 9 | DeliverOutput | Delivers the report the master wrote |
 
 ## Document conversion
 
@@ -49,11 +49,24 @@ The report is written in plain language. The master's methodology ships as the `
 agent-smith legal --source ./contracts/supplier-agreement.pdf
 ```
 
-`--project` names the project from your config and defaults to `legal`. `--output` chooses how `DeliverOutput` delivers; `console` is the default. `--dry-run` shows the pipeline without running it.
+`--project` names the project from your config and defaults to `legal`. `--output` chooses how `DeliverOutput` delivers: `console` (the default) or `markdown`. Any other value is refused before the run starts. `--output-dir` names the directory the Markdown report is written to. `--dry-run` shows the pipeline without running it.
+
+```bash
+agent-smith legal --source ./contracts/supplier-agreement.pdf --output markdown --output-dir ./reports
+```
 
 ## Delivery
 
-With an output format set, `DeliverOutput` hands the run to that output strategy (`console`, `summary`, `markdown` or `sarif`). Without one, it writes the analysis to an `outbox/` folder as `{timestamp}-{name}-analysis.md` and moves the source from `processing/` or `inbox/` to `archive/`, all under the project's configured path.
+`DeliverOutput` delivers the report the master wrote, and nothing else: every document the master created outside the run record, joined in the order it wrote them.
+
+| `--output` | Where the report goes |
+|------------|-----------------------|
+| `console` | Printed to standard output |
+| `markdown` | Written to `findings.md` in the output directory |
+
+The output directory is `--output-dir` when you give one and it is writable, otherwise `/output` (the container mount), otherwise `./agentsmith-output`, otherwise the system temp directory. It is the same rule the security and API scans use.
+
+A run whose master wrote no report fails at `DeliverOutput` with "No analysis report to deliver" rather than printing an empty result. The source document is left where it is.
 
 !!! warning "No legal advice"
     Agent Smith identifies and describes. The output is an analytical aid, not legal counsel. Always have a qualified lawyer review the results.

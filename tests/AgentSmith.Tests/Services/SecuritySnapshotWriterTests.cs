@@ -71,7 +71,6 @@ public sealed class SecuritySnapshotWriterTests
             FindingsHigh: 3,
             FindingsMedium: 5,
             FindingsRetained: 10,
-            FindingsAutoFixed: 1,
             ScanTypes: ["StaticPatternScan"],
             NewSinceLast: 2,
             ResolvedSinceLast: 1,
@@ -118,8 +117,7 @@ public sealed class SecuritySnapshotWriterTests
 
         var baseSnapshot = new SecurityRunSnapshot(
             Date: new DateTimeOffset(2026, 4, 8, 10, 0, 0, TimeSpan.Zero), Branch: "main",
-            FindingsCritical: 0, FindingsHigh: 0, FindingsMedium: 0, FindingsRetained: 0,
-            FindingsAutoFixed: 0, ScanTypes: ["StaticPatternScan"], NewSinceLast: 0,
+            FindingsCritical: 0, FindingsHigh: 0, FindingsMedium: 0, FindingsRetained: 0, ScanTypes: ["StaticPatternScan"], NewSinceLast: 0,
             ResolvedSinceLast: 0, TopCategories: [], CostUsd: 0m);
         pipeline.Set(ContextKeys.SecurityTrend, new SecurityTrend(0, 0, 0, 0, 0, 0m, null, baseSnapshot));
 
@@ -145,7 +143,6 @@ public sealed class SecuritySnapshotWriterTests
             FindingsHigh: 2,
             FindingsMedium: 3,
             FindingsRetained: 6,
-            FindingsAutoFixed: 0,
             ScanTypes: ["StaticPatternScan", "GitHistoryScan"],
             NewSinceLast: 1,
             ResolvedSinceLast: 2,
@@ -160,7 +157,7 @@ public sealed class SecuritySnapshotWriterTests
         yaml.Should().Contain("findings_high: 2");
         yaml.Should().Contain("findings_medium: 3");
         yaml.Should().Contain("findings_retained: 6");
-        yaml.Should().Contain("findings_auto_fixed: 0");
+        yaml.Should().NotContain("findings_auto_fixed");
         yaml.Should().Contain("  - StaticPatternScan");
         yaml.Should().Contain("  - GitHistoryScan");
         yaml.Should().Contain("new_since_last: 1");
@@ -179,7 +176,6 @@ public sealed class SecuritySnapshotWriterTests
             FindingsHigh: 0,
             FindingsMedium: 0,
             FindingsRetained: 0,
-            FindingsAutoFixed: 0,
             ScanTypes: [],
             NewSinceLast: 0,
             ResolvedSinceLast: 0,
@@ -222,7 +218,6 @@ public sealed class SecuritySnapshotWriterTests
             FindingsHigh: 5,
             FindingsMedium: 8,
             FindingsRetained: 16,
-            FindingsAutoFixed: 2,
             ScanTypes: ["StaticPatternScan", "DependencyAudit"],
             NewSinceLast: 1,
             ResolvedSinceLast: 3,
@@ -237,7 +232,6 @@ public sealed class SecuritySnapshotWriterTests
         parsed.FindingsHigh.Should().Be(5);
         parsed.FindingsMedium.Should().Be(8);
         parsed.FindingsRetained.Should().Be(16);
-        parsed.FindingsAutoFixed.Should().Be(2);
         parsed.Branch.Should().Be("main");
         parsed.ScanTypes.Should().BeEquivalentTo(["StaticPatternScan", "DependencyAudit"]);
         parsed.TopCategories.Should().BeEquivalentTo(["Hardcoded", "Injection"]);

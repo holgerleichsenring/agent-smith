@@ -77,7 +77,6 @@ public static class ContextBuildersExtensions
         AddBuilder<SecurityTrendContextBuilder>(services, CommandNames.SecurityTrend);
         AddBuilder<SecuritySnapshotWriteContextBuilder>(services, CommandNames.SecuritySnapshotWrite);
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
-        AddBuilder<SpawnFixContextBuilder>(services, CommandNames.SpawnFix);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
         AddBuilder<QueryKnowledgeContextBuilder>(services, CommandNames.QueryKnowledge);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);

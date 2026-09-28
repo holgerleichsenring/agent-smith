@@ -4,11 +4,11 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-28T12:42:48.1728080+00:00
+- generated: 2026-09-28T12:49:12.7952770+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
-**False alarms:** 0/5 (0 %) — sound files a finding named anyway.
+**False alarms:** 1/5 (20 %) — sound files a finding named anyway.
 
 Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
@@ -16,16 +16,17 @@ Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [Critical]: src/orders/orderLookup.ts:7: findOrder builds SQL by concatenating req.params.id directly into the query string, allowing SQL injection via the order id route parameter. (on the declared line)
+  - found [High]: default/src/orders/orderLookup.ts:7: findOrder builds SQL by concatenating req.params.id directly into the query string (SELECT ... WHERE id = '" + orderId + "'). (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:16-19: removeMember deletes a member without calling requireAdmin, unlike listMembers and suspendMember in the same file.
+  - found [Critical]: default/src/admin/memberAdmin.ts:16: removeMember calls members.remove(req.params.id) without calling requireAdmin, unlike listMembers and suspendMember in the same file which both gate on it first.
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9-10: downloadAttachment joins STORAGE_ROOT with the unvalidated 'name' query parameter and reads it without resolving or containing the result, allowing path traversal. (on the declared line)
+  - found [High]: default/src/files/attachmentDownload.ts:9: downloadAttachment builds target = join(STORAGE_ROOT, name) from an unvalidated req.query.name and reads it, with no resolve()+containment check. (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [Medium]: src/auth/loginRedirect.ts:6-7: finishLogin redirects to the raw req.query.next value with no allowlist check, enabling an open redirect after login.
+  - found [Medium]: default/src/auth/loginRedirect.ts:6-7: finishLogin redirects to String(req.query.next) with no allowlist check, unlike returnToApp in returnTarget.ts which validates next against a fixed RETURN_TARGETS set.
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [High]: src/jobs/jobPayload.ts:7: readPayload rehydrates a queued job's payload with eval("(" + raw + ")"), executing the stored payload text as JavaScript instead of parsing it as data. (on the declared line)
-- [x] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [High]: default/src/jobs/jobPayload.ts:7: readPayload rehydrates job.payloadText via eval("(" + raw + ")") instead of JSON.parse, executing arbitrary JavaScript found in the payload text. (on the declared line)
+- [FALSE ALARM] src/reports/reportLookup.ts (sql-injection, clean)
+  - found [Info]: default/src/reports/reportLookup.ts:15: template-literal SQL interpolates table/orderBy, but both are constrained to the hardcoded REPORTABLE allowlist (validated on line 12), not user input — scanner false positive. (on the declared line)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)
 - [x] .agentsmith/contexts/default/context.yaml (project-metadata, clean)

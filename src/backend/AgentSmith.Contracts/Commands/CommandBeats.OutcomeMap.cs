@@ -27,7 +27,6 @@ public static partial class CommandBeats
         [CommandNames.DeliverFindings] = RunBeat.Outcome,
         [CommandNames.PostPrComments] = RunBeat.Outcome,
         [CommandNames.SecuritySnapshotWrite] = RunBeat.Outcome,
-        [CommandNames.SpawnFix] = RunBeat.Outcome,
         [CommandNames.WriteTickets] = RunBeat.Outcome,
     };
 }

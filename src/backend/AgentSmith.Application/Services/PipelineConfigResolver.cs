@@ -18,10 +18,7 @@ public sealed class PipelineConfigResolver : IPipelineConfigResolver
         var agent = definition.Agent ?? project.Agent;
         var skillsPath = ResolveSkillsPath(definition, pipelineName);
         var codingPrinciplesPath = definition.CodingPrinciplesPath ?? project.CodingPrinciplesPath;
-        var confidenceThreshold = definition.ConfidenceThreshold
-            ?? ResolvedPipelineConfig.DefaultConfidenceThreshold;
-        return new ResolvedPipelineConfig(
-            pipelineName, agent, skillsPath, codingPrinciplesPath, confidenceThreshold);
+        return new ResolvedPipelineConfig(pipelineName, agent, skillsPath, codingPrinciplesPath);
     }
 
     public string ResolveDefaultPipelineName(ResolvedProject project)

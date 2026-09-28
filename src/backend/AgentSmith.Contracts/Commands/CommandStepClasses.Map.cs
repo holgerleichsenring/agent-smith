@@ -65,7 +65,6 @@ public static partial class CommandStepClasses
         [CommandNames.GitHistoryScan] = Milestone,
         [CommandNames.DependencyAudit] = Milestone,
         [CommandNames.SecurityTrend] = Milestone,
-        [CommandNames.SpawnFix] = Milestone,
 
         // --- Gates: visible only when they have a finding. ---
         [CommandNames.ScopeRepos] = Gate,          // speaks when it actually narrowed the repo set

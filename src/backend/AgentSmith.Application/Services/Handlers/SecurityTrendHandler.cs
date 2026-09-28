@@ -72,8 +72,8 @@ public sealed class SecurityTrendHandler(
                 Current: current);
         }
 
-        var newFindings = Math.Max(0, current.FindingsRetained - previous.FindingsRetained + previous.FindingsAutoFixed);
-        var resolvedFindings = Math.Max(0, previous.FindingsRetained - current.FindingsRetained + current.FindingsAutoFixed);
+        var newFindings = Math.Max(0, current.FindingsRetained - previous.FindingsRetained);
+        var resolvedFindings = Math.Max(0, previous.FindingsRetained - current.FindingsRetained);
 
         var criticalDelta = current.FindingsCritical - previous.FindingsCritical;
         var highDelta = current.FindingsHigh - previous.FindingsHigh;

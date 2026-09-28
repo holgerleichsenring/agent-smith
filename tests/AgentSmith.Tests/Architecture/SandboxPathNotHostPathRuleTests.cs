@@ -35,9 +35,9 @@ public sealed class SandboxPathNotHostPathRuleTests
     private static readonly Dictionary<string, string> Exempt = new(StringComparer.Ordinal)
     {
         ["AcquireSourceHandler.cs"] =
-            "reads a document from the HOST's processing folder (a real host path from the inbox) "
-            + "and writes it to /work through the sandbox file surface — the two paths are different "
-            + "filesystems and the handler keeps them apart.",
+            "reads the operator's document from a real HOST path (--source) and writes it to /work "
+            + "through the sandbox — the two paths are different filesystems and the handler keeps "
+            + "them apart.",
     };
 
     private static readonly Regex SandboxWorkPath = new(

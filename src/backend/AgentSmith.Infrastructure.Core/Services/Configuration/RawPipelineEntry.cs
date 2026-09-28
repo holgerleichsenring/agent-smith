@@ -12,5 +12,4 @@ public sealed class RawPipelineEntry
     public string? Agent { get; set; }
     public string? SkillsPath { get; set; }
     public string? CodingPrinciplesPath { get; set; }
-    public int? ConfidenceThreshold { get; set; }
 }

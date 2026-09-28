@@ -15,12 +15,14 @@ internal static class LegalCommand
     {
         var sourceOption = new Option<string>("--source", "Path to document (PDF, DOCX)") { IsRequired = true };
         var projectOption = new Option<string>("--project", () => "legal", "Project name from config");
-        var outputOption = new Option<string>("--output", () => "console", "Output format: console | markdown | file");
+        var outputOption = new Option<string>("--output", () => "console", "Output format: console | markdown")
+            .FromAmong("console", "markdown");
+        var outputDirOption = new Option<string?>("--output-dir", "Directory the markdown report is written to");
         var dryRunOption = new Option<bool>("--dry-run", "Show pipeline only, don't execute");
 
         var cmd = new Command("legal", "Analyze a legal document")
         {
-            sourceOption, projectOption, outputOption, dryRunOption, configOption, verboseOption
+            sourceOption, projectOption, outputOption, outputDirOption, dryRunOption, configOption, verboseOption
         };
 
         cmd.SetHandler(async (InvocationContext ctx) =>
@@ -28,16 +30,19 @@ internal static class LegalCommand
             var source = ctx.ParseResult.GetValueForOption(sourceOption)!;
             var project = ctx.ParseResult.GetValueForOption(projectOption)!;
             var output = ctx.ParseResult.GetValueForOption(outputOption) ?? "console";
+            var outputDir = ctx.ParseResult.GetValueForOption(outputDirOption);
             var configPath = ctx.ParseResult.GetValueForOption(configOption)!;
             var verbose = ctx.ParseResult.GetValueForOption(verboseOption);
             var isDryRun = ctx.ParseResult.GetValueForOption(dryRunOption);
 
-            var request = new PipelineRequest(project, "legal-analysis", Headless: true,
-                Context: new Dictionary<string, object>
-                {
-                    [ContextKeys.SourceFilePath] = Path.GetFullPath(source),
-                    [ContextKeys.OutputFormat] = output,
-                });
+            var legalContext = new Dictionary<string, object>
+            {
+                [ContextKeys.SourceFilePath] = Path.GetFullPath(source),
+                [ContextKeys.OutputFormat] = output,
+            };
+            if (outputDir is not null)
+                legalContext[ContextKeys.OutputDir] = outputDir;
+            var request = new PipelineRequest(project, "legal-analysis", Headless: true, Context: legalContext);
 
             if (isDryRun)
             {

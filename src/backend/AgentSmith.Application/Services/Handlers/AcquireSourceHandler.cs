@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
@@ -8,12 +9,11 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// Acquires a document from the local processing folder and copies it into the
-/// sandbox /work directory so downstream handlers (BootstrapDocument etc.)
-/// can read it via SandboxFileReader regardless of sandbox backend.
+/// Copies the operator's document into the sandbox /work directory byte for byte, so
+/// BootstrapDocument converts the real PDF or DOCX regardless of sandbox backend.
 /// </summary>
 public sealed class AcquireSourceHandler(
-    ISandboxFileReaderFactory readerFactory,
+    ISandboxBinaryFileWriter binaryWriter,
     ILogger<AcquireSourceHandler> logger) : ICommandHandler<AcquireSourceContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -25,18 +25,17 @@ public sealed class AcquireSourceHandler(
             return CommandResult.Fail($"Source file not found: {sourceFilePath}");
 
         var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-        var reader = readerFactory.Create(sandbox);
-
         var fileName = Path.GetFileName(sourceFilePath);
         var targetPath = Path.Combine(Repository.SandboxWorkPath, fileName);
-        var content = await File.ReadAllTextAsync(sourceFilePath, cancellationToken);
-        await reader.WriteAsync(targetPath, content, cancellationToken);
+        var content = await File.ReadAllBytesAsync(sourceFilePath, cancellationToken);
+        var failure = await binaryWriter.WriteAsync(
+            sandbox, Repository.SandboxWorkPath, fileName, content, cancellationToken);
+        if (failure is not null)
+            return CommandResult.Fail($"Could not place {fileName} in the sandbox: {failure}");
+
         logger.LogInformation(
             "Acquired source document {FileName} into sandbox at {Target}", fileName, targetPath);
-
-        var repo = new Repository(new BranchName("legal-analysis"), string.Empty);
-        context.Pipeline.Set(ContextKeys.Repository, repo);
-
+        context.Pipeline.Set(ContextKeys.Repository, new Repository(new BranchName("legal-analysis"), string.Empty));
         return CommandResult.Ok($"Acquired {fileName} to {targetPath}");
     }
 }

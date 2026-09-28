@@ -43,33 +43,6 @@ public class PipelineConfigResolverTests
     }
 
     [Fact]
-    public void Resolve_NoConfidenceThresholdConfigured_DefaultsTo70()
-    {
-        var project = new ResolvedProject
-        {
-            Pipelines = [new PipelineDefinition { Name = "pr-review" }],
-        };
-
-        var resolved = _sut.Resolve(project, "pr-review");
-
-        resolved.ConfidenceThreshold.Should().Be(ResolvedPipelineConfig.DefaultConfidenceThreshold);
-        resolved.SkillsPath.Should().Be("skills");
-    }
-
-    [Fact]
-    public void Resolve_ConfidenceThresholdOverride_CarriedIntoResolvedConfig()
-    {
-        var project = new ResolvedProject
-        {
-            Pipelines = [new PipelineDefinition { Name = "pr-review", ConfidenceThreshold = 55 }],
-        };
-
-        var resolved = _sut.Resolve(project, "pr-review");
-
-        resolved.ConfidenceThreshold.Should().Be(55);
-    }
-
-    [Fact]
     public void Resolve_PipelineWithSkillsPathOverride_ReturnsExplicitPath()
     {
         var project = new ResolvedProject

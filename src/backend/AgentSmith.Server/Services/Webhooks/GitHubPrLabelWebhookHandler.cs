@@ -6,17 +6,22 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles GitHub pull_request labeled events. Triggers the security-scan pipeline when the
-/// pull request carries the review-request label — the word the owning project's github_trigger
-/// configures, or the historical "security-review" (2026-09-25-d83b: PrTriggerLabelResolver
-/// owns the word, which used to be a literal in this file).
+/// Handles GitHub pull_request labeled events. Starts the security-scan pipeline on the pull
+/// request's head when the added label is the review-request word — the one the owning
+/// project's github_trigger configures, or the historical "security-review"
+/// (PrTriggerLabelResolver owns the word). The run carries the same pull-request context a
+/// review gets, so it scans the pull request, not the default branch.
 /// </summary>
 public sealed class GitHubPrLabelWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     PrTriggerLabelResolver triggerLabels,
+    PrReviewRouteResolver routeResolver,
+    PrRunContextFactory contextFactory,
     ILogger<GitHubPrLabelWebhookHandler> logger) : IWebhookHandler
 {
+    private const string Pipeline = "security-scan";
+
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && eventType == "pull_request";
 
@@ -27,29 +32,39 @@ public sealed class GitHubPrLabelWebhookHandler(
         try
         {
             using var doc = JsonDocument.Parse(payload);
-            var root = doc.RootElement;
-
-            if (root.GetProperty("action").GetString() != "labeled")
-                return Task.FromResult(new WebhookResult(false, null, null));
-
-            var label = root.GetProperty("label").GetProperty("name").GetString();
-            var repoUrl = root.GetProperty("repository").GetProperty("clone_url").GetString() ?? "";
-            var config = configLoader.LoadConfig(serverContext.ConfigPath);
-            if (triggerLabels.Match(config, "github", repoUrl, [label]) is null)
-                return Task.FromResult(new WebhookResult(false, null, null));
-
-            var prNumber = root.GetProperty("pull_request").GetProperty("number").GetInt32();
-            var repo = root.GetProperty("repository").GetProperty("name").GetString();
-
-            var input = $"security-scan in {repo}";
-            logger.LogInformation(
-                "GitHub PR #{PrNumber} labeled '{Label}' for security review", prNumber, label);
-            return Task.FromResult(new WebhookResult(true, input, "security-scan"));
+            return Task.FromResult(Handle(doc.RootElement));
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {
             logger.LogWarning(ex, "Failed to parse GitHub pull_request webhook");
-            return Task.FromResult(new WebhookResult(false, null, null));
+            return Task.FromResult(WebhookResult.NotHandled());
         }
+    }
+
+    private WebhookResult Handle(JsonElement root)
+    {
+        if (root.GetProperty("action").GetString() != "labeled")
+            return WebhookResult.NotHandled();
+
+        var label = root.GetProperty("label").GetProperty("name").GetString();
+        var repository = root.GetProperty("repository");
+        var repoUrl = repository.GetProperty("clone_url").GetString() ?? "";
+        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        if (triggerLabels.Match(config, "github", repoUrl, [label]) is null)
+            return WebhookResult.NotHandled();
+
+        var repoFullName = repository.GetProperty("full_name").GetString() ?? "";
+        if (routeResolver.Resolve(config, "github", repoUrl, []) is not { } route)
+            return WebhookResult.NotHandled($"no agent-smith project configured for repo {repoFullName}");
+
+        var pr = root.GetProperty("pull_request");
+        var prNumber = pr.GetProperty("number").GetInt32();
+        logger.LogInformation(
+            "GitHub PR {Repo}#{PrNumber} labeled '{Label}' -> {Pipeline} project={Project}",
+            repoFullName, prNumber, label, Pipeline, route.ProjectName);
+        return new WebhookResult(
+            true, $"{Pipeline} {route.ProjectName} pr:{repoFullName}#{prNumber}", Pipeline,
+            InitialContext: contextFactory.FromGitHub(pr, route.RepoName),
+            ProjectName: route.ProjectName);
     }
 }

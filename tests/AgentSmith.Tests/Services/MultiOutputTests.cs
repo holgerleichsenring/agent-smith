@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Output;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Output;
@@ -24,7 +25,7 @@ public sealed class MultiOutputTests
         services.AddKeyedSingleton<IOutputStrategy, SummaryOutputStrategy>("summary");
         var sp = services.BuildServiceProvider();
 
-        var handler = new DeliverFindingsHandler(sp, NullLogger<DeliverFindingsHandler>.Instance);
+        var handler = new DeliverFindingsHandler(sp, new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance), NullLogger<DeliverFindingsHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ConsolidatedPlan, "**1. Test Finding**\n- severity: HIGH\n- confidence: 9");
         var context = new DeliverFindingsContext(["console", "summary"], null, pipeline);
@@ -44,7 +45,7 @@ public sealed class MultiOutputTests
         services.AddKeyedSingleton<IOutputStrategy, ConsoleOutputStrategy>("console");
         var sp = services.BuildServiceProvider();
 
-        var handler = new DeliverFindingsHandler(sp, NullLogger<DeliverFindingsHandler>.Instance);
+        var handler = new DeliverFindingsHandler(sp, new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance), NullLogger<DeliverFindingsHandler>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ConsolidatedPlan, "No findings");
         var context = new DeliverFindingsContext(["nonexistent", "console"], null, pipeline);
@@ -63,7 +64,7 @@ public sealed class MultiOutputTests
         services.AddLogging();
         var sp = services.BuildServiceProvider();
 
-        var handler = new DeliverFindingsHandler(sp, NullLogger<DeliverFindingsHandler>.Instance);
+        var handler = new DeliverFindingsHandler(sp, new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance), NullLogger<DeliverFindingsHandler>.Instance);
         var pipeline = new PipelineContext();
         var context = new DeliverFindingsContext(["xyz"], null, pipeline);
 
@@ -75,14 +76,14 @@ public sealed class MultiOutputTests
     [Fact]
     public void ResolveOutputDir_ExplicitPath_ReturnsIt()
     {
-        var result = DeliverFindingsHandler.ResolveOutputDir("/tmp/test-output", NullLogger<DeliverFindingsHandler>.Instance);
+        var result = new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance).Resolve("/tmp/test-output");
         result.Should().Be("/tmp/test-output");
     }
 
     [Fact]
     public void ResolveOutputDir_Null_ReturnsFallback()
     {
-        var result = DeliverFindingsHandler.ResolveOutputDir(null, NullLogger<DeliverFindingsHandler>.Instance);
+        var result = new OutputDirectoryResolver(NullLogger<OutputDirectoryResolver>.Instance).Resolve(null);
         result.Should().NotBeNullOrEmpty();
     }
 }

@@ -100,7 +100,6 @@ public static partial class CommandDisplayNames
         [CommandNames.MergeMasterFindings] = "Merge master findings",
         [CommandNames.SecurityTrend] = "Analyze security trends",
         [CommandNames.SecuritySnapshotWrite] = "Write security snapshot",
-        [CommandNames.SpawnFix] = "Generate security fix requests",
         [CommandNames.AnalyzePrDiff] = "Analyze PR diff",
         [CommandNames.PrReviewSkillRound] = "PR review skill round",
         [CommandNames.CompilePrReviewFindings] = "Compile PR review findings",

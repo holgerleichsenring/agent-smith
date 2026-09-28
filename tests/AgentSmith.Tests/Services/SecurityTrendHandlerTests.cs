@@ -132,17 +132,15 @@ public sealed class SecurityTrendHandlerTests
     }
 
     [Fact]
-    public void CalculateTrend_WithAutoFixed_AccountsForAutoFixed()
+    public void CalculateTrend_FewerRetained_CountsTheDifferenceAsResolved()
     {
-        var current = CreateSnapshot(critical: 1, high: 2, medium: 3, retained: 6, autoFixed: 1, cost: 0.05m);
-        var previous = CreateSnapshot(critical: 2, high: 3, medium: 4, retained: 9, autoFixed: 0, cost: 0.04m);
+        var current = CreateSnapshot(critical: 1, high: 2, medium: 3, retained: 6, cost: 0.05m);
+        var previous = CreateSnapshot(critical: 2, high: 3, medium: 4, retained: 9, cost: 0.04m);
 
         var trend = SecurityTrendHandler.CalculateTrend(current, previous, 1);
 
-        // new = max(0, 6 - 9 + 0) = 0
         trend.NewFindings.Should().Be(0);
-        // resolved = max(0, 9 - 6 + 1) = 4
-        trend.ResolvedFindings.Should().Be(4);
+        trend.ResolvedFindings.Should().Be(3);
     }
 
     [Fact]
@@ -232,7 +230,7 @@ public sealed class SecurityTrendHandlerTests
     }
 
     [Fact]
-    public async Task LoadSnapshotsAsync_ValidYamlFile_ParsesSnapshot()
+    public async Task SnapshotYamlParser_LegacyFindingsAutoFixedKey_IsIgnored()
     {
         var yaml = """
             date: 2026-04-01T10:00:00Z
@@ -266,7 +264,6 @@ public sealed class SecurityTrendHandlerTests
         result[0].FindingsHigh.Should().Be(5);
         result[0].FindingsMedium.Should().Be(8);
         result[0].FindingsRetained.Should().Be(16);
-        result[0].FindingsAutoFixed.Should().Be(1);
         result[0].Branch.Should().Be("main");
         result[0].ScanTypes.Should().BeEquivalentTo(["StaticPatternScan", "GitHistoryScan"]);
         result[0].TopCategories.Should().BeEquivalentTo(["Hardcoded", "SQLInjection"]);
@@ -381,7 +378,7 @@ public sealed class SecurityTrendHandlerTests
 
     private static SecurityRunSnapshot CreateSnapshot(
         int critical = 0, int high = 0, int medium = 0,
-        int retained = 0, int autoFixed = 0, decimal cost = 0m)
+        int retained = 0, decimal cost = 0m)
     {
         return new SecurityRunSnapshot(
             Date: DateTimeOffset.UtcNow,
@@ -390,7 +387,6 @@ public sealed class SecurityTrendHandlerTests
             FindingsHigh: high,
             FindingsMedium: medium,
             FindingsRetained: retained,
-            FindingsAutoFixed: autoFixed,
             ScanTypes: ["StaticPatternScan"],
             NewSinceLast: 0,
             ResolvedSinceLast: 0,

@@ -23,6 +23,8 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<PrTriggerLabelResolver>();
         services.AddPrCommentAuthorTrust();
         services.AddSingleton<PrCommentCommandAdmission>();
+        services.AddSingleton<PrReviewRouteResolver>();
+        services.AddSingleton<PrRunContextFactory>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();
@@ -38,7 +40,6 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IWebhookHandler, JiraCommentWebhookHandler>();
         // p0167a: pr-opened / pr-synchronize -> pr-review. Registered AFTER the
         // label/comment handlers so existing triggers keep first-match precedence.
-        services.AddSingleton<PrReviewRouteResolver>();
         services.AddSingleton<IWebhookHandler, GitHubPrEventWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitLabMrEventWebhookHandler>();
         services.AddSingleton<IWebhookHandler, AzureDevOpsPrEventWebhookHandler>();

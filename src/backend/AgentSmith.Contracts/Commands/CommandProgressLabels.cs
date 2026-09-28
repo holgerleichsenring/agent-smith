@@ -90,7 +90,6 @@ public static partial class CommandNames
         [SecurityTrend] = "Analyzing security trends",
         [SecuritySnapshotWrite] = "Writing security snapshot",
         [Ask] = "Asking human",
-        [SpawnFix] = "Generating security fix requests",
         [CompileKnowledge] = "Compiling knowledge base",
         [QueryKnowledge] = "Querying knowledge base",
         [LoadRuns] = "Loading run history",

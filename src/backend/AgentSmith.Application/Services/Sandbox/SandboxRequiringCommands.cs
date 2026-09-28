@@ -22,7 +22,7 @@ public static class SandboxRequiringCommands
         CommandNames.CompileDiscussion, CommandNames.CompileKnowledge, CommandNames.QueryKnowledge,
         CommandNames.WriteRunResult,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
-        CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite, CommandNames.SpawnFix
+        CommandNames.SecurityTrend, CommandNames.SecuritySnapshotWrite
     };
 
     public static bool Contains(string commandName) => Names.Contains(commandName);

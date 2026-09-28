@@ -102,7 +102,6 @@ public sealed class SecuritySnapshotWriter(
         sb.AppendLine($"findings_high: {snapshot.FindingsHigh}");
         sb.AppendLine($"findings_medium: {snapshot.FindingsMedium}");
         sb.AppendLine($"findings_retained: {snapshot.FindingsRetained}");
-        sb.AppendLine($"findings_auto_fixed: {snapshot.FindingsAutoFixed}");
 
         sb.AppendLine("scan_types:");
         foreach (var scanType in snapshot.ScanTypes)

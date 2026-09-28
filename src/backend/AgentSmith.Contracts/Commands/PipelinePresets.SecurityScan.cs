@@ -6,8 +6,7 @@ public static partial class PipelinePresets
     // audit), SecurityTrend (p60) for git-based diff analysis, CompressSecurityFindings
     // bundles per-category slices for the security-* skills, then the standard triage +
     // skill-discussion + finalize chain. SecuritySnapshotWrite persists the snapshot for
-    // future trend deltas; SpawnFix auto-emits remediation PRs for Critical/High when
-    // operator opt-in is enabled.
+    // future trend deltas.
     // p0179d: collapsed shape. Triage / RunReviewPhase / RunFinalPhase /
     // ConvergenceCheck / CompileDiscussion / CompressSecurityFindings retired
     // FROM THIS PRESET (handlers still alive for skill-manager/autonomous
@@ -35,7 +34,6 @@ public static partial class PipelinePresets
         CommandNames.SubstantiateFindings,  // p0429: nothing ships critical on the master's silence
         CommandNames.DeliverFindings,
         CommandNames.SecuritySnapshotWrite, // p60: persist snapshot for trend history (raw basis, p0277)
-        CommandNames.SpawnFix,              // p60: auto-fix for Critical/High (skips if not enabled)
         CommandNames.AccountScanCoverage,   // p0429: every ratified criterion accounted for
         CommandNames.WriteRunResult,        // p0429: a scan records its outcome like any other run
     ];

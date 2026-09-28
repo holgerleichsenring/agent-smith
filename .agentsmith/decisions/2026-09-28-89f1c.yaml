@@ -1,0 +1,163 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1c
+
+decisions:
+  - category: Scope
+    chose: "Delete the SpawnFix family outright, including FindingsAutoFixed from the snapshot model"
+    over: "Wiring AutoFixConfig so the step could be switched on"
+    reason: |
+      The step wrote fix requests into a sandbox that is thrown away and set a context key nothing
+      read; turning it on would ask a question and then do nothing. FindingsAutoFixed was always 0,
+      so the trend formula loses a term that never contributed. Old snapshots keep their
+      findings_auto_fixed line; the parser ignores unknown keys, which a test now pins.
+      Scan-to-work belongs to planned p0429b.
+    alternatives:
+      - "Keeping FindingsAutoFixed at 0 for snapshot compatibility: nothing reads it and the parser already tolerates the key"
+
+  - category: Architecture
+    chose: "confidence_threshold removed from RawPipelineEntry, PipelineDefinition and ResolvedPipelineConfig, and its blocking range check removed; the retired-key advisory is a row in slice b's shared RetiredConfigKeys detector, added by the orchestrator at merge"
+    over: "Keeping RawPipelineEntry.ConfidenceThreshold as a typed detector, or building a detector in this slice"
+    reason: |
+      b's detector reads the raw YAML tree and the stored documents, so a typed property is not
+      needed to see the key; both deserializers ignore unmatched members, so a file or a stored
+      document that still carries it keeps loading. Removing the range check matters most: left in,
+      a retired key with an out-of-range value would still disable its project at startup.
+      Row for RetiredConfigKeys: key path projects.<name>.pipelines[].confidence_threshold,
+      since 2026-09-28-89f1c, reason "confidence_threshold is no longer read: the blocking
+      downgrade it tuned lost its reader. Remove the key from agentsmith.yml; a configuration
+      stored in the database drops it on the next save of that project in the studio, or remove
+      it by config export, edit, import."
+    alternatives:
+      - "A private advisory in ProjectPipelineResolver: a second retired-key mechanism beside b's"
+
+  - category: Scope
+    chose: "VerifyNotesFormatter.Format deleted; Dedup left in place"
+    over: "Deleting the whole class"
+    reason: |
+      The spec names Format, the only reader of SkillObservation.Blocking. Dedup is now referenced
+      only by its own tests; removing it is a leftover for 2026-09-28-89f1e (dead surfaces), not
+      silently widened into this slice.
+    alternatives:
+      - "Deleting VerifyNotesFormatter and its Dedup tests here"
+
+  - category: Implementation
+    chose: "DeliverOutput delivers every document the master wrote outside the run record, through the chosen IOutputStrategy, and fails with 'No analysis report to deliver' when there is none"
+    over: "Reading a fixed analysis.md path, or keeping the outbox branch as a fallback"
+    reason: |
+      The master's writes arrive as CodeChanges; RunRecordPaths.IsRunRecordPath is the one
+      definition of what is record rather than deliverable, so plan.md/decisions.md never leak into
+      the report. A fixed file name would tie delivery to one skill's wording. The outbox branch was
+      only reachable with no format, which the CLI never sends; the builder now defaults to console,
+      as DeliverFindings does.
+    alternatives:
+      - "Only reading analysis.md: breaks the moment the skill names its file differently"
+
+  - category: Implementation
+    chose: "OutputDirectoryResolver (IOutputDirectoryResolver, transient) extracted from DeliverFindingsHandler and injected into both delivery handlers"
+    over: "Calling DeliverFindingsHandler's internal static from DeliverOutputHandler"
+    reason: "One rule for where delivered files land; a static helper on a handler is not a service. The catch is narrowed to the IO exception types the probe can raise."
+    alternatives: []
+
+  - category: Implementation
+    chose: "legal --output accepts console and markdown only (FromAmong), plus --output-dir"
+    over: "Accepting every registered strategy"
+    reason: |
+      summary and sarif render observations; a legal run has none, so they would deliver an empty
+      document that looks like a clean result. file was never registered. Markdown writes
+      findings.md, the shared strategy's file name, which the docs state.
+    alternatives:
+      - "Registering a new 'file' strategy: a duplicate of markdown under another name"
+
+  - category: Implementation
+    chose: "SandboxBinaryFileWriter (ISandboxBinaryFileWriter) writes base64 through the file surface and decodes with 'base64 -d < in > out' in the step's working directory"
+    over: "Adding ISandboxFileReader.WriteBytesAsync, or copying TicketDocumentMaterializer's command"
+    reason: |
+      WriteBytesAsync would touch about ten fakes. TicketDocumentMaterializer's form
+      ('base64 -d file') fails on BSD/macOS base64, which the new byte-identity test proved against
+      the in-process sandbox; stdin redirection works on GNU and BSD. Paths inside the shell command
+      are relative to the step's WorkingDirectory because no sandbox backend rewrites /work inside a
+      command string. TicketDocumentMaterializer is not moved onto the writer here (not this slice's
+      file, and its tests construct it directly); it carries the same macOS defect for in-process
+      runs, reported to the orchestrator.
+    alternatives:
+      - "Refactoring TicketDocumentMaterializer onto the writer in this slice"
+
+  - category: Implementation
+    chose: "PrRunContextFactory with FromGitHub and FromGitLab over one private context builder, used by both PR-event handlers and both label handlers; parsing tolerates absent optional fields"
+    over: "Parsing both hosts in one method, or copying BuildInitialContext into the label handlers"
+    reason: |
+      The payloads differ (GitHub pull_request.head.sha/ref; GitLab object_attributes.last_commit,
+      source_branch, no base sha) so each host keeps its own reader, while the context a review and
+      a scan receive is built once. CheckoutBranch/PrHead/PrBase are omitted when absent rather than
+      set to "".
+    alternatives: []
+
+  - category: TradeOff
+    chose: "A label on a pull request whose repo no project configures is NotHandled with the reason, on GitHub as on GitLab"
+    over: "Keeping GitHub's historical acceptance with no owning project"
+    reason: |
+      Without a project repo there is no SourceOverrideRepo and no project to check out the head in,
+      which is exactly how the scan ended up on the default branch. The PR-event handlers already
+      refuse an unconfigured repo with the same reason. The label handlers now use
+      PrReviewRouteResolver for project and repo (normalised URL match) and PrTriggerLabelResolver
+      only for the word.
+    alternatives:
+      - "Falling back to the old free-text 'security-scan in {repo}' input"
+
+  - category: TradeOff
+    chose: "GitLab's label handler claims only an update whose changes.labels.current gains a trigger word that changes.labels.previous lacked"
+    over: "Matching any update on a labelled MR"
+    reason: |
+      Registered before the MR-event handler and first-match-wins, the old handler swallowed every
+      push to a labelled MR and returned no trigger, so neither the scan nor pr-review ran. An update
+      without a label change now falls through; a test drives both handlers in registration order.
+    alternatives:
+      - "Reordering the registrations: a label add would then be taken by nothing, since it has no oldrev"
+
+  - category: TradeOff
+    chose: "--pr and ContextKeys.ScanPrIdentifier removed; ContextKeys.PrNumber is the one PR carrier"
+    over: "Keeping --pr for planned p0429b"
+    reason: "Nothing read it and it promised a diff-only scan no scanner supports. p0429b names ScanPrIdentifier; it should read PrNumber, which the label-triggered scan now carries."
+    alternatives: []
+
+  - category: TradeOff
+    chose: "AccountScanCoverage records the account, then fails the step with RunDeliveryGate's reason when the gate is unsatisfied; no opt-out"
+    over: "Leaving the gate advisory for scans, or adding a --no-fail-on-coverage flag"
+    reason: |
+      Scans have no CommitAndPR, the step that enforces the gate elsewhere, so the verdict was only
+      written down and the CLI exited 0. PipelineFinalizerTail still runs WriteRunResult after the
+      failed step and SARIF/Markdown were delivered before it. A CI that must not break on a scanner
+      outage chooses `|| true` itself.
+    alternatives: []
+
+  - category: TradeOff
+    chose: "An explicit --source-path that does not exist fails TryCheckoutSource; a configured local path that does not exist stays passive"
+    over: "Failing on any missing local path"
+    reason: |
+      The operator named the CLI path; a typo silently producing a source-less scan is the defect.
+      A project's configured path is fail-soft by design for api-scan. The agent-mode placeholder
+      moved to EphemeralSource.NoSourcePath so the handler can say "No source given — passive mode"
+      instead of logging /var/empty/agentsmith-noop.
+    alternatives: []
+
+  - category: Implementation
+    chose: "--source-url without --source-type is refused by a command validator on SourceOptions"
+    over: "Inferring the type from the URL host"
+    reason: "Inference is a heuristic for a missing field; the field is the fix. SourceConfigOverrider applies no type, so the URL was dropped in silence."
+    alternatives: []
+
+  - category: Tooling
+    chose: "The pipeline harness no longer seeds the nonexistent /tmp/source as SourcePath"
+    over: "Creating a scratch directory as the default source path"
+    reason: |
+      The invented path only worked because a missing explicit path fell through silently; with no
+      override the run now resolves its source from the harness's primary repo, which is exactly what
+      it did before (the fall-through reached the same repo). A scratch source would flip api-scan's
+      source_available and change what the harness proves.
+    alternatives: []
+
+  - category: Scope
+    chose: "Schema and example removals for confidence_threshold listed for 2026-09-28-89f1d, not made here"
+    over: "Editing config/agentsmith.schema.json and config/agentsmith.example.yml in this slice"
+    reason: "Those files belong to slice d; editing them concurrently would conflict."
+    alternatives: []
