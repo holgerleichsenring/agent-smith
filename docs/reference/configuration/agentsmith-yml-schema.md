@@ -1,18 +1,15 @@
-# `agentsmith.yml` Schema Reference (p0139 catalogs)
+# `agentsmith.yml` schema
 
-The configuration file is split into **named catalogs** (agents, repos,
-trackers, pipeline_triggers) and **projects** that reference catalog
-entries by name. The same agent or tracker, defined once, can be used by
-any number of projects.
+The configuration file is split into **named catalogs** (agents,
+connections, repos, trackers, MCP servers, secrets) and **projects** that
+reference catalog entries by name. The same agent or tracker, defined once,
+can be used by any number of projects. Names are matched without regard to
+case.
 
 The canonical machine-readable form is `config/agentsmith.schema.json`
 (loaded automatically by editors via the `yaml-language-server` header).
-A complete worked example is in `config/agentsmith.example.yml`.
-
-If you're coming from a pre-p0139 config (per-project inline `source`,
-`tickets`, `agent` blocks), the up-to-date catalog-based shape is in
-[Connect your stuff: tracker pages](../../connect-your-stuff/tracker-azure-devops.md)
-and [Repos: multi-repo](../../connect-your-stuff/repos-multi.md).
+A complete worked example is in `config/agentsmith.example.yml`, and every
+key is listed in the [agentsmith.yml reference](agentsmith-yml.md).
 
 ---
 
@@ -20,98 +17,22 @@ and [Repos: multi-repo](../../connect-your-stuff/repos-multi.md).
 
 | Key | Type | Required | Purpose |
 |-----|------|----------|---------|
-| `agents` | map<name, AgentConfig> | yes (if any project references one) | AI agent catalog |
-| `repos` | map<name, RepoConnection> | yes (if any project references one) | Source repository catalog |
-| `trackers` | map<name, TrackerConnection> | yes (if any project references one) | Issue/work-item tracker catalog |
-| `pipeline_triggers` | map<label, pipeline-name> | no | Global label→pipeline default |
-| `projects` | map<name, Project> | yes | Project entries |
-| `secrets` | map<name, value> | no | Env-var-resolved secret references |
-| `skills`, `sandbox`, `orchestrator`, `queue`, `limits`, `pipeline_storage`, `pipeline_data_flow` | object | no | Process-wide settings (unchanged from pre-p0139) |
+| `agents` | map<name, agent> | if any project references one | AI agent catalog |
+| `connections` | map<name, connection> | if any project references one | repo discovery scopes |
+| `repos` | map<name, repo> | if any project references one | individual repository catalog |
+| `trackers` | map<name, tracker> | if any project references one | issue/work-item tracker catalog |
+| `mcp_servers` | map<name, server> | no | external MCP tool servers |
+| `pipeline_triggers` | map<label, pipeline-name> | no | global label→pipeline fallback |
+| `projects` | map<name, project> | yes | project entries |
+| `secrets` | map<name, `${ENV}`> | no | env-var-resolved secret references |
+| `persistence`, `auth`, `trace`, `tool_runner` | object | no | bootstrap and file-only blocks |
+| `deployment`, `sandbox`, `orchestrator`, `registries`, `primary_provider`, `limits`, `pipeline_cost_cap`, `queue`, `dialogue`, `skills`, `pipeline_storage`, `pipeline_data_flow` | object | no | global settings |
 
-Operator mistakes (unknown agent/tracker/repo references, duplicate
-catalog keys, trigger blocks that don't match their tracker's type) are
-caught by the validator at config-load time. The server refuses to start
-with a single aggregated error message — there is no lazy fallback.
-
----
-
-## `agents` — agent catalog
-
-Each entry is the full `AgentConfig`. Reference by name from
-`projects.<name>.agent`. Naming convention: kebab-case, often suffixed
-with `-default` for entries used by multiple projects.
-
-```yaml
-agents:
-  claude-default:
-    type: Claude
-    model: claude-sonnet-4-20250514
-    cache: { is_enabled: true, strategy: automatic }
-    models:
-      primary: { model: claude-sonnet-4-20250514, max_tokens: 8192 }
-```
-
-Available `type`: `Claude`, `OpenAI`, `azure-openai`, `Gemini`, `Ollama`.
-See `config/agentsmith.example.yml` for the full set of fields.
-
----
-
-## `repos` — source repository catalog
-
-```yaml
-repos:
-  acme-app:
-    type: GitHub          # GitHub | GitLab | AzureDevOps | Local
-    url: https://github.com/owner/acme-app
-    auth: github_token    # name of an entry in `secrets:`
-
-  acme-api-source:
-    type: Local
-    path: ./repo
-    auth: none
-```
-
-`Local` repos use `path` (filesystem); remote types use `url`.
-
----
-
-## `trackers` — issue/work-item tracker catalog
-
-```yaml
-trackers:
-  acme-jira:
-    type: Jira            # GitHub | GitLab | AzureDevOps | Jira
-    url: https://acme.atlassian.net/
-    auth: jira_token
-    open_states: ["To Do", "In Progress"]
-    done_status: "In Review"
-    close_transition_name: "Done"
-```
-
-Lifecycle fields (`open_states`, `done_status`, `close_transition_name`,
-`extra_fields`) belong on the tracker when shared across projects.
-Project-specific lifecycle settings are an unsupported escape hatch
-removed in p0139 — if you need different lifecycle states per project
-against the same tracker install, define two tracker entries.
-
----
-
-## `pipeline_triggers` — global label→pipeline map
-
-```yaml
-pipeline_triggers:
-  agent-smith:init: init-project
-  bug: code
-  feature: code
-  security-review: security-scan
-```
-
-Used as the fallback when a project's `<provider>_trigger` block does not
-declare its own `pipeline_from_label`. A populated project-level map
-wins over this global default.
-
-The map is global on purpose. Repeating the same 4-5 entries on every
-project was the most common form of duplication in the old schema.
+Operator mistakes (unknown agent/tracker/repo references, trigger blocks
+that don't match their tracker's type, template rules) are reported as
+startup findings when the configuration loads. A blocking finding that
+names a project stops that project's triggers; the server itself comes
+up, so the configuration that fixes it stays reachable.
 
 ---
 
@@ -122,34 +43,21 @@ projects:
   acme-app:
     agent: claude-default       # name from agents:
     tracker: acme-github        # name from trackers:
-    repos: [acme-app]           # list of names from repos:
-    pipeline: code
-    coding_principles_path: .agentsmith/principles.md
-    github_trigger:
-      trigger_statuses: ["open"]
-      done_status: "closed"
-      comment_keyword: "@agent-smith"
+    repos: [acme-cloud/acme-app]
+    resolution:
+      tag: acme-app
 ```
 
 Required fields:
-- `agent` (string — catalog name)
-- `tracker` (string — catalog name)
-- `repos` (list of catalog names — always a list, even when one)
+- `agent` (catalog name)
+- `tracker` (catalog name)
+- `repos` (always a list, even with one entry)
 
-Optional fields:
-- `pipeline` (single string — legacy form)
-- `pipelines` (list — multi-pipeline form)
-- `default_pipeline`
-- `coding_principles_path`, `skills_path`
-- `github_trigger` / `gitlab_trigger` / `azuredevops_trigger` /
-  `jira_trigger` (must match the tracker's `type` — the validator
-  rejects mismatches)
-- `polling` — alternative/complement to webhooks
-- `sandbox`, `orchestrator` — per-project override blocks
-
-`repos` is always a list. With p0139 it must contain exactly one entry
-for consumers that haven't yet been migrated to iterate the list;
-p0140 will activate multi-repo execution over the whole list.
+Everything else (`resolution`, `templates`, `default_pipeline`,
+`pipelines`, the per-platform trigger blocks, `sandbox`, `orchestrator`)
+is listed in the [reference](agentsmith-yml.md#projects). A trigger block
+must match the tracker's `type`; the validator rejects a `jira_trigger` on
+a GitHub tracker.
 
 ### `repos` entry forms
 
@@ -158,9 +66,9 @@ in one project:
 
 | Form | Example | How it resolves |
 |------|---------|-----------------|
-| Catalog name | `acme-app` | Looked up in the top-level `repos:` catalog (legacy). |
-| **Exact connection ref** | `acme-cloud/Service.Api` | **STATIC** (p0285): the git URL is built from the connection's type + host/org/project (+ repo name) with **no discovery call**. Loads even where repo discovery is unavailable (offline / CLI). |
-| Connection glob | `acme-cloud/Service.*` (or `!acme-cloud/Service.Tests`) | **DISCOVERY** (p0281a): the connection's repos are enumerated from the provider API and filtered by the pattern; an over-broad glob matches whatever discovery finds. |
+| Catalog name | `acme-app` | Looked up in the top-level `repos:` catalog. |
+| **Exact connection ref** | `acme-cloud/Service.Api` | **Static**: the git URL is built from the connection's type + host/org/project (+ repo name) with **no discovery call**. Loads even where repo discovery is unavailable (offline / CLI). |
+| Connection rule | `acme-cloud/Service.*` (or `!acme-cloud/Service.Tests`) | **Discovery**: the connection's repos are enumerated from the provider API and filtered by the pattern; an over-broad rule matches whatever discovery finds. |
 
 The split is by ref **shape**: a reference **without** a `*` is exact and
 resolves statically; a reference **with** a `*` (or any `!`-exclude) keeps
@@ -174,9 +82,14 @@ GitHub: `https://github.com/{owner}/{name}`; GitLab:
 `{host|https://gitlab.com}/{group}/{name}`), so switching a repo from a
 glob to an exact ref does not change in-flight runs.
 
-### Per-repo `default_branch` override
+On GitLab, a discovered repo's name is its path relative to the
+connection's group (`team-platform/Service.Api` for a project in a
+subgroup), so an exact ref or a rule for a subgroup project includes the
+subgroup: `acme-cloud/team-platform/Service.Api`.
 
-Any `repos` item may be written as an object to override the default
+### Per-repo `default_branch`
+
+Any `repos` item may be written as an object to set a fallback default
 branch for that one repo:
 
 ```yaml
@@ -185,12 +98,13 @@ repos:
   - { repo: acme-cloud/Docs, default_branch: main }   # docs repo on a different branch
 ```
 
-Default-branch precedence for an exact connection ref: **per-repo
-override → connection `default_branch` → the provider's real default at
-clone time** (when no override and no connection default is set, the
-source provider resolves the repo's actual default branch). The common
-case — all repos share the connection's default branch — needs no
-override at all.
+Default-branch precedence: **the repository's own default branch, as
+the platform reports it → the configured `default_branch` (per-repo item,
+then connection) → `main`**. The configured value is a fallback for a
+platform that can't answer (an empty repository, a failed call), not an
+override. When it disagrees with what the repository reports, the run
+logs a warning naming both. The common case needs no `default_branch`
+at all.
 
 ### Per-repo `consumes` declaration
 
@@ -221,7 +135,9 @@ The declaration requires an exact (wildcard-free) repo reference.
 | `Project 'X' references tracker 'Y' which is not defined in trackers: catalog` | Same for `tracker:` |
 | `Project 'X' references repo 'Y' which is not defined in repos: catalog` | Same for `repos:` entries |
 | `Project 'X': has jira_trigger but tracker 'Y' is type GitHub` | Trigger block on a project must match the tracker's type |
-| `pipeline_triggers['Z'] references unknown pipeline 'W'` | Label maps to a pipeline name that doesn't exist (see `PipelinePresets.Names`) |
+| `pipeline_triggers['Z'] references unknown pipeline 'W'` | Label maps to a pipeline name that doesn't exist |
+| `A routing rule on project 'X' names pipeline 'fix-bug', which this product does not offer any more` | A retired pipeline name; write `code` |
 
-All errors are emitted in one pass at config-load — fix all of them and
-restart, rather than one-at-a-time.
+All findings are reported in one pass when the configuration loads, and
+`agent-smith config validate` prints the same list without starting a
+server.

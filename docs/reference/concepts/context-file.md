@@ -1,8 +1,60 @@
 # The context file
 
-Every stack agent-smith works in has a `.agentsmith/contexts/<name>/context.yaml`.
-It is pasted verbatim into every master prompt, so the model is its reader — and a
-field that is wrong is not merely dead weight, it is acted on.
+Every stack agent-smith works in has a `.agentsmith/contexts/<name>/context.yaml`,
+with a `principles.md` beside it. It is pasted verbatim into every master prompt, so
+the model is its reader — and a field that is wrong is not merely dead weight, it is
+acted on.
+
+## Several contexts in one repository
+
+A repository gets one context per component it holds: a .NET API and a React
+frontend in one repo are two directories under `.agentsmith/contexts/`. `init-project`
+discovers the components and writes each context in its own round, from that
+component's own subtree.
+
+A coding run loads the `context.yaml` and `principles.md` of every context in the
+sandbox and hands them to the master labelled by context name, not just the one the
+sandbox was named after.
+
+Running `init-project` again derives everything again rather than returning what is
+already declared, so a wrong value (a wrong `meta.workdir`, say) gets corrected by the
+command that produced it. A context the new derivation no longer produces is moved to
+`.agentsmith/contexts-retired/<name>/`, never deleted, and the move shows up in the init
+pull request, so a wrong retirement is one revert away. See
+[Onboarding](../setup/onboarding.md) for the init run itself.
+
+## `stack` and `stack.image` are required
+
+Every context carries a `stack` block, and the block names `stack.image`: the toolchain
+Docker image that can both build this stack and run its tests. A document without
+either is rejected at write time, with the defect named, so the round that wrote it
+answers the refusal instead of the sandbox silently falling back to a per-language
+default.
+
+The image must come from a registry the operator trusts (`sandbox.allowed_registries`,
+see [Kubernetes](../../host-it/kubernetes.md#which-registries-a-toolchain-image-may-come-from)),
+and it must carry git, because the repository is cloned inside it. An image without git
+fails the checkout with an error that says so. A repository bootstrapped before the rule
+existed gains the field the next time `init-project` runs.
+
+## Where commands run
+
+Every command a context declares (`verify` stages, `prerequisites`, `probe`, and the
+path a `when_present` names) runs from the **repository root**. No field moves the
+working directory. A component that lives in a sub-tree says so in the command itself:
+
+```yaml
+meta:
+  workdir: src/frontend
+verify:
+  - label: test
+    command: cd src/frontend && npm test
+```
+
+`meta.workdir` is the component's root, the directory holding the manifest that governs
+it. It tells a reader where the component lives; it places nothing. A document whose
+`meta.workdir` is `.` while every one of its commands starts by entering the same
+directory contradicts itself and is refused with both halves named.
 
 ## One test decides whether a field belongs
 
@@ -63,6 +115,12 @@ that cannot go red is not a gate.
 
 A repository that declares nothing keeps working exactly as before.
 
+Before a declared stage runs, the sandbox checks that the binary its command starts
+with is on the image's `PATH`. When it isn't, a warning names the image, the binary, the
+stage and the context, so the missing tool is visible before the stage fails on it. A
+command in shell form that the check can't read (`cd … &&`, a pipe, an expansion) is
+reported as unprobed. The warning never fails a run.
+
 ## `verify_derived_from` says where the commands came from
 
 In an established estate the truth about "green" is already written down. A real
@@ -81,7 +139,7 @@ verify_derived_from:
   hash: sha256:0a1b2c…
 ```
 
-The files are paths relative to this context's workdir, named by whoever derived the
+The files are paths relative to the repository root, named by whoever derived the
 stages. The hash is the framework's, stamped by the write path — a model never supplies
 one, because a hash it invented would report drift on the very next run.
 
@@ -99,8 +157,8 @@ gate can only disagree with the one the estate actually runs.
 ## `probe` is whether the target answers
 
 `verify` proves the change; `probe` proves the environment the change depends on is
-reachable and willing. It is one command, run through a shell at this context's
-workdir after the prerequisites and before the coding agent starts.
+reachable and willing. It is one command, run through a shell at the repository root
+after the prerequisites and before the coding agent starts.
 
 ```yaml
 probe:
@@ -146,6 +204,10 @@ entries go first, so the section reads newest to oldest.
 
 The edit is a splice. Everything else in the file — the schema header, your comments,
 your flow style — is left exactly as it was.
+
+The same holds for every other write of the file, a re-init included: sections the
+typed document does not model, such as a chronicle, `decisions` or `integrations`
+written by hand, are carried over rather than dropped.
 
 ## Where the classification lives
 

@@ -5,12 +5,12 @@
 
 Agent Smith receives platform events via webhooks. Two distinct flows go through the receiver:
 
-- **Ticket triggers** (issue/work-item labelled, assigned, etc.) — these enter `TicketClaimService` and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms supported since p0095b.
-- **PR comment commands and dialogue answers** — free-form path, fire-and-forget in-process. GitHub (p0059), GitLab (p0059b), and Azure DevOps (p0059c) all supported.
+- **Ticket triggers** (issue or work item labelled, moved, assigned): these go through project resolution and the claim, and follow the [ticket lifecycle](../concepts/ticket-lifecycle.md). All four platforms.
+- **Pull request events, PR comment commands and dialogue answers**: GitHub, GitLab and Azure DevOps.
 
 Polling is the alternative ingress for ticket triggers. See [Polling](../../trigger-it/polling.md).
 
-## Ticket Trigger Flow
+## Ticket trigger flow
 
 When a webhook arrives for a ticket event:
 
@@ -18,32 +18,31 @@ When a webhook arrives for a ticket event:
 Platform webhook
       │ POST /webhook
       ▼
-WebhookSignatureVerifier  (rejects with 401 on bad signature)
+WebhookSignatureVerifier  (401 on a missing or bad signature, wherever a secret is configured)
       │
       ▼
 Platform-specific handler  (GitHubIssueWebhookHandler, JiraAssigneeWebhookHandler, ...)
-      │ returns WebhookResult { ProjectName, TicketId, Pipeline, Platform }
+      │ builds an IncomingTicketEnvelope
       ▼
-WebhookRequestProcessor.RouteToClaimServiceAsync
+ProjectResolver            (which projects match, which pipeline each runs)
       │
       ▼
-TicketClaimService.ClaimAsync
-      │ pre-checks → SETNX claim-lock → status read → atomic transition → enqueue
+WebhookSpawnDispatcher → SpawnPipelineRunsUseCase
+      │ footprint check → queue or claim → enqueue
       ▼
-IRedisJobQueue (RPUSH agentsmith:queue:jobs)
-      │
-      ▼  (asynchronous — pipeline runs in PipelineQueueConsumer on some pod)
 HTTP response to platform
 ```
 
-The HTTP response from the receiver indicates the **claim outcome**, not pipeline completion:
+The HTTP response says what the receiver did with the delivery, not how the run went:
 
-| `ClaimResult.Outcome` | HTTP status | Body |
-|-----------------------|:-----------:|------|
-| `Claimed` | 202 | `Accepted: {ticket} in {project}` |
-| `AlreadyClaimed` | 200 | `Already claimed: {ticket}` (idempotent — safe to retry) |
-| `Rejected` | 200 | `Rejected: UnknownProject` (or `UnknownPipeline` / `PipelineNotLabelTriggered`) |
-| `Failed` | 500 | `Claim failed: {error}` (the platform's retry kicks in) |
+| Status | Body | Meaning |
+|:------:|------|---------|
+| 202 | `Accepted` | a handler took the event (a run was claimed or queued, or a command started) |
+| 202 | `Accepted: dialogue answer` | an answer to a waiting question was routed to its run |
+| 200 | `Event ignored` | no handler wanted this event, or it matched nothing |
+| 200 | `Unknown platform` | the platform couldn't be detected |
+| 401 | `Signature validation failed` | a secret is configured and the delivery didn't prove it |
+| 503 | `redis_unavailable` | a dialogue answer arrived while Redis was down; the platform's retry delivers it again |
 
 ## Supported Platforms
 
@@ -52,7 +51,7 @@ The HTTP response from the receiver indicates the **claim outcome**, not pipelin
 | GitHub | `issues` (labeled) | Yes | HMAC-SHA256 (`X-Hub-Signature-256`) |
 | GitLab | `Issue Hook` (labeled) | Yes | Token header (`X-Gitlab-Token`) |
 | Azure DevOps | `workitem.updated` | Yes | Basic auth |
-| Jira | `issue_updated`, `comment_created` | No (planned) | HMAC (`x-hub-signature`) |
+| Jira | `issue_updated` (assigned), `comment_created` | No | HMAC (`x-hub-signature`) |
 
 ## Webhook Secrets
 
@@ -95,29 +94,24 @@ On the generic `/webhook` endpoint, the `X-GitHub-Event`, `X-Gitlab-Event`, etc.
 
 ## Trigger Configuration
 
-The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives per project under `github_trigger`/`gitlab_trigger`/`azuredevops_trigger`/`jira_trigger`. See [Label-Based Triggers](../../trigger-it/labels.md) for the full shape and per-platform examples.
+The trigger config (`pipeline_from_label`, `default_pipeline`, `done_status`, ...) lives on the tracker, and a project can override it field by field in a `github_trigger`/`gitlab_trigger`/`azuredevops_trigger`/`jira_trigger` block. See [Label-Based Triggers](../../trigger-it/labels.md) for the full shape and per-platform examples, and the [agentsmith.yml reference](agentsmith-yml.md#trigger-blocks) for every key.
 
-## PR Comment Commands
+## Pull request review label
 
-Independent of the ticket lifecycle. Comments like `/agent-smith fix` start an ad-hoc pipeline (no claim flow, no lifecycle labels). Configured per project:
+On GitHub and GitLab, a label on a pull request or merge request can ask for a review, which runs `security-scan` on that repository. The label `security-review` always does. A project can add a word of its own with `pr_trigger_label` on its trigger block:
 
 ```yaml
 projects:
-  my-api:
-    pr_commands:
-      enabled: true
-      require_member: true
-      allowed_pipelines:
-        - code
-        - security-scan
-        - pr-review
+  todolist:
+    github_trigger:
+      pr_trigger_label: needs-review
 ```
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `enabled` | bool | `false` | Enable `/agent-smith` commands in PR comments |
-| `require_member` | bool | `true` | Only allow repo members to issue commands |
-| `allowed_pipelines` | list | all | Restrict which pipelines can be started via PR comments |
+The word adds to `security-review`, it doesn't replace it. The project is found by the pull request's repository URL, so this needs the pull request's repo in the project's `repos:`.
+
+## PR comment commands
+
+Independent of the ticket lifecycle. A comment like `/agent-smith review` on a pull request or merge request starts a run directly, with no claim flow and no lifecycle labels. A comment may start `code`, `security-scan` or `pr-review` and nothing else; that list is fixed, because a comment is a lower-trust surface than your configuration.
 
 See [PR Comment Integration](../integrations/pr-comments.md) for command syntax.
 
@@ -127,7 +121,7 @@ Per-platform walkthroughs (payload URLs, events to subscribe, secret placement i
 
 ## Idempotency Guarantee
 
-Webhook redelivery is safe. The first delivery wins the SETNX claim-lock and transitions `Pending → Enqueued`; the second delivery sees the ticket in `Enqueued` (or further along) and returns `AlreadyClaimed` (HTTP 200). No duplicate pipeline runs.
+Webhook redelivery is safe. The claim is a lease in the database: the first delivery wins it, and a second delivery for the same ticket finds it held and starts nothing. One ticket never has two live runs.
 
 This makes Agent Smith's webhook receiver tolerant of platform retry policies, network glitches, and operator-triggered redeliveries.
 

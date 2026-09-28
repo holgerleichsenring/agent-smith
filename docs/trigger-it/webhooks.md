@@ -31,14 +31,14 @@ AZDO_WEBHOOK_SECRET=...
 
 The server compares the `Authorization` header against it and rejects mismatches. If the variable is unset, requests without the header pass — set it.
 
-Verify the wiring with a test work item: tag it `TodoList`, set status to `Active`. Within a second the orchestrator log should show `webhook received, ticket TID-4471, project azuredevops-todolist`.
+Verify the wiring with a test work item: tag it `TodoList` and the trigger label, set status to `Active`. Within a second the server log shows the delivery and the project it resolved to, and the run appears in the dashboard.
 
 ## Jira
 
 In Jira Cloud: **System → System Webhooks → Create a Webhook**.
 
 - URL: `https://agent-smith.your-host.example/webhook/jira`
-- Events: **Issue created**, **Issue updated**.
+- Events: **Issue created**, **Issue updated**. Work starts when an issue is assigned to the Agent Smith user (`assignee_name` on the project's `jira_trigger`, default `Agent Smith`).
 - JQL filter: `project = TL` (or whatever your project key is) — narrows webhooks to just the project Agent Smith manages.
 - Secret: paste your `JIRA_WEBHOOK_SECRET` value. Once the project carries a secret, every delivery must arrive with a matching `x-hub-signature` — one without it is refused with `401`.
 
@@ -70,7 +70,7 @@ Either way:
 - Payload URL: `https://agent-smith.your-host.example/webhook/github`
 - Content type: **application/json**
 - Secret: paste your `GITHUB_WEBHOOK_SECRET` value.
-- Events: **Issues** (state changes + label adds) and optionally **Issue comments** (if you want comment-driven triggers via the project's `comment_keyword`).
+- Events: **Issues** (state changes + label adds), optionally **Issue comments** (if you want comment-driven triggers via the project's `comment_keyword`), and **Pull requests** plus **Issue comments** if you want [PR commands](../reference/integrations/pr-comments.md) and review labels.
 
 Give the server the same value as an environment variable:
 
@@ -85,7 +85,7 @@ GitHub HMACs the body with the secret and sends it in `X-Hub-Signature-256`. The
 **Project Settings → Webhooks** (or for group-wide: **Group Settings → Webhooks**).
 
 - URL: `https://agent-smith.your-host.example/webhook/gitlab`
-- Trigger: **Issues events**.
+- Trigger: **Issues events**, plus **Merge request events** and **Comments** for [MR commands](../reference/integrations/pr-comments.md) and review labels.
 - Secret token: paste your `GITLAB_WEBHOOK_TOKEN` value.
 
 Give the server the same value as an environment variable:
@@ -106,15 +106,26 @@ Webhooks need a publicly-reachable URL for the orchestrator. Three common shapes
 
 If you can't reach the orchestrator from the tracker, use [polling](polling.md) instead.
 
+## Pull request review label
+
+A label on a GitHub pull request or GitLab merge request can ask for a review, which runs `security-scan` on that repository. `security-review` always does. To use your own word as well, set `pr_trigger_label` on the owning project's `github_trigger` or `gitlab_trigger`:
+
+```yaml
+projects:
+  todolist:
+    github_trigger:
+      pr_trigger_label: needs-review
+```
+
 ## What the framework does on receipt
 
 1. Detect the platform and verify the secret (HMAC for GitHub and Jira, token compare for GitLab, basic-auth for Azure DevOps). Wherever a secret is configured this is mandatory: a delivery without a valid signature — an absent header included — is refused with `401` before any handler runs. A platform with no secret configured is not verified at all.
 2. Parse the payload, extract the ticket id and the changed fields.
-3. Decide if this event matters: did the status change to one of `trigger_statuses`? Did a `pipeline_from_label` label get added? Did a comment with the project's `comment_keyword` land? If none of the above, return 200 OK and stop.
+3. Decide if this event matters: did the status change to one of `trigger_statuses`? Did a `pipeline_from_label` label get added? Did a comment with the project's `comment_keyword` land? Was a Jira issue assigned to the Agent Smith user? Then find the project the ticket belongs to (see [Project resolution](../reference/configuration/project-resolution.md)). If nothing matches, return 200 and stop.
 4. If the event matters: claim the ticket — the claim is a database lease, so a webhook and a poll racing on the same ticket can't double-trigger, and one ticket never has two live runs (that's enforced by construction, not by timing). Then check capacity: if the run's whole footprint doesn't fit right now, it queues in strict FIFO order instead of failing (see [Capacity & queueing](../reference/operations/capacity.md)).
 5. The run spawns and executes; every state change lands in the [dashboard](../reference/operations/dashboard.md).
 
-Webhook responses are always 200 OK if the framework received the payload correctly, even when the event was filtered out. That tells the tracker not to retry. Errors during the run itself land in the ticket as a comment.
+A delivery the framework acted on gets `202`, one it filtered out gets `200`; both tell the tracker not to retry. A signature failure gets `401`. Errors during the run itself land in the ticket as a comment. The full table is on the [webhook reference](../reference/configuration/webhooks.md#ticket-trigger-flow).
 
 ## Next
 

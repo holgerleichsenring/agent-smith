@@ -27,7 +27,7 @@ AGENTSMITH_SKILLS_REPOSITORY_URL=https://internal-mirror.example.com/agentsmith-
 
 The server constructs the URL as:
 ```
-https://internal-mirror.example.com/agentsmith-skills/releases/download/v1.0.0/agentsmith-skills-v1.0.0.tar.gz
+https://internal-mirror.example.com/agentsmith-skills/releases/download/v1.1.0/agentsmith-skills-v1.1.0.tar.gz
 ```
 
 Your mirror needs to expose that exact path layout. Copying the release
@@ -42,7 +42,7 @@ boundary, mount as `path`:
 
 ```bash
 # Connected side
-agentsmith skills pull --version v1.0.0 --output ./skills-bundle
+agentsmith skills pull --version v1.1.0 --output ./skills-bundle
 
 # Transfer (rsync, USB, S3 with offline upload, etc.)
 # Disconnected side

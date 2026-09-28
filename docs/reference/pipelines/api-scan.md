@@ -1,125 +1,128 @@
 # API Scan
 
-The **api-security-scan** pipeline scans a running API against its OpenAPI spec. It combines automated scanner tools (Nuclei, Spectral) running in Docker containers with an AI specialist panel that interprets, contextualizes, and filters the results.
+The **api-security-scan** pipeline scans a running API against its OpenAPI description. Scanner tools run in containers: Nuclei probes the live target, Spectral lints the description, ZAP exercises the running API. The **api-security-master** then triages their output, reading the source too when one is available. Every finding it delivers is checked against the description and put to a refuter, and the run closes with an account of what the scan set out to look for.
 
 !!! info "Pipeline type: structured"
-    Since Phase 64, api-security-scan uses the **structured** pipeline type. `SkillGraphBuilder` builds a deterministic execution graph from skill metadata -- no LLM triage, no convergence rounds. Skills run in staged order with typed JSON handoffs between stages.
+    api-security-scan is a fixed, deterministic step list: no model decides which steps run. A single **api-security-master** agent (the `AgenticMaster` step) carries the analysis over the scanner outputs.
 
-## Pipeline Steps
+## Pipeline steps
 
-| # | Command | What It Does |
+| # | Command | What it does |
 |---|---------|-------------|
-| 1 | LoadSwagger | Loads and parses the swagger.json / OpenAPI spec |
-| 2 | SpawnNuclei | Runs Nuclei vulnerability scanner in a Docker container |
-| 3 | SpawnSpectral | Runs Spectral OWASP linter in a Docker container |
-| 4 | SpawnZap | Runs OWASP ZAP DAST scan against the target (skips if `dast.enabled: false`) |
-| 5 | LoadSkills | Loads API security skill definitions from YAML |
-| 6 | ApiSecurityTriage | Builds deterministic skill graph via `SkillGraphBuilder` (no LLM) |
-| 7 | SkillRounds | Runs skills in staged order: contributors (parallel) then gate then executor |
-| 8 | CompileFindings | Consolidates typed findings into a structured report |
-| 9 | DeliverFindings | Writes output in the requested format(s) |
+| 1 | LoadCatalog | Pulls and verifies the skill catalog |
+| 2 | PipelineNameInitializer | Stamps the pipeline name for master routing |
+| 3 | RatifyScanContract | States what this scan looks for, before any scanner runs |
+| 4 | TryCheckoutSource | Resolves the source if one is available; never fails the run |
+| 5 | SetupRegistryAuth | Pre-stages private-feed credentials (nothing to do without source) |
+| 6-7 | BootstrapCheck / BootstrapGate | Checks the source's bootstrap; skipped when there is no source |
+| 8 | LoadContext | Loads the target's `.agentsmith/` context files, if present |
+| 9 | LoadCodingPrinciples | Loads the target's principles, if present |
+| 10 | LoadMemoryIndex | Loads the project's recorded memory, so earlier dismissals are visible to the master |
+| 11 | LoadSwagger | Loads and parses the OpenAPI description (file path or URL) |
+| 12 | AccountSurfaceDifference | Compares what the API offers with what its declared clients exercise |
+| 13 | SessionSetup | Signs in the configured personas; passive mode without them |
+| 14 | SpawnNuclei | Runs Nuclei against the target |
+| 15 | SpawnSpectral | Lints the description with the OWASP ruleset |
+| 16 | SpawnZap | Runs an OWASP ZAP scan against the target |
+| 17 | AgenticMaster | Runs the api-security-master over the scanner reports and the description |
+| 18 | CollectMasterFindings | Takes the master's triage as the delivered findings |
+| 19 | SubstantiateFindings | Checks each finding against the description and puts it to a refuter |
+| 20 | DeliverFindings | Writes output in the requested format(s) |
+| 21 | AccountScanCoverage | Checks each stated criterion against the steps that really ran |
+| 22 | WriteRunResult | Writes `result.md`, including the scan's account |
 
-## Automated Scanners
+## What the scan states before it looks
 
-### Nuclei (Vulnerability Scanner)
+`RatifyScanContract` writes down the scan's criteria before the first scanner runs, one per step the pipeline really has:
 
-[Nuclei](https://github.com/projectdiscovery/nuclei) runs inside a Docker container via `DockerToolRunner`. It probes the live API target for known vulnerabilities using its template library.
+- The API surface under test is enumerated from its specification (`LoadSwagger`)
+- Known vulnerability templates are executed against the live API (`SpawnNuclei`)
+- The API specification is linted for contract defects (`SpawnSpectral`)
+- The live API is exercised dynamically (`SpawnZap`)
+- Every candidate finding is triaged by the scan master (`AgenticMaster`)
+- Every delivered finding is substantiated against the evidence the scan holds (`SubstantiateFindings`)
+- The surviving findings are delivered in the requested formats (`DeliverFindings`)
+
+`AccountScanCoverage` checks each one against the execution trail at the end. A criterion whose step never ran, or failed, is outstanding, names why, and records the run as failed. The account appears under **What this scan looked for** in `result.md`, with the master pass's measurements; see [Security Scan](security-scan.md#the-scans-account).
+
+## Automated scanners
+
+All three run as containers through the tool runner. Docker must be available where Agent Smith runs; images are pulled on first use.
+
+### Nuclei
+
+[Nuclei](https://github.com/projectdiscovery/nuclei) (`projectdiscovery/nuclei:latest`) probes the live target with its template library. Tags, severities, rate limit and the container's time limit come from `nuclei.yaml`; see [Tool configuration](#tool-configuration).
+
+### Spectral
+
+[Spectral](https://github.com/stoplightio/spectral) (`stoplight/spectral:6`) lints the OpenAPI description against the ruleset in `spectral.yaml`, by default the OWASP API security ruleset. It catches design-level issues no runtime scanner can find.
+
+### ZAP
+
+[OWASP ZAP](https://www.zaproxy.org/) (`ghcr.io/zaproxy/zaproxy:stable`) exercises the running target. It runs its `api-scan` mode when a description was loaded and `baseline` otherwise. ZAP's own exit codes 0 to 3 are all valid results; a higher code means ZAP crashed, and the step says so.
+
+### A cut-off scanner says so
+
+Nuclei and ZAP run under a time limit. A scanner that hits it is reported as **cut off**, with the limit: its step line in the run record reads `DEGRADED: cut off at its 180s time limit before it finished`, not "scan completed". Its findings cover only the part of the target it reached.
+
+The scanner summary the master reads ends with a **Dynamic step coverage** section that names each dynamic step and what it contributed:
 
 ```
-SpawnNucleiHandler
-  → writes swagger.json to a temp file
-  → launches Docker container: projectdiscovery/nuclei
-  → scans the --target URL with API-focused templates
-  → parses JSON output into NucleiResult (findings with severity, URL, template ID)
-  → stores result in PipelineContext
+### Dynamic step coverage
+- Nuclei: contributed 12 findings.
+- ZAP: contributed nothing, and this is not evidence of a clean target — cut off at its 300s time limit before it finished.
 ```
 
-Findings are categorized by severity (critical, high, medium, low) and passed to the AI specialist panel for interpretation.
+A step that ran to its end and found nothing says that instead, so an empty result from a finished scan reads differently from an empty result from an interrupted one.
 
-### Spectral (OWASP Linter)
+## How the master analyzes
 
-[Spectral](https://github.com/stoplightio/spectral) runs inside a separate Docker container. It lints the OpenAPI spec against OWASP API security rules — catching design-level issues that no runtime scanner can find.
+The `AgenticMaster` step loads the **api-security-master** skill. Its prompt carries the scanner reports, the OpenAPI description, the surface difference when one was computed, and the ticket conversation when there is one. Unlike a repository scan, there is no first look without the scanners: an API scan's inputs are those reports.
 
-```
-SpawnSpectralHandler
-  → writes swagger.json to a temp file
-  → launches Docker container: stoplight/spectral
-  → lints against OWASP API security ruleset
-  → parses output into SpectralResult (findings with error/warning severity)
-  → stores result in PipelineContext
-```
+The master works on the same read-only surface as the security-master (file reads and searches, `http_request` and `web_fetch`, `log_decision`, `recall` / `remember`, no `run_command` and no write tool), under the same scan budget: `scan_master_loop_iterations`, `scan_master_max_output_tokens` and `scan_context_window_tokens`. See [Security Scan](security-scan.md#how-the-master-analyzes).
 
-!!! note "Docker required"
-    Both Nuclei and Spectral run as Docker containers. Ensure Docker is available on the machine running Agent Smith. The containers are pulled automatically on first use.
+`CollectMasterFindings` delivers the master's triage only. Raw Nuclei, Spectral and ZAP results are not promoted on their own. When the master's findings array was cut off mid-write, its complete findings are recovered and the run records the recovery. When its answer could not be read as findings at all, the run records the triage as degraded: the triage criterion is not answered, and every output format carries the "TRIAGE DEGRADED" mark.
 
-## The Specialist Panel (4 Roles)
+## Findings are checked against the description
 
-After the automated scanners complete, the AI specialist panel reviews and interprets the combined results. Each role is defined in `config/skills/api-security/`.
+`SubstantiateFindings` resolves each finding's endpoint against the OpenAPI description the scan loaded. A claim about the live target, one that names an endpoint or schema and has no readable source line behind it, is dropped when the endpoint it cites is not in the description: an endpoint the specification never declared is invention. Every other finding is put to a fresh instance with the request and response that produced it and asked to refute it. A refuted finding is downgraded to Medium, stops blocking, and carries the reason; it is not deleted.
 
-| Role | Emoji | Focus Area |
-|------|-------|------------|
-| **API Vulnerability Analyst** | 🔍 | Lead role. Maps Nuclei findings to OWASP API Security Top 10 (2023). Assesses exploitability and impact. |
-| **API Design Auditor** | 📐 | Deep schema analysis — sensitive data in responses, enum opacity, REST semantic violations, missing constraints, Spectral findings interpretation |
-| **Auth Tester** | 🔐 | JWT validation, OAuth flow security (PKCE, state), API key handling, missing auth on state-mutating endpoints, Bearer vs Cookie mixing |
-| **False Positive Filter** | 🧹 | Nuclei-specific false positive filtering. Removes low-confidence findings, template artifacts, and duplicates. |
+## What the clients never use
 
-### How Skills Collaborate
+When a repository in the project declares that it consumes the API, the scan compares what the API offers with what that client exercises. The declaration goes on the repo entry and names the API by its description's `info.title`:
 
-API scan uses the **structured pipeline** pattern. For a general overview of all pipeline orchestration patterns, see [Multi-Agent Orchestration](../concepts/multi-agent-orchestration.md).
-
-```mermaid
-graph LR
-    Tools["Tool Steps<br/>(Nuclei, Spectral, ZAP)"] --> Contributors
-
-    subgraph Stage 1 - Contributors
-        C1[api-vulnerability-analyst]
-        C2[api-design-auditor]
-        C3[auth-tester]
-    end
-
-    Contributors --> Gate["false-positive-filter<br/>[Gate]"]
-    Gate -->|"confirmed findings only"| Output[Findings Report]
-
-    style Gate fill:#c0392b,color:#fff
+```yaml
+repos:
+  - acme-org/TodoList.Api                             # serves the interface
+  - { repo: acme-org/TodoList.Web, consumes: TodoList }   # calls it
 ```
 
-Stage 1 contributors run in parallel, each receiving scanner output relevant to their expertise. The gate filters low-confidence findings and Nuclei template artifacts.
+`AccountSurfaceDifference` reads the declared client's code for call sites and reports three kinds of difference:
 
-### Deterministic Skill Graph
+- an operation no client calls
+- a property an operation accepts that no client sends
+- a property an operation returns that no client reads
 
-Since Phase 64, the `ApiSecurityTriage` step uses `SkillGraphBuilder` to construct a deterministic execution graph from skill metadata (`runs_after`/`runs_before` declarations). There is no LLM call during triage. Skills are topologically sorted into execution stages:
+None of these is raised as a finding. They reach the master as evidence, each paired with the verification-standard requirement that decides whether it matters (function-level access control, mass assignment, excessive data exposure), with the standard's catalogue version stated beside the ids. What the clients exercise is a **lower estimate**: the report says how many client files it read, how many call sites it found and how many files it could not decide, and an entry may be an artefact of an undecided file.
 
-1. **Stage 1 -- Contributors** (parallel): API Design Auditor, Auth Tester, and API Vulnerability Analyst each analyze their respective findings in a single call with typed JSON output.
-2. **Stage 2 -- Gate**: The False Positive Filter reviews all contributor output and produces a typed `List<Finding>`, vetoing low-confidence results.
+When an input is missing, the difference is **not computed** and says why: no OpenAPI description, no repository declaring that it consumes this API, the client checkout not available to the run, or the client reading produced no usable report. A `consumes:` name that does not match the loaded description's title fails the run, because a difference computed over repositories you did not choose would read as a clean bill. See [agentsmith.yml schema](../configuration/agentsmith-yml-schema.md#per-repo-consumes-declaration).
 
-Each skill runs exactly once. ConvergenceCheck is skipped for structured pipelines.
+## Personas
 
-The swagger spec and scanner signals are still used to populate context for each skill, but skill *selection* is determined by the graph, not by LLM analysis:
+Pass credentials for up to three personas and `SessionSetup` signs them in against the target before the scanners run, so the scan can test authenticated behavior:
 
-- **ID-based paths** (BOLA risk): `/api/users/{id}`, `/api/orders/{orderId}`
-- **Auth scheme declared**: Bearer, OAuth2, API key
-- **Unprotected endpoints**: state-mutating routes with no security requirement
-- **Query parameters**: potential injection vectors
-- **Bulk operation endpoints**: `/api/users/batch`, `/api/export`
+```bash
+agent-smith api-scan \
+  --agent claude-scan \
+  --swagger ./swagger.json \
+  --target https://api.staging.example.com \
+  --admin-user admin --admin-pass "$ADMIN_PASS" \
+  --user1-user alice --user1-pass "$ALICE_PASS"
+```
 
-### OWASP API Security Top 10 (2023) Mapping
+The flags are `--admin-user/--admin-pass`, `--user1-user/--user1-pass` and `--user2-user/--user2-pass`. Without any, the scan runs in passive mode.
 
-The API Vulnerability Analyst maps every valid finding to the most specific OWASP category:
-
-| Category | Description |
-|----------|-------------|
-| API1:2023 | Broken Object Level Authorization (BOLA) |
-| API2:2023 | Broken Authentication |
-| API3:2023 | Broken Object Property Level Authorization |
-| API4:2023 | Unrestricted Resource Consumption |
-| API5:2023 | Broken Function Level Authorization |
-| API6:2023 | Unrestricted Access to Sensitive Business Flows |
-| API7:2023 | Server Side Request Forgery (SSRF) |
-| API8:2023 | Security Misconfiguration |
-| API9:2023 | Improper Inventory Management |
-| API10:2023 | Unsafe Consumption of APIs |
-
-## Output Formats
+## Output formats
 
 The `--output` flag accepts comma-separated values:
 
@@ -127,89 +130,86 @@ The `--output` flag accepts comma-separated values:
 |--------|------|-------------|
 | Console | `console` | Findings printed to stdout (default) |
 | Summary | `summary` | Condensed one-line-per-finding output |
-| Markdown | `markdown` | Full report written to `--output-dir` |
-| SARIF | `sarif` | Machine-readable SARIF 2.1.0 written to `--output-dir` |
+| Markdown | `markdown` | `findings.md` written to the output directory |
+| SARIF | `sarif` | `findings.sarif` (SARIF 2.1.0) written to the output directory |
 
 ```bash
-# Multiple formats at once
 agent-smith api-scan \
+  --agent claude-scan \
   --swagger https://api.example.com/swagger.json \
   --target https://api.example.com \
   --output console,sarif,markdown \
   --output-dir ./reports
 ```
 
-Output directory resolution order:
+Output directory resolution order, first writable wins:
 
 1. `--output-dir` (if specified)
 2. `/output` (Docker container mount)
 3. `./agentsmith-output` (local fallback)
-4. System temp directory (last resort)
 
-## Tool Configuration
+## Tool configuration
 
-### nuclei.yaml
+The scanners read their settings from YAML files looked up in `$AGENTSMITH_CONFIG_DIR`, then `$AGENTSMITH_CONFIG_DIR/config/`, then `./config/`, the working directory, and the install directory's `config/`. `api-scan` sets `AGENTSMITH_CONFIG_DIR` to the directory of the `--config` file, so files placed next to your `agentsmith.yml` are found.
 
-Nuclei behavior can be customized in your project's tool configuration:
-
-```yaml
-tools:
-  nuclei:
-    image: projectdiscovery/nuclei:latest
-    templates:
-      - api
-      - cves
-      - exposures
-    severity_threshold: medium
-    timeout: 300
-```
-
-### spectral.yaml
-
-Spectral uses the OWASP API security ruleset by default:
+`nuclei.yaml`:
 
 ```yaml
-tools:
-  spectral:
-    image: stoplight/spectral:latest
-    ruleset: spectral:oas
-    fail_severity: warn
+tags: "api,auth,token,cors,ssl"
+exclude_tags: "dos,fuzz"
+severity: "critical,high,medium,low"
+timeout: 10
+retries: 1
+concurrency: 10
+rate_limit: 50
+container_timeout: 180       # seconds before the container is cut off
 ```
 
-## Source Resolution
+`spectral.yaml` is a Spectral ruleset:
 
-api-scan can read source code to enable the code-aware skills (auth-config-reviewer,
-ownership-checker, upload-validator-reviewer). Source is **optional** — the pipeline
-runs in passive schema-only mode if no source is available, without failing.
+```yaml
+extends:
+  - "https://unpkg.com/@stoplight/spectral-owasp-ruleset@2.0.1/dist/ruleset.mjs"
+rules: {}
+```
 
-Resolution order (first match wins):
+`zap.yaml`:
 
-1. **CLI flag** — `--source-path <local-path>` always wins over config.
-2. **Local config** — `source: { type: Local, path: ./repo }` resolves to an absolute path.
-3. **Remote clone** — `source: { type: GitHub|GitLab|AzureRepos, url: ..., auth: token }`
-   clones the repo on demand via the same provider infrastructure used by security-scan.
-   Auth tokens are resolved from the secret store / env vars (e.g. `GITHUB_TOKEN`).
-4. **Passive fallback** — no source block, missing url, missing auth, unreachable remote,
-   or any clone failure leaves the pipeline running with the schema-only skill pool.
+```yaml
+container_timeout: 300       # seconds before the container is cut off
+```
 
-The branch checked out is `source.default_branch` if set, otherwise the provider default
-(typically `main`). api-scan never checks out ticket branches.
+## Source resolution
 
-## CLI Examples
+With source, the master can anchor a finding to a file and line. Source is optional: without it the scan runs against the description and the live target only, and does not fail.
+
+Resolution order, first match wins:
+
+1. `--source-path <local-path>` always wins.
+2. With `--project`, the project's first repository: a local repository's path, or a clone of a remote one using the repository's configured credentials.
+3. Otherwise, or when the path is missing or the clone fails, the scan runs without source.
+
+The clone uses the repository's default branch. api-scan never checks out ticket branches.
+
+## CLI examples
 
 ```bash
 # Scan a running API
 agent-smith api-scan \
+  --agent claude-scan \
   --swagger ./swagger.json \
   --target https://api.staging.example.com
 
-# Scan with a remote swagger URL
+# Scan with a remote swagger URL and the local source
 agent-smith api-scan \
+  --agent claude-scan \
   --swagger https://api.example.com/swagger/v1/swagger.json \
-  --target https://api.example.com
+  --target https://api.example.com \
+  --source-path .
 
 # SARIF output for CI integration
 agent-smith api-scan \
+  --agent claude-scan \
   --swagger ./swagger.json \
   --target https://localhost:5001 \
   --output sarif \
@@ -217,26 +217,13 @@ agent-smith api-scan \
 
 # Dry run — show the pipeline without executing
 agent-smith api-scan \
+  --agent claude-scan \
   --swagger ./swagger.json \
   --target https://api.example.com \
   --dry-run
 ```
 
+`--agent` picks an agent from the config's `agents:` catalog and runs the scan without a project. `--project` still works.
+
 !!! warning "Live API required"
-    Nuclei scans a **live, running API**. The `--target` URL must be reachable. Use a staging environment, never production, for automated scanning.
-
-## Example Output
-
-A typical scan of a REST API with 30 endpoints might produce:
-
-```
-Nuclei: 12 findings (0C/2H/5M) in 45s
-Spectral: 18 findings (4E/14W) in 3s
-
-API Vulnerability Analyst: 8 findings mapped to OWASP categories
-API Design Auditor: 6 schema-level findings
-Auth Tester: 3 auth findings (missing PKCE, JWT without audience)
-False Positive Filter: Retained 14 of 17 findings (3 filtered)
-
-Final report: 14 findings (2 HIGH, 7 MEDIUM, 5 LOW)
-```
+    Nuclei and ZAP send requests to a **live, running API**. The `--target` URL must be reachable. Use a staging environment, never production.

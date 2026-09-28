@@ -184,6 +184,18 @@ Expected: an Adaptive Card showing available commands.
 
 Expected: a response listing open tickets from the configured project.
 
+```
+@Agent Smith fix PROJ-12 in my-project
+```
+
+Ticket ids are written the way the tracker writes them: `#42` for GitHub, GitLab and Azure DevOps, the issue key for Jira.
+
+```
+@Agent Smith /spec my-project
+```
+
+Opens a [spec dialogue](../../how-it-works/spec-dialogue.md) in this conversation; every later message in it continues the design conversation. Proposals come back as Adaptive Cards with approve, reject and the other shapes the proposal could take. Approving from Teams files the ticket but never moves it into a trigger status, so the run starts only when the status the ticket is created in already triggers.
+
 ---
 
 ## Environment Variables

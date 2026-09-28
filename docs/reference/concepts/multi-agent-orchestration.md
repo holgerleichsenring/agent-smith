@@ -68,19 +68,19 @@ Unlike the legacy `Gate` role, Filter has no veto. Reductions and syntheses are 
 
 Skills declare their roles, activation criteria, and output contract in `SKILL.md` frontmatter. See the [skills.md reference](../configuration/skills.md) and the [migration guide](../configuration/skills/migration.md) for the full schema and a before/after example.
 
-The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` enum (`Lead`/`Contributor`/`Gate`/`Executor`), and the deterministic `SkillGraphBuilder` are all retired in p0111c. The current pipeline order is decided per ticket by the LLM-driven triage step, not by topological sort over skill metadata.
+The legacy `agentsmith.md` `## orchestration` section, the `OrchestrationRole` enum (`Lead`/`Contributor`/`Gate`/`Executor`), and the deterministic `SkillGraphBuilder` are retired. The pipeline order is decided per ticket by the LLM-driven triage step, not by topological sort over skill metadata.
 
 ## Pipelines using this pattern
 
 | Pipeline | Shape today |
 |---|---|
-| `code` | Master-based: expectation → plan → approval → `coding-agent-master` executes and verifies in one loop (see [Methodology](../../how-it-works/methodology.md)) |
+| `code` | Master-based: the ticket is derived into phase specs, then per phase `coding-agent-master` executes and verifies in one loop and `VerifyPhase` checks the done-list (see [Methodology](../../how-it-works/methodology.md)) |
 | `security-scan`, `api-security-scan` | Scan master + roles on a read-only surface; delivery = curated triage + uncovered High+ scanner facts |
 | `legal-analysis` | `legal-analyst-master` + specialist sub-agents |
 | `mad-discussion` | Perspective masters + `mad-synthesizer` |
 | `init-project`, `skill-manager`, `autonomous` | Single open round |
 
-## Sub-agents (p0177)
+## Sub-agents
 
 The master can fan work out to sub-agents: it calls the `spawn_agents` tool with a name and an activity per child, the children run in parallel inside the same run — sharing the run's sandboxes and its cost budget — and the master reads their results back with `read_sub_agent_observations`. One master, n children, one level deep; children can't spawn grandchildren.
 
