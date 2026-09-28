@@ -1,20 +1,19 @@
 using System.Text.Json;
-using AgentSmith.Application.Webhooks;
-using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
-/// Handles Azure DevOps Pull Request comment events. p0146e: pipeline + ticket
-/// resolution is delegated to <see cref="CommentIntentParser"/> + IIntentParser.
+/// Handles Azure DevOps Pull Request comment events. This handler owns the Azure DevOps
+/// payload shape; what the comment starts is decided by <see cref="PrCommentCommandAdmission"/>
+/// with the repository's Git Contribute permission as the author trust.
 /// </summary>
 public sealed class AzureDevOpsPrCommentWebhookHandler(
-    CommentIntentParser commentIntentParser,
-    ServerContext serverContext,
+    PrCommentCommandAdmission admission,
+    [FromKeyedServices("azuredevops")] IPrCommentAuthorTrust authorTrust,
     ILogger<AzureDevOpsPrCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
@@ -28,70 +27,8 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         try
         {
             using var doc = JsonDocument.Parse(payload);
-            var root = doc.RootElement;
-
-            var resource = root.GetProperty("resource");
-            var comment = resource.GetProperty("comment");
-
-            var commentBody = comment.GetProperty("content").GetString() ?? "";
-            var commentId = comment.GetProperty("id").GetInt64().ToString();
-            var authorLogin = comment.GetProperty("author")
-                .GetProperty("uniqueName").GetString() ?? "";
-
-            var pullRequest = resource.GetProperty("pullRequest");
-            var prId = pullRequest.GetProperty("pullRequestId").GetInt32();
-
-            var repo = pullRequest.GetProperty("repository");
-            var repoName = repo.GetProperty("name").GetString() ?? "";
-            var projectName = repo.GetProperty("project")
-                .GetProperty("name").GetString() ?? "";
-            var repoFullName = $"{projectName}/{repoName}";
-
-            var parsed = await commentIntentParser.ParseAsync(
-                commentBody, serverContext.ConfigPath, cancellationToken);
-
-            switch (parsed.Type)
-            {
-                case CommentIntentType.NewJob:
-                    var pipeline = parsed.Request!.PipelineName;
-                    if (!PrCommentPipelines.Allowed.Contains(pipeline))
-                    {
-                        logger.LogInformation(
-                            "Ignoring PR comment from {Author} on {Repo}#{Pr}: pipeline={Pipeline} is not allowed",
-                            authorLogin, repoFullName, prId, pipeline);
-                        return WebhookResult.NotHandled();
-                    }
-
-                    var triggerInput = BuildTriggerInput(parsed.Request, repoFullName, prId);
-                    logger.LogInformation(
-                        "PR comment command from {Author} on {Repo}#{Pr}: pipeline={Pipeline}",
-                        authorLogin, repoFullName, prId, pipeline);
-                    return new WebhookResult(true, triggerInput, pipeline);
-
-                case CommentIntentType.Help:
-                    logger.LogInformation(
-                        "PR comment help request from {Author} on {Repo}#{Pr}",
-                        authorLogin, repoFullName, prId);
-                    return WebhookResult.NotHandled();
-
-                case CommentIntentType.DialogueApprove:
-                case CommentIntentType.DialogueReject:
-                    var answer = parsed.Type == CommentIntentType.DialogueApprove ? "yes" : "no";
-                    var dialogueData = new DialogueAnswerData(
-                        Platform: "azuredevops",
-                        RepoFullName: repoFullName,
-                        PrIdentifier: prId.ToString(),
-                        Answer: answer,
-                        Comment: parsed.DialogueComment,
-                        AuthorLogin: authorLogin);
-                    logger.LogInformation(
-                        "PR comment dialogue {Intent} from {Author} on {Repo}#{Pr}",
-                        parsed.Type, authorLogin, repoFullName, prId);
-                    return new WebhookResult(true, null, null, dialogueData);
-
-                default:
-                    return WebhookResult.NotHandled();
-            }
+            var resource = doc.RootElement.GetProperty("resource");
+            return await admission.AdmitAsync(ReadCommand(resource), authorTrust, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -100,9 +37,25 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         }
     }
 
-    private static string BuildTriggerInput(PipelineRequest request, string repoFullName, int prId)
+    private static PrCommentCommand ReadCommand(JsonElement resource)
     {
-        var ticketSegment = request.TicketId is not null ? $" #{request.TicketId.Value}" : "";
-        return $"{request.PipelineName}{ticketSegment} pr:{repoFullName}#{prId}";
+        var comment = resource.GetProperty("comment");
+        var authorElement = comment.GetProperty("author");
+        var pullRequest = resource.GetProperty("pullRequest");
+        var prId = pullRequest.GetProperty("pullRequestId").GetInt32();
+        var repo = pullRequest.GetProperty("repository");
+        var project = repo.GetProperty("project");
+        var repoFullName = $"{project.GetProperty("name").GetString()}/{repo.GetProperty("name").GetString()}";
+        var author = new PrCommentAuthor(
+            RepositoryUrl: repo.GetProperty("remoteUrl").GetString() ?? "",
+            RepositoryId: repo.GetProperty("id").GetString() ?? "",
+            AuthorId: authorElement.GetProperty("id").GetString() ?? "",
+            AuthorLogin: authorElement.GetProperty("uniqueName").GetString() ?? "")
+        {
+            ProjectId = project.GetProperty("id").GetString(),
+        };
+        return new PrCommentCommand(
+            comment.GetProperty("content").GetString() ?? "", author,
+            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}");
     }
 }

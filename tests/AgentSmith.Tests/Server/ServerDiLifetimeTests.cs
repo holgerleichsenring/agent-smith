@@ -215,7 +215,6 @@ public sealed class ServerDiLifetimeTests
         services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
         services.AddSingleton(Mock.Of<IRedisClaimLock>());
         services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
-        services.AddSingleton<IConversationLookup, NullConversationLookup>();
         services.AddSingleton(Mock.Of<IDialogueTransport>());
         services.AddSingleton(Mock.Of<IProgressReporter>());
     }

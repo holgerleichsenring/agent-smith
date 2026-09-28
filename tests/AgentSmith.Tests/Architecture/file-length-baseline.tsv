@@ -89,7 +89,6 @@
 153	AgentSmith.Application/Services/Handlers/RunCostSectionWriter.cs
 155	AgentSmith.Infrastructure/Services/Security/DependencyAuditor.cs
 160	AgentSmith.Server/Services/DockerJobSpawner.cs
-160	AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs
 159	AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs
 159	AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs
 158	AgentSmith.Sandbox.Agent/Services/JobLoop.cs
@@ -105,7 +104,7 @@
 150	AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs
 136	AgentSmith.Server/Services/CapacityQueuePump.cs
 150	AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs
-149	AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs
+126	AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs
 148	AgentSmith.Application/Services/Handlers/BootstrapDocumentHandler.cs
 148	AgentSmith.Infrastructure/Services/Output/ConsoleOutputStrategy.cs
 148	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs

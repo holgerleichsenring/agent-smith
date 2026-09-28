@@ -50,7 +50,15 @@ Opening or updating a pull request starts a [PR review](../pipelines/pr-review.m
 
 ## Who may issue commands
 
-On GitHub, only comments whose `author_association` is `OWNER`, `MEMBER`, `COLLABORATOR` or `CONTRIBUTOR` are acted on; anyone else is ignored. The GitLab and Azure DevOps handlers do not check the author, so restrict who can comment on those repositories if that matters to you.
+A command is acted on only when its author can write to the repository. The check runs after the comment is recognised as a command and before any model reads it, so an ordinary comment costs no lookup and a command from anyone else costs no tokens and starts nothing:
+
+| Platform | Write access means | How it is checked |
+|----------|--------------------|-------------------|
+| GitHub | `author_association` is `OWNER`, `MEMBER` or `COLLABORATOR` | from the webhook payload, no API call |
+| GitLab | Developer role or higher on the project, directly or through a group | members API with `GITLAB_TOKEN` (`read_api`) |
+| Azure DevOps | effective **Contribute** permission on the repository, however it is granted | security API with `AZURE_DEVOPS_TOKEN` (Identity: Read, Security: Manage) |
+
+`CONTRIBUTOR` on GitHub is not enough: it means a commit of theirs was once merged, not that they can push. On GitLab and Azure DevOps the repository must be declared in a project's `repos:`, because that is where the server learns which instance or organization to ask. A lookup that fails, a missing token or an undeclared repository counts as no write access. A verdict is remembered for five minutes per author and repository.
 
 The set of pipelines a comment may start is fixed in code. It is deliberately narrower than what a configured label may route to, because a comment is a lower-trust surface than your configuration.
 

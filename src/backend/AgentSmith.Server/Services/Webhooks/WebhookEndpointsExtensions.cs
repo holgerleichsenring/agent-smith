@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ internal static class WebhookEndpointsExtensions
         // 2026-09-25-d83b: the PR-label handlers ask this for the review-request word
         // instead of carrying a literal each.
         services.AddSingleton<PrTriggerLabelResolver>();
+        services.AddPrCommentAuthorTrust();
+        services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

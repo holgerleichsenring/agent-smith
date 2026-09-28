@@ -113,6 +113,8 @@ The word adds to `security-review`, it doesn't replace it. The project is found 
 
 Independent of the ticket lifecycle. A comment like `/agent-smith review` on a pull request or merge request starts a run directly, with no claim flow and no lifecycle labels. A comment may start `code`, `security-scan` or `pr-review` and nothing else; that list is fixed, because a comment is a lower-trust surface than your configuration.
 
+Only an author with write access to the repository can issue one: on GitHub the payload's `author_association` says so, on GitLab and Azure DevOps the server asks the platform, which needs the token scopes listed under [Webhooks](../../trigger-it/webhooks.md#pull-request-comment-commands). A command from anyone else is ignored before any model reads it.
+
 See [PR Comment Integration](../integrations/pr-comments.md) for command syntax.
 
 ## Per-Platform Setup

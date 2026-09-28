@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
@@ -12,7 +13,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// per PR via pipeline_from_label (the operator's opt-out lever — a mapped PR
 /// label wins over the default, keys checked in config order per p0072).
 /// </summary>
-public sealed class PrReviewRouteResolver
+public sealed class PrReviewRouteResolver(IConfiguredRepoFinder repoFinder)
 {
     public const string DefaultPipeline = "pr-review";
 
@@ -20,25 +21,12 @@ public sealed class PrReviewRouteResolver
         AgentSmithConfig config, string platformKind, string repoUrl,
         IReadOnlyList<string> prLabels)
     {
-        foreach (var (projectName, project) in config.Projects)
-        {
-            var repo = FindMatchingRepo(project, repoUrl);
-            if (repo is null) continue;
+        var match = repoFinder.Find(config, repoUrl);
+        if (match is null) return null;
 
-            var trigger = TriggerSelectionHelper.ByKind(project, platformKind);
-            var pipeline = ResolveLabelOverride(trigger, prLabels) ?? DefaultPipeline;
-            return new PrReviewRoute(projectName, repo.Name, pipeline);
-        }
-        return null;
-    }
-
-    private static RepoConnection? FindMatchingRepo(ResolvedProject project, string repoUrl)
-    {
-        var candidate = NormalizeRepoUrl(repoUrl);
-        foreach (var repo in project.Repos)
-            if (repo.Url is not null && candidate.Contains(NormalizeRepoUrl(repo.Url), StringComparison.Ordinal))
-                return repo;
-        return null;
+        var trigger = TriggerSelectionHelper.ByKind(match.Project, platformKind);
+        var pipeline = ResolveLabelOverride(trigger, prLabels) ?? DefaultPipeline;
+        return new PrReviewRoute(match.ProjectName, match.Repo.Name, pipeline);
     }
 
     private static string? ResolveLabelOverride(
@@ -49,19 +37,5 @@ public sealed class PrReviewRouteResolver
             if (prLabels.Contains(label, StringComparer.OrdinalIgnoreCase))
                 return pipeline;
         return null;
-    }
-
-    /// <summary>Host + path, lowercased, no scheme/userinfo/.git suffix — so a
-    /// payload clone_url ("https://user@host/org/repo.git") matches the
-    /// operator's configured web URL ("https://host/org/repo").</summary>
-    private static string NormalizeRepoUrl(string url)
-    {
-        var normalized = Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? $"{uri.Host}{uri.AbsolutePath}"
-            : url;
-        normalized = normalized.TrimEnd('/');
-        if (normalized.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized[..^4];
-        return normalized.ToLowerInvariant();
     }
 }

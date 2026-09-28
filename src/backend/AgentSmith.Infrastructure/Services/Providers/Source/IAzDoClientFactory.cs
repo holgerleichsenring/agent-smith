@@ -1,5 +1,6 @@
 using Microsoft.TeamFoundation.SourceControl.WebApi;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi;
+using Microsoft.VisualStudio.Services.Identity.Client;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
@@ -21,4 +22,6 @@ public interface IAzDoClientFactory
         string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
 
     WorkItemTrackingHttpClient CreateWorkItemClient(string organizationUrl, string personalAccessToken);
+
+    IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken);
 }

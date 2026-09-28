@@ -232,7 +232,6 @@ public sealed class NonDiCtorRuleTests
         services.AddSingleton<IRedisJobQueue, NullRedisJobQueue>();
         services.AddSingleton(Mock.Of<IRedisClaimLock>());
         services.AddSingleton<IRedisLeaderLease, NullRedisLeaderLease>();
-        services.AddSingleton<IConversationLookup, NullConversationLookup>();
         services.AddSingleton(Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>());
         services.AddSingleton(Mock.Of<IProgressReporter>());
     }

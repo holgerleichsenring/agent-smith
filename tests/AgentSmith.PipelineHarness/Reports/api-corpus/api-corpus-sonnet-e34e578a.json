@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-27T15:47:05.6064+00:00",
+  "generated_at": "2026-09-28T12:45:49.882553+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,7 +9,7 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no security scheme declared \u2014 any unauthenticated caller can read a member record including the sensitive fields role and contactEmail",
+      "finding_headline": "GET /members/{id}: unlike every other operation in this spec, this endpoint declares no security requirement, so any unauthenticated caller can read a member\u0027s displayName, role, and contactEmail by guessing/iterating ids",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: BOLA \u2014 memberId query parameter is caller-controlled with no spec indication that it is bound to the authenticated bearer\u0027s identity",
-      "highest_severity": "Medium",
+      "finding_headline": "GET /orders: memberId is taken from a caller-supplied query parameter with no stated binding to the authenticated bearer\u0027s own identity, letting any authenticated member list any other member\u0027s orders (BOLA/IDOR) by varying memberId",
+      "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: BOLA \u2014 orderId in the request body is caller-controlled; no spec-level indication that ownership of the referenced order is verified before invoice creation",
+      "finding_headline": "POST /invoices: orderId is accepted in the request body with no stated ownership check, potentially allowing an authenticated member to create an invoice against another member\u0027s order",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: BFLA \u2014 any authenticated member can set any other member\u0027s role; no admin or elevated-privilege scope is declared",
+      "finding_headline": "PUT /members/{id}/role: any authenticated bearer can set the role of an arbitrary member id (including their own) to any string value with no visible ownership or privilege check \u2014 broken function-level authorization plus unrestricted mass-assignment of the role property",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,

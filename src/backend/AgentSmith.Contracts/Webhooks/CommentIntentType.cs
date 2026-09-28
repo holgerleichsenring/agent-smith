@@ -6,8 +6,6 @@ namespace AgentSmith.Contracts.Webhooks;
 public enum CommentIntentType
 {
     NewJob,
-    DialogueApprove,
-    DialogueReject,
     Help,
     Unknown,
 }
