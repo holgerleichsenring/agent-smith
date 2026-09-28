@@ -1,5 +1,41 @@
 # Changelog
 
+## [0.152.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.151.0...v0.152.0) (2026-09-28)
+
+
+### Features
+
+* a chat thread follows the run it started (2026-09-28-89f1g) ([13a83e2](https://github.com/holgerleichsenring/agent-smith/commit/13a83e250d34fb8cab4b957ff6385f3e37a2d22e))
+* a conversation can ask what the tracker shows against its ticket (2026-09-28-1da5c) ([fc4da38](https://github.com/holgerleichsenring/agent-smith/commit/fc4da381dda26526de5b3e5b222ab33a10f4d821))
+* a conversation can ask what this framework did about its ticket (2026-09-28-1da5d) ([86f53b8](https://github.com/holgerleichsenring/agent-smith/commit/86f53b8a3200df5a373cefb0336c61e15342449d))
+* a conversation says when it is reading its ticket (2026-09-27-481be) ([dacd612](https://github.com/holgerleichsenring/agent-smith/commit/dacd612dc22a6cf4eb491ebf2c4927d1b50b50bb))
+* a design turn is told the framework's own values for its ticket (2026-09-28-1da5e) ([7921f93](https://github.com/holgerleichsenring/agent-smith/commit/7921f937ba05f45ce19449e835bdcec0af584f49))
+* a picked ticket names its project from its own labels (2026-09-27-481bb) ([f3de400](https://github.com/holgerleichsenring/agent-smith/commit/f3de4008c8dd98d8f146e69ead7377fcef935c86))
+* a ticket says what kind its tracker calls it (2026-09-27-481bf) ([ac0e7a9](https://github.com/holgerleichsenring/agent-smith/commit/ac0e7a964683380deaf12c41fbf9671ceebc8237))
+* chat runs start in the server's queue, not in a spawned job (2026-09-28-89f1f) ([d429326](https://github.com/holgerleichsenring/agent-smith/commit/d4293265de4c65c4327ac5c09bfaf6861155c9e1))
+* PR comment commands need write access on every host (2026-09-28-89f1a) ([2f30e53](https://github.com/holgerleichsenring/agent-smith/commit/2f30e53621508868a9f4e33837978138505412f5))
+* the dashboard stops announcing that it opened (2026-09-28-1da5b) ([f216209](https://github.com/holgerleichsenring/agent-smith/commit/f216209d29a2fe935ff02bb5d937cd63c442a52b))
+* the empty conversation greets instead of explaining (2026-09-27-481bd) ([90e856c](https://github.com/holgerleichsenring/agent-smith/commit/90e856c2eba07ac780a43807627e0461351d585a))
+* the ticket a conversation reads is ordered before it is cut (2026-09-27-481ba) ([b91c47b](https://github.com/holgerleichsenring/agent-smith/commit/b91c47b0e621a24fec867d59e18f88ef20cf0523))
+* the ticket picker answers honestly — search, text, kind and what it reads (2026-09-27-1bd9, 481ba-481bf) ([f7af23a](https://github.com/holgerleichsenring/agent-smith/commit/f7af23a38a3357c3178c322f5f5956849af95bab))
+* the ticket picker finds numbers, and the conversation can see what hangs on a ticket (2026-09-28-1da5a..e) ([594f13e](https://github.com/holgerleichsenring/agent-smith/commit/594f13ea19b68dc6d1a1e92155e76955f60251c9))
+* typing the first digits of a ticket number finds them (2026-09-28-1da5a) ([95f5a0a](https://github.com/holgerleichsenring/agent-smith/commit/95f5a0adbdf7ab242561e7a3033edd9930ebd382))
+* **website:** the site leads with Azure Boards to Azure Repos (2026-09-28-057dc) ([c35dfa5](https://github.com/holgerleichsenring/agent-smith/commit/c35dfa5a68f8c7e8cae9f2abd7524b80fa3eeb84))
+* what the model reads from a ticket, a person can read (2026-09-27-481bc) ([1671601](https://github.com/holgerleichsenring/agent-smith/commit/1671601f2918bf995959bd7dbbc8b492cf7b878d))
+
+
+### Bug Fixes
+
+* a conversation opened from a ticket id binds the ticket that was read (2026-09-27-1bd9) ([4987d48](https://github.com/holgerleichsenring/agent-smith/commit/4987d486e841c41043de397f0f7cb630032d337b))
+* a renamed approval stamp is honoured like the default, and retired keys are reported (2026-09-28-89f1b) ([afbcfa0](https://github.com/holgerleichsenring/agent-smith/commit/afbcfa04de3cdcef0376f1adb29d2ea77fa727b6))
+* confidence_threshold is reported, attachments decode anywhere, dead site data goes (2026-09-28-89f1c, 2026-09-28-89f1e) ([0586d94](https://github.com/holgerleichsenring/agent-smith/commit/0586d94203ab514a06d0e60bf7a816c6e47044e9))
+* Criteria met counts what coding runs were judged on (2026-09-28-89f1i) ([285a9b2](https://github.com/holgerleichsenring/agent-smith/commit/285a9b284f67ef85e3750d294d45af2d352aaaa1))
+* scan, legal and PR-label runs deliver what they claim (2026-09-28-89f1c) ([8bcd478](https://github.com/holgerleichsenring/agent-smith/commit/8bcd478b3ccd5722ed76f6dae91a179ef5ba4555))
+* the config schema declares what the loader reads, and roles inherit (2026-09-28-89f1d) ([da40841](https://github.com/holgerleichsenring/agent-smith/commit/da408415c9db5889919e16e348f49e14988bd489))
+* the defects the docs mirror found (2026-09-28-89f1a–i) ([77080c7](https://github.com/holgerleichsenring/agent-smith/commit/77080c723a7b170bf2094c4a5005a1c2de96087f))
+* the failed-number-lookup list reaches the wire (2026-09-27-481bb) ([36785a1](https://github.com/holgerleichsenring/agent-smith/commit/36785a1d09c11e3e4adcc8b41e9c4646928fb630))
+* the server exposes what it does, and retired names say why (2026-09-28-89f1e) ([be90b2a](https://github.com/holgerleichsenring/agent-smith/commit/be90b2ab17ca56216746b58610609438a47231fc))
+
 ## [0.151.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.150.0...v0.151.0) (2026-09-27)
 
 
