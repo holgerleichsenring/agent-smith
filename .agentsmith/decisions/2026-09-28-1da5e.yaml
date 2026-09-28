@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-1da5e
+
+decisions:
+  - category: Implementation
+    chose: "Render the INSTANCE, not the rule"
+    over: "Writing the branch-naming convention into the design master's skill"
+    reason: |
+      The work-branch convention is used in five places in this source tree and appears in no skill
+      text at all. That is correct for ACTING — the framework names branches and the model does not
+      — and wrong for reading the world back: asked whether a ticket's branches were finished, a
+      conversation had no way to know what to look for. Writing the rule into a skill would create
+      a second statement of something the code decides, and the two would drift, which is the
+      failure this repository designs against everywhere else. A section that calls the namer and
+      prints the branch for THIS ticket cannot drift, because it is the code — and it is smaller:
+      one string beats a paragraph explaining how the string is built, and it answers the question
+      the model actually has.
+    alternatives:
+      - "A tool the model calls to ask for the branch: a round trip for a value the turn already holds"
+
+  - category: Implementation
+    chose: "Only what is about this case, and only what cannot be worked out"
+    over: "A section describing how the framework operates"
+    reason: |
+      The prompt is re-sent every turn, so every sentence is paid for by the length of the
+      conversation. What earns its place is a value the model could not derive from what it already
+      holds: the branch this ticket's work would be on, and the words this installation writes
+      rather than the defaults. A tour of the framework would be paid for on every turn and read
+      once.
+    alternatives:
+      - "Everything the framework decides: the cost grows with the conversation and the value does not"
+
+  - category: Implementation
+    chose: "The labels are the second instance, and they prove the pattern rather than assert it"
+    over: "Shipping the branch name alone"
+    reason: |
+      The eight labels this framework writes became configurable per tracker with today's words as
+      defaults, so an installation that renamed them has a model reasoning about words nobody there
+      uses. Rendering the vocabulary the connection actually carries costs one line and is the same
+      move as the branch name — which is what makes this a pattern rather than a one-off. What else
+      belongs here is deliberately left open: it should be decided by what a conversation is
+      observed to get wrong, not by what occurred to the author.
+    alternatives:
+      - "All eight lifecycle words: six of them name states a design conversation never reasons about"
+
+  - category: Implementation
+    chose: "Bound conversations only, and the facts ride the same lookup as the three ports"
+    over: "Rendering them for every conversation"
+    reason: |
+      A conversation belonging to no ticket has no branch name to be told and no stamp to look for,
+      so it renders nothing and its prompt is byte for byte what it was — the rule the seeded
+      ticket, the ticket read and the tracker read all already follow. The values come from the one
+      lookup that already pairs a project with a ticket id, because that is exactly what computing
+      them needs.
+    alternatives:
+      - "A separate seeding step: a fourth reason to find the project and the ticket id together"

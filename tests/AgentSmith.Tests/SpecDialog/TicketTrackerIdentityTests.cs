@@ -105,5 +105,8 @@ public sealed class TicketTrackerIdentityTests
         public ITicketRewriter CreateRewriter(TrackerConnection config) => new RecordingTicketRewriter();
 
         public ITicketSearch CreateSearch(TrackerConnection config) => new RecordingTicketSearch();
+
+        public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
+            new RecordingLinkedWork();
     }
 }

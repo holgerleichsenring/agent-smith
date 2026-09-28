@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-1da5d
+
+decisions:
+  - category: Architecture
+    chose: "A second port and a second tool, not more fields on the tracker's answer"
+    over: "One answer carrying both what the board shows and what the framework did"
+    reason: |
+      "The run says it is done" and "the board says it is done" are not one claim. A run this
+      framework finished is a fact about this framework; a branch somebody pushed by hand and a
+      pull request opened outside a run are facts about the tracker and invisible to it. A single
+      answer carrying both would be more confident than either source, and a conversation reasoning
+      from it could not say which half it was relying on. Two tools, each naming its own source,
+      and each description pointing at the other.
+    alternatives:
+      - "Merging them and marking each row: the same data, with a flag a model may or may not repeat"
+
+  - category: Implementation
+    chose: "The record is reached through the collaborator that already composes it, addressed by project and ticket"
+    over: "A new query over the run store"
+    reason: |
+      The runs are already read for the page — by project and ticket, with their phases and the
+      pull requests they opened — and that reader takes exactly the two things a bound conversation
+      has. What it did NOT have is a caller that is not a page: it is addressed by dialog id
+      everywhere else, and a turn's seeds carried no run record at all. So this is a second caller
+      of one reader rather than a second reading of one store.
+    alternatives:
+      - "Seeding the page's whole filed-work view: a view built for rendering, shaped by what a pane needs"
+
+  - category: Implementation
+    chose: "A store that could not be read answers with nothing, and says nothing about the framework"
+    over: "A refusal shape like the tracker port's"
+    reason: |
+      The tracker port refuses because a tracker not answering is a fact an operator must not read
+      as an empty board. This half reads a local store: if it is unreadable the turn has larger
+      problems than an incomplete answer, and inventing a second refusal vocabulary for a case that
+      does not distinguish anything would be shape for its own sake.
+    alternatives:
+      - "Throwing: the conversation loses the answer it was about to give, for a store read"
+
+  - category: Implementation
+    chose: "The third bound port joins the same single lookup"
+    over: "Its own lookup and its own seed argument"
+    reason: |
+      All three need the project and the ticket id, and the stored row carries only one of them —
+      that pairing is why the collaborator exists. A third lookup would repeat it, and the turn
+      runner is at the per-file limit exactly, so a third argument would have cost a line it does
+      not have.
+    alternatives:
+      - "A separate factory per port: three copies of one pairing"
