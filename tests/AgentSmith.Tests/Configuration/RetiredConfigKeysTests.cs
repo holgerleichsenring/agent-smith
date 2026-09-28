@@ -35,6 +35,23 @@ public sealed class RetiredConfigKeysTests
     }
 
     [Fact]
+    public void RetiredConfigKeys_ConfidenceThreshold_ReportsAdvisory()
+    {
+        const string yaml = """
+            projects:
+              todolist:
+                pipelines:
+                  - name: pr-review
+                    confidence_threshold: 70
+            """;
+
+        var finding = _detector.InYaml(yaml, "config/agentsmith.yml").Should().ContainSingle().Which;
+
+        finding.Severity.Should().Be(StartupFindingSeverity.Advisory);
+        finding.Field.Should().Be("projects.todolist.pipelines.0.confidence_threshold");
+    }
+
+    [Fact]
     public void RetiredConfigKeys_ParentLinkTypeInAStoredTracker_ReportsAdvisory()
     {
         ConfigDocRow[] rows =

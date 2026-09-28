@@ -14,5 +14,9 @@ public static class RetiredConfigKeys
         new("trackers.*.parent_link_type", "2026-09-28",
             "Nothing links a filed ticket to a parent any more: an approved cut files one work "
             + "ticket, so there is no child to link."),
+        new("projects.*.pipelines.*.confidence_threshold", "2026-09-28",
+            "Nothing downgrades a blocking observation any more, so the threshold that tuned it is "
+            + "not read. Remove the key from agentsmith.yml; in a stored configuration, export, "
+            + "edit and import it again."),
     ];
 }
