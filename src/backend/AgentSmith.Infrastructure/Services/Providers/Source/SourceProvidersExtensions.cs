@@ -9,9 +9,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// Source-control providers: GitHub/AzDo client factories + the multi-provider
 /// source factory + HostSourceCloner (Application uses for repo checkouts). PR
-/// comment reply + conversation lookup (p59, p59b, p59c) keyed by platform name;
-/// IConversationLookup → RedisConversationLookup is registered by AgentSmith.Cli/
-/// ServiceProviderFactory when REDIS_URL is available (p0101).
+/// comment reply keyed by platform name.
 /// </summary>
 public static class SourceProvidersExtensions
 {

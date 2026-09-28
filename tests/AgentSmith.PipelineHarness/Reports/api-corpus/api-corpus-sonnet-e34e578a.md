@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-27T15:47:05.6064000+00:00
+- generated: 2026-09-28T12:45:49.8825530+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [High]: GET /members/{id}: no security scheme declared — any unauthenticated caller can read a member record including the sensitive fields role and contactEmail
+  - found [High]: GET /members/{id}: unlike every other operation in this spec, this endpoint declares no security requirement, so any unauthenticated caller can read a member's displayName, role, and contactEmail by guessing/iterating ids
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [Medium]: GET /orders: BOLA — memberId query parameter is caller-controlled with no spec indication that it is bound to the authenticated bearer's identity
+  - found [High]: GET /orders: memberId is taken from a caller-supplied query parameter with no stated binding to the authenticated bearer's own identity, letting any authenticated member list any other member's orders (BOLA/IDOR) by varying memberId
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: BOLA — orderId in the request body is caller-controlled; no spec-level indication that ownership of the referenced order is verified before invoice creation
+  - found [Medium]: POST /invoices: orderId is accepted in the request body with no stated ownership check, potentially allowing an authenticated member to create an invoice against another member's order
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [High]: PUT /members/{id}/role: BFLA — any authenticated member can set any other member's role; no admin or elevated-privilege scope is declared
+  - found [High]: PUT /members/{id}/role: any authenticated bearer can set the role of an arbitrary member id (including their own) to any string value with no visible ownership or privilege check — broken function-level authorization plus unrestricted mass-assignment of the role property
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)

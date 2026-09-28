@@ -4,7 +4,7 @@
 
 - model: `sonnet`
 - scan master: `7e91dde7`
-- generated: 2026-09-27T15:41:07.2677760+00:00
+- generated: 2026-09-28T12:42:48.1728080+00:00
 
 **Misses:** 0/5 (0 %) — declared weaknesses no delivered finding named.
 
@@ -16,15 +16,15 @@ Cited line matched on 3 of 5 detections — a citation sub-metric, not a gate.
 
 ## reference-service
 - [x] src/orders/orderLookup.ts (sql-injection, flawed)
-  - found [High]: src/orders/orderLookup.ts:7: SQL query built by string-concatenating req.params.id — SQL injection (on the declared line)
+  - found [Critical]: src/orders/orderLookup.ts:7: findOrder builds SQL by concatenating req.params.id directly into the query string, allowing SQL injection via the order id route parameter. (on the declared line)
 - [x] src/admin/memberAdmin.ts (missing-authorization, flawed)
-  - found [High]: src/admin/memberAdmin.ts:16: removeMember omits the requireAdmin() check present on every other admin handler
+  - found [High]: src/admin/memberAdmin.ts:16-19: removeMember deletes a member without calling requireAdmin, unlike listMembers and suspendMember in the same file.
 - [x] src/files/attachmentDownload.ts (path-traversal, flawed)
-  - found [High]: src/files/attachmentDownload.ts:9: path built with join() but not resolved/contained — path traversal (on the declared line)
+  - found [High]: src/files/attachmentDownload.ts:9-10: downloadAttachment joins STORAGE_ROOT with the unvalidated 'name' query parameter and reads it without resolving or containing the result, allowing path traversal. (on the declared line)
 - [x] src/auth/loginRedirect.ts (open-redirect, flawed)
-  - found [Medium]: src/auth/loginRedirect.ts:6: open redirect — req.query.next is reflected into res.redirect() without validation
+  - found [Medium]: src/auth/loginRedirect.ts:6-7: finishLogin redirects to the raw req.query.next value with no allowlist check, enabling an open redirect after login.
 - [x] src/jobs/jobPayload.ts (unsafe-deserialization, flawed)
-  - found [Critical]: src/jobs/jobPayload.ts:7: eval() called on untrusted job payload — arbitrary code execution (on the declared line)
+  - found [High]: src/jobs/jobPayload.ts:7: readPayload rehydrates a queued job's payload with eval("(" + raw + ")"), executing the stored payload text as JavaScript instead of parsing it as data. (on the declared line)
 - [x] src/reports/reportLookup.ts (sql-injection, clean)
 - [x] src/files/exportPath.ts (path-traversal, clean)
 - [x] src/auth/returnTarget.ts (open-redirect, clean)

@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-89f1a
+
+decisions:
+  - category: Security
+    chose: "Azure DevOps: Access Control Lists query (GET {org}/_apis/accesscontrollists/2e9eb7ed-… ?token=&descriptors=&includeExtendedInfo=true) on the named identity's descriptor, reading extendedInfo.effectiveAllow/effectiveDeny bit 4"
+    over: "Security Permission Evaluation (_apis/security/permissionevaluationbatch) or SecurityHttpClient.HasPermissions"
+    reason: |
+      Spike result. permissionevaluationbatch and HasPermissions evaluate the CALLING user only —
+      the 7.1 docs say so and PermissionEvaluation has no descriptor field — so they answer for the
+      PAT owner, not the comment author. The ACL query takes a descriptors filter, and with
+      includeExtendedInfo each ACE carries AceExtendedInformation, whose effectiveAllow the docs
+      define as "the combination of all of the explicit and inherited permissions for this identity
+      on this token … used when determining if a given user has permission"; inheritedAllow is the
+      field that excludes "any groups that this identity is a part of", which is what makes
+      effectiveAllow the group-inclusive answer. The filter-by-descriptors example shows the service
+      synthesising an ACE for a descriptor with no explicit entry. The descriptor comes from the
+      Identities API (IdentityHttpClient.ReadIdentitiesAsync by the payload's author.id).
+      A token with no ACL of its own returns nothing, so the reader walks repoV2/{project}/{repo},
+      repoV2/{project}, repoV2 and the first ACL answers — a repository that restricts Contribute
+      carries its own ACL, so the walk cannot skip a restriction. NOT LIVE-VERIFIED: no Azure DevOps
+      organisation was available here; the first live PR comment on Azure DevOps is the proof, and
+      until then a false negative shows as "comment author may not write to the repository" in the
+      webhook list, never as a false positive (fail closed).
+    alternatives:
+      - "Permissions Report API (_apis/permissionsreports): effective per-user permissions, but asynchronous (create, poll, download) — seconds per comment"
+      - "Graph membership expansion + group ACLs (the spec's fallback): re-implements the service's own evaluation, allow/deny precedence included, and still needs the Security scope"
+
+  - category: Security
+    chose: "Azure DevOps PAT scopes: Identity (Read) and Security (Manage)"
+    over: "Security (Read), as the spec and the notes named it"
+    reason: |
+      The OAuth/PAT scope table lists exactly one security scope, vso.security_manage ("Security
+      (manage)", high privilege); there is no read-only one. The Identities call needs vso.identity.
+      The docs page says both, and says that without them every Azure DevOps command is ignored.
+
+  - category: Implementation
+    chose: "ACL query over raw REST (IHttpClientFactory); only the identity lookup goes through the SDK client factory"
+    over: "SecurityHttpClient.QueryAccessControlListsAsync"
+    reason: |
+      SecurityHttpClient.QueryAccessControlListsAsync is non-virtual, so no test could stand in for
+      it short of faking the location service; the REST shape is small and documented and the GitLab
+      reader already talks REST the same way. IdentityHttpClient.ReadIdentitiesAsync is virtual and
+      resolves the vssps host through the connection's location service, which a hand-built URL
+      would have to guess (dev.azure.com vs vssps.dev.azure.com vs an on-premises collection).
+
+  - category: Architecture
+    chose: "One port IPrCommentAuthorTrust, three implementations keyed by platform name; each handler takes its own with [FromKeyedServices]"
+    over: "A single trust service switching on a platform string"
+    reason: |
+      The reply services are already keyed the same way. A handler is platform-specific anyway, so a
+      keyed dependency says in its constructor which rule it lives under.
+
+  - category: Architecture
+    chose: "PrCommentCommandAdmission: one flow for all three hosts — structural match, trust, model, allow-list, trigger input"
+    over: "Adding the trust call to each of the three near-identical handler bodies"
+    reason: |
+      The three handlers were copies differing only in payload shape; a trust step added three times
+      is how GitLab and Azure DevOps lost it in the first place. The handlers now only read their
+      payload into a PrCommentCommand. CommentIntentParser is split into Match (regex, free) and
+      ResolveAsync (the model), so the check sits between them without the parser knowing about trust.
+
+  - category: Scope
+    chose: "The /approve and /reject dialogue path is deleted end to end: parser branches, handler cases, WebhookResult.DialogueAnswer, DialogueAnswerData, WebhookDialogueRouter, IConversationLookup and both implementations"
+    over: "Gating it behind the trust check"
+    reason: |
+      Verified dead: RedisConversationLookup read conversation:{platform}:pr:{repo}#{pr}; the only
+      writers of conversation state (FixTicketIntentHandler, InitProjectIntentHandler via
+      ConversationStateManager) use chat channel ids from Slack/Teams intents, and nothing anywhere
+      writes a pr: channel. Every /approve therefore answered "No active job found". With it went the
+      processor's 503 redis_unavailable branch, which only that path could reach.
+
+  - category: Scope
+    chose: "GitHub keeps checking the payload's author_association only, with no configured-repo requirement"
+    over: "Also refusing GitHub comments on repositories no project declares"
+    reason: |
+      The spec's "a repository no project declares is untrusted" is about where a lookup's token and
+      instance come from; GitHub needs no lookup. Adding the requirement would change GitHub behaviour
+      beyond dropping CONTRIBUTOR.
+
+  - category: Implementation
+    chose: "Repository matching moved out of PrReviewRouteResolver into ConfiguredRepoFinder, used by the resolver and the trust lookups"
+    over: "A second copy of the URL normalisation in the trust implementations"
+    reason: |
+      The trusts need the same "which configured repo is this payload URL" answer the pr-event route
+      already computes; one normaliser keeps a clone URL with user info matching a configured web URL
+      in both places.
+
+  - category: Implementation
+    chose: "Verdict cache: in-process, five minutes per (host, repository id, author id), only successful lookups remembered"
+    over: "Caching failures too"
+    reason: |
+      A remembered failure would refuse a legitimate author for five minutes after a transient outage;
+      fail closed per call is enough. Revocation takes effect within the five minutes.
+
+  - category: Scope
+    chose: "Docs sections describing /approve and /reject were left to the orchestrator"
+    reason: |
+      pr-comments.md "Answer a running job" and its diagram line, and webhooks.md's "Accepted: dialogue
+      answer" and "redis_unavailable" response rows, describe the deleted path, but this slice's
+      ownership of those pages is limited to the author-trust and token-scope paragraphs; reported for
+      the slice that owns the rest of those pages.

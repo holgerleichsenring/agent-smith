@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -30,7 +31,7 @@ public sealed class GitLabMrEventWebhookHandlerTests
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(c => c.LoadConfig(ConfigPath)).Returns(config);
         return new GitLabMrEventWebhookHandler(
-            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(),
+            loader.Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()),
             NullLogger<GitLabMrEventWebhookHandler>.Instance);
     }
 
