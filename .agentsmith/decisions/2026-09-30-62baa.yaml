@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-30-62baa
+
+decisions:
+  - category: Architecture
+    chose: "The bare-name rule lives in tools/update-model-prices.py, which writes an `aliases` map (bare name -> prefixed id) beside `models` in the snapshot; the runtime only reads it"
+    over: "Deriving bare names at load time in BundledModelPriceList"
+    reason: |
+      The spec's decision "the script normalises, the runtime only reads" already places it
+      there, and one place is the point: the committed snapshot then shows exactly which bare
+      names exist, a reviewer of a refresh sees an alias appear or vanish in the diff, and the
+      process does no grouping over 3330 ids at start. The rule is case-insensitive, because
+      the runtime looks names up ignoring case — a first case-sensitive draft produced 90
+      aliases that collided with an unprefixed id differing only in case. The C# test asserts
+      the rule as an invariant over the snapshot rather than on named ids, so a refresh does
+      not have to touch it.
+    alternatives:
+      - "Index at load: the snapshot stays smaller, but the rule has two homes the day the script needs it too"
+
+  - category: Architecture
+    chose: "IBundledModelPriceList in Contracts (Source, FetchedAt, Models, PricingByName, Find); BundledModelPriceList + ModelPriceSnapshotReader in Application; ModelPricingResolver keeps its dictionary primary ctor and gains a list ctor and a parameterless ctor that loads the bundled list"
+    over: "A static shared table, or changing the ~20 `new ModelPricingResolver()` call sites"
+    reason: |
+      Contracts cannot reference Application, and ConfigStudioCapabilities.ValidateAgent (static,
+      Contracts) needs the strict lookup, so the interface sits in Contracts and DbConfigStore
+      injects it. Find is the strict exact-then-bare lookup the studio and the later model
+      catalog need; PricingByName (ids plus aliases) is what the runtime resolver walks for its
+      prefix fallback, so the resolver's exact-then-longest-prefix code stayed as it was and
+      exact-then-bare falls out of the table. The dictionary ctor stays because three tests
+      price against a stub table; DI resolves the list ctor, the only satisfiable one.
+    alternatives:
+      - "Static cached table: a static service, against the principles"
+
+  - category: Implementation
+    chose: "The studio accepts an override only by exact id (ignoring case), and the list by exact id or bare name"
+    over: "Also accepting a bare-name match against the agent's own pricing keys"
+    reason: |
+      The spec step reads "override exact/bare". But OverlayModelPricingResolver matches its
+      overrides exact then prefix, never by bare name, so an override `gpt-5.6` for a role on
+      `azure/gpt-5.6` would pass the studio and then not be the price the run uses. The studio
+      accepts only what the runtime would price with that same entry. Matching now ignores case
+      (was Ordinal) for the same reason: the runtime overlay ignores case.
+    alternatives:
+      - "Bare match on overrides: accepts a key the runtime never consults"
+
+  - category: Implementation
+    chose: "The pinned refusal test uses gpt-5.6-nonesuch instead of gpt-5.6-terra"
+    over: "Keeping gpt-5.6-terra"
+    reason: |
+      gpt-5.6-terra is a real id in the list ($2/$12 per million, openai), so under the new rule
+      it is correctly accepted. gpt-5.6-nonesuch starts with real ids (gpt-5.6), so it still
+      proves the point the spec makes: a prefix match would have let the typo through.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Changed test expectations, each because the old number came from the hand table"
+    over: "Leaving them"
+    reason: |
+      Exactly one price moved between the hand table and the list for the 13 hand-table ids the
+      list carries: claude-sonnet-5 went from 3/15/0.30 to 2/10/0.20 (the first-party rate; the
+      table was wrong). Changed: PipelineCostTrackerCostTruthTests.Resolve_CurrentClaudeAliases
+      _HaveCurrentPrices expects 2.0 input for claude-sonnet-5 (was 3.0). ConfigCapabilitiesTests
+      ValidateAgent_RoleModelMissingFromPricing_Throws refuses gpt-5.6-nonesuch (was
+      gpt-5.6-terra, see above). Every other test passed unchanged, among them all 19 that build
+      `new ModelPricingResolver()` and every PipelineCostTracker test that expects an unknown
+      model to stay unpriced.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Snapshot JSON keeps chat/responses rows with a numeric input cost; a missing output cost is 0, a missing cache-read rate is omitted and prices cache reads at 0"
+    over: "Dropping rows without an output cost"
+    reason: |
+      The spec names only the input cost as the filter. Cache-read absent means the provider
+      states none; ModelPricing has no nullable rate, so ToPricing maps it to 0, as the hand
+      table did for llama-3.3-70b-versatile.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The docs say a local model that shares a hosted model's name is charged the hosted rate unless it has a pricing row"
+    over: "Keeping 'a model the built-in table does not know is counted in tokens only' as the whole story"
+    reason: |
+      With a list of thousands of hosted ids, exact/bare/prefix lookup can now price a local
+      model named like a hosted one. The zero-price row the docs already recommend is the fix;
+      the docs now say why it matters.
+    alternatives: []

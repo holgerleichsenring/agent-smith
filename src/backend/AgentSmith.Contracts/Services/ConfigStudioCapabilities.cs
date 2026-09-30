@@ -164,11 +164,12 @@ public static class ConfigStudioCapabilities
     };
 
     /// <summary>
-    /// Rejects an agent that names a model role outside the fixed set, or whose
-    /// role model has no pricing entry on the agent — the studio's roles are the
-    /// TaskType set, and every routed model must be priced.
+    /// Rejects an agent that names a model role outside the fixed set, or whose role
+    /// model is priced by neither the agent's pricing table (exact id) nor the bundled
+    /// price list (exact id or bare name). No prefix match here: at save time a typo
+    /// that starts with a real id must not pass as that id.
     /// </summary>
-    public static void ValidateAgent(AgentEntity agent)
+    public static void ValidateAgent(AgentEntity agent, IBundledModelPriceList priceList)
     {
         foreach (var key in agent.Models.Keys)
             if (!ValidRoleKeys.Contains(key))
@@ -176,15 +177,16 @@ public static class ConfigStudioCapabilities
                     $"Agent '{agent.Id}': unknown model role '{key}' " +
                     $"(known: {string.Join(", ", RoleKeys)}).");
 
-        var priced = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
-            .ToHashSet(StringComparer.Ordinal);
+        var overrides = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var (role, assignment) in agent.Models)
         {
             if (string.IsNullOrWhiteSpace(assignment.Model)) continue; // an unset optional role
-            if (!priced.Contains(assignment.Model))
+            if (!overrides.Contains(assignment.Model) && priceList.Find(assignment.Model) is null)
                 throw new ConfigurationException(
                     $"Agent '{agent.Id}': role '{role}' uses model '{assignment.Model}' " +
-                    "which has no pricing entry — add it to the agent's pricing table.");
+                    "which has no pricing entry — the bundled price list does not know it; " +
+                    "add it to the agent's pricing table.");
         }
     }
 

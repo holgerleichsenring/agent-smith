@@ -138,7 +138,7 @@ Three things are OpenAI's unless you say otherwise:
 
 - `rate_limit` defaults to OpenAI's 60 requests and 60k input tokens per minute. Set your server's.
 - `context_window_tokens` is unset, so nothing folds the history before the server refuses. State it per role.
-- A model the built-in price table doesn't know is counted in tokens only. Add a `pricing` row, zero for a local model.
+- Prices come from the bundled public price list, which knows hosted models, not yours. A model it doesn't know is counted in tokens only, and a local model that shares a hosted name is charged the hosted rate. Add a `pricing` row, zero for a local model.
 
 The endpoint belongs to the agent's provider. A role that runs on another provider through `provider_type` doesn't inherit it; give that role its own `endpoint`.
 
@@ -165,7 +165,7 @@ agents:
 
 ```
 
-The `pricing` block is optional but recommended — it lets Agent Smith report dollar cost per run. Without it, only token counts are tracked.
+The `pricing` block is optional. Without it, dollar cost comes from the bundled price list, which knows these OpenAI models by name; the block overrides it where your Azure rate differs. A model neither knows is tracked in token counts only. See [Pricing](../reference/concepts/cost-tracking.md#pricing).
 
 ## Google Gemini
 
@@ -262,7 +262,7 @@ projects:
 
 ## Cost transparency
 
-Whichever provider you pick, every run records token usage and (if pricing is configured) dollar cost into `.agentsmith/runs/{run-id}/result.md`. Six months later you can answer "what did the auth refactor actually cost?" without guessing. See [Cost tracking](../reference/concepts/cost-tracking.md) in Reference for the detail of what gets recorded.
+Whichever provider you pick, every run records token usage and dollar cost (from the bundled price list or your `pricing` rows) into `.agentsmith/runs/{run-id}/result.md`. Six months later you can answer "what did the auth refactor actually cost?" without guessing. See [Cost tracking](../reference/concepts/cost-tracking.md) in Reference for the detail of what gets recorded.
 
 ## Recording what the model was told
 

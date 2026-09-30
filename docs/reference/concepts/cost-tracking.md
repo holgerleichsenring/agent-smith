@@ -44,7 +44,11 @@ A multi-repo run adds a `repo_cost:` block to each repo's `result.md` with that 
 
 ## Pricing
 
-Dollar cost per call comes from a price per model. Agent Smith carries built-in prices for current Claude models and a few OpenAI ones, matched by prefix so a dated snapshot id finds its alias. An agent's `pricing:` block overrides or extends that table:
+Dollar cost per call comes from a price per model. Agent Smith ships a snapshot of the public [LiteLLM price list](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json), a few thousand chat models from every major provider, plus a short hand-kept supplement for ids the list lacks (`claude-sonnet-4-20250514`, `claude-opus-4-20250514`, `llama-3.3-70b-versatile`). A model the list knows is priced without anything in your configuration. The lookup is the exact id, then the bare name of a provider-prefixed id (`gpt-5.6` for `azure/gpt-5.6`, only where every provider agrees on the price), then the longest listed name the id starts with, so a dated snapshot id still finds its model.
+
+The snapshot is never fetched at runtime: a deployment may have no egress, and a price that moved in the middle of a budget would be worse than a stale one. It is refreshed as a release step with `tools/update-model-prices.py`, and `GET /api/config/model-prices` serves it, with the date it was taken.
+
+An agent's `pricing:` block is your word over the list. It overrides a listed price (a negotiated rate, an Azure deployment billed differently) and prices a model the list doesn't know:
 
 ```yaml
 agents:
@@ -61,7 +65,7 @@ agents:
 
 Cache writes are priced at 1.25× the input rate, Anthropic's premium for the five-minute cache.
 
-The configuration studio insists on it: an agent whose role models (scout, primary, planning and the rest) name a model with no entry in the agent's pricing table is refused at save, with "has no pricing entry — add it to the agent's pricing table".
+The configuration studio insists on a price for every role model (scout, primary, planning and the rest): the model must be in the agent's pricing table, or be found in the bundled list by its exact id or bare name. A prefix is not enough at save time, so a typo that starts with a real id (`gpt-5.6-nonesuch`) is refused with "has no pricing entry — the bundled price list does not know it; add it to the agent's pricing table".
 
 A model with no price anywhere doesn't quietly cost $0. Its tokens are counted per model and the run's cost is marked as a lower bound:
 
@@ -73,7 +77,7 @@ cost:
     my-private-model: 184220
 ```
 
-If you see `cost_incomplete`, the dashboard's figure undershoots what the provider will bill. Add the model to the agent's pricing table.
+If you see `cost_incomplete`, the dashboard's figure undershoots what the provider will bill. Add the model to the agent's pricing table, or refresh the bundled list if the model is new.
 
 ## Worker calls
 
@@ -122,7 +126,7 @@ Each run is bounded by a budget in USD and tokens, `pipeline_cost_cap`, 5 USD / 
 
 ## Local models
 
-A local model costs nothing, but Agent Smith doesn't assume that: give it a zero price, or its tokens are reported as unpriced and the run as `cost_incomplete`.
+A local model costs nothing, but Agent Smith doesn't assume that: give it a zero price. Otherwise its tokens are reported as unpriced and the run as `cost_incomplete` or, if its name matches a model the bundled list prices, it is charged at that hosted rate.
 
 ```yaml
 agents:

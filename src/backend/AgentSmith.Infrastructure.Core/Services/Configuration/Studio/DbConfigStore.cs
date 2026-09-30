@@ -13,7 +13,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// version-checked and secret-guarded. The audit, config_entity_version, is the Changes feed.
 /// </summary>
 public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentAssembler assembler,
-    ConfigDocJson configJson) : IConfigStore
+    ConfigDocJson configJson, IBundledModelPriceList priceList) : IConfigStore
 {
     private readonly object _gate = new();
     private RawAgentSmithConfig? _document;
@@ -50,7 +50,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
 
     public void UpsertAgent(AgentEntity entity, ChangeAttribution by) => Mutate(() =>
     {
-        ConfigStudioCapabilities.ValidateAgent(entity);
+        ConfigStudioCapabilities.ValidateAgent(entity, priceList);
         Save(ConfigDocTypes.Agent, entity.Id, RawConfigPatch.Agent(entity, Existing(_document!.Agents, entity.Id)), by);
     });
 

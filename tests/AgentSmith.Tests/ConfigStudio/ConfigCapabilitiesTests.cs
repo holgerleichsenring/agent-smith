@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Events;
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
@@ -23,6 +24,8 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// </summary>
 public sealed class ConfigCapabilitiesTests
 {
+    private static readonly BundledModelPriceList Prices = new();
+
     [Fact]
     public void Capabilities_TrackerFields_DeclareDefaultPipelineOptional()
     {
@@ -210,16 +213,40 @@ public sealed class ConfigCapabilitiesTests
     public void ValidateAgent_UnknownRoleKey_Throws()
     {
         var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["bogus"] = new("m") });
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
         act.Should().Throw<ConfigurationException>().WithMessage("*unknown model role 'bogus'*");
     }
 
     [Fact]
     public void ValidateAgent_RoleModelMissingFromPricing_Throws()
     {
-        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["coding"] = new("gpt-5.6-terra") });
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
-        act.Should().Throw<ConfigurationException>().WithMessage("*gpt-5.6-terra*no pricing entry*");
+        // 2026-09-30-62baa: gpt-5.6-terra is a real, list-priced id now; the refused id is a
+        // typo that starts with real ids (gpt-5.6), which a prefix match would have let through.
+        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["coding"] = new("gpt-5.6-nonesuch") });
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*gpt-5.6-nonesuch*no pricing entry*");
+    }
+
+    [Fact]
+    public void ValidateAgent_ListPricedRoleModel_PassesWithoutPricingBlock()
+    {
+        var agent = AgentWith(new Dictionary<string, AgentModelAssignment>
+        {
+            ["coding"] = new("gpt-5.6"),
+            ["scout"] = new("claude-haiku-4-5-20251001"),
+        });
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void ValidateAgent_OverridePricedRoleModel_PassesThoughTheListLacksIt()
+    {
+        var agent = AgentWith(
+            new Dictionary<string, AgentModelAssignment> { ["coding"] = new("in-house-coder-7") },
+            new AgentPricing(new Dictionary<string, AgentModelPricing> { ["in-house-coder-7"] = new(1m, 2m) }));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().NotThrow();
     }
 
     [Fact]
@@ -237,7 +264,7 @@ public sealed class ConfigCapabilitiesTests
                 ["gpt-5.6-terra"] = new(2.5m, 15m),
                 ["gpt-4.1-mini"] = new(0.4m, 1.6m),
             }));
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
         act.Should().NotThrow();
     }
 

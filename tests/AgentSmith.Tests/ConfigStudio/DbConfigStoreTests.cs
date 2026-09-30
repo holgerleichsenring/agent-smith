@@ -85,6 +85,21 @@ public sealed class DbConfigStoreTests : IDisposable
     }
 
     [Fact]
+    public void UpsertAgent_ListPricedRoleModelWithoutPricingBlock_Saves()
+    {
+        // 2026-09-30-62baa: the studio asks the bundled price list, so a model it knows
+        // needs no pricing entry typed by the operator.
+        _h.Import(SampleYaml);
+        var agent = new AgentEntity("claude-default", "claude", null, null, null, null,
+            new Dictionary<string, AgentModelAssignment> { ["coding"] = new("gpt-5.6") },
+            null, null, null, null);
+
+        _h.Store.UpsertAgent(agent, Tester);
+
+        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Model.Should().Be("gpt-5.6");
+    }
+
+    [Fact]
     public void ConfigRef_DeleteReferencedEntity_RejectedWithReferencingSet()
     {
         _h.Import(SampleYaml);

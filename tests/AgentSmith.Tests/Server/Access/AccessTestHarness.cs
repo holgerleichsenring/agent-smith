@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -52,6 +53,7 @@ internal sealed class AccessTestHarness : IDisposable
         services.AddSingleton<IConfigDocumentStore>(sp => new AdminReachableConfigDocumentStore(
             sp.GetRequiredService<EfConfigDocumentStore>(),
             sp.GetRequiredService<AdminRoute>(), sp.GetRequiredService<ConfigDocJson>()));
+        services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddSingleton<IObservedCallerStore, EfObservedCallerStore>();
         _provider = services.BuildServiceProvider();
