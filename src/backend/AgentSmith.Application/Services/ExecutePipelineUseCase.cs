@@ -580,9 +580,10 @@ public sealed class ExecutePipelineUseCase(
         // not threaded through ResolvedProject today; type + model is enough
         // to answer "which agent is doing this work".
         var agent = projectConfig.Agent;
-        var agentName = string.IsNullOrEmpty(agent.Model)
+        var primaryModel = new ModelRoleChain(agent).PrimaryModel;
+        var agentName = string.IsNullOrEmpty(primaryModel)
             ? agent.Type
-            : $"{agent.Type}/{agent.Model}";
+            : $"{agent.Type}/{primaryModel}";
         return eventPublisher.PublishAsync(
             new RunStartedEvent(
                 runId, trigger, request.PipelineName, repoNames, runStartedAt,

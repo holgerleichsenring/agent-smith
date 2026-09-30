@@ -20,7 +20,7 @@ const mockedRepos = vi.mocked(fetchConnectionRepos);
 const mockedContexts = vi.mocked(fetchProjectContexts);
 
 const catalog: ConfigCatalog = {
-  agents: [{ id: "gpt5", provider: "openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "K" }],
+  agents: [{ id: "gpt5", provider: "openai", catalog: { c: { model: "c" }, s: { model: "s" } }, models: { primary: "c", scout: "s" }, keySecret: "K" }],
   trackers: [
     // 2026-09-16-74a2: the map the pipeline section renders read-only, and (a4d7) the
     // fallback it names. `plain` declares neither, which is every tracker before a4d7.

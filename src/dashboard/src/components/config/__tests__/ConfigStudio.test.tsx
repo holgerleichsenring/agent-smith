@@ -6,17 +6,18 @@ import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 // The factory is hoisted above imports, so all fixtures live inside it.
 vi.mock("@/lib/configApi", () => {
   const agents = [
-    { id: "gpt5", provider: "openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "OPENAI_KEY" },
-    // p0343b: an entry whose roles are NOT the conventional coding/scan pair,
-    // and whose key ref is honestly absent.
+    { id: "gpt5", provider: "openai", catalog: { c: { model: "c" }, s: { model: "s" } }, models: { primary: "c", scout: "s" }, keySecret: "OPENAI_KEY" },
+    // p0343b: an entry whose roles are NOT the gpt5 pair, and whose key ref is honestly
+    // absent. 2026-09-30-62bab: roles name catalog entries; the card shows the entry's model.
     {
       id: "claude",
       provider: "anthropic",
-      models: { primary: { model: "opus" }, scout: { model: "haiku" }, planning: { model: "sonnet" } },
+      catalog: { strong: { model: "opus" }, quick: { model: "haiku" }, plan: { model: "sonnet", deployment: "sonnet-eu" } },
+      models: { primary: "strong", scout: "quick", planning: "plan" },
       keySecret: null,
     },
     // a key ref NAMING a secret that is missing from the catalog → dangling.
-    { id: "broken-key", provider: "openai", models: { coding: { model: "c" } }, keySecret: "GHOST_KEY" },
+    { id: "broken-key", provider: "openai", catalog: { c: { model: "c" } }, models: { primary: "c" }, keySecret: "GHOST_KEY" },
   ];
   const trackers = [{ id: "azdo", type: "azure", organization: "acme", project: "core", authSecret: "AZDO_PAT" }];
   const connections = [
@@ -110,9 +111,9 @@ describe("ConfigStudio", () => {
     // The roles ACTUALLY present render — primary/scout/planning …
     expect(screen.getByTestId("config-card-model-claude-primary")).toHaveTextContent("opus");
     expect(screen.getByTestId("config-card-model-claude-scout")).toHaveTextContent("haiku");
-    expect(screen.getByTestId("config-card-model-claude-planning")).toHaveTextContent("sonnet");
-    // … and NO phantom coding/scan dashes for roles the entry does not have.
-    expect(screen.queryByTestId("config-card-model-claude-coding")).not.toBeInTheDocument();
+    expect(screen.getByTestId("config-card-model-claude-planning")).toHaveTextContent("sonnet (sonnet-eu)");
+    // … and NO phantom dashes for roles the entry does not have.
+    expect(screen.queryByTestId("config-card-model-claude-reasoning")).not.toBeInTheDocument();
     expect(screen.queryByTestId("config-card-model-claude-scan")).not.toBeInTheDocument();
   });
 

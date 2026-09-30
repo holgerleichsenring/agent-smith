@@ -8,6 +8,12 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// </summary>
 public sealed class ModelAssignment
 {
+    /// <summary>
+    /// The name of an entry in the agent's <c>catalog:</c> this role answers with. When set it
+    /// wins: every inline field beside it is ignored by <see cref="ModelRoleChain"/>.
+    /// </summary>
+    public string? Use { get; set; }
+
     public string Model { get; set; } = string.Empty;
     public int MaxTokens { get; set; } = 8192;
     public string? Deployment { get; set; }
