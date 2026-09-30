@@ -1,57 +1,26 @@
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// p0176b: default <see cref="IModelPricingResolver"/> implementation.
-/// Holds the same baseline price table that previously lived on
-/// PipelineCostTracker as a private static; project pricing overrides
-/// still ride on top inside the tracker.
+/// p0176b: default <see cref="IModelPricingResolver"/> implementation. Its base table is
+/// the bundled price list (<see cref="IBundledModelPriceList"/>): exact id, then the bare
+/// name of a provider-prefixed id, then the longest listed name the model id starts with,
+/// so a dated response id (gpt-4.1-2025-04-14) still prices. An agent's pricing table
+/// rides on top via <see cref="OverlayModelPricingResolver"/>.
 /// </summary>
-public sealed class ModelPricingResolver : IModelPricingResolver
+public sealed class ModelPricingResolver(IReadOnlyDictionary<string, ModelPricing> pricing) : IModelPricingResolver
 {
-    public static readonly IReadOnlyDictionary<string, ModelPricing> DefaultPricing
-        = new Dictionary<string, ModelPricing>(StringComparer.OrdinalIgnoreCase)
-    {
-        // p0361: current Claude generation (prices per platform.claude.com,
-        // 2026-07). Alias keys prefix-match dated snapshot ids via Resolve().
-        // The table previously stopped at the 2025-05 models, so every current
-        // Claude id resolved to null and priced silently at $0.
-        ["claude-fable-5"] = new() { InputPerMillion = 10.0m, OutputPerMillion = 50.0m, CacheReadPerMillion = 1.0m },
-        ["claude-opus-4-8"] = new() { InputPerMillion = 5.0m, OutputPerMillion = 25.0m, CacheReadPerMillion = 0.50m },
-        ["claude-opus-4-7"] = new() { InputPerMillion = 5.0m, OutputPerMillion = 25.0m, CacheReadPerMillion = 0.50m },
-        ["claude-opus-4-6"] = new() { InputPerMillion = 5.0m, OutputPerMillion = 25.0m, CacheReadPerMillion = 0.50m },
-        ["claude-sonnet-5"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
-        ["claude-sonnet-4-6"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
-        // p0361: was 0.80/4.0 — that is Haiku 3.5's price; Haiku 4.5 is $1/$5.
-        ["claude-haiku-4-5"] = new() { InputPerMillion = 1.0m, OutputPerMillion = 5.0m, CacheReadPerMillion = 0.10m },
-        ["claude-sonnet-4-20250514"] = new() { InputPerMillion = 3.0m, OutputPerMillion = 15.0m, CacheReadPerMillion = 0.30m },
-        ["claude-opus-4-20250514"] = new() { InputPerMillion = 15.0m, OutputPerMillion = 75.0m, CacheReadPerMillion = 1.50m },
-        // p0274: gpt-5.1 (Azure OpenAI Global Standard, USD/1M). Keeps the built-in
-        // fallback current; an agent's `pricing` config still overrides this.
-        ["gpt-5.1"] = new() { InputPerMillion = 1.25m, OutputPerMillion = 10.0m, CacheReadPerMillion = 0.125m },
-        ["gpt-4.1"] = new() { InputPerMillion = 2.0m, OutputPerMillion = 8.0m, CacheReadPerMillion = 0.50m },
-        ["gpt-4.1-mini"] = new() { InputPerMillion = 0.40m, OutputPerMillion = 1.60m, CacheReadPerMillion = 0.10m },
-        ["gpt-4.1-nano"] = new() { InputPerMillion = 0.10m, OutputPerMillion = 0.40m, CacheReadPerMillion = 0.025m },
-        ["gpt-4o"] = new() { InputPerMillion = 2.50m, OutputPerMillion = 10.0m, CacheReadPerMillion = 1.25m },
-        ["gpt-4o-mini"] = new() { InputPerMillion = 0.15m, OutputPerMillion = 0.60m, CacheReadPerMillion = 0.075m },
-        ["llama-3.3-70b-versatile"] = new() { InputPerMillion = 0.0m, OutputPerMillion = 0.0m },
-    };
+    public ModelPricingResolver() : this(new BundledModelPriceList()) { }
 
-    private readonly IReadOnlyDictionary<string, ModelPricing> _pricing;
-
-    public ModelPricingResolver() : this(DefaultPricing) { }
-
-    public ModelPricingResolver(IReadOnlyDictionary<string, ModelPricing> pricing)
-    {
-        _pricing = pricing;
-    }
+    public ModelPricingResolver(IBundledModelPriceList priceList) : this(priceList.PricingByName) { }
 
     public ModelPricing? Resolve(string model)
     {
-        if (_pricing.TryGetValue(model, out var exact)) return exact;
-        return _pricing
+        if (pricing.TryGetValue(model, out var exact)) return exact;
+        return pricing
             .Where(kv => model.StartsWith(kv.Key, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(kv => kv.Key.Length)
             .Select(kv => kv.Value)

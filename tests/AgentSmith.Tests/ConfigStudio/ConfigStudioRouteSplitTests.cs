@@ -14,7 +14,8 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// preserving, so the routes it maps are the proof. This reads the mapped endpoints
 /// straight off the route builder — no server, no store — and asserts the same
 /// verb/path pairs the single file produced, plus what has been mapped beside them
-/// since (2026-09-14-620e's template-context picker is the fortieth). The two file-length
+/// since (2026-09-14-620e's template-context picker is the fortieth, 2026-09-30-62baa's
+/// model price list the forty-first). The two file-length
 /// assertions hold the other half of the phase: the split files stay under the limit
 /// and none of them buys its way into the ratchet baseline.
 /// </summary>
@@ -38,7 +39,7 @@ public sealed class ConfigStudioRouteSplitTests
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(40);
+        MappedRoutes().Should().HaveCount(41);
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>
@@ -66,6 +67,7 @@ public sealed class ConfigStudioRouteSplitTests
                 $"DELETE /api/config/{r}/{{id}}",
             }),
             "GET /api/config/capabilities",
+            "GET /api/config/model-prices",
             "POST /api/config/projects/validate",
             "POST /api/config/trackers/validate",
             "GET /api/config/connections/{id}/repos",

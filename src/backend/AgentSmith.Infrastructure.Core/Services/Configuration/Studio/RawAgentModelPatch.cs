@@ -5,49 +5,38 @@ using AgentSmith.Domain.Exceptions;
 namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
 /// <summary>
-/// Applies a studio agent's per-role model routing onto the raw agent config: the
-/// reserved role <c>coding</c> is the agent's top-level model/deployment pair, every
-/// other role patches an entry of the <c>models:</c> registry. Split out of
-/// <see cref="RawConfigPatch"/> (2026-08-27-3eb1) — role routing is its own reason to
-/// change, and it changed the moment a role gained a stated input window.
-/// <para>
-/// A role saved with an empty model is UNSET: it is removed and inherits again, which is
-/// how an operator clears a role. Nothing here writes a model the operator did not name.
-/// </para>
+/// Writes a studio agent's models onto the raw agent config in catalog form (2026-09-30-62bab):
+/// the catalog replaces the stored one, every role the entity names becomes <c>{use: entry}</c>
+/// and nothing else, and the agent's own <c>model</c>/<c>deployment</c> are cleared — primary is
+/// required and the chain supplies it to every fallback that read them. A role absent or
+/// empty is unset and inherits, which is how an operator clears a role.
 /// </summary>
 internal static class RawAgentModelPatch
 {
     public static void Apply(AgentEntity entity, AgentConfig agent)
     {
-        if (entity.Models.TryGetValue("coding", out var coding) && !string.IsNullOrWhiteSpace(coding.Model))
-        {
-            agent.Model = coding.Model;
-            agent.Deployment = coding.Deployment;
-        }
-        var registryRoles = entity.Models.Where(kv => kv.Key != "coding").ToList();
-        if (registryRoles.Count == 0) return;
-
-        agent.Models ??= new ModelRegistryConfig();
-        foreach (var (role, assignment) in registryRoles)
-            PatchAssignment(agent.Models, role, assignment);
+        agent.Catalog = entity.Catalog.ToDictionary(kv => kv.Key, kv => ToCatalogModel(kv.Value));
+        agent.Model = string.Empty;
+        agent.Deployment = null;
+        var registry = new ModelRegistryConfig();
+        foreach (var (role, use) in entity.Models.Where(kv => !string.IsNullOrWhiteSpace(kv.Value)))
+            (ModelRoleSlots.Find(role) ?? throw UnknownRole(role)).Set(registry, new ModelAssignment { Use = use });
+        agent.Models = registry;
     }
 
-    private static void PatchAssignment(ModelRegistryConfig registry, string role, AgentModelAssignment source)
+    private static CatalogModel ToCatalogModel(AgentCatalogModel source) => new()
     {
-        if (!StudioModelRoles.IsKnown(role))
-            throw new ConfigurationException(
-                $"Unknown agent model role '{role}' (known: coding, {string.Join(", ", StudioModelRoles.Names)}).");
-        if (string.IsNullOrWhiteSpace(source.Model))
-        {
-            StudioModelRoles.Set(registry, role, null);
-            return;
-        }
-        var target = StudioModelRoles.Get(registry, role) ?? new ModelAssignment();
-        target.Model = source.Model;
-        target.Deployment = source.Deployment;
-        if (source.MaxTokens is { } maxTokens) target.MaxTokens = maxTokens;
-        // 2026-08-27-3eb1: same patch semantics as MaxTokens — null keeps what is stored.
-        if (source.ContextWindowTokens is { } window) target.ContextWindowTokens = window;
-        StudioModelRoles.Set(registry, role, target);
-    }
+        Model = source.Model,
+        Deployment = Blank(source.Deployment),
+        MaxTokens = source.MaxTokens ?? new CatalogModel().MaxTokens,
+        ContextWindowTokens = source.ContextWindowTokens,
+        ProviderType = Blank(source.ProviderType),
+        Endpoint = Blank(source.Endpoint),
+        Tier = source.Tier,
+    };
+
+    private static ConfigurationException UnknownRole(string role) =>
+        new($"Unknown agent model role '{role}' (known: {string.Join(", ", ModelRoleSlots.Keys)}).");
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 }

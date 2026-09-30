@@ -15,11 +15,14 @@ The loader ignores a key it doesn't know, so an older file keeps loading after a
 agents:
   default-claude:
     type: claude
+    catalog:
+      sonnet: { model: claude-sonnet-4-6, tier: strong }
+      haiku:  { model: claude-haiku-4-5-20251001, tier: fast }
     models:
-      scout:         { model: claude-haiku-4-5-20251001 }
-      primary:       { model: claude-sonnet-4-6 }
-      planning:      { model: claude-sonnet-4-6 }
-      summarization: { model: claude-haiku-4-5-20251001 }
+      primary:       { use: sonnet }
+      planning:      { use: sonnet }
+      scout:         { use: haiku }
+      summarization: { use: haiku }
     pricing:
       models:
         claude-sonnet-4-6:         { input_per_million: 3.0, output_per_million: 15.0, cache_read_per_million: 0.30 }
@@ -69,8 +72,9 @@ One entry per LLM configuration. A project names one with `agent:`.
 | `type` | `claude` (alias `anthropic`), `openai`, `azure_openai`, `gemini` (alias `google`), `ollama`, `copilot`, `external_worker`. See [AI providers](../../connect-your-stuff/ai-providers.md) |
 | `endpoint`, `api_version` | provider endpoint: Azure OpenAI, Ollama, or with `type: openai` any OpenAI-compatible server (see [OpenAI-compatible servers](../../connect-your-stuff/ai-providers.md#openai-compatible-servers)) |
 | `api_key_secret` | the name of the environment variable holding the key, when the provider default isn't it. With `type: openai` and an `endpoint` there is no default |
-| `model`, `deployment` | the agent's own model, used for writing code (the studio shows it as the `coding` role) |
-| `models.<role>` | the model per role, see below |
+| `catalog.<entry>` | the models the agent may call, declared once each, see below |
+| `models.<role>` | which model each role uses, see below |
+| `model`, `deployment` | the inline form: the agent's own model, which an unset `primary` answers with. The config studio saves the catalog form and clears these |
 | `pricing.models.<model>` | `input_per_million`, `output_per_million`, `cache_read_per_million` in USD |
 | `cache` | `is_enabled` (default `true`), `strategy` (default `automatic`), prompt caching |
 | `retry` | `max_retries` (5), `initial_delay_ms` (2000), `backoff_multiplier` (2.0), `max_delay_ms` (60000) |
@@ -80,9 +84,28 @@ One entry per LLM configuration. A project names one with `agent:`.
 | loop tuning | `max_master_loop_iterations` (200), `max_sub_agent_loop_iterations` (100), `max_fix_iterations` (3), `ledger_reminder_every_n_iterations` (10), `reminder_drift_editless_iterations` (8), `verdict_owed_after_iterations` (3), `checkpoint_push_min_interval_seconds` (120), `supports_vision` (true) |
 | scan tuning | `scan_min_source_reads` (6), `scan_master_max_output_tokens` (32000), `scan_master_loop_iterations` (100), `scan_context_window_tokens` (200000) |
 
+### agents.catalog
+
+Each entry is one model the agent may call, under a name you choose. Two roles on one deployment name one entry instead of repeating it:
+
+```yaml
+catalog:
+  sonnet:
+    model: claude-sonnet-4-6
+    max_tokens: 8192               # the OUTPUT cap, default 8192
+    deployment: gpt4-1-deployment  # Azure OpenAI deployment name, when it differs from the model
+    context_window_tokens: 200000  # optional: the INPUT window the deployment accepts
+    provider_type: openai          # optional: answer on another provider than the agent's
+    endpoint: https://…            # optional: its own host; unset takes the agent's endpoint
+                                   #   when it runs on the agent's provider
+    tier: strong                   # optional: strong | fast, your word for the model
+```
+
+`tier` is advice, never enforced. The roles that decide structure (`primary`, `planning`, `reasoning`, `context_generation`, `code_map_generation`) need a strong model; one that resolves to an entry marked `fast` is reported as an advisory startup finding. An entry with no tier is never reported, because agent-smith doesn't rate models.
+
 ### agents.models
 
-No role has a built-in model. An unset role inherits, `max_tokens` included:
+A role names its catalog entry with `use:`. No role has a built-in model. An unset role inherits, `max_tokens` included:
 
 | Role | Used for | Unset means |
 |------|----------|-------------|
@@ -94,7 +117,15 @@ No role has a built-in model. An unset role inherits, `max_tokens` included:
 | `context_generation` | discovering components and writing each `context.yaml` | `primary` |
 | `code_map_generation` | the repo analyzer | `scout`, then `primary` |
 
-Each role takes:
+```yaml
+models:
+  primary: { use: sonnet }
+  scout:   { use: haiku }
+```
+
+A `use:` that names no entry of the catalog is reported at startup; a run that reaches the role fails. The config studio and `config import` refuse it.
+
+The inline form still loads: instead of `use:`, a role may state its model itself, with the same keys as a catalog entry except `tier`. With `use:` set, the inline keys beside it are ignored, and the studio and `config import` refuse a role that carries both:
 
 ```yaml
 model: claude-sonnet-4-6
@@ -106,9 +137,9 @@ endpoint: https://…            # optional: this role's own host; unset takes t
                                #   when the role runs on the agent's provider
 ```
 
-`context_window_tokens` is unset by default, because the model name doesn't imply it. State it and the tool loop for that role folds its history and finishes before the provider refuses; preflight reports a compaction threshold that could never fire below a stated window.
+`context_window_tokens` is unset by default, because the model name doesn't imply it. The config studio offers the price list's window as a one-click value, but saves only what you confirm. State it and the tool loop for that role folds its history and finishes before the provider refuses; preflight reports a compaction threshold that could never fire below a stated window.
 
-Every model a role uses needs a `pricing` entry. The studio refuses to save an agent without one. Tokens nothing can price are counted, and the run's cost is then marked incomplete rather than shown as a total.
+Every catalog model needs a price: the bundled price list knows most hosted models by id, and `pricing.models` states or overrides the rest. The studio refuses to save an agent with a catalog model neither knows. Tokens nothing can price are counted, and the run's cost is then marked incomplete rather than shown as a total.
 
 ## connections
 

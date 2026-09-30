@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Events;
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
@@ -23,6 +24,8 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// </summary>
 public sealed class ConfigCapabilitiesTests
 {
+    private static readonly BundledModelPriceList Prices = new();
+
     [Fact]
     public void Capabilities_TrackerFields_DeclareDefaultPipelineOptional()
     {
@@ -190,58 +193,116 @@ public sealed class ConfigCapabilitiesTests
         valid.Should().NotThrow();
     }
 
-    // p0351 spec test: the model-role vocabulary is the fixed TaskType set (coding + roles).
+    // p0351 spec test: the model-role vocabulary is the fixed TaskType set. 2026-09-30-62bab:
+    // 'coding' folded into primary, which is the one required role.
     [Fact]
-    public void Capabilities_Roles_AreCodingPlusTaskTypeSet_ReasoningOptional()
+    public void Capabilities_Roles_AreTheTaskTypeSet_PrimaryRequired()
     {
         var roles = BuildFromRegisteredBuilders().Roles;
         var keys = roles.Select(r => r.Key).ToList();
 
-        keys.Should().Contain("coding");
+        keys.Should().NotContain("coding");
         // every TaskType role is covered — a new TaskType without a role trips this.
         foreach (var t in Enum.GetValues<TaskType>())
             keys.Should().Contain(char.ToLowerInvariant(t.ToString()[0]) + t.ToString()[1..]);
+        keys.Should().HaveCount(Enum.GetValues<TaskType>().Length);
 
-        roles.Single(r => r.Key == "coding").Optional.Should().BeFalse();
+        roles[0].Key.Should().Be("primary");
+        roles.Single(r => r.Key == "primary").Optional.Should().BeFalse();
         roles.Single(r => r.Key == "reasoning").Optional.Should().BeTrue();
     }
 
     [Fact]
+    public void Capabilities_Roles_NeedStrongWhereTheyDecideStructure() =>
+        BuildFromRegisteredBuilders().Roles.Where(r => r.NeedsStrong).Select(r => r.Key)
+            .Should().BeEquivalentTo("primary", "planning", "reasoning", "contextGeneration", "codeMapGeneration");
+
+    [Fact]
     public void ValidateAgent_UnknownRoleKey_Throws()
     {
-        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["bogus"] = new("m") });
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+        var agent = AgentWith(Catalog(("m", "gpt-5.6")), Roles(("primary", "m"), ("bogus", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
         act.Should().Throw<ConfigurationException>().WithMessage("*unknown model role 'bogus'*");
     }
 
     [Fact]
-    public void ValidateAgent_RoleModelMissingFromPricing_Throws()
+    public void ValidateAgent_CodingRole_IsNoLongerARole()
     {
-        var agent = AgentWith(new Dictionary<string, AgentModelAssignment> { ["coding"] = new("gpt-5.6-terra") });
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
-        act.Should().Throw<ConfigurationException>().WithMessage("*gpt-5.6-terra*no pricing entry*");
+        var agent = AgentWith(Catalog(("m", "gpt-5.6")), Roles(("primary", "m"), ("coding", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*unknown model role 'coding'*");
     }
 
     [Fact]
-    public void ValidateAgent_AllRolesPriced_Passes()
+    public void ValidateAgent_NoPrimary_Throws()
+    {
+        var agent = AgentWith(Catalog(("m", "gpt-5.6")), Roles(("scout", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*primary role must use a catalog entry*");
+    }
+
+    [Fact]
+    public void ValidateAgent_RoleNamingAnUndeclaredEntry_Throws()
+    {
+        var agent = AgentWith(Catalog(("m", "gpt-5.6")), Roles(("primary", "m"), ("scout", "mini")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*role 'scout' uses catalog entry 'mini'*does not*");
+    }
+
+    [Fact]
+    public void ValidateAgent_EntryWithoutAModel_Throws()
+    {
+        var agent = AgentWith(Catalog(("m", " ")), Roles(("primary", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*catalog entry 'm' names no model*");
+    }
+
+    [Fact]
+    public void ValidateAgent_EntryModelMissingFromPricing_Throws()
+    {
+        // 2026-09-30-62baa: gpt-5.6-terra is a real, list-priced id now; the refused id is a
+        // typo that starts with real ids (gpt-5.6), which a prefix match would have let through.
+        var agent = AgentWith(Catalog(("m", "gpt-5.6-nonesuch")), Roles(("primary", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*entry 'm'*gpt-5.6-nonesuch*no pricing entry*");
+    }
+
+    [Fact]
+    public void ValidateAgent_UnusedEntry_IsPricedToo()
+    {
+        var agent = AgentWith(Catalog(("m", "gpt-5.6"), ("spare", "gpt-5.6-nonesuch")), Roles(("primary", "m")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().Throw<ConfigurationException>().WithMessage("*entry 'spare'*no pricing entry*");
+    }
+
+    [Fact]
+    public void ValidateAgent_ListPricedEntries_PassWithoutPricingBlock()
     {
         var agent = AgentWith(
-            new Dictionary<string, AgentModelAssignment>
-            {
-                ["coding"] = new("gpt-5.6-terra"),
-                ["scout"] = new("gpt-4.1-mini"),
-                ["reasoning"] = new(""), // an unset optional role is skipped
-            },
-            new AgentPricing(new Dictionary<string, AgentModelPricing>
-            {
-                ["gpt-5.6-terra"] = new(2.5m, 15m),
-                ["gpt-4.1-mini"] = new(0.4m, 1.6m),
-            }));
-        var act = () => ConfigStudioCapabilities.ValidateAgent(agent);
+            Catalog(("m", "gpt-5.6"), ("haiku", "claude-haiku-4-5-20251001")),
+            Roles(("primary", "m"), ("scout", "haiku"), ("reasoning", "")));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
+        act.Should().NotThrow("an empty role is unset and inherits");
+    }
+
+    [Fact]
+    public void ValidateAgent_OverridePricedEntry_PassesThoughTheListLacksIt()
+    {
+        var agent = AgentWith(
+            Catalog(("coder", "in-house-coder-7")), Roles(("primary", "coder")),
+            new AgentPricing(new Dictionary<string, AgentModelPricing> { ["in-house-coder-7"] = new(1m, 2m) }));
+        var act = () => ConfigStudioCapabilities.ValidateAgent(agent, Prices);
         act.Should().NotThrow();
     }
 
+    private static Dictionary<string, AgentCatalogModel> Catalog(params (string Name, string Model)[] entries) =>
+        entries.ToDictionary(e => e.Name, e => new AgentCatalogModel(e.Model));
+
+    private static Dictionary<string, string> Roles(params (string Role, string Use)[] roles) =>
+        roles.ToDictionary(r => r.Role, r => r.Use);
+
     private static AgentEntity AgentWith(
-        IReadOnlyDictionary<string, AgentModelAssignment> models, AgentPricing? pricing = null) =>
-        new("a", "claude", null, null, null, null, models, pricing, null, null, null);
+        IReadOnlyDictionary<string, AgentCatalogModel> catalog, IReadOnlyDictionary<string, string> models,
+        AgentPricing? pricing = null) =>
+        new("a", "claude", null, null, null, null, catalog, models, pricing, null, null, null);
 }

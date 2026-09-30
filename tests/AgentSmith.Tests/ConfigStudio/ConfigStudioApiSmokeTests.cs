@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using AgentSmith.Application.Services.Events;
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.ConfigStudio;
@@ -153,6 +154,30 @@ public sealed class ConfigStudioApiSmokeTests
     // project refs accepted / unknown-connection rejected as 400 — against a
     // config shaped exactly like the operator's (connections + conn-scoped
     // project repos, NO legacy repos block).
+    [Fact]
+    public async Task ConfigStudioApi_ModelPrices_ServesTheBundledSnapshot()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-prices-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+
+            var view = await http.GetFromJsonAsync<ModelPriceListView>("/api/config/model-prices");
+
+            var bundled = new BundledModelPriceList();
+            view!.FetchedAt.Should().Be(bundled.FetchedAt);
+            view.Source.Should().Be(bundled.Source);
+            view.Models.Should().HaveCount(bundled.Models.Count)
+                .And.Contain(m => m.Id == "claude-sonnet-5" && m.InputPerMillion == 2.0m);
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
     [Fact]
     public async Task ConfigStudioApi_Connections_CrudAndConnectionScopedRefs()
     {
@@ -457,6 +482,7 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Retired.RetiredConfigKeyDetector>();
         builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.StoredKeyDiff>();
         builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigImportPlanner>();
+        builder.Services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
         builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
         // p0353: the write endpoints emit a config-reload signal; mirror the server's
         // CLI/no-Redis baseline so [FromServices] resolves.

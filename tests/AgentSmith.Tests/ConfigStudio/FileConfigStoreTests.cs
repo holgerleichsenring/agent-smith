@@ -70,7 +70,7 @@ public sealed class FileConfigStoreTests : IDisposable
         var catalog = store.Catalog;
 
         catalog.Agents.Should().ContainSingle(a => a.Id == "claude-default" && a.Provider == "claude"
-            && a.Models["coding"].Model == "sonnet-4");
+            && a.Models["primary"] == "sonnet-4" && a.Catalog["sonnet-4"].Model == "sonnet-4");
         catalog.Trackers.Should().ContainSingle(t => t.Id == "test-ado" && t.Type == "azure_devops"
             && t.Organization == "testorg" && t.Project == "TestProject" && t.AuthSecret == "token");
         catalog.Repos.Should().ContainSingle(r => r.Id == "test-repo" && r.Name == "https://github.com/test/repo");
@@ -113,8 +113,10 @@ public sealed class FileConfigStoreTests : IDisposable
         var (store, _) = NewStore(File.ReadAllText(examplePath));
 
         var agent = store.GetAgents().Single(a => a.Id == "claude-default");
-        agent.Models["coding"].Model.Should().Be("claude-sonnet-4-20250514");
-        agent.Models["primary"].Should().Be(new AgentModelAssignment("claude-sonnet-4-20250514", null, 8192));
+        agent.Models["primary"].Should().Be("sonnet");
+        agent.Models["scout"].Should().Be("haiku");
+        agent.Catalog["sonnet"].Should().Be(new AgentCatalogModel(
+            "claude-sonnet-4-20250514", null, 8192, Tier: AgentSmith.Contracts.Models.Configuration.ModelTier.Strong));
         agent.Retry.Should().Be(new AgentRetrySettings(5, 2000, 2.0, 60000));
         agent.Cache.Should().Be(new AgentCacheSettings(true, "automatic"));
         agent.Pricing!.Models["claude-sonnet-4-20250514"].Should().Be(new AgentModelPricing(3.0m, 15.0m, 0.30m));

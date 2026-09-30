@@ -34,26 +34,17 @@ public static class ConfigStudioCapabilities
         Pipelines: PipelinePresets.Names,
         Roles: RoleCapabilities);
 
-    /// <summary>The reserved model role carrying the agent's top-level model/deployment.</summary>
-    public const string ReservedCodingRole = "coding";
-
     /// <summary>
-    /// The fixed model-role set the agent form renders — the reserved 'coding'
-    /// (required) plus every <see cref="TaskType"/> role, each optional: an unset role
-    /// inherits (primary from coding, the others from primary, code-map from scout).
-    /// Keys are camelCased TaskType names, matching ConfigCatalogMapper's models map.
+    /// The fixed model-role set the agent form renders — every <see cref="TaskType"/> role,
+    /// primary first and required; the others optional: an unset role inherits (from
+    /// primary, code-map from scout first). Keys are camelCased TaskType names.
     /// </summary>
     public static IReadOnlyList<ModelRoleCapability> RoleCapabilities { get; } =
-        new[] { new ModelRoleCapability(ReservedCodingRole, Optional: false) }
-            .Concat(Enum.GetValues<TaskType>()
-                .Select(t => new ModelRoleCapability(RoleKey(t), Optional: true)))
-            .ToList();
+        [.. ModelRoleSlots.All.Select(s => new ModelRoleCapability(
+            s.Key, Optional: s.Task != TaskType.Primary, NeedsStrong: s.NeedsStrong))];
 
-    /// <summary>The valid model-role keys (coding + the TaskType roles).</summary>
-    public static IReadOnlyList<string> RoleKeys { get; } =
-        RoleCapabilities.Select(r => r.Key).ToList();
-
-    private static readonly HashSet<string> ValidRoleKeys = RoleKeys.ToHashSet(StringComparer.Ordinal);
+    /// <summary>The valid model-role keys (the TaskType roles).</summary>
+    public static IReadOnlyList<string> RoleKeys { get; } = ModelRoleSlots.Keys;
 
     /// <summary>The wire names of every known resolution strategy (tag / area_path / repo / to_address).</summary>
     public static IReadOnlyList<string> ResolutionStrategyNames { get; } =
@@ -164,34 +155,43 @@ public static class ConfigStudioCapabilities
     };
 
     /// <summary>
-    /// Rejects an agent that names a model role outside the fixed set, or whose
-    /// role model has no pricing entry on the agent — the studio's roles are the
-    /// TaskType set, and every routed model must be priced.
+    /// Rejects an agent whose roles are not the fixed set, whose primary names no entry, whose
+    /// role names an entry the catalog does not declare, or whose catalog entry names no model
+    /// or a model priced by neither the agent's pricing table (exact id) nor the bundled price
+    /// list (exact id or bare name). No prefix match: a typo that starts with a real id must not
+    /// pass as that id.
     /// </summary>
-    public static void ValidateAgent(AgentEntity agent)
+    public static void ValidateAgent(AgentEntity agent, IBundledModelPriceList priceList)
     {
-        foreach (var key in agent.Models.Keys)
-            if (!ValidRoleKeys.Contains(key))
-                throw new ConfigurationException(
-                    $"Agent '{agent.Id}': unknown model role '{key}' " +
-                    $"(known: {string.Join(", ", RoleKeys)}).");
-
-        var priced = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
-            .ToHashSet(StringComparer.Ordinal);
-        foreach (var (role, assignment) in agent.Models)
+        ValidateRoles(agent);
+        var overrides = (agent.Pricing?.Models.Keys ?? Enumerable.Empty<string>())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, entry) in agent.Catalog)
         {
-            if (string.IsNullOrWhiteSpace(assignment.Model)) continue; // an unset optional role
-            if (!priced.Contains(assignment.Model))
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(entry.Model))
+                throw new ConfigurationException($"Agent '{agent.Id}': catalog entry '{name}' names no model.");
+            if (!overrides.Contains(entry.Model) && priceList.Find(entry.Model) is null)
                 throw new ConfigurationException(
-                    $"Agent '{agent.Id}': role '{role}' uses model '{assignment.Model}' " +
-                    "which has no pricing entry — add it to the agent's pricing table.");
+                    $"Agent '{agent.Id}': catalog entry '{name}' uses model '{entry.Model}' " +
+                    "which has no pricing entry — the bundled price list does not know it; " +
+                    "add it to the agent's pricing table.");
         }
     }
 
-    /// <summary>The camelCased wire key for a model role, matching ConfigCatalogMapper's models map.</summary>
-    private static string RoleKey(TaskType role)
+    private static void ValidateRoles(AgentEntity agent)
     {
-        var name = role.ToString();
-        return char.ToLowerInvariant(name[0]) + name[1..];
+        foreach (var (role, use) in agent.Models)
+        {
+            if (!RoleKeys.Contains(role, StringComparer.Ordinal))
+                throw new ConfigurationException(
+                    $"Agent '{agent.Id}': unknown model role '{role}' (known: {string.Join(", ", RoleKeys)}).");
+            if (!string.IsNullOrWhiteSpace(use) && !agent.Catalog.ContainsKey(use))
+                throw new ConfigurationException(
+                    $"Agent '{agent.Id}': role '{role}' uses catalog entry '{use}', which the catalog does not " +
+                    $"declare (declared: {string.Join(", ", agent.Catalog.Keys)}).");
+        }
+        if (!agent.Models.TryGetValue("primary", out var primary) || string.IsNullOrWhiteSpace(primary))
+            throw new ConfigurationException(
+                $"Agent '{agent.Id}': the primary role must use a catalog entry.");
     }
 }

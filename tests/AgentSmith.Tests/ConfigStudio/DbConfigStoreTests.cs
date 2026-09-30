@@ -74,14 +74,30 @@ public sealed class DbConfigStoreTests : IDisposable
         _h.Import(SampleYaml);
 
         _h.Store.UpsertAgent(Agent("claude-default", "claude", "opus-4"), Tester);
-        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Model.Should().Be("opus-4");
+        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["primary"].Should().Be("opus-4");
 
         var update = _h.Store.GetChanges().First(c =>
             c.EntityId == "claude-default" && c.Operation == ConfigChangeOperation.Update);
         update.Actor.Should().Be("tester");
 
         _h.Store.Revert(update.Id, new ChangeAttribution("reverter"));
-        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["coding"].Model.Should().Be("sonnet-4");
+        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["primary"].Should().Be("sonnet-4");
+    }
+
+    [Fact]
+    public void UpsertAgent_ListPricedRoleModelWithoutPricingBlock_Saves()
+    {
+        // 2026-09-30-62baa: the studio asks the bundled price list, so a model it knows
+        // needs no pricing entry typed by the operator.
+        _h.Import(SampleYaml);
+        var agent = new AgentEntity("claude-default", "claude", null, null, null, null,
+            new Dictionary<string, AgentCatalogModel> { ["gpt-5.6"] = new("gpt-5.6") },
+            new Dictionary<string, string> { ["primary"] = "gpt-5.6" },
+            null, null, null, null);
+
+        _h.Store.UpsertAgent(agent, Tester);
+
+        _h.Store.GetAgents().Single(a => a.Id == "claude-default").Models["primary"].Should().Be("gpt-5.6");
     }
 
     [Fact]
@@ -221,7 +237,8 @@ public sealed class DbConfigStoreTests : IDisposable
 
     private static AgentEntity Agent(string id, string provider, string codingModel) =>
         new(id, provider, null, null, null, null,
-            new Dictionary<string, AgentModelAssignment> { ["coding"] = new(codingModel) },
+            new Dictionary<string, AgentCatalogModel> { [codingModel] = new(codingModel) },
+            new Dictionary<string, string> { ["primary"] = codingModel },
             // p0351: every routed model must be priced — ValidateAgent enforces it on upsert.
             new AgentPricing(new Dictionary<string, AgentModelPricing> { [codingModel] = new(0m, 0m) }),
             null, null, null);

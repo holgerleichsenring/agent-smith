@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ConfigStudio } from "../ConfigStudio";
 import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
+import type { StudioAgent } from "@/lib/configApi";
 
 // p0345c: the studio forms KNOW the domain — but only through the backend's
 // capabilities descriptor. Type/provider dropdowns and the per-type field sets
@@ -59,9 +60,22 @@ vi.mock("@/lib/configApi", () => {
       builtInRoles: [],
       pipelines: ["feature-implementation"],
       roles: [
-        { key: "coding", optional: false },
-        { key: "primary", optional: false },
-        { key: "reasoning", optional: true },
+        { key: "primary", optional: false, needsStrong: true },
+        { key: "reasoning", optional: true, needsStrong: true },
+      ],
+    }),
+    fetchModelPrices: vi.fn().mockResolvedValue({
+      source: "test",
+      fetchedAt: "2026-09-30T06:00:00Z",
+      models: [
+        {
+          id: "claude-fable-5",
+          provider: "anthropic",
+          inputPerMillion: 3,
+          outputPerMillion: 15,
+          cacheReadPerMillion: 0.3,
+          contextWindowTokens: 200000,
+        },
       ],
     }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
@@ -133,32 +147,39 @@ describe("Capabilities-driven forms (p0345c)", () => {
     expect(label?.textContent).toContain("owner");
   });
 
-  it("AgentForm_SectionedDrawer_ProviderFromCapabilities_EmptySectionsNotPersisted", async () => {
+  it("AgentForm_TabbedDrawer_ProviderFromCapabilities_EmptySectionsNotPersisted", async () => {
     const { agentsApi } = await import("@/lib/configApi");
     render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
     await screen.findByTestId("config-new-agents");
     fireEvent.click(screen.getByTestId("config-new-agents"));
+    fireEvent.change(screen.getByTestId("form-field-id"), { target: { value: "claude" } });
+
+    // 2026-09-30-62bab: the drawer is tabbed — Models first, then Activities, Provider, Tuning.
+    expect(screen.getByTestId("agent-tab-models")).toHaveAttribute("aria-selected", "true");
 
     // Provider is a dropdown from capabilities.agentProviders.
+    fireEvent.click(screen.getByTestId("agent-tab-provider"));
     const provider = screen.getByTestId("form-field-provider");
     expect(provider.tagName).toBe("SELECT");
     await waitFor(() => expect(provider.querySelector('option[value="anthropic"]')).not.toBeNull());
-
-    // The full surface is SECTIONED; optional sections start collapsed + unset.
-    expect(screen.getByTestId("agent-section-provider")).toHaveAttribute("data-open", "true");
-    expect(screen.getByTestId("agent-section-models")).toHaveAttribute("data-open", "true");
-    for (const s of ["pricing", "cache", "compaction", "retry"]) {
-      expect(screen.getByTestId(`agent-section-${s}`)).toHaveAttribute("data-open", "false");
-    }
-
-    fireEvent.change(screen.getByTestId("form-field-id"), { target: { value: "claude" } });
     fireEvent.change(provider, { target: { value: "anthropic" } });
 
-    // Roles are the FIXED set from capabilities — "coding" is a required row
-    // (no free-text add-role box); set its model + maxTokens directly.
-    fireEvent.change(screen.getByTestId("form-field-coding"), { target: { value: "claude-fable-5" } });
-    fireEvent.change(screen.getByTestId("form-field-coding-maxTokens"), { target: { value: "64000" } });
+    // A model is declared once in the catalog …
+    fireEvent.click(screen.getByTestId("agent-tab-models"));
+    fireEvent.click(screen.getByTestId("agent-model-add"));
+    fireEvent.change(screen.getByTestId("agent-model-id"), { target: { value: "claude-fable-5" } });
+    fireEvent.change(screen.getByTestId("agent-model-maxTokens"), { target: { value: "64000" } });
+    fireEvent.click(screen.getByTestId("agent-model-apply"));
 
+    // … and Coding picks it by name.
+    fireEvent.click(screen.getByTestId("agent-tab-activities"));
+    fireEvent.change(screen.getByTestId("agent-activity-select-primary"), { target: { value: "claude-fable-5" } });
+
+    // Tuning keeps its optional sections, collapsed and unset.
+    fireEvent.click(screen.getByTestId("agent-tab-tuning"));
+    for (const s of ["cache", "compaction", "retry"]) {
+      expect(screen.getByTestId(`agent-section-${s}`)).toHaveAttribute("data-open", "false");
+    }
     // Open Cache, add settings, then REMOVE them again — must not persist.
     fireEvent.click(screen.getByTestId("agent-section-cache-toggle"));
     fireEvent.click(screen.getByTestId("agent-add-cache"));
@@ -167,16 +188,10 @@ describe("Capabilities-driven forms (p0345c)", () => {
 
     fireEvent.click(screen.getByTestId("config-drawer-save"));
     await waitFor(() => expect(agentsApi.create).toHaveBeenCalledTimes(1));
-    const saved = vi.mocked(agentsApi.create).mock.calls[0][0] as {
-      provider: string;
-      models: Record<string, { model: string; maxTokens?: number }>;
-      pricing?: unknown;
-      cache?: unknown;
-      compaction?: unknown;
-      retry?: unknown;
-    };
+    const saved = vi.mocked(agentsApi.create).mock.calls[0][0] as unknown as StudioAgent;
     expect(saved.provider).toBe("anthropic");
-    expect(saved.models.coding).toEqual({ model: "claude-fable-5", maxTokens: 64000 });
+    expect(saved.catalog).toEqual({ "claude-fable-5": { model: "claude-fable-5", maxTokens: 64000 } });
+    expect(saved.models).toEqual({ primary: "claude-fable-5" });
     // Only non-empty sections are persisted.
     expect(saved.pricing).toBeUndefined();
     expect(saved.cache).toBeUndefined();

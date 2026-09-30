@@ -11,7 +11,7 @@ import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 
 vi.mock("@/lib/configApi", () => {
   const agents = [
-    { id: "azure", provider: "azure-openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "AOAI_KEY" },
+    { id: "azure", provider: "azure-openai", catalog: { c: { model: "c" }, s: { model: "s" } }, models: { primary: "c", scout: "s" }, keySecret: "AOAI_KEY" },
   ];
   const trackers = [
     { id: "azdo", type: "azure", organization: "acme", project: "core", authSecret: "AZDO_PAT" },

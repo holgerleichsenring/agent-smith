@@ -222,19 +222,23 @@ function CardBody({
     case "agents": {
       const a = entity as StudioAgent;
       // p0343b: list the model roles ACTUALLY present on the entry.
-      // p0345c: entries are objects now — show the model, hint the deployment.
-      const roles = Object.entries(a.models).filter(([, entry]) => entry?.model);
+      // 2026-09-30-62bab: a role names a catalog entry — show the entry's model and
+      // deployment, or the bare name when the catalog does not declare it.
+      const roles = Object.entries(a.models).filter(([, name]) => name);
       return (
         <div className="fields">
-          {roles.map(([role, entry], i) => (
-            <div className="f" key={role} data-testid={`config-card-model-${a.id}-${role}`}>
-              <span className="fl">{role} model</span>
-              <span className={i === 0 ? "fv link" : "fv"}>
-                {entry.model}
-                {entry.deployment ? ` (${entry.deployment})` : ""}
-              </span>
-            </div>
-          ))}
+          {roles.map(([role, name], i) => {
+            const entry = a.catalog?.[name];
+            return (
+              <div className="f" key={role} data-testid={`config-card-model-${a.id}-${role}`}>
+                <span className="fl">{role} model</span>
+                <span className={i === 0 ? "fv link" : "fv"}>
+                  {entry ? entry.model : name}
+                  {entry?.deployment ? ` (${entry.deployment})` : ""}
+                </span>
+              </div>
+            );
+          })}
           <div className="f" data-testid={`config-card-key-${a.id}`}
             data-resolved={!a.keySecret || resolves(catalog, "secrets", a.keySecret) ? "true" : "false"}
           >

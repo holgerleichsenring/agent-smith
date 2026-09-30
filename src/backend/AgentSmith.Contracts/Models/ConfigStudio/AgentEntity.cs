@@ -3,12 +3,12 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// <summary>
 /// p0345c: editable studio view of one agent catalog entry — the FULL raw
 /// surface the loader already deserializes (endpoint / api version / timeout,
-/// per-role model routing, pricing table, cache, compaction, retry), not just
-/// the model names. <see cref="Models"/> maps role → assignment; the reserved
-/// role <c>coding</c> is the agent's top-level <c>model:</c>/<c>deployment:</c>
-/// pair, every other role patches the <c>models:</c> registry. Sections the raw
-/// config carries but the entity leaves null are preserved on upsert (patch
-/// semantics), so an export still round-trips through the real loader.
+/// model catalog and role routing, pricing table, cache, compaction, retry).
+/// <see cref="Catalog"/> declares the models the agent may call by entry name;
+/// <see cref="Models"/> maps each role to the entry it uses (2026-09-30-62bab) — a
+/// role absent or empty inherits, primary is required. Sections the raw config
+/// carries but the entity leaves null are preserved on upsert (patch semantics),
+/// so an export still round-trips through the real loader.
 /// <see cref="KeySecret"/> carries the env-NAME of the provider key — never a value.
 /// </summary>
 public sealed record AgentEntity(
@@ -18,7 +18,8 @@ public sealed record AgentEntity(
     string? Endpoint,
     string? ApiVersion,
     int? NetworkTimeoutSeconds,
-    IReadOnlyDictionary<string, AgentModelAssignment> Models,
+    IReadOnlyDictionary<string, AgentCatalogModel> Catalog,
+    IReadOnlyDictionary<string, string> Models,
     AgentPricing? Pricing,
     AgentCacheSettings? Cache,
     AgentCompactionSettings? Compaction,
@@ -26,17 +27,10 @@ public sealed record AgentEntity(
 {
     public AgentEntity() : this(
         string.Empty, string.Empty, null, null, null, null,
-        new Dictionary<string, AgentModelAssignment>(), null, null, null, null)
+        new Dictionary<string, AgentCatalogModel>(), new Dictionary<string, string>(), null, null, null, null)
     {
     }
 }
-
-/// <summary>
-/// One role's model routing: model id, optional Azure deployment, optional output-token
-/// budget, and (2026-08-27-3eb1) the optional input window the deployment accepts.
-/// </summary>
-public sealed record AgentModelAssignment(
-    string Model, string? Deployment = null, int? MaxTokens = null, int? ContextWindowTokens = null);
 
 /// <summary>The agent's pricing table: model name → USD per million tokens.</summary>
 public sealed record AgentPricing(IReadOnlyDictionary<string, AgentModelPricing> Models)

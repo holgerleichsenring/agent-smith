@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using AgentSmith.Contracts.Models.Configuration;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -14,6 +15,11 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// </summary>
 public sealed class ConfigYamlExporter
 {
+    private static YamlMemberAttribute OmitWhenDefault => new()
+    {
+        DefaultValuesHandling = DefaultValuesHandling.OmitDefaults | DefaultValuesHandling.OmitNull,
+    };
+
     private readonly ISerializer Serializer = new SerializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
         .WithEnumNamingConvention(UnderscoredNamingConvention.Instance)
@@ -22,6 +28,13 @@ public sealed class ConfigYamlExporter
             DefaultValuesHandling.OmitNull | DefaultValuesHandling.OmitEmptyCollections)
         // A computed answer, not a setting: emitting it wrote a key no loader reads.
         .WithAttributeOverride<RoleMappingConfig>(m => m.IsEmpty, new YamlIgnoreAttribute())
+        // 2026-09-30-62bab: a role stored as {use: entry} still carries the class defaults of the
+        // inline fields beside it; model '' and max_tokens 8192 are exactly what the loader
+        // supplies when they are absent, so leaving them out changes nothing but the noise.
+        .WithAttributeOverride<ModelAssignment>(m => m.Model, OmitWhenDefault)
+        .WithAttributeOverride<ModelAssignment>(m => m.Model, new DefaultValueAttribute(string.Empty))
+        .WithAttributeOverride<ModelAssignment>(m => m.MaxTokens, OmitWhenDefault)
+        .WithAttributeOverride<ModelAssignment>(m => m.MaxTokens, new DefaultValueAttribute(new ModelAssignment().MaxTokens))
         .Build();
 
     public string Export(RawAgentSmithConfig document) => Serializer.Serialize(document);

@@ -14,7 +14,6 @@ public sealed partial class AgentConfig
     public RetryConfig Retry { get; set; } = new();
     public CacheConfig Cache { get; set; } = new();
     public CompactionConfig Compaction { get; set; } = new();
-    public ModelRegistryConfig? Models { get; set; }
     public PricingConfig Pricing { get; set; } = new();
     public RateLimitConfig? RateLimit { get; set; }
 

@@ -1,0 +1,171 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-30-62bab
+
+decisions:
+  - category: Architecture
+    chose: "One role table in Contracts (ModelRoleSlots: task, wire key, needs-strong, get/set) read by the chain, the studio projection and patch, the findings, the preflight and the capabilities; StudioModelRoles deleted"
+    over: "Keeping StudioModelRoles in Infrastructure.Core beside a second role list in the chain and a third in each raw reader"
+    reason: |
+      The three raw readers the review found existed because each kept its own role list. The
+      chain lives in Contracts, so the table has to as well; with it the capabilities' role list,
+      needs-strong and the camelCase keys come from one place, and 'coding' has nowhere to hide.
+      Order is primary first, which is also the "role order" the projection suffixes names in.
+    alternatives:
+      - "Keep StudioModelRoles and add NeedsStrong there: Contracts cannot see Infrastructure.Core"
+
+  - category: Architecture
+    chose: "ModelRoleChain gains TryFor (null on an undeclared entry), UnknownUses, EntryFor and PrimaryModel; For throws ConfigurationException naming role and entry"
+    over: "Named() silently treating an unknown use as unset"
+    reason: |
+      Treating it as unset would send the role to primary with no word, the silent fallback the
+      chain was built to end. Load-time readers (findings, preflight, startup summary, run gate,
+      display sites) use the non-throwing members, so one bad row is an advisory and never a
+      load failure; the runtime path (ConfigBasedModelRegistry -> For) throws when a run reaches
+      the role. The exception names the role and the entry but not the agent: AgentConfig does
+      not know its own name at runtime (ExecutePipelineUseCase says the config key is not
+      threaded through ResolvedProject), and threading it is out of this phase. The load-time
+      finding names agent and role.
+    alternatives:
+      - "Thread the agent name into AgentConfig: a non-config property on a stored document"
+
+  - category: Implementation
+    chose: "The legacy projection writes the agent's deployment into an entry whose role stated none"
+    over: "Leaving the entry's deployment null and pointing OpenAiChatClientBuilder's fallback at the chain's primary"
+    reason: |
+      The Azure builder falls back role deployment -> agent.deployment -> model id. A legacy
+      scout with no deployment was therefore called with agent.deployment; once the studio save
+      clears agent.deployment it would have been called with its model id. Pointing the builder
+      at primary's deployment is wrong too: for a file config whose primary is named inline
+      without a deployment it changes which deployment a scout reaches. Materialising the
+      deployment the role was actually called with keeps every call identical (the round-trip
+      test compares model, effective deployment, max_tokens, window, provider and effective
+      endpoint for every role) and leaves the builder's agent.deployment fallback in place for
+      file configs. The model fallbacks (Claude, Copilot, rate-limit key, probe log) read the
+      chain's PrimaryModel.
+    alternatives:
+      - "Keep agent.deployment on save: the spec clears it and the catalog should be self-describing"
+
+  - category: Implementation
+    chose: "Studio wire: AgentEntity.Catalog name -> AgentCatalogModel{Model, Deployment, MaxTokens?, ContextWindowTokens, ProviderType, Endpoint, Tier}; Models role -> entry name (string). A save replaces the stored catalog and stores each role as {Use} only; agent.model/deployment cleared"
+    over: "Patch semantics per role as before"
+    reason: |
+      The drawer holds the whole catalog, so the save is the whole truth; a patch would keep an
+      inline role the operator removed. With role -> string a role cannot carry use and an
+      inline model at once, so ValidateAgent needs no exclusivity check — the type makes the
+      state unrepresentable. The exclusivity check lives where both can occur: the import
+      planner (CatalogUseRule), which also refuses an undeclared use.
+    alternatives:
+      - "Role -> {use, model, ...} on the wire with a runtime exclusivity check: a shape that can be wrong"
+
+  - category: Implementation
+    chose: "ValidateAgent prices every catalog entry (used or not) by override exact id or list Find, requires primary, refuses unknown role keys ('coding' included) and a role naming an undeclared entry"
+    over: "Pricing only entries a role uses"
+    reason: |
+      An unused entry is one assignment away from being called; refusing it at save is cheaper
+      than a run whose cost is marked incomplete. The 62baa strictness (no bare-name match on
+      overrides) carries over unchanged.
+    alternatives: []
+
+  - category: Implementation
+    chose: "ModelTier serialised by a JsonStringEnumConverter<ModelTier> subclass with camelCase naming, attached to the enum; YAML via the existing underscored enum convention"
+    over: "JsonStringEnumMemberName on each member"
+    reason: |
+      Both write "strong"/"fast". The member-name form reads case-sensitively, so a hand-edited
+      stored doc with "Fast" failed to load; the naming-policy form reads any casing. The
+      attribute on the type makes the stored doc (ConfigDocJson has no enum converter) and the
+      API (web defaults) agree without touching either options object.
+    alternatives: []
+
+  - category: Implementation
+    chose: "ConfigYamlExporter omits ModelAssignment.model when '' and max_tokens when 8192 (attribute overrides with OmitDefaults)"
+    over: "Making ModelAssignment.MaxTokens nullable, or a custom YAML converter"
+    reason: |
+      Both omitted values are exactly what the loader supplies when the key is absent, so the
+      export still round-trips (FileConfigStore round-trip tests stay green) and a {use} role
+      exports as `use: x` alone. A nullable MaxTokens would ripple through every reader of the
+      resolved assignment. The stored JSON still carries the class defaults; nothing reads them
+      beside use.
+    alternatives: []
+
+  - category: Implementation
+    chose: "ContextWindowThresholdCheck judges each declared role by chain.TryFor; a role resolving through an undeclared entry is listed as unstated"
+    over: "Failing the preflight for it"
+    reason: |
+      The check is about compaction arithmetic; an undeclared entry is already an advisory at
+      load and a refusal at save. Listing it keeps the check honest (no window was judged)
+      without a second report of the same defect.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The fast-on-strong finding is one advisory per agent listing 'role on entry' for every needs-strong role that resolves (inheritance included) to an entry tiered fast"
+    over: "One finding per role"
+    reason: |
+      A fast primary is inherited by every unset structural role; one finding per role would
+      repeat the same fix five times.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The CLI's config import is unchanged; a refused plan propagates as an exception"
+    over: "Catching it in ImportAsync"
+    reason: |
+      ConfigCommand.cs is over the file-length ratchet and may only shrink; the catch plus helper
+      grew it. The server import endpoint already turns the ConfigurationException into a 400.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The drawer is four tabs (Models, Activities, Provider, Tuning) after ProjectForm's pattern; the add/edit model view replaces the tab body inside the same drawer and edits a local copy that only Apply writes"
+    over: "Keeping the collapsible sections, or a second drawer for the model editor"
+    reason: |
+      A catalog entry has seven fields and a price preview; inline in a card list it rebuilds
+      the one-scroll form the tabs removed, and a second drawer stacks two Save buttons. Back
+      discards, so a half-typed entry never reaches the draft the footer saves. The old
+      Pricing section is gone: an override is edited on the entry whose model it prices.
+    alternatives:
+      - "Inline expandable cards: seven fields per card in 520px"
+
+  - category: Implementation
+    chose: "The card's price source mirrors the server: override on the exact model id ignoring case, else a list id equal to the model or whose name after the provider prefix is (azure/gpt-5.6 answers gpt-5.6), else 'not in list'"
+    over: "Exposing the server's alias table on the price-list endpoint"
+    reason: |
+      The list endpoint serves ids, not the refresh script's alias index, so the client
+      approximates the bare-name step by stripping the prefix. A disagreement can only show
+      a label the save then corrects with its 400; the server stays the authority.
+    alternatives:
+      - "Add aliases to GET /api/config/model-prices: a backend change for a display label"
+
+  - category: Implementation
+    chose: "Removing the last override sends pricing {models: {}}; an untouched agent sends none"
+    over: "Sending pricing absent when the table empties, as the old drawer did"
+    reason: |
+      RawConfigPatch keeps a stored table when the entity's pricing is null, so the old
+      drawer's 'remove the last pricing row' saved nothing. An empty table is how the patch
+      is told to clear it. Overrides that name no catalog model are listed on the Models tab
+      with a remove button rather than dropped silently.
+    alternatives: []
+
+  - category: Implementation
+    chose: "Provider and endpoint per entry are exposed in a collapsed 'Different provider or endpoint' section of the editor"
+    over: "Preserving them untouched and hidden"
+    reason: |
+      The mock shows both on the add view and the fields already exist on the wire; hidden,
+      a projected legacy role that answered elsewhere could not be read or corrected in the
+      studio. Collapsed by default, they cost nothing for the common case.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The Activities tab is marked when a needs-strong role resolves (inheritance included) to a fast entry, or when Coding has no entry"
+    over: "Marking only explicit fast picks"
+    reason: |
+      The server's finding follows the chain, so a fast scout marks the code map that follows
+      it; the tab says the same. A missing primary is refused at save — marking the tab
+      points at where it is fixed before the 400 does.
+    alternatives: []
+
+  - category: Implementation
+    chose: "The model id is a free-text combobox filtered over the price list (8 matches, from two characters); the list's window is offered as a one-click 'use list value (N) · from price list' button"
+    over: "A select over ~3300 ids, or filling the window when a model is picked"
+    reason: |
+      A model the list does not know is still a valid entry once priced by override, so the
+      id cannot be select-only. The window stays the operator's statement (spec decision);
+      the button makes it one click without writing it unasked.
+    alternatives: []

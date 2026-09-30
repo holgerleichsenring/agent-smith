@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -36,6 +37,7 @@ public sealed class DbConfigTestHarness : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigDocJson>();
         services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml>();
         services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigYamlExporter>();
+        services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         _provider = services.BuildServiceProvider();
 
