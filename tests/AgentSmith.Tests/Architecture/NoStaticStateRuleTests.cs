@@ -35,9 +35,8 @@ public sealed class NoStaticStateRuleTests
     private static readonly Type[] DataTableHolders =
     [
         typeof(MasterPromptTokens),
-        // 2026-09-28-89f1d: the studio's role names and Jira path keys, each with its accessors —
-        // fixed tables, so the catalog read and the patch write cannot spell them differently.
-        typeof(AgentSmith.Infrastructure.Core.Services.Configuration.Studio.StudioModelRoles),
+        // 2026-09-28-89f1d: the studio's Jira path keys, with their accessors — a fixed table,
+        // so the catalog read and the patch write cannot spell them differently.
         typeof(AgentSmith.Infrastructure.Core.Services.Configuration.Studio.JiraEndpointsMap),
         // 2026-09-27-5c1ea: the states Azure DevOps calls open when an operator configured none —
         // three literals, read by the discovery lister and by the ticket search so the two cannot

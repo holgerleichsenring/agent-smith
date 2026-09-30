@@ -82,7 +82,7 @@ public sealed class ChatClientFactory(
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Agent probe failed for model {Model}", agent.Model);
+            _logger.LogDebug(ex, "Agent probe failed for model {Model}", new ModelRoleChain(agent).PrimaryModel);
             return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
         }
     }
@@ -217,7 +217,7 @@ public sealed class ChatClientFactory(
         IChatClient bare, AgentConfig agent, ModelAssignment assignment, string providerType)
     {
         var options = LlmRateBudget.For(agent, providerType);
-        var modelKey = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
+        var modelKey = string.IsNullOrEmpty(assignment.Model) ? new ModelRoleChain(agent).PrimaryModel : assignment.Model;
         var limiter = rateLimiterRegistry.GetOrCreate(providerType, modelKey ?? "default", options);
         var label = $"{providerType}/{modelKey}";
         return new RateLimitingChatClient(

@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// 2026-09-23-7868b: contextGeneration is an optional role like reasoning — the
 /// catalog stops emitting a role the operator never stated, the patch creates the
 /// assignment when one is stated, and the capabilities descriptor the form and the
-/// upsert validation both read says so.
+/// upsert validation both read says so. 2026-09-30-62bab: primary is the one required role.
 /// </summary>
 public sealed class ContextGenerationRoleOptionalTests
 {
@@ -37,16 +37,16 @@ public sealed class ContextGenerationRoleOptionalTests
     }
 
     [Fact]
-    public void RawAgentModelPatch_RoleSavedWithAnEmptyModel_IsUnset()
+    public void RawAgentModelPatch_RoleSavedWithoutAnEntry_IsUnset()
     {
         var agent = new AgentConfig
         {
             Model = "m", Models = new ModelRegistryConfig { Scout = new() { Model = "claude-haiku-4-5-20251001" } },
         };
 
-        RawAgentModelPatch.Apply(Entity("scout", new AgentModelAssignment("", null)), agent);
+        RawAgentModelPatch.Apply(Entity("scout", ""), agent);
 
-        agent.Models!.Scout.Should().BeNull("an empty model is how the studio clears a role");
+        agent.Models!.Scout.Should().BeNull("an empty entry name is how the studio clears a role");
     }
 
     [Fact]
@@ -54,23 +54,23 @@ public sealed class ContextGenerationRoleOptionalTests
     {
         var agent = new AgentConfig { Model = "m" };
 
-        RawAgentModelPatch.Apply(Entity(new AgentModelAssignment("gemini-2.5-flash", null, 3072)), agent);
+        RawAgentModelPatch.Apply(Entity("contextGeneration", "flash"), agent);
 
-        agent.Models!.ContextGeneration!.Model.Should().Be("gemini-2.5-flash");
-        agent.Models.ContextGeneration.MaxTokens.Should().Be(3072);
+        agent.Models!.ContextGeneration!.Use.Should().Be("flash");
     }
 
     [Fact]
-    public void ConfigStudioCapabilities_EveryRoleButCoding_IsOptional() =>
+    public void ConfigStudioCapabilities_EveryRoleButPrimary_IsOptional() =>
         ConfigStudioCapabilities.RoleCapabilities
-            .Should().OnlyContain(r => r.Optional == (r.Key != ConfigStudioCapabilities.ReservedCodingRole));
+            .Should().OnlyContain(r => r.Optional == (r.Key != "primary"));
 
-    private static AgentEntity Entity(AgentModelAssignment contextGeneration) =>
-        Entity("contextGeneration", contextGeneration);
-
-    private static AgentEntity Entity(string role, AgentModelAssignment assignment) =>
+    private static AgentEntity Entity(string role, string use) =>
         new(
             "agent", "stub", null, null, null, null,
-            new Dictionary<string, AgentModelAssignment> { [role] = assignment },
+            new Dictionary<string, AgentCatalogModel>
+            {
+                ["main"] = new("gpt-5"), ["flash"] = new("gemini-2.5-flash", MaxTokens: 3072),
+            },
+            new Dictionary<string, string> { ["primary"] = "main", [role] = use },
             null, null, null, null);
 }

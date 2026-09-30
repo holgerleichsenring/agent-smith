@@ -32,10 +32,11 @@ public sealed class LlmReachableCheck(
         foreach (var (name, agent) in config.Agents)
         {
             var probe = await chatClientFactory.ProbeAsync(agent, cancellationToken);
+            var label = $"{name} ({agent.Type}/{new ModelRoleChain(agent).PrimaryModel})";
             if (probe.Ok)
-                lines.Add($"{name} ({agent.Type}/{agent.Model}): ok {probe.LatencyMs}ms, {DescribeRateLimit(agent)}");
+                lines.Add($"{label}: ok {probe.LatencyMs}ms, {DescribeRateLimit(agent)}");
             else
-                failures.Add($"{name} ({agent.Type}/{agent.Model}): {probe.Error}");
+                failures.Add($"{label}: {probe.Error}");
         }
 
         if (failures.Count > 0)

@@ -20,10 +20,12 @@ public sealed class PipelineCostTrackerCostTruthTests
     {
         var resolver = new ModelPricingResolver();
 
-        resolver.Resolve("claude-sonnet-5")!.InputPerMillion.Should().Be(3.0m);
+        // 2026-09-30-62baa: was 3.0 from the hand table, which was wrong; the bundled
+        // list carries the first-party rate of $2/$10.
+        resolver.Resolve("claude-sonnet-5")!.InputPerMillion.Should().Be(2.0m);
         resolver.Resolve("claude-opus-4-8")!.OutputPerMillion.Should().Be(25.0m);
         resolver.Resolve("claude-fable-5")!.InputPerMillion.Should().Be(10.0m);
-        // Dated snapshot ids resolve via alias prefix; Haiku 4.5 is $1/$5
+        // Dated snapshot ids resolve (listed exactly, else via prefix); Haiku 4.5 is $1/$5
         // (the old table carried Haiku 3.5's 0.80/4.0).
         var haiku = resolver.Resolve("claude-haiku-4-5-20251001")!;
         haiku.InputPerMillion.Should().Be(1.0m);
@@ -92,6 +94,18 @@ public sealed class PipelineCostTrackerCostTruthTests
         implementation.Cost.Should().Be(10.10m);
         implementation.Model.Should().Be("cheap+expensive");
         summary.Phases.Values.Sum(p => p.Cost).Should().Be(tracker.EstimateCostUsd());
+    }
+
+    [Fact]
+    public void Track_ListPricedModelWithoutPricingBlock_PricesNonZero()
+    {
+        // 2026-09-30-62baa: gpt-5.6 is priced by the bundled list alone ($4/M input).
+        var tracker = new PipelineCostTracker();
+
+        tracker.Track(BuildResponse("gpt-5.6", input: 1_000_000, output: 0));
+
+        tracker.UnpricedTokensByModel.Should().BeEmpty();
+        tracker.EstimateCostUsd().Should().Be(4.0m);
     }
 
     [Fact]

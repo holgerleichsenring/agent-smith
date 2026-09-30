@@ -23,19 +23,14 @@ internal static class ConfigCatalogMapper
             Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
             Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
 
-    // p0345c: the FULL raw agent surface. Model routing surfaces the roles the operator
-    // SET — an unset role inherits and shows as empty; the reserved "coding" role carries
-    // the top-level model/deployment pair. Sections not surfaced here (parallelism, rate
-    // limit, loop tuning) survive upsert untouched via the patch builders.
+    // p0345c: the FULL raw agent surface. 2026-09-30-62bab: models surface in catalog form —
+    // AgentCatalogProjection turns inline roles and the agent's own model into entries — and
+    // each role the operator SET names its entry; an unset role inherits and is absent.
+    // Sections not surfaced here (parallelism, rate limit, loop tuning) survive upsert
+    // untouched via the patch builders.
     private static AgentEntity ToAgent(string id, AgentConfig agent)
     {
-        var models = new Dictionary<string, AgentModelAssignment>
-        {
-            ["coding"] = new(agent.Model, agent.Deployment),
-        };
-        if (agent.Models is { } registry)
-            foreach (var (role, assignment) in StudioModelRoles.Of(registry))
-                models[role] = ToAssignment(assignment);
+        var (catalog, models) = AgentCatalogProjection.Of(agent);
         return new AgentEntity(
             id,
             agent.Type,
@@ -43,6 +38,7 @@ internal static class ConfigCatalogMapper
             agent.Endpoint,
             agent.ApiVersion,
             agent.NetworkTimeoutSeconds,
+            catalog,
             models,
             agent.Pricing.Models.Count > 0
                 ? new AgentPricing(agent.Pricing.Models.ToDictionary(
@@ -64,9 +60,6 @@ internal static class ConfigCatalogMapper
                 agent.Retry.BackoffMultiplier,
                 agent.Retry.MaxDelayMs));
     }
-
-    private static AgentModelAssignment ToAssignment(ModelAssignment assignment) =>
-        new(assignment.Model, assignment.Deployment, assignment.MaxTokens, assignment.ContextWindowTokens);
 
     // p0345c: full tracker surface — identity + tracker-owned workflow + polling.
     // Empty raw collections surface as null ("nothing declared"), matching the

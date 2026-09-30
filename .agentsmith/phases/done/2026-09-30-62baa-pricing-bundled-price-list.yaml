@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-30-62baa
+goal: "A model the public price list knows is priced without anyone typing a price; the agent's pricing table only overrides, and the studio accepts a list-priced role model."
+
+applies_to: "backend (the base pricing resolver, a bundled price-list snapshot, the studio's agent validation, one read endpoint)"
+
+requires: []
+
+facts:
+  - claim: "The base price table is 16 hand-kept entries, matched exact then longest prefix; an id outside it is recorded as unpriced and counted at $0."
+    evidence: "src/backend/AgentSmith.Application/Services/ModelPricingResolver.cs:14-59; src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:39"
+  - claim: "Every lookup goes through IModelPricingResolver, overlaid by the agent's pricing table (exact, then longest prefix, then base)."
+    evidence: "src/backend/AgentSmith.Contracts/Services/OverlayModelPricingResolver.cs:30-39; ChatClientFactory.cs:142; PipelineCostTracker.cs:57"
+  - claim: "The studio refuses an agent whose role model has no EXACT, case-sensitive key in the agent's own pricing table, although the runtime would price it from the base table."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:179-184"
+  - claim: "The hand table prices claude-sonnet-5 at $3/$15; the current first-party rate is $2/$10, which the public list carries."
+    evidence: "ModelPricingResolver.cs:24; claude-api reference (models table, cached 2026-06-24); LiteLLM list checked 2026-09-30"
+  - claim: "The public LiteLLM list carries input/output/cache-read cost per token and max_input_tokens per id; of the hand table's ids it lacks claude-sonnet-4-20250514, claude-opus-4-20250514 and llama-3.3-70b-versatile."
+    evidence: "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json (4439 entries, 2026-09-30); config/agentsmith.example.yml:209,227"
+
+scope:
+  in: "A bundled snapshot of the list, read as the base table; a committed supplement for ids the list lacks; a script that refreshes the snapshot; the studio validation asking a resolver; GET /api/config/model-prices for the drawer."
+  out: "Fetching the list at runtime — the deployment may have no egress, and a price that moves between two runs of one budget is worse than a stale one. Refreshing is a release step, like the skills pin."
+
+decisions:
+  - key: "THE SNAPSHOT REPLACES THE HAND TABLE. The hand table was already wrong for claude-sonnet-5. A supplement file holds ONLY ids the list lacks, and the snapshot wins where both have one."
+  - key: "THE SCRIPT NORMALISES, THE RUNTIME ONLY READS. It keeps chat/responses entries with an input cost (sample_spec and non-model rows drop), converts per-token floats to per-million decimals rounded to 6 places, and indexes a provider-prefixed key under its bare name only when no unprefixed entry exists and all prefixed entries of that bare name agree on price — an ambiguous bare name stays unindexed."
+  - key: "LOOKUP IS EXACT, THEN BARE NAME, THEN LONGEST PREFIX at runtime, so a dated response id (gpt-4.1-2025-04-14) still prices."
+  - key: "THE STUDIO ACCEPTS EXACT OR BARE-NAME MATCHES ONLY. Prefix matching would accept any typo that starts with a real id (gpt-5.6-terra as gpt-5.6); at save time the operator must name a model the list or the override knows."
+  - key: "THE OVERRIDE TABLE KEEPS ITS SHAPE. agents.<name>.pricing.models stays the operator's word over the list, so no stored config changes."
+
+steps:
+  - id: snapshot
+    action: "tools/update-model-prices.py writes src/backend/AgentSmith.Application/Resources/model-prices.json ({source, fetchedAt, models:{id:{inputPerMillion, outputPerMillion, cacheReadPerMillion?, contextWindowTokens?, provider}}}); model-prices.supplement.json beside it; both embedded."
+  - id: resolver
+    action: "BundledModelPriceList (parse + index, exact/bare lookup) behind IBundledModelPriceList; ModelPricingResolver's parameterless ctor reads it (18 test call sites and PipelineCostTracker.cs:57 keep working); DefaultPricing goes."
+  - id: validation
+    action: "ValidateAgent takes a strict price check (override exact/bare, else list exact/bare); DbConfigStore injects IBundledModelPriceList; DbConfigTestHarness.cs:39, ConfigStudioApiSmokeTests.cs:460, AccessTestHarness.cs:55 pass one."
+  - id: endpoint
+    action: "GET /api/config/model-prices returns {source, fetchedAt, models:[{id, provider, inputPerMillion, outputPerMillion, cacheReadPerMillion, contextWindowTokens}]}."
+  - id: docs
+    action: "cost-tracking.md and ai-providers.md: prices come from the bundled list, pricing: overrides."
+
+tests:
+  - "BundledModelPriceListTests: snapshot parses; every model id in config/agentsmith.example.yml resolves; bare-name and ambiguous-bare cases"
+  - "PipelineCostTrackerCostTruthTests: claude-sonnet-5 expectation moves to 2.0 (stated, not silent)"
+  - "ConfigCapabilitiesTests: list-priced role model accepted; gpt-5.6-terra refused"
+  - "endpoint returns the snapshot's fetchedAt"
+
+done:
+  - "a role on gpt-5.6 with no pricing block saves in the studio and prices non-zero in a run"
+  - "build and all tests green"

@@ -258,11 +258,13 @@ export interface ConnectionTypeDescriptor {
   fields: CapabilityField[];
 }
 
-/** p0351: one fixed model-routing role — the reserved `coding` plus the TaskType
- *  roles; the agent form renders these as fixed rows, not a free-text add-role box. */
+/** p0351: one fixed model-routing role (the TaskType roles; `primary` is the one
+ *  required). 2026-09-30-62bab: `needsStrong` marks a role whose answer every later step
+ *  builds on — the drawer warns when such a role resolves to an entry tiered fast. */
 export interface ModelRoleCapability {
   key: string;
   optional: boolean;
+  needsStrong: boolean;
 }
 
 export interface ConfigCapabilities {
@@ -377,20 +379,48 @@ export async function fetchConnectionRepos(
     `/api/config/connections/${encodeURIComponent(connectionId)}/repos`, signal);
 }
 
-/** One per-role model entry (p0345c AgentEntity v2) — model name plus the
- *  optional Azure deployment, per-call output cap and (2026-08-27-3eb1) the
- *  input window the deployment accepts. */
-export interface AgentModelEntry {
+/** The operator's word on a catalog entry; null = untiered, never reported. */
+export type ModelTier = "strong" | "fast";
+
+/** 2026-09-30-62bab: one model of an agent's catalog, declared once by name — the model
+ *  id the price list knows, the optional Azure deployment, the per-call output cap (null
+ *  = 8192), the input window, and a provider/endpoint when it answers somewhere other
+ *  than the agent's own. Every field the server sends is nullable on the wire. */
+export interface AgentCatalogModel {
   model: string;
-  deployment?: string;
-  maxTokens?: number;
-  contextWindowTokens?: number;
+  deployment?: string | null;
+  maxTokens?: number | null;
+  contextWindowTokens?: number | null;
+  providerType?: string | null;
+  endpoint?: string | null;
+  tier?: ModelTier | null;
 }
 
 export interface AgentPricingEntry {
   inputPerMillion: number;
   outputPerMillion: number;
-  cacheReadPerMillion?: number;
+  cacheReadPerMillion?: number | null;
+}
+
+/** 2026-09-30-62baa: one model of the bundled public price list. */
+export interface ListedModelPrice {
+  id: string;
+  provider: string;
+  inputPerMillion: number;
+  outputPerMillion: number;
+  cacheReadPerMillion: number | null;
+  contextWindowTokens: number | null;
+}
+
+/** The bundled price list the server prices from, and when it was taken. */
+export interface ModelPriceList {
+  source: string;
+  fetchedAt: string;
+  models: ListedModelPrice[];
+}
+
+export async function fetchModelPrices(signal?: AbortSignal): Promise<ModelPriceList> {
+  return getJson<ModelPriceList>(`/api/config/model-prices`, signal);
 }
 
 export interface AgentCacheConfig {
@@ -423,8 +453,12 @@ export interface StudioAgent {
   endpoint?: string;
   apiVersion?: string;
   networkTimeoutSeconds?: number;
-  models: Record<string, AgentModelEntry>;
-  pricing?: { models: Record<string, AgentPricingEntry> };
+  /** 2026-09-30-62bab: entry name → the model it declares. */
+  catalog: Record<string, AgentCatalogModel>;
+  /** Role key → catalog entry name; an absent role (or "") inherits. */
+  models: Record<string, string>;
+  /** Null/absent keeps what is stored; `{ models: {} }` clears it. */
+  pricing?: { models: Record<string, AgentPricingEntry> } | null;
   cache?: AgentCacheConfig;
   compaction?: AgentCompactionConfig;
   retry?: AgentRetryConfig;

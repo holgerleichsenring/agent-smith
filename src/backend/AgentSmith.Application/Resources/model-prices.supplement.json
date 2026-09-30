@@ -1,0 +1,22 @@
+{
+ "note": "Hand-kept prices for model ids the bundled list lacks. The list wins wherever both carry an id; delete an entry here once the list carries it.",
+ "models": {
+  "claude-opus-4-20250514": {
+   "inputPerMillion": 15.0,
+   "outputPerMillion": 75.0,
+   "cacheReadPerMillion": 1.5,
+   "provider": "anthropic"
+  },
+  "claude-sonnet-4-20250514": {
+   "inputPerMillion": 3.0,
+   "outputPerMillion": 15.0,
+   "cacheReadPerMillion": 0.3,
+   "provider": "anthropic"
+  },
+  "llama-3.3-70b-versatile": {
+   "inputPerMillion": 0.0,
+   "outputPerMillion": 0.0,
+   "provider": "groq"
+  }
+ }
+}

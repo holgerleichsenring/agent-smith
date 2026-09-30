@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
-using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Preflight.Run;
@@ -40,7 +39,8 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
                 $"the pipeline's agent is missing {string.Join(" and ", missing)}",
                 "name a provider type on the agent this pipeline resolves to "
                 + "(agents.<name>.type), and a model either as agents.<name>.model or as "
-                + "agents.<name>.models.primary.model"));
+                + "agents.<name>.models.primary.model, or a declared catalog entry as "
+                + "agents.<name>.models.primary.use"));
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ public sealed class ConfiguredAgentCheck(AgentSmithConfig config) : IRunPrefligh
     /// that will answer.
     /// </summary>
     private static string ResolvedModel(AgentConfig agent) =>
-        new ModelRoleChain(agent).For(TaskType.Primary).Model;
+        new ModelRoleChain(agent).PrimaryModel;
 
     private static IReadOnlyList<string> MissingFields(AgentConfig agent, string? model)
     {

@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
@@ -28,6 +29,12 @@ internal static class ConfigCapabilityEndpoints
             // already bundled under ride along, so the role-mapping form picks from them.
             Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))
                 with { Permissions = Permissions.All, BuiltInRoles = [.. BuiltInRoles.All.Keys] }))
+           .Needs(Permissions.ConfigRead);
+
+        // 2026-09-30-62baa: the bundled price list the base resolver prices from, with the
+        // date it was taken, so the studio can show what a model costs without a pricing block.
+        app.MapGet("/api/config/model-prices", ([FromServices] IBundledModelPriceList prices) =>
+            Results.Ok(new ModelPriceListView(prices.Source, prices.FetchedAt, prices.Models)))
            .Needs(Permissions.ConfigRead);
 
         // p0392: what the server would say about a draft the operator has not saved.

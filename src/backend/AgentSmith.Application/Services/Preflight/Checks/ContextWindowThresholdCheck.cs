@@ -32,7 +32,7 @@ public sealed class ContextWindowThresholdCheck(IPreflightConfigSource configSou
         var unreachable = new List<string>();
         var unstated = new List<string>();
         foreach (var (agentName, agent) in config.Agents)
-            foreach (var (role, assignment) in Roles(agent.Models))
+            foreach (var (role, assignment) in Roles(agent))
                 Classify(agentName, role, assignment, agent.Compaction, unreachable, unstated);
 
         return Task.FromResult(Report(unreachable, unstated));
@@ -72,15 +72,16 @@ public sealed class ContextWindowThresholdCheck(IPreflightConfigSource configSou
         return PreflightCheckResult.Pass(stated);
     }
 
-    private static IEnumerable<(string Role, ModelAssignment Assignment)> Roles(ModelRegistryConfig? models)
+    /// <summary>Every declared role with the assignment the chain resolves it to, so a role
+    /// naming a catalog entry is judged by that entry's window. A role that resolves through an
+    /// entry the catalog does not declare has no window to judge and is listed as unstated.</summary>
+    private static IEnumerable<(string Role, ModelAssignment Assignment)> Roles(AgentConfig agent)
     {
-        if (models is null) yield break;
-        if (models.Scout is { } scout) yield return ("scout", scout);
-        if (models.Primary is { } primary) yield return ("primary", primary);
-        if (models.Planning is { } planning) yield return ("planning", planning);
-        if (models.Reasoning is { } reasoning) yield return ("reasoning", reasoning);
-        if (models.Summarization is { } summarization) yield return ("summarization", summarization);
-        if (models.ContextGeneration is { } contextGeneration) yield return ("contextGeneration", contextGeneration);
-        if (models.CodeMapGeneration is { } codeMap) yield return ("codeMapGeneration", codeMap);
+        if (agent.Models is not { } models) yield break;
+        var chain = new ModelRoleChain(agent);
+        foreach (var slot in ModelRoleSlots.All.Where(s => s.Get(models) is not null))
+            yield return chain.TryFor(slot.Task) is { } assignment
+                ? (slot.Key, assignment)
+                : ($"{slot.Key} (catalog entry not declared)", new ModelAssignment());
     }
 }

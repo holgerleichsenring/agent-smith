@@ -73,6 +73,47 @@ public sealed class ContextWindowThresholdCheckTests
     }
 
     [Fact]
+    public async Task Preflight_AUseRole_IsJudgedByItsEntrysWindow()
+    {
+        var config = new AgentSmithConfig
+        {
+            Agents = new Dictionary<string, AgentConfig>
+            {
+                ["agent"] = new()
+                {
+                    Type = "openai",
+                    Catalog = new() { ["big"] = new() { Model = "gpt-5", ContextWindowTokens = 128000 } },
+                    Models = new ModelRegistryConfig { Primary = new() { Use = "big", ContextWindowTokens = 999999 } },
+                },
+            },
+        };
+
+        var result = await new ContextWindowThresholdCheck(FakePreflightConfigSource.Of(config))
+            .RunAsync(CancellationToken.None);
+
+        result.Status.Should().Be(PreflightStatus.Fail, "the entry's 128000, not the ignored inline field, is the window");
+        result.Message.Should().Contain("agent.primary").And.Contain("128000");
+    }
+
+    [Fact]
+    public async Task Preflight_AUseNamingAnUndeclaredEntry_IsListedNotThrown()
+    {
+        var config = new AgentSmithConfig
+        {
+            Agents = new Dictionary<string, AgentConfig>
+            {
+                ["agent"] = new() { Type = "openai", Models = new ModelRegistryConfig { Primary = new() { Use = "gone" } } },
+            },
+        };
+
+        var result = await new ContextWindowThresholdCheck(FakePreflightConfigSource.Of(config))
+            .RunAsync(CancellationToken.None);
+
+        result.Status.Should().Be(PreflightStatus.Pass);
+        result.Message.Should().Contain("agent.primary (catalog entry not declared)");
+    }
+
+    [Fact]
     public async Task Preflight_ConfigFailedToLoad_Skips()
     {
         var check = new ContextWindowThresholdCheck(

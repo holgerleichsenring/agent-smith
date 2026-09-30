@@ -79,7 +79,7 @@ vi.mock("@/lib/configApi", () => {
   });
   return {
     agentsApi: client([
-      { id: "azure_openai", provider: "Azure OpenAI", models: { coding: { model: "gpt-5.1" } }, keySecret: "KEY" },
+      { id: "azure_openai", provider: "Azure OpenAI", catalog: { "gpt-5.1": { model: "gpt-5.1" } }, models: { primary: "gpt-5.1" }, keySecret: "KEY" },
     ]),
     trackersApi: client([{ id: "azdo", type: "Azure DevOps", organization: "o", project: "p", authSecret: "PAT" }]),
     connectionsApi: client([]),

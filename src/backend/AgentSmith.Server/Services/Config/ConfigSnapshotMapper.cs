@@ -47,7 +47,7 @@ public static class ConfigSnapshotMapper
     private static ConfigAgent MapAgent(string name, AgentConfig agent) => new(
         Name: name,
         Type: agent.Type,
-        Model: agent.Model,
+        Model: new ModelRoleChain(agent).PrimaryModel,
         NetworkTimeoutSeconds: agent.NetworkTimeoutSeconds,
         MaxFixIterations: agent.MaxFixIterations,
         RequestsPerMinute: agent.RateLimit?.RequestsPerMinute,
@@ -132,7 +132,7 @@ public static class ConfigSnapshotMapper
         {
             if (ReferenceEquals(agent, project.Agent)) return name;
         }
-        return $"{project.Agent.Type}/{project.Agent.Model}";
+        return $"{project.Agent.Type}/{new ModelRoleChain(project.Agent).PrimaryModel}";
     }
 
     private static IReadOnlyList<string> PipelineNamesOf(ResolvedProject project)

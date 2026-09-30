@@ -75,11 +75,12 @@ public sealed class CapabilityFieldKindConverter : JsonStringEnumConverter<Capab
 
 /// <summary>
 /// One model-routing role the agent form renders as a fixed row (not free text).
-/// <see cref="Key"/> is the wire key the studio agent's <c>models</c> map uses
-/// (the reserved <c>coding</c> = the top-level model, plus the TaskType roles).
-/// <see cref="Optional"/> roles (reasoning) may be left unset.
+/// <see cref="Key"/> is the wire key the studio agent's <c>models</c> map uses (the
+/// camelCased TaskType). Primary is required; every <see cref="Optional"/> role may be
+/// left unset and inherits. <see cref="NeedsStrong"/> roles decide structure, so a
+/// catalog entry marked fast on one of them is reported.
 /// </summary>
-public sealed record ModelRoleCapability(string Key, bool Optional);
+public sealed record ModelRoleCapability(string Key, bool Optional, bool NeedsStrong);
 
 /// <summary>The per-type field set a tracker of <see cref="Type"/> needs.</summary>
 public sealed record TrackerTypeCapability(string Type, IReadOnlyList<CapabilityField> Fields);

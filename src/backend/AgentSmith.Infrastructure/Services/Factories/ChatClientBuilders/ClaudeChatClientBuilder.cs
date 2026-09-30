@@ -43,7 +43,7 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
         // set ModelId (Azure OpenAI infers via deployment), so the SDK sends a request
         // without a model → Anthropic 400 "model: Field required". Default ModelId
         // per-call from the resolved assignment so unaware callers keep working.
-        var defaultModel = string.IsNullOrEmpty(assignment.Model) ? agent.Model : assignment.Model;
+        var defaultModel = string.IsNullOrEmpty(assignment.Model) ? new ModelRoleChain(agent).PrimaryModel : assignment.Model;
         // p0323: revive the p0007 prompt-caching strategy on the M.E.AI path (it died
         // in p0119a when the last PromptCaching setter was deleted). The SDK's adapter
         // seeds its native MessageParameters from ChatOptions.RawRepresentationFactory
