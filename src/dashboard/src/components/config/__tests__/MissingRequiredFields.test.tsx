@@ -103,7 +103,7 @@ vi.mock("@/lib/configApi", () => {
       builtInRoles: [],
       // The OFFERABLE set (PipelinePresets.Names) — retired aliases are absent by design.
       pipelines: ["code", "security-scan"],
-      roles: [{ key: "coding", optional: false }],
+      roles: [{ key: "primary", optional: false, needsStrong: true }],
     }),
     // 2026-09-14-620e: the template form reads context names live; a wholesale
     // module mock has to declare it or the form throws on mount.

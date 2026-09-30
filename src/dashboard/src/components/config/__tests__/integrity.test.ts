@@ -6,7 +6,7 @@ import type { ConfigCatalog } from "../useConfigCatalog";
 import type { StudioProject } from "@/lib/configApi";
 
 const catalog: ConfigCatalog = {
-  agents: [{ id: "gpt5", provider: "openai", models: { coding: { model: "c" }, scan: { model: "s" } }, keySecret: "K" }],
+  agents: [{ id: "gpt5", provider: "openai", catalog: { c: { model: "c" }, s: { model: "s" } }, models: { primary: "c", scout: "s" }, keySecret: "K" }],
   trackers: [{ id: "azdo", type: "azure", organization: "o", project: "p", authSecret: "T" }],
   connections: [
     { id: "conn", type: "azure-devops", organization: "acme", project: "core", authSecret: "T", defaultBranch: "main" },

@@ -577,6 +577,10 @@
 .mock-config .dtab.on, .mock-dialog .dtab[aria-selected="true"] { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
 .mock-config .dtab[data-marked="true"] { color: var(--run); }
 .mock-config .dtab .dtab-mark { font-size: 9.5px; }
+/* 2026-09-30-62bab: the operator's tier on a model — strong filled ink, fast outlined. */
+.mock-config .tier-pill { font-size: 11px; font-weight: 560; padding: 1px 8px; border-radius: 999px; white-space: nowrap; flex: none; }
+.mock-config .tier-pill.strong { background: var(--ink); color: var(--bg); }
+.mock-config .tier-pill.fast { border: 1px solid var(--line); color: var(--ink-2); }
 @media (prefers-reduced-motion: reduce) { .mock-config .drawer, .mock-config .dbg { transition: none; } }
 .mock-config .dh { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .mock-config .dh .dh-ic { width: 32px; height: 32px; border-radius: 9px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 15px; }

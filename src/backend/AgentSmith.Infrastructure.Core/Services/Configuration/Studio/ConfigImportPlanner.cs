@@ -19,7 +19,9 @@ public sealed class ConfigImportPlanner(
 
     public ConfigImportPlan Plan(string text, string source)
     {
-        var docs = assembler.Decompose(yaml.Deserialize(text))
+        var raw = yaml.Deserialize(text);
+        CatalogUseRule.Validate(raw.Agents);
+        var docs = assembler.Decompose(raw)
             .Where(d => d.Type != ConfigDocTypes.Persistence)
             .ToList();
         var stored = trees.FromStoredDocuments([.. docs.Select(d => new ConfigDocRow(d.Type, d.Id, d.Doc, 0))]);

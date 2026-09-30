@@ -198,15 +198,21 @@ persistence:
 # Each named entry is the full AgentConfig that projects can reference by name.
 # Same agent reused across projects → defined once, edited once.
 #
-# `models:` routes each role (primary, scout, planning, reasoning, summarization,
-# context_generation, code_map_generation) to its own model. No role has a built-in
-# model: an unset primary is the agent's own `model`, every other unset role is
-# primary (code_map_generation is scout, then primary), with primary's max_tokens.
-# Name a role only to send it somewhere else — a cheaper scout, say.
+# `catalog:` declares the models an agent may call, once each, by an entry name you choose:
+# model id, deployment, max_tokens, context_window_tokens, provider_type, endpoint, and an
+# optional `tier: strong | fast`. `models:` routes each role (primary, scout, planning,
+# reasoning, summarization, context_generation, code_map_generation) to an entry with
+# `use:`. Roles that decide structure — primary, planning, reasoning, context_generation,
+# code_map_generation — need a strong model; one on an entry you marked `fast` is reported
+# at startup (an untiered entry never is). No role has a built-in model: an unset role
+# inherits primary (code_map_generation is scout, then primary).
+#
+# The inline form still loads: a role may state `model:`/`max_tokens:`/... itself, and an
+# unset primary is the agent's own `model:` — the claude-scan agent below uses it. With
+# `use:` set, the inline fields beside it are ignored. The config studio saves the catalog form.
 agents:
   claude-default:
     type: claude
-    model: claude-sonnet-4-20250514
     retry:
       max_retries: 5
       initial_delay_ms: 2000
@@ -219,19 +225,24 @@ agents:
       is_enabled: true
       max_context_tokens: 200000
       keep_recent_iterations: 3          # compaction summarizes with the summarization role
-    models:
-      scout:
-        model: claude-haiku-4-5-20251001
-        max_tokens: 4096
-      primary:
+    catalog:
+      sonnet:
         model: claude-sonnet-4-20250514
         max_tokens: 8192
-      planning:
-        model: claude-sonnet-4-20250514
-        max_tokens: 4096
-      summarization:
+        tier: strong
+      haiku:
         model: claude-haiku-4-5-20251001
-        max_tokens: 2048
+        max_tokens: 4096
+        tier: fast
+    models:
+      primary:
+        use: sonnet
+      planning:
+        use: sonnet
+      scout:
+        use: haiku
+      summarization:
+        use: haiku
     pricing:
       models:
         claude-sonnet-4-20250514:
@@ -266,8 +277,9 @@ agents:
   #         input_per_million: 0.0
   #         output_per_million: 0.0
 
-  # A second Claude agent — the api-security project below runs on it. It names only
-  # primary and planning, so scout and summarization inherit primary (and its max_tokens).
+  # A second Claude agent — the api-security project below runs on it. It uses the inline
+  # form and names only primary and planning, so scout and summarization inherit primary
+  # (and its max_tokens).
   claude-scan:
     type: claude
     model: claude-sonnet-4-20250514

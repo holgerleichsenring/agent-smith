@@ -31,7 +31,7 @@ public sealed class CopilotChatClientBuilder(
                 + "token must belong to a person with a seat.");
 
         var template = new CopilotSessionRequest(
-            Model: string.IsNullOrWhiteSpace(assignment.Model) ? agent.Model : assignment.Model,
+            Model: string.IsNullOrWhiteSpace(assignment.Model) ? new ModelRoleChain(agent).PrimaryModel : assignment.Model,
             ReasoningEffort: null,
             SystemMessage: null,
             SeatToken: seatToken,

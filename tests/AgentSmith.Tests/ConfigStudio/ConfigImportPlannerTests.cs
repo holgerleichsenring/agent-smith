@@ -65,6 +65,46 @@ public sealed class ConfigImportPlannerTests
     }
 
     [Fact]
+    public void Plan_CatalogAgent_DropsNothing()
+    {
+        var plan = Planner.Plan(CatalogYaml("use: main"), "test.yml");
+
+        plan.Dropped.Should().BeEmpty("catalog, use, tier and context_window_tokens are settings the store keeps");
+    }
+
+    [Fact]
+    public void Plan_UseNamingAnUndeclaredEntry_IsRefused()
+    {
+        var act = () => Planner.Plan(CatalogYaml("use: gone"), "test.yml");
+
+        act.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*Agent 'a'*role 'primary'*'gone'*");
+    }
+
+    [Fact]
+    public void Plan_UseBesideAnInlineModel_IsRefused()
+    {
+        var act = () => Planner.Plan(CatalogYaml("use: main\n        model: gpt-5"), "test.yml");
+
+        act.Should().Throw<AgentSmith.Domain.Exceptions.ConfigurationException>()
+            .WithMessage("*role 'primary' carries both use: and an inline model*");
+    }
+
+    private static string CatalogYaml(string primary) => $$"""
+        agents:
+          a:
+            type: openai
+            catalog:
+              main:
+                model: gpt-5
+                context_window_tokens: 400000
+                tier: strong
+            models:
+              primary:
+                {{primary}}
+        """;
+
+    [Fact]
     public void Plan_RepoMappingForm_IsKept()
     {
         var plan = Planner.Plan("""

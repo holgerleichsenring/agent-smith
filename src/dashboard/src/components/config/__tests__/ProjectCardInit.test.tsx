@@ -19,7 +19,7 @@ const PROJECT: StudioProject = {
 };
 
 const CATALOG: ConfigCatalog = {
-  agents: [{ id: "claude", provider: "anthropic", models: {}, keySecret: null }],
+  agents: [{ id: "claude", provider: "anthropic", catalog: {}, models: {}, keySecret: null }],
   trackers: [{ id: "azdo", type: "azure", authSecret: "AZDO_PAT" }],
   connections: [],
   repos: [{ id: "sample-server", name: "sample-server", branch: "main" }],

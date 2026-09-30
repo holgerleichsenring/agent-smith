@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-30-62bab: "AN AGENT DECLARES ITS MODELS ONCE AND EACH ACTIVITY PICKS ONE (config, studio, dashboard). Named catalog with tier; roles name entries via use; coding folded into primary; fast-on-strong finding; drawer tabs Models/Activities/Provider/Tuning with list-priced cards. -> .agentsmith/phases/done/2026-09-30-62bab-model-catalog-activities.yaml"
     2026-09-30-62baa: "A MODEL THE PUBLIC PRICE LIST KNOWS IS PRICED WITHOUT A PRICING BLOCK (pricing, studio, config API). Bundled LiteLLM snapshot + supplement replace the hand table; exact, bare, prefix lookup; studio accepts list or override; GET /api/config/model-prices; claude-sonnet-5 now $2/$10. -> .agentsmith/phases/done/2026-09-30-62baa-pricing-bundled-price-list.yaml"
     2026-09-28-89f1h: "NOTHING SPAWNS A CLI JOB ANY MORE (server, config, dashboard, deploy). Spawner family, orchestrator image/pod/settings, CLI job mode and dead chat bus plumbing gone; footprint is sandboxes only; preflight probes the composed backend; kubeconfig fallback moved to the k8s sandbox; replies follow the intent platform. -> .agentsmith/phases/done/2026-09-28-89f1h-job-spawner-removal.yaml"
     2026-09-28-89f1g: "A CHAT THREAD FOLLOWS THE RUN IT STARTED (chat, persistence). DB binding run->platform/channel/thread per provider; every replica relays questions once, answers go through the durable inbox, the outcome with PR urls or reason closes it; real platform routing, per-thread guard, live dashboard URL. -> .agentsmith/phases/done/2026-09-28-89f1g-chat-run-binding.yaml"

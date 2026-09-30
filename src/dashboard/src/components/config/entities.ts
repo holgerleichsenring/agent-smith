@@ -105,10 +105,10 @@ export const ENTITY_CLIENT: Record<ConfigEntityKind, CrudClient<StudioEntity & {
 export function blankEntity(kind: ConfigEntityKind): StudioEntity {
   switch (kind) {
     case "agents":
-      // p0345c: roles are ADDED in the sectioned form — a fresh draft carries
-      // none; optional sections (pricing/cache/compaction/retry) stay absent
-      // until the operator adds them, so they are never persisted untouched.
-      return { id: "", provider: "", models: {}, keySecret: null };
+      // p0345c: optional sections (pricing/cache/compaction/retry) stay absent until
+      // the operator adds them, so they are never persisted untouched.
+      // 2026-09-30-62bab: models are declared in the catalog; roles name entries.
+      return { id: "", provider: "", catalog: {}, models: {}, keySecret: null };
     case "trackers":
       // p0345c: everything beyond type + auth is per-type and comes from the
       // capabilities descriptor once a type is picked.

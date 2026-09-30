@@ -100,6 +100,22 @@ public sealed class ChatAdapterWireTests : IDisposable
     }
 
     [Fact]
+    public async Task Anthropic_AssignmentWithoutModel_SendsTheChainsPrimaryNotAgentModel()
+    {
+        // 2026-09-30-62bab: a studio-saved agent has no agent.model; the fallback reads the
+        // primary the chain resolves through the catalog.
+        var handler = new RecordingHandler(AnthropicResponse());
+        var agent = AnthropicAgent();
+        agent.Catalog["sonnet"] = new CatalogModel { Model = "claude-sonnet-4-6" };
+        agent.Models = new ModelRegistryConfig { Primary = new() { Use = "sonnet" } };
+        var client = new ClaudeChatClientBuilder(handler).Build(agent, new ModelAssignment());
+
+        await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")], new ChatOptions());
+
+        handler.LastBody.Should().Contain("claude-sonnet-4-6");
+    }
+
+    [Fact]
     public async Task Anthropic_ResponseWithToolUse_ParsesToFunctionCallContent()
     {
         var handler = new RecordingHandler(AnthropicResponse());

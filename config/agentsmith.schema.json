@@ -457,9 +457,14 @@
             "keep_recent_iterations": { "type": "integer", "description": "Default 3." }
           }
         },
+        "catalog": {
+          "type": "object",
+          "description": "The models this agent may call, by entry name. A role under models: picks one with use:, so two roles on one deployment are one entry.",
+          "additionalProperties": { "$ref": "#/$defs/catalogModel" }
+        },
         "models": {
           "type": "object",
-          "description": "Per-role model routing. No role has a built-in model: an unset primary is the agent's model, every other unset role is primary (code_map_generation is scout, then primary), with primary's max_tokens.",
+          "description": "Per-role model routing. A role names a catalog entry with use:, or states its model inline. No role has a built-in model: an unset primary is the agent's model, every other unset role is primary (code_map_generation is scout, then primary), with primary's max_tokens.",
           "additionalProperties": false,
           "properties": {
             "primary": { "$ref": "#/$defs/modelAssignment" },
@@ -831,11 +836,40 @@
         }
       }
     },
+    "catalogModel": {
+      "type": "object",
+      "description": "One model the agent may call, declared once.",
+      "additionalProperties": false,
+      "required": ["model"],
+      "properties": {
+        "model": { "type": "string", "description": "The model id." },
+        "deployment": { "type": "string", "description": "Azure OpenAI deployment." },
+        "max_tokens": { "type": "integer", "description": "Output cap. Default 8192." },
+        "context_window_tokens": {
+          "type": "integer",
+          "description": "The input window the deployment accepts. Unset: nothing is derived from it."
+        },
+        "provider_type": { "type": "string", "description": "Answer on another provider than the agent's type." },
+        "endpoint": {
+          "type": "string",
+          "description": "This model's own host. Unset: the agent's endpoint, when it runs on the agent's provider."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["strong", "fast"],
+          "description": "The operator's word for the model. A role that decides structure (primary, planning, reasoning, context_generation, code_map_generation) on an entry marked fast is reported; an untiered entry never is."
+        }
+      }
+    },
     "modelAssignment": {
       "type": "object",
-      "description": "One role's model.",
+      "description": "One role's model: a catalog entry named with use:, or the model stated inline.",
       "additionalProperties": false,
       "properties": {
+        "use": {
+          "type": "string",
+          "description": "The catalog entry this role answers with. Set, it wins: every inline field beside it is ignored."
+        },
         "model": { "type": "string", "description": "The model id. A role without one is unset and inherits." },
         "max_tokens": { "type": "integer", "description": "Output cap. Default 8192." },
         "deployment": { "type": "string", "description": "Azure OpenAI deployment for this role." },

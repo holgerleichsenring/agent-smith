@@ -19,7 +19,7 @@ vi.mock("@/lib/configApi", async (importOriginal) => ({
 }));
 
 const catalog: ConfigCatalog = {
-  agents: [{ id: "gpt5", provider: "openai", models: { coding: { model: "c" } }, keySecret: "K" }],
+  agents: [{ id: "gpt5", provider: "openai", catalog: { c: { model: "c" } }, models: { primary: "c" }, keySecret: "K" }],
   trackers: [{ id: "azdo", type: "azure", organization: "o", project: "p", authSecret: "T" }],
   connections: [],
   repos: [{ id: "api", name: "api", branch: "main" }],
