@@ -1,16 +1,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using AgentSmith.Cli.Services;
-using AgentSmith.Contracts.Models.ConfigStudio;
-using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Exceptions;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
-using AgentSmith.Infrastructure.Persistence;
-using AgentSmith.Infrastructure.Persistence.Extensions;
-using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Services;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Cli.Commands;
@@ -78,7 +71,7 @@ internal static class ConfigCommand
 
     private static async Task<int> ExportAsync(string configPath, bool verbose, string? output)
     {
-        await using var db = BuildContext(configPath, verbose);
+        await using var db = new ConfigStoreContextFactory().Create(configPath, verbose);
         var raw = new ConfigDocumentAssembler().Assemble(new ConfigDocumentRepository(db).LoadAll());
         var yaml = new RawConfigYaml().Serialize(raw);
         if (string.IsNullOrEmpty(output)) Console.WriteLine(yaml);
@@ -86,48 +79,6 @@ internal static class ConfigCommand
         return 0;
     }
 
-    private static async Task<int> ImportAsync(string configPath, bool verbose, string yamlPath, bool force)
-    {
-        if (!File.Exists(yamlPath))
-        {
-            Console.Error.WriteLine($"Import file not found: {yamlPath}");
-            return 1;
-        }
-        using var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
-        // The planner leaves out persistence (bootstrap-only) and names every key it drops.
-        var plan = services.GetRequiredService<ConfigImportPlanner>().Plan(await File.ReadAllTextAsync(yamlPath), yamlPath);
-        var writes = plan.Docs.Select(ToWrite).ToList();
-        foreach (var dropped in plan.Dropped)
-            Console.Error.WriteLine($"Not imported: {dropped.Path} — {dropped.Reason}");
-        await using var db = BuildContext(configPath, verbose);
-        try
-        {
-            new ConfigImportRepository(db).Import(writes, force);
-            Console.WriteLine($"Imported {writes.Count} config entities from {yamlPath}.");
-            return 0;
-        }
-        catch (ConfigurationException ex)
-        {
-            Console.Error.WriteLine(ex.Message);
-            return 1;
-        }
-    }
-
-    private static ConfigDocWrite ToWrite(DecomposedConfigDoc doc) =>
-        new(doc.Type, doc.Id, doc.Doc, ExpectedVersion: null, doc.Edges, ChangedBy: "cli-import");
-
-    private static AgentSmithDbContext BuildContext(string configPath, bool verbose)
-    {
-        var services = ServiceProviderFactory.Build(configPath, verbose, headless: true);
-        var persistence = services.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath).Persistence;
-        var provider = Enum.TryParse<PersistenceProvider>(persistence.Provider, ignoreCase: true, out var p)
-            ? p : PersistenceProvider.Sqlite;
-        var options = new PersistenceOptions { Provider = provider, ConnectionString = persistence.ConnectionString };
-        var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
-        builder.UseProvider(options);
-        if (provider != PersistenceProvider.Sqlite)
-            builder.ConfigureWarnings(w =>
-                w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
-        return new AgentSmithDbContext(builder.Options);
-    }
+    private static Task<int> ImportAsync(string configPath, bool verbose, string yamlPath, bool force) =>
+        new ConfigImportRunner(new ConfigStoreContextFactory()).RunAsync(configPath, verbose, yamlPath, force);
 }
