@@ -45,6 +45,10 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Prompts/Resources/**/*.md" />
+    <!-- 2026-09-30-62baa: the bundled model price list (refreshed by
+         tools/update-model-prices.py) and the hand-kept supplement for ids it lacks. -->
+    <EmbeddedResource Include="Resources/model-prices.json" LogicalName="AgentSmith.Application.Resources.model-prices.json" />
+    <EmbeddedResource Include="Resources/model-prices.supplement.json" LogicalName="AgentSmith.Application.Resources.model-prices.supplement.json" />
     <!-- p0128a: schemas live under .agentsmith/schemas/ as the source-of-truth visible
          to skill authors and operators; embedded into the binary via Link so the runtime
          loader (JsonSchemaLoader) can resolve them without filesystem dependence. -->

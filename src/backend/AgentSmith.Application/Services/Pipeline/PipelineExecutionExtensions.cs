@@ -3,6 +3,7 @@ using AgentSmith.Application.PipelineDataFlows;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
+using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Sandbox;
@@ -105,6 +106,7 @@ public static class PipelineExecutionExtensions
         // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
         services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();
+        services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
         services.AddSingleton<IModelPricingResolver, ModelPricingResolver>();
         services.AddSingleton<ISandboxFileReaderFactory, SandboxFileReaderFactory>();
         services.AddSingleton<IPipelineToolPolicy, AllHostsActivePolicy>();
