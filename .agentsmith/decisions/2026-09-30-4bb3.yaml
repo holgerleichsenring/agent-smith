@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-30-4bb3
+
+decisions:
+  - category: Architecture
+    chose: "ConfigImportRunner (Cli/Services) owns plan + write inside one ConfigurationException boundary; ConfigStoreContextFactory builds the store context for export and import"
+    over: "Moving the planner call inside ConfigCommand's existing try"
+    reason: |
+      ConfigCommand sat on the file-length ratchet at 133 lines and may only shrink, and import
+      is a responsibility of its own. Extracting it takes ConfigCommand to 84 lines, off the
+      ratchet, and gives the refusal boundary one home for both the planner and the store.
+    alternatives:
+      - "Catch in the root command's exception handler: would also swallow genuine faults as plain messages"
+  - category: Testing
+    chose: "The CLI test asserts stderr carries the refusal and no stack frame, under the ConsoleOut collection"
+    over: "Asserting the exit code only"
+    reason: |
+      System.CommandLine's default exception handler already turns an unhandled exception into
+      exit code 1, so the exit code cannot tell a handled refusal from a stack trace. Verified:
+      the test fails against the previous ConfigCommand and passes with the fix.
