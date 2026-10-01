@@ -18,6 +18,7 @@ public static partial class CommandDisplayNames
         [CommandNames.SetupRegistryAuth] = "Set up private-feed credentials",
         [CommandNames.EnsurePrerequisites] = "Prepare environment",
         [CommandNames.ProbeTarget] = "Ask the target", // 2026-09-01-379a
+        [CommandNames.MaterializeReferenceSets] = "Carry the uploaded websites", // 2026-10-01-283df
         [CommandNames.BootstrapProject] = "Bootstrap project context",
         [CommandNames.LoadCodeMap] = "Load code map",
         [CommandNames.LoadCodingPrinciples] = "Load coding principles",

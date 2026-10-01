@@ -24,6 +24,7 @@ public static partial class CommandBeats
             [CommandNames.SetupRegistryAuth] = RunBeat.Ticket,
             [CommandNames.EnsurePrerequisites] = RunBeat.Ticket,
             [CommandNames.ProbeTarget] = RunBeat.Ticket, // 2026-09-01-379a
+            [CommandNames.MaterializeReferenceSets] = RunBeat.Ticket, // 2026-10-01-283df
             [CommandNames.BootstrapProject] = RunBeat.Ticket,
             [CommandNames.BootstrapCheck] = RunBeat.Ticket,
             [CommandNames.BootstrapGate] = RunBeat.Ticket,

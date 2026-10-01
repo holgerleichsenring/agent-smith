@@ -16,9 +16,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// <see cref="IToolImageDeposit"/>. A URL is judged before anything spawns. Calls are serial: one
 /// browser sandbox serves the conversation.
 /// </summary>
-public sealed class RenderReferenceToolHost(
-    RenderReferenceServices services, ResolvedProject project, string conversationId,
-    IReadOnlyDictionary<string, ISandbox> sandboxes) : IToolHost
+public sealed class RenderReferenceToolHost(RenderReferenceServices services, RenderReferenceScope scope) : IToolHost
 {
     private readonly SemaphoreSlim _serial = new(1, 1);
 
@@ -34,14 +32,14 @@ public sealed class RenderReferenceToolHost(
         var chosen = selectors is { Length: > 0 } ? selectors.Select(s => s.Trim()).ToList() : [.. BrowserStyleProperties.DefaultSelectors];
         if (chosen.Count > BrowserStyleProperties.MaxSelectors || chosen.Any(s => s.Length is 0 or > BrowserStyleProperties.MaxSelectorLength))
             return $"Error: name 1 to {BrowserStyleProperties.MaxSelectors} non-empty selectors of at most {BrowserStyleProperties.MaxSelectorLength} characters.";
-        var (parsed, refusal) = services.Sources.Parse(source, sandboxes);
+        var (parsed, refusal) = services.Sources.Parse(source, scope);
         if (parsed is null) return $"Error: {refusal}";
         if (parsed.Url is { } url && await services.Guard.RefusalForAsync(url, ct) is { } refused)
             return $"Refused: {refused}. Only public addresses are rendered.";
         await _serial.WaitAsync(ct);
         try
         {
-            var (output, failure) = await services.Renderer.RenderAsync(project, conversationId, parsed, chosen, ct);
+            var (output, failure) = await services.Renderer.RenderAsync(scope, parsed, chosen, ct);
             return output is null ? $"render_reference failed: {failure}" : services.Text.Render(output.Result, Deposit(output));
         }
         finally

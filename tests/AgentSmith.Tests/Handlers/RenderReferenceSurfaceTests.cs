@@ -13,7 +13,8 @@ namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
 /// 2026-10-01-283de: render_reference is on the design MASTER of a turn that seeded its project —
-/// never on its children, never on a coding master (that surface is 2026-10-01-283df's).
+/// never on its children. 2026-10-01-283df: and on a run's coding master exactly when the project's
+/// config enables the browser, never because a dialog seed happens to be present.
 /// </summary>
 public sealed class RenderReferenceSurfaceTests
 {
@@ -37,7 +38,7 @@ public sealed class RenderReferenceSurfaceTests
     }
 
     [Fact]
-    public async Task CodingMaster_WithProject_HasNoRenderReference()
+    public async Task CodingMaster_DialogSeedsButNoBrowserConfig_HasNoRenderReference()
     {
         var loop = new CapturingLoop();
         var context = MasterHandlerFixture.BuildContext("coding-agent-master");
@@ -49,6 +50,26 @@ public sealed class RenderReferenceSurfaceTests
             .ExecuteAsync(context, CancellationToken.None);
 
         loop.MasterTools.Should().NotContain("render_reference");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CodingMaster_ProjectBrowserConfig_DecidesRenderReference(bool enabled)
+    {
+        var loop = new CapturingLoop();
+        var context = MasterHandlerFixture.BuildContext("coding-agent-master");
+        context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject
+        {
+            Name = "p", Sandbox = new SandboxConfig { Browser = new ProjectBrowserConfig { Enabled = enabled } },
+        });
+
+        await MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body"),
+                render: _factory)
+            .ExecuteAsync(context, CancellationToken.None);
+
+        if (enabled) loop.MasterTools.Should().Contain("render_reference");
+        else loop.MasterTools.Should().NotContain("render_reference");
     }
 
     private static AgenticMasterContext DesignContext()

@@ -37,7 +37,13 @@ internal static class RipgrepArguments
         // never over a path the caller NAMED: the managed fallback reads a named file wherever it
         // sits (EnumerateFiles), and a grep_in_file on vendor/x/y.go must not depend on the engine.
         if (!File.Exists(step.Path!))
+        {
             foreach (var dir in GrepScope.ExcludedDirs) args.AddRange(["--glob", $"!**/{dir}/**"]);
+            // 2026-10-01-283df: anchored, so it matches against rg's working directory — which the
+            // handler sets to the repository root — and only from a search rooted outside it.
+            if (GrepScope.SkipsReferences(step.Path!, GrepScope.RepoRootOf(step)))
+                args.AddRange(["--glob", $"!/{ReferenceDirectory.Path}/**"]);
+        }
         args.Add("-e");
         args.Add(step.Pattern!);
         args.Add(step.Path!);

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Models;
@@ -13,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
 {
     /// <summary>The name a set whose paths share no folder is listed under.</summary>
-    public const string UnnamedSet = "site";
+    public const string UnnamedSet = ReferenceSetName.Unnamed;
 
     /// <summary>
     /// Stores <paramref name="files"/> as one new site set of the conversation, in one save. Each
@@ -62,12 +63,5 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
 
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>
-        new(setId, NameOf(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));
-
-    // The folder a folder upload, or an unpacked archive, puts every file under.
-    private static string NameOf(IEnumerable<string> paths)
-    {
-        var tops = paths.Select(p => p.IndexOf('/') is var slash and > 0 ? p[..slash] : null).Distinct().ToList();
-        return tops is [{ } only] ? only : UnnamedSet;
-    }
+        new(setId, ReferenceSetName.Of(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));
 }

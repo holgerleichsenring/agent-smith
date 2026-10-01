@@ -570,6 +570,9 @@ export interface ProjectSandbox {
   /** 2026-09-23-2446: seconds this project's design conversations hold their source
    *  sandboxes between turns. 0 holds nothing, and is a real override — not an empty box. */
   holdSeconds?: number;
+  /** 2026-10-01-283df: whether this project's runs may render in a browser sandbox. It
+   *  inherits nothing — off and absent are the same — and on, admission reserves a browser pod. */
+  browserEnabled?: boolean;
   /** 2026-09-22-6c46: the structured three. ABSENT means "I do not render these", and the
    *  stored resources, image pins and secret references are left alone; a SENT block means
    *  every one of its three fields is written as given, so an undefined field inside it is

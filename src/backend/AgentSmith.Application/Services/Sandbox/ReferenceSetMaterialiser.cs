@@ -49,7 +49,19 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
         ArgumentNullException.ThrowIfNull(sandbox);
         var io = files.Create(sandbox);
         if (await io.TryReadAsync(Under(root, Marker), ct) is { Length: > 0 } held) return held.Trim();
-        var set = await sets.FilesAsync(sessionId, setId, ct);
+        return await WriteUnderAsync(sandbox, await sets.FilesAsync(sessionId, setId, ct), root, ct);
+    }
+
+    /// <summary>
+    /// 2026-10-01-283df: <paramref name="set"/>'s files under <paramref name="root"/>, already read —
+    /// a run reads every cited set before it writes any, so a set it cannot read writes nothing.
+    /// </summary>
+    public async Task<string> WriteUnderAsync(
+        ISandbox sandbox, IReadOnlyList<ReferenceSetFile> set, string root, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sandbox);
+        ArgumentNullException.ThrowIfNull(set);
+        var io = files.Create(sandbox);
         var encoded = 0;
         foreach (var file in set)
             encoded += await WriteAsync(io, Under(root, file.Path), file, ct) ? 1 : 0;

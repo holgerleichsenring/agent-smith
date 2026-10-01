@@ -102,4 +102,9 @@ public static partial class ContextKeys
     /// re-materializes request values as JsonElement.
     /// </summary>
     public const string ApprovedSpecSet = "ApprovedSpecSet";
+
+    /// <summary>2026-10-01-283df: <c>IReadOnlyList&lt;CarriedReferenceSet&gt;</c> — the uploaded websites
+    /// MaterializeReferenceSets wrote into the carrying repository; the master's prompt names them and
+    /// render_reference renders them by address. Absent when the approval cites none.</summary>
+    public const string ReferenceSets = "ReferenceSets";
 }

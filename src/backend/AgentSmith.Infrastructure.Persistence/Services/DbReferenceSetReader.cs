@@ -18,4 +18,12 @@ public sealed class DbReferenceSetReader(IServiceScopeFactory scopeFactory) : IR
             .FilesAsync(sessionId, setId, cancellationToken);
         return [.. files.Select(f => new ReferenceSetFile(f.Path, f.Content))];
     }
+
+    public async Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var sets = await scope.ServiceProvider.GetRequiredService<ReferenceSetRepository>()
+            .ListAsync(sessionId, cancellationToken);
+        return [.. sets.Select(s => s.SetId)];
+    }
 }

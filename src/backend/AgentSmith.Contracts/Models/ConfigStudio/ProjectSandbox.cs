@@ -18,6 +18,11 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// scalar it knows, so the moment this field existed a save would have written null over a
 /// stored value — which is why the projection reads it in the same change.
 /// </para>
+/// <para>
+/// 2026-10-01-283df: <see cref="BrowserEnabled"/> is the browser toggle, appended last because the
+/// record is positional. It inherits nothing — there is no process-wide switch — so null and false
+/// both mean off, and the patch stores no block for either.
+/// </para>
 /// </summary>
 public sealed record ProjectSandbox(
     string? ToolchainImage = null,
@@ -26,4 +31,5 @@ public sealed record ProjectSandbox(
     string? AgentRegistry = null,
     string? AgentVersion = null,
     int? HoldSeconds = null,
-    ProjectSandboxStructured? Structured = null);
+    ProjectSandboxStructured? Structured = null,
+    bool? BrowserEnabled = null);

@@ -68,6 +68,18 @@ public sealed class ApprovedSpecSetRepository(IUnitOfWork unitOfWork)
         await unitOfWork.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// 2026-10-01-283df: the website sets the records approved in one conversation cite — what a
+    /// delete of that conversation must keep, because the run of a filed ticket builds against them.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> CitedSetsAsync(string conversation, CancellationToken ct)
+    {
+        var rows = await unitOfWork.Set<ApprovedSpecSet>().AsNoTracking()
+            .Where(a => a.ApprovedInConversation == conversation).Select(a => a.RecordJson).ToListAsync(ct);
+        return rows.SelectMany(json => SpecApprovalJson.Read(json)?.CitedSets ?? [])
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     private static void Apply(SpecApprovalRecord record, ApprovedSpecSet row)
     {
         row.RecordJson = SpecApprovalJson.Write(record);

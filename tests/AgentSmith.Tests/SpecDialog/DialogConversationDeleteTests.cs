@@ -250,6 +250,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             .AddScoped<SpecDialogSessionRepository>()
             .AddScoped<DialogueAnswerRepository>()
             .AddScoped<ReferenceFileRepository>()
+            .AddScoped<ApprovedSpecSetRepository>()
             .AddSingleton(tracker.Object)
             .AddSingleton(trackers.Object)
             .AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>()
@@ -261,7 +262,8 @@ public sealed class DialogConversationDeleteTests : IDisposable
         SpecDialogDeletionEndpoints.DeleteAsync(
             sessionId, Principal(caller), _ownership, _gate,
             deleter ?? new SpecDialogConversationDeleter(
-                _context, _repository, _answers, new ReferenceFileRepository(_context)),
+                _context, _repository, _answers, new ReferenceFileRepository(_context),
+                new ApprovedSpecSetRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
     private static int StatusOf(IResult result) =>
