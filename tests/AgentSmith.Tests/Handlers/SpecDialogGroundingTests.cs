@@ -228,6 +228,7 @@ public sealed class SpecDialogGroundingTests
         var reader = new DialogGroundingReader(
             new ScriptedSourceProviderFactory(byRepo),
             new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
+            new RemoteFileRead(NullLogger<RemoteFileRead>.Instance),
             NullLogger<DialogGroundingReader>.Instance);
         var handler = new GroundSpecDialogHandler(reader, NullLogger<GroundSpecDialogHandler>.Instance);
         return handler.ExecuteAsync(new GroundSpecDialogContext(pipeline), CancellationToken.None);

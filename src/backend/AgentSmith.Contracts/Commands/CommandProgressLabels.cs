@@ -32,6 +32,7 @@ public static partial class CommandNames
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",
         [LoadMemoryIndex] = "Loading memory index", // p0380
+        [LoadDesignSystem] = "Loading design system", // 2026-10-01-283dg
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [DeriveSpec] = "Deriving the phase specs",
