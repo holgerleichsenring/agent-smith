@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-aeb6d
+goal: "The embedded skills pin moves to the release whose design partner writes documents and stays on its project, and tests read both rules from the pin."
+
+applies_to: "backend (embedded skills pin)"
+
+requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c"]
+
+facts:
+  - claim: "The tarball, SkillsCatalogVersion and SkillsCatalogSha256 move together and the build verifies them."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "Dialog rules are already tested against the pinned master."
+    evidence: "tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs"
+
+scope:
+  in: "Once the skills pull request is merged and released, the pin moves to that release and tests read the document outcome and the subject rule from it."
+  out: "The skill text — 2026-10-01-aeb6b and aeb6c."
+
+decisions:
+  - key: "A NAMED PHASE, BECAUSE THE PIN WAITS ON A MERGE AND A RELEASE THE OPERATOR PERFORMS."
+
+steps:
+  - id: pin
+    action: "Tarball, version and checksum move to the release carrying design-partner-master 1.8.0."
+  - id: tests
+    action: "DesignPartnerDialogRulesTests read the document outcome and the subject rule."
+
+tests:
+  - "EmbeddedSkills_DesignPartnerMaster_WritesDocumentsWithoutDiscussion"
+  - "EmbeddedSkills_DesignPartnerMaster_StaysOnItsProjectAndTicket"
+
+done:
+  - "the embedded design-partner master carries both rules"
+  - "build green, full suite green"
