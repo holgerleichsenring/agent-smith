@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.153.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.152.0...v0.153.0) (2026-09-30)
+
+
+### Features
+
+* a model the price list knows is priced without a pricing block (2026-09-30-62baa) ([a427de4](https://github.com/holgerleichsenring/agent-smith/commit/a427de4e3730126e19c4f0a8be6e267d04fe3b91))
+* an agent declares its models once and each activity picks one (2026-09-30-62bab) ([0930556](https://github.com/holgerleichsenring/agent-smith/commit/0930556dbe9abf240ed997a819415e9949c2d91c))
+* models are declared once, priced from the public list, and picked per activity ([157fb5a](https://github.com/holgerleichsenring/agent-smith/commit/157fb5aff4216cc59d7bf60b5719973318b46ed6))
+
+
+### Bug Fixes
+
+* a refused config import ends with its message, not a stack trace (2026-09-30-4bb3) ([5d21109](https://github.com/holgerleichsenring/agent-smith/commit/5d2110913b84481ad602bac3ecc0ac16896b6b87))
+
 ## [0.152.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.151.0...v0.152.0) (2026-09-28)
 
 
