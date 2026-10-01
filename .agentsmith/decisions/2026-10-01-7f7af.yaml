@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7af
+
+decisions:
+  - category: Implementation
+    chose: "The skill text describes design_read as shipped by 7f7ab-7f7ae: url with node-id, source, depth 1-6, expected_version, read_version, the PNG render, the version line ('design unchanged' / 'design moved: E -> C') and the failure kinds"
+    over: "The spec's shorter wording, written before the tool's arguments and the render existed"
+    reason: |
+      A master told of an argument the tool lacks calls it and fails; one not told of read_version
+      cannot read the cited design after a move. The text is lifted from DesignReadToolHost's
+      descriptions and DesignVersionNote's lines, stated as capabilities.
+  - category: Implementation
+    chose: "The design partner puts the citation — link with node-id and '(version N)' — in a bug's description or a phase's scope.in; criteria carry the summary's concrete values and name a variable only when one was read"
+    over: "A citation in facts with the link as evidence"
+    reason: |
+      Facts are re-checked against the repository by a fresh instance; a Figma link is no
+      repository path, so the check would refuse it. Description and scope.in reach the filed
+      ticket text, where 7f7ae's ruling puts the version.
+  - category: Scope
+    chose: "The coding master builds what the ticket's criteria state when the design moved, and names the move in the verdict summary and a log_decision; an unreadable design is a blocker to name"
+    over: "Building the current design, or the cited one, silently"
+    reason: |
+      MOVED IS REPORTED, NOT RESOLVED (7f7ae): which version to build is the operator's call; the
+      criteria are the ratified record of what was asked. The verdict has no design field, and
+      the summary plus a decision is where a run already reports facts for the operator.
+  - category: Tooling
+    chose: "design-partner-master 1.9.0 -> 1.10.0, coding-agent-master 1.26.0 -> 1.27.0 on the skills PR #205 branch (commit 6ae2729); descriptions unchanged; the embedded pin is not moved"
+    over: "Moving the pin here"
+    reason: "The pin moves in 2026-10-01-aeb6d, which releases PR #205; validate-skills.sh passes."
