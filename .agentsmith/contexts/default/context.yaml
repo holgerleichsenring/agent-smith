@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-283dc: "AN UPLOADED WEBSITE IS A READ-ONLY reference: ADDRESS IN THE DESIGN TURN (spec dialog, sandbox). Lazy held sandbox filled at relative paths, binaries decoded in one step; review and stamp skip it; the prompt says what it is. -> .agentsmith/phases/done/2026-10-01-283dc-reference-dialog-scope.yaml"
     2026-10-01-283db: "A WEBSITE CAN BE DROPPED INTO A DESIGN CONVERSATION (spec dialog, dashboard, deploy). Files, a folder or one ZIP become one set under named limits, refused whole naming file and limit; ZIPs counted and checksummed; ingress 30m. -> .agentsmith/phases/done/2026-10-01-283db-reference-site-upload.yaml"
     2026-10-01-283da: "REFERENCE FILES ARE STORED AS BYTES, ONE ROW PER FILE (persistence, spec dialog). ReferenceFiles seeded at 1e9 so legacy images keep their ids; the housekeeping leader copies legacy rows, readers union both until 283dk; archive import flushes by 64 MB. -> .agentsmith/phases/done/2026-10-01-283da-reference-file-store.yaml"
     2026-10-01-7f7aa: "A DESIGN SOURCE IS A CONFIG ENTITY PROJECTS REFERENCE (config, studio, dashboard). design_sources: name -> vendor figma + auth secret name; projects list names; Studio tab and project picker; a named secret cannot be deleted; SecretMasker reads current secret values. -> .agentsmith/phases/done/2026-10-01-7f7aa-design-source-config.yaml"

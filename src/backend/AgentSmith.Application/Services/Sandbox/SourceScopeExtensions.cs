@@ -17,6 +17,11 @@ public static class SourceScopeExtensions
         services.AddTransient<SourceScopeMaterialiser>();
         services.AddTransient<SourceScopeOpener>();
         services.AddTransient<ISourceScopeSandboxFactory, SourceScopeSandboxFactory>();
+        // 2026-10-01-283dc: an uploaded website read like a repository; with no durable store
+        // there are no sets, and the server composition replaces the reader with the relational one.
+        services.AddTransient<ReferenceSetMaterialiser>();
+        services.AddTransient<IReferenceSetSandboxFactory, ReferenceSetSandboxFactory>();
+        services.TryAddSingleton<IReferenceSetReader, NoReferenceSetReader>();
         // One instance per process is right: the observer lives in the async flow, not here.
         services.TryAddSingleton<ISourceScopeObserverAccessor, AsyncLocalSourceScopeObserverAccessor>();
         // 2026-09-22-2d11a: the process-local register of held scopes, and the empty

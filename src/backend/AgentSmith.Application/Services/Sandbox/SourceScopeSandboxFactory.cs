@@ -32,5 +32,5 @@ public sealed class SourceScopeSandboxFactory(
     private SourceScopeHold? Hold(string? conversationId, RepoConnection repo, string? revision) =>
         string.IsNullOrEmpty(conversationId)
             ? null
-            : new SourceScopeHold(holds, conversationId, repo, revision, sandboxLogger);
+            : new SourceScopeHold(holds, conversationId, repo.Name, revision, sandboxLogger);
 }

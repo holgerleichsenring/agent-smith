@@ -38,9 +38,12 @@ public sealed class DialogHoldProvenanceTests
     // The stamp the turn takes while its scopes are still open — the shape SpecDialogTurnRunner
     // uses, with the scope under test standing in for a template the analysis read.
     private static OutcomeProposal Stamp(ISourceScopeSandboxFactory scopes, ISourceScopeSandbox scope) =>
-        new SpecDialogTemplateScopes(
+        new SpecDialogReadOnlyScopes(
                 new ProjectTemplateScopes(scopes, NullLogger<ProjectTemplateScopes>.Instance),
-                NullLogger<SpecDialogTemplateScopes>.Instance)
+                new AgentSmith.Infrastructure.Persistence.Repositories.ReferenceSetRepository(
+                    Moq.Mock.Of<AgentSmith.Infrastructure.Persistence.Contracts.IUnitOfWork>()),
+                Moq.Mock.Of<IReferenceSetSandboxFactory>(),
+                NullLogger<SpecDialogReadOnlyScopes>.Instance)
             .Stamp(
                 new AnswerOutcome(),
                 SourceScopeHoldFixture.Project,
