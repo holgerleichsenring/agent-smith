@@ -99,11 +99,13 @@ public sealed class ToolBearingTaskAgreementTests
             TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
+            new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             NullLoggerFactory.Instance);
 
     private sealed class StubBuilder : IChatClientBuilder
     {
         public IReadOnlyList<string> SupportedTypes { get; } = ["stub"];
+        public bool AcceptsImageAfterToolResult => true;
 
         public IChatClient Build(AgentConfig agent, ModelAssignment assignment) =>
             new ScriptedChatClient();

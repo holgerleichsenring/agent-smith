@@ -77,6 +77,7 @@ public sealed class ExternalWorkerSelectionTests
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
+            new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             NullLoggerFactory.Instance);
 
     private static ExternalWorkerChatClientBuilder NewWorkerBuilder()

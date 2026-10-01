@@ -27,6 +27,8 @@ public sealed class ClaudeChatClientBuilder(HttpMessageHandler? testTransport = 
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "claude", "anthropic" };
 
+    public bool AcceptsImageAfterToolResult => true;
+
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
         var apiKey = ResolveApiKey(agent)
