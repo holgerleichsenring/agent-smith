@@ -1,34 +1,41 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-10-01-aeb6d
-goal: "The embedded skills pin moves to the release whose design partner writes documents and stays on its project, and tests read both rules from the pin."
+goal: "The embedded skills pin moves to the release carrying skills PR #205, and tests read each rule this session's phases put into the masters from the pin."
 
 applies_to: "backend (embedded skills pin)"
 
-requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c"]
+requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c", "2026-10-01-f5c3b", "2026-10-01-7f7af", "2026-10-01-283dj"]
 
 facts:
   - claim: "The tarball, SkillsCatalogVersion and SkillsCatalogSha256 move together and the build verifies them."
     evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
   - claim: "Dialog rules are already tested against the pinned master."
     evidence: "tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs"
+  - claim: "Skills PR #205 carries design-partner-master 1.11.0 and coding-agent-master 1.28.0: documents, subject binding, scenario criteria, listed bug criteria, design_read, visual references and source precedence rule 4."
+    evidence: "agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd)"
 
 scope:
-  in: "Once the skills pull request is merged and released, the pin moves to that release and tests read the document outcome and the subject rule from it."
-  out: "The skill text — 2026-10-01-aeb6b and aeb6c."
+  in: "Once skills PR #205 is merged and released, the pin moves to that release and tests read every rule it added from the pinned masters."
+  out: "The skill text — written by 2026-10-01-aeb6b, aeb6c, f5c3b, 7f7af and 283dj."
 
 decisions:
+  - key: "ONE PIN MOVE FOR THE SESSION. Every skills change of this session landed on one pull request, so one release carries them all and the pin moves once."
   - key: "A NAMED PHASE, BECAUSE THE PIN WAITS ON A MERGE AND A RELEASE THE OPERATOR PERFORMS."
 
 steps:
   - id: pin
-    action: "Tarball, version and checksum move to the release carrying design-partner-master 1.8.0."
+    action: "Tarball, version and checksum move to the release carrying design-partner-master 1.11.0 and coding-agent-master 1.28.0."
   - id: tests
-    action: "DesignPartnerDialogRulesTests read the document outcome and the subject rule."
+    action: "Tests read each added rule from the pinned masters."
 
 tests:
   - "EmbeddedSkills_DesignPartnerMaster_WritesDocumentsWithoutDiscussion"
   - "EmbeddedSkills_DesignPartnerMaster_StaysOnItsProjectAndTicket"
+  - "EmbeddedSkills_DesignPartnerMaster_WritesScenarioCriteria"
+  - "EmbeddedSkills_DesignPartnerMaster_ListsBugCriteria"
+  - "EmbeddedSkills_Masters_DescribeDesignRead"
+  - "EmbeddedSkills_Masters_BuildAgainstVisualReferences"
 
 done:
-  - "the embedded design-partner master carries both rules"
+  - "the embedded masters carry every rule skills PR #205 added"
   - "build green, full suite green"
