@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Archive;
@@ -16,6 +17,9 @@ internal static class ReferenceFileExtensions
     {
         services.AddScoped<ReferenceFileRepository>();
         services.AddScoped<ReferenceSetRepository>(); // 2026-10-01-283db
+        // 2026-10-01-283dc: a design turn's reference sandbox reads its set from here.
+        services.RemoveAll<IReferenceSetReader>();
+        services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();
         services.AddScoped<LegacyAttachmentCopy>();
         // The copy switches identity insertion the way the archive import does; the archive
         // graph is not wired in every composition, so the two it needs are offered here too.

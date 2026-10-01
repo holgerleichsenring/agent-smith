@@ -76,6 +76,24 @@ public sealed class SpecDialogGroundingTests
         DesignPartnerPrompt(pipeline).Should().NotContain("Not this one");
     }
 
+    /// <summary>2026-10-01-283dc: an uploaded website in the turn's map is read by the turn, never
+    /// grounded as a repository — the intersection with the project's repositories drops it.</summary>
+    [Fact]
+    public async Task GroundSpecDialog_ReferenceInMap_IsNotGrounded()
+    {
+        var inScope = Scripted("repo-a", contextYaml: true, principles: Principles);
+        var pipeline = Pipeline(("repo-a", true));
+        var map = new Dictionary<string, ISandbox>(pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes))
+        {
+            ["reference:site"] = new Mock<ISandbox>(MockBehavior.Strict).Object,
+        };
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, map);
+
+        var result = await Run(pipeline, inScope);
+
+        result.Message.Should().Contain("1 of 1 scoped repo(s)");
+    }
+
     [Fact]
     public async Task Dialog_NoPrinciplesFile_IsReportedAsAbsentNotAsUnattempted()
     {

@@ -91,7 +91,7 @@ public sealed class DerivationLookFactory(
     /// design turn starts no coordinator and so carries no discoveries for
     /// <see cref="SandboxTargets"/> to resolve. The dialog's map holds its templates too; a key
     /// under <see cref="TemplateScopeName.Prefix"/> is the only mark one carries there, so those
-    /// are dropped. No audit: every entry is a read-only source scope that runs no command.
+    /// are dropped — and 2026-10-01-283dc an uploaded website under <see cref="ReferenceScopeName.Prefix"/> too. No audit: every entry is a read-only source scope that runs no command.
     /// Null when the turn has no repository, and the review is the text-against-text one.
     /// </summary>
     public DerivationLook? ForProposalReview(PipelineContext pipeline)
@@ -100,7 +100,8 @@ public sealed class DerivationLookFactory(
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
             || map is null) return null;
         var repositories = map
-            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal))
+            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)
+                && !entry.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal)) // 283dc
             .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
         return repositories.Count == 0
             ? null

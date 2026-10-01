@@ -51,6 +51,15 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
             .OrderBy(s => s.At).ThenBy(s => s.SetId, StringComparer.Ordinal)];
     }
 
+    /// <summary>2026-10-01-283dc: one set's files with their bytes — only its own conversation's.</summary>
+    public async Task<IReadOnlyList<(string Path, byte[] Content)>> FilesAsync(
+        string sessionId, string setId, CancellationToken ct) =>
+        [.. (await unitOfWork.Set<ReferenceFile>().AsNoTracking()
+            .Where(f => f.SessionId == sessionId && f.SetId == setId && f.Kind == ReferenceFileKind.Site)
+            .OrderBy(f => f.RelativePath)
+            .Select(f => new { f.RelativePath, f.Content }).ToListAsync(ct))
+            .Select(f => (f.RelativePath, f.Content))];
+
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>
         new(setId, NameOf(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));

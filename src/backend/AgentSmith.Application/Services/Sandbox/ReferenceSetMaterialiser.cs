@@ -1,0 +1,91 @@
+using System.Security.Cryptography;
+using System.Text;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Sandbox.Wire;
+
+namespace AgentSmith.Application.Services.Sandbox;
+
+/// <summary>
+/// 2026-10-01-283dc: fills a sandbox with one uploaded website, at each file's relative path
+/// under the work root, and says which content it holds.
+/// <para>
+/// Text is written as it is; every other file is written as base64 beside its path and decoded
+/// by ONE python3 step over the work root — a constant script, the root as its argument, no path
+/// interpolated into any command — because a five-hundred-file set decoded file by file would be
+/// five hundred round trips. A marker carries the content hash, so a held sandbox that already
+/// holds the set is taken back without a single write.
+/// </para>
+/// </summary>
+public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxFileReaderFactory files)
+{
+    internal const string Marker = ".agentsmith-reference";
+    internal const string EncodedSuffix = ".b64";
+    private const string WorkRoot = "/work";
+    private static readonly string[] TextExtensions =
+        [".html", ".htm", ".css", ".js", ".mjs", ".json", ".svg", ".txt", ".md"];
+    private static readonly UTF8Encoding StrictUtf8 = new(false, throwOnInvalidBytes: true);
+
+    internal const string DecodeScript =
+        "import base64,os,sys\n"
+        + "for d,_,names in os.walk(sys.argv[1]):\n"
+        + "    for n in names:\n"
+        + "        if n.endswith('.b64'):\n"
+        + "            p=os.path.join(d,n)\n"
+        + "            open(p[:-4],'wb').write(base64.b64decode(open(p,'rb').read()))\n"
+        + "            os.remove(p)\n";
+
+    /// <summary>The set in the sandbox, and its content hash.</summary>
+    public async Task<string> PrepareAsync(ISandbox sandbox, string sessionId, string setId, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(sandbox);
+        var io = files.Create(sandbox);
+        if (await io.TryReadAsync(Marker, ct) is { Length: > 0 } held) return held.Trim();
+        var set = await sets.FilesAsync(sessionId, setId, ct);
+        var encoded = 0;
+        foreach (var file in set)
+            encoded += await WriteAsync(io, file, ct) ? 1 : 0;
+        if (encoded > 0) await DecodeAsync(sandbox, ct);
+        var hash = HashOf(set);
+        await io.WriteAsync(Marker, hash, ct);
+        return hash;
+    }
+
+    // True when the file went in encoded and waits for the decode step.
+    private static async Task<bool> WriteAsync(ISandboxFileReader io, ReferenceSetFile file, CancellationToken ct)
+    {
+        if (AsText(file) is { } text)
+        {
+            await io.WriteAsync(file.Path, text, ct);
+            return false;
+        }
+        await io.WriteAsync(file.Path + EncodedSuffix, Convert.ToBase64String(file.Content), ct);
+        return true;
+    }
+
+    private static string? AsText(ReferenceSetFile file)
+    {
+        if (!TextExtensions.Contains(Path.GetExtension(file.Path), StringComparer.OrdinalIgnoreCase)) return null;
+        try { return StrictUtf8.GetString(file.Content); }
+        catch (DecoderFallbackException) { return null; }
+    }
+
+    private static async Task DecodeAsync(ISandbox sandbox, CancellationToken ct)
+    {
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
+            Command: "python3", Args: ["-c", DecodeScript, WorkRoot], WorkingDirectory: WorkRoot, TimeoutSeconds: 300);
+        var result = await sandbox.RunStepAsync(step, null, ct);
+        if (result.ExitCode != 0)
+            throw new IOException($"Decoding the uploaded website's binary files failed: {result.ErrorMessage ?? "exit " + result.ExitCode}");
+    }
+
+    private static string HashOf(IReadOnlyList<ReferenceSetFile> set)
+    {
+        using var sha = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        foreach (var file in set.OrderBy(f => f.Path, StringComparer.Ordinal))
+        {
+            sha.AppendData(Encoding.UTF8.GetBytes(file.Path + "\0" + file.Content.Length + "\0"));
+            sha.AppendData(file.Content);
+        }
+        return Convert.ToHexStringLower(sha.GetHashAndReset());
+    }
+}

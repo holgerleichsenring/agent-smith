@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283dc
+
+decisions:
+  - category: Architecture
+    chose: "An uploaded website is a reference:<name> ADDRESS in the turn's sandbox map, served by ReferenceSetSandbox through SourceScopeRefusal with no writable prefix"
+    over: "A new read tool for uploads"
+    reason: |
+      read_file, grep_in_tree and directory_tree already route by address, and the master reads
+      its address list off the same map, so the existing surface reaches the site unchanged. The
+      proposal review drops reference: keys as it drops template: keys; grounding intersects the
+      map with the project's repositories, so a reference drops out by construction.
+  - category: Architecture
+    chose: "SourceScopeHold takes the spawn and the prepare step from its caller; a repository scope and a reference scope share it, keyed by (conversation, address, set id)"
+    over: "A second hold class for references"
+    reason: |
+      Both are "spawn once per conversation, prepare every turn"; only the prepare differs. The
+      set id is the revision in the key, so a re-upload under the same name is another container.
+  - category: Implementation
+    chose: "Files land at /work/<relative path>; text that is valid UTF-8 is written as-is, everything else as .b64 and decoded by ONE python3 step running a constant script with the work root as its argument"
+    over: "Writing every text extension as text, or a decode per file"
+    reason: |
+      A stylesheet saved in Latin-1 would lose bytes through a text write, so the extension
+      decides only together with a strict UTF-8 decode. One decode step keeps a 500-file set from
+      becoming 500 round trips; no path is ever interpolated into a command.
+  - category: Implementation
+    chose: "A marker file (.agentsmith-reference) at the work root carries the set's content hash; a held sandbox that has it is taken back with no write and no store read"
+    over: "Re-reading the set from the store to compare"
+    reason: |
+      A set is immutable under its id, so the marker is proof enough, and the hash is the
+      address's ResolvedSha. The marker is visible to a directory listing; it is one dot-file.
+  - category: Implementation
+    chose: "IReferenceSetReader in Contracts with a scope-per-read DbReferenceSetReader; NoReferenceSetReader is the default without a store"
+    over: "The sandbox reading the repository directly"
+    reason: |
+      DEVIATION from the spec's file list: Application cannot reference the persistence project,
+      and the sandbox lives beside the repository scopes in Application. The default keeps the
+      CLI composition, which opens no reference, resolvable.
+  - category: Implementation
+    chose: "SpecDialogTemplateScopes renamed SpecDialogReadOnlyScopes with OpenAsync; Stamp filters template: keys; the runner's line became an await and SpecDialogTurnRunner stays at 120 lines"
+    over: "A second scope service beside the template one"
+    reason: "One place opens what a design turn may read; the stamp keeps provenance to the templates a ticket was built after."
+  - category: Implementation
+    chose: "ReferenceScopeName: lower-case [a-z0-9-], at most 40 characters, 'site' when nothing survives, -2/-3 for a repeat; static like TemplateScopeName"
+    over: "Using the set name verbatim"
+    reason: "A folder name is operator data; as an address it must stay one plain segment the path router cannot misread."
