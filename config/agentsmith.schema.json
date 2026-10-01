@@ -41,6 +41,11 @@
       "description": "The configuration studio's MCP server catalog. Each key is a server name.",
       "additionalProperties": { "$ref": "#/$defs/mcpServer" }
     },
+    "design_sources": {
+      "type": "object",
+      "description": "Design tools projects read designs from. Each key is a source name; projects list the names under design_sources.",
+      "additionalProperties": { "$ref": "#/$defs/designSource" }
+    },
     "secrets": {
       "type": "object",
       "description": "Named secrets other entries reference by name (auth: github_token). A value is usually an ${ENV_VAR} placeholder.",
@@ -658,6 +663,11 @@
           "items": { "$ref": "#/$defs/repoEntry" },
           "minItems": 1
         },
+        "design_sources": {
+          "type": "array",
+          "description": "Names from the design_sources: catalog this project may read designs from.",
+          "items": { "type": "string" }
+        },
         "templates": {
           "type": "array",
           "description": "What each context of this project is built after: another project's context in one of its repos.",
@@ -909,6 +919,16 @@
         "host": { "type": "string" },
         "username": { "type": "string" },
         "token": { "type": "string", "description": "A ${secret_name} reference." }
+      }
+    },
+    "designSource": {
+      "type": "object",
+      "required": ["vendor", "auth"],
+      "additionalProperties": false,
+      "properties": {
+        "vendor": { "type": "string", "enum": ["figma"] },
+        "auth": { "type": "string", "description": "A secret NAME from secrets: holding the access token, never a value." },
+        "display_name": { "type": "string" }
       }
     },
     "mcpServer": {

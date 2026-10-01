@@ -22,6 +22,12 @@ public sealed record ResolvedProject
     /// </summary>
     public IReadOnlyList<ProjectTemplate> Templates { get; init; } = [];
 
+    /// <summary>
+    /// 2026-10-01-7f7aa: the design sources this project may read, each carrying its secret's
+    /// NAME — the token is looked up when a design is read, never stored on the project.
+    /// </summary>
+    public IReadOnlyList<DesignSource> DesignSources { get; init; } = [];
+
     public string Pipeline { get; init; } = string.Empty;
     public string? CodingPrinciplesPath { get; init; }
     public string SkillsPath { get; init; } = "skills";

@@ -17,6 +17,7 @@ vi.mock("@/lib/configApi", () => {
     reposApi: inert,
     projectsApi: inert,
     mcpServersApi: inert,
+    designSourcesApi: inert,
     secretsApi: inert,
     fetchChanges: (...a: unknown[]) => fetchChanges(...a),
     revertChange: (...a: unknown[]) => revertChange(...a),

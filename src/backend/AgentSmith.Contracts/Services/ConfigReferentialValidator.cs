@@ -28,12 +28,28 @@ public static class ConfigReferentialValidator
         Check(errors, project.Id, "tracker", project.Tracker, catalog.Trackers.Select(t => t.Id));
         ValidateRepos(errors, project, catalog);
         ValidateTemplates(errors, project, catalog);
+        foreach (var source in project.DesignSources ?? []) // 2026-10-01-7f7aa
+            Check(errors, project.Id, "design source", source, catalog.DesignSources.Select(d => d.Id));
 
-        if (errors.Count > 0)
-        {
-            var joined = string.Join("; ", errors);
-            throw new ConfigurationException($"Referential integrity error(s): {joined}");
-        }
+        ThrowIfAny(errors);
+    }
+
+    /// <summary>
+    /// 2026-10-01-7f7aa: a design source's auth must name a catalog secret — the token is looked
+    /// up by that name at the first read, and the store's reference edge needs a target.
+    /// </summary>
+    public static void ValidateDesignSource(DesignSourceEntity source, ConfigCatalog catalog)
+    {
+        var matches = catalog.Secrets.Count(s => ConfigNames.AreSame(s.Id, source.AuthSecret));
+        if (matches == 1) return;
+        ThrowIfAny([$"design source '{source.Id}' references "
+            + (matches == 0 ? "unknown" : "ambiguous") + $" secret '{source.AuthSecret}'"]);
+    }
+
+    private static void ThrowIfAny(List<string> errors)
+    {
+        if (errors.Count == 0) return;
+        throw new ConfigurationException($"Referential integrity error(s): {string.Join("; ", errors)}");
     }
 
     private static void ValidateRepos(List<string> errors, ProjectEntity project, ConfigCatalog catalog)
@@ -84,5 +100,7 @@ public static class ConfigReferentialValidator
     {
         foreach (var project in catalog.Projects)
             ValidateProject(project, catalog);
+        foreach (var source in catalog.DesignSources)
+            ValidateDesignSource(source, catalog);
     }
 }

@@ -18,6 +18,7 @@ public sealed class ConfigTaxonomyCoverageTests
         ["connections"] = ConfigDocTypes.Connection, ["repos"] = ConfigDocTypes.Repo,
         ["projects"] = ConfigDocTypes.Project, ["mcp_servers"] = ConfigDocTypes.McpServer,
         ["secrets"] = ConfigDocTypes.Secret, ["pipeline_triggers"] = ConfigDocTypes.PipelineTrigger,
+        ["design_sources"] = ConfigDocTypes.DesignSource,
     };
 
     private static readonly IReadOnlyDictionary<string, string> NotStored = new Dictionary<string, string>

@@ -11,10 +11,11 @@ import {
   reposApi,
   projectsApi,
   mcpServersApi,
+  designSourcesApi,
   secretsApi,
 } from "@/lib/configApi";
 
-// p0345/p0345b: static metadata for the seven editable entity kinds. Labels
+// p0345/p0345b: static metadata for the editable entity kinds (2026-10-01-7f7aa: eight). Labels
 // drive the tabs/headers; `client` binds each kind to its typed CRUD endpoint;
 // `blank` mints an empty draft for the "New" flow. Refs inside a draft start
 // empty and are filled by picking from the catalog, never by typing.
@@ -26,6 +27,7 @@ export const ENTITY_KINDS: ConfigEntityKind[] = [
   "repos",
   "projects",
   "mcp-servers",
+  "design-sources",
   "secrets",
 ];
 
@@ -36,6 +38,7 @@ export const ENTITY_LABEL: Record<ConfigEntityKind, string> = {
   repos: "Repositories",
   projects: "Projects",
   "mcp-servers": "MCP servers",
+  "design-sources": "Design sources",
   secrets: "Secrets",
 };
 
@@ -46,6 +49,7 @@ export const ENTITY_SINGULAR: Record<ConfigEntityKind, string> = {
   repos: "Repository",
   projects: "Project",
   "mcp-servers": "MCP server",
+  "design-sources": "Design source",
   secrets: "Secret",
 };
 
@@ -65,6 +69,7 @@ export const ENTITY_SUBTITLE: Record<ConfigEntityKind, string> = {
   repos: "individual repositories the pipelines work on",
   projects: "the wiring — agent → project ← tracker · repos",
   "mcp-servers": "external MCP tool servers",
+  "design-sources": "design tools projects read designs from — token by secret name",
   secrets: "env-names only — values stay in the runtime store",
 };
 
@@ -76,6 +81,7 @@ export const ENTITY_ICON: Record<ConfigEntityKind, string> = {
   repos: "⎇",
   projects: "◈",
   "mcp-servers": "⇄",
+  "design-sources": "◩",
   secrets: "◍",
 };
 
@@ -87,6 +93,7 @@ export const ENTITY_BADGE: Record<ConfigEntityKind, string> = {
   repos: "repo",
   projects: "project",
   "mcp-servers": "mcp",
+  "design-sources": "design",
   secrets: "secret",
 };
 
@@ -99,6 +106,7 @@ export const ENTITY_CLIENT: Record<ConfigEntityKind, CrudClient<StudioEntity & {
   repos: reposApi as unknown as CrudClient<StudioEntity & { id: string }>,
   projects: projectsApi as unknown as CrudClient<StudioEntity & { id: string }>,
   "mcp-servers": mcpServersApi as unknown as CrudClient<StudioEntity & { id: string }>,
+  "design-sources": designSourcesApi as unknown as CrudClient<StudioEntity & { id: string }>,
   secrets: secretsApi as unknown as CrudClient<StudioEntity & { id: string }>,
 };
 
@@ -121,6 +129,8 @@ export function blankEntity(kind: ConfigEntityKind): StudioEntity {
       return { id: "", agent: "", tracker: "", repos: [], pipeline: "", pipelines: [], resolution: null };
     case "mcp-servers":
       return { id: "", transport: "http", url: "", authSecret: "" };
+    case "design-sources":
+      return { id: "", vendor: "figma", authSecret: "" };
     case "secrets":
       return { id: "" };
   }

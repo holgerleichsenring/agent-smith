@@ -44,6 +44,7 @@ vi.mock("@/lib/configApi", () => {
     reposApi: client([]), // the operator has NO legacy repos catalog
     projectsApi: client(projects),
     mcpServersApi: client([]),
+    designSourcesApi: client([]),
     secretsApi: client(secrets),
     fetchChanges: vi.fn().mockResolvedValue([]),
     // 2026-09-22-6968: the catalog load reads the inherited-sandbox projection beside

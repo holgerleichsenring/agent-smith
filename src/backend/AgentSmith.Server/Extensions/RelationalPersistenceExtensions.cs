@@ -77,6 +77,7 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<ConfigImportRepository>();
         services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
         services.RemoveAll<IConfigStore>();
+        services.AddSingleton<ConfigChangeReverter>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddScoped<ActiveRunRepository>().AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();

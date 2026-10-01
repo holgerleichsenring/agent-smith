@@ -54,6 +54,7 @@ public sealed class FileConfigStore(IConfigStoreLocation location,
     public IReadOnlyList<McpServerEntity> GetMcpServers() => Catalog.McpServers;
     public IReadOnlyList<SecretEntity> GetSecrets() => Catalog.Secrets;
     public IReadOnlyList<ConnectionEntity> GetConnections() => Catalog.Connections;
+    public IReadOnlyList<DesignSourceEntity> GetDesignSources() => Catalog.DesignSources;
     public IReadOnlyList<ConfigChange> GetChanges() => [];
 
     // p0353: the settings singletons READ off the same file-backed document; the CLI
@@ -81,6 +82,8 @@ public sealed class FileConfigStore(IConfigStoreLocation location,
     public void DeleteSecret(string id, ChangeAttribution by) => throw ReadOnly();
     public void UpsertConnection(ConnectionEntity entity, ChangeAttribution by) => throw ReadOnly();
     public void DeleteConnection(string id, ChangeAttribution by) => throw ReadOnly();
+    public void UpsertDesignSource(DesignSourceEntity entity, ChangeAttribution by) => throw ReadOnly();
+    public void DeleteDesignSource(string id, ChangeAttribution by) => throw ReadOnly();
     public void Revert(string changeId, ChangeAttribution by) => throw ReadOnly();
 
     private static NotSupportedException ReadOnly() => new(

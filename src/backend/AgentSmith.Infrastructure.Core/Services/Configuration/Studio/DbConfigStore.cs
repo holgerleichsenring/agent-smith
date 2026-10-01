@@ -1,7 +1,6 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
@@ -13,7 +12,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// version-checked and secret-guarded. The audit, config_entity_version, is the Changes feed.
 /// </summary>
 public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentAssembler assembler,
-    ConfigDocJson configJson, IBundledModelPriceList priceList) : IConfigStore
+    ConfigDocJson configJson, IBundledModelPriceList priceList, ConfigChangeReverter reverter) : IConfigStore
 {
     private readonly object _gate = new();
     private RawAgentSmithConfig? _document;
@@ -47,6 +46,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public IReadOnlyList<McpServerEntity> GetMcpServers() => Catalog.McpServers;
     public IReadOnlyList<SecretEntity> GetSecrets() => Catalog.Secrets;
     public IReadOnlyList<ConnectionEntity> GetConnections() => Catalog.Connections;
+    public IReadOnlyList<DesignSourceEntity> GetDesignSources() => Catalog.DesignSources;
 
     public void UpsertAgent(AgentEntity entity, ChangeAttribution by) => Mutate(() =>
     {
@@ -79,6 +79,13 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public void UpsertConnection(ConnectionEntity entity, ChangeAttribution by) => Mutate(() =>
         Save(ConfigDocTypes.Connection, entity.Id, RawConfigPatch.Connection(entity, Existing(_document!.Connections, entity.Id)), by));
 
+    public void UpsertDesignSource(DesignSourceEntity entity, ChangeAttribution by) => Mutate(() =>
+    {
+        ConfigReferentialValidator.ValidateDesignSource(entity, _catalog);
+        Save(ConfigDocTypes.DesignSource, entity.Id,
+            DesignSourceEntityMapping.Apply(entity, Existing(_document!.DesignSources, entity.Id)), by);
+    });
+
     public void UpsertSecret(SecretEntity entity, ChangeAttribution by) => Mutate(() =>
     {
         var existing = _document!.Secrets.GetValueOrDefault(entity.Id);
@@ -92,6 +99,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
     public void DeleteMcpServer(string id, ChangeAttribution by) => Delete(ConfigDocTypes.McpServer, id, by);
     public void DeleteSecret(string id, ChangeAttribution by) => Delete(ConfigDocTypes.Secret, id, by);
     public void DeleteConnection(string id, ChangeAttribution by) => Delete(ConfigDocTypes.Connection, id, by);
+    public void DeleteDesignSource(string id, ChangeAttribution by) => Delete(ConfigDocTypes.DesignSource, id, by);
 
     // p0353: the global settings singletons. Read the assembled value; save the typed
     // doc for its fixed 'default' id through the same versioned/edge path as an entity
@@ -109,20 +117,7 @@ public sealed class DbConfigStore(IConfigDocumentStore docStore, ConfigDocumentA
 
     public IReadOnlyList<ConfigChange> GetChanges() => ConfigChangeProjection.From(docStore.GetVersions());
 
-    public void Revert(string changeId, ChangeAttribution by) => Mutate(() =>
-    {
-        var target = docStore.GetVersion(long.Parse(changeId))
-            ?? throw new ConfigurationException($"Unknown config change '{changeId}'.");
-        var prior = docStore.PriorDoc(target.Type, target.EntityId, target.Version);
-        if (prior is null)
-        {
-            docStore.Delete(target.Type, target.EntityId, by.Actor);
-            return;
-        }
-        docStore.Save(new ConfigDocWrite(
-            target.Type, target.EntityId, prior, ExpectedVersion: null,
-            assembler.EdgesFor(target.Type, prior), by.Actor, "revert"));
-    });
+    public void Revert(string changeId, ChangeAttribution by) => Mutate(() => reverter.Revert(changeId, by));
 
     private void Save(string type, string id, object rawEntry, ChangeAttribution by)
     {

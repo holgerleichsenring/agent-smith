@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-7f7aa
+goal: "A design source — vendor figma, auth naming a secret — is a config entity projects reference, edited in the Config Studio; its token is resolved at call time and masked from the current secrets."
+
+applies_to: "backend (config catalog, project resolution, studio store and routes, secret masking), dashboard (Config Studio)"
+
+requires: []
+
+facts:
+  - claim: "Adding a config doc type is one taxonomy entry plus a record with no migration; only projects carry reference edges, which the delete refusal reads."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:9-11,17-24,53-71"
+  - claim: "The MCP server catalog is the nearest shape: auth holds a secret NAME, with a studio entity, CRUD routes, a change-view name and a dashboard tab."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawMcpServerEntry.cs:5-12; src/backend/AgentSmith.Contracts/Models/ConfigStudio/McpServerEntity.cs:4-11; src/backend/AgentSmith.Server/Extensions/ConfigEntityRoutes.cs:34-36; src/backend/AgentSmith.Server/Services/Config/ConfigChangeView.cs:35; src/dashboard/src/components/config/entities.ts:28,122-123"
+  - claim: "Every catalog kind is also named in the change projection, the retired tree reader's collection roots, the route-permission baseline and the config schema, each guarded by a test."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigChangeProjection.cs:46-53; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RawConfigTreeReader.cs:17-27; tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:6,31,71,99; tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:42-56; tests/AgentSmith.Tests/ConfigStudio/ConfigTaxonomyCoverageTests.cs"
+  - claim: "A studio secret persists only its name; a new one is stored as a reference to the env variable of that name."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/SecretEntity.cs:3-8; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:82-86"
+  - claim: "SecretMasker is a singleton that freezes the secret values of the AgentSmithConfig singleton loaded at startup, while runs and design turns reload config per call — a secret added in the Studio later is never masked."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/SecretMasker.cs:22-31; src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:41; src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:74-75; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:97"
+  - claim: "DbConfigStore replaces its catalog instance on every reload — its own write, or an epoch advance seen on any replica."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:137-153; src/backend/AgentSmith.Server/Services/Hosting/ConfigStoreReloadHostedService.cs:5-14"
+  - claim: "Tracker and source tokens are one process-wide env variable per platform, so two Figma environments could not hold two tokens that way."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/TrackerConnections.cs:18-27"
+  - claim: "A project save is refused for an unknown catalog reference; RawProjectPatch writes nullable lists only when sent."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ConfigReferentialValidator.cs:23-28; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawProjectPatch.cs:28-29; src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectEntity.cs:25-31"
+  - claim: "DbConfigStore is at its ratchet row, 161 of 161, and cannot take a member without an extraction."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:82"
+
+scope:
+  in: >
+    design_sources catalog: name -> { vendor: figma, auth: <secret name>, display_name? }; projects list
+    design_sources: [names]. ResolvedProject.DesignSources carries the secret NAME — no record ever holds
+    the token. CurrentSecretValues resolves a secret name to its value on demand, re-reading the secrets
+    map when the config store's catalog instance changes; SecretMasker masks from it. Studio:
+    DesignSourceEntity, IConfigStore members, ConfigEntityType.DesignSource, the design-sources route and
+    its permission rows, change projection and change-view name, the collection root, the config schema.
+    ValidateProject refuses an unknown design source at save; a design_source -> secret edge refuses
+    deleting a secret a source names — the one non-project edge, a deliberate exception to
+    ConfigDocumentTaxonomy.cs:11. Dashboard tab and a nullable project field.
+  out: >
+    Reading a design — 2026-10-01-7f7ab. A per-person or OAuth credential. Any vendor but figma.
+
+decisions:
+  - key: "SUPERSEDES 2026-09-13-0229. Its 'a design belongs to a ticket, not a project' is wrong for a design that IS the spec: the project owns the access, the ticket names the frame. Its vendor-decision precondition is dropped by operator ruling — the API facts come from Figma's public REST documentation."
+  - key: "THE NAME TRAVELS, THE VALUE IS LOOKED UP AT USE. A resolved record holding a token lives as long as whatever cached it; a name cannot leak."
+  - key: "THE MASKER FOLLOWS THE STORE. Masking only the secrets known at boot is a gap every Studio-added secret falls through, not only this one."
+  - key: "A SECRET A SOURCE NAMES CANNOT BE DELETED. Otherwise the source survives and fails at its first read."
+
+steps:
+  - id: extract
+    action: "DbConfigStore.Revert's body moves to ConfigChangeReverter (Studio), injected; DbConfigStore's ratchet row drops to its new length."
+  - id: masker
+    action: "CurrentSecretValues (resolve by name, all values); SecretMasker reads it at mask time."
+  - id: config
+    action: "RawDesignSourceEntry, DesignSourceVendor, DesignSource (name, vendor, secret name, display name); DesignSourceCatalogBuilder and project resolution with findings; agentsmith.schema.json; RawConfigTreeReader root."
+  - id: store
+    action: "Taxonomy entry, project edge and design_source -> secret edge; DesignSourceEntity mapped in its own file; IConfigStore, DbConfigStore, FileConfigStore members; ValidateProject; RawProjectPatch; change projection, change view, route, permission rows."
+  - id: dashboard
+    action: "design-sources tab (vendor, secret picker, display name); project form multi-select."
+
+tests:
+  - "SecretMasker_SecretAddedInStudioAfterStartup_IsMasked"
+  - "CurrentSecretValues_CatalogUnchanged_DoesNotReload"
+  - "Project_NamesUnknownDesignSource_IsABlockingFinding"
+  - "UpsertProject_UnknownDesignSource_IsRefused"
+  - "DeleteSecret_NamedByADesignSource_IsRefused"
+  - "DeleteDesignSource_ReferencedByAProject_IsRefused"
+  - "UpsertProject_WithoutDesignSources_KeepsStoredList"
+  - "ConfigImport_RoundTripsDesignSources"
+  - "ConfigSchemaCoverageTests, ConfigTaxonomyCoverageTests and the route-permission baseline pass with the new kind"
+  - "dashboard: design-sources tab creates a source showing the secret name only"
+
+done:
+  - "a project referencing a figma source resolves; an unknown source blocks startup and is refused at save"
+  - "a secret added in the Studio after startup is masked in the next trace"
+  - "build green, full suite green, dashboard tests and build green"

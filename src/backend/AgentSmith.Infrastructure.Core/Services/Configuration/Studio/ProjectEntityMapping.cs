@@ -25,7 +25,8 @@ internal static class ProjectEntityMapping
             ToResolution(project),
             project.DefaultPipeline,
             ToTemplates(project),
-            ToSandbox(project));
+            ToSandbox(project),
+            [.. project.DesignSources]);
     }
 
     /// <summary>

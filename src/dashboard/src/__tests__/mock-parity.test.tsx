@@ -88,6 +88,7 @@ vi.mock("@/lib/configApi", () => {
       { id: "sample", agent: "azure_openai", tracker: "azdo", repos: ["server"], pipeline: "fix-bug", pipelines: ["fix-bug"], resolution: null },
     ]),
     mcpServersApi: client([]),
+    designSourcesApi: client([]),
     secretsApi: client([{ id: "KEY" }, { id: "PAT" }]),
     fetchChanges: vi.fn().mockResolvedValue([]),
     // 2026-09-22-6968: the catalog load reads the inherited-sandbox projection beside

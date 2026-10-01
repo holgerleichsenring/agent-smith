@@ -35,12 +35,16 @@ public sealed class ResolvedProjectBuilder(
         var templates = templateResolver.Resolve(
             name, raw.Templates, rawProjects ?? new Dictionary<string, RawProjectEntry>(),
             catalogs, findings);
+        var designSources = ProjectDesignSourceResolver.Resolve(
+            name, raw.DesignSources, catalogs.DesignSources, findings);
 
-        if (agent is null || tracker is null || repoList is null || pipelines is null) return null;
+        if (agent is null || tracker is null || repoList is null || pipelines is null
+            || designSources is null) return null;
 
         return CreateProject(name, raw, agent, tracker, repoList, pipelines) with
         {
             Templates = templates,
+            DesignSources = designSources,
         };
     }
 

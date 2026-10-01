@@ -221,7 +221,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
             [Agent("Shared"), Agent("shared")],
             [new TrackerEntity("board", "github", null)],
             [new RepoEntity("repo", "https://x", null)],
-            [], [], [], []);
+            [], [], [], [], []);
         var project = new ProjectEntity("demo", "shared", "board", ["repo"], null, []);
 
         var act = () => ConfigReferentialValidator.ValidateProject(project, catalog);
@@ -246,7 +246,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         [Agent(agent)],
         [new TrackerEntity(tracker, "github", null)],
         [new RepoEntity(repo, "https://x", null)],
-        [], [], [], []);
+        [], [], [], [], []);
 
     private static (AgentSmithConfig Config, IReadOnlyList<StartupFinding> Findings) Resolve(string yaml)
     {

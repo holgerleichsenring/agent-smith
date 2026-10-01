@@ -140,7 +140,7 @@ public sealed class ProjectTemplateTests
                 new RepoEntity("reference", "https://git.test/reference", null)],
         Projects: [new ProjectEntity(
             "app", "a", "t", ["target"], "code", ["code"], null, null, templates)],
-        McpServers: [], Secrets: [], Connections: []);
+        McpServers: [], Secrets: [], Connections: [], DesignSources: []);
 
     private static (AgentSmithConfig Config, IReadOnlyList<StartupFinding> Findings) Load(string yaml)
     {
