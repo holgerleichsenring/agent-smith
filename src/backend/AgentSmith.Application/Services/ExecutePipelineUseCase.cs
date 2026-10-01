@@ -331,7 +331,7 @@ public sealed class ExecutePipelineUseCase(
         if (request.IsInit)
         {
             pipeline.Set(ContextKeys.InitMode, true);
-            pipeline.Set(ContextKeys.CheckoutBranch, "agentsmith/init");
+            pipeline.Set(ContextKeys.CheckoutBranch, TicketBranchNamer.InitBranch);
         }
 
         if (request.Context is not null)
