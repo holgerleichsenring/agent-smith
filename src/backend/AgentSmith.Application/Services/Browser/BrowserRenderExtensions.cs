@@ -21,6 +21,9 @@ public static class BrowserRenderExtensions
         services.AddTransient<RenderSourceParser>();
         services.AddTransient<BrowserSandboxOpener>();
         services.AddTransient<BrowserRenderInvocation>();
+        services.AddTransient<RepoTreeListing>(); // 2026-10-01-283dh
+        services.AddTransient<RepoRenderSource>();
+        services.AddTransient<RenderSourceStager>();
         services.AddTransient<ReferenceRenderer>();
         services.AddTransient<RenderResultText>();
         services.AddTransient<RenderReferenceServices>();

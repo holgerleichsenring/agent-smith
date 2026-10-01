@@ -28,7 +28,8 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
         {
             StepKind.WriteFile => Write(step),
             StepKind.ReadFile => Files.TryGetValue(Resolve(step.Path!), out var bytes)
-                ? Ok(step, Encoding.UTF8.GetString(bytes)) : Fail(step, "file not found"),
+                ? Read(step, bytes) : Fail(step, "file not found"),
+            StepKind.ListFiles => Ok(step, List(step)),
             StepKind.Grep => Ok(step, Grep(step)),
             StepKind.Run when step.Command == "python3" => Decode(step),
             _ => Ok(step, string.Empty),
@@ -62,6 +63,23 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
             .Select(l => new { path = l.Path, line = l.Line, text = l.Text, kind = "match" });
         return JsonSerializer.Serialize(rows);
     }
+
+    // 2026-10-01-283dh: like the agent — UTF-8 or refused, never a lossy decode.
+    private static StepResult Read(Step step, byte[] bytes)
+    {
+        try { return Ok(step, StrictUtf8.GetString(bytes)); }
+        catch (DecoderFallbackException) { return Fail(step, "binary or non-UTF-8 content not supported"); }
+    }
+
+    // 2026-10-01-283dh: every file under the path, at any depth, in the agent's wire shape.
+    private string List(Step step)
+    {
+        var root = Resolve(step.Path ?? ".").TrimEnd('/') + "/";
+        return JsonSerializer.Serialize(Files.Where(f => f.Key.StartsWith(root, StringComparison.Ordinal))
+            .Select(f => new Dictionary<string, object> { ["path"] = f.Key, ["size_bytes"] = f.Value.LongLength, ["is_directory"] = false }));
+    }
+
+    private static readonly UTF8Encoding StrictUtf8 = new(false, throwOnInvalidBytes: true);
 
     private static string Resolve(string path) =>
         path.StartsWith('/') ? path : Work + (path is "." ? string.Empty : path);

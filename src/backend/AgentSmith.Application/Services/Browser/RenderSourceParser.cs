@@ -20,9 +20,27 @@ public sealed class RenderSourceParser
         var text = (source ?? string.Empty).Trim();
         if (text.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))
             return OfAddress(text, scope);
+        if (IsPagePath(text)) return OfRepoPath(text, scope);
         if (Uri.TryCreate(text, UriKind.Absolute, out var url))
             return (RenderSource.OfUrl(url), null);
-        return (null, $"'{text}' is neither a {ReferenceScopeName.Prefix} address nor an absolute http(s) URL");
+        return (null, $"'{text}' is neither a {ReferenceScopeName.Prefix} address, a repository path to an "
+            + ".html file nor an absolute http(s) URL");
+    }
+
+    // 2026-10-01-283dh: a repository-relative .html path — a mock beside a spec, a built page.
+    private static bool IsPagePath(string text) =>
+        !text.Contains("://", StringComparison.Ordinal)
+        && (text.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || text.EndsWith(".htm", StringComparison.OrdinalIgnoreCase));
+
+    private static (RenderSource?, string?) OfRepoPath(string text, RenderReferenceScope scope)
+    {
+        if (text.StartsWith('/') || text.Contains('\\') || text.Contains(':') || text.Split('/').Any(s => s is ".." or ""))
+            return (null, $"'{text}' is not a path inside a repository — name it relative to the repository root");
+        if (scope.RepoSandboxes.Count == 0) return (null, "this conversation or run holds no repository to read it from");
+        var slash = text.IndexOf('/');
+        if (slash > 0 && scope.RepoSandboxes.ContainsKey(text[..slash]))
+            return (RenderSource.OfRepo(text[..slash], text[(slash + 1)..]), null);
+        return (RenderSource.OfRepo(scope.RepoSandboxes.Count == 1 ? scope.RepoSandboxes.Keys.First() : null, text), null);
     }
 
     private static (RenderSource?, string?) OfAddress(string text, RenderReferenceScope scope)

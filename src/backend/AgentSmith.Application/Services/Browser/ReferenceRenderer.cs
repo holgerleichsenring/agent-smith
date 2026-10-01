@@ -1,17 +1,15 @@
-using AgentSmith.Application.Services.Sandbox;
-
 namespace AgentSmith.Application.Services.Browser;
 
 /// <summary>
 /// 2026-10-01-283de: renders one source in the conversation's browser sandbox. An uploaded set is
 /// copied from the store into <c>/work/sets/&lt;setId&gt;/</c> once per sandbox life — the
 /// materialiser's marker says it is there — and served by the script from a local origin; a URL is
-/// handed over as it is, already judged by <see cref="RenderUrlGuard"/>.
+/// handed over as it is, already judged by <see cref="RenderUrlGuard"/>. 2026-10-01-283dh: staging
+/// is <see cref="RenderSourceStager"/>'s, which also copies a page out of a repository.
 /// </summary>
 public sealed class ReferenceRenderer(
-    BrowserSandboxOpener opener, ReferenceSetMaterialiser sets, BrowserRenderInvocation invocation)
+    BrowserSandboxOpener opener, RenderSourceStager stager, BrowserRenderInvocation invocation)
 {
-    internal const string SetsRoot = "sets";
     private const string WorkRoot = "/work";
 
     /// <summary>The render, or why there is none.</summary>
@@ -24,17 +22,12 @@ public sealed class ReferenceRenderer(
         if (lease is null) return (null, refusal);
         await using (lease)
         {
-            string? siteDir = null;
-            if (source.SetId is { } setId)
-            {
-                var root = $"{SetsRoot}/{setId}";
-                await sets.PrepareUnderAsync(lease.Sandbox, source.Session, setId, root, ct);
-                siteDir = $"{WorkRoot}/{root}";
-            }
-            var request = new BrowserRenderRequest(source.Url?.AbsoluteUri, siteDir, source.Page,
+            var (staged, unstaged) = await stager.StageAsync(lease.Sandbox, scope, source, ct);
+            if (staged is null) return (null, unstaged);
+            var request = new BrowserRenderRequest(staged.Url, staged.SiteDir, staged.Page,
                 selectors, BrowserStyleProperties.Properties, $"{WorkRoot}/render/{Guid.NewGuid():N}");
             var (result, shots, failure) = await invocation.RunAsync(lease.Sandbox, request, ct);
-            return result is null ? (null, failure) : (new BrowserRenderOutput(result, shots), null);
+            return result is null ? (null, failure) : (new BrowserRenderOutput(result, shots, staged.Notes), null);
         }
     }
 }

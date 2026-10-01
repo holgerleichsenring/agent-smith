@@ -14,8 +14,14 @@ namespace AgentSmith.Application.Services.Browser;
 /// <param name="Conversation">The conversation the browser is held under; null in a run.</param>
 /// <param name="Sandboxes">The turn's or run's sandbox map.</param>
 /// <param name="Carried">The uploaded websites a run carries; empty in a design turn.</param>
+/// <param name="Repos">2026-10-01-283dh: the repositories by name, whose HTML files render by path.</param>
 public sealed record RenderReferenceScope(
     ResolvedProject Project,
     string? Conversation,
     IReadOnlyDictionary<string, ISandbox> Sandboxes,
-    IReadOnlyList<CarriedReferenceSet> Carried);
+    IReadOnlyList<CarriedReferenceSet> Carried,
+    IReadOnlyDictionary<string, ISandbox>? Repos = null)
+{
+    /// <summary>The repositories by name; empty when the scope names none.</summary>
+    public IReadOnlyDictionary<string, ISandbox> RepoSandboxes => Repos ?? new Dictionary<string, ISandbox>();
+}
