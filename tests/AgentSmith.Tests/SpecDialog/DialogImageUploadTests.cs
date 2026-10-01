@@ -268,7 +268,8 @@ public sealed class DialogImageUploadTests : IDisposable
                 new SpecDialogLatestOutcomeStore(
                     _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText)
+                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText,
+                new ReferenceSetRepository(_context))
             .ReadAsync(dialogId, CancellationToken.None)).Session;
 
     private async Task<long> StoreAgainstAsync(string sessionId) =>

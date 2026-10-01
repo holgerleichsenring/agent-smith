@@ -10,6 +10,9 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # 2026-10-01-283db: nginx's 1 MB default refused every upload; a website set is 25 MB in
+    # a 26 MB route ceiling, and the 5 MB image upload passes under the same bound.
+    nginx.ingress.kubernetes.io/proxy-body-size: "30m"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx

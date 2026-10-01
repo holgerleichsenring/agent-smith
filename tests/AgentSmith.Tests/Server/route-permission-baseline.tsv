@@ -58,6 +58,7 @@ GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
 GET	/api/runs/{runId}/trail	runs.read
 GET	/api/spec-dialog/conversations	dialog.write
 GET	/api/spec-dialog/images/{imageId:long}	dialog.write
+GET	/api/spec-dialog/references	dialog.write
 GET	/api/spec-dialog/tickets/resolve	dialog.write
 GET	/api/spec-dialog/tickets/search	dialog.write
 GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write
@@ -87,6 +88,7 @@ POST	/api/runs/{runId}/retry	runs.control
 POST	/api/spec-dialog/conversations/{sessionId}/resume	dialog.write
 POST	/api/spec-dialog/images	dialog.write
 POST	/api/spec-dialog/messages	dialog.write
+POST	/api/spec-dialog/references	dialog.write
 POST	/api/teams/messages	anonymous
 POST	/slack/commands	anonymous
 POST	/slack/events	anonymous

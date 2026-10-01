@@ -38,6 +38,18 @@ export interface SpecDialogImage {
   at: string;
 }
 
+/**
+ * 2026-10-01-283db: one website the operator uploaded — a set of files with their paths, shown
+ * as one chip. Its name is the folder every file sits under, or "site" when they share none.
+ */
+export interface SpecDialogReferenceSet {
+  setId: string;
+  name: string;
+  files: number;
+  bytes: number;
+  at: string;
+}
+
 export interface SpecDialogSession {
   sessionId: string;
   scope: SpecDialogProject;
@@ -58,6 +70,8 @@ export interface SpecDialogSession {
   proposalTurn: number | null;
   /** The images attached to this conversation, oldest first. */
   images: SpecDialogImage[];
+  /** 2026-10-01-283db: the websites uploaded to this conversation, oldest first. */
+  references?: SpecDialogReferenceSet[] | null;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }

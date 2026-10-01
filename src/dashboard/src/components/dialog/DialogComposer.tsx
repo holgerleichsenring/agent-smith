@@ -19,20 +19,27 @@ import { useEffect, useRef, useState } from "react";
 // the same picker is an image button wearing a plus, and the second attachable kind should not
 // need this control redesigned again. Both are drawn in mock-parity.css: this directory's own
 // guard forbids drawing a surface out of theme utilities.
+// 2026-10-01-283db: the second and third kinds the menu was built for — a Website (several files,
+// or one .zip the server unpacks) and a Folder (the directory picker, each file under its path).
 
 export function DialogComposer({
   onSend,
   onAttach,
+  onAttachSite,
   disabled,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
   onAttach: (file: File) => void;
+  /** 2026-10-01-283db: a website the operator picked — its files, stored as one set. */
+  onAttachSite?: (files: File[]) => void;
   disabled?: boolean;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
+  const website = useRef<HTMLInputElement>(null);
+  const folder = useRef<HTMLInputElement>(null);
   const attach = useRef<HTMLDivElement>(null);
 
   const send = () => {
@@ -85,6 +92,27 @@ export function DialogComposer({
               if (picked) onAttach(picked);
             }}
           />
+          {onAttachSite && (
+            <>
+              <input
+                ref={website}
+                data-testid="dialog-composer-website"
+                type="file"
+                multiple
+                accept={SITE_FILES}
+                className="hidden"
+                onChange={(event) => pickSite(event.target, onAttachSite)}
+              />
+              <input
+                ref={folder}
+                data-testid="dialog-composer-folder"
+                type="file"
+                {...{ webkitdirectory: "" }}
+                className="hidden"
+                onChange={(event) => pickSite(event.target, onAttachSite)}
+              />
+            </>
+          )}
           <button
             type="button"
             data-testid="dialog-composer-attach"
@@ -112,6 +140,34 @@ export function DialogComposer({
               >
                 Image
               </button>
+              {onAttachSite && (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="dialog-composer-attach-website"
+                    onClick={() => {
+                      setAttaching(false);
+                      website.current?.click();
+                    }}
+                    className="d-menu-item"
+                  >
+                    Website
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="dialog-composer-attach-folder"
+                    onClick={() => {
+                      setAttaching(false);
+                      folder.current?.click();
+                    }}
+                    className="d-menu-item"
+                  >
+                    Folder
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -146,6 +202,19 @@ export function DialogComposer({
       </div>
     </div>
   );
+}
+
+/** What a website is made of, as the server's allow-list has it, and the one archive it unpacks. */
+const SITE_FILES = [
+  ".html", ".htm", ".css", ".js", ".mjs", ".json", ".svg", ".png", ".jpg", ".jpeg", ".gif",
+  ".webp", ".avif", ".ico", ".woff", ".woff2", ".ttf", ".otf", ".txt", ".md", ".zip",
+].join(",");
+
+/** The picked files, handed on once; the input is cleared so the same pick can be made again. */
+function pickSite(input: HTMLInputElement, onAttachSite: (files: File[]) => void) {
+  const picked = Array.from(input.files ?? []);
+  input.value = "";
+  if (picked.length > 0) onAttachSite(picked);
 }
 
 // The two glyphs, drawn to the shape every ported mock surface uses — a 16-unit box, no fill,

@@ -15,6 +15,7 @@ internal static class ReferenceFileExtensions
     internal static IServiceCollection AddReferenceFiles(this IServiceCollection services)
     {
         services.AddScoped<ReferenceFileRepository>();
+        services.AddScoped<ReferenceSetRepository>(); // 2026-10-01-283db
         services.AddScoped<LegacyAttachmentCopy>();
         // The copy switches identity insertion the way the archive import does; the archive
         // graph is not wired in every composition, so the two it needs are offered here too.
