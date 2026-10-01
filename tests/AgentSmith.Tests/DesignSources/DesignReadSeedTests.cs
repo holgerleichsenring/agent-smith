@@ -19,7 +19,9 @@ namespace AgentSmith.Tests.DesignSources;
 public sealed class DesignReadSeedTests
 {
     private static readonly DesignSource Figma = new("brand", DesignSourceVendor.Figma, "figma-token");
-    private readonly DesignReadToolHostFactory _factory = new(Mock.Of<IFigmaClient>(MockBehavior.Strict));
+    private readonly DesignReadToolHostFactory _factory = new(Mock.Of<IFigmaClient>(MockBehavior.Strict),
+        new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<DesignReadToolHostFactory>.Instance);
 
     [Fact]
     public void Factory_RunWithFigmaSource_BuildsTheHost()

@@ -116,7 +116,9 @@ internal static class MasterHandlerFixture
             new InMemoryChildAnswerStore(),
             // 2026-10-01-7f7ab: a project with no figma source never reaches the client.
             new AgentSmith.Application.Services.Tools.DesignReadToolHostFactory(
-                figma ?? Mock.Of<AgentSmith.Contracts.Providers.IFigmaClient>(MockBehavior.Strict)),
+                figma ?? Mock.Of<AgentSmith.Contracts.Providers.IFigmaClient>(MockBehavior.Strict),
+                new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+                NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>

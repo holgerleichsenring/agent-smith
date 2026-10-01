@@ -19,7 +19,7 @@ public sealed class FigmaClientTests
         var handler = FakeFigmaHandler.Answering();
         var client = FigmaFakes.Client(handler);
 
-        var nodes = await client.GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+        var nodes = await client.GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
         var variables = await client.GetLocalVariablesAsync(FigmaFakes.SecretName, "AbCdEf123456", CancellationToken.None);
 
         nodes.Body.Should().NotBeNull();
@@ -36,7 +36,7 @@ public sealed class FigmaClientTests
         var handler = FakeFigmaHandler.Answering();
 
         var read = await FigmaFakes.Client(handler, token: null)
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         read.Failure!.Kind.Should().Be(FigmaReadFailureKind.Forbidden);
         read.Failure.Detail.Should().Contain(FigmaFakes.SecretName);
@@ -52,7 +52,7 @@ public sealed class FigmaClientTests
         var clock = new InstantClock();
 
         var read = await FigmaFakes.Client(handler, clock)
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         read.Body.Should().NotBeNull();
         handler.Requests.Should().HaveCount(2);
@@ -67,7 +67,7 @@ public sealed class FigmaClientTests
         handler.NodeResponses.Enqueue(() => FigmaFakes.RateLimited(20));
 
         var read = await FigmaFakes.Client(handler, new InstantClock())
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         handler.Requests.Should().HaveCount(2, "one retry, bounded");
         read.Failure!.Kind.Should().Be(FigmaReadFailureKind.RateLimited);
@@ -82,7 +82,7 @@ public sealed class FigmaClientTests
         var clock = new InstantClock();
 
         var read = await FigmaFakes.Client(handler, clock)
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         read.Failure!.RetryAfter.Should().Be(TimeSpan.FromSeconds(120));
         clock.Waits.Should().BeEmpty("a long wait is the model's decision");
@@ -99,7 +99,7 @@ public sealed class FigmaClientTests
         handler.NodeResponses.Enqueue(() => FigmaFakes.Status(status));
 
         var read = await FigmaFakes.Client(handler)
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         read.Failure!.Kind.Should().Be(kind);
         read.Failure.Detail.Should().NotContain("FIGMA-BODY-MARKER");
@@ -112,7 +112,7 @@ public sealed class FigmaClientTests
         handler.NodeResponses.Enqueue(() => throw new HttpRequestException("socket " + FigmaFakes.Token));
 
         var read = await FigmaFakes.Client(handler)
-            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, CancellationToken.None);
+            .GetNodesAsync(FigmaFakes.SecretName, "AbCdEf123456", "1:2", 3, null, CancellationToken.None);
 
         read.Failure!.Kind.Should().Be(FigmaReadFailureKind.Unreachable);
         read.Failure.Detail.Should().NotContain(FigmaFakes.Token);

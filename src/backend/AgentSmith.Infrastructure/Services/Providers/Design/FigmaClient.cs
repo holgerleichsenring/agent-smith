@@ -21,9 +21,10 @@ public sealed class FigmaClient(
     private static readonly TimeSpan LongestHonouredWait = TimeSpan.FromSeconds(30);
 
     public Task<FigmaReadResult> GetNodesAsync(
-        string secretName, string fileKey, string nodeId, int depth, CancellationToken cancellationToken) =>
+        string secretName, string fileKey, string nodeId, int depth, string? version, CancellationToken cancellationToken) =>
         ReadAsync(secretName,
-            $"v1/files/{Uri.EscapeDataString(fileKey)}/nodes?ids={Uri.EscapeDataString(nodeId)}&depth={depth}",
+            $"v1/files/{Uri.EscapeDataString(fileKey)}/nodes?ids={Uri.EscapeDataString(nodeId)}&depth={depth}"
+            + (string.IsNullOrWhiteSpace(version) ? string.Empty : $"&version={Uri.EscapeDataString(version.Trim())}"),
             cancellationToken);
 
     public Task<FigmaReadResult> GetLocalVariablesAsync(

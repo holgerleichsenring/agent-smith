@@ -15,8 +15,11 @@ namespace AgentSmith.Application.Services.Tools;
 /// source; it never sees, sends or receives the token. Variables are read once per file and
 /// degrade to a stated absence: the node values stand on their own. Only an answered variables
 /// read is kept, so a rate-limited one is asked again on the next call.
+/// <para>2026-10-01-7f7ae: an answered read is recorded on the run (when the pipeline has one);
+/// a cited version is compared with the one read, and read on request.</para>
 /// </summary>
-public sealed class DesignReadToolHost(IFigmaClient figma, IReadOnlyList<DesignSource> sources) : IToolHost
+public sealed class DesignReadToolHost(
+    IFigmaClient figma, IReadOnlyList<DesignSource> sources, DesignReadRecorder? recorder = null) : IToolHost
 {
     private const int NodeBudget = 16_000;
     private const int VariableBudget = 6_000;
@@ -32,6 +35,8 @@ public sealed class DesignReadToolHost(IFigmaClient figma, IReadOnlyList<DesignS
         [Description("The Figma link, e.g. https://www.figma.com/design/<key>/<title>?node-id=1-2")] string url,
         [Description("The design source to read through; needed only when the project has several.")] string? source = null,
         [Description("How many levels below the node to read, 1-6 (default 3).")] int? depth = null,
+        [Description("The file version the ticket cites; the answer says whether the design moved since.")] string? expected_version = null,
+        [Description("True reads expected_version itself instead of the current version.")] bool? read_version = null,
         CancellationToken ct = default)
     {
         if (!FigmaLink.TryParse(url, out var link))
@@ -40,13 +45,17 @@ public sealed class DesignReadToolHost(IFigmaClient figma, IReadOnlyList<DesignS
             return "Error: the link names no node. Copy the link of the frame to read (it carries node-id) and call again.";
         if (Pick(source) is not { } chosen)
             return $"Error: name the design source to read through: one of {string.Join(", ", sources.Select(s => s.Name))}.";
+        var cited = read_version == true ? expected_version?.Trim() : null;
+        if (read_version == true && string.IsNullOrEmpty(cited))
+            return "Error: read_version needs expected_version — the version to read.";
         var nodes = await figma.GetNodesAsync(
-            chosen.SecretName, link.ApiFileKey, link.NodeId, Math.Clamp(depth ?? DefaultDepth, 1, MaxDepth), ct);
+            chosen.SecretName, link.ApiFileKey, link.NodeId, Math.Clamp(depth ?? DefaultDepth, 1, MaxDepth), cited, ct);
         if (nodes.Body is not { } body)
             return Failed(nodes.Failure!);
+        if (recorder is not null) await recorder.RecordAsync(chosen.Name, link, body, ct);
         var variables = await VariablesAsync(chosen, link.ApiFileKey, ct);
         var names = variables.Body is { } vars ? FigmaVariableSummary.Names(vars) : new Dictionary<string, string>();
-        return $"source: {chosen.Name}\n{FigmaNodeSummary.Render(body, names, NodeBudget)}\n\n{VariablesText(variables)}";
+        return $"{DesignVersionNote.Render(expected_version, cited is not null, body)}source: {chosen.Name}\n{FigmaNodeSummary.Render(body, names, NodeBudget)}\n\n{VariablesText(variables)}";
     }
 
     private DesignSource? Pick(string? name) => string.IsNullOrWhiteSpace(name)
