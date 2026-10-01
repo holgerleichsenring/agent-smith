@@ -73,7 +73,8 @@ public sealed class BrowserRenderDockerTests(ITestOutputHelper output) : IRefere
         var files = new SandboxFileReaderFactory();
         return new RenderReferenceServices(new RenderSourceParser(),
             new RenderUrlGuard(new DnsHostAddressResolver(), new PublicAddressRule()),
-            new ReferenceRenderer(opener, new ReferenceSetMaterialiser(this, files), new BrowserRenderInvocation(files)),
+            new ReferenceRenderer(opener, new RenderSourceStager(new ReferenceSetMaterialiser(this, files),
+                new RepoRenderSource(files, new RepoTreeListing())), new BrowserRenderInvocation(files)),
             this, new RenderResultText());
     }
 

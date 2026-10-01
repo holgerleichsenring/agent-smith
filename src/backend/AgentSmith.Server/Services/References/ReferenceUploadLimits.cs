@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Models;
 
 namespace AgentSmith.Server.Services.References;
@@ -8,11 +9,11 @@ namespace AgentSmith.Server.Services.References;
 /// </summary>
 public static class ReferenceUploadLimits
 {
-    public const int MaxFiles = 500;
+    public const int MaxFiles = ReferenceSetLimits.MaxFiles; // 2026-10-01-283dh: stated in Contracts
 
-    public const long MaxFileBytes = 5L * 1024 * 1024;
+    public const long MaxFileBytes = ReferenceSetLimits.MaxFileBytes;
 
-    public const long MaxSetBytes = 25L * 1024 * 1024;
+    public const long MaxSetBytes = ReferenceSetLimits.MaxSetBytes;
 
     public const int MaxSetsPerConversation = 3;
 
@@ -23,6 +24,5 @@ public static class ReferenceUploadLimits
     public const long RouteBodyBytes = 26L * 1024 * 1024;
 
     /// <summary>A size as a refusal states it.</summary>
-    public static string Megabytes(long bytes) =>
-        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{bytes / (1024.0 * 1024.0):0.#} MB");
+    public static string Megabytes(long bytes) => ReferenceSetLimits.Megabytes(bytes);
 }

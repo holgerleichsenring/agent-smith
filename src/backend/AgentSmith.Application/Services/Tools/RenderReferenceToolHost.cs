@@ -23,9 +23,9 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode) =>
         [AIFunctionFactory.Create(RenderReference, name: "render_reference")];
 
-    [Description("Renders an uploaded website (reference:<name>, optionally reference:<name>/<page>.html) or a public http(s) URL in a real browser. Returns each selector's computed styles exactly as the browser computed them (colour, background, font, size, weight, line-height, spacing, border, radius, shadow, box size), console errors, failed requests and requests the egress guard refused, and shows desktop (1440x900) and mobile (390x844) screenshots.")]
+    [Description("Renders an uploaded website (reference:<name>, optionally reference:<name>/<page>.html), an .html file in a repository by its path (a design mock beside a spec, a built page; its directory tree is copied with it) or a public http(s) URL in a real browser. Returns each selector's computed styles exactly as the browser computed them (colour, background, font, size, weight, line-height, spacing, border, radius, shadow, box size), console errors, failed requests and requests the egress guard refused, and shows desktop (1440x900) and mobile (390x844) screenshots.")]
     public async Task<string> RenderReference(
-        [Description("reference:<name>[/<page>] for an uploaded website, or an absolute http(s) URL.")] string source,
+        [Description("reference:<name>[/<page>] for an uploaded website, [<repo>/]<path>.html for a page in a repository, or an absolute http(s) URL.")] string source,
         [Description("CSS selectors to report computed styles for, at most 20. Default: body, h1, h2, h3, a, button, input, nav, header, footer.")] string[]? selectors = null,
         CancellationToken ct = default)
     {
@@ -40,13 +40,19 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
         try
         {
             var (output, failure) = await services.Renderer.RenderAsync(scope, parsed, chosen, ct);
-            return output is null ? $"render_reference failed: {failure}" : services.Text.Render(output.Result, Deposit(output));
+            return output is null
+                ? $"render_reference failed: {failure}"
+                : services.Text.Render(output.Result, Deposit(output)) + NotesOf(output);
         }
         finally
         {
             _serial.Release();
         }
     }
+
+    // 2026-10-01-283dh: a page copied out of a repository names every file that could not travel.
+    private static string NotesOf(BrowserRenderOutput output) =>
+        output.Notes is { Count: > 0 } notes ? "\nCopying the page:\n" + string.Concat(notes.Select(n => $"- {n}\n")) : string.Empty;
 
     private List<string> Deposit(BrowserRenderOutput output) =>
         [.. output.Result.Shots.Zip(output.Shots, (shot, bytes) =>

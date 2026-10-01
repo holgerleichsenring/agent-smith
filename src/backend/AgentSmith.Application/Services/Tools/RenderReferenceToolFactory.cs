@@ -27,13 +27,28 @@ public sealed class RenderReferenceToolFactory(RenderReferenceServices services)
         if (isDesignTurn)
             return pipeline.TryGet<ResolvedProject>(ContextKeys.SpecDialogProject, out var turnProject) && turnProject is not null
                 && pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var conversation) && !string.IsNullOrEmpty(conversation)
-                ? new RenderReferenceToolHost(services, new RenderReferenceScope(turnProject, conversation, sandboxes, []))
+                ? new RenderReferenceToolHost(services, new RenderReferenceScope(turnProject, conversation, sandboxes, [],
+                    TurnRepos(sandboxes)))
                 : null;
         if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project) || project is null
             || project.Sandbox?.Browser?.Enabled != true)
             return null;
         var carried = pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var sets) && sets is not null
             ? sets : [];
-        return new RenderReferenceToolHost(services, new RenderReferenceScope(project, null, sandboxes, carried));
+        return new RenderReferenceToolHost(services, new RenderReferenceScope(project, null, sandboxes, carried, RunRepos(pipeline, sandboxes)));
+    }
+
+    // 2026-10-01-283dh: a design turn's map holds its repositories by name, beside template: and
+    // reference: addresses; a run's holds sandbox keys, each named to its repository.
+    private static Dictionary<string, ISandbox> TurnRepos(IReadOnlyDictionary<string, ISandbox> sandboxes) =>
+        sandboxes.Where(s => !s.Key.Contains(':')).ToDictionary(s => s.Key, s => s.Value, StringComparer.Ordinal);
+
+    private static Dictionary<string, ISandbox> RunRepos(PipelineContext pipeline, IReadOnlyDictionary<string, ISandbox> sandboxes)
+    {
+        var names = pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var r) && r is not null
+            ? r : new Dictionary<string, string>();
+        var repos = new Dictionary<string, ISandbox>(StringComparer.Ordinal);
+        foreach (var (key, sandbox) in sandboxes) repos.TryAdd(names.GetValueOrDefault(key) ?? key, sandbox);
+        return repos;
     }
 }

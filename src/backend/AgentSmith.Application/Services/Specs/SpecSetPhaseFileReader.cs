@@ -18,10 +18,14 @@ public sealed class SpecSetPhaseFileReader(
     PhaseDraftReader draftReader,
     ILogger<SpecSetPhaseFileReader> logger)
 {
-    /// <summary>The phase, or null when the file is missing or is not a readable spec.</summary>
+    /// <summary>
+    /// The phase, or null when the file is missing or is not a readable spec. 2026-10-01-283dh:
+    /// <paramref name="listed"/> is the spec directory, listed once per set by the caller; the
+    /// phase's design mocks are picked out of it by phase id.
+    /// </summary>
     public async Task<SpecPhase?> ReadAsync(
         ISandboxFileReader files, SpecSetKey key, string stem,
-        SpecSetIndexDocument doc, CancellationToken cancellationToken)
+        SpecSetIndexDocument doc, IReadOnlyList<string> listed, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(doc);
@@ -32,7 +36,8 @@ public sealed class SpecSetPhaseFileReader(
         try
         {
             var draft = draftReader.Read(yaml!);
-            return new SpecPhase(draft, SlugOf(stem, draft.PhaseId), markdown, Carried(doc, draft.PhaseId));
+            return new SpecPhase(draft, SlugOf(stem, draft.PhaseId), markdown, Carried(doc, draft.PhaseId),
+                SpecPhaseMocks.Of(listed, key, draft.PhaseId));
         }
         catch (InvalidOperationException ex)
         {
