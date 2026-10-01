@@ -23,7 +23,7 @@ public sealed class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
     {
         if (string.IsNullOrWhiteSpace(reply)) return new SpecDraftAbsent();
 
-        var blocks = SpecDialogDraftBlocks.YamlBlock().Matches(reply);
+        var blocks = SpecDialogDraftBlocks.YamlBlocks(reply);
         if (blocks.Count == 0) return new SpecDraftAbsent();
         if (blocks.Count > 1)
             return new SpecDraftInvalid(

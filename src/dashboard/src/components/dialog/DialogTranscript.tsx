@@ -6,6 +6,8 @@ import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogImage, SpecDialogProposalPush } from "@/types/spec-dialog";
 import { DialogProposalCard } from "./DialogProposalCard";
+import { DialogDocumentCard } from "./DialogDocumentCard";
+import { documentBlocks } from "./documentBlocks";
 
 // 2026-09-15-cb3e: the conversation in order. What the agent sent is MARKDOWN and is
 // rendered as such — the framework composes its lines for this channel and the design
@@ -22,6 +24,7 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // mark of this page's own — the studio's card icon leads a card, this leads a line.
 // 2026-09-20-3af8: an image the operator attached is one of their own lines, shown where they
 // attached it. The bytes come from a route of their own, so the transcript read stays small.
+// 2026-10-01-aeb6b: a document in an agent turn is a card of its own, between the prose around it.
 
 export function DialogTranscript({
   entries,
@@ -71,10 +74,24 @@ function Turn({
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
       ) : (
-        said && <Markdown>{entry.text}</Markdown>
+        said && <AgentText text={entry.text} />
       )}
       {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
     </DialogMessage>
+  );
+}
+
+function AgentText({ text }: { text: string }) {
+  return (
+    <>
+      {documentBlocks(text).map((part, i) =>
+        part.kind === "document" ? (
+          <DialogDocumentCard key={i} text={part.text} />
+        ) : (
+          <Markdown key={i}>{part.text}</Markdown>
+        ),
+      )}
+    </>
   );
 }
 
