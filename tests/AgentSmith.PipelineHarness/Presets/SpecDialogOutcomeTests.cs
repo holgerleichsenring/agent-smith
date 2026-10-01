@@ -349,8 +349,8 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task PhaseTicketRenderer_FiledBody_IsAReadableRequirementAndCarriesNoSpec()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: null);
-        var draft = new PhaseDraft(
-            "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
+        // 2026-10-01-f5c3a: read, not constructed — the criteria are the draft's done list.
+        var draft = new PhaseDraftReader().Read(ValidDraftYaml);
 
         var content = new PhaseTicketRenderer().RenderPhase(draft, "sess-outcome");
 

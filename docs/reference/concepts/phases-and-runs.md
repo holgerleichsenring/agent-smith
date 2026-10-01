@@ -72,7 +72,20 @@ Technical details of the implementation.
 
 ## Definition of Done
 - [ ] Checklist of acceptance criteria
+- [ ] GIVEN an optional precondition WHEN the trigger THEN the observable result
 ```
+
+In a phase spec's yaml, a `done` item is either one line or a scenario mapping:
+
+```yaml
+done:
+  - "the table exists and the repository reads it"
+  - given: "a stored widget"
+    when: "the repository reads it back"
+    then: "the same widget is returned"
+```
+
+Every reader — the run's acceptance contract, the execution prompt, the filed ticket — sees the scenario as the one line `GIVEN a stored widget WHEN the repository reads it back THEN the same widget is returned`.
 
 ### Phase Tracking in context.yaml
 

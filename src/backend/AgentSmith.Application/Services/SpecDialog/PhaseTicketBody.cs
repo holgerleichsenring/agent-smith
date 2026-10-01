@@ -45,12 +45,14 @@ internal static class PhaseTicketBody
         PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null) =>
         FramedTicketRegion.Wrap(Done(Shared(draft, ScopeLines, (body, map) =>
         {
-            AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
+            AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(draft));
             AppendLines(body, "## Preconditions", draft.Requires);
         }, sb => { extraSections(sb); sb.Append(labelNote); })));
 
-    private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));
+    // 2026-10-01-f5c3a: the draft's done list, never the raw yaml — a scenario entry is a
+    // mapping there and would print as its type name.
+    private static IEnumerable<string> DoneLines(PhaseDraft draft) =>
+        draft.Done.Select(CriterionLine.Collapse);
 
     private static StringBuilder Shared(
         PhaseDraft draft,

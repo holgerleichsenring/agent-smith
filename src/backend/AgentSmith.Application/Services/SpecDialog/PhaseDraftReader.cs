@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -21,7 +22,8 @@ public sealed class PhaseDraftReader
         {
             // p0393a: the done-list is the run's acceptance contract, so it is read
             // here rather than re-parsed by every consumer of the draft.
-            Done = ReadStrings(map, "done"),
+            // 2026-10-01-f5c3a: a scenario entry arrives as its one line form.
+            Done = DoneCriterion.Lines(map),
             // p0394a: the spec's steps are the run's plan of record — they seed the
             // progress ledger and render as the master's plan section.
             Steps = ReadSteps(map),
