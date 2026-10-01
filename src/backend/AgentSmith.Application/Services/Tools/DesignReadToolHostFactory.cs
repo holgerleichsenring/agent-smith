@@ -1,7 +1,9 @@
 using AgentSmith.Application.Services.Design;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Tools;
 
@@ -10,12 +12,19 @@ namespace AgentSmith.Application.Services.Tools;
 /// reads the sources off its <see cref="ResolvedProject"/>, a design turn off the seed its
 /// runner set (<see cref="PipelineDesignSources"/>, 2026-10-01-7f7ad). No source, no host: the
 /// tool is never offered where it could only fail.
+/// <para>2026-10-01-7f7ae: with a run id on the pipeline the host records each answered read
+/// on that run; without one nothing is published — no run id is invented.</para>
 /// </summary>
-public sealed class DesignReadToolHostFactory(IFigmaClient figma)
+public sealed class DesignReadToolHostFactory(
+    IFigmaClient figma, IEventPublisher events, ILogger<DesignReadToolHostFactory> logger)
 {
     public DesignReadToolHost? Create(PipelineContext pipeline)
     {
         var figmaSources = PipelineDesignSources.Figma(pipeline);
-        return figmaSources.Count == 0 ? null : new DesignReadToolHost(figma, figmaSources);
+        if (figmaSources.Count == 0) return null;
+        var recorder = pipeline.TryGet<string>(ContextKeys.RunId, out var runId) && !string.IsNullOrEmpty(runId)
+            ? new DesignReadRecorder(events, runId, logger)
+            : null;
+        return new DesignReadToolHost(figma, figmaSources, recorder);
     }
 }

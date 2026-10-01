@@ -93,6 +93,20 @@ public sealed class EventEnvelopeRoundTripTests
     }
 
     [Fact]
+    public void DesignRead_RoundTripsThroughTheEnvelope()
+    {
+        // 2026-10-01-7f7ae: which design version a run read reaches the run only if this rebuilds.
+        var read = new DesignReadEvent(SampleEventFactory.RunId, "brand", "AbCdEf123456", "1:2",
+            "4242", "2026-09-30T10:00:00Z", SampleEventFactory.Timestamp);
+
+        var back = new EventEnvelopeSerializer().Deserialize(
+            new EventEnvelopeSerializer().Serialize(read)) as DesignReadEvent;
+
+        back.Should().NotBeNull();
+        back!.Should().BeEquivalentTo(read);
+    }
+
+    [Fact]
     public void TicketInstructionIgnored_RoundTripsThroughTheEnvelope()
     {
         var ignored = new TicketInstructionIgnoredEvent(

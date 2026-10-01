@@ -43,6 +43,7 @@ export enum EventType {
   PhaseStateChanged = 79,
   PhaseRecorded = 80,
   PhaseReviewed = 81,
+  DesignRead = 82,
 }
 
 interface RunEventBase {
@@ -523,6 +524,19 @@ export interface PhaseReviewedEvent extends RunEventBase {
   reportJson: string;
 }
 
+/**
+ * 2026-10-01-7f7ae: one design_read Figma answered — the source, file and node the master read
+ * and the file version and last modification the response carried.
+ */
+export interface DesignReadEvent extends RunEventBase {
+  type: EventType.DesignRead;
+  source: string;
+  fileKey: string;
+  nodeId: string;
+  version: string;
+  lastModified: string;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -563,7 +577,8 @@ export type RunEvent =
   | RunWorkShapeResolvedEvent
   | PhaseStateChangedEvent
   | PhaseRecordedEvent
-  | PhaseReviewedEvent;
+  | PhaseReviewedEvent
+  | DesignReadEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

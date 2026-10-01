@@ -9,9 +9,10 @@ namespace AgentSmith.Contracts.Providers;
 /// </summary>
 public interface IFigmaClient
 {
-    /// <summary>GET /v1/files/:key/nodes for one node, <paramref name="depth"/> levels deep.</summary>
+    /// <summary>GET /v1/files/:key/nodes for one node, <paramref name="depth"/> levels deep — of
+    /// <paramref name="version"/> when one is named (2026-10-01-7f7ae), the current one otherwise.</summary>
     Task<FigmaReadResult> GetNodesAsync(
-        string secretName, string fileKey, string nodeId, int depth, CancellationToken cancellationToken);
+        string secretName, string fileKey, string nodeId, int depth, string? version, CancellationToken cancellationToken);
 
     /// <summary>GET /v1/files/:key/variables/local.</summary>
     Task<FigmaReadResult> GetLocalVariablesAsync(
