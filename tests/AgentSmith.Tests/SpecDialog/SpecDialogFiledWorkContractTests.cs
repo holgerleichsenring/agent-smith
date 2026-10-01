@@ -50,7 +50,7 @@ public sealed class SpecDialogFiledWorkContractTests
         var filed = Prompt(EndingIn(SpecDialogTurnKind.Filing));
 
         unfiled.Should().NotContain("already filed work").And.NotContain(Clause)
-            .And.EndWith("otherwise reply with no artifact.");
+            .And.EndWith("otherwise reply with neither block.");
         filed.Should().StartWith(unfiled, "the clause is added to the contract, not woven into it")
             .And.NotBe(unfiled);
     }
