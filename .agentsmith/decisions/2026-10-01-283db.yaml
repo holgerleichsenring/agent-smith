@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283db
+
+decisions:
+  - category: Security
+    chose: "Limits are named constants (ReferenceUploadLimits); the ignore list drops OS leftovers first, then every file passes path, extension and size or the whole set is refused naming the file and the limit"
+    over: "Truncating, partially storing, or refusing a Mac folder for its .DS_Store"
+    reason: |
+      A refusal has to say which bound was crossed, and a folder copied off a Mac always carries
+      .DS_Store and __MACOSX. Paths are normalised to forward slashes and refused when absolute,
+      on a drive, carrying '..', NUL, an empty segment, over 240 characters, or duplicated in any case.
+  - category: Security
+    chose: "A ZIP's entry count is read from its directory before inflating, inflated bytes are counted against the set bound, and every entry's CRC-32 is recomputed over what was read"
+    over: "Trusting the declared sizes, as the spec feared, or counting alone"
+    reason: |
+      DEVIATION in mechanism, not intent. Probing ReferenceUpload_ZipEntryLyingAboutItsSize showed
+      the runtime stops inflating at an entry's DECLARED length: a lying entry arrives cut short,
+      not oversized, and would have been stored as a ten-byte file nobody uploaded. The checksum
+      refuses it as damaged; the counter still stops an honest entry that crosses the set bound.
+      ZipEntryChecksum is a 30-line table CRC, so no hashing package is added.
+  - category: Architecture
+    chose: "No set-name column: a set is named for the folder all its paths share, or 'site'; an archive whose files share no folder is unpacked under its own name"
+    over: "A SetName column and a second migration in this phase"
+    reason: |
+      A folder pick already carries its folder in every webkitRelativePath, so the name is in the
+      data. Rooting a flat archive under its file name gives it the same shape, and 283dc's
+      reference:<name> address reads the same summary.
+  - category: Implementation
+    chose: "The dialog view carries the conversation's set summaries beside its images; GET /api/spec-dialog/references serves the same list"
+    over: "The transcript fetching the GET route on every read"
+    reason: |
+      Images already reach the transcript through the view the page re-reads after every message,
+      placed by their moment; sets follow the same rule as one entry each. The summary is a
+      metadata-only grouping, never the bytes.
+  - category: Implementation
+    chose: "ReferenceSetRepository beside ReferenceFileRepository; the route's service step is ReferenceSetUpload, registered in ReferenceUploadExtensions from IntentExtensions"
+    over: "Growing ReferenceFileRepository, SpecDialogExtensions (120 lines) or the endpoint method"
+    reason: "Images and sites are read differently; the endpoint stays a mapping of outcomes to answers."
+  - category: Tooling
+    chose: "Ingress proxy-body-size 30m on the server ingress; proven by a 20 MB multipart through the route, not through a live ingress"
+    over: "A live upload through nginx in this phase"
+    reason: |
+      No cluster is reachable from the worktree. The annotation is the one nginx reads; the
+      route's own 26 MB ceiling and multipart bound are covered by tests.

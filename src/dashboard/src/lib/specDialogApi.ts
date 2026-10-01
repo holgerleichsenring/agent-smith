@@ -10,6 +10,7 @@ import type {
   FiledWork,
   SpecDialogConversationPage,
   SpecDialogImage,
+  SpecDialogReferenceSet,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -104,6 +105,26 @@ export async function uploadSpecDialogImage(
   });
   if (!res.ok) throw await refused(res, path);
   return (await res.json()) as SpecDialogImage;
+}
+
+/**
+ * 2026-10-01-283db: a website into the conversation on this dialog id — several files, a folder,
+ * or one .zip the server unpacks. Each file goes under its path inside the set: a folder pick
+ * carries it as webkitRelativePath, a plain pick has only its name. The server checks the set
+ * whole and stores all of it or none, so a refusal is the one error this can throw.
+ */
+export async function uploadSpecDialogReferences(
+  dialogId: string,
+  project: string,
+  files: File[],
+): Promise<SpecDialogReferenceSet> {
+  const path = `/api/spec-dialog/references?dialogId=${encodeURIComponent(dialogId)}`
+    + `&project=${encodeURIComponent(project)}`;
+  const form = new FormData();
+  for (const file of files) form.append("file", file, file.webkitRelativePath || file.name);
+  const res = await apiFetch(path, { method: "POST", body: form });
+  if (!res.ok) throw await refused(res, path);
+  return (await res.json()) as SpecDialogReferenceSet;
 }
 
 /** Where the transcript reads one stored image from. */

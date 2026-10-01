@@ -240,7 +240,7 @@ public sealed class ConversationSubjectTests : IDisposable
                 _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
             _turnGate, new ReferenceFileRepository(_context),
-            new SpecDialogTicketTextRepository(_context));
+            new SpecDialogTicketTextRepository(_context), new ReferenceSetRepository(_context));
 
     private SpecDialogRouter Router()
     {

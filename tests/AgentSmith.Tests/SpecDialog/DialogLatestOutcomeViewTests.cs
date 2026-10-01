@@ -277,7 +277,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
                 new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
                 new SpecDialogTurnGate(TimeProvider.System),
                 new ReferenceFileRepository(_context),
-                new SpecDialogTicketTextRepository(_context))
+                new SpecDialogTicketTextRepository(_context), new ReferenceSetRepository(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
     private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));

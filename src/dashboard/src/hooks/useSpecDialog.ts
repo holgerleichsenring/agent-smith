@@ -11,6 +11,7 @@ import {
   postSpecDialogMessage,
   resumeSpecDialogConversation,
   uploadSpecDialogImage,
+  uploadSpecDialogReferences,
 } from "@/lib/specDialogApi";
 import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
@@ -22,6 +23,7 @@ import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
   SpecDialogImage,
+  SpecDialogReferenceSet,
   SpecDialogProposalPush,
   SpecDialogActivityPush,
   SpecDialogQuestionPush,
@@ -47,7 +49,7 @@ import type {
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
 
-export type DialogEntryKind = "user" | "agent" | "decision" | "image";
+export type DialogEntryKind = "user" | "agent" | "decision" | "image" | "reference";
 
 export interface DialogEntry {
   key: string;
@@ -63,6 +65,8 @@ export interface DialogEntry {
   pending?: PendingDecision;
   /** 2026-09-20-3af8: set on an image entry — what the operator attached, by its address. */
   image?: SpecDialogImage;
+  /** 2026-10-01-283db: set on a reference entry — a website the operator uploaded, as one set. */
+  reference?: SpecDialogReferenceSet;
 }
 
 export interface PendingDecision {
@@ -123,6 +127,8 @@ export interface SpecDialogState {
   /** 2026-09-20-3af8: an image beside what the operator is saying. It is stored against the
    *  conversation at once — opening one if none is open — and rides the NEXT turn. */
   attach: (file: File, project?: string) => Promise<void>;
+  /** 2026-10-01-283db: a website — its files, each under its path — stored as one set. */
+  attachSite: (files: File[], project?: string) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
@@ -520,6 +526,22 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, load],
   );
 
+  // 2026-10-01-283db: a website is stored the way an image is — before any message follows it,
+  // opening the conversation when none is open — and the reseeding read puts it in the transcript.
+  const attachSite = useCallback(
+    async (files: File[], project?: string) => {
+      if (!dialogId || files.length === 0) return;
+      try {
+        await uploadSpecDialogReferences(dialogId, project ?? "", files);
+        reseed.current = true;
+        await load(dialogId);
+      } catch (thrown) {
+        setFailure(asError(thrown));
+      }
+    },
+    [dialogId, load],
+  );
+
   // A fresh dialog id with a resume queued for it: the resume waits for the subscription, so
   // anything the conversation pushes after the move lands in a group this page has joined.
   const switchTo = useCallback((resuming: string | null, awaited: boolean | string, to?: string) => {
@@ -604,7 +626,7 @@ export function useSpecDialog(): SpecDialogState {
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
     working: working.current, workingSince,
-    readings, activity, send, startNew, open, remove, attach,
+    readings, activity, send, startNew, open, remove, attach, attachSite,
   };
 }
 
@@ -633,7 +655,7 @@ function upsertReading(
  *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
 function seed(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
-  return withImages(turns(view), session?.images ?? []);
+  return withImages(turns(view), session?.images ?? [], session?.references ?? []);
 }
 
 function turns(view: SpecDialogView): DialogEntry[] {
