@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-f5c3a
+
+decisions:
+  - category: Architecture
+    chose: "Flatten a scenario to its line form in PhaseDraftReader, through one DoneCriterion reader"
+    over: "A structured Done type on PhaseDraft"
+    reason: |
+      Eleven consumers take a done criterion as a string — the keystone scores a line, the pull
+      request and result.md print one. One conversion where the yaml is read keeps every one of
+      them unchanged; a structured type would change all eleven for no reader that needs parts.
+  - category: Implementation
+    chose: "GIVEN/WHEN/THEN in plain uppercase keywords, each part whitespace-collapsed, no markup"
+    over: "Bold keywords or a nested list per scenario"
+    reason: |
+      The ticket, the execution prompt and the read-back of a filed body must all equal
+      PhaseDraft.Done. Azure DevOps HTML strips markup, Jira shows it literally and markdown keeps
+      it, so any markup breaks the equality on at least one tracker.
+  - category: Implementation
+    chose: "The execution prompt and the ticket's criteria list draft.Done instead of re-reading the yaml"
+    over: "Teaching both raw-yaml readers the scenario shape"
+    reason: |
+      Both called ToString on each raw done entry, so a scenario would print a Dictionary type
+      name. Listing the reader's output leaves one place that knows the shape.
+    alternatives:
+      - "Tests that built a PhaseDraft by hand with a done list in its yaml now read it through PhaseDraftReader, the one producer of Done"
+  - category: Scope
+    chose: "A closed mapping: when and then required, given optional, additionalProperties false"
+    over: "An open mapping or a named scenario"
+    reason: |
+      A typo is refused like a scope key rather than dropped in silence. A one-line criterion has
+      no name either; the WHEN clause already says which case it is.

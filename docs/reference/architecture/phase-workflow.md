@@ -53,10 +53,13 @@ steps:
 tests:
   - The tests that prove it
 done:
-  - Checklist of acceptance criteria
+  - "One line: an acceptance criterion that is true once the phase is finished"
+  - given: "an optional precondition"
+    when: "the trigger"
+    then: "the observable result"
 ```
 
-`phase` and `goal` are required; the schema is `.agentsmith/phase-spec.schema.json`. The reasoning behind the choices goes into a separate decision file, `.agentsmith/decisions/{id}.yaml`.
+`phase` and `goal` are required; the schema is `.agentsmith/phase-spec.schema.json`. A `done` item is one line, or a scenario with `when` and `then` (and an optional `given`, nothing else) when the criterion has a trigger and an observable result. Every reader sees a scenario as one plain line — `GIVEN an optional precondition WHEN the trigger THEN the observable result` — in the run's acceptance contract, the execution prompt and the filed ticket alike. The reasoning behind the choices goes into a separate decision file, `.agentsmith/decisions/{id}.yaml`.
 
 ## Phase tracking
 

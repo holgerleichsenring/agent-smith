@@ -182,9 +182,33 @@
     },
     "done": {
       "type": "array",
-      "description": "Verifiable completion criteria",
+      "description": "Verifiable completion criteria. Each is one line, or a scenario {given?, when, then} that every reader sees as the line 'GIVEN \u2026 WHEN \u2026 THEN \u2026'.",
       "items": {
-        "type": "string"
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "object",
+            "description": "A criterion with a trigger and an observable result; given is the optional precondition.",
+            "additionalProperties": false,
+            "required": [
+              "when",
+              "then"
+            ],
+            "properties": {
+              "given": {
+                "type": "string"
+              },
+              "when": {
+                "type": "string"
+              },
+              "then": {
+                "type": "string"
+              }
+            }
+          }
+        ]
       }
     }
   }
