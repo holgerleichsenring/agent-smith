@@ -21,6 +21,14 @@ public sealed partial record FigmaLink(string FileKey, string? BranchKey, string
     /// <summary>The key the API reads: a branch is addressed by its own key.</summary>
     public string ApiFileKey => BranchKey ?? FileKey;
 
+    /// <summary>
+    /// 2026-10-01-7f7ad: the link rebuilt from its parsed parts on the one fixed host — the only
+    /// form a prompt shows, so no character of the text it was found in travels with it.
+    /// </summary>
+    public string Canonical => "https://www.figma.com/design/" + FileKey
+        + (BranchKey is null ? string.Empty : "/branch/" + BranchKey)
+        + (NodeId is null ? string.Empty : "?node-id=" + NodeId.Replace(':', '-'));
+
     /// <summary>Parses <paramref name="text"/>; false for any link this type does not accept.</summary>
     public static bool TryParse(string? text, [NotNullWhen(true)] out FigmaLink? link)
     {

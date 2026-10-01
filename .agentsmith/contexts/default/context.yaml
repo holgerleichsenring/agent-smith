@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-7f7ad: "A FIGMA LINK IN A TICKET OR CONVERSATION IS OFFERED AS A DESIGN REFERENCE (master prompt). Description, comments, bound ticket and transcript; rebuilt from key and node, never quoted; ten at most; says when no source can read it; scan masters none. -> .agentsmith/phases/done/2026-10-01-7f7ad-design-link-reference.yaml"
     2026-10-01-283dd: "A TOOL CAN HAND THE LOOP AN IMAGE (agent loop, providers, trace). IToolImageDeposit; the tool loop places it once as a user message after the tool result, max 2 per call, 4 per loop; Copilot, worker and no-vision get a not-shown note in the result; traces keep sha256. -> .agentsmith/phases/done/2026-10-01-283dd-tool-image-relay.yaml"
     2026-10-01-283dc: "AN UPLOADED WEBSITE IS A READ-ONLY reference: ADDRESS IN THE DESIGN TURN (spec dialog, sandbox). Lazy held sandbox filled at relative paths, binaries decoded in one step; review and stamp skip it; the prompt says what it is. -> .agentsmith/phases/done/2026-10-01-283dc-reference-dialog-scope.yaml"
     2026-10-01-283db: "A WEBSITE CAN BE DROPPED INTO A DESIGN CONVERSATION (spec dialog, dashboard, deploy). Files, a folder or one ZIP become one set under named limits, refused whole naming file and limit; ZIPs counted and checksummed; ingress 30m. -> .agentsmith/phases/done/2026-10-01-283db-reference-site-upload.yaml"
