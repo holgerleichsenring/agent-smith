@@ -31,7 +31,8 @@ internal static class MasterHandlerFixture
         IAgenticLoopRunner loop, IPromptCatalog prompts, string? masterSchema = null,
         int maxSubAgents = 0, ISourceScopeSandboxFactory? templateScopes = null,
         ISubAgentRunner? subAgents = null, LoopLimitsConfig? limits = null,
-        AgentSmith.Contracts.Providers.IFigmaClient? figma = null) =>
+        AgentSmith.Contracts.Providers.IFigmaClient? figma = null,
+        AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null) =>
         new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
@@ -86,7 +87,7 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
             new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
             dialogueTransport: null,
-            Composition(maxSubAgents, subAgents, limits, figma),
+            Composition(maxSubAgents, subAgents, limits, figma, render),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
@@ -97,7 +98,8 @@ internal static class MasterHandlerFixture
     /// </summary>
     private static MasterToolComposition Composition(
         int maxSubAgents, ISubAgentRunner? subAgents, LoopLimitsConfig? limits,
-        AgentSmith.Contracts.Providers.IFigmaClient? figma) =>
+        AgentSmith.Contracts.Providers.IFigmaClient? figma,
+        AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render) =>
         new(new AgentSmith.Application.Services.Tools.AgenticToolSurface(),
             new AgentSmith.Application.Services.Tools.EnsureRepoSandboxToolFactory(
                 new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
@@ -120,6 +122,9 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.DesignSources.DesignImageFakes.NoLoopDeposit(),
                 new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
+            // 2026-10-01-283de: a turn that seeds no project never builds the host.
+            render ?? new AgentSmith.Application.Services.Tools.RenderReferenceToolFactory(
+                new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Services()),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>

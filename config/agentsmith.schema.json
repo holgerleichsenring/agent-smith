@@ -219,6 +219,14 @@
           "type": "boolean",
           "description": "Whether Docker Hub official images (node:20-bookworm) are trusted. Unset: trusted while no registry is named, refused once one is."
         },
+        "browser": {
+          "type": "object",
+          "description": "2026-10-01-283de: the browser sandbox render_reference spawns (Playwright Chromium, a tool runtime of its own). Default requests 500m / 1Gi, limits 2 CPU / 2Gi.",
+          "additionalProperties": false,
+          "properties": {
+            "resources": { "$ref": "#/$defs/resourceLimits" }
+          }
+        },
         "image_pull_secrets": {
           "type": "array",
           "description": "2026-08-31-46d7: names of operator-created Kubernetes image pull secrets the sandbox pod references, so an image that only exists in a credentialed registry is pullable without patching the namespace's default service account out of band. Rendered at pod level, covering the init container and the toolchain container. Kubernetes only — the Docker backend carries no pull credential and says so when a pull fails. Names are declared, never verified: agent-smith deliberately holds no read access to the namespace's secrets.",

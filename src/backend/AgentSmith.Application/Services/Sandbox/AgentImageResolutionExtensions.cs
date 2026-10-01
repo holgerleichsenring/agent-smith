@@ -17,6 +17,7 @@ public static class AgentImageResolutionExtensions
         services.TryAddSingleton(_ => BuildIdentity.FromEnvironment());
         services.AddSingleton<IAgentVersionResolver, AgentVersionResolver>();
         services.AddSingleton<IAgentImageResolver, AgentImageResolver>();
+        services.AddSingleton<IBrowserImageResolver, BrowserImageResolver>(); // 2026-10-01-283de
         return services;
     }
 }

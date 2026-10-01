@@ -31,6 +31,9 @@ public sealed class ReferenceSetSandbox(
     private ISandbox? _inner;
 
     public string RepoName => address;
+
+    /// <summary>2026-10-01-283de: the set behind the address, which render_reference copies into its browser.</summary>
+    public string SetId => setId;
     public bool IsMaterialized => _inner is not null;
 
     /// <summary>The set's content hash once it is in the sandbox.</summary>
