@@ -21,4 +21,8 @@ public static class PersistenceLimits
     /// <summary>2026-09-25-8e51c: the column holds exactly what the composer may produce — the
     /// number is declared once, in Contracts, so neither side can pick its own.</summary>
     public const int SeededTicketText = global::AgentSmith.Contracts.Tickets.SeededTicketLimits.Text;
+
+    /// <summary>2026-10-01-283da: a reference file's path inside its set. Not indexed; the upload
+    /// refuses a longer path by name rather than truncating it.</summary>
+    public const int ReferencePath = 240;
 }

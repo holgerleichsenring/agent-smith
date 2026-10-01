@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-283da: "REFERENCE FILES ARE STORED AS BYTES, ONE ROW PER FILE (persistence, spec dialog). ReferenceFiles seeded at 1e9 so legacy images keep their ids; the housekeeping leader copies legacy rows, readers union both until 283dk; archive import flushes by 64 MB. -> .agentsmith/phases/done/2026-10-01-283da-reference-file-store.yaml"
     2026-10-01-7f7aa: "A DESIGN SOURCE IS A CONFIG ENTITY PROJECTS REFERENCE (config, studio, dashboard). design_sources: name -> vendor figma + auth secret name; projects list names; Studio tab and project picker; a named secret cannot be deleted; SecretMasker reads current secret values. -> .agentsmith/phases/done/2026-10-01-7f7aa-design-source-config.yaml"
     2026-10-01-f5c3b: "A FILED TICKET READS IN A READER'S SHAPE (PhaseTicketBody, bug outcome, docs, skills master 1.9.0). Goal, Why, What changes, Acceptance criteria, Out of scope, Preconditions; bug criteria are list items; docs/trigger-it/writing-a-ticket.md is the template. Pin moves in aeb6d. -> .agentsmith/phases/done/2026-10-01-f5c3b-ticket-reader-shape.yaml"
     2026-10-01-f5c3a: "A DONE CRITERION MAY BE A WHEN/THEN SCENARIO (phase-spec schema, PhaseDraftReader, prompt, ticket). given optional, closed mapping; DoneCriterion flattens it to GIVEN/WHEN/THEN in plain keywords, so PhaseDraft.Done stays a string list and no consumer changes. -> .agentsmith/phases/done/2026-10-01-f5c3a-criterion-scenario-form.yaml"

@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-283da
+goal: "Reference files — today a conversation's screenshots — are stored one row per file with path and bytes in a binary column; legacy rows are copied in place, safely under rolling replicas."
+
+applies_to: "backend (persistence: entity, both migration sets, a leader-run copy, the image readers, the archive importer)"
+
+requires: []
+
+facts:
+  - claim: "A dialog image is held as base64 TEXT, and the entity says there is no byte store in this estate."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogAttachment.cs:12-16,29-30"
+  - claim: "SQLite, Postgres and MySQL run ONE shared migration set; SQL Server runs its own assembly. The attachments table was created by 20260920105644 in the shared set and 20260920105703 in the SQL Server set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23,29-33; src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260920105644_AddSpecDialogAttachments.cs:9; src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20260920105703_AddSpecDialogAttachments.cs:9"
+  - claim: "The shared set emits type literals three providers run verbatim; the content column is left untyped so each provider maps it, pinned by a test on the migration line and the store type."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260920105644_AddSpecDialogAttachments.cs:22-28; tests/AgentSmith.Tests/Persistence/DialogAttachmentColumnTests.cs:29-64"
+  - claim: "The repository reads a conversation's most recent N images and counts all of them; both are addressed by session only."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogAttachmentRepository.cs:27-33,53-54"
+  - claim: "Bytes are base64-encoded on upload, decoded on serve and on every design turn; the serve route checks the row's session against the caller."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:79-86,101-105; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnImages.cs:22-29"
+  - claim: "The server runs as several replicas, each pod migrating in an init container; a rolling update keeps old pods serving beside new ones."
+    evidence: "deploy/k8s/8-deployment-server.yaml:11,33-41"
+  - claim: "Cross-replica background work runs under the housekeeping leader lease."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/HousekeepingLeaderHostedService.cs:25,30-36"
+  - claim: "SaveChanges stamps CreatedAt/UpdatedAt unless stamping is suspended."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:83-92,104"
+  - claim: "A unique violation is translated per provider."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:69-70"
+  - claim: "The data archive orders every mapped table, writes one JSON line per row streamed, and imports in batches of 500 rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableOrder.cs:19-24; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/DataArchiveWriter.cs:85-95; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveRowCodec.cs:22-28; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableImporter.cs:22,33-38"
+  - claim: "Explicit identity values and sequence advancing already exist for the archive import."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/IdentityInsertSwitch.cs:16; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/IdentitySequenceAdvancer.cs:14"
+  - claim: "AgentSmithDbContext is at 120 lines; RelationalPersistenceExtensions is on the ratchet at 225 (224 today)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:59; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+
+scope:
+  in: >
+    ReferenceFile: Id, SessionId (indexed), SetId (indexed), Kind (image | site), RelativePath, MediaType,
+    Length, Content (byte[], untyped in both sets → BLOB / bytea / longblob / varbinary(max)), CreatedAt,
+    UpdatedAt. AddReferenceFiles in the shared set AND the SQL Server set; it seeds the identity at
+    1,000,000,000 per provider (migrationBuilder.ActiveProvider), above any legacy id, so ONE id space
+    holds both tables: an id below the seed was born legacy and keeps its number when copied. NO target
+    migration and NO drop in this release: the legacy table stays, old pods keep reading and writing it.
+    COPY: LegacyAttachmentCopy runs on the housekeeping leader each tick while uncopied legacy rows exist,
+    50 rows per batch, inserting Id = legacy id (identity insert where the provider needs it), Kind image,
+    CreatedAt kept under SuspendAuditStamping; the primary key is the claim, so a row copied twice — by a
+    lease handover or a second leader — is a unique violation, translated and skipped. It also removes a
+    copied row whose legacy row is gone (an old pod deleted that conversation). READERS on new pods, until
+    the drop: list, recent-N and count read ReferenceFiles WHERE Kind = image plus legacy rows whose id has
+    no copy yet, ordered by CreatedAt; serve reads ReferenceFiles by id and falls back to the legacy table
+    for an uncopied id; delete clears both tables in the one transaction. WRITES go to ReferenceFiles only.
+    An old pod asked for a new-born id answers 404 until the rollout finishes; it never answers another
+    image. ARCHIVE: the new table is archived like every table, its byte[] as base64 in its JSON line (up
+    to ~6.7 MB per 5 MB file); the importer flushes at 500 rows OR 64 MB of decoded content, whichever
+    comes first, so 500 large rows are never tracked at once.
+  out: >
+    Dropping the legacy table, its entity and the union readers — 2026-10-01-283dk, after every replica
+    runs this release. Site uploads — 2026-10-01-283db. Local disk: replicas do not share one.
+
+decisions:
+  - key: "ONE ID SPACE, NOT A ROUTE SPLIT. A seeded identity lets a legacy id keep its number, so a page served by an old pod and a request served by a new one mean the same image."
+  - key: "NO TARGET MIGRATION. MigrateAsync(target) on a newer database runs Down; the copy is a forward-only background job beside an additive migration."
+  - key: "THE KEY IS THE CLAIM. Idempotent by primary key, so neither a second replica nor a re-run can duplicate a row; the leader lease only keeps the work from being done twice for nothing."
+  - key: "BYTES, NOT BASE64. Base64 costs a third more and a decode per turn; the reason it was text is what this phase removes."
+
+steps:
+  - id: entity
+    action: "ReferenceFile, ReferenceFileConfiguration, ReferenceFileKind; AgentSmithDbContext stays at 120 lines."
+  - id: migrations
+    action: "AddReferenceFiles in both sets, Content untyped, identity seeded per provider."
+  - id: copy
+    action: "LegacyAttachmentCopy (+ orphan removal) registered in the housekeeping leader's loop."
+  - id: readers
+    action: "ReferenceFileRepository with the union reads; endpoints, SpecDialogTurnImages, SpecDialogViewReader and SpecDialogConversationDeleter use it; uploads write ReferenceFiles."
+  - id: archive
+    action: "ArchiveTableImporter flushes by rows or by 64 MB of content."
+
+tests:
+  - "ReferenceFile_ContentColumn_MapsToEachProvidersBinaryType (BLOB, bytea, longblob, varbinary(max))"
+  - "ReferenceFile_BothMigrationSets_DeclareNoTypeForContentAndSeedTheIdentity"
+  - "LegacyAttachmentCopy_KeepsIdBytesAndCreatedAt"
+  - "LegacyAttachmentCopy_TwoCopiersAtOnce_EachRowOnce"
+  - "LegacyAttachmentCopy_LegacyRowDeletedAfterCopy_RemovesTheCopy"
+  - "ReferenceFileRepository_Recent_OnlyImagesAndUncopiedLegacyRowsCount"
+  - "ImageServe_UncopiedLegacyId_IsServedFromTheLegacyTable"
+  - "ArchiveTableImporter_LargeRows_FlushesBy64MegabytesOfContent"
+  - "DialogImageUploadTests and DialogImagePromptTests stay green"
+
+done:
+  - "on SQLite and SQL Server, an image uploaded before the upgrade is served byte-identical under its old id after it, before and after the copy has run"
+  - "build green, full suite green"

@@ -15,7 +15,7 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    SpecDialogAttachmentRepository attachments, SpecDialogTicketTextRepository ticketText)
+    ReferenceFileRepository files, SpecDialogTicketTextRepository ticketText)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -65,7 +65,7 @@ public sealed class SpecDialogViewReader(
     /// </summary>
     private async Task<IReadOnlyList<SpecDialogImageView>> Images(
         string sessionId, CancellationToken cancellationToken) =>
-        [.. (await attachments.ListAsync(sessionId, cancellationToken))
+        [.. (await files.ListImagesAsync(sessionId, cancellationToken)) // 2026-10-01-283da: both tables
             .Select(row => new SpecDialogImageView(row.Id, row.MediaType, row.At))];
 
     private SpecDialogSessionView Session(

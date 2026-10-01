@@ -65,9 +65,11 @@ public sealed class HousekeepingLeaderHostedService(
         // replica sweeps) AND at capacity-claim time. The no-op default is a cheap
         // return on compositions with no pod backend.
         var corpseReaper = services.GetRequiredService<ISandboxCorpseReaper>();
+        // 2026-10-01-283da: the legacy image rows are copied into the reference files here.
+        var legacyCopy = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.LegacyAttachmentCopySweeper>();
         return Task.WhenAll(
             reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct),
-            resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct));
+            resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct), legacyCopy.RunAsync(ct));
     }
 
     // p0355: leader-elected periodic corpse-pod sweep. A pod whose owning run is not
