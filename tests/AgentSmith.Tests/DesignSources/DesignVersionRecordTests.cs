@@ -121,7 +121,8 @@ public sealed class DesignVersionRecordTests
     }
 
     private static DesignReadToolHostFactory Factory(FakeFigmaHandler handler, IEventPublisher events) =>
-        new(FigmaFakes.Client(handler, new InstantClock()), events, NullLogger<DesignReadToolHostFactory>.Instance);
+        new(FigmaFakes.Client(handler, new InstantClock()), DesignImageFakes.NoLoopDeposit(), events,
+            NullLogger<DesignReadToolHostFactory>.Instance);
 
     private static DesignReadToolHost Host(FakeFigmaHandler handler) =>
         new(FigmaFakes.Client(handler, new InstantClock()), [Source]);

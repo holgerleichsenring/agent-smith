@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-7f7ac: "design_read SHOWS THE MODEL THE NODE IT READ (Figma client, tool host). The node is exported as PNG via the images API at the read version, downloaded token-less from Figma's image host only, capped and signature-checked, and deposited through 283dd; the result says a render follows or why not. -> .agentsmith/phases/done/2026-10-01-7f7ac-design-read-image.yaml"
     2026-10-01-7f7ae: "EACH design_read IS RECORDED ON ITS RUN (event contract, tool host, dashboard). DesignReadEvent carries source, file, node, version and lastModified; expected_version reports a moved design, read_version reads the cited one; no run id, no event. -> .agentsmith/phases/done/2026-10-01-7f7ae-design-version-record.yaml"
     2026-10-01-7f7ad: "A FIGMA LINK IN A TICKET OR CONVERSATION IS OFFERED AS A DESIGN REFERENCE (master prompt). Description, comments, bound ticket and transcript; rebuilt from key and node, never quoted; ten at most; says when no source can read it; scan masters none. -> .agentsmith/phases/done/2026-10-01-7f7ad-design-link-reference.yaml"
     2026-10-01-283dd: "A TOOL CAN HAND THE LOOP AN IMAGE (agent loop, providers, trace). IToolImageDeposit; the tool loop places it once as a user message after the tool result, max 2 per call, 4 per loop; Copilot, worker and no-vision get a not-shown note in the result; traces keep sha256. -> .agentsmith/phases/done/2026-10-01-283dd-tool-image-relay.yaml"
