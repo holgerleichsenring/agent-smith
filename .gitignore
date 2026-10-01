@@ -61,6 +61,8 @@ deploy/docker-compose*.yml
 
 ## Generated output
 site/
+# 2026-10-01-283de: the browser render fixture serves a site named site/, not mkdocs output
+!/src/sandbox-images/browser/fixture/set/site/
 docs/site/
 agentsmith-output/
 *pentest*
