@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Handlers;
 public sealed class RenderReferenceSurfaceTests
 {
     private const string DesignMaster = "design-partner-master";
-    private readonly RenderReferenceToolFactory _factory = new(new BrowserRenderFixture().Services());
+    private readonly RenderReferenceToolFactory _factory = new BrowserRenderFixture().Factory();
 
     [Fact]
     public async Task DesignTurn_SeededProject_CarriesRenderReference_ItsChildrenDoNot()

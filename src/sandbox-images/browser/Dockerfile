@@ -13,7 +13,8 @@ WORKDIR /opt/agentsmith
 COPY src/sandbox-images/browser/package.json src/sandbox-images/browser/package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY src/sandbox-images/browser/render.mjs src/sandbox-images/browser/egress.mjs \
-     src/sandbox-images/browser/site.mjs src/sandbox-images/browser/shots.mjs ./
+     src/sandbox-images/browser/site.mjs src/sandbox-images/browser/shots.mjs \
+     src/sandbox-images/browser/pages.mjs src/sandbox-images/browser/compare.mjs ./
 
 # Build identity, like every leg of the publish matrix stamps it.
 ARG AGENTSMITH_BUILD_REVISION

@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-283di
+goal: "compare_reference renders a reference and a candidate, lists every computed-style difference of mapped elements by name, and adds a screenshot similarity with a diff image."
+
+applies_to: "backend (a tool on the design and coding surfaces, a deterministic comparer, the run result), browser image (one diff library)"
+
+requires: ["2026-10-01-283dh"]
+
+facts:
+  - claim: "p0308 plans a Playwright verifier image and screenshots of a RUNNING app's changed routes; it requires p0165a/b, which launch that app and are still planned."
+    evidence: ".agentsmith/phases/planned/p0308-browser-verification.yaml:1-27; .agentsmith/phases/planned/p0165a-build-launch-handler.yaml:1-12"
+  - claim: "The planned Figma read leaves measurements and comparing a built screen to a design to later work, because an image carries no values."
+    evidence: ".agentsmith/phases/planned/2026-09-13-0229-design-reaches-the-model.yaml:24-29"
+  - claim: "Run-record files are force-staged into the pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:47-54"
+
+scope:
+  in: >
+    compare_reference(reference, candidate, pairs, viewport): each side is any 283dh source (reference:
+    address, repo path, public http(s) URL under the 283de guard); pairs map a reference selector to a
+    candidate selector (max 30; the model chooses them, the code drives). ONE render.mjs invocation per
+    call loads both sides in one browser — two page loads per viewport — and returns both style sets and
+    the diff. LEVEL 1, exact: StyleDifferenceComparer (C#, pure) compares the 283de property list of each
+    pair as computed and lists every property that differs with both values; a selector matching nothing
+    on either side is a named difference, never a skip. LEVEL 2, observation: both captures share the
+    viewport width; the shorter is PADDED at the bottom with opaque magenta to the taller height (both
+    already capped by 283de), then pixelmatch (pinned in the browser image) gives a mismatch ratio and a
+    diff JPEG under 700 KB, deposited through 283dd. In a run, the level-1 list and the level-2 ratio go
+    into result.md under 'Visual comparison', and at most four diff images go to <run record>/compare/.
+    Neither level gates: both report.
+  out: >
+    Gating a run or a pull request on either level — the operator ruled that differences report and never
+    gate. A running app's routes — p0308 on p0165a/b. Pixel equality as a criterion.
+
+decisions:
+  - key: "BUILDS ON p0308, DOES NOT SUPERSEDE IT. 283de delivers p0308's verifier-image step (the browser image and a repo-less spawn); p0308's route probe of a running app still needs p0165a/b, and when it is picked up a successor drops that step and renders through this runtime."
+  - key: "PAD, NOT CROP. Cropping to the shorter page hides content one side lacks; padding makes a missing section show up as mismatch, which is what it is."
+  - key: "THE EXACT LEVEL IS STYLES, NOT PIXELS. Two computed strings are equal or not, so a difference has a name and a value; a ratio has neither."
+
+steps:
+  - id: script
+    action: "render.mjs compare mode: both sides in one invocation, paired extraction, padding, pixelmatch ratio and diff per viewport."
+  - id: comparer
+    action: "StyleDifferenceComparer + StyleDifference (selector pair, property, reference value, candidate value)."
+  - id: tool
+    action: "CompareReferenceToolHost on both surfaces wherever render_reference is."
+  - id: record
+    action: "VisualComparisonSection in result.md; diff images under the run record, four at most."
+
+tests:
+  - "StyleDifferenceComparer_SameComputedValues_ReportsNothing"
+  - "StyleDifferenceComparer_FontSize16pxVs15px_NamesPropertyAndBothValues"
+  - "StyleDifferenceComparer_SelectorMatchesNothing_IsANamedDifference"
+  - "CompareReference_31Pairs_IsRefusedNamingTheLimit"
+  - "render.mjs fixture: pages of 900 px and 1400 px height compare with the shorter padded and the ratio counting the pad"
+  - "CompareReference_RunResult_HasVisualComparisonSectionAndNoGate (harness, Docker tier)"
+
+done:
+  - "a run that rebuilds an uploaded page lists its remaining style differences in result.md with a diff image beside it, and the run's outcome is unchanged by them"
+  - "build green, full suite green"

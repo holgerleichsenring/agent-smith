@@ -55,7 +55,7 @@ public sealed class RunRenderReferenceTests
             Name = "p", Sandbox = new SandboxConfig { Browser = new ProjectBrowserConfig { Enabled = enabled } },
         });
 
-        var host = new RenderReferenceToolFactory(_fixture.Services()).Create(pipeline, isDesignTurn: false);
+        var host = _fixture.Factory().Create(pipeline, isDesignTurn: false);
 
         (host is not null).Should().Be(expectHost);
     }
@@ -69,7 +69,7 @@ public sealed class RunRenderReferenceTests
             Name = "p", Sandbox = new SandboxConfig { Browser = new ProjectBrowserConfig { Enabled = true } },
         });
 
-        new RenderReferenceToolFactory(_fixture.Services()).Create(pipeline, isDesignTurn: true).Should().BeNull();
+        _fixture.Factory().Create(pipeline, isDesignTurn: true).Should().BeNull();
     }
 
     [Fact]

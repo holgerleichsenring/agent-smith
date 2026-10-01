@@ -15,4 +15,7 @@ public sealed record BrowserRenderResult
     public IReadOnlyList<BrowserRequestNote> FailedRequests { get; init; } = [];
     public IReadOnlyList<BrowserRequestNote> Refused { get; init; } = [];
     public IReadOnlyList<BrowserShot> Shots { get; init; } = [];
+
+    /// <summary>2026-10-01-283di: a comparison's report; its diff images are <see cref="Shots"/>.</summary>
+    public BrowserCompareReport? Compare { get; init; }
 }

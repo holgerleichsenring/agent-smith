@@ -245,6 +245,14 @@ jobs:
             -v "${{ github.workspace }}/src/sandbox-images/browser/fixture:/fixture:ro" \
             agentsmith-browser:fixture node /fixture/check.mjs
 
+      # 2026-10-01-283di: compare_reference — a 900 px and a 1400 px page compare in one invocation,
+      # the shorter padded with magenta and the pad counted as mismatch; styles per selector pair.
+      - name: Compare fixture
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/src/sandbox-images/browser/fixture:/fixture:ro" \
+            agentsmith-browser:fixture node /fixture/compare-check.mjs
+
       - name: Push by digest
         id: push
         if: github.event_name != 'pull_request'

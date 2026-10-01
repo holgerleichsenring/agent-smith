@@ -123,8 +123,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
-            render ?? new AgentSmith.Application.Services.Tools.RenderReferenceToolFactory(
-                new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Services()),
+            render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>

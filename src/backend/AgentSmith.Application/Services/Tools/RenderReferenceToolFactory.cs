@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
 
@@ -13,13 +14,24 @@ namespace AgentSmith.Application.Services.Tools;
 /// <para>
 /// 2026-10-01-283df: and for a RUN of a project whose sandbox block enables the browser — config
 /// decides, because admission reserved the browser pod before the run started. The run's host
-/// addresses the websites the run carries.
+/// addresses the websites the run carries. 2026-10-01-283di: compare_reference joins wherever
+/// render_reference is, over the same scope and so the same browser sandbox.
 /// </para>
 /// </summary>
-public sealed class RenderReferenceToolFactory(RenderReferenceServices services)
+public sealed class RenderReferenceToolFactory(RenderReferenceServices services, CompareReferenceServices compare)
 {
     /// <summary>The host for a design turn (<paramref name="isDesignTurn"/>) or a run's coding master, or null.</summary>
-    public RenderReferenceToolHost? Create(PipelineContext pipeline, bool isDesignTurn)
+    public RenderReferenceToolHost? Create(PipelineContext pipeline, bool isDesignTurn) =>
+        Scope(pipeline, isDesignTurn) is { } scope ? new RenderReferenceToolHost(services, scope) : null;
+
+    /// <summary>2026-10-01-283di: render_reference and compare_reference over one scope, or none.</summary>
+    public IReadOnlyList<AITool> Tools(PipelineContext pipeline, bool isDesignTurn) =>
+        Scope(pipeline, isDesignTurn) is { } scope
+            ? [.. new RenderReferenceToolHost(services, scope).GetTools(null, null),
+               .. new CompareReferenceToolHost(compare, scope).GetTools(null, null)]
+            : [];
+
+    private static RenderReferenceScope? Scope(PipelineContext pipeline, bool isDesignTurn)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var sandboxes = pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map) && map is not null
@@ -27,15 +39,14 @@ public sealed class RenderReferenceToolFactory(RenderReferenceServices services)
         if (isDesignTurn)
             return pipeline.TryGet<ResolvedProject>(ContextKeys.SpecDialogProject, out var turnProject) && turnProject is not null
                 && pipeline.TryGet<string>(ContextKeys.DialogueJobId, out var conversation) && !string.IsNullOrEmpty(conversation)
-                ? new RenderReferenceToolHost(services, new RenderReferenceScope(turnProject, conversation, sandboxes, [],
-                    TurnRepos(sandboxes)))
+                ? new RenderReferenceScope(turnProject, conversation, sandboxes, [], TurnRepos(sandboxes))
                 : null;
         if (!pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project) || project is null
             || project.Sandbox?.Browser?.Enabled != true)
             return null;
         var carried = pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var sets) && sets is not null
             ? sets : [];
-        return new RenderReferenceToolHost(services, new RenderReferenceScope(project, null, sandboxes, carried, RunRepos(pipeline, sandboxes)));
+        return new RenderReferenceScope(project, null, sandboxes, carried, RunRepos(pipeline, sandboxes), pipeline);
     }
 
     // 2026-10-01-283dh: a design turn's map holds its repositories by name, beside template: and

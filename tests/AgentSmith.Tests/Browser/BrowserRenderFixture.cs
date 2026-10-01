@@ -35,19 +35,30 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     public List<string> SessionsRead { get; } = [];
     public IHeldSandboxRegister Holds { get; } = AgentSmith.Tests.Sandbox.Holds.Live();
 
-    public RenderReferenceServices Services()
+    public RenderReferenceServices Services() =>
+        new(new RenderSourceParser(), new RenderUrlGuard(this, new PublicAddressRule()),
+            new ReferenceRenderer(Opener(), Stager(), new BrowserRenderInvocation(Files)), this, new RenderResultText());
+
+    /// <summary>2026-10-01-283di: compare_reference's services over the same fakes.</summary>
+    public CompareReferenceServices CompareServices() =>
+        new(Services(), new ReferenceComparer(Opener(), Stager(), new BrowserRenderInvocation(Files)),
+            new StyleDifferenceComparer(), new VisualComparisonRecorder(Files, NullLogger<VisualComparisonRecorder>.Instance));
+
+    public RenderReferenceToolFactory Factory() => new(Services(), CompareServices());
+
+    private static SandboxFileReaderFactory Files { get; } = new();
+
+    private RenderSourceStager Stager() =>
+        new(new ReferenceSetMaterialiser(this, Files), new RepoRenderSource(Files, new RepoTreeListing()));
+
+    private BrowserSandboxOpener Opener()
     {
         var specBuilder = new SandboxSpecBuilder(new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
-        var opener = new BrowserSandboxOpener(new SandboxContainerRuntime(spawnsContainers), this, specBuilder,
+        return new BrowserSandboxOpener(new SandboxContainerRuntime(spawnsContainers), this, specBuilder,
             Mock.Of<IBrowserImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "registry/agent-smith-sandbox-browser:9.9.9"),
             Options.Create(new SandboxGlobalConfig()), Mock.Of<IRunContextAccessor>(), Holds,
             NullLogger<BrowserSandboxOpener>.Instance);
-        var files = new SandboxFileReaderFactory();
-        return new RenderReferenceServices(new RenderSourceParser(), new RenderUrlGuard(this, new PublicAddressRule()),
-            new ReferenceRenderer(opener, new RenderSourceStager(new ReferenceSetMaterialiser(this, files),
-                new RepoRenderSource(files, new RepoTreeListing())), new BrowserRenderInvocation(files)),
-            this, new RenderResultText());
     }
 
     public RenderReferenceToolHost Host(IReadOnlyDictionary<string, ISandbox>? sandboxes = null) =>
