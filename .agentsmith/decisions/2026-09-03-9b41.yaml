@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-03-9b41
+
+decisions:
+  - category: Architecture
+    chose: "The refusal lives in BootstrapDispatch, which checks every repository's discovered component list"
+    over: "Refusing in BootstrapDiscover as soon as one repository returns an empty list"
+    reason: |
+      Dispatch is where the count was wrong, so the fix goes there: it decides what work exists,
+      and zero components means zero work. Discovery keeps reporting what it saw, and
+      "complete, nothing here" is a true observation. Turning that answer into a refusal is
+      the dispatcher's job, the same as for an ambiguous answer, which discovery records and
+      dispatch refuses.
+  - category: Scope
+    chose: "Any repository without a component fails the whole init, naming only the empty repositories"
+    over: "Initialising the repositories that have components and skipping the empty ones"
+    reason: |
+      A multi-repo init that quietly leaves one repository out would end green with a
+      context set that does not match the project, which is the same lie in a smaller
+      form. The operator gets the name and the reason, puts the code in, and runs again.
+  - category: Implementation
+    chose: "A harness test over the full init-project chain plus handler tests"
+    over: "Handler tests only"
+    reason: |
+      The defect was a run that ended green, so the test has to run the whole chain:
+      discovery answers with no components, and the run must fail with the repository named
+      rather than reach InitCommit's "already bootstrapped". With the guard removed, the
+      harness test was confirmed to fail.
