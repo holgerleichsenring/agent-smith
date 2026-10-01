@@ -35,30 +35,41 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
         + "            os.remove(p)\n";
 
     /// <summary>The set in the sandbox, and its content hash.</summary>
-    public async Task<string> PrepareAsync(ISandbox sandbox, string sessionId, string setId, CancellationToken ct)
+    public Task<string> PrepareAsync(ISandbox sandbox, string sessionId, string setId, CancellationToken ct) =>
+        PrepareUnderAsync(sandbox, sessionId, setId, string.Empty, ct);
+
+    /// <summary>
+    /// 2026-10-01-283de: the same, under <paramref name="root"/> relative to the work root — the
+    /// browser sandbox keeps each set in a directory of its own, and its marker beside it, so a
+    /// set is copied once per sandbox life however many renders read it.
+    /// </summary>
+    public async Task<string> PrepareUnderAsync(
+        ISandbox sandbox, string sessionId, string setId, string root, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         var io = files.Create(sandbox);
-        if (await io.TryReadAsync(Marker, ct) is { Length: > 0 } held) return held.Trim();
+        if (await io.TryReadAsync(Under(root, Marker), ct) is { Length: > 0 } held) return held.Trim();
         var set = await sets.FilesAsync(sessionId, setId, ct);
         var encoded = 0;
         foreach (var file in set)
-            encoded += await WriteAsync(io, file, ct) ? 1 : 0;
-        if (encoded > 0) await DecodeAsync(sandbox, ct);
+            encoded += await WriteAsync(io, Under(root, file.Path), file, ct) ? 1 : 0;
+        if (encoded > 0) await DecodeAsync(sandbox, root.Length == 0 ? WorkRoot : $"{WorkRoot}/{root}", ct);
         var hash = HashOf(set);
-        await io.WriteAsync(Marker, hash, ct);
+        await io.WriteAsync(Under(root, Marker), hash, ct);
         return hash;
     }
 
+    private static string Under(string root, string path) => root.Length == 0 ? path : $"{root}/{path}";
+
     // True when the file went in encoded and waits for the decode step.
-    private static async Task<bool> WriteAsync(ISandboxFileReader io, ReferenceSetFile file, CancellationToken ct)
+    private static async Task<bool> WriteAsync(ISandboxFileReader io, string path, ReferenceSetFile file, CancellationToken ct)
     {
         if (AsText(file) is { } text)
         {
-            await io.WriteAsync(file.Path, text, ct);
+            await io.WriteAsync(path, text, ct);
             return false;
         }
-        await io.WriteAsync(file.Path + EncodedSuffix, Convert.ToBase64String(file.Content), ct);
+        await io.WriteAsync(path + EncodedSuffix, Convert.ToBase64String(file.Content), ct);
         return true;
     }
 
@@ -69,10 +80,10 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
         catch (DecoderFallbackException) { return null; }
     }
 
-    private static async Task DecodeAsync(ISandbox sandbox, CancellationToken ct)
+    private static async Task DecodeAsync(ISandbox sandbox, string root, CancellationToken ct)
     {
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "python3", Args: ["-c", DecodeScript, WorkRoot], WorkingDirectory: WorkRoot, TimeoutSeconds: 300);
+            Command: "python3", Args: ["-c", DecodeScript, root], WorkingDirectory: WorkRoot, TimeoutSeconds: 300);
         var result = await sandbox.RunStepAsync(step, null, ct);
         if (result.ExitCode != 0)
             throw new IOException($"Decoding the uploaded website's binary files failed: {result.ErrorMessage ?? "exit " + result.ExitCode}");

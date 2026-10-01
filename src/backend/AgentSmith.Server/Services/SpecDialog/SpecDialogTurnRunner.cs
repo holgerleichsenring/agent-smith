@@ -54,7 +54,7 @@ public sealed class SpecDialogTurnRunner(
         var seeds = SpecDialogTurnSeeds.Build(
             state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
             withdrawal, await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
-            await readers.ForAsync(state.JobId, project, cancellationToken), project.DesignSources);
+            await readers.ForAsync(state.JobId, project, cancellationToken), project.DesignSources, project);
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);

@@ -1,0 +1,9 @@
+{
+  "name": "agentsmith-sandbox-browser",
+  "private": true,
+  "description": "2026-10-01-283de: the render script's one dependency, pinned to the Playwright base image's version.",
+  "type": "module",
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

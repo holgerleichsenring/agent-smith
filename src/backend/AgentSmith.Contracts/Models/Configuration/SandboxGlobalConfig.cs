@@ -115,6 +115,6 @@ public sealed class SandboxGlobalConfig
     /// </summary>
     public List<string> ImagePullSecrets { get; set; } = [];
 
-    // p0270a: the per-project override arithmetic that lived here (ResolveStepTimeout /
-    // ResolveRunCommandTimeout) moved into the single ConfigResolutionPass.
+    /// <summary>2026-10-01-283de: the browser sandbox's resource profile (<c>sandbox.browser</c>).</summary>
+    public BrowserSandboxConfig Browser { get; set; } = new();
 }

@@ -91,4 +91,8 @@ public static partial class ContextKeys
     /// <summary>2026-10-01-7f7ab: <c>IReadOnlyList&lt;DesignSource&gt;</c> — the turn's project's
     /// design sources, by name and secret NAME; a run reads them off ProjectConfig instead.</summary>
     public const string SpecDialogDesignSources = "SpecDialogDesignSources";
+
+    /// <summary>2026-10-01-283de: <c>ResolvedProject</c> — the turn's project, from which render_reference
+    /// builds its browser sandbox's spec; a run reads ProjectConfig instead.</summary>
+    public const string SpecDialogProject = "SpecDialogProject";
 }

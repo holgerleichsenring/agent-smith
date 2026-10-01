@@ -72,6 +72,8 @@ internal static class ServerSandboxExtensions
             case SandboxBackend.InProcess: AddInProcess(services); break;
         }
         services.AddSingleton(new SandboxBackendInfo(backend));
+        // 2026-10-01-283de: the in-process backend runs no image, so it has no browser runtime.
+        services.AddSingleton(new SandboxContainerRuntime(backend != SandboxBackend.InProcess));
         return services;
     }
 
