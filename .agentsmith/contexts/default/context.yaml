@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-7f7af: "THE DESIGN AND CODING MASTERS READ DESIGNS WITH design_read (skills design-partner 1.10.0, coding 1.27.0 on PR #205). Frames read before drafting; a design ticket covers one screen, cites link + version, criteria in read values; coding passes expected_version, names a move; figma.com never to web_fetch. -> .agentsmith/phases/done/2026-10-01-7f7af-design-read-skills.yaml"
     2026-10-01-283de: "AN UPLOADED SITE OR PUBLIC URL RENDERS IN A BROWSER SANDBOX (sandbox image, CI, design turn). render_reference returns computed styles and deposits screenshots; Chromium behind an egress proxy refusing non-public addresses; server pre-checks; held per conversation. -> .agentsmith/phases/done/2026-10-01-283de-reference-browser-render.yaml"
     2026-10-01-7f7ac: "design_read SHOWS THE MODEL THE NODE IT READ (Figma client, tool host). The node is exported as PNG via the images API at the read version, downloaded token-less from Figma's image host only, capped and signature-checked, and deposited through 283dd; the result says a render follows or why not. -> .agentsmith/phases/done/2026-10-01-7f7ac-design-read-image.yaml"
     2026-10-01-7f7ae: "EACH design_read IS RECORDED ON ITS RUN (event contract, tool host, dashboard). DesignReadEvent carries source, file, node, version and lastModified; expected_version reports a moved design, read_version reads the cited one; no run id, no event. -> .agentsmith/phases/done/2026-10-01-7f7ae-design-version-record.yaml"
