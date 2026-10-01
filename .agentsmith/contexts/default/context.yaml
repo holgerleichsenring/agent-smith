@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-f5c3b: "A FILED TICKET READS IN A READER'S SHAPE (PhaseTicketBody, bug outcome, docs, skills master 1.9.0). Goal, Why, What changes, Acceptance criteria, Out of scope, Preconditions; bug criteria are list items; docs/trigger-it/writing-a-ticket.md is the template. Pin moves in aeb6d. -> .agentsmith/phases/done/2026-10-01-f5c3b-ticket-reader-shape.yaml"
     2026-10-01-f5c3a: "A DONE CRITERION MAY BE A WHEN/THEN SCENARIO (phase-spec schema, PhaseDraftReader, prompt, ticket). given optional, closed mapping; DoneCriterion flattens it to GIVEN/WHEN/THEN in plain keywords, so PhaseDraft.Done stays a string list and no consumer changes. -> .agentsmith/phases/done/2026-10-01-f5c3a-criterion-scenario-form.yaml"
     2026-10-01-aeb6c: "THE DESIGN PARTNER STAYS ON ITS PROJECT AND TICKET (skills design-partner master 1.8.0). Off-subject questions get one sentence back and no tool call; what a bound ticket raises is on topic. Tools stay. Pin moves in aeb6d. -> .agentsmith/phases/done/2026-10-01-aeb6c-dialog-project-binding.yaml"
     2026-10-01-aeb6b: "A DESIGN REPLY CAN CARRY A DOCUMENT TO COPY (spec dialog, dashboard, skills). ````document fences are never drafts; the transcript shows each as a card with Copy; the master writes prompts and summaries at once per references/writing-documents.md. -> .agentsmith/phases/done/2026-10-01-aeb6b-dialog-document-outcome.yaml"
