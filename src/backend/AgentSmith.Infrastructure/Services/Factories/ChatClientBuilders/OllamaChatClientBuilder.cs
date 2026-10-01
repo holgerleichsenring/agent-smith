@@ -15,6 +15,8 @@ public sealed class OllamaChatClientBuilder : IChatClientBuilder
 
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "ollama" };
 
+    public bool AcceptsImageAfterToolResult => true;
+
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
         var endpoint = assignment.EffectiveEndpoint(agent) ?? DefaultEndpoint;

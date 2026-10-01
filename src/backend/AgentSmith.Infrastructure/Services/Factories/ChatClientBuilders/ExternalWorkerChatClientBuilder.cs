@@ -26,6 +26,9 @@ public sealed class ExternalWorkerChatClientBuilder(
 
     public IReadOnlyList<string> SupportedTypes { get; } = [TypeName];
 
+    // 2026-10-01-283dd: the worker protocol renders an image part as an unsupported note.
+    public bool AcceptsImageAfterToolResult => false;
+
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment) =>
         new ExternalWorkerChatClient(
             composer, renderer, parser, translator, runner, runContext,

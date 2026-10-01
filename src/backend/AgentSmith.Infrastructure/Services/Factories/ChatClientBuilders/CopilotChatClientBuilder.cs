@@ -21,6 +21,10 @@ public sealed class CopilotChatClientBuilder(
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "copilot" };
 
+    // 2026-10-01-283dd: a continuation must consist of tool messages only, so no user message
+    // carrying an image can follow a tool result here.
+    public bool AcceptsImageAfterToolResult => false;
+
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
         var seatToken = ResolveSeatToken(agent)

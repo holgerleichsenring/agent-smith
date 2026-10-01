@@ -1,7 +1,7 @@
 {
   "model_id": "sonnet",
   "scan_prompt_version": "e34e578a",
-  "generated_at": "2026-09-28T15:00:24.622152+00:00",
+  "generated_at": "2026-10-01T18:23:06.756324+00:00",
   "target_id": "reference-target",
   "endpoints": [
     {
@@ -9,8 +9,8 @@
       "class": "missing-authorization",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /members/{id}: no security requirement is declared on this operation at all, while every other data-bearing operation in the spec (PUT /members/{id}/role, GET /orders, GET /orders/{id}, POST /invoices, POST /tokens/introspect) explicitly requires memberToken bearer auth. The response returns a full Member record including contactEmail and role with zero authentication.",
-      "highest_severity": "High",
+      "finding_headline": "GET /members/{id}: no security scheme is declared on this operation (unlike every other data-returning endpoint), so the handler appears reachable without a bearer token while still returning contactEmail and role \u2014 PII and privilege data exposed without authentication",
+      "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -20,8 +20,8 @@
       "class": "unscoped-identifier",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "GET /orders: memberId is a client-supplied required query parameter used to select whose orders are returned, with no indication it is cross-checked against the bearer\u0027s own identity \u2014 unlike GET /orders/{id}, whose summary explicitly states it is \u0027Scoped to the bearer\u0027s own member id\u0027 and returns 404 otherwise.",
-      "highest_severity": "High",
+      "finding_headline": "GET /orders: memberId is taken as a caller-supplied query parameter rather than derived from the authenticated bearer, unlike GET /orders/{id} whose summary explicitly states it is \u0027scoped to the bearer\u0027s own member id\u0027 \u2014 the contrast suggests listOrders may not enforce that scoping, allowing enumeration of other members\u0027 orders",
+      "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
       "agrees": true
@@ -31,7 +31,7 @@
       "class": "verbose-error",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "POST /invoices: orderId is accepted from the client with no documented ownership check against the caller\u0027s member id, and the only documented failure mode is a generic 500 \u2014 unlike GET /orders/{id}, which documents a distinct 404 specifically for \u0027no such order for this member\u0027.",
+      "finding_headline": "POST /invoices: orderId is accepted in the request body with no stated ownership verification against the bearer\u0027s member id, potentially allowing a member to create an invoice against another member\u0027s order",
       "highest_severity": "Medium",
       "is_miss": false,
       "is_false_alarm": false,
@@ -42,7 +42,7 @@
       "class": "privilege-escalation",
       "truth_is_weak": true,
       "has_finding": true,
-      "finding_headline": "PUT /members/{id}/role: any caller holding a valid memberToken appears able to set the role of an arbitrary member id (including their own) to an arbitrary string value, with no spec indication of an admin-only restriction or an allow-list of role values.",
+      "finding_headline": "PUT /members/{id}/role: any holder of a valid memberToken can set the role for an arbitrary {id} \u2014 no function-level check distinguishing self-service from admin-only callers is visible in the contract, enabling privilege escalation",
       "highest_severity": "High",
       "is_miss": false,
       "is_false_alarm": false,

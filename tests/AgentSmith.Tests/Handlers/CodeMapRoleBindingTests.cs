@@ -36,7 +36,7 @@ public sealed class CodeMapRoleBindingTests
         var factory = RealFactory(new RecordingBuilder());
 
         factory.Create(Agent(codeMap: null), TaskType.CodeMapGeneration)
-            .Should().BeOfType<FunctionInvokingChatClient>(
+            .Should().BeAssignableTo<FunctionInvokingChatClient>(
                 "the sweep explores a repository WITH tools — a task outside ToolBearingTasks "
                 + "returns before the middleware and the model could never call them");
     }
@@ -127,11 +127,13 @@ public sealed class CodeMapRoleBindingTests
             TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
+            new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             NullLoggerFactory.Instance);
 
     private sealed class RecordingBuilder : IChatClientBuilder
     {
         public IReadOnlyList<string> SupportedTypes { get; } = ["stub"];
+        public bool AcceptsImageAfterToolResult => true;
         public List<string> Models { get; } = [];
 
         public IChatClient Build(AgentConfig agent, ModelAssignment assignment)

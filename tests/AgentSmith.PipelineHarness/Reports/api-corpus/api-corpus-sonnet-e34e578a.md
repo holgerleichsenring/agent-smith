@@ -5,7 +5,7 @@
 - model: `sonnet`
 - api scan master: `e34e578a`
 - target: `reference-target`
-- generated: 2026-09-28T15:00:24.6221520+00:00
+- generated: 2026-10-01T18:23:06.7563240+00:00
 
 **Misses:** 0/4 (0 %) — declared weaknesses no delivered finding named.
 
@@ -20,13 +20,13 @@ A score is not a complete measurement of a scan whose steps stayed silent.
 
 ## Endpoints
 - [x] `GET /members/{id}` (missing-authorization, weak)
-  - found [High]: GET /members/{id}: no security requirement is declared on this operation at all, while every other data-bearing operation in the spec (PUT /members/{id}/role, GET /orders, GET /orders/{id}, POST /invoices, POST /tokens/introspect) explicitly requires memberToken bearer auth. The response returns a full Member record including contactEmail and role with zero authentication.
+  - found [Medium]: GET /members/{id}: no security scheme is declared on this operation (unlike every other data-returning endpoint), so the handler appears reachable without a bearer token while still returning contactEmail and role — PII and privilege data exposed without authentication
 - [x] `GET /orders` (unscoped-identifier, weak)
-  - found [High]: GET /orders: memberId is a client-supplied required query parameter used to select whose orders are returned, with no indication it is cross-checked against the bearer's own identity — unlike GET /orders/{id}, whose summary explicitly states it is 'Scoped to the bearer's own member id' and returns 404 otherwise.
+  - found [Medium]: GET /orders: memberId is taken as a caller-supplied query parameter rather than derived from the authenticated bearer, unlike GET /orders/{id} whose summary explicitly states it is 'scoped to the bearer's own member id' — the contrast suggests listOrders may not enforce that scoping, allowing enumeration of other members' orders
 - [x] `POST /invoices` (verbose-error, weak)
-  - found [Medium]: POST /invoices: orderId is accepted from the client with no documented ownership check against the caller's member id, and the only documented failure mode is a generic 500 — unlike GET /orders/{id}, which documents a distinct 404 specifically for 'no such order for this member'.
+  - found [Medium]: POST /invoices: orderId is accepted in the request body with no stated ownership verification against the bearer's member id, potentially allowing a member to create an invoice against another member's order
 - [x] `PUT /members/{id}/role` (privilege-escalation, weak)
-  - found [High]: PUT /members/{id}/role: any caller holding a valid memberToken appears able to set the role of an arbitrary member id (including their own) to an arbitrary string value, with no spec indication of an admin-only restriction or an allow-list of role values.
+  - found [High]: PUT /members/{id}/role: any holder of a valid memberToken can set the role for an arbitrary {id} — no function-level check distinguishing self-service from admin-only callers is visible in the contract, enabling privilege escalation
 - [x] `GET /health` (missing-authorization, sound)
 - [x] `GET /orders/{id}` (unscoped-identifier, sound)
 - [x] `POST /tokens/introspect` (credential-exposure, sound)
