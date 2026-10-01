@@ -22,6 +22,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// the structured ambiguity message so the operator re-runs interactively
 /// (CLI) for ask_human disambiguation.
 ///
+/// Refuses as well when any repository yielded no component: the guard counts
+/// the work, not the input, so a repository with no source fails naming itself
+/// instead of queuing zero rounds that InitCommit reports as "already bootstrapped".
+///
 /// 2026-09-23-4711: the fan-out is followed by ONE
 /// <see cref="CommandNames.BootstrapRetire"/>, so the tree is made to match the
 /// derived set once every round has written.
@@ -49,6 +53,10 @@ public sealed class BootstrapDispatchHandler(
             return Task.FromResult(CommandResult.Fail(
                 "BootstrapDispatch: no DiscoveredComponents available. " +
                 "BootstrapDiscover must run before this step."));
+
+        var empty = perRepo.Where(kv => kv.Value.Count == 0).Select(kv => kv.Key).ToList();
+        if (empty.Count > 0)
+            return Task.FromResult(CommandResult.Fail(NoSourceMessage(empty)));
 
         var concepts = conceptsFactory(context.Pipeline);
         var savedLanguage = SafeGetString(concepts, "project_language");
@@ -87,6 +95,14 @@ public sealed class BootstrapDispatchHandler(
                 ContextKeys.DiscoveredComponents, out var dict) && dict is { Count: > 0 })
             return dict;
         return null;
+    }
+
+    private static string NoSourceMessage(IReadOnlyList<string> repoNames)
+    {
+        var names = string.Join(", ", repoNames.Select(n => $"'{n}'"));
+        var subject = repoNames.Count == 1 ? $"repository {names} holds" : $"repositories {names} hold";
+        return $"BootstrapDispatch: {subject} no source to read — discovery found no component, so there is no context to derive. " +
+               "Commit the code first, then initialise.";
     }
 
     private static string? SafeGetString(IRunStateConcepts concepts, string name)

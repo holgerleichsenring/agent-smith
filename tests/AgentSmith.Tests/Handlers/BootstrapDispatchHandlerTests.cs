@@ -240,6 +240,49 @@ public sealed class BootstrapDispatchHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_RepositoryWithNoComponent_FailsNamingItAndTheReason()
+    {
+        var pipeline = PipelineFor("init-project", "csharp", CsharpBootstrap());
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents,
+            new Dictionary<string, IReadOnlyList<DiscoveredComponent>> { ["greenfield"] = [] });
+
+        var result = await Handler().ExecuteAsync(
+            new BootstrapDispatchContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("'greenfield'").And.Contain("holds no source to read");
+        result.InsertNext.Should().BeNullOrEmpty("a repository with no component queues no round");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OneEmptyRepositoryBesideAFullOne_FailsNamingOnlyTheEmptyOne()
+    {
+        var pipeline = PipelineFor("init-project", "csharp", CsharpBootstrap());
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+            ContextKeys.DiscoveredComponents,
+            new Dictionary<string, IReadOnlyList<DiscoveredComponent>>
+            {
+                ["server"] = [new DiscoveredComponent("default", ".", "csharp", "Server.csproj")],
+                ["greenfield"] = [],
+            });
+
+        var result = await Handler().ExecuteAsync(
+            new BootstrapDispatchContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("'greenfield'").And.NotContain("'server'");
+        result.InsertNext.Should().BeNullOrEmpty();
+    }
+
+    private static RoleSkillDefinition CsharpBootstrap() => new()
+    {
+        Name = "csharp-bootstrap",
+        ActivatesWhen = "pipeline_name = \"init-project\" AND project_language = \"csharp\"",
+        OutputSchema = "bootstrap",
+    };
+
+    [Fact]
     public async Task ExecuteAsync_PreservesProjectLanguageConceptAfterIterations()
     {
         var pipeline = MultiRepoPipelineFor("init-project",

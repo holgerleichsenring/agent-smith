@@ -43,6 +43,25 @@ public sealed class InitProjectTests
                 "context.yaml must go through the typed write_context_yaml tool (p0193)");
     }
 
+    [Fact]
+    public async Task InitProject_RepositoryWithNoSource_FailsNamingItInsteadOfReportingSuccess()
+    {
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default),
+            SandboxBackend.Stub, session: null, SkillsBackend.Fixture,
+            HarnessProjectAnalyzerStub.Register);
+        // What discovery answers for a repository with no source: complete, and nothing in it.
+        harness.ChatClient.EnqueueText("""{ "status": "complete", "components": [] }""");
+
+        var runner = new PipelineRunner(harness.Services);
+        var result = await runner.RunAsync("init-project");
+
+        result.IsSuccess.Should().BeFalse(
+            "a run that queued zero bootstrap rounds must not report success: {0}", result.Message);
+        result.Message.Should().Contain("'primary'").And.Contain("holds no source to read");
+        result.Message.Should().NotContain("already bootstrapped");
+    }
+
     private static void EnqueueBootstrapWrite(RealCompositionHarness harness)
     {
         harness.ChatClient
