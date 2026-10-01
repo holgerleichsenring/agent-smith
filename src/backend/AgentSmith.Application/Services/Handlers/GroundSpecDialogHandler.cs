@@ -42,6 +42,8 @@ public sealed class GroundSpecDialogHandler(
             [.. grounded.SelectMany(g => g.Contexts.Documents)]);
         Publish(pipeline, ContextKeys.RepoCodingPrinciples, ContextKeys.DomainRules,
             [.. grounded.SelectMany(g => g.Principles.Documents)]);
+        var design = grounded.SelectMany(g => g.Design.Documents).ToList(); // 2026-10-01-283dg
+        if (design.Count > 0) pipeline.Set<IReadOnlyList<ContextDocument>>(ContextKeys.DesignSystem, design);
 
         var report = DialogGroundingReport.Compose(grounded);
         logger.LogInformation("Spec-dialog grounding: {Report}", report);

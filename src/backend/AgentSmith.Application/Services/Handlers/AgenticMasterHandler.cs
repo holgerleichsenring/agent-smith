@@ -318,7 +318,8 @@ public sealed class AgenticMasterHandler(
         }
         // 2026-09-13-ed5a: over the ADDRESSES, so the spec dialog — which seeds its
         // templates into the sandbox map this list is read from — gets the same section.
-        masterBody += TemplatePromptSection.Build(allAddresses) + ReferencePromptSection.Build(allAddresses); // + 283dc
+        masterBody += TemplatePromptSection.Build(allAddresses) + ReferencePromptSection.Build(allAddresses) // + 283dc
+            + DesignSystemPromptSection.Render(context.Pipeline); // 2026-10-01-283dg
 
         // Every master surface gets web_fetch — a read-only GET of a public URL that
         // mutates nothing, so even the read-only scan surface carries it safely.

@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 public sealed class DialogGroundingReader(
     ISourceProviderFactory sourceProviders,
     IContextYamlParser contextYaml,
+    RemoteFileRead files,
     ILogger<DialogGroundingReader> logger)
 {
     public async Task<DialogGrounding> ReadAsync(RepoConnection repo, CancellationToken cancellationToken)
@@ -44,7 +45,9 @@ public sealed class DialogGroundingReader(
 
         var contexts = await ReadContextsAsync(provider, repo.Name, contextNames, cancellationToken);
         var principles = await ReadPrinciplesAsync(provider, repo.Name, contexts.Documents, cancellationToken);
-        return new DialogGrounding(repo.Name, true, null, contexts, principles);
+        var design = await files.SingleAsync( // 2026-10-01-283dg
+            provider, repo.Name, ProjectMetaPaths.DesignSystem, cancellationToken);
+        return new DialogGrounding(repo.Name, true, null, contexts, principles, design);
     }
 
     private async Task<RemoteFileSet> ReadContextsAsync(
@@ -55,7 +58,7 @@ public sealed class DialogGroundingReader(
         foreach (var name in names)
         {
             var path = $"{ProjectMetaPaths.Contexts}/{name}/{ProjectMetaPaths.ContextYamlFile}";
-            var yaml = await TryReadAsync(provider, repo, path, unreadable, ct);
+            var yaml = await files.TryAsync(provider, repo, path, unreadable, ct);
             if (yaml is null) continue;
             documents.Add(new ContextDocument(repo, name, Workdir(yaml), path, yaml));
         }
@@ -68,40 +71,19 @@ public sealed class DialogGroundingReader(
         ISourceProvider provider, string repo,
         IReadOnlyList<ContextDocument> contexts, CancellationToken ct)
     {
-        var unreadable = new List<string>();
-        var flat = await TryReadAsync(provider, repo, ProjectMetaPaths.Principles, unreadable, ct);
-        if (flat is not null)
-            return new RemoteFileSet(
-                [new ContextDocument(repo, null, null, ProjectMetaPaths.Principles, flat)], unreadable);
+        var flat = await files.SingleAsync(provider, repo, ProjectMetaPaths.Principles, ct);
+        if (flat.Documents.Count > 0) return flat;
+        var unreadable = new List<string>(flat.Unreadable);
 
         var documents = new List<ContextDocument>();
         foreach (var context in contexts)
         {
             var path = $"{ProjectMetaPaths.Contexts}/{context.ContextName}/{ProjectMetaPaths.PrinciplesFile}";
-            var content = await TryReadAsync(provider, repo, path, unreadable, ct);
+            var content = await files.TryAsync(provider, repo, path, unreadable, ct);
             if (content is null) continue;
             documents.Add(new ContextDocument(repo, context.ContextName, context.Workdir, path, content));
         }
         return new RemoteFileSet(documents, unreadable);
-    }
-
-    // The provider contract answers an absent path with null and propagates auth and
-    // transport errors, so a throw here is a file that could not be READ — a different
-    // answer from "it is not there", and the report has to keep it different.
-    private async Task<string?> TryReadAsync(
-        ISourceProvider provider, string repo, string path, List<string> unreadable, CancellationToken ct)
-    {
-        try
-        {
-            var content = await provider.TryReadFileAsync(path, ct);
-            return string.IsNullOrEmpty(content) ? null : content;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.LogWarning(ex, "Grounding {Repo}: read of {Path} failed.", repo, path);
-            unreadable.Add($"{path} ({ex.Message})");
-            return null;
-        }
     }
 
     // meta.workdir labels the section the master reads. A context.yaml that does not parse

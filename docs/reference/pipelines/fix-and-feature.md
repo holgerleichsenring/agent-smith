@@ -15,7 +15,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 5 | RunPreflight | Proves the run's preconditions before anything is spent on them |
 | 6 | SetupRegistryAuth | Pre-stages private-feed credentials in the sandboxes |
 | 7 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` context |
-| 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadContext | Loads the repo's principles, memory index and context |
+| 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadDesignSystem / LoadContext | Loads the repo's principles, memory index, root DESIGN.md and context |
 | 9 | AnalyzeCode | Scout agent maps the relevant code |
 | 10 | DeriveSpec | Turns the ticket into an ordered set of phase specs on the ticket branch |
 | 11 | SpecHandback | Parks the ticket when the derivation handed it back |

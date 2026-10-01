@@ -32,6 +32,7 @@ public static partial class CommandBeats
             [CommandNames.GroundSpecDialog] = RunBeat.Ticket, // 2026-09-19-4c1f
             [CommandNames.LoadCodingPrinciples] = RunBeat.Ticket,
             [CommandNames.LoadMemoryIndex] = RunBeat.Ticket, // p0380
+            [CommandNames.LoadDesignSystem] = RunBeat.Ticket, // 2026-10-01-283dg
             [CommandNames.LoadContext] = RunBeat.Ticket,
             [CommandNames.LoadSkills] = RunBeat.Ticket,
             [CommandNames.LoadRuns] = RunBeat.Ticket,

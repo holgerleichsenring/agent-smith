@@ -72,6 +72,13 @@ public sealed class LoadMemoryIndexContextBuilder : IContextBuilder
     }
 }
 
+// 2026-10-01-283dg: the design system loads after the principles — it reads the same sandboxes.
+public sealed class LoadDesignSystemContextBuilder : IContextBuilder
+{
+    public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
+        new LoadDesignSystemContext(pipeline);
+}
+
 public sealed class LoadContextContextBuilder : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)

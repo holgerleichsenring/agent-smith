@@ -23,17 +23,19 @@ public sealed record RemoteFileSet(
 /// the first absence, and the one no read was ever attempted for.
 /// <see cref="Unreachable"/> carries the reason when the repository itself could not be
 /// listed, which is the third absence at whole-repository scale.
+/// <para>2026-10-01-283dg: <see cref="Design"/> is the root DESIGN.md, read the same way.</para>
 /// </summary>
 public sealed record DialogGrounding(
     string Repo,
     bool Located,
     string? Unreachable,
     RemoteFileSet Contexts,
-    RemoteFileSet Principles)
+    RemoteFileSet Principles,
+    RemoteFileSet Design)
 {
     public static DialogGrounding NotLocated(string repo) =>
-        new(repo, false, null, RemoteFileSet.Empty, RemoteFileSet.Empty);
+        new(repo, false, null, RemoteFileSet.Empty, RemoteFileSet.Empty, RemoteFileSet.Empty);
 
     public static DialogGrounding Unreached(string repo, string reason) =>
-        new(repo, true, reason, RemoteFileSet.Empty, RemoteFileSet.Empty);
+        new(repo, true, reason, RemoteFileSet.Empty, RemoteFileSet.Empty, RemoteFileSet.Empty);
 }

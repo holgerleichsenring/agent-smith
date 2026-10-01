@@ -22,6 +22,7 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadCodeMap] = "Load code map",
         [CommandNames.LoadCodingPrinciples] = "Load coding principles",
         [CommandNames.LoadMemoryIndex] = "Load memory index", // p0380
+        [CommandNames.LoadDesignSystem] = "Load design system", // 2026-10-01-283dg
         [CommandNames.LoadContext] = "Load project context",
         [CommandNames.LoadSkills] = "Load skills",
         [CommandNames.AnalyzeCode] = "Analyze codebase",

@@ -82,6 +82,7 @@ public static partial class CommandStepClasses
         [CommandNames.LoadCodeMap] = Internal,           // retired loader
         [CommandNames.LoadCodingPrinciples] = Internal,
         [CommandNames.LoadMemoryIndex] = Internal,
+        [CommandNames.LoadDesignSystem] = Internal,
         [CommandNames.LoadContext] = Internal,
         [CommandNames.LoadSkills] = Internal,
         [CommandNames.LoadCachedCodeMap] = Internal,

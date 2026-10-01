@@ -67,6 +67,7 @@ public static class PipelineHandlersExtensions
         services.AddContextLoading(); // 2026-09-04-cf3d: both loaders + the per-context reader
         // p0380: plan-time experiential-memory index + green-run narrative twin.
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
+        services.AddTransient<ICommandHandler<LoadDesignSystemContext>, LoadDesignSystemHandler>(); // 283dg
         services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>().AddTransient<IProjectMapFinalizer, ProjectMapFinalizer>();

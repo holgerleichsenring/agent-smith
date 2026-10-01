@@ -25,6 +25,7 @@ public static class ContextBuildersExtensions
         AddBuilder<ProbeTargetContextBuilder>(services, CommandNames.ProbeTarget); // 379a
         AddBuilder<LoadCodingPrinciplesContextBuilder>(services, CommandNames.LoadCodingPrinciples);
         AddBuilder<LoadMemoryIndexContextBuilder>(services, CommandNames.LoadMemoryIndex); // p0380
+        AddBuilder<LoadDesignSystemContextBuilder>(services, CommandNames.LoadDesignSystem); // 283dg
         AddBuilder<LoadContextContextBuilder>(services, CommandNames.LoadContext);
         AddBuilder<AnalyzeCodeContextBuilder>(services, CommandNames.AnalyzeCode);
         AddBuilder<AnalyzePrDiffContextBuilder>(services, CommandNames.AnalyzePrDiff);

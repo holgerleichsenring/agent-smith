@@ -47,6 +47,7 @@ public static partial class PipelinePresets
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadDesignSystem, // 2026-10-01-283dg
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         // p0393a: any ticket becomes an ordered SET of phase specs here — after

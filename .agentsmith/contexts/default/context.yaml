@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-283dg: "A REPO-ROOT DESIGN.md REACHES THE DESIGN PARTNER AND THE CODING MASTER (dialog grounding, code preset, master body). Read remotely per turn and by LoadDesignSystem per run, one document per repository; frontmatter verbatim under a 32,000-char cap that names its cut. -> .agentsmith/phases/done/2026-10-01-283dg-design-md-grounding.yaml"
     2026-10-01-7f7af: "THE DESIGN AND CODING MASTERS READ DESIGNS WITH design_read (skills design-partner 1.10.0, coding 1.27.0 on PR #205). Frames read before drafting; a design ticket covers one screen, cites link + version, criteria in read values; coding passes expected_version, names a move; figma.com never to web_fetch. -> .agentsmith/phases/done/2026-10-01-7f7af-design-read-skills.yaml"
     2026-10-01-283de: "AN UPLOADED SITE OR PUBLIC URL RENDERS IN A BROWSER SANDBOX (sandbox image, CI, design turn). render_reference returns computed styles and deposits screenshots; Chromium behind an egress proxy refusing non-public addresses; server pre-checks; held per conversation. -> .agentsmith/phases/done/2026-10-01-283de-reference-browser-render.yaml"
     2026-10-01-7f7ac: "design_read SHOWS THE MODEL THE NODE IT READ (Figma client, tool host). The node is exported as PNG via the images API at the read version, downloaded token-less from Figma's image host only, capped and signature-checked, and deposited through 283dd; the result says a render follows or why not. -> .agentsmith/phases/done/2026-10-01-7f7ac-design-read-image.yaml"

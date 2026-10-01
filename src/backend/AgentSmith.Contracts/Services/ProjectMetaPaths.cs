@@ -41,6 +41,10 @@ public static class ProjectMetaPaths
 
     public const string ContextYamlFile = "context.yaml";
 
+    /// <summary>2026-10-01-283dg: a repository's design system — token frontmatter and prose —
+    /// at the repository ROOT, outside <see cref="Root"/>, under exactly this name.</summary>
+    public const string DesignSystem = "DESIGN.md";
+
     /// <summary>2026-09-01-eec0: the authored rules a repository carries. Named for what
     /// it holds — rules about the ENVIRONMENT belong in it as much as rules about code.</summary>
     public const string PrinciplesFile = "principles.md";
