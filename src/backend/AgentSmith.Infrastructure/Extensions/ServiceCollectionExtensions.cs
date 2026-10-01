@@ -3,6 +3,7 @@ using AgentSmith.Infrastructure.Services;
 using AgentSmith.Infrastructure.Services.Containers;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Output;
+using AgentSmith.Infrastructure.Services.Providers.Design;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Infrastructure.Services.Providers.Discovery;
 using AgentSmith.Infrastructure.Services.Providers.Source;
@@ -33,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSecurityScanners();
         services.AddDialogueTransport();
         services.AddProjectMeta();
+        services.AddDesignProviders(); // 2026-10-01-7f7ab
         return services;
     }
 }
