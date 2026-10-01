@@ -117,6 +117,7 @@ internal static class MasterHandlerFixture
             // 2026-10-01-7f7ab: a project with no figma source never reaches the client.
             new AgentSmith.Application.Services.Tools.DesignReadToolHostFactory(
                 figma ?? Mock.Of<AgentSmith.Contracts.Providers.IFigmaClient>(MockBehavior.Strict),
+                AgentSmith.Tests.DesignSources.DesignImageFakes.NoLoopDeposit(),
                 new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             NullLogger<MasterToolComposition>.Instance);

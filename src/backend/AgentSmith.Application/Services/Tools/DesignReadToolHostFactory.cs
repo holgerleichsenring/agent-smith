@@ -14,9 +14,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// tool is never offered where it could only fail.
 /// <para>2026-10-01-7f7ae: with a run id on the pipeline the host records each answered read
 /// on that run; without one nothing is published — no run id is invented.</para>
+/// <para>2026-10-01-7f7ac: every host renders the node it read through the shared image deposit.</para>
 /// </summary>
 public sealed class DesignReadToolHostFactory(
-    IFigmaClient figma, IEventPublisher events, ILogger<DesignReadToolHostFactory> logger)
+    IFigmaClient figma, IToolImageDeposit images, IEventPublisher events, ILogger<DesignReadToolHostFactory> logger)
 {
     public DesignReadToolHost? Create(PipelineContext pipeline)
     {
@@ -25,6 +26,6 @@ public sealed class DesignReadToolHostFactory(
         var recorder = pipeline.TryGet<string>(ContextKeys.RunId, out var runId) && !string.IsNullOrEmpty(runId)
             ? new DesignReadRecorder(events, runId, logger)
             : null;
-        return new DesignReadToolHost(figma, figmaSources, recorder);
+        return new DesignReadToolHost(figma, figmaSources, recorder, new DesignNodeRender(figma, images));
     }
 }

@@ -20,6 +20,7 @@ public sealed class DesignReadSeedTests
 {
     private static readonly DesignSource Figma = new("brand", DesignSourceVendor.Figma, "figma-token");
     private readonly DesignReadToolHostFactory _factory = new(Mock.Of<IFigmaClient>(MockBehavior.Strict),
+        DesignImageFakes.NoLoopDeposit(),
         new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
         Microsoft.Extensions.Logging.Abstractions.NullLogger<DesignReadToolHostFactory>.Instance);
 

@@ -17,4 +17,11 @@ public interface IFigmaClient
     /// <summary>GET /v1/files/:key/variables/local.</summary>
     Task<FigmaReadResult> GetLocalVariablesAsync(
         string secretName, string fileKey, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-01-7f7ac: GET /v1/images/:key for one node as PNG at <paramref name="scale"/>, then the
+    /// returned url downloaded WITHOUT the token — the url points at Figma's image storage, not the API.
+    /// </summary>
+    Task<FigmaExportResult> ExportPngAsync(
+        string secretName, string fileKey, string nodeId, double scale, string? version, CancellationToken cancellationToken);
 }

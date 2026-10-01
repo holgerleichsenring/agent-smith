@@ -49,8 +49,12 @@ internal static class FigmaFakes
         """;
 
     public static FigmaClient Client(FakeFigmaHandler handler, TimeProvider? clock = null, string? token = Token) =>
-        new(new HttpClient(handler) { BaseAddress = FigmaClient.ApiHost },
-            new StubSecrets(token), clock ?? TimeProvider.System, NullLogger<FigmaClient>.Instance);
+        new(new HttpClient(handler, disposeHandler: false) { BaseAddress = FigmaClient.ApiHost },
+            new StubSecrets(token), clock ?? TimeProvider.System, Downloader(handler), NullLogger<FigmaClient>.Instance);
+
+    /// <summary>2026-10-01-7f7ac: the token-less download client over the same recording handler.</summary>
+    public static FigmaImageDownloader Downloader(FakeFigmaHandler handler) =>
+        new(new HttpClient(handler, disposeHandler: false), NullLogger<FigmaImageDownloader>.Instance);
 
     public static HttpResponseMessage Json(string body, HttpStatusCode status = HttpStatusCode.OK) =>
         new(status) { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
@@ -80,6 +84,12 @@ internal sealed class FakeFigmaHandler : HttpMessageHandler
 
     public Queue<Func<HttpResponseMessage>> VariableResponses { get; } = new();
 
+    /// <summary>2026-10-01-7f7ac: answers to GET /v1/images/:key.</summary>
+    public Queue<Func<HttpResponseMessage>> ImageResponses { get; } = new();
+
+    /// <summary>2026-10-01-7f7ac: answers to any host but the API's — the export download.</summary>
+    public Queue<Func<HttpResponseMessage>> DownloadResponses { get; } = new();
+
     public List<HttpRequestMessage> Requests { get; } = [];
 
     public static FakeFigmaHandler Answering(HttpStatusCode variables = HttpStatusCode.OK)
@@ -94,7 +104,10 @@ internal sealed class FakeFigmaHandler : HttpMessageHandler
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         Requests.Add(request);
-        var queue = request.RequestUri!.AbsolutePath.EndsWith("/variables/local") ? VariableResponses : NodeResponses;
+        var uri = request.RequestUri!;
+        var queue = uri.Host != FigmaClient.ApiHost.Host ? DownloadResponses
+            : uri.AbsolutePath.StartsWith("/v1/images/") ? ImageResponses
+            : uri.AbsolutePath.EndsWith("/variables/local") ? VariableResponses : NodeResponses;
         return Task.FromResult(queue.Count > 0 ? queue.Dequeue()() : FigmaFakes.Status(HttpStatusCode.InternalServerError));
     }
 }
