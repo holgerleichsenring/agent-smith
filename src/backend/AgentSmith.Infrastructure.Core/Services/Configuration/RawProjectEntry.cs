@@ -20,6 +20,9 @@ public sealed class RawProjectEntry
     /// </summary>
     public List<RawTemplateEntry> Templates { get; set; } = [];
 
+    /// <summary>2026-10-01-7f7aa: names from the <c>design_sources:</c> catalog.</summary>
+    public List<string> DesignSources { get; set; } = [];
+
     public string Pipeline { get; set; } = string.Empty;
     public List<RawPipelineEntry> Pipelines { get; set; } = [];
     public string? DefaultPipeline { get; set; }

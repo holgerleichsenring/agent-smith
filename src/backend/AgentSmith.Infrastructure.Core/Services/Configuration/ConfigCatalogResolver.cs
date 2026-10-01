@@ -53,7 +53,8 @@ public sealed class ConfigCatalogResolver(
             _agents.Build(raw.Agents, collected),
             _repos.Build(raw.Repos, collected),
             _trackers.Build(raw.Trackers, collected),
-            _connections.Build(raw.Connections, collected));
+            _connections.Build(raw.Connections, collected),
+            new DesignSourceCatalogBuilder().Build(raw.DesignSources, raw.Secrets.Keys, collected));
 
         var projects = ResolveProjects(raw, catalogs, collected);
         Publish(collected);

@@ -6,6 +6,7 @@ import type {
   ConfigEntityKind,
   InheritedSandboxProjection,
   StudioConnection,
+  StudioDesignSource,
   StudioEntity,
   StudioProject,
   StudioTracker,
@@ -219,6 +220,11 @@ function typedEntityOk(
     if (!c.type) return false;
     const d = capabilities?.connectionTypes.find((x) => x.type === c.type);
     return !d || requiredFieldsFilled(d.fields, c as unknown as Record<string, unknown>);
+  }
+  if (kind === "design-sources") {
+    // 2026-10-01-7f7aa: a source without a vendor or a secret cannot read anything.
+    const d = draft as StudioDesignSource;
+    return !!d.vendor && !!d.authSecret;
   }
   return true;
 }

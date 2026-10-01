@@ -54,6 +54,7 @@ internal sealed class AccessTestHarness : IDisposable
             sp.GetRequiredService<EfConfigDocumentStore>(),
             sp.GetRequiredService<AdminRoute>(), sp.GetRequiredService<ConfigDocJson>()));
         services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
+        services.AddSingleton<ConfigChangeReverter>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddSingleton<IObservedCallerStore, EfObservedCallerStore>();
         _provider = services.BuildServiceProvider();

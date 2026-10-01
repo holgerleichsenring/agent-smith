@@ -26,6 +26,7 @@ const catalog: ConfigCatalog = {
   repos: [{ id: "api", name: "api", branch: "main" }],
   projects: [],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [{ id: "K" }, { id: "T" }],
 };
 

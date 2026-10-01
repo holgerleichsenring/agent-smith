@@ -51,6 +51,12 @@ public interface IConfigStore
     void UpsertConnection(ConnectionEntity entity, ChangeAttribution by);
     void DeleteConnection(string id, ChangeAttribution by);
 
+    // 2026-10-01-7f7aa: design sources — auth names a catalog secret, which a source then
+    // keeps from being deleted.
+    IReadOnlyList<DesignSourceEntity> GetDesignSources();
+    void UpsertDesignSource(DesignSourceEntity entity, ChangeAttribution by);
+    void DeleteDesignSource(string id, ChangeAttribution by);
+
     // p0353: the global SETTINGS singletons — the taxonomy's singleton config docs
     // (orchestrator, limits, cost cap, skills, sandbox, …) surfaced as editable typed
     // forms. A generic surface keyed by the settings type: read the assembled value,

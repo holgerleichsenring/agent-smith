@@ -41,6 +41,7 @@ vi.mock("@/lib/configApi", () => {
     reposApi: client(),
     projectsApi: client(),
     mcpServersApi: client(),
+    designSourcesApi: client(),
     secretsApi: client(),
     fetchChanges: vi.fn().mockResolvedValue([]),
     revertChange: vi.fn(),

@@ -44,6 +44,7 @@ const CATALOG: ConfigCatalog = {
   ],
   projects: [{ id: "refapp", agent: "claude", tracker: "azdo", repos: ["api"], pipeline: "", pipelines: [], resolution: null }],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [],
 } as unknown as ConfigCatalog;
 

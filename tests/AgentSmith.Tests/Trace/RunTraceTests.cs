@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Contracts.Services;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Trace;
@@ -19,7 +20,7 @@ public sealed class RunTraceTests
             Registries = [new RegistryConfig("packages.example.test", "ci", "glpat-SECRETVALUE123")],
             Secrets = new Dictionary<string, string> { ["AZDO_PAT"] = "pat-9f2c11ab4400" },
         };
-        var masker = new SecretMasker(config);
+        var masker = new SecretMasker(new LoadedSecretValues(config));
 
         var masked = masker.Apply(
             "//packages.example.test/:_authToken=glpat-SECRETVALUE123\nAuthorization: Bearer pat-9f2c11ab4400");
@@ -44,7 +45,7 @@ public sealed class RunTraceTests
             },
         };
 
-        new SecretMasker(config).Apply("token=abc123-and-then-some-more")
+        new SecretMasker(new LoadedSecretValues(config)).Apply("token=abc123-and-then-some-more")
             .Should().Be("token=***");
     }
 
@@ -56,7 +57,7 @@ public sealed class RunTraceTests
             Secrets = new Dictionary<string, string> { ["EMPTY"] = "", ["TINY"] = "dev" },
         };
 
-        new SecretMasker(config).Apply("dev branch, dev machine")
+        new SecretMasker(new LoadedSecretValues(config)).Apply("dev branch, dev machine")
             .Should().Be("dev branch, dev machine",
                 "masking three-letter values would redact the prose the trace exists for");
     }

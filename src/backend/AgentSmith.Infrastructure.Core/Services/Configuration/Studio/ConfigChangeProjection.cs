@@ -50,6 +50,7 @@ internal static class ConfigChangeProjection
             ConfigDocTypes.McpServer => (true, ConfigEntityType.McpServer),
             ConfigDocTypes.Secret => (true, ConfigEntityType.Secret),
             ConfigDocTypes.Connection => (true, ConfigEntityType.Connection),
+            ConfigDocTypes.DesignSource => (true, ConfigEntityType.DesignSource),
             _ when ConfigSettingsAccess.Types.Contains(type) => (true, ConfigEntityType.Settings),
             _ => (false, default),
         };

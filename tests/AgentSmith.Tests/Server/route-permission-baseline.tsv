@@ -3,6 +3,7 @@
 DELETE	/api/access/people/{id}	access.write
 DELETE	/api/config/agents/{id}	config.write
 DELETE	/api/config/connections/{id}	config.write
+DELETE	/api/config/design-sources/{id}	config.write
 DELETE	/api/config/mcp-servers/{id}	config.write
 DELETE	/api/config/projects/{id}	config.write
 DELETE	/api/config/repos/{id}	config.write
@@ -24,6 +25,7 @@ GET	/api/config/capabilities	config.read
 GET	/api/config/changes	config.read,secrets.read
 GET	/api/config/connections	config.read
 GET	/api/config/connections/{id}/repos	config.read
+GET	/api/config/design-sources	config.read
 GET	/api/config/export.yml	config.export,secrets.read
 GET	/api/config/findings	anonymous
 GET	/api/config/inherited-sandbox	config.read
@@ -67,6 +69,7 @@ POST	/api/archive/import	archive.import
 POST	/api/config/agents	config.write
 POST	/api/config/changes/{id}/revert	config.write,secrets.write
 POST	/api/config/connections	config.write
+POST	/api/config/design-sources	config.write
 POST	/api/config/import	config.import,secrets.write
 POST	/api/config/mcp-servers	config.write
 POST	/api/config/projects	config.write
@@ -96,6 +99,7 @@ POST	/webhook/jira	anonymous
 PUT	/api/access	access.write
 PUT	/api/config/agents/{id}	config.write
 PUT	/api/config/connections/{id}	config.write
+PUT	/api/config/design-sources/{id}	config.write
 PUT	/api/config/mcp-servers/{id}	config.write
 PUT	/api/config/projects/{id}	config.write
 PUT	/api/config/repos/{id}	config.write

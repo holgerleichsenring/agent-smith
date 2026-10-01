@@ -110,5 +110,5 @@ public sealed class ProjectTemplateDraftCheckTests
 
     private static ConfigCatalog CatalogWith(ProjectEntity project) =>
         new(Agents: [], Trackers: [], Repos: [], Projects: [project],
-            McpServers: [], Secrets: [], Connections: []);
+            McpServers: [], Secrets: [], Connections: [], DesignSources: []);
 }

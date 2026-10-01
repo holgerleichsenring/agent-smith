@@ -22,6 +22,7 @@ public sealed class RawConfigTreeReader
             [ConfigDocTypes.Repo] = "repos",
             [ConfigDocTypes.Project] = "projects",
             [ConfigDocTypes.McpServer] = "mcp_servers",
+            [ConfigDocTypes.DesignSource] = "design_sources",
             [ConfigDocTypes.Secret] = "secrets",
             [ConfigDocTypes.PipelineTrigger] = "pipeline_triggers",
         };

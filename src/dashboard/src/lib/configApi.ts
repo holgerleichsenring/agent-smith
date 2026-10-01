@@ -216,6 +216,7 @@ export type ConfigEntityKind =
   | "repos"
   | "projects"
   | "mcp-servers"
+  | "design-sources"
   | "secrets";
 
 // p0353: the global settings singletons also record change rows, but they are not
@@ -620,6 +621,9 @@ export interface StudioProject {
   /** 2026-09-22-6968: ABSENT means "nothing to say about the sandbox", which is what keeps
    *  a client that never renders this tab from wiping a stored block. */
   sandbox?: ProjectSandbox | null;
+  /** 2026-10-01-7f7aa: names from the design-sources catalog. ABSENT leaves the stored list
+   *  alone, like templates and sandbox. */
+  designSources?: string[] | null;
 }
 
 export interface StudioMcpServer {
@@ -627,6 +631,15 @@ export interface StudioMcpServer {
   transport: string;
   url: string;
   authSecret: string;
+}
+
+/** 2026-10-01-7f7aa: a design tool a project reads designs from. `authSecret` is the NAME
+ *  of a catalog secret holding the access token — the token itself never crosses this client. */
+export interface StudioDesignSource {
+  id: string;
+  vendor: string;
+  authSecret: string;
+  displayName?: string | null;
 }
 
 /** A secret is nothing but its env-NAME. No value field exists, by design. */
@@ -642,6 +655,7 @@ export type StudioEntity =
   | StudioRepo
   | StudioProject
   | StudioMcpServer
+  | StudioDesignSource
   | StudioSecret;
 
 export type ConfigChangeAction = "create" | "update" | "delete" | "revert";
@@ -700,6 +714,7 @@ export const connectionsApi = crudClient<StudioConnection>("connections");
 export const reposApi = crudClient<StudioRepo>("repos");
 export const projectsApi = crudClient<StudioProject>("projects");
 export const mcpServersApi = crudClient<StudioMcpServer>("mcp-servers");
+export const designSourcesApi = crudClient<StudioDesignSource>("design-sources");
 export const secretsApi = crudClient<StudioSecret>("secrets");
 
 /** p0343b: the catalog rendered as loader-round-trippable agentsmith.yml —

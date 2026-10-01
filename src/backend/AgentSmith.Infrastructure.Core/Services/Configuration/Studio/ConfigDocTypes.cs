@@ -12,6 +12,7 @@ public static class ConfigDocTypes
     public const string Repo = "repo";
     public const string Project = "project";
     public const string McpServer = "mcp_server";
+    public const string DesignSource = "design_source"; // 2026-10-01-7f7aa
     public const string Secret = "secret";
     public const string PipelineTrigger = "pipeline_trigger";
 

@@ -109,6 +109,16 @@ export function ProjectForm({
               testId="form-ref-tracker"
               onChange={(v) => onChange({ ...project, tracker: v })}
             />
+            {/* 2026-10-01-7f7aa: drawn only when the catalog has a design source to offer. */}
+            {catalog["design-sources"].length > 0 && (
+              <MultiRefSelect
+                label="design sources"
+                values={project.designSources ?? []}
+                options={catalog["design-sources"]}
+                testId="form-ref-designSources"
+                onChange={(v) => onChange({ ...project, designSources: v })}
+              />
+            )}
           </>
         )}
 
