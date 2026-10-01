@@ -52,8 +52,8 @@ public sealed class RequirementTicketTests
     {
         var body = Render();
 
-        body.Should().Contain("## Scope");
-        body.Should().Contain("The table, the migration");
+        body.Should().Contain("## What changes\nThe table, the migration");
+        body.Should().Contain("## Out of scope\nTHE API ON TOP");
         body.Should().Contain("THE API ON TOP",
             "what a slice deliberately excludes is half of what a requirement says");
     }

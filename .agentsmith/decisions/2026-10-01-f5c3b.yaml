@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-f5c3b
+
+decisions:
+  - category: Architecture
+    chose: "One reader's shape for a phase and an epic: goal unheaded, Why, What changes, Acceptance criteria, Out of scope, Preconditions; the epic's Slices after them"
+    over: "## Goal / ## Why / ## Scope with In:/Out: lines"
+    reason: |
+      A product owner reads what is wanted, why, what changes and what is left out; In:/Out: lines
+      under one Scope heading read as an internal record. The goal leads verbatim because divergence
+      finds it word for word, and under a Why heading it would read as the reason, not the outcome.
+  - category: Implementation
+    chose: "The heading stays '## Acceptance criteria' and the criteria are draft.Done in the plain line form"
+    over: "A renamed heading, or bold GIVEN/WHEN/THEN keywords"
+    reason: |
+      Two readers find criteria by that heading on every tracker without a field. Markup is
+      stripped by Azure DevOps HTML, shown literally by Jira and kept by markdown, so the read-back
+      would equal PhaseDraft.Done on none of them; the tests read each encoding back.
+  - category: Implementation
+    chose: "PhaseSpecProse reads decisions and scope from the yaml; PhaseTicketBody only places the sections"
+    over: "Keeping the Shared/middle/tail indirection inside PhaseTicketBody"
+    reason: |
+      The indirection had one caller left after the slice records went. Reading the prose and
+      deciding where it sits are two jobs, and splitting them keeps both files under 120 lines.
+  - category: Implementation
+    chose: "A bug's acceptance_criteria is a string or a list; the renderer lists every unlisted line and keeps listed lines and their indented continuations"
+    over: "Appending the string as written"
+    reason: |
+      A yaml list vanished at GetString, and an unlisted line is not an item, so the section reader
+      returned nothing for the one criterion a bug stated. The renderer applies the reader's own
+      continuation rule, so what is written is what is read.
+  - category: Scope
+    chose: "No steps section and no Why/What-changes shape for bugs"
+    over: "Carrying the steps, or one template for every ticket kind"
+    reason: |
+      A procedure in a ticket becomes an acceptance criterion and sank a correct run. A bug's
+      description is already what is wrong and what correct looks like; a What changes section
+      would be a fix procedure.
+  - category: Tooling
+    chose: "Design-partner master 1.9.0 on the open skills PR #205; the embedded pin is left alone"
+    over: "Moving the pin in this phase"
+    reason: |
+      The pin moves once for the whole series, in 2026-10-01-aeb6d.

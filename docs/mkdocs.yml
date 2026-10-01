@@ -104,6 +104,7 @@ nav:
     - Polling:  trigger-it/polling.md
     - Labels:   trigger-it/labels.md
     - CLI:      trigger-it/cli.md
+    - Writing a ticket: trigger-it/writing-a-ticket.md
 
   - Host it:
     - CLI single-binary: host-it/cli.md
