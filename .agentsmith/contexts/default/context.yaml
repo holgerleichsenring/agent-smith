@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-01-aeb6a: "AN INIT RUN WORKS ON agent-smith/init (init pipeline). TicketBranchNamer.InitBranch composes it from the one ticket prefix; open PRs on the old agentsmith/init are left to the operator. -> .agentsmith/phases/done/2026-10-01-aeb6a-init-branch-prefix.yaml"
     2026-09-03-9b41: "INIT ON A REPOSITORY WITH NO SOURCE FAILS NAMING IT (bootstrap dispatch). The guard counts discovered components, not repositories; a repo with none fails as holding no source to read instead of queuing zero rounds that InitCommit reported as already bootstrapped. -> .agentsmith/phases/done/2026-09-03-9b41-init-refuses-empty-repo.yaml"
     2026-09-30-4bb3: "A REFUSED CONFIG IMPORT ENDS WITH ITS MESSAGE, NOT A STACK TRACE (cli). Plan and write share one refusal boundary in ConfigImportRunner; ConfigCommand leaves the length ratchet. -> .agentsmith/phases/done/2026-09-30-4bb3-cli-import-refusal.yaml"
     2026-09-30-62bab: "AN AGENT DECLARES ITS MODELS ONCE AND EACH ACTIVITY PICKS ONE (config, studio, dashboard). Named catalog with tier; roles name entries via use; coding folded into primary; fast-on-strong finding; drawer tabs Models/Activities/Provider/Tuning with list-priced cards. -> .agentsmith/phases/done/2026-09-30-62bab-model-catalog-activities.yaml"

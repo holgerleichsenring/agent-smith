@@ -8,6 +8,12 @@ namespace AgentSmith.Tests.Services;
 public sealed class TicketBranchNamerTests
 {
     [Fact]
+    public void TicketBranchNamer_InitBranch_UsesTheTicketPrefix()
+    {
+        TicketBranchNamer.InitBranch.Should().Be("agent-smith/init");
+    }
+
+    [Fact]
     public void Compose_SingleSegment_ReturnsAgentSmithSlashTicketId()
     {
         var branch = TicketBranchNamer.Compose(new TicketId("18693"));
