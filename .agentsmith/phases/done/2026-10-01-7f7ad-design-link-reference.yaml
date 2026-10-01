@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-7f7ad
+goal: "A Figma link in a ticket, its comments, a bound dialog ticket or a dialog message is listed to the model, rebuilt from its parsed key and node, as a design reference to read with design_read."
+
+applies_to: "backend (the master's user prompt)"
+
+requires: ["2026-10-01-7f7ab"]
+
+facts:
+  - claim: "The master composes the user prompt in one place: design turn, phase execution (its own factory), scan, coding run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:344-356"
+  - claim: "A run's ticket comments are read off the pipeline; a design turn's transcript is seeded, and a bound turn's ticket is seeded and rendered by SeededTicketSection."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:877; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:47,72; src/backend/AgentSmith.Application/Services/SpecDialog/SeededTicketSection.cs:24-29; src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:49"
+  - claim: "Ticket-origin text is untrusted and every site that interpolates it wraps it in delimiters."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketPromptDelimiters.cs:1-15"
+  - claim: "A prompt section is a pure static renderer that returns empty when there is nothing to say."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketAttachmentPromptSection.cs:14-30"
+  - claim: "SpecDialogPromptFactory is 118 lines; the section is appended by the handler, not inside it, within the handler's budget set in 2026-10-01-7f7ab (at most 6 lines)."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs (118 lines); tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6"
+  - claim: "The coding master is told to read a URL the ticket points at with web_fetch, which on a Figma link returns an application shell, not the design."
+    evidence: "agent-smith-skills skills/_masters/coding-agent-master/SKILL.md:326-327"
+
+scope:
+  in: >
+    DesignReferenceSection.Render takes the ticket description and comments (run, phase execution
+    included), or the transcript and the bound ticket (turn); extracts links through FigmaLink; de-duplicates
+    by key and node; caps the list at ten with the remainder counted; renders '## Design references' with
+    each link REBUILT as https://www.figma.com/design/<key>?node-id=<node> — never the raw ticket text, so
+    the section carries no ticket-authored characters and sits outside the delimiters. With no figma source
+    configured, it lists them and says they cannot be read here. Nothing is fetched. Scan masters get none.
+  out: >
+    Fetching or rendering at prompt time — design_read does it on demand. Skill text telling the master
+    to prefer design_read over web_fetch — 2026-10-01-7f7af.
+
+decisions:
+  - key: "OFFERED, NOT FETCHED. A link in free text chooses only a file key on a fixed host, and the model decides which frames it needs."
+  - key: "REBUILT, NOT QUOTED. A key and a node id parsed against a fixed alphabet cannot carry an instruction; the original link stays inside the delimited ticket text where it already is."
+
+steps:
+  - id: section
+    action: "DesignReferenceSection (Prompts), pure; FigmaLink gains the canonical rebuild."
+  - id: wire
+    action: "AgenticMasterHandler appends it after the design-turn, phase-execution and coding prompts."
+
+tests:
+  - "DesignReferenceSection_TicketWithFigmaLink_ListsTheRebuiltLink"
+  - "DesignReferenceSection_LinkWithInjectedText_RendersOnlyKeyAndNode"
+  - "DesignReferenceSection_CommentLink_IsListed"
+  - "DesignReferenceSection_BoundTicketLink_IsListed"
+  - "DesignReferenceSection_LookalikeHost_IsNotListed"
+  - "DesignReferenceSection_NoSourceConfigured_SaysCannotBeRead"
+  - "DesignReferenceSection_NoLinks_IsEmpty"
+  - "PhaseExecutionPrompt_TicketWithFigmaLink_CarriesTheSection"
+
+done:
+  - "a ticket carrying a Figma link reaches the coding and phase-execution masters with a Design references section"
+  - "build green, full suite green"

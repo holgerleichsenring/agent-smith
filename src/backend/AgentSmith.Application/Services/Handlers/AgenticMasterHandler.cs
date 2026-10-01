@@ -354,6 +354,10 @@ public sealed class AgenticMasterHandler(
                     ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
                     : MasterUserPrompt.Build(ticket, context.Repository, addressNames,
                         extras.Conversation, extras.Attachments);
+        // 2026-10-01-7f7ad: the Figma links of ticket or conversation, rebuilt from key and node.
+        if (!isScanMaster)
+            userPrompt += DesignReferenceSection.Render(DesignReferenceTexts.From(context.Pipeline, ticket),
+                Design.PipelineDesignSources.Figma(context.Pipeline).Count > 0);
 
         // p0341c: the shared cost tracker + the open-loop governor hooks (within-pass
         // money fence + periodic ledger-reminder injection). Built once; reused across

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7ad
+
+decisions:
+  - category: Security
+    chose: "FigmaLink.Canonical rebuilds https://www.figma.com/design/<key>[/branch/<branch>]?node-id=<node> from the parsed parts; the section prints only that, outside the ticket delimiters"
+    over: "Quoting the link as it stood in the ticket"
+    reason: |
+      Key, branch and node are parsed against fixed alphabets, so the rebuilt link cannot carry a
+      title, a query parameter or a sentence; the original stays inside the delimited ticket text.
+      The branch is kept because design_read reads a branch by its own key. Canonical round-trips
+      through TryParse (pinned).
+  - category: Architecture
+    chose: "PipelineDesignSources.Figma answers both the design_read factory and the section's 'can this be read here'"
+    over: "The section re-reading ProjectConfig and the dialog seed on its own"
+    reason: "Two readings of one question would drift; the factory's body moved into it unchanged."
+  - category: Architecture
+    chose: "DesignReferenceTexts gathers the texts (ticket description and acceptance criteria, comments, bound ticket, transcript); DesignReferenceSection renders any texts; the handler appends the pair after every non-scan user prompt in 4 lines (900 -> 904 of 922)"
+    over: "Appending inside SpecDialogPromptFactory and PhaseExecutionPromptFactory"
+    reason: |
+      SpecDialogPromptFactory is at 118 lines; one append site covers the design turn, phase
+      execution and the plain coding prompt alike. A run carries no transcript and a turn no
+      TicketComments, so the gatherer needs no surface flag.
+  - category: Implementation
+    chose: "Candidates are https runs up to whitespace, quotes, brackets or a pipe, HTML-decoded and stripped of trailing punctuation, then accepted only by FigmaLink.TryParse"
+    over: "A Figma-specific URL regex"
+    reason: |
+      Markdown links, HTML anchors (Azure DevOps descriptions carry &amp;) and Jira [text|url]
+      all end at one of those characters; host and path checking stay in the one parser that
+      design_read already trusts.
+  - category: Scope
+    chose: "A link with no node-id is listed with 'names no node: design_read needs the link of a frame'"
+    over: "Dropping it"
+    reason: "It is still a design the ticket names; the line says what the model needs to ask for."
