@@ -16,7 +16,7 @@ public sealed class BrowserRenderPartsTests
     [Fact]
     public void RenderReferenceToolFactory_TurnWithoutProjectOrConversation_BuildsNoHost()
     {
-        var factory = new RenderReferenceToolFactory(new BrowserRenderFixture().Services());
+        var factory = new BrowserRenderFixture().Factory();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.DialogueJobId, "conv");
 

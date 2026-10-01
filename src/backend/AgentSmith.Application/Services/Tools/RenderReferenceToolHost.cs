@@ -18,8 +18,6 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public sealed class RenderReferenceToolHost(RenderReferenceServices services, RenderReferenceScope scope) : IToolHost
 {
-    private readonly SemaphoreSlim _serial = new(1, 1);
-
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode) =>
         [AIFunctionFactory.Create(RenderReference, name: "render_reference")];
 
@@ -36,7 +34,7 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
         if (parsed is null) return $"Error: {refusal}";
         if (parsed.Url is { } url && await services.Guard.RefusalForAsync(url, ct) is { } refused)
             return $"Refused: {refused}. Only public addresses are rendered.";
-        await _serial.WaitAsync(ct);
+        await scope.Serial.WaitAsync(ct);
         try
         {
             var (output, failure) = await services.Renderer.RenderAsync(scope, parsed, chosen, ct);
@@ -46,7 +44,7 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
         }
         finally
         {
-            _serial.Release();
+            scope.Serial.Release();
         }
     }
 

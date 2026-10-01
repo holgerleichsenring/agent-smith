@@ -107,4 +107,8 @@ public static partial class ContextKeys
     /// MaterializeReferenceSets wrote into the carrying repository; the master's prompt names them and
     /// render_reference renders them by address. Absent when the approval cites none.</summary>
     public const string ReferenceSets = "ReferenceSets";
+
+    /// <summary>2026-10-01-283di: <c>IReadOnlyList&lt;VisualComparison&gt;</c> — the compare_reference calls a
+    /// run made, for result.md's Visual comparison section. A report: nothing gates on it.</summary>
+    public const string VisualComparisons = "VisualComparisons";
 }

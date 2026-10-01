@@ -46,17 +46,18 @@ export function refusalFor(rawAddress) {
 export class EgressGuard {
   constructor() {
     this.refused = [];
-    this.allowedLocal = null;
+    this.allowedLocal = new Set();
   }
 
   // The local origin serving the uploaded set — the only loopback target let through.
+  // 2026-10-01-283di: a comparison serves its two sides from two origins, so it is a set.
   allowLocal(port) {
-    this.allowedLocal = `127.0.0.1:${port}`;
+    this.allowedLocal.add(`127.0.0.1:${port}`);
   }
 
   async resolve(host, port) {
     const bare = host.replace(/^\[|\]$/g, '');
-    if (this.allowedLocal === `${bare}:${port}`) return { address: '127.0.0.1' };
+    if (this.allowedLocal.has(`${bare}:${port}`)) return { address: '127.0.0.1' };
     let addresses;
     if (net.isIP(bare)) addresses = [bare];
     else {

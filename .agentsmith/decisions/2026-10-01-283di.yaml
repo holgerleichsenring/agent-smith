@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283di
+
+decisions:
+  - category: Architecture
+    chose: "compare_reference stages both sides through 283dh's RenderSourceStager into one browser sandbox and runs render.mjs once with a compare request; both sides load in one browser, two page loads per viewport"
+    over: "Two render_reference calls and a server-side diff"
+    reason: |
+      The script already holds the page, the computed styles and the full-page PNG; one invocation
+      gives both sides the same browser, fonts and viewport, and the PNGs never cross the wire —
+      only the diff JPEG does. Any source render_reference takes (reference: address, repo path,
+      public URL behind the 283de guard) is a side.
+  - category: Architecture
+    chose: "The exact level is StyleDifferenceComparer in C# over the 283de property list: equal strings or a named difference with both values; a selector matching nothing on either side is a difference under '(element)'"
+    over: "Comparing in the script, or a tolerance"
+    reason: |
+      Two computed strings are equal or not, so the difference has a name and a value. Keeping it
+      pure and server-side keeps the property list in one place (BrowserStyleProperties) and makes
+      the level testable without a browser.
+  - category: Implementation
+    chose: "pixelmatch 7.2.0 and pngjs 7.0.0, pinned by lockfile in the browser image; the shorter capture padded at the bottom with opaque magenta, the ratio over width x padded height"
+    over: "Cropping to the shorter page, or decoding PNGs on a canvas"
+    reason: |
+      Padding makes a missing section count as mismatch, which it is; cropping hides it. pngjs is
+      pixelmatch's own codec and pure JS — no native dependency beside Chromium. The diff PNG is
+      encoded through the 283de canvas ladder to a JPEG under 700 KB. Measured in the image: 900 px
+      against 1400 px gives 0.3574, the 500 px pad being 0.3571 of it.
+  - category: Implementation
+    chose: "The egress guard admits a SET of local origins, so a comparison's two served sides are both reachable"
+    over: "One origin serving both sides under two prefixes"
+    reason: "Root-relative paths in each side must resolve against that side's own root; two origins keep them apart."
+  - category: Implementation
+    chose: "render_reference and compare_reference are built over ONE RenderReferenceScope whose Serial gate both take"
+    over: "A semaphore per host"
+    reason: |
+      One browser sandbox serves a conversation; two hosts with their own gates would race for the
+      one held key and spawn a second browser. RenderReferenceToolFactory.Tools returns both, so the
+      master surface composition adds one line.
+  - category: Implementation
+    chose: "A run keeps each comparison on ContextKeys.VisualComparisons; VisualComparisonSection renders them in result.md beside the declined criteria; at most four diff images are written as files under <run record>/compare/ in the first repository (base64 then the materialiser's one python3 decode)"
+    over: "Writing images at WriteRunResult, or growing WriteRunResultHandler"
+    reason: |
+      The bytes exist when the tool returns, and WriteRunResultHandler is on the length ratchet —
+      its one change replaced a line. The run record is force-staged, so the images reach the pull
+      request. A failed image write is logged and the comparison is kept without it.
+  - category: Scope
+    chose: "Neither level gates: nothing reads VisualComparisons but the result.md section, and the tool text and the section both say it reports"
+    over: "A threshold on the ratio or on the difference count"
+    reason: "The operator ruled that differences report and never gate."
+  - category: Tooling
+    chose: "Browser image and agent carrier rebuilt locally (arm64); both fixtures (check.mjs, the new compare-check.mjs) pass in the image; the Docker-tier harness ran render_reference and compare_reference through the production spawner"
+    over: "Unit tests only"
+    reason: |
+      The pixel half only exists inside the image. CI gets a Compare fixture step on each native
+      arch leg; the GitHub Actions run itself was not exercised from here.
