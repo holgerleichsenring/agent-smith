@@ -72,7 +72,7 @@ public sealed class ReferenceFileRepositoryTests
         var files = new ReferenceFileRepository(context);
         await files.AddAsync(Site("s-1"), CancellationToken.None);
 
-        (await files.DeleteBySessionAsync("s-1", CancellationToken.None)).Should().Be(2);
+        (await files.DeleteBySessionAsync("s-1", new HashSet<string>(), CancellationToken.None)).Should().Be(2);
 
         (await context.Set<ReferenceFile>().CountAsync()).Should().Be(0);
         (await context.Set<SpecDialogAttachment>().Select(a => a.SessionId).ToListAsync()).Should().Equal("s-2");

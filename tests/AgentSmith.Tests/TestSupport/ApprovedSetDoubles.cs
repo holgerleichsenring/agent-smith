@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Scope;
 using AgentSmith.Application.Services.SpecDialog;
@@ -58,7 +59,7 @@ internal static class ApprovedSetDoubles
             NullLogger<FiledSpecBranch>.Instance);
 
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
-        new(store ?? Store(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        new(store ?? Store(), new NoReferenceSetReader(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
     /// resolves none, which is what every test that does not set one expects.</summary>

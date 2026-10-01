@@ -20,9 +20,9 @@ public sealed class BrowserRenderPartsTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.DialogueJobId, "conv");
 
-        factory.Create(pipeline).Should().BeNull("a run or an unseeded turn carries no project to spawn from");
+        factory.Create(pipeline, isDesignTurn: true).Should().BeNull("an unseeded turn carries no project to spawn from");
         pipeline.Set(ContextKeys.SpecDialogProject, new ResolvedProject { Name = "p" });
-        factory.Create(pipeline).Should().NotBeNull();
+        factory.Create(pipeline, isDesignTurn: true).Should().NotBeNull();
     }
 
     [Fact]

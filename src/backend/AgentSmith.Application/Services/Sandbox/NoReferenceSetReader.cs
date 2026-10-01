@@ -8,4 +8,7 @@ public sealed class NoReferenceSetReader : IReferenceSetReader
     public Task<IReadOnlyList<ReferenceSetFile>> FilesAsync(
         string sessionId, string setId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<ReferenceSetFile>>([]);
+
+    public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
 }

@@ -56,5 +56,11 @@ internal sealed class BrowserFakeSandbox : IHoldableSandbox
 
     public Task ForceRemoveAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    public bool Disposed { get; private set; }
+
+    public ValueTask DisposeAsync()
+    {
+        Disposed = true;
+        return ValueTask.CompletedTask;
+    }
 }

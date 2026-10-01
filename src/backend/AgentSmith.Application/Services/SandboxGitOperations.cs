@@ -48,9 +48,11 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher,
     // .agentsmith/runs/ must ALWAYS be committable so every repo gets a PR;
     // some target repos .gitignore .agentsmith, which a plain `git add -A`
     // silently skips. Best-effort: a missing path just no-ops.
+    // 2026-10-01-283df: a force-stage ignores .git/info/exclude, and the run record's path is the
+    // whole .agentsmith directory — so the uploaded websites a run carries are excluded by pathspec.
     public async Task ForceStageAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
     {
-        await Run(sandbox, "git", new[] { "add", "-f", path }, cancellationToken);
+        await Run(sandbox, "git", ["add", "-f", "--", path, ReferenceDirectory.ExcludePathspec], cancellationToken);
     }
 
     // p0399: remove files from the working tree AND the index in one step — a spec

@@ -6,14 +6,15 @@ namespace AgentSmith.Application.Services.Browser;
 /// <summary>
 /// 2026-10-01-283de: one render's use of the conversation's browser sandbox. Disposing it hands
 /// the sandbox back to the hold register for the next render — the next call of this turn or of a
-/// later one — and disposes it only where this backend cannot hold one.
+/// later one — and disposes it only where this backend cannot hold one. 2026-10-01-283df: with no
+/// hold — a run's render — it always disposes it.
 /// </summary>
-public sealed class BrowserSandboxLease(ISandbox sandbox, SourceScopeHold hold) : IAsyncDisposable
+public sealed class BrowserSandboxLease(ISandbox sandbox, SourceScopeHold? hold) : IAsyncDisposable
 {
     public ISandbox Sandbox => sandbox;
 
     public async ValueTask DisposeAsync()
     {
-        if (!hold.Keep(sandbox)) await sandbox.DisposeAsync();
+        if (hold is null || !hold.Keep(sandbox)) await sandbox.DisposeAsync();
     }
 }

@@ -20,7 +20,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 10 | DeriveSpec | Turns the ticket into an ordered set of phase specs on the ticket branch |
 | 11 | SpecHandback | Parks the ticket when the derivation handed it back |
 | 12 | PhaseSpecGate | Validates the spec before a single master token is spent |
-| 13 | EnsurePrerequisites / ProbeTarget | Installs what the work needs, then checks the target answers |
+| 13 | EnsurePrerequisites / ProbeTarget / MaterializeReferenceSets | Installs what the work needs, checks the target answers, and writes the websites the approval cites |
 | 14 | PhaseSequence | Splices one block of steps per phase that hasn't run yet |
 | 15 | WriteRunResult | Writes `result.md` with the account, token usage and cost |
 | 16 | CommitAndPR / PrCrossLink | Commits, pushes, finalizes the PRs and cross-links them |
@@ -28,6 +28,8 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 `RunPreflight` fails the run, naming the fix, when the agent configuration is the empty placeholder, when a sandbox home isn't writable, or when a declared credential is malformed or didn't arrive. A branch that already carries earlier work, or a registry whose secret resolved to nothing, is reported without stopping the run.
 
 `ProbeTarget` runs the `probe` command a repository declares, after the prerequisites are installed and before the master starts, so a target that refuses costs no model token. Both come from the [context file](../concepts/context-file.md).
+
+`MaterializeReferenceSets` writes every website set the approval cites into the carrying repository at `.agentsmith/reference/<setId>/`. The directory is excluded from the commit and from whole-repository searches; the master's prompt names each set. A cited set the run cannot read fails the run, naming it. A project whose `sandbox.browser.enabled` is on also gives the coding master `render_reference` and reserves one browser pod per run.
 
 ### The per-phase block
 

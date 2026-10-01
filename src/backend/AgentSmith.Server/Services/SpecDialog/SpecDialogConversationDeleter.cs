@@ -15,14 +15,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// specification set stays: every work ticket the dialog files carries the approved stamp, and
 /// a stamped ticket whose set is gone is refused at the spec gate on every trigger — so
 /// sweeping it would not lose the set silently, it would make the filed ticket permanently
-/// unworkable with no route back.
+/// unworkable with no route back. 2026-10-01-283df: for the same reason the website sets an
+/// approval of this conversation cites stay — the run of the filed ticket builds against them.
 /// </para>
 /// </summary>
 public sealed class SpecDialogConversationDeleter(
     IUnitOfWork unitOfWork,
     SpecDialogSessionRepository sessions,
     DialogueAnswerRepository answers,
-    ReferenceFileRepository files) : ISpecDialogConversationDeleter
+    ReferenceFileRepository files,
+    ApprovedSpecSetRepository approvals) : ISpecDialogConversationDeleter
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {
@@ -31,7 +33,8 @@ public sealed class SpecDialogConversationDeleter(
         // 2026-09-20-3af8: and the images the operator attached, which are keyed on this same
         // session id and join the unit of work this already opens. 2026-10-01-283da: in both
         // tables, so a legacy row not copied yet goes with its conversation.
-        await files.DeleteBySessionAsync(sessionId, cancellationToken);
+        await files.DeleteBySessionAsync(
+            sessionId, await approvals.CitedSetsAsync(sessionId, cancellationToken), cancellationToken);
         await sessions.DeleteBySessionOnPlatformAsync(
             DispatcherDefaults.PlatformDashboard, sessionId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);

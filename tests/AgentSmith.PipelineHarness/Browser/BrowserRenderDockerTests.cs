@@ -43,8 +43,9 @@ public sealed class BrowserRenderDockerTests(ITestOutputHelper output) : IRefere
         var holds = new HeldSandboxRegister(new AliveSandboxHeartbeat(), NullLogger<HeldSandboxRegister>.Instance);
         try
         {
-            var host = new RenderReferenceToolHost(Services(backend.Factory, holds), new ResolvedProject { Name = "p" },
-                Conversation, new Dictionary<string, ISandbox> { ["reference:site"] = Address() });
+            var host = new RenderReferenceToolHost(Services(backend.Factory, holds), new RenderReferenceScope(
+                new ResolvedProject { Name = "p" }, Conversation,
+                new Dictionary<string, ISandbox> { ["reference:site"] = Address() }, []));
 
             var text = await host.RenderReference("reference:site/redis.html", ["button", "h1"], CancellationToken.None);
             output.WriteLine(text);
@@ -90,6 +91,9 @@ public sealed class BrowserRenderDockerTests(ITestOutputHelper output) : IRefere
                 + $"<h1>Redis</h1><button>Go</button><img src=\"http://{DockerBackend.RedisHostName}:6379/probe\">")));
         return Task.FromResult<IReadOnlyList<ReferenceSetFile>>([.. files]);
     }
+
+    public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(["set-docker"]);
 
     public ToolImageDepositResult Deposit(ToolImage image)
     {

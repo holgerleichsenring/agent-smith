@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.AddTurnActivity(); // 2026-09-17-042ee
         services.AddRunPreflight(); // p0428
         services.AddTargetProbe(); // 2026-09-01-379a
+        services.AddReferenceSetCarry(); // 2026-10-01-283df
         services.AddSkillRunHandlers();
         services.AddContextBuilders();
         services.AddPipelineExecution();

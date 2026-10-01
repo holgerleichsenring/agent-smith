@@ -8,7 +8,7 @@ import type {
   ResolvedValue,
   StudioProject,
 } from "@/lib/configApi";
-import { MapField, NumberField, TextField } from "./formFields";
+import { CheckField, MapField, NumberField, TextField } from "./formFields";
 import { SandboxResourceGroup } from "./SandboxResourceGroup";
 import { SandboxSecretsBlock } from "./SandboxSecretsBlock";
 
@@ -172,6 +172,20 @@ export function ProjectSandboxSection({
         testId="form-field-sandbox-holdSeconds"
         onChange={(v) => set({ holdSeconds: v })}
       />
+
+      {/* 2026-10-01-283df: config decides the browser, because a run's capacity is reserved
+          before it starts — the model can only use a pod admission already counted. */}
+      <CheckField
+        label="browser rendering in runs"
+        value={block.browserEnabled === true}
+        testId="form-field-sandbox-browserEnabled"
+        onChange={(v) => set({ browserEnabled: v ? true : undefined })}
+      />
+      <p className="help" data-testid="form-sandbox-browser-note">
+        On, a run&apos;s coding master can render the uploaded websites its approval cites and
+        public pages with render_reference, and each run of this project reserves one browser pod
+        at the process-wide browser profile; {NEXT_RUN}.
+      </p>
 
       <SandboxResourceGroup
         value={structured.resources}

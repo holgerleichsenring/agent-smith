@@ -1,5 +1,4 @@
 using AgentSmith.Application.Services.Sandbox;
-using AgentSmith.Contracts.Models.Configuration;
 
 namespace AgentSmith.Application.Services.Browser;
 
@@ -17,11 +16,11 @@ public sealed class ReferenceRenderer(
 
     /// <summary>The render, or why there is none.</summary>
     public async Task<(BrowserRenderOutput? Output, string? Refusal)> RenderAsync(
-        ResolvedProject project, string conversationId, RenderSource source,
-        IReadOnlyList<string> selectors, CancellationToken ct)
+        RenderReferenceScope scope, RenderSource source, IReadOnlyList<string> selectors, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(scope);
         ArgumentNullException.ThrowIfNull(source);
-        var (lease, refusal) = await opener.OpenAsync(project, conversationId, ct);
+        var (lease, refusal) = await opener.OpenAsync(scope.Project, scope.Conversation, ct);
         if (lease is null) return (null, refusal);
         await using (lease)
         {
@@ -29,7 +28,7 @@ public sealed class ReferenceRenderer(
             if (source.SetId is { } setId)
             {
                 var root = $"{SetsRoot}/{setId}";
-                await sets.PrepareUnderAsync(lease.Sandbox, conversationId, setId, root, ct);
+                await sets.PrepareUnderAsync(lease.Sandbox, source.Session, setId, root, ct);
                 siteDir = $"{WorkRoot}/{root}";
             }
             var request = new BrowserRenderRequest(source.Url?.AbsoluteUri, siteDir, source.Page,

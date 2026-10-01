@@ -199,7 +199,7 @@ public sealed class DialogImageUploadTests : IDisposable
             session, Principal(Owner), _ownership, new SpecDialogTurnGate(TimeProvider.System),
             new SpecDialogConversationDeleter(_context, _repository, new DialogueAnswerRepository(
                 _context, new AgentSmith.Infrastructure.Persistence.Services.Translators.SqliteUniqueViolationTranslator()),
-                _attachments),
+                _attachments, new ApprovedSpecSetRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
         (await StoredAsync()).Select(row => row.Id).Should().Equal([elsewhere],

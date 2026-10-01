@@ -25,9 +25,10 @@ public sealed class DialogueCheckpointWriter(
 {
     // Steps that must re-run before the cursor: they materialize the sandbox
     // working tree (checkout) and its credentials, which the checkpoint
-    // deliberately does not preserve.
+    // deliberately does not preserve. 2026-10-01-283df: and the uploaded websites the
+    // approval cites, which live in that working tree outside the commit.
     private static readonly string[] ReprovisionOrder =
-        [CommandNames.CheckoutSource, CommandNames.SetupRegistryAuth];
+        [CommandNames.CheckoutSource, CommandNames.SetupRegistryAuth, CommandNames.MaterializeReferenceSets];
 
     public async Task<bool> TryCheckpointAsync(
         PipelineContext pipeline, DialogQuestion question, string dialogueJobId,

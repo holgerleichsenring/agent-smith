@@ -43,6 +43,16 @@ public sealed class ApprovedSpecSetResolver(
         return winner;
     }
 
+    /// <summary>
+    /// 2026-10-01-283df: the approval <see cref="ResolveAsync"/> already decided and published, for a
+    /// later step that reads it — not decided again. Null when nothing was published.
+    /// </summary>
+    public SpecApprovalRecord? Published(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        return SpecApprovalJson.Read(CarriedJson(pipeline));
+    }
+
     /// <summary>The tracker connection this run's ticket lives on; empty on a run with none.</summary>
     private static string TrackerOf(PipelineContext pipeline) =>
         pipeline.TryGet<string>(ContextKeys.TrackerConnection, out var name) && name is not null

@@ -58,6 +58,7 @@ Pipeline: code
 ├── PhaseSpecGate          → validates the phase specs before the master starts
 ├── EnsurePrerequisites    → installs dependencies
 ├── ProbeTarget            → asks the target the questions its context declares
+├── MaterializeReferenceSets → writes the websites the approval cites, outside the commit
 ├── PhaseSequence          → splices one master → verify → record block per phase
 ├── WriteRunResult         → writes result.md with cost/token data
 ├── CommitAndPR            → commits, pushes, opens PR (secret-scanned)

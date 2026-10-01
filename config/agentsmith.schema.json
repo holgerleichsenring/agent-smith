@@ -718,6 +718,14 @@
           "type": "object",
           "description": "Per-project sandbox overrides (toolchain image, resources, timeouts, credentials).",
           "properties": {
+            "browser": {
+              "type": "object",
+              "description": "2026-10-01-283df: whether this project's runs may render in a browser sandbox. When enabled, render_reference joins the coding master and admission reserves a browser pod at sandbox.browser.resources. Default off.",
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "type": "boolean" }
+              }
+            },
             "hold_seconds": {
               "type": "integer",
               "minimum": 0,

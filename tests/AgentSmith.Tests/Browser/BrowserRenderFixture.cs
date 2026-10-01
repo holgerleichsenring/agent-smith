@@ -32,6 +32,7 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     public List<SandboxSpec> Specs { get; } = [];
     public List<ToolImage> Deposited { get; } = [];
     public int SetReads { get; private set; }
+    public List<string> SessionsRead { get; } = [];
     public IHeldSandboxRegister Holds { get; } = AgentSmith.Tests.Sandbox.Holds.Live();
 
     public RenderReferenceServices Services()
@@ -49,7 +50,11 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     }
 
     public RenderReferenceToolHost Host(IReadOnlyDictionary<string, ISandbox>? sandboxes = null) =>
-        new(Services(), Project, Conversation, sandboxes ?? new Dictionary<string, ISandbox>());
+        new(Services(), new RenderReferenceScope(Project, Conversation, sandboxes ?? new Dictionary<string, ISandbox>(), []));
+
+    /// <summary>2026-10-01-283df: a run's host — no conversation, the sets the run carries.</summary>
+    public RenderReferenceToolHost RunHost(IReadOnlyList<AgentSmith.Contracts.Specs.CarriedReferenceSet> carried) =>
+        new(Services(), new RenderReferenceScope(Project, null, new Dictionary<string, ISandbox>(), carried));
 
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
@@ -65,8 +70,12 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     public Task<IReadOnlyList<ReferenceSetFile>> FilesAsync(string sessionId, string setId, CancellationToken cancellationToken)
     {
         SetReads++;
+        SessionsRead.Add(sessionId);
         return Task.FromResult<IReadOnlyList<ReferenceSetFile>>(Set);
     }
+
+    public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(["set-1"]);
 
     public ToolImageDepositResult Deposit(ToolImage image)
     {

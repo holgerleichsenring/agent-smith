@@ -52,5 +52,8 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
         return Task.FromResult<IReadOnlyList<ReferenceSetFile>>(sessionId == Conversation && setId == SetId ? Set : []);
     }
 
+    public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(sessionId == Conversation ? [SetId] : []);
+
     public ISandboxFileReader Create(ISandbox sandbox) => new SandboxFileReaderFactory().Create(sandbox);
 }

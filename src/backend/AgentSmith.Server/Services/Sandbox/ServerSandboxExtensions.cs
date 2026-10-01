@@ -35,12 +35,7 @@ internal static class ServerSandboxExtensions
 
     internal static IServiceCollection AddSandboxGlobalConfig(this IServiceCollection services)
     {
-        services.AddSingleton<IOptions<SandboxGlobalConfig>>(sp =>
-        {
-            var loader = sp.GetRequiredService<IConfigurationLoader>();
-            var context = sp.GetRequiredService<ServerContext>();
-            return Options.Create(loader.LoadConfig(context.ConfigPath).Sandbox);
-        });
+        services.AddSingleton<IOptions<SandboxGlobalConfig>, LoadedSandboxGlobalConfig>(); // read on first use, 283df
         return services;
     }
 

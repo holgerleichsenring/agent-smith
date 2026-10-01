@@ -295,4 +295,23 @@ describe("ProjectForm sandbox tab", () => {
     expect(note).toHaveTextContent("applies to the next run of this project");
     expect(note).toHaveTextContent("needs a server restart");
   });
+
+  // 2026-10-01-283df: config decides the browser. Off and absent are one state, so turning it off
+  // sends no value rather than false, and turning it on sends true.
+  it("ProjectSandboxSection_TheBrowserToggle_RoundTrips", () => {
+    const saved: StudioProject[] = [];
+    render(<Harness onSave={(p) => saved.push(p)} />);
+    openSandbox();
+
+    const toggle = screen.getByTestId("form-field-sandbox-browserEnabled");
+    expect(toggle).toHaveAttribute("data-selected", "false");
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved[0].sandbox?.browserEnabled).toBe(true);
+    expect(screen.getByTestId("form-field-sandbox-browserEnabled")).toHaveAttribute("data-selected", "true");
+
+    fireEvent.click(screen.getByTestId("form-field-sandbox-browserEnabled"));
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved[1].sandbox?.browserEnabled).toBeUndefined();
+  });
 });
