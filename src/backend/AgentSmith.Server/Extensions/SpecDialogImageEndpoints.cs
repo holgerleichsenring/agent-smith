@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
@@ -62,7 +63,7 @@ internal static class SpecDialogImageEndpoints
         SpecDialogImageBody body,
         ImageKindFromBytes kinds,
         SpecDialogConversationResolver conversation,
-        SpecDialogAttachmentRepository attachments,
+        ReferenceFileRepository files,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(http);
@@ -76,12 +77,16 @@ internal static class SpecDialogImageEndpoints
         if (target.BelongsToAnother) return Results.Conflict(NotYours);
         if (target.SessionId is not { } session) return Results.BadRequest(NoConversation);
 
-        var stored = await attachments.AddAsync(
-            new SpecDialogAttachment
+        // 2026-10-01-283da: the bytes as bytes, an image a set of one.
+        var stored = await files.AddAsync(
+            new ReferenceFile
             {
                 SessionId = session,
+                SetId = Guid.NewGuid().ToString("N"),
+                Kind = ReferenceFileKind.Image,
                 MediaType = mediaType,
-                ContentBase64 = Convert.ToBase64String(bytes),
+                Length = bytes.Length,
+                Content = bytes,
             },
             cancellationToken);
         return Results.Ok(new SpecDialogImageView(stored.Id, mediaType, stored.CreatedAt));
@@ -95,13 +100,14 @@ internal static class SpecDialogImageEndpoints
         long imageId,
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
-        SpecDialogAttachmentRepository attachments,
+        ReferenceFileRepository files,
         CancellationToken cancellationToken)
     {
-        var image = await attachments.GetAsync(imageId, cancellationToken);
+        // 2026-10-01-283da: a reference image, or the legacy row an id not copied yet names.
+        var image = await files.GetAsync(imageId, cancellationToken);
         if (image is null) return Results.NotFound();
         if (!await ownership.OwnsAsync(image.SessionId, ownership.OwnerOf(user), cancellationToken))
             return Results.NotFound();
-        return Results.File(Convert.FromBase64String(image.ContentBase64), image.MediaType);
+        return Results.File(image.Content, image.MediaType);
     }
 }

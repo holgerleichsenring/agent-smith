@@ -276,7 +276,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
                 _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
                 new SpecDialogTurnGate(TimeProvider.System),
-                new SpecDialogAttachmentRepository(_context),
+                new ReferenceFileRepository(_context),
                 new SpecDialogTicketTextRepository(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 

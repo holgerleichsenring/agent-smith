@@ -15,17 +15,17 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// count comes back alongside, because the prompt says how many exist as well.
 /// </para>
 /// </summary>
-public sealed class SpecDialogTurnImages(SpecDialogAttachmentRepository attachments)
+public sealed class SpecDialogTurnImages(ReferenceFileRepository files)
 {
     public async Task<DialogImageSet> OfAsync(string sessionId, CancellationToken cancellationToken)
     {
-        var (existing, recent) = await attachments.RecentAsync(
+        // 2026-10-01-283da: bytes as stored — no decode per turn for anything written since.
+        var (existing, recent) = await files.RecentImagesAsync(
             sessionId, DialogImageParts.MaxImages, cancellationToken);
         return existing == 0
             ? DialogImageSet.None
             : new DialogImageSet(
                 existing,
-                [.. recent.Select(row => new DialogImage(
-                    row.MediaType, Convert.FromBase64String(row.ContentBase64)))]);
+                [.. recent.Select(image => new DialogImage(image.MediaType, image.Content))]);
     }
 }

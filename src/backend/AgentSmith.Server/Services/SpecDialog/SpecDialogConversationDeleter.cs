@@ -22,15 +22,16 @@ public sealed class SpecDialogConversationDeleter(
     IUnitOfWork unitOfWork,
     SpecDialogSessionRepository sessions,
     DialogueAnswerRepository answers,
-    SpecDialogAttachmentRepository attachments) : ISpecDialogConversationDeleter
+    ReferenceFileRepository files) : ISpecDialogConversationDeleter
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {
         await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         await answers.DeleteByJobAsync(sessionId, cancellationToken);
         // 2026-09-20-3af8: and the images the operator attached, which are keyed on this same
-        // session id and join the unit of work this already opens.
-        await attachments.DeleteBySessionAsync(sessionId, cancellationToken);
+        // session id and join the unit of work this already opens. 2026-10-01-283da: in both
+        // tables, so a legacy row not copied yet goes with its conversation.
+        await files.DeleteBySessionAsync(sessionId, cancellationToken);
         await sessions.DeleteBySessionOnPlatformAsync(
             DispatcherDefaults.PlatformDashboard, sessionId, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
