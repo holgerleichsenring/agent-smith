@@ -1,0 +1,95 @@
+# Evidence grammar — PARSE cases (token -> path, lines, observed, minted).
+#
+# One file, copied verbatim between the spec-first plugin (skills/review-spec/evidence-cases.yaml,
+# run by `check-evidence.py --self-test`) and agent-smith (its EvidenceReferences test). Two
+# repositories cannot read each other in CI, so the copy is a convention: change it in both.
+# Resolution (files, line bounds, dates, qualifiers) is each side's own policy and is not here.
+#
+# Each case: evidence, the references read from it in order ({qualifier?, path, lines?} where
+# `lines` is the text after the path's ':' exactly as written, parseable or not), and how many
+# `observed:` and minted `[Ln]` segments it carries.
+
+- evidence: "src/a.cs:1-3; src/b.cs:4, src/c.cs"
+  references:
+    - { path: src/a.cs, lines: "1-3" }
+    - { path: src/b.cs, lines: "4" }
+    - { path: src/c.cs }
+  observations: 0
+  minted: 0
+
+- evidence: "src/a.cs:1-3, :47"
+  references:
+    - { path: src/a.cs, lines: "1-3" }
+    - { path: src/a.cs, lines: "47" }
+  observations: 0
+  minted: 0
+
+- evidence: "src/a.cs:3,7-9"
+  references:
+    - { path: src/a.cs, lines: "3,7-9" }
+  observations: 0
+  minted: 0
+
+- evidence: "(`src/a.cs:12`), \"src/b.cs\"."
+  references:
+    - { path: src/a.cs, lines: "12" }
+    - { path: src/b.cs }
+  observations: 0
+  minted: 0
+
+- evidence: "CLAUDE.md:12-14 and DESIGN.md alone"
+  references:
+    - { path: CLAUDE.md, lines: "12-14" }
+  observations: 0
+  minted: 0
+
+- evidence: "README.md"
+  references: []
+  observations: 0
+  minted: 0
+
+- evidence: "https://example.test/docs/page.md:3"
+  references: []
+  observations: 0
+  minted: 0
+
+- evidence: "mcr.microsoft.com/dotnet/sdk:10.0"
+  references:
+    - { path: mcr.microsoft.com/dotnet/sdk, lines: "10.0" }
+  observations: 0
+  minted: 0
+
+- evidence: "agent-smith-skills:skills/x/SKILL.md:4"
+  references:
+    - { qualifier: agent-smith-skills, path: skills/x/SKILL.md, lines: "4" }
+  observations: 0
+  minted: 0
+
+- evidence: "src/a.cs:1; observed: the run log under logs/run.txt, 2026-10-02"
+  references:
+    - { path: src/a.cs, lines: "1" }
+  observations: 1
+  minted: 0
+
+- evidence: "[L3] api: the derivation ran 'ls src/x' exited 0"
+  references: []
+  observations: 0
+  minted: 1
+
+- evidence: "src/a.cs:12a; src/b.cs:"
+  references:
+    - { path: src/a.cs, lines: "12a" }
+    - { path: src/b.cs, lines: "" }
+  observations: 0
+  minted: 0
+
+- evidence: ":5 before any path, then src/a.cs"
+  references:
+    - { path: src/a.cs }
+  observations: 0
+  minted: 0
+
+- evidence: "observed: no date at all"
+  references: []
+  observations: 1
+  minted: 0

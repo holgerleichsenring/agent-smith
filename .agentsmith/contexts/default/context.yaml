@@ -1035,12 +1035,18 @@ state:
     2026-09-24-3907: "THE ONE RE-PROMPT A FAILED OUTCOME GETS CARRIES ITS CONVERSATION, AND THE REFUSAL NAMES WHAT IS ALLOWED. The retry was a cold call: told not to repeat a draft it no longer held, it invented another key each time. scope is the schema's only closed block. -> .agentsmith/phases/done/2026-09-24-3907-outcome-retry-keeps-the-thread.yaml"
     2026-09-24-81ea: "A RUN THAT FITS THE ROOM KEEPS A CONVERSATION'S HELD SANDBOXES (all three capacity doors ask before they release; hold_seconds declared in schema and example). The probe is taken BEFORE any deletion, so the stale-quota objection to re-probing does not bind. -> .agentsmith/phases/done/2026-09-24-81ea-sandbox-hold-survives-a-run.yaml"
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
-  active: {}
+  active:
+    2026-10-02-3f06d:
+      goal: "Plugin 2.2.0: date-minted ids, budget, premise keys"
+      blocked-by: "merge of spec-first PR #10"
+    2026-10-02-3f06e:
+      goal: "Plugin 2.3.0: review-spec, ship-phase, worktree per phase"
+      blocked-by: "merge of spec-first PR #11 (stacked on #10)"
+    2026-10-02-3f06g:
+      goal: "C# delta drops the base-class line limit (skills 5.8.1)"
+      blocked-by: "merge of skills PR #209 and the 5.8.1 release"
   planned:
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/phases/planned/2026-10-02-60ca-decision-file-schema.yaml"
-    2026-10-02-3f06d: "THE PLUGIN SHIPS 2.2.0 (spec-first plugin). Spec budget and date-minted ids in one commit, counter ids kept wide; scope, facts and assumptions in its own schema; verification and review in step 5; migration rows. -> .agentsmith/phases/planned/2026-10-02-3f06d-plugin-pr-landing.yaml"
-    2026-10-02-3f06e: "THE PLUGIN RUNS THE LOOP, 2.3.0 (spec-first plugin). Spec committed in a worktree; review-spec runs an evidence script and a fresh reviewer; ship-phase runs verify:, commits and opens the PR. -> .agentsmith/phases/planned/2026-10-02-3f06e-plugin-review-ship.yaml"
-    2026-10-02-3f06g: "THE C# DELTA DROPS IT TOO (skills catalog). Released as 5.8.1 before aeb6d, whose single pin move carries it and regenerates the C# principles golden. -> .agentsmith/phases/planned/2026-10-02-3f06g-csharp-delta-base-class.yaml"
     2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Pins skills 5.8.1 (#205's design-partner 1.11.0 and coding-agent 1.28.0, plus 3f06g); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-01-283dk: "THE LEGACY ATTACHMENT TABLE GOES (persistence). Operator-timed: once every replica runs 283da, a final copy pass and the removal of SpecDialogAttachments, its entity, the copy job and the union readers. -> .agentsmith/phases/planned/2026-10-01-283dk-reference-legacy-drop.yaml"
     2026-09-08-a049: "A SHORTFALL'S RECORD SAYS SO; AN ENTRY-SATISFIED PHASE NAMES ITS HEAD (backend). Sliced out of p0439: result.md is written before the delivery is decided, so it reads failed for a delivered shortfall; SelectPhase records an already-satisfied phase done with no sandbox in hand, so no verified head is named. -> .agentsmith/phases/planned/2026-09-08-a049-shortfall-record-entry-heads.yaml"

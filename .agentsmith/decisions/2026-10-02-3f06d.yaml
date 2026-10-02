@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06d
+
+decisions:
+  - category: Implementation
+    chose: "The spec budget's slug rule (at least 4 words, 'what CHANGES') replaced by this repository's area-first label rule (2-5 words, at most 50 characters)"
+    over: "Landing PR #9's text as written"
+    reason: |
+      #9 predates 2026-09-07-4e6a, which relabelled every phase here to topic labels and moved the
+      claim into goal:. Landing the older rule would have taught plugin users the convention this
+      repository already abandoned.
+  - category: Implementation
+    chose: "Two historical files of the plugin repository left invalid against the new schemas (decisions/p-sfad-plugin.yaml, phases/planned/p0001)"
+    over: "Renaming the id or rewriting the old spec"
+    reason: |
+      Both were already invalid under the old schemas. An id is frozen; they are the plugin's own
+      history, not templates users copy. Named in PR #10.
+  - category: Tooling
+    chose: "Schema checks with python jsonschema in a scratch venv"
+    over: "uvx check-jsonschema, named in the spec"
+    reason: |
+      uvx is not installed on this machine; jsonschema's Draft7Validator checks the same thing.

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06g
+
+decisions:
+  - category: Implementation
+    chose: "The base-class sentence moves from 'Hard limits (enforced)' to 'Abstractions, DI, and composition'"
+    over: "Leaving it among the hard limits without its number"
+    reason: |
+      Without a number it is not a limit a check can enforce; it is a rule about what a base class
+      may hold, which is where the abstractions section already speaks.
