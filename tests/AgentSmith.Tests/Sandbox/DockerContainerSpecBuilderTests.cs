@@ -41,7 +41,8 @@ public sealed class DockerContainerSpecBuilderTests
             "tc-1", "s", "w", "job-abc", "redis:6379",
             new SandboxSpec("img", ResourceLimits.Default, "ai"));
 
-        spec.Cmd.Should().BeEquivalentTo("/shared/agent", "--redis-url", "redis:6379", "--job-id", "job-abc");
+        // 2026-10-02-35b2: the Redis URL travels in the env only, never on a command line.
+        spec.Cmd.Should().BeEquivalentTo("/shared/agent", "--job-id", "job-abc");
         spec.Env.Should().Contain("JOB_ID=job-abc");
         spec.Env.Should().Contain("REDIS_URL=redis:6379");
     }

@@ -83,9 +83,10 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         // p0360b: --run-id arms the agent's run-alive idle guard — an idle sandbox
         // of a live run keeps waiting instead of self-terminating. Omitted for
         // runless sandboxes (probe/preflight), which keep the plain idle backstop.
+        // 2026-10-02-35b2: the Redis URL travels in REDIS_URL only — a command line is readable by every process.
         Args = string.IsNullOrEmpty(spec.RunId)
-            ? ["--redis-url", redisUrl, "--job-id", jobId]
-            : ["--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
+            ? ["--job-id", jobId]
+            : ["--job-id", jobId, "--run-id", spec.RunId],
         Env = BuildEnv(jobId, redisUrl, spec.Secrets?.Env),
         VolumeMounts =
         [
