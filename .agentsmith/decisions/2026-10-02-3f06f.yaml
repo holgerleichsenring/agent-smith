@@ -9,7 +9,7 @@ decisions:
       The number entered with p73, co-authored by Claude, and the operator does not recognise
       it as a rule they set. No test enforced it. The rule about what a base class may hold is
       the operator's; the number was an author's guess presented as a rule.
-  - category: Testing
+  - category: Implementation
     chose: "Drop the '30 lines' anchor from PrinciplesTemplateContentTests in the same commit"
     over: "Waiting for the C# delta release (2026-10-02-3f06g) before touching this repository"
     reason: |
