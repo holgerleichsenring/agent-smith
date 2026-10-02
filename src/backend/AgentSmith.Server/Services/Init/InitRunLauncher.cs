@@ -21,6 +21,7 @@ public sealed class InitRunLauncher(
     InitRunRepository runs,
     InitRunAdmission admission,
     IRedisJobQueue jobQueue,
+    IRedisClaimLock launchLock,
     TimeProvider timeProvider,
     ILogger<InitRunLauncher> logger)
 {
@@ -29,6 +30,11 @@ public sealed class InitRunLauncher(
     public const string PipelineName = "init-project";
 
     private const string QueuedSummary = "starting — initialization requested";
+
+    // 2026-10-02-5f89d: held across guard, admission and insert, which are separate awaits —
+    // two launches could both read "no live run" and both insert. Long enough to outlast
+    // the admission's probe; the release is a CAS, so an expired lock is never deleted.
+    private static readonly TimeSpan LaunchLockTtl = TimeSpan.FromSeconds(30);
 
     /// <param name="autoCompletePullRequests">p0490: the operator's auto-accept, as
     /// ticked on THIS launch. It rides the enqueued request into the pipeline context,
@@ -40,12 +46,22 @@ public sealed class InitRunLauncher(
         if (!config.Projects.TryGetValue(projectName, out var project))
             return InitLaunchResult.UnknownProject(projectName);
 
+        var lockKey = $"agentsmith:init-launch:{project.Name}";
+        var token = await launchLock.TryAcquireAsync(lockKey, LaunchLockTtl, ct);
+        if (token is null) return InitLaunchResult.BeingStarted();
+        try { return await GuardAndLaunchAsync(project, autoCompletePullRequests, ct); }
+        finally { await launchLock.ReleaseAsync(lockKey, token, CancellationToken.None); }
+    }
+
+    private async Task<InitLaunchResult> GuardAndLaunchAsync(
+        ResolvedProject project, bool autoCompletePullRequests, CancellationToken ct)
+    {
         // p0515: the double-start guard reads the row the launch WRITES, and that row
         // carries project.Name — the configured spelling. Guarding on the route's spelling
         // made "Demo" and "demo" two independent runs of one project on SQLite/Postgres,
         // where the comparison happens in SQL.
-        var live = await runs.FindLiveRunIdAsync(project.Name, PipelineName, ct);
-        if (live is not null) return InitLaunchResult.AlreadyRunning(live);
+        var live = await runs.FindLiveRunAsync(project.Name, PipelineName, ct);
+        if (live is not null) return InitLaunchResult.AlreadyRunning(live.Id);
 
         return await AdmitAndEnqueueAsync(project, autoCompletePullRequests, ct);
     }

@@ -214,6 +214,67 @@ public sealed class QueuedRunCancelTests : IDisposable
         run.FinishedAt.Should().NotBeNull();
     }
 
+    /// <summary>
+    /// 2026-10-02-5f89d: an init's request sits in the JOB queue, which a queued cancel does
+    /// not touch, and the consumer's gate used to ask only for a flagged UNFINISHED row — so a
+    /// run cancelled while queued passed it and executed under a row that said cancelled.
+    /// The consumer here has no ExecutePipelineUseCase: a leak through the gate publishes
+    /// nothing, a refusal publishes its short-circuit.
+    /// </summary>
+    [Fact]
+    public async Task QueuedRunCancel_InitRun_IsNeverStartedByTheConsumer()
+    {
+        const string runId = "2026-10-02T09-43-00-5f89";
+        await new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System)
+            .CreateQueuedRunAsync(runId, "p1", "init-project", ["repo-a"], "starting", CancellationToken.None);
+
+        var handled = await QueuedRunCancel.TryAsync(
+            runId, NewRepository(), _queue, _events, NewFinalizer(),
+            NewTerminalWriter(), CancellationToken.None);
+        _published.Clear();
+        await NewConsumer(new PipelineRequest("p1", "init-project", IsInit: true, Headless: true, RunId: runId))
+            .RunAsync(CancellationToken.None);
+
+        handled.Should().BeTrue();
+        _published.OfType<RunFinishedEvent>().Should().ContainSingle("the gate refused the run")
+            .Which.RunId.Should().Be(runId);
+        using var check = new AgentSmithDbContext(Options());
+        var run = check.Runs.Single(r => r.Id == runId);
+        run.Status.Should().Be("cancelled");
+        run.CancelRequested.Should().BeTrue("the row says who ended it");
+        run.CancelReason.Should().Be("operator");
+    }
+
+    private AgentSmith.Application.Services.PipelineQueueConsumer NewConsumer(PipelineRequest request)
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(_events);
+        services.AddSingleton<IActiveRunLease>(new AgentSmith.Application.Services.Claim.NoOpActiveRunLease());
+        var scoped = new ServiceCollection();
+        scoped.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        scoped.AddScoped<RunRepository>();
+        var reader = new DbRunCancelStateReader(
+            scoped.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        return new AgentSmith.Application.Services.PipelineQueueConsumer(
+            services.BuildServiceProvider(), new SingleRequestQueue(request), reader,
+            "config.yaml", maxParallelJobs: 1, shutdownGraceSeconds: 5,
+            NullLogger<AgentSmith.Application.Services.PipelineQueueConsumer>.Instance);
+    }
+
+    private sealed class SingleRequestQueue(PipelineRequest request) : IRedisJobQueue
+    {
+        public Task EnqueueAsync(PipelineRequest request, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public async IAsyncEnumerable<PipelineRequest> ConsumeAsync(
+            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            yield return request;
+            await Task.CompletedTask;
+        }
+
+        public Task<long> LenAsync(CancellationToken cancellationToken) => Task.FromResult(0L);
+    }
+
     private CancelTerminalWriter NewTerminalWriter() => new(WriterServices());
 
     private ServiceProvider WriterServices()

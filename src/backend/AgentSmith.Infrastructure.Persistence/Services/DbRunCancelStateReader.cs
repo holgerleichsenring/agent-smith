@@ -11,10 +11,10 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class DbRunCancelStateReader(IServiceScopeFactory scopeFactory) : IRunCancelStateReader
 {
-    public async Task<bool> IsCancelRequestedAsync(string runId, CancellationToken cancellationToken)
+    public async Task<bool> IsStartRefusedAsync(string runId, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<RunRepository>()
-            .IsCancelRequestedAsync(runId, cancellationToken);
+            .IsStartRefusedAsync(runId, cancellationToken);
     }
 }

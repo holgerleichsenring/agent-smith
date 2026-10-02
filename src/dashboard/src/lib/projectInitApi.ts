@@ -8,7 +8,7 @@
 // starting a second), 503 with the reason the run does not fit right now, and 4xx
 // when no such project is configured.
 
-import { apiFetch } from "@/lib/apiResponse";
+import { apiFetch, readJson } from "@/lib/apiResponse";
 
 export type InitLaunchOutcome = "started" | "already-running" | "refused";
 
@@ -73,4 +73,24 @@ async function readBody(res: Response): Promise<InitLaunchBody | null> {
   } catch {
     return null;
   }
+}
+
+// 2026-10-02-5f89d: the project's LIVE init run, so the button restores itself after a
+// navigation instead of forgetting the run it started. "queued" waits for a slot,
+// "cancelling" is flagged and still ending its sandboxes. 204 means none is live.
+export type InitRunState = "queued" | "running" | "cancelling";
+
+export interface LiveInitRun {
+  runId: string;
+  state: InitRunState;
+}
+
+export async function fetchProjectInit(
+  project: string,
+  signal?: AbortSignal,
+): Promise<LiveInitRun | null> {
+  const path = `/api/projects/${encodeURIComponent(project)}/init`;
+  const res = await apiFetch(path, { signal });
+  if (res.status === 204) return null;
+  return readJson<LiveInitRun>(res, path);
 }

@@ -56,13 +56,13 @@ public sealed class CapacityQueuePump(
     {
         var head = await queue.PeekHeadAsync(ct);
         if (head is null) return;
-        // p0330: pre-claim cancel gate — a cancel persisted while the entry waited
-        // at the head must drop it, never claim it. Checked before the envelope
-        // guard so backstop entries are cleaned up too.
+        // p0330: pre-claim gate — a cancel persisted while the entry waited at the head drops
+        // it, never claims it; checked before the envelope guard so backstop entries go too.
+        // 2026-10-02-5f89d: a finished reserved row is refused too — not always the operator's.
         if (!string.IsNullOrEmpty(head.ReservedRunId)
-            && await cancelState.IsCancelRequestedAsync(head.ReservedRunId!, ct))
+            && await cancelState.IsStartRefusedAsync(head.ReservedRunId!, ct))
         {
-            await drop.DropAsync(head, "cancelled by operator", ct);
+            await drop.DropAsync(head, "reserved run already cancelled or finished", ct);
             return;
         }
         if (head.InitialContextJson is null) return; // TOCTOU-backstop entry — poller launches it

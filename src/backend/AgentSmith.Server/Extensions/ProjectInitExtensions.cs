@@ -17,6 +17,7 @@ internal static class ProjectInitExtensions
         services.TryAddScoped<InitRunRepository>();
         services.TryAddScoped<InitRunAdmission>();
         services.TryAddScoped<InitRunLauncher>();
+        services.TryAddScoped<InitRunStateReader>();
         return services;
     }
 }

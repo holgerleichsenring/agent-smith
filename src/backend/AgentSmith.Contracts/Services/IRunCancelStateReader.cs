@@ -10,7 +10,9 @@ namespace AgentSmith.Contracts.Services;
 public interface IRunCancelStateReader
 {
     /// <summary>
-    /// True when the run row exists, is not finished, and carries CancelRequested.
+    /// True when the run row exists and must not start: it carries CancelRequested, or it is
+    /// already finished. 2026-10-02-5f89d: a reserved row finished while queued — by a
+    /// queued cancel, a drop, anything — used to pass a flag-only gate and execute.
     /// </summary>
-    Task<bool> IsCancelRequestedAsync(string runId, CancellationToken cancellationToken);
+    Task<bool> IsStartRefusedAsync(string runId, CancellationToken cancellationToken);
 }

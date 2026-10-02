@@ -20,4 +20,7 @@ public sealed record InitLaunchResult(InitLaunchOutcome Outcome, string? RunId, 
 
     public static InitLaunchResult UnknownProject(string project) =>
         new(InitLaunchOutcome.UnknownProject, null, $"Project '{project}' is not configured.");
+
+    public static InitLaunchResult BeingStarted() =>
+        new(InitLaunchOutcome.BeingStarted, null, "An initialization is being started.");
 }

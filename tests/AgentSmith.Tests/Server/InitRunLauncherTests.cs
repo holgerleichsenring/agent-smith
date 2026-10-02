@@ -44,6 +44,7 @@ public sealed class InitRunLauncherTests : IDisposable
     private readonly Mock<ITicketProviderFactory> _tickets = new(MockBehavior.Strict);
     private readonly Mock<ITicketClaimService> _claims = new(MockBehavior.Strict);
     private ISandboxCapacityProbe _probe = AdmittingProbe();
+    private readonly InProcessClaimLock _launchLock = new();
     private string? _budgetMemory;
 
     public InitRunLauncherTests()
@@ -323,6 +324,172 @@ public sealed class InitRunLauncherTests : IDisposable
         _enqueued.Should().ContainSingle();
     }
 
+    // ---- 2026-10-02-5f89d: one live init per project, and the button's read of it ----
+
+    [Fact]
+    public async Task InitRunLauncher_CancellingRunOfTheProject_RefusesARelaunch()
+    {
+        // A cancelling run's sandboxes live until the enforcer ends it; a second init
+        // beside them is the double run the guard exists to stop.
+        var first = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        await MarkCancelRequestedAsync(first.RunId!);
+
+        var second = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+
+        second.Outcome.Should().Be(InitLaunchOutcome.AlreadyRunning);
+        second.RunId.Should().Be(first.RunId);
+        _enqueued.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task InitRunLauncher_TwoConcurrentLaunches_StartOneRun()
+    {
+        // The first launch is held INSIDE admission — after its guard read, before its
+        // insert — which is exactly the window two launches used to share.
+        var inAdmission = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _probe = BlockingProbe(inAdmission, release);
+        var firstLaunch = NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        await inAdmission.Task;
+
+        var second = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        release.SetResult();
+        var first = await firstLaunch;
+
+        first.Outcome.Should().Be(InitLaunchOutcome.Started);
+        second.Outcome.Should().Be(InitLaunchOutcome.BeingStarted);
+        second.Reason.Should().Be("An initialization is being started.");
+        _enqueued.Should().ContainSingle("the second launch passed no guard and inserted nothing");
+        using var ctx = new AgentSmithDbContext(Options());
+        ctx.Runs.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task InitEndpoint_LaunchBeingStarted_Answers409()
+    {
+        var inAdmission = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+        _probe = BlockingProbe(inAdmission, release);
+        var firstLaunch = NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        await inAdmission.Task;
+
+        var response = await ProjectInitEndpoints.InitAsync(
+            Project, new InitLaunchRequest(AutoComplete), NewLauncher(), CancellationToken.None);
+        release.SetResult();
+        await firstLaunch;
+
+        StatusOf(response).Should().Be(StatusCodes.Status409Conflict);
+        BodyOf(response).RunId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task InitLauncher_AfterALaunch_ReleasesTheLaunchLock()
+    {
+        await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+
+        _launchLock.HeldKeys.Should().BeEmpty("the lock spans one launch, not the run");
+    }
+
+    [Fact]
+    public async Task ProjectInitEndpoints_Get_OtherCaseSpelling_FindsTheConfiguredProjectsRun()
+    {
+        var started = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+
+        var response = await ProjectInitEndpoints.GetStateAsync(
+            "SAMPLE", NewStateReader(), CancellationToken.None);
+
+        StatusOf(response).Should().Be(StatusCodes.Status200OK);
+        var state = StateOf(response);
+        state.RunId.Should().Be(started.RunId);
+        state.State.Should().Be("queued", "the pre-start row waits for the consumer");
+    }
+
+    [Fact]
+    public async Task ProjectInitEndpoints_Get_ReturnsCancellingForAFlaggedUnfinishedRun()
+    {
+        var started = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        await MarkCancelRequestedAsync(started.RunId!);
+
+        var response = await ProjectInitEndpoints.GetStateAsync(
+            Project, NewStateReader(), CancellationToken.None);
+
+        StateOf(response).Should().Be(new InitRunStateResponse(started.RunId!, "cancelling"));
+    }
+
+    [Fact]
+    public async Task ProjectInitEndpoints_Get_RunningRow_ReturnsRunning()
+    {
+        var started = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Single().Status = "running";
+            await ctx.SaveChangesAsync();
+        }
+
+        var response = await ProjectInitEndpoints.GetStateAsync(
+            Project, NewStateReader(), CancellationToken.None);
+
+        StateOf(response).Should().Be(new InitRunStateResponse(started.RunId!, "running"));
+    }
+
+    [Fact]
+    public async Task ProjectInitEndpoints_Get_NoLiveRun_Answers204()
+    {
+        var failed = await NewLauncher().LaunchAsync(Project, AutoComplete, CancellationToken.None);
+        Finalize(failed.RunId!);
+
+        var response = await ProjectInitEndpoints.GetStateAsync(
+            Project, NewStateReader(), CancellationToken.None);
+
+        StatusOf(response).Should().Be(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task ProjectInitEndpoints_Get_UnknownProject_Answers404()
+    {
+        var response = await ProjectInitEndpoints.GetStateAsync(
+            "not-configured", NewStateReader(), CancellationToken.None);
+
+        StatusOf(response).Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    private static InitRunStateResponse StateOf(IResult result) =>
+        (InitRunStateResponse)((IValueHttpResult)result).Value!;
+
+    private static ISandboxCapacityProbe BlockingProbe(TaskCompletionSource entered, TaskCompletionSource release)
+    {
+        var probe = new Mock<ISandboxCapacityProbe>();
+        probe.Setup(p => p.HasCapacityAsync(It.IsAny<RunFootprint>(), It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                entered.TrySetResult();
+                await release.Task;
+                return CapacityDecision.Admit();
+            });
+        return probe.Object;
+    }
+
+    // The Redis lock's contract — set-if-absent with a token, release only by that token —
+    // held in process, so the launcher's use of it is what the tests exercise.
+    private sealed class InProcessClaimLock : IRedisClaimLock
+    {
+        private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _held = new();
+
+        public IReadOnlyCollection<string> HeldKeys => _held.Keys.ToList();
+
+        public Task<string?> TryAcquireAsync(string key, TimeSpan ttl, CancellationToken cancellationToken)
+        {
+            var token = Guid.NewGuid().ToString("N");
+            return Task.FromResult(_held.TryAdd(key, token) ? token : null);
+        }
+
+        public Task ReleaseAsync(string key, string token, CancellationToken cancellationToken)
+        {
+            _held.TryRemove(new KeyValuePair<string, string>(key, token));
+            return Task.CompletedTask;
+        }
+    }
+
     private static int? StatusOf(IResult result) => ((IStatusCodeHttpResult)result).StatusCode;
 
     private static InitLaunchResponse BodyOf(IResult result) =>
@@ -334,8 +501,19 @@ public sealed class InitRunLauncherTests : IDisposable
     private InitRunLauncher NewLauncher() => new(
         ConfigLoader(), new ServerContext("agentsmith.yml"),
         new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System),
-        NewAdmission(), NewQueue(), TimeProvider.System,
+        NewAdmission(), NewQueue(), _launchLock, TimeProvider.System,
         NullLogger<InitRunLauncher>.Instance);
+
+    private InitRunStateReader NewStateReader() => new(
+        ConfigLoader(), new ServerContext("agentsmith.yml"),
+        new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System));
+
+    private async Task MarkCancelRequestedAsync(string runId)
+    {
+        using var ctx = new AgentSmithDbContext(Options());
+        await new RunRepository(ctx).MarkCancelRequestedAsync(
+            runId, "operator", DateTimeOffset.UtcNow.AddSeconds(30), CancellationToken.None);
+    }
 
     private InitRunAdmission NewAdmission() => new(
         StubFootprintCalculator(), NewBudget(), Spawning.CapacityTestDoubles.NoHolds(), _probe,

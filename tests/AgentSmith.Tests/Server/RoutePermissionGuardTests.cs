@@ -149,6 +149,15 @@ public sealed class RoutePermissionGuardTests
         Declaration("GET", "/api/config/connections/{id}/repos").Should().Equal(Permissions.ConfigRead);
     }
 
+    // 2026-10-02-5f89d: the init button's read of the live run is a run read — any viewer of
+    // runs may see it; starting one still needs projects.init.
+    [Fact]
+    public void Routes_ProjectInitState_NeedsRunsRead()
+    {
+        Declaration("GET", "/api/projects/{name}/init").Should().Equal(Permissions.RunsRead);
+        Declaration("POST", "/api/projects/{name}/init").Should().Equal(Permissions.ProjectsInit);
+    }
+
     [Fact]
     public void RouteGuard_TheAnonymousRoutes_AreExactlyTheDeclaredSet()
     {

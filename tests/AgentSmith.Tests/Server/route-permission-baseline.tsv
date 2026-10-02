@@ -42,6 +42,7 @@ GET	/api/config/trackers	config.read
 GET	/api/diagnostics/connections	diagnostics.read
 GET	/api/identity	identity.read
 GET	/api/openapi.json	anonymous
+GET	/api/projects/{name}/init	runs.read
 GET	/api/pull-requests	runs.read
 GET	/api/runs	runs.read
 GET	/api/runs/expectations/metrics	runs.read

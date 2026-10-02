@@ -10,6 +10,6 @@ namespace AgentSmith.Application.Services.Claim;
 /// </summary>
 public sealed class NoOpRunCancelStateReader : IRunCancelStateReader
 {
-    public Task<bool> IsCancelRequestedAsync(string runId, CancellationToken cancellationToken)
+    public Task<bool> IsStartRefusedAsync(string runId, CancellationToken cancellationToken)
         => Task.FromResult(false);
 }

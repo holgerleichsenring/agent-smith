@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89d
+
+decisions:
+  - category: Architecture
+    chose: "The pre-start gate refuses a reserved row that is cancel-requested OR finished (IsCancelRequestedAsync renamed IsStartRefusedAsync, changed in place)"
+    over: "Only stamping CancelRequested in QueuedRunCancel"
+    reason: |
+      A finished reserved row must never start, whoever finished it. Fixing the one cancel
+      path would leave every other way a queued row ends — a drop, a reconcile — with the
+      same hole: the consumer executed it and its RunStarted was dropped as a replay, so the
+      row said cancelled over a live run.
+  - category: Architecture
+    chose: "An IRedisClaimLock on agentsmith:init-launch:{project} (30 s TTL) across guard, admission and insert; a held lock answers 409 BeingStarted"
+    over: "A filtered unique index on live init rows"
+    reason: |
+      The launch already needs Redis to enqueue, and the claim lock with CAS release exists.
+      A partial index needs a provider-specific filter in two migration sets for a guard a
+      few lines of locking give. The key carries the repo's agentsmith: lock prefix rather
+      than the spec's bare init-launch:.
+  - category: Implementation
+    chose: "A cancel-requested unfinished init run counts as live for the double-start guard and is reported as cancelling"
+    over: "Skipping flagged rows as FindLiveRunIdAsync did"
+    reason: |
+      Its sandboxes are alive until the enforcer ends it; a relaunch during the grace window
+      put a second init beside them.
+  - category: Implementation
+    chose: "InitRunStateReader (new) resolves the route name to the configured project and maps the row; FindLiveRunAsync returns the Run row itself"
+    over: "A read method on InitRunLauncher, or a projection record from the repository"
+    reason: |
+      The launcher starts runs; reading state is a second reason to change. The row already
+      carries id, status and the cancel flag, so a projection type would only copy them.
+      A waiting_for_input init reads as running: it is live and its run page says what it
+      waits for, and the spec's three states stay the wire contract.
+  - category: Implementation
+    chose: "useProjectInitRun re-reads on a RunsChanged nudge only for the live run or a run id it has not seen, coalesced to one read per 350 ms"
+    over: "Re-reading on every nudge"
+    reason: |
+      The hub nudges per run event; every project card renders the action, so an unfiltered
+      re-read is a request per event per card. A new run id is the only nudge that can make
+      an idle project live.
+  - category: Implementation
+    chose: "After a press the button shows the server's answer; only when that re-read fails does it keep the started run id"
+    over: "Holding the started run in component state until the run ends"
+    reason: |
+      Component state was the defect — it outlived nothing and could not see the run end.
+      A caller with projects.init but without runs.read still gets the link to the run it
+      just started.
+  - category: Scope
+    chose: "The Redis job-queue entry of a cancelled init is not deleted"
+    over: "Removing it in QueuedRunCancel"
+    reason: |
+      The consumer's gate refuses it at dequeue, which is the authority already.

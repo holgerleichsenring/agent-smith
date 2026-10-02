@@ -2,7 +2,7 @@ namespace AgentSmith.Server.Services.Init;
 
 /// <summary>
 /// p0489: what came of an operator's request to initialize a project. One
-/// started outcome and three refusals — each refusal carries the reason the
+/// started outcome and four refusals — each refusal carries the reason the
 /// button renders inline, and the button stays pressable.
 /// </summary>
 public enum InitLaunchOutcome
@@ -18,4 +18,8 @@ public enum InitLaunchOutcome
 
     /// <summary>No project of that name is configured.</summary>
     UnknownProject,
+
+    /// <summary>2026-10-02-5f89d: another launch of this project holds the launch lock right
+    /// now; its outcome is the answer, so this one starts nothing.</summary>
+    BeingStarted,
 }
