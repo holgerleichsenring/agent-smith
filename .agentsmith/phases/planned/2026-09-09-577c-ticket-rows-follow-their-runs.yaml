@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-577c
+goal: "Deleting a run takes its ticket-keyed rows with it when no run of that ticket is left, so a ticket page cannot be built from events whose runs no longer exist."
+
+applies_to: "backend (run deletion, ticket-keyed rows) — the retention half of making a ticket an entity"
+
+requires:
+  - 2026-09-09-fd21
+  - 2026-09-09-9e54
+
+scope:
+  in: "Run deletion and clear-terminal (p0337) extended to the ticket-keyed rows this programme adds: ticket events go when the last run of their ticket goes. A decision, written down, on TicketSpecSet — whether the spec pointer survives its runs, because it points at a branch in git that deletion does not touch. What a ticket detail answers when only some of its attempts were deleted."
+  out: "A retention policy or a scheduled purge. Deleting anything in a tracker or a repository. Changing what a run deletion already removes."
+
+decisions:
+  - key: |
+      A PROJECTION CANNOT ORPHAN, A ROW CAN. The ticket read model is computed over runs, so
+      deleting every run of a ticket makes the ticket disappear on its own — correct. But the
+      change events of 2026-09-09-9e54 are ticket-keyed rows that survive, and a later run of
+      the same ticket would inherit a history whose runs nobody can open.
+  - key: |
+      PARTIAL DELETION IS ANSWERED, NOT PREVENTED. Deleting attempt 2 of four is legitimate — a
+      $128 mis-projected run was deleted for exactly that reason. The attempt ordinals then
+      renumber, because they are positions and never identities, and events pointing at a
+      deleted run render without their link rather than vanishing.
+  - key: |
+      TicketSpecSet IS DECIDED IN THE OPEN. It points at a spec that lives in git on the ticket
+      branch and is deliberately not a copy of it (p0393a). Deleting the pointer because its
+      runs went would lose the branch pointer while the branch still exists. The phase decides
+      and records which way, rather than letting the cascade decide by accident.
+
+steps:
+  - id: the-cascade
+    action: "Run deletion and clear-terminal remove ticket events whose ticket has no run left; one transaction with the existing satellite deletes."
+  - id: the-spec-pointer
+    action: "Decide and implement TicketSpecSet's fate on last-run deletion; the reason goes in the decision log."
+  - id: partial
+    action: "Ticket detail renumbers attempts over surviving runs and renders an event whose run is gone without a link."
+
+tests:
+  - "Delete_TheLastRunOfATicket_TakesItsEvents"
+  - "Delete_OneOfFourRuns_KeepsTheTicketAndItsOtherEvents"
+  - "Delete_OneOfFourRuns_RenumbersTheAttempts"
+  - "TicketDetail_AnEventWhoseRunIsGone_RendersWithoutALink"
+  - "ClearTerminal_ATicketWithOneRunningRun_KeepsTheTicket"
+
+done:
+  - "no ticket-keyed row outlives the last run of its ticket"
+  - "deleting one attempt leaves the ticket coherent"
+  - "the spec-pointer decision is written down"
+  - "build green, full suite green"

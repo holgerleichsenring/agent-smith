@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-3158
+goal: "A ticket opens on a flow graph of its attempt: nodes are phases, carried nodes are dashed and cost nothing, and the build-verify loop is unrolled one lane per pass."
+
+applies_to: "dashboard (ticket detail entry, the graph component and its node detail) — the picture the whole surface is built around"
+
+requires:
+  - 2026-09-09-fd21
+  - 2026-09-09-debf
+  - 2026-09-09-53e9
+  - 2026-09-09-ce50
+  - 2026-09-09-1a80
+
+scope:
+  in: "The ticket detail route with an identity header, a one-sentence state banner, an attempt switcher, and the graph: ticket, specification, expectations, build fanning out to one node per repository, verify, and ship. One lane per recorded pass, framed and numbered, with the return curve carrying why the gate sent work back. A node opens its detail below the graph: ledger steps for build, criteria for verify, the pod for a repository, the pull request for ship, and the live tool call for whatever is working now. States: proven, carried, working, stopped, waits-for-a-person, not-started. A folded mode that collapses the lanes into one pair with a pass count, which is also the narrow-viewport form."
+  out: "The tabs behind the graph (2026-09-09-094f). Starting an attempt from here — the control belongs to the work-plan tab in 2026-09-09-094f and its endpoint is 2026-09-09-b51e. Replacing the run viewer: every node's detail links to it and it keeps its own route. Inventing state a payload does not carry; a node whose facts are missing renders as unknown and says which phase would provide them."
+
+decisions:
+  - key: |
+      THE GRAPH IS THE CONTROL FLOW, NOT A DECORATION. Five boxes in a row cannot show that verify
+      returns to build, that build fans out per repository, or that a question hangs off build and
+      parks the run. Those three shapes are what an operator needs to reason about, and they are the
+      three a straight strip hides. The strip stays in the list row, where a glance is all there is
+      room for.
+  - key: |
+      THE LOOP IS UNROLLED. A back-edge asserts that a cycle exists; a lane per pass says how often,
+      why, and what each pass cost. Passes are few, so unrolling scales, and it keeps the drawing
+      acyclic and readable left to right. The folded mode is kept because it is the honest compact
+      form, not because the unrolled one is in doubt.
+  - key: |
+      CARRIED IS THE STATE THAT MATTERS MOST. A dashed node that cost nothing is the visible form of
+      the ledger seeding that has been invisible since it was built. Without it, a fourth attempt
+      looks as expensive as a first, which is the misreading the whole redesign exists to fix.
+  - key: |
+      THE DARK PANEL IS THE ONE THE SYSTEM ALREADY OWNS. The graph sits on card-terminal-panel, the
+      Smith-specific dark component DESIGN.md adds for exactly this kind of surface, and it is the
+      dashboard's only dark element because the dashboard is deliberately light-only even though the
+      system ships a dark variant elsewhere. Colours are the system's own: Smith-green for proven,
+      amber, red and blue for working, stopped and waiting. No third identity is invented; that is the
+      correction the earlier redesign already had to make once.
+  - key: |
+      SVG WITH REAL BUTTONS, NOT A LIBRARY. The graph is a fixed small topology, so a hand-drawn
+      viewBox with focusable node groups is smaller, themable through the existing tokens and
+      keyboard-reachable. A graph library would bring layout the phase does not need and a stylesheet
+      the artifact policy cannot load.
+
+steps:
+  - id: vendor-the-mock
+    action: "Write the ratified graph mock into src/dashboard/design/mockups; port its styles verbatim under the prefix the other mocks use."
+  - id: the-layout
+    action: "A layout that places head nodes, one lane per pass with its repositories, and the tail, computing the drawing height from what is actually drawn."
+  - id: the-nodes
+    action: "Node states and their detail panels, bound to the ticket payload: steps, criteria, pod, pull request, live tool call. Missing facts render as unknown."
+  - id: the-switcher-and-the-fold
+    action: "Attempt switcher reshaping the graph, and the folded mode with its pass count; the folded form is what a narrow viewport gets."
+  - id: reduced-motion-and-keyboard
+    action: "Flowing edges and the live halo stop under prefers-reduced-motion; every node is reachable and activatable from the keyboard with a visible focus state."
+
+tests:
+  - "Graph_AnAttemptWithTwoPasses_DrawsTwoLanesAndOneReturn"
+  - "Graph_AnAttemptWithOnePass_DrawsNoLoop"
+  - "Graph_CarriedNodes_RenderDashedAndReportNoCost"
+  - "Graph_TheWorkingNode_ShowsTheLastToolCall"
+  - "Graph_ARepositoryWithNoSandbox_SaysNotProvisioned"
+  - "Graph_SwitchingAttempt_ReshapesTheGraphAndSelectsWhatHappened"
+  - "Graph_FoldedMode_ShowsOnePairWithThePassCount"
+  - "Graph_NodeDetail_LinksToTheRunViewer"
+  - "Graph_MissingPassData_RendersUnknownNotOnePass"
+  - "Graph_ReducedMotion_StopsTheAnimations"
+  - "Graph_KeyboardActivation_OpensTheNodeDetail"
+
+done:
+  - "a ticket opens on the graph of its current attempt, with lanes where the loop happened"
+  - "carried nodes are visibly carried and report no cost"
+  - "every node opens its detail and links onward to the run viewer"
+  - "the folded mode and the narrow viewport show the same compact form"
+  - "dashboard tests and build green"

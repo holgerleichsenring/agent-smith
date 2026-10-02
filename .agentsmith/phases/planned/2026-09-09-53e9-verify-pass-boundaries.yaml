@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-53e9
+goal: "A run records its build-verify passes where the master re-engages, with what the gate refused and what the next pass cost, so the loop can be shown unrolled instead of guessed at."
+
+applies_to: "backend (master re-engagement, run persistence, run and ticket read models) — the loop the ticket graph draws"
+
+requires:
+  - 2026-09-09-fd21
+
+scope:
+  in: "A RunPass row written where MasterReengagementPolicy sends the master back after MasterAcceptanceGate.ObjectivelySatisfied returned false: ordinal, opened-at, closed-at, the criteria counts that closed it, and the reason the gate refused. Cost per pass attributed from RunLlmCall rows by their timestamp falling inside the pass window. Passes on the run payload and per attempt on the ticket detail."
+  out: "Changing when the gate runs or what it accepts — this phase observes it. Attempt-level lineage, which is the outer loop (2026-09-09-debf). Backfilling: a run with no pass rows reads as one pass, which is what it looked like before. Attributing cost for pre-p0388a runs, whose LLM calls carry no step index and whose windows are therefore unprovable — those report unknown."
+
+decisions:
+  - key: |
+      NOT DERIVABLE — RECORD IT. The first draft of this phase planned to decide between deriving
+      a boundary and recording one. The code settles it: MasterAcceptanceGate is an internal
+      static class of pure predicates over the master's verdict, it emits nothing, and there is
+      no acceptance or verdict event in Contracts/Events — AcceptanceJson is written once at run
+      end. There is nothing to derive from, so the boundary is written at the one place control
+      actually turns around, in MasterReengagementPolicy.
+  - key: |
+      COST COMES FROM RunLlmCall, NOT RunStep. RunStep carries LlmMs, ThrottleWaitMs, SandboxMs
+      and DurationSeconds and no cost or tokens at all; cost lives on RunLlmCall.CostUsd. A pass
+      is therefore a time window over the run's LLM calls, not a grouping of pipeline steps —
+      which is also the only consistent reading, because several passes can happen inside one
+      pipeline step.
+  - key: |
+      THE REFUSAL REASON IS THE LABEL ON THE RETURN EDGE. "Two criteria have no evidence in the
+      diff" is what makes an unrolled loop worth drawing; a pass that closes with only a count
+      leaves the operator to guess why the work came back. The gate already computes which
+      dispositions were unmet, so the reason is recorded, never re-derived later from prose.
+  - key: |
+      A RUN WITH ONE PASS WRITES ONE ROW AT THE END. No boundary, no loop drawn, and the common
+      case stays exactly as simple as it is today.
+
+steps:
+  - id: the-row
+    action: "A RunPass entity keyed by run id with ordinal, opened, closed, criteria met and total, and the refusal reason; migrations in both migration assemblies."
+  - id: written-where-control-turns
+    action: "MasterReengagementPolicy closes the open pass with the gate's refusal and opens the next; the final pass is closed at run end with the outcome."
+  - id: cost-by-window
+    action: "A projection attributing RunLlmCall rows to the pass whose window contains them; a run whose calls predate step attribution reports unknown rather than a share."
+  - id: it-reaches-the-payloads
+    action: "Run detail and ticket detail carry the passes; the TS mirror follows."
+  - id: harness
+    action: "A RealCompositionHarness case with a scripted client that fails the gate once and passes on the second trip, proving two passes with the second cheaper."
+
+tests:
+  - "Pass_TheGateRefusingAndTheMasterReengaging_ClosesOneAndOpensTheNext"
+  - "Pass_ARunThatSatisfiedTheGateFirstTime_HasOnePass"
+  - "Pass_TheRefusalReason_IsRecordedOnTheClosedPass"
+  - "Pass_LlmCallsInsideAWindow_AreThatPassesCost"
+  - "Pass_ARunWithNoStepAttribution_ReportsUnknownCostPerPass"
+  - "Pass_ACancelledRunMidPass_LeavesThePassOpenAndSaysSo"
+  - "Harness_FailThenPass_ProducesTwoPassesWithTheSecondCheaper"
+  - "TicketDetail_AnAttemptWithTwoPasses_ReportsBoth"
+
+done:
+  - "a run that went back through the gate reports its passes with the refusal that caused each return"
+  - "cost per pass comes from the LLM calls inside its window, or reports unknown"
+  - "a run that never looped reports one pass and no loop"
+  - "the harness proves the two-pass case end to end"
+  - "build green, full suite green"

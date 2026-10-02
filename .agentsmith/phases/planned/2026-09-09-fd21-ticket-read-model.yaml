@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-fd21
+goal: "A ticket is a first-class read model with its own endpoints: one row per project and ticket, carrying every run that ever worked it, so the UI stops grouping runs by hand."
+
+applies_to: "backend (persistence read side, server query endpoints, contracts) — the ticket becomes the entity the operator surface is keyed on, runs become its attempts"
+
+requires: []
+
+scope:
+  in: "A ticket read model keyed the way TicketSpecSet already keys one — (Project, provider-ticketId) — projected from the runs that carry TicketId, Project and Platform. GET /api/tickets (bucketed and paged) and GET /api/tickets/{project}/{key} (one ticket with its runs ordered oldest first, each run's attempt ordinal, status, cost, beats, criteria tally, PRs). Ticket title and tracker status from the newest run that read them. Rollups the runs already carry: attempt count, total cost, total tokens, first-seen, last-activity. An index on (Project, TicketId), a stated row-count ceiling the projection is measured against, and its own permissions on the same side of the UI-API gate as the runs query."
+  out: "Writing anything new at run time — this phase reads what the run rows already hold; lineage, cause and change events are 2026-09-09-debf and 2026-09-09-9e54. A ticket TABLE — TicketSpecSet stays the only ticket-keyed row and this is a projection over runs, because a second write path would drift from it. Starting or controlling anything from a ticket (2026-09-09-b51e). Compute rollups (2026-09-09-ce50). Any dashboard change (2026-09-09-1a80)."
+
+decisions:
+  - key: |
+      A PROJECTION, NOT A NEW TABLE. Every fact a ticket page shows already exists on Run,
+      RunStep, RunRepo and RunCapacity, keyed by TicketId + Project. A ticket table would be a
+      second write path that drifts from the runs the moment one is deleted or replayed, and
+      p0337's satellite deletes already prove how much bookkeeping a per-run satellite costs.
+      The read model is computed on query, the runs stay the source of truth, and the only
+      durable ticket-keyed row remains TicketSpecSet.
+  - key: |
+      THE KEY IS THE ONE THAT ALREADY EXISTS. TicketSpecSet keys on (Project, <provider>-<ticketId>),
+      so the ticket endpoints take the same pair rather than inventing a bare ticket id. A bare
+      id is not unique: two projects on the same tracker can both carry AZDO-4471, and Platform
+      is nullable on Run, so the provider prefix is the only thing that disambiguates.
+  - key: |
+      RunSnapshot GAINS Project AND Platform. RunSnapshotMapper drops both today although the Run
+      row holds them, which is why AppRail carries the comment that a snapshot has no project.
+      They are added to the snapshot rather than only to the ticket payload, because the runs
+      list needs the same two fields to link a run back to its ticket.
+  - key: |
+      ATTEMPT ORDINAL IS COMPUTED, NOT STORED. Ordering runs of one ticket by StartedAt gives
+      attempt 1..n deterministically, and a stored ordinal would be wrong the moment a run is
+      deleted. The ordinal is a rendering of position, never an identity — the run id stays the
+      identity everywhere.
+  - key: |
+      A RUN WITH NO PLATFORM STILL HAS TO BE REACHABLE. Run.Platform is nullable and the queued-run
+      projection only sets it when the event carried one, so a provider-prefixed key alone would
+      leave those runs unaddressable. The key falls back to the project's configured tracker type,
+      and to a bare ticket id when even that is unknown — named in the payload as unqualified so
+      the caller knows the provider was not proven rather than assumed.
+  - key: |
+      PULL REQUESTS COME FROM PullRequestsJson, NOT RunRepo.PrUrl. p0347 states in the Run entity
+      that the single per-run PR column is lossy for a multi-repo run and that PullRequestsJson
+      keeps every repository's outcome; GET /api/pull-requests already flattens it. Bucketing on
+      the lossy column would drop a repository's PR from a two-repo ticket, which is the common
+      case here.
+  - key: |
+      PAGING IS ORDERED BY LAST ACTIVITY, NOT BY THE ATTEMPT ORDINAL. The ordinal is computed and
+      moves when a run is deleted, so it cannot carry a cursor. The cursor is (last-activity, key),
+      which is stable while new runs arrive.
+  - key: |
+      A TICKET WITH NO RUN DOES NOT EXIST HERE. The list is built from runs, so a ticket that was
+      never picked up has no row. That is honest for an operator surface about work done; a
+      backlog view would be a tracker query and is not this.
+
+steps:
+  - id: contracts-for-a-ticket
+    action: "TicketSummary and TicketDetail contracts in AgentSmith.Contracts: key, project, platform, title, tracker status, attempt count, first-seen, last-activity, total cost and tokens, plus the attempt list (run id, ordinal, status, started, finished, cost, beats, criteria proven/total, PR urls and statuses from RunRepo)."
+  - id: the-reader
+    action: "An ITicketReader with a relational implementation: one query for the bucketed page, one for a single ticket with its runs. Buckets are derived from run status and RunRepo.PrStatus only — needs-you, working, waiting-on-review, done, failed — with anything not derivable left out rather than guessed."
+  - id: the-endpoints
+    action: "GET /api/tickets (bucket + cursor over last-activity) and GET /api/tickets/{project}/{key}; a tickets.read permission beside the runs query and behind the same UI-API gate; 404 when no run carries that pair."
+  - id: it-holds-under-load
+    action: "An index on (Project, TicketId); the list measured against a stated row ceiling on the relational providers in use, with the result recorded in the decision log."
+  - id: the-snapshot-carries-its-ticket
+    action: "RunSnapshotMapper projects Project and Platform; the TS mirror in hub-events.ts follows."
+  - id: tests
+    action: "Reader tests over a seeded set of runs across two projects sharing a ticket id, plus endpoint tests through the real HTTP host as ConfigStudioEndpoints does."
+
+tests:
+  - "TicketReader_TwoRunsOneTicket_AreOneRowWithTwoAttempts"
+  - "TicketReader_SameTicketIdTwoProjects_AreTwoTickets"
+  - "TicketReader_AttemptOrdinal_FollowsStartedAt"
+  - "TicketReader_ARunWithNoTicketId_IsNotATicket"
+  - "TicketReader_CostAndTokens_SumOverAttempts"
+  - "TicketReader_BucketWaitingOnReview_NeedsAnOpenPrAndNoLiveRun"
+  - "TicketReader_AMultiRepoRun_ReportsEveryRepositorysPullRequest"
+  - "TicketReader_ARunWithNoPlatform_IsReachableAndMarkedUnqualified"
+  - "TicketList_TheCursor_IsLastActivityNotTheOrdinal"
+  - "TicketDetail_UnknownKey_Is404"
+  - "RunSnapshot_ProjectAndPlatform_ReachTheClient"
+
+done:
+  - "GET /api/tickets and GET /api/tickets/{project}/{key} answer from the existing run rows with no new write path"
+  - "a ticket with four runs reports four attempts, their ordinals, and the summed cost"
+  - "a run with no platform is still reachable, and says its key is unqualified"
+  - "a two-repo ticket reports both pull requests"
+  - "two projects carrying the same ticket id stay two tickets"
+  - "RunSnapshot carries project and platform on the client"
+  - "build green, full suite green"
