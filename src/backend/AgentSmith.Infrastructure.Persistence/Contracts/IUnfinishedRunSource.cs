@@ -10,4 +10,11 @@ namespace AgentSmith.Infrastructure.Persistence.Contracts;
 public interface IUnfinishedRunSource
 {
     Task<IReadOnlyList<string>> GetUnfinishedRunIdsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-02-5ab2c: the unfinished runs that are not parked on a question — the ones the
+    /// broadcaster's periodic database discovery may track. A parked run with no stored
+    /// position would be read from the start of its stream, so it is left to its relaunch.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetUnparkedRunIdsAsync(CancellationToken cancellationToken);
 }

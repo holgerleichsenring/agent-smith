@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5ab2f
+goal: "Sandbox job keys in Redis expire after 24 h, run artifacts keep only their markdown slots in the database on the server, and the pipeline_storage setting is retired."
+
+applies_to: "backend (sandbox wire keys, sandbox agent, server sandbox channel, run artifact store, retired config keys), dashboard (settings), config schema and example, docs"
+
+requires: []
+
+facts:
+  - claim: "The server pushes steps to sandbox:{job}:in without an expiry and deletes the three job keys only on dispose; a crashed server leaves them forever."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:39,68-80; src/backend/AgentSmith.Sandbox.Wire/RedisKeys.cs:7-9"
+  - claim: "The agent pushes results and appends events without an expiry; only the heartbeat key carries one."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs:61-65; src/backend/AgentSmith.Sandbox.Agent/Services/RedisEventChannel.cs:83-95; RedisKeys.cs:10-16"
+  - claim: "The plan, diff and bootstrap slots, PromoteAsync, ClearAsync and RunArtifactSnapshot have no caller outside the three stores and their tests."
+    evidence: "src/backend/AgentSmith.Contracts/Persistence/IRunArtifactStore.cs:12-19,60-69; src/backend/AgentSmith.Infrastructure.Persistence/Services/DbRunArtifactStore.cs:22-32,67-68; grep of src/backend and tests"
+  - claim: "On the server the markdown slots are written to Redis and the database and read from the database first; the Redis store is the decorator's inner."
+    evidence: "DbRunArtifactStore.cs:7-17,34-65; src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:171-174; src/backend/AgentSmith.Server/Services/RedisExtensions.cs:44"
+  - claim: "The core registers the in-memory store with TryAdd; the fast-tier harness swaps it in too."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:98; tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs:274-276"
+  - claim: "PipelineStorage.RedisTtlHours sets only the transient slots' TTL; it is a config document type, a raw and a resolved config property, a dashboard settings form, a schema section and an example block."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisRunArtifactStore.cs:25,37; src/backend/AgentSmith.Contracts/Models/Configuration/PipelineStorageConfig.cs:10; src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:28; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:30; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:31; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocTypes.cs:24; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:34-35; src/dashboard/src/components/config/SettingsForm.tsx:13,85-86,452-456; src/dashboard/src/components/config/settings.ts:23,39,56,73; src/dashboard/src/lib/configApi.ts:844,936,962; config/agentsmith.schema.json:139-147; config/agentsmith.example.yml:645-646"
+  - claim: "Docs name it on three pages; the settings round-trip test lists the doc type."
+    evidence: "docs/configure-it/index.md:64; docs/reference/configuration/agentsmith-yml.md:307; docs/reference/configuration/agentsmith-yml-schema.md:29; tests/AgentSmith.Tests/ConfigStudio/SettingsRoundTripTests.cs:26"
+  - claim: "Retiring a key is one RetiredConfigKeys row, reported as an advisory for files and stored documents; a stored document of a type the taxonomy no longer knows is skipped on load."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RetiredConfigKeys.cs:5-16; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RetiredConfigKeyDetector.cs:13-33; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentAssembler.cs:26-29"
+  - claim: "The flaky dashboard test waits for a text, then reads a test id synchronously."
+    evidence: "src/dashboard/src/components/config/__tests__/AgentForm.test.tsx:151,166-168"
+
+scope:
+  in: >
+    RedisKeys.JobKeyTtl = 24 h (Sandbox.Wire). The server's PushStepAsync sets that expiry on the job's in, results and
+    events keys after each push; the agent sets it on its results key after each push and on its events key in each
+    batch. IRunArtifactStore loses the plan, diff and bootstrap slots, PromoteAsync and ClearAsync; RunArtifactSnapshot
+    goes. DbRunArtifactStore is no decorator: it writes and reads the database only and the server registers it with
+    RemoveAll + Add over the core's in-memory TryAdd; RedisRunArtifactStore and its registration go. pipeline_storage
+    is retired: a RetiredConfigKeys row (pipeline_storage); PipelineStorageConfig, the AgentSmithConfig and
+    RawAgentSmithConfig properties, the ResolvedConfigComposer line, the doc type and taxonomy row go; the dashboard
+    drops the form, labels and types; the schema section, the example block and the three docs mentions go;
+    SettingsRoundTripTests drops the type. AgentForm test: the first read becomes
+    await waitFor(() => expect(screen.getByTestId("agent-model-source-gpt-4.1")).toHaveTextContent("price list")).
+  out: "Deleting stored pipeline_storage documents: they are skipped on load and reported, and the operator clears them through the studio or an export round trip."
+
+decisions:
+  - key: "SLIDING 24 H. Matches the event stream TTL; a live job refreshes it on every write, and an idle multi-repo job sits far below a day."
+  - key: "BOTH SIDES EXPIRE, OLD AGENTS PARTLY. EXPIRE on a key that does not exist yet does nothing, so with an agent image built before this phase the results and events keys it creates after the server's last push stay without a TTL until agents are updated; the server's per-step expiry covers every key that existed at a push."
+  - key: "MARKDOWN IS HISTORY. The database already holds it and is read first; the Redis copy only answered for a write the database had refused."
+  - key: "RETIRE, DO NOT DROP SILENTLY (operator ruling). The setting does nothing once the transient slots are gone; the retired row tells an operator whose file or store still sets it, as an advisory, instead of an unknown-key surprise."
+  - key: "WAIT FOR THE TEXT. findByTestId resolves when the element exists, not when it carries the price-list label; waitFor retries the assertion itself."
+
+steps:
+  - id: ttl
+    action: "JobKeyTtl; SandboxRedisChannel, RedisJobBus and RedisEventChannel expire their keys."
+  - id: artifacts
+    action: "Dead slots removed from the interface and InMemoryRunArtifactStore; DbRunArtifactStore registered directly; RedisRunArtifactStore removed; tests adjusted."
+  - id: retire
+    action: "RetiredConfigKeys row; backend config model, composer, doc type and taxonomy; dashboard settings; schema, example and docs; SettingsRoundTripTests."
+  - id: dashboard
+    action: "AgentForm test waits for the label with waitFor."
+
+tests:
+  - "SandboxRedisChannel_PushStep_ExpiresAllThreeJobKeys"
+  - "RedisJobBus_PushResult_ExpiresTheResultsKey"
+  - "RedisEventChannel_Batch_ExpiresTheEventsKey"
+  - "DbRunArtifactStore_ResultMarkdown_IsReadFromTheDatabaseWithoutRedis"
+  - "ServerComposition_IRunArtifactStore_IsTheDatabaseStore"
+  - "StoredPipelineStorageDocument_Loads_WithARetiredKeyAdvisory"
+  - "ConfigFileWithPipelineStorage_Loads_WithARetiredKeyAdvisory"
+
+done:
+  - "after a killed run, no sandbox:{job}:* key written by a current agent outlives 24 h"
+  - "a server whose store holds a pipeline_storage document starts and reports it as retired"
+  - "build green, full suite green, dashboard tests and build green"

@@ -105,6 +105,7 @@ public static class PipelineExecutionExtensions
         services.AddSingleton<IRunCancelStateReader, NoOpRunCancelStateReader>();
         // 2026-10-02-5f89e: the run-row beat; the Server swaps in DbRunHeartbeat.
         services.AddSingleton<IRunHeartbeat, NoOpRunHeartbeat>().AddSingleton<RunHeartbeatPump>();
+        services.AddSingleton<IRunStartClaim, NoOpRunStartClaim>().AddSingleton<RunStartGate>(); // 2026-10-02-5ab2b
         // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
         services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();

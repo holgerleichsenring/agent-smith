@@ -7,7 +7,7 @@ The file is a set of named **catalogs** (agents, trackers, connections, repos, M
 
 The annotated `config/agentsmith.example.yml` in the repo is the fullest worked example, and `config/agentsmith.schema.json` gives your editor completion (see [agentsmith.yml](../../configure-it/yaml.md#editor-support)).
 
-The loader ignores a key it doesn't know, so an older file keeps loading after an upgrade. The schema is therefore where a misspelt key is caught: it declares exactly the keys the loader reads, and every block refuses any other. `agent-smith config import` names each key of the file it doesn't store, with the reason: retired, bootstrap-only, or no such setting. A retired key in a loaded configuration is also reported as an advisory startup finding.
+The loader ignores a key it doesn't know, so an older file keeps loading after an upgrade. The schema is therefore where a misspelt key is caught: it declares exactly the keys the loader reads, and every block refuses any other. The one exception is a retired block kept so an older file still validates: `pipeline_storage` is declared, marked deprecated, and ignored. `agent-smith config import` names each key of the file it doesn't store, with the reason: retired, bootstrap-only, or no such setting. A retired key in a loaded configuration is also reported as an advisory startup finding.
 
 ## A complete small example
 
@@ -304,7 +304,6 @@ These blocks apply to every project unless a project overrides them. On a server
 | `queue` | `max_parallel_jobs` (4), `consume_block_seconds` (5), `shutdown_grace_seconds` (30), `redis_retry_interval_seconds` (30) |
 | `dialogue` | `hot_wait_seconds` (600), `approval_timeout_seconds` (259200), `dashboard_url` |
 | `skills` | an override for where the skill catalog comes from; normally unset |
-| `pipeline_storage` | how long in-flight run artifacts stay in Redis |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |
 | `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `observation_retention_days`. Edited on the Access page |

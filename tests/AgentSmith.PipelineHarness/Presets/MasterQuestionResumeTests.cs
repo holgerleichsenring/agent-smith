@@ -76,7 +76,7 @@ public sealed class MasterQuestionResumeTests
             await AnswerAsync(second, checkpoint, Answer);
             (await Sweeper(second).ScanOnceAsync(CancellationToken.None)).Should().Be(1,
                 "the answered checkpoint enqueues exactly one resume");
-            await DurableDialogueHarness.BuildPump(second, Fixture, jobQueue)
+            await DurableDialogueHarness.BuildPump(second, Fixture)
                 .TickAsync(CancellationToken.None);
             var resumeRequest = jobQueue.DequeueViaJsonRoundTrip();
             resumeRequest.RunId.Should().Be(runId, "the resume reuses the reserved run row");

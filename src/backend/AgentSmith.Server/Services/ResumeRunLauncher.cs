@@ -17,7 +17,7 @@ namespace AgentSmith.Server.Services;
 public sealed class ResumeRunLauncher(
     IServiceProvider services,
     IActiveRunLease lease,
-    IRedisJobQueue jobQueue,
+    Lifecycle.QueuedRunDispatch dispatch,
     ICapacityQueue capacityQueue,
     ILogger<ResumeRunLauncher> logger)
 {
@@ -43,7 +43,8 @@ public sealed class ResumeRunLauncher(
             return;
         }
 
-        await jobQueue.EnqueueAsync(ToRequest(head), ct);
+        // 2026-10-02-5ab2b: the context lives on the waiting_for_input row once the entry goes.
+        await dispatch.DispatchAsync(ToRequest(head), ct);
         await capacityQueue.RemoveAsync(head.Project, head.TicketId, ct);
         logger.LogInformation(
             "Resume launched for {Project}/#{Ticket} (run {RunId})",

@@ -28,7 +28,7 @@ public static class ServiceCollectionExtensions
         // p0281a: connection repo discovery — the snapshot (hot cache) + durable disk
         // last-good + the sync glob expander the catalog resolver uses. The discovery
         // providers + refresher live in AgentSmith.Infrastructure (HTTP).
-        // 2026-10-02-5f89c: TryAdd — the server registers one Redis hash store for both first.
+        // 2026-10-02-5f89c: TryAdd, the CLI's; 2026-10-02-5ab2a: the server replaces both with the database store.
         services.TryAddSingleton<IConnectionRepoSnapshot, InMemoryConnectionRepoSnapshot>();
         services.TryAddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
         services.AddSingleton<RepoGlobExpander>();

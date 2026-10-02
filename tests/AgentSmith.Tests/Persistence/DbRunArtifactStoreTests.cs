@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -11,10 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Tests.Persistence;
 
 /// <summary>
-/// p0246e: the durable markdown slots (result.md / plan.md / analyze.md) are
-/// mirrored to the DB, so they survive a Redis flush AND a process restart. The
-/// transient slots stay with the inner store. Proven on a real SQLite engine,
-/// with an in-memory inner store standing in for Redis.
+/// p0246e: the markdown slots (result.md / plan.md / analyze.md) live in the DB, so they
+/// survive a Redis flush AND a process restart. Proven on a real SQLite engine.
 /// </summary>
 public sealed class DbRunArtifactStoreTests : IDisposable
 {
@@ -32,35 +29,32 @@ public sealed class DbRunArtifactStoreTests : IDisposable
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
-    // The decorator opens a scope per op; its scoped IUnitOfWork is a fresh
+    // The store opens a scope per op; its scoped IUnitOfWork is a fresh
     // context over the same in-memory connection.
-    private DbRunArtifactStore NewStore(InMemoryRunArtifactStore inner)
+    private DbRunArtifactStore NewStore()
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddScoped<RunArtifactRepository>();
         var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
-        return new DbRunArtifactStore(inner, scopeFactory);
+        return new DbRunArtifactStore(scopeFactory);
     }
 
     [Fact]
-    public async Task ResultMarkdown_SurvivesRedisFlush_ReadsFromDb()
+    public async Task DbRunArtifactStore_ResultMarkdown_IsReadFromTheDatabaseWithoutRedis()
     {
-        var redis = new InMemoryRunArtifactStore();
-        await NewStore(redis).WriteResultMarkdownAsync("run-1", "# Result", CancellationToken.None);
+        await NewStore().WriteResultMarkdownAsync("run-1", "# Result", CancellationToken.None);
 
-        // Simulate a Redis flush: a brand-new inner store has nothing. The DB copy
-        // must still serve the result.
-        var afterFlush = NewStore(new InMemoryRunArtifactStore());
-        var result = await afterFlush.ReadResultMarkdownAsync("run-1", CancellationToken.None);
+        // A second store instance shares nothing but the database.
+        var result = await NewStore().ReadResultMarkdownAsync("run-1", CancellationToken.None);
 
-        result.Should().Be("# Result", "the DB mirror survives a Redis flush");
+        result.Should().Be("# Result", "the database is the only copy (2026-10-02-5ab2f)");
     }
 
     [Fact]
     public async Task PlanMarkdown_PersistsToDb_AndReadsBack()
     {
-        var store = NewStore(new InMemoryRunArtifactStore());
+        var store = NewStore();
         await store.WritePlanMarkdownAsync("run-1", "# Plan", CancellationToken.None);
 
         using var ctx = new AgentSmithDbContext(
@@ -69,17 +63,9 @@ public sealed class DbRunArtifactStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task TransientSlots_StayWithInnerStore_NotMirroredToDb()
+    public async Task UnwrittenSlot_ReadsNull()
     {
-        var redis = new InMemoryRunArtifactStore();
-        var store = NewStore(redis);
-
-        await store.WritePlanAsync("run-1", "{\"plan\":1}", CancellationToken.None);
-
-        (await redis.ReadPlanAsync("run-1", CancellationToken.None)).Should().Be("{\"plan\":1}");
-        using var ctx = new AgentSmithDbContext(
-            new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        ctx.RunArtifacts.Should().BeEmpty("the transient plan slot is not run history — it stays in the inner store");
+        (await NewStore().ReadAnalyzeMarkdownAsync("run-1", CancellationToken.None)).Should().BeNull();
     }
 
     private sealed class Factory(SqliteConnection connection) : IDbContextFactory<AgentSmithDbContext>

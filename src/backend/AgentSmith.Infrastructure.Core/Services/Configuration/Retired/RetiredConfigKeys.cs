@@ -42,5 +42,8 @@ public static class RetiredConfigKeys
         new("projects.*.orchestrator.resources", "2026-09-28",
             "No run spawns an orchestrator pod any more: the pipeline runs in the server, and a "
             + "run's footprint is its sandboxes. Size those under sandbox.resources."),
+        new("pipeline_storage", "2026-10-02",
+            "It set the lifetime of in-flight run artifacts in Redis, and nothing stores them there "
+            + "any more: a run's markdown lives in the database (2026-10-02-5ab2f)."),
     ];
 }

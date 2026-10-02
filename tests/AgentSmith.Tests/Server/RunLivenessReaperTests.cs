@@ -190,18 +190,4 @@ public sealed class RunLivenessReaperTests : IDisposable
 
     private static Task WaitForAsync(Func<bool> condition) =>
         TestWaits.UntilAsync(condition, "the reaper loop to progress");
-
-    private sealed class ReadCountingClock : TimeProvider
-    {
-        private long _timestamp;
-        private long _reads;
-        public long Reads => Volatile.Read(ref _reads);
-        public override long GetTimestamp()
-        {
-            Interlocked.Increment(ref _reads);
-            return Volatile.Read(ref _timestamp);
-        }
-        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
-        public void Advance(TimeSpan by) => Interlocked.Add(ref _timestamp, by.Ticks);
-    }
 }

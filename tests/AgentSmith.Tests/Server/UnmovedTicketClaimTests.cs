@@ -270,7 +270,10 @@ public sealed class UnmovedTicketClaimTests : IDisposable
                 CapacityTestDoubles.NoNudge(), NullLogger<CapacityQueueDrop>.Instance),
             new DbRunCancelStateReader(_services.GetRequiredService<IServiceScopeFactory>()),
             new ResumeRunLauncher(
-                _services, new NoOpActiveRunLease(), resumeQueue.Object, Queue(),
+                _services, new NoOpActiveRunLease(),
+                TestQueuedRunDispatch.Over(
+                    () => new AgentSmithDbContext(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options),
+                    resumeQueue.Object), Queue(),
                 NullLogger<ResumeRunLauncher>.Instance),
             loader.Object, "config.yaml", NullLogger<CapacityQueuePump>.Instance);
     }

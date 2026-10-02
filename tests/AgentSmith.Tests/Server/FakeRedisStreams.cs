@@ -19,6 +19,7 @@ public sealed class FakeRedisStreams
         SetupSets(db);
         SetupLists(db);
         SetupStrings(db);
+        FakeRedisIndexCommands.Setup(db, State);
         var redis = new Mock<IConnectionMultiplexer>();
         redis.Setup(r => r.GetDatabase(It.IsAny<int>(), It.IsAny<object?>())).Returns(db.Object);
         Connection = redis.Object;

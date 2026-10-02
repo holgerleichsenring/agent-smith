@@ -306,6 +306,35 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ConfigRefs");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConnectionDiscovery", b =>
+                {
+                    b.Property<string>("ConnectionName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DiscoveredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReposJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ConnectionName");
+
+                    b.ToTable("ConnectionDiscoveries", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DialogueAnswerEntry", b =>
                 {
                     b.Property<long>("Id")
@@ -392,6 +421,47 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Subject");
 
                     b.ToTable("ObservedCallers");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.PendingClarification", b =>
+                {
+                    b.Property<string>("Platform")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ChannelId")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginalInput")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SuggestedText")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Platform", "ChannelId");
+
+                    b.ToTable("PendingClarifications", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.QueuedTicket", b =>
@@ -537,6 +607,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<bool>("CancelRequested")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTimeOffset?>("ClaimedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<decimal>("CostTotalUsd")
                         .HasColumnType("TEXT");
 
@@ -580,7 +653,13 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<string>("PullRequestsJson")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("QueuedRequestJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("RepoMode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("RequestEnqueuedAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("RunMetricsJson")
@@ -1581,6 +1660,26 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("UnmovedTickets");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.WebhookLastSeen", b =>
+                {
+                    b.Property<string>("Platform")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Platform");
+
+                    b.ToTable("WebhookLastSeen", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>

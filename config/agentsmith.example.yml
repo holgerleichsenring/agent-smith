@@ -641,10 +641,6 @@ pipeline_cost_cap:
   #     usd: 40
   #     tokens: 8000000
 
-# In-flight pipeline-storage settings.
-pipeline_storage:
-  redis_ttl_hours: 4
-
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

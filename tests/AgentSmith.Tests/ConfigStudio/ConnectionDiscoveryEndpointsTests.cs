@@ -1,10 +1,10 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Services.Persistence;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Providers.Discovery;
 using AgentSmith.Server.Services.Config;
-using AgentSmith.Tests.Persistence;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -12,13 +12,14 @@ using Moq;
 namespace AgentSmith.Tests.ConfigStudio;
 
 /// <summary>
-/// 2026-10-02-5f89c: the studio's discovery read over the shared Redis hash — a missing key is
+/// 2026-10-02-5f89c: the studio's discovery read over the shared store — a missing key is
 /// discovered at once, Refresh now on one replica is read back on another, an unknown id is 404.
+/// 2026-10-02-5ab2a: the shared store is the database row.
 /// </summary>
-public sealed class ConnectionDiscoveryEndpointsTests
+public sealed class ConnectionDiscoveryEndpointsTests : IDisposable
 {
     private static readonly ResolvedConnection Conn = new() { Name = "conn", Type = RepoType.GitLab, Group = "acme" };
-    private readonly FakeRedisHashes _redis = new();
+    private readonly ServerStateStore _db = new();
     private int _discoveries;
     private Func<IReadOnlyList<DiscoveredRepo>> _answer = () => [new DiscoveredRepo { Name = "api" }];
 
@@ -67,10 +68,10 @@ public sealed class ConnectionDiscoveryEndpointsTests
         (await Reader().RefreshNowAsync("ghost", CancellationToken.None)).Should().BeNull();
     }
 
-    // One reader per call stands for one replica: its own process state, the shared hash.
+    // One reader per call stands for one replica: its own process state, the shared row.
     private ConnectionDiscoveryReader Reader()
     {
-        var store = new RedisConnectionRepoSnapshot(_redis.Replica());
+        var store = new DbConnectionRepoSnapshot(_db.ScopeFactory, TimeProvider.System);
         var discovery = new Mock<IRepoDiscoveryService>();
         discovery.Setup(d => d.DiscoverAsync(It.IsAny<ResolvedConnection>(), It.IsAny<CancellationToken>()))
             .Returns(() => { _discoveries++; return Task.FromResult(_answer()); });
@@ -82,4 +83,6 @@ public sealed class ConnectionDiscoveryEndpointsTests
         var loader = Mock.Of<IConfigurationLoader>(l => l.LoadConfig(It.IsAny<string>()) == config);
         return new ConnectionDiscoveryReader(configStore, loader, store, refresher);
     }
+
+    public void Dispose() => _db.Dispose();
 }

@@ -15,4 +15,10 @@ public interface IRunHeartbeat
     /// <paramref name="freshFor"/> — the sandbox reapers union them into their live set.
     /// </summary>
     Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-02-5ab2c: the fresh unfinished runs that are not parked on a question — the
+    /// housekeeping leader re-seeds the Redis active-run set from them after a flush.
+    /// </summary>
+    Task<IReadOnlyCollection<string>> GetFreshUnparkedRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken);
 }

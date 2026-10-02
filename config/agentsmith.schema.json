@@ -138,12 +138,14 @@
     },
     "pipeline_storage": {
       "type": "object",
-      "description": "In-flight run-artifact store.",
+      "deprecated": true,
+      "description": "Retired 2026-10-02 and ignored: nothing stores in-flight run artifacts in Redis any more. Declared only so an older file still validates; the server reports it as a retired key. Delete it.",
       "additionalProperties": false,
       "properties": {
         "redis_ttl_hours": {
           "type": "integer",
-          "description": "How long an abandoned run's in-flight artifacts live. Default 4."
+          "deprecated": true,
+          "description": "Ignored."
         }
       }
     },

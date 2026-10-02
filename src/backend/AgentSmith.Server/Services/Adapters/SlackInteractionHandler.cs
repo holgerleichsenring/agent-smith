@@ -15,9 +15,8 @@ namespace AgentSmith.Server.Services.Adapters;
 /// </summary>
 public sealed class SlackInteractionHandler(
     ChatRunAnswerRouter answers,
-    ClarificationStateManager clarificationState,
+    ClarificationTaker clarifications,
     SlackMessageDispatcher dispatcher,
-    HelpHandler helpHandler,
     SlackAdapter adapter,
     ILogger<SlackInteractionHandler> logger)
 {
@@ -51,23 +50,14 @@ public sealed class SlackInteractionHandler(
         };
     }
 
+    // 2026-10-02-5ab2d: the clicked message loses its buttons on every click, taken or not.
     private async Task HandleClarificationAsync(
         string channelId, string answer, JsonNode payload, CancellationToken ct)
     {
-        var pending = await clarificationState.GetAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
-        if (pending is null)
-        {
-            logger.LogWarning("Clarification clicked but no pending state for {ChannelId}", channelId);
-            return;
-        }
-
-        await clarificationState.ClearAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
-        await UpdateClarificationMessageAsync(channelId, answer, payload, ct);
-
-        if (answer == "confirm")
+        var pending = await clarifications.TakeAsync(DispatcherDefaults.PlatformSlack, channelId, answer, ct);
+        await UpdateClarificationMessageAsync(channelId, answer, pending is not null, payload, ct);
+        if (pending is not null)
             await dispatcher.DispatchAsync(pending.SuggestedText, pending.UserId, channelId, ct);
-        else
-            await helpHandler.SendHelpAsync(DispatcherDefaults.PlatformSlack, channelId, ct);
     }
 
     private async Task HandleJobQuestionAsync(
@@ -112,12 +102,12 @@ public sealed class SlackInteractionHandler(
         ?? payload["container"]?["thread_ts"]?.GetValue<string>();
 
     private async Task UpdateClarificationMessageAsync(
-        string channelId, string answer, JsonNode payload, CancellationToken ct)
+        string channelId, string answer, bool taken, JsonNode payload, CancellationToken ct)
     {
         var messageTs = payload["message"]?["ts"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(messageTs)) return;
 
-        var text = answer == "confirm" ? "Confirmed" : "Showing help";
+        var text = answer != ClarificationTaker.Confirm ? "Showing help" : taken ? "Confirmed" : "No longer pending";
         await adapter.UpdateQuestionAnsweredAsync(channelId, messageTs, "Clarification", text, ct);
     }
 
