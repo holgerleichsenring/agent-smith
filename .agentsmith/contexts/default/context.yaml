@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-5ab2a: "A CONNECTION'S DISCOVERY STATE SURVIVES A REDIS FLUSH (discovery, persistence, archive). One ConnectionDiscoveries row per connection with column-disjoint updates replaces the Redis hash; every replica reads it through a 30-second cache; a restore clears it as server bookkeeping. -> .agentsmith/phases/done/2026-10-02-5ab2a-discovery-state-database.yaml"
     2026-10-02-0d72: "A WEBSITE FOLDER PICK WORKS (website upload, dialog composer). Files that are not site files are skipped and named in the answer; a set is refused only when none remains or a limit is crossed, the refusal is logged at Warning and shown at the composer with the server's reason. -> .agentsmith/phases/done/2026-10-02-0d72-reference-upload-refusal-reason.yaml"
     2026-10-02-5f89e: "A RUN NO SERVER DRIVES ENDS AS INTERRUPTED (run heartbeat, liveness reaper, persistence). Run.HeartbeatAt renewed every 45 s for every run by RunHeartbeatPump; RunLivenessReaper flags a running row silent for 3 min, CancelEnforcer ends it cancelled within five minutes. -> .agentsmith/phases/done/2026-10-02-5f89e-run-restart-orphan.yaml"
     2026-10-02-75dc: "SANDBOX REAPERS SEE A BEATING RUN AS LIVE (sandbox reapers, run liveness). LiveRunSetReader unions the unfinished runs whose row beat is within LeaseFreshFor, so a flushed Redis no longer orphans the sandboxes of a lease-less init run. -> .agentsmith/phases/done/2026-10-02-75dc-reaper-run-heartbeat.yaml"

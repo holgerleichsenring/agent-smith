@@ -306,6 +306,35 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ConfigRefs");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConnectionDiscovery", b =>
+                {
+                    b.Property<string>("ConnectionName")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("DiscoveredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("LastAttemptAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReposJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ConnectionName");
+
+                    b.ToTable("ConnectionDiscoveries", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.DialogueAnswerEntry", b =>
                 {
                     b.Property<long>("Id")

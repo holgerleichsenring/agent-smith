@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2a
+
+decisions:
+  - category: Architecture
+    chose: "DbConnectionRepoSnapshot (singleton, scope per operation) implements IConnectionRepoSnapshot and IConnectionRepoSnapshotStore over one ConnectionDiscoveries row per connection; AddServerState removes both ports and registers it, chained after AddRelationalPersistence"
+    over: "Keeping the Redis hash and copying it to the database"
+    reason: |
+      The last success and the last error are what the operator reads after an outage; a
+      flush erased both. A row survives it, and Redis keeps nothing of discovery any more.
+      AddServerState lives in the persistence project's Extensions, like AddTicketFactStores,
+      so a test composes the same registration the server does.
+  - category: Implementation
+    chose: "Each half is one ExecuteUpdate with no read; zero rows updated inserts; a unique violation from a concurrent insert detaches the entity and runs the update again"
+    over: "Read-modify-write of the whole row"
+    reason: "A single-statement update of one half cannot erase the other half on any replica, as the Redis hash fields could not either."
+  - category: TradeOff
+    chose: "TryGet serves a process cache entry younger than 30 s, else reads the row synchronously; Set refreshes this process's entry; a missing row and a failure-only row are a miss and are not cached"
+    over: "A database read per glob expansion, or caching misses"
+    reason: |
+      The synchronous config path cannot afford a round trip per expansion; replica B sees
+      replica A's refresh within 30 s, A at once. A cached miss would skip the expander's
+      blocking first refresh, so a miss is read again.
+  - category: Implementation
+    chose: "ServerStateConfigurations applies ObservedCallerConfiguration and ConnectionDiscoveryConfiguration; no DbSet; ServerBookkeepingReset deletes through db.Set<ConnectionDiscovery>()"
+    over: "A DbSet and a configuration line in AgentSmithDbContext"
+    reason: "The context is at the 120-line limit with no ratchet row; later state tables join the group."
+  - category: Implementation
+    chose: "The entity derives from EntityBase and the updates stamp UpdatedAt themselves"
+    over: "A plain class"
+    reason: "Every mapped entity carries the audit columns; an ExecuteUpdate bypasses SaveChanges stamping, so it sets UpdatedAt to the recorded time."
+  - category: Tooling
+    chose: "RacingUnitOfWork lets a second store insert just before the first store's insert is saved"
+    over: "Two threads racing on one database"
+    reason: "Deterministic: the unique-violation retry runs on every run of the test, not only when the threads happen to interleave."
+  - category: Scope
+    chose: "No copy of existing Redis hashes; RedisConnectionRepoSnapshot, its tests and FakeRedisHashes deleted"
+    over: "A one-off migration from the hash"
+    reason: "A missing row refreshes on first read, as 5f89c already does; the endpoint tests run over the database store."

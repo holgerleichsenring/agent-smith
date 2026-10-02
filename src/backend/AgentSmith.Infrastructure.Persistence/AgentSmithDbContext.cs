@@ -69,7 +69,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
-        modelBuilder.ApplyConfiguration(new ObservedCallerConfiguration()); // 2026-08-26-7a51
+        new ServerStateConfigurations().Apply(modelBuilder); // 2026-08-26-7a51 + 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new ChatRunBindingConfiguration());
         new RunChildConfiguration().Apply(modelBuilder);
         // p0388a: AFTER the child loop, so the per-step trail index joins the uniform RunId one.

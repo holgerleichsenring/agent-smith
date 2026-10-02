@@ -63,6 +63,19 @@ public sealed class ServerRestorePolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsConnectionDiscoveries()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new ConnectionDiscovery { ConnectionName = "conn", ReposJson = "[]", DiscoveredAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<ConnectionDiscovery>().CountAsync()).Should().Be(0,
+            "the next discovery rebuilds it, and the archive's row would collide with it");
+    }
+
+    [Fact]
     public async Task Policy_ARunThatWasRecorded_LeavesTheBookkeepingAlone()
     {
         await using var db = MigratedStoreTemplate.Context(_store);
