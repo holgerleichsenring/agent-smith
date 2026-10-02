@@ -164,8 +164,9 @@ describe("AgentForm (2026-09-30-62bab)", () => {
       />,
     );
     await screen.findByText(/public price list/);
-
-    expect(screen.getByTestId("agent-model-source-gpt-4.1")).toHaveTextContent("price list");
+    // The price list arrives after the first render; wait for the card this test reads, not
+    // merely for the legend — under CI load the two are a render apart.
+    expect(await screen.findByTestId("agent-model-source-gpt-4.1")).toHaveTextContent("price list");
     expect(screen.getByTestId("agent-model-price-gpt-4.1")).toHaveTextContent("$2.00 / $8.00 / $0.50");
     expect(screen.getByTestId("agent-model-source-mini")).toHaveTextContent("override");
     expect(screen.getByTestId("agent-model-price-mini")).toHaveTextContent("$0.30 / $1.20 / —");
