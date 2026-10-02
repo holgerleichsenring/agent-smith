@@ -18,6 +18,16 @@ public sealed class CancelReasonNarratorTests
         summary.Should().NotContain("by operator");
     }
 
+    // 2026-10-02-5f89e: a run whose server went away was not cancelled by anyone.
+    [Fact]
+    public void Interrupted_SaysNoServerWasDrivingIt()
+    {
+        CancelReasonNarrator.Summary("interrupted")
+            .Should().Be("Interrupted — no server was driving this run any more (restart or crash).");
+        CancelReasonNarrator.TicketComment("interrupted")
+            .Should().Contain("Interrupted").And.NotContain("by operator");
+    }
+
     [Fact]
     public void OperatorCancel_ReadsAsOperator()
     {

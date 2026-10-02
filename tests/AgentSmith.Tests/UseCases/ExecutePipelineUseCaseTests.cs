@@ -56,6 +56,9 @@ public class ExecutePipelineUseCaseTests
             new ModelPricingResolver(),
             _registry,
             _lease.Object,
+            new AgentSmith.Application.Services.Lifecycle.RunHeartbeatPump(
+                _lease.Object, new AgentSmith.Application.Services.Lifecycle.NoOpRunHeartbeat(), TimeProvider.System,
+                NullLogger<AgentSmith.Application.Services.Lifecycle.RunHeartbeatPump>.Instance),
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
             _errorHandlerMock.Object,

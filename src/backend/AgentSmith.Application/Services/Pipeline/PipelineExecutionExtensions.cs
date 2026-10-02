@@ -103,6 +103,8 @@ public static class PipelineExecutionExtensions
         // relational store there is no persisted flag to read. The Server
         // composition swaps in DbRunCancelStateReader.
         services.AddSingleton<IRunCancelStateReader, NoOpRunCancelStateReader>();
+        // 2026-10-02-5f89e: the run-row beat; the Server swaps in DbRunHeartbeat.
+        services.AddSingleton<IRunHeartbeat, NoOpRunHeartbeat>().AddSingleton<RunHeartbeatPump>();
         // p0200: per-run CTS registry powers the cancel endpoint + watchdog.
         services.AddSingleton<IRunCancellationRegistry, RunCancellationRegistry>();
         services.AddSingleton<AgentPromptBuilder>();

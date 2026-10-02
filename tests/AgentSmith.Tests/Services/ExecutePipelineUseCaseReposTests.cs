@@ -59,6 +59,10 @@ public sealed class ExecutePipelineUseCaseReposTests
             new AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry(
                 NullLogger<AgentSmith.Application.Services.Lifecycle.RunCancellationRegistry>.Instance),
             new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+            new AgentSmith.Application.Services.Lifecycle.RunHeartbeatPump(
+                new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
+                new AgentSmith.Application.Services.Lifecycle.NoOpRunHeartbeat(), TimeProvider.System,
+                NullLogger<AgentSmith.Application.Services.Lifecycle.RunHeartbeatPump>.Instance),
             new AgentSmith.Tests.Sandbox.StubConfigResolver(),
             Mock.Of<IProgressReporter>(),
             Mock.Of<IPipelineErrorHandler>(),

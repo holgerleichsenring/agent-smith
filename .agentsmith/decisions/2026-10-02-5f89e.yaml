@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89e
+
+decisions:
+  - category: Architecture
+    chose: "Run.HeartbeatAt renewed by one RunHeartbeatPump for every run, the ActiveRun lease beside it for a ticket run"
+    over: "Teaching ActiveRunReaper the run row, or a synthetic ticket for an init"
+    reason: |
+      The lease guards the CLAIM, which exists before any run row and drives ticket release;
+      the row guards the RUN, which every run has. Moving the reaper to rows would leave
+      unattached claims unguarded, and a synthetic ticket would teach the poller and the
+      finalizer a lie. One pump writes both on one cadence, so they cannot drift.
+  - category: Architecture
+    chose: "RunLivenessReaper flags reason interrupted with deadline now and publishes RunCancelRequestedEvent; CancelEnforcer ends the row cancelled"
+    over: "A new terminal status, or finishing the row from the reaper"
+    reason: |
+      Interrupted is a reason, not a status: every reader of statuses stays as it is, and the
+      enforcer's terminal path already releases capacity, narrates the reason and removes the
+      run from the active-runs set, which is what lets the sandbox reaper take its sandboxes.
+  - category: Implementation
+    chose: "The last sign of life is the LATER of HeartbeatAt and StartedAt"
+    over: "COALESCE(HeartbeatAt, StartedAt), as the spec wrote it"
+    reason: |
+      A run resumed from a park has StartedAt reset at promotion (QueuedRunProjection) while
+      its HeartbeatAt still dates from before the park, so COALESCE would end a freshly
+      resumed run within a minute, before its first renewal. The later of the two keeps the
+      spec's intent — StartedAt is the first beat — for both young and resumed runs.
+  - category: Implementation
+    chose: "SuspendGapDetector extracted as a stateful per-loop object with Observe and SuppressesVerdicts, logging left to the caller"
+    over: "A DI-registered service, or each reaper keeping its own copy"
+    reason: |
+      The detector's state belongs to one scan loop, so it is constructed by the loop; without
+      a logger it needs no manual logger wiring. It reads the monotonic clock exactly as the
+      inlined original did, so ActiveRunReaperTests' read-counting progress proof holds.
+  - category: Implementation
+    chose: "No entity configuration for HeartbeatAt; the conventions map a nullable DateTimeOffset in both migration sets"
+    over: "A line in RunConfiguration"
+    reason: |
+      The spec's 'model config' step had nothing to configure — like CancelDeadlineAt, the
+      column needs no length, precision or index. Both migrations were generated with
+      `dotnet ef migrations add AddRunHeartbeat` per migrations project.
+  - category: Implementation
+    chose: "Registration in a new AddRunLiveness extension that replaces the ActiveRunReaperHostedService line"
+    over: "Adding lines to RelationalPersistenceExtensions"
+    reason: "RelationalPersistenceExtensions sits at its file-length ratchet row; the swap is line-neutral."
+  - category: Scope
+    chose: "LiveRunSetReader unchanged"
+    over: "Unioning fresh run-row beats into the sandbox reapers' live set"
+    reason: |
+      Not in this phase. Today a ticketless run's sandboxes are kept alive by the Redis
+      active-runs set alone; the fresh row beat would make that survive a Redis flush too,
+      and is a separate change with its own reapers to prove.
+  - category: Tooling
+    chose: "RunStoreRepairTests reads CostTotalUsd as a projection"
+    over: "Leaving the whole-row read"
+    reason: |
+      That store stops at a migration older than the Run entity; reading the whole row names
+      every column added since, so the first new Run column broke a test about duplicates.

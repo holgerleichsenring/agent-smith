@@ -4,7 +4,7 @@
 # Fix a file, drop its line — the test fails if a fixed file is still listed.
 # lines	path (relative to src/backend)
 922	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
-655	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
+617	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
 617	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
 541	AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs
 436	AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs

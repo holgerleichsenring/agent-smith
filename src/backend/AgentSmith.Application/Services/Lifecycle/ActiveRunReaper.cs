@@ -28,7 +28,8 @@ namespace AgentSmith.Application.Services.Lifecycle;
 /// runs. (2) A monotonic gap across scan iterations means the process was
 /// suspended (host sleep): on wake every heartbeat is stale by construction, so
 /// stale verdicts are suppressed for one LeaseFreshFor window while the pumps
-/// catch up.
+/// catch up (2026-10-02-5f89e: <see cref="SuspendGapDetector"/>, shared with
+/// RunLivenessReaper).
 /// </summary>
 public sealed class ActiveRunReaper(
     IActiveRunLease lease,
@@ -64,15 +65,16 @@ public sealed class ActiveRunReaper(
     public async Task RunAsync(TimeSpan staleThreshold, TimeSpan scanInterval, CancellationToken cancellationToken)
     {
         logger.LogInformation("ActiveRunReaper started (stale>{Stale}, scan {Scan})", staleThreshold, scanInterval);
-        var previousIteration = timeProvider.GetTimestamp();
-        long? wakeTimestamp = null;
+        var gaps = new SuspendGapDetector(timeProvider, scanInterval, LeaseFreshFor);
         while (!cancellationToken.IsCancellationRequested)
         {
-            wakeTimestamp = DetectSuspendGap(previousIteration, scanInterval) ?? wakeTimestamp;
-            previousIteration = timeProvider.GetTimestamp();
-            if (wakeTimestamp is not { } wake || timeProvider.GetElapsedTime(wake) >= LeaseFreshFor)
+            if (gaps.Observe() is { } gap)
+                logger.LogWarning(
+                    "ActiveRunReaper detected a suspend gap of {Gap} (scan interval {Scan}) — "
+                    + "suppressing stale verdicts for {Grace} while heartbeat pumps catch up",
+                    gap, scanInterval, LeaseFreshFor);
+            if (!gaps.SuppressesVerdicts())
             {
-                wakeTimestamp = null;
                 try { await RunOnceAsync(staleThreshold, cancellationToken); }
                 catch (OperationCanceledException) { break; }
                 catch (Exception ex) { logger.LogError(ex, "ActiveRunReaper scan failed"); }
@@ -92,20 +94,5 @@ public sealed class ActiveRunReaper(
             "Spared stale lease {Project}/{Ticket}: run {Run} is alive in this process — "
             + "heartbeat refreshed instead of reaped (the heartbeat pump is behind)",
             candidate.Project, candidate.TicketId.Value, candidate.RunId);
-    }
-
-    // p0383: a monotonic gap far beyond the scan interval means the process (or its
-    // host) was suspended — on wake every DB heartbeat is stale by construction, a
-    // clock artifact, not a dead replica. Monotonic time (GetTimestamp), never
-    // GetUtcNow: wall-clock jumps are exactly what cannot be trusted here.
-    private long? DetectSuspendGap(long previousIteration, TimeSpan scanInterval)
-    {
-        var gap = timeProvider.GetElapsedTime(previousIteration);
-        if (gap <= scanInterval + LeaseFreshFor / 2) return null;
-        logger.LogWarning(
-            "ActiveRunReaper detected a suspend gap of {Gap} (scan interval {Scan}) — "
-            + "suppressing stale verdicts for {Grace} while heartbeat pumps catch up",
-            gap, scanInterval, LeaseFreshFor);
-        return timeProvider.GetTimestamp();
     }
 }

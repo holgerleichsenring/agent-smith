@@ -74,7 +74,10 @@ public sealed class RunStoreRepairTests : IDisposable
         await using (var db = Context()) await Migrator().RepairAsync(db, CancellationToken.None);
 
         await using var ctx = Context();
-        ctx.Runs.Single().CostTotalUsd.Should().Be(2m, "three copies of one two-dollar call cost two dollars");
+        // 2026-10-02-5f89e: the column alone — this store stops at a migration older than
+        // the Run entity, so a whole-row read names columns it does not have yet.
+        ctx.Runs.Select(r => r.CostTotalUsd).Single()
+            .Should().Be(2m, "three copies of one two-dollar call cost two dollars");
     }
 
     [Fact]

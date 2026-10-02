@@ -549,6 +549,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("JobId")
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
