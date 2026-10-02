@@ -256,7 +256,7 @@ public sealed class QueuedRunCancelTests : IDisposable
         var reader = new DbRunCancelStateReader(
             scoped.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
         return new AgentSmith.Application.Services.PipelineQueueConsumer(
-            services.BuildServiceProvider(), new SingleRequestQueue(request), reader,
+            services.BuildServiceProvider(), new SingleRequestQueue(request), TestRunStartGate.Over(reader),
             "config.yaml", maxParallelJobs: 1, shutdownGraceSeconds: 5,
             NullLogger<AgentSmith.Application.Services.PipelineQueueConsumer>.Instance);
     }

@@ -43,6 +43,12 @@ public sealed class Run : EntityBase
     // for EVERY run — the ActiveRun lease beat only for ticket runs. Null until the first
     // renewal and on older rows; RunLivenessReaper then reads StartedAt as the first beat.
     public DateTimeOffset? HeartbeatAt { get; set; }
+    // 2026-10-02-5ab2b: a ticketless or resumed run's request, stored before its Redis push so
+    // a lost queue entry is pushed again from here (QueuedRunSweeper); ClaimedAt is set by the
+    // one consumer that popped it. All three are cleared when RunStarted promotes the row.
+    public string? QueuedRequestJson { get; set; }
+    public DateTimeOffset? RequestEnqueuedAt { get; set; }
+    public DateTimeOffset? ClaimedAt { get; set; }
     // p0344b: the run-story snapshot taken at run end (RunStoryRecordedEvent) —
     // camelCase wire JSON served verbatim on the run detail. ProgressLedgerJson
     // is the p0341 ledger ([{id,activity,status,target}]), AcceptanceJson the

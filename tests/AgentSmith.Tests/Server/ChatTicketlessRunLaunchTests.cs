@@ -12,6 +12,7 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.ChatLaunch;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Init;
+using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Server.Services.Webhooks;
 using AgentSmith.Tests.Spawning;
 using AgentSmith.Tests.TestSupport;
@@ -117,13 +118,13 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         ConfigLoader(), new ServerContext("agentsmith.yml"),
         new ChatPrContextResolver(_diffs.Object, new PrRunContextFactory()),
         new ChatTicketlessRunLauncher(
-            Runs(), Admission(), Queue(), TimeProvider.System,
+            Runs(), Admission(), Dispatch(), TimeProvider.System,
             NullLogger<ChatTicketlessRunLauncher>.Instance),
         _chat.Get<ChatRunStart>());
 
     private InitProjectIntentHandler InitHandler() => new(
         new InitRunLauncher(
-            ConfigLoader(), new ServerContext("agentsmith.yml"), Runs(), Admission(), Queue(),
+            ConfigLoader(), new ServerContext("agentsmith.yml"), Runs(), Admission(), Dispatch(),
             AcquiringLock(), TimeProvider.System, NullLogger<InitRunLauncher>.Instance),
         _chat.Get<ChatRunStart>());
 
@@ -140,6 +141,8 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
     private InitRunAdmission Admission() => new(
         CapacityTestDoubles.StubCalculator(), CapacityTestDoubles.AlwaysReserve(),
         CapacityTestDoubles.NoHolds(), _probe, NullLogger<InitRunAdmission>.Instance);
+
+    private QueuedRunDispatch Dispatch() => TestQueuedRunDispatch.Over(() => new AgentSmithDbContext(Options()), Queue());
 
     private IRedisJobQueue Queue()
     {

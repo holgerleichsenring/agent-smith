@@ -590,6 +590,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<bool>("CancelRequested")
                         .HasColumnType("bit");
 
+                    b.Property<DateTimeOffset?>("ClaimedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<decimal>("CostTotalUsd")
                         .HasPrecision(18, 10)
                         .HasColumnType("decimal(18,10)");
@@ -634,8 +637,14 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<string>("PullRequestsJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("QueuedRequestJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("RepoMode")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("RequestEnqueuedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("RunMetricsJson")
                         .HasColumnType("nvarchar(max)");
