@@ -16,6 +16,7 @@ public static class ServerStateExtensions
     public static IServiceCollection AddServerState(this IServiceCollection services)
     {
         services.AddScoped<ConnectionDiscoveryRepository>();
+        services.AddScoped<PendingClarificationRepository>(); // 2026-10-02-5ab2d
         services.TryAddSingleton(TimeProvider.System);
         services.RemoveAll<IConnectionRepoSnapshot>().RemoveAll<IConnectionRepoSnapshotStore>();
         services.AddSingleton<DbConnectionRepoSnapshot>();

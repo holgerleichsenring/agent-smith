@@ -51,6 +51,7 @@ internal static class IntentExtensions
         services.AddScoped<InitProjectIntentHandler>();
         services.AddScoped<SecurityReviewIntentHandler>();
         services.AddScoped<HelpHandler>();
+        services.AddScoped<ClarificationTaker>(); // 2026-10-02-5ab2d: one per click
         services.AddScoped<AgentSmith.Server.Services.Adapters.PlatformAdapters>();
         services.AddScoped<SlackMessageDispatcher>();
         services.AddScoped<SlackInteractionHandler>();

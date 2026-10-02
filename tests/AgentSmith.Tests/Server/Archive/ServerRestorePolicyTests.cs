@@ -76,6 +76,23 @@ public sealed class ServerRestorePolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsPendingClarifications()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new PendingClarification
+        {
+            Platform = "slack", ChannelId = "C1", SuggestedText = "fix #58", OriginalInput = "fix 58",
+            UserId = "U1", ExpiresAt = DateTimeOffset.UtcNow.AddHours(2), Token = Guid.NewGuid().ToString("N"),
+        });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<PendingClarification>().CountAsync()).Should().Be(0,
+            "a pending confirmation belongs to this server's channels, not to the archive's");
+    }
+
+    [Fact]
     public async Task Policy_ARunThatWasRecorded_LeavesTheBookkeepingAlone()
     {
         await using var db = MigratedStoreTemplate.Context(_store);
