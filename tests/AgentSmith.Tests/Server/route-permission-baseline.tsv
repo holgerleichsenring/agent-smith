@@ -71,6 +71,7 @@ POST	/api/config/agents	config.write
 POST	/api/config/changes/{id}/revert	config.write,secrets.write
 POST	/api/config/connections	config.write
 POST	/api/config/connections/check	config.write,diagnostics.probe
+POST	/api/config/connections/{id}/discovery/refresh	diagnostics.probe
 POST	/api/config/design-sources	config.write
 POST	/api/config/import	config.import,secrets.write
 POST	/api/config/mcp-servers	config.write

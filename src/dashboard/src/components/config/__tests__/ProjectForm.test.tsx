@@ -205,7 +205,7 @@ describe("ProjectForm", () => {
     fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
 
     const honest = await screen.findByTestId("form-connref-undiscovered");
-    expect(honest).toHaveTextContent("not discovered yet — run a discovery or type a name");
+    expect(honest).toHaveTextContent("not discovered yet — Refresh now or type a name");
 
     fireEvent.change(screen.getByTestId("form-connref-filter"), { target: { value: "Sample.Api" } });
     fireEvent.click(screen.getByTestId("form-connref-add"));

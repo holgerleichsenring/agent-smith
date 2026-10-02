@@ -140,6 +140,15 @@ public sealed class RoutePermissionGuardTests
             .Equal(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
     }
 
+    // 2026-10-02-5f89c: Refresh now is an outbound call with the installation's credentials.
+    [Fact]
+    public void Routes_DiscoveryRefresh_NeedsDiagnosticsProbe()
+    {
+        Declaration("POST", "/api/config/connections/{id}/discovery/refresh").Should()
+            .Equal(Permissions.DiagnosticsProbe);
+        Declaration("GET", "/api/config/connections/{id}/repos").Should().Equal(Permissions.ConfigRead);
+    }
+
     [Fact]
     public void RouteGuard_TheAnonymousRoutes_AreExactlyTheDeclaredSet()
     {

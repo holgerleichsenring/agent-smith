@@ -15,6 +15,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Server.Extensions;
 using FluentAssertions;
+using Moq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -202,7 +203,7 @@ public sealed class ConfigStudioApiSmokeTests
                     new DiscoveredRepo { Name = "Sample.Api.Server", Url = "https://x/Sample.Api.Server", DefaultBranch = "develop" },
                     new DiscoveredRepo { Name = "Sample.Worker", Url = "https://x/Sample.Worker" },
                 ],
-                CancellationToken.None);
+                DateTimeOffset.UtcNow, CancellationToken.None);
             var warm = await http.GetStringAsync("/api/config/connections/sample-cloud/repos");
             warm.Should().Contain("\"name\":\"Sample.Api.Server\"")
                 .And.Contain("\"defaultBranch\":\"develop\"")
@@ -499,6 +500,11 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddSingleton<IAgentSmithPaths>(
             new TempPaths(cacheRoot ?? Path.Combine(Path.GetTempPath(), $"agentsmith-cache-{Guid.NewGuid():N}")));
         builder.Services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
+        // 2026-10-02-5f89c: the discovery read refreshes a key nothing was recorded under; this
+        // host loads no connection to refresh, so a cold read answers the empty view.
+        builder.Services.AddSingleton(Mock.Of<IConfigurationLoader>(l => l.LoadConfig(It.IsAny<string>()) == AgentSmithConfig.Empty()));
+        builder.Services.AddSingleton(Mock.Of<IRepoDiscoveryRefresher>());
+        builder.Services.AddTransient<AgentSmith.Server.Services.Config.ConnectionDiscoveryReader>();
         // p0392: the draft-validation endpoints run the server's own rule objects.
         builder.Services.AddSingleton<EffectiveTriggerBuilder>();
         builder.Services.AddSingleton<ProjectConfigNormalizer>();

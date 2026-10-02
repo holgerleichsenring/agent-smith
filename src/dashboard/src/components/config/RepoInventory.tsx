@@ -1,19 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { refMatches } from "@/lib/repoRefs";
-import {
-  fetchConnectionRepos,
-  type ConnectionRepos,
-  type StudioConnection,
-  type StudioProject,
-} from "@/lib/configApi";
+import { type StudioConnection, type StudioProject } from "@/lib/configApi";
+import { DiscoveryStatus } from "./DiscoveryStatus";
+import { useConnectionDiscovery } from "./useConnectionDiscovery";
 
 // p0345c: the DISCOVERED half of the Repositories page — one section per
 // connection listing what the discovery cache actually found there, read-only,
 // with "referenced by <project>" badges wherever a project wires conn/Name
 // (exact ref or wildcard). A connection whose cache is empty says so honestly
 // instead of rendering blank.
+// 2026-10-02-5f89c: each section states its last success, its last error with the reason,
+// and offers Refresh now, after which it re-reads.
 
 export function RepoInventory({
   connections,
@@ -46,18 +44,7 @@ function ConnectionInventory({
   connection: StudioConnection;
   projects: StudioProject[];
 }) {
-  const [snapshot, setSnapshot] = useState<ConnectionRepos | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetchConnectionRepos(connection.id, controller.signal)
-      .then(setSnapshot)
-      .catch((err: Error) => {
-        if (err.name !== "AbortError") setError(err);
-      });
-    return () => controller.abort();
-  }, [connection.id]);
+  const { discovered: snapshot, error, refreshing, refreshError, refresh } = useConnectionDiscovery(connection.id);
 
   return (
     <div className="ecard" data-testid={`repo-inventory-${connection.id}`}>
@@ -75,6 +62,13 @@ function ConnectionInventory({
           <span className="tybadge">{connection.type || "connection"}</span>
         </div>
       </div>
+      <DiscoveryStatus
+        testId={`repo-inventory-${connection.id}`}
+        discovered={snapshot}
+        refreshing={refreshing}
+        refreshError={refreshError}
+        onRefresh={refresh}
+      />
       {error ? (
         <div className="fields">
           <div className="f" data-testid={`repo-inventory-error-${connection.id}`}>
@@ -95,7 +89,9 @@ function ConnectionInventory({
         <div className="fields">
           <div className="f" data-testid={`repo-inventory-undiscovered-${connection.id}`}>
             <span className="fl">discovery</span>
-            <span className="fv">not discovered yet — run a discovery or type a name on the project</span>
+            <span className="fv">
+              {snapshot.discovering ? "discovering…" : "not discovered yet — Refresh now, or type a name on the project"}
+            </span>
           </div>
         </div>
       ) : (

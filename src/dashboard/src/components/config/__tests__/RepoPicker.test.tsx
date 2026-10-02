@@ -201,7 +201,7 @@ describe("RepoPicker (p0488)", () => {
     const cold = render(<Picker />);
     fireEvent.change(screen.getByTestId("form-connref-connection"), { target: { value: "conn" } });
     expect(await screen.findByTestId("form-connref-undiscovered")).toHaveTextContent(
-      "not discovered yet — run a discovery or type a name below",
+      "not discovered yet — Refresh now or type a name below",
     );
     // The fallback that state promises still works from the same one box.
     fireEvent.change(screen.getByTestId("form-connref-filter"), { target: { value: "Sample.Api" } });

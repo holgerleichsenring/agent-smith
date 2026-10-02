@@ -375,11 +375,18 @@ export interface DiscoveredRepo {
   defaultBranch: string | null;
 }
 
-/** The discovery snapshot for one connection — discoveredAt null means the
- *  discovery never ran (the honest "not discovered yet" state). */
+/** The discovery snapshot for one connection — discoveredAt null means no discovery has
+ *  succeeded yet. 2026-10-02-5f89c: beside the last success, the last attempt and its error
+ *  (a failure never erases the last success), the repo count of the last success, and
+ *  `discovering` while a first discovery outlasts the server's wait. Every replica answers
+ *  the same: the server reads one shared store. */
 export interface ConnectionRepos {
   discoveredAt: string | null;
   repos: DiscoveredRepo[];
+  lastAttemptAt?: string | null;
+  lastError?: string | null;
+  repoCount?: number | null;
+  discovering?: boolean;
 }
 
 /** 2026-09-14-620e: the context names one repo of one project declares, read live
@@ -409,6 +416,15 @@ export async function fetchConnectionRepos(
 ): Promise<ConnectionRepos> {
   return getJson<ConnectionRepos>(
     `/api/config/connections/${encodeURIComponent(connectionId)}/repos`, signal);
+}
+
+/** 2026-10-02-5f89c: discover now and answer the new state (needs diagnostics.probe). */
+export async function refreshConnectionDiscovery(
+  connectionId: string,
+  signal?: AbortSignal,
+): Promise<ConnectionRepos> {
+  return sendJson<ConnectionRepos>(
+    "POST", `/api/config/connections/${encodeURIComponent(connectionId)}/discovery/refresh`, {}, signal);
 }
 
 /** The operator's word on a catalog entry; null = untiered, never reported. */

@@ -7,6 +7,7 @@ using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Demo;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Infrastructure.Core;
 
@@ -27,8 +28,9 @@ public static class ServiceCollectionExtensions
         // p0281a: connection repo discovery — the snapshot (hot cache) + durable disk
         // last-good + the sync glob expander the catalog resolver uses. The discovery
         // providers + refresher live in AgentSmith.Infrastructure (HTTP).
-        services.AddSingleton<IConnectionRepoSnapshot, InMemoryConnectionRepoSnapshot>();
-        services.AddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
+        // 2026-10-02-5f89c: TryAdd — the server registers one Redis hash store for both first.
+        services.TryAddSingleton<IConnectionRepoSnapshot, InMemoryConnectionRepoSnapshot>();
+        services.TryAddSingleton<IConnectionRepoSnapshotStore, DiskConnectionRepoSnapshotStore>();
         services.AddSingleton<RepoGlobExpander>();
         // p0285: deterministic URL builder for exact (wildcard-free) connection repo refs.
         services.AddTransient<IConnectionRepoUrlBuilder, ConnectionRepoUrlBuilder>();

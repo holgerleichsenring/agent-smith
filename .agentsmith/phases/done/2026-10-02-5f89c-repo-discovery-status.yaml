@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5f89c
+goal: "Each connection's repo discovery shows its last success, last error with reason and repo count in the Studio, offers Refresh now, and every replica answers the same."
+
+applies_to: "backend (discovery refresher, snapshot stores, studio routes), dashboard (repo inventory, repo picker)"
+
+requires: ["2026-10-02-5f89a"]
+
+facts:
+  - claim: "Every replica refreshes every connection every five minutes and on start."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/RepoDiscoveryRefreshHostedService.cs:19-43; src/backend/AgentSmith.Server/Services/Hosting/PollingExtensions.cs:33"
+  - claim: "A failed discovery serves the last-good set and only logs; a ConfigurationException skips that fallback and propagates; a cold failure throws and the sweep logs it. No outcome is stored."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/RepoDiscoveryRefresher.cs:20-69"
+  - claim: "After 2026-10-02-5f89a a missing or unresolvable secret is a MissingCredentialException, a ConfigurationException — so it would bypass the last-good fallback."
+    evidence: ".agentsmith/phases/planned/2026-10-02-5f89a-auth-secret-per-connection.yaml (scope.in); RepoDiscoveryRefresher.cs:30"
+  - claim: "Two per-process stores hold discovery: a hot in-memory dictionary the glob expander reads synchronously, and a last-good file per connection on the process's disk whose write time is the discovered-at."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/InMemoryConnectionRepoSnapshot.cs:7-19; DiskConnectionRepoSnapshotStore.cs:8-12,43-61; src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs:31-32; RepoGlobExpander.cs:45-51"
+  - claim: "GET /api/config/connections/{id}/repos serves that file's repos and time, nothing about failures."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:55-69; src/backend/AgentSmith.Contracts/Models/ConfigStudio/ConnectionReposView.cs:9-13"
+  - claim: "The server already swaps a disk store for a Redis one so replicas share it."
+    evidence: "src/backend/AgentSmith.Server/Services/RedisExtensions.cs:56-59; src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisProjectMapStore.cs:9-19"
+  - claim: "The inventory and the picker fetch discovery once per connection id; both tell the operator to 'run a discovery', which nothing in the UI can do."
+    evidence: "src/dashboard/src/components/config/RepoInventory.tsx:52-60,98; src/dashboard/src/components/config/RepoPicker.tsx:172-191,290"
+  - claim: "The studio's mapped routes are pinned at 45 and listed."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/ConfigStudioRouteSplitTests.cs:41-46,59"
+
+scope:
+  in: >
+    On the server one Redis hash per connection (no TTL) holds repos and discovered_at (written together), and
+    last_attempt_at and last_error (written together); a success writes its fields and clears last_error in one
+    transaction, a failure writes only its two, so concurrent writers on several replicas never erase each other's
+    half. RedisConnectionRepoSnapshot implements both IConnectionRepoSnapshot (synchronous read for the glob
+    expander) and IConnectionRepoSnapshotStore, replacing the in-memory and disk stores on the server; the CLI keeps
+    them and writes a status file beside the repos file. RepoDiscoveryRefresher records every outcome; a
+    MissingCredentialException falls back to last-good like a transport failure and is recorded; other configuration
+    errors still throw after being recorded. Refreshes are single-flight per connection in a process: the glob
+    expander's cold refresh, the endpoint's and the sweep's share one in-flight task. A missing key triggers that
+    refresh IMMEDIATELY on read; GET .../repos awaits it up to 30 s, then answers 'discovering'. GET .../repos adds
+    lastAttemptAt, lastError and repoCount. POST /api/config/connections/{id}/discovery/refresh (diagnostics.probe),
+    mapped in MapConfigStudioEndpoints with the pin updated deliberately, refreshes now and answers the view.
+    Dashboard: success time, count, last error with reason, and Refresh now that re-reads; the dead hints go.
+  out: >
+    Changing the sweep interval or electing a sweep leader. Cross-replica single-flight: two replicas refreshing one
+    missing key write the same result, which is harmless.
+
+decisions:
+  - key: "REDIS ON THE SERVER (operator ruling), for repos and status alike. A Refresh now on replica A is read back on B because both read the same hash; per-pod memory and disk could not give that. A flushed key is re-discovered at once on first read, not after a sweep."
+  - key: "FIELD-WISE WRITES. Success and failure own disjoint fields, so a slow failure on one replica cannot overwrite a newer success on another, and a failure never erases the last success."
+  - key: "A MISSING SECRET IS AN OUTAGE FOR DISCOVERY. The repos found yesterday are still the repos; serving them with the error shown beats failing every run until the secret is fixed."
+  - key: "REFRESH IS AN OUTBOUND CALL. diagnostics.probe, like the template context lookup."
+
+steps:
+  - id: store
+    action: "ConnectionDiscoveryStatus record; IConnectionRepoSnapshotStore gains RecordFailureAsync and returns status; RedisConnectionRepoSnapshot (both interfaces) swapped in by RedisExtensions; disk store writes the status file."
+  - id: refresher
+    action: "RepoDiscoveryRefresher records every outcome, treats MissingCredentialException as a fallback case, and runs single-flight per connection."
+  - id: routes
+    action: "ConnectionReposView gains LastAttemptAt, LastError, RepoCount; ConnectionDiscoveryEndpoints holds the GET (missing key refreshes) and the refresh POST; route-permission rows; ConfigStudioRouteSplitTests count and list."
+  - id: dashboard
+    action: "configApi refreshConnectionDiscovery; RepoInventory and RepoPicker show status and Refresh now and re-fetch after it."
+
+tests:
+  - "RepoDiscoveryRefresher_Failure_KeepsLastSuccessAndRecordsTheError"
+  - "RepoDiscoveryRefresher_MissingCredential_ServesLastGoodAndRecordsIt"
+  - "RepoDiscoveryRefresher_ConcurrentRefreshes_OfOneConnection_RunDiscoveryOnce"
+  - "RedisConnectionRepoSnapshot_SuccessAndFailureFromTwoInstances_KeepBothHalves"
+  - "RedisConnectionRepoSnapshot_WrittenByOneInstance_IsReadByAnother"
+  - "ConnectionDiscoveryEndpoints_MissingKey_RefreshesImmediately"
+  - "Routes_DiscoveryRefresh_NeedsDiagnosticsProbe"
+  - "RepoInventory shows the last error beside the last success and re-reads after Refresh now"
+
+done:
+  - "a connection with a revoked token shows its last success, the HTTP 401 and the repo count; Refresh now after fixing it clears the error on every replica"
+  - "build green, full suite green, dashboard tests and build green"

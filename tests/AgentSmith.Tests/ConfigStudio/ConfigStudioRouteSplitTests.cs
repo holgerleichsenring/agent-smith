@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// verb/path pairs the single file produced, plus what has been mapped beside them
 /// since (2026-09-14-620e's template-context picker is the fortieth, 2026-09-30-62baa's
 /// model price list the forty-first, 2026-10-02-5f89b's two draft checks the
-/// forty-sixth and forty-seventh). The two file-length
+/// forty-sixth and forty-seventh, 2026-10-02-5f89c's discovery refresh the forty-eighth). The two file-length
 /// assertions hold the other half of the phase: the split files stay under the limit
 /// and none of them buys its way into the ratchet baseline.
 /// </summary>
@@ -30,6 +30,7 @@ public sealed class ConfigStudioRouteSplitTests
         "AgentSmith.Server/Extensions/ConfigEntityRoutes.cs",
         "AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs",
         "AgentSmith.Server/Extensions/ConfigDraftCheckEndpoints.cs",
+        "AgentSmith.Server/Extensions/ConnectionDiscoveryEndpoints.cs",
         "AgentSmith.Server/Extensions/ConfigTransferEndpoints.cs",
         "AgentSmith.Server/Extensions/ConfigChangeEndpoints.cs",
         "AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs",
@@ -41,7 +42,7 @@ public sealed class ConfigStudioRouteSplitTests
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(47);
+        MappedRoutes().Should().HaveCount(48);
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>
@@ -73,6 +74,7 @@ public sealed class ConfigStudioRouteSplitTests
             "POST /api/config/projects/validate",
             "POST /api/config/trackers/validate",
             "GET /api/config/connections/{id}/repos",
+            "POST /api/config/connections/{id}/discovery/refresh",
             "POST /api/config/connections/check",
             "POST /api/config/trackers/check",
             "GET /api/config/projects/{project}/contexts",

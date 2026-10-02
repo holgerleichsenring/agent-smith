@@ -40,6 +40,7 @@ internal static class DashboardReadersExtensions
         // 2026-09-14-620e: transient, like the ISandboxLanguageResolver it reads through —
         // a singleton would capture it.
         services.AddTransient<TemplateContextLookup>();
+        services.AddTransient<ConnectionDiscoveryReader>(); // 2026-10-02-5f89c
         services.AddTransient<RunCriteriaCounter>();
         services.AddTransient<CriteriaMetAggregator>();
         return services;

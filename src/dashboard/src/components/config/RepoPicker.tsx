@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { isRule, patternMatches, refMatches } from "@/lib/repoRefs";
-import {
-  fetchConnectionRepos,
-  type ConnectionRepos,
-  type DiscoveredRepo,
-  type StudioEntity,
-} from "@/lib/configApi";
+import { type ConnectionRepos, type DiscoveredRepo, type StudioEntity } from "@/lib/configApi";
+import { DiscoveryStatus } from "./DiscoveryStatus";
+import { useConnectionDiscovery } from "./useConnectionDiscovery";
 
 // p0345c: the REAL repo picker for connection-scoped project refs. Pick a
 // connection → its discovery cache (GET /connections/{id}/repos) lists the
@@ -43,7 +40,7 @@ export function RepoPicker({
   const [connection, setConnection] = useState("");
   const [filter, setFilter] = useState("");
   const [shown, setShown] = useState(WINDOW);
-  const { discovered, error, loading } = useConnectionDiscovery(connection);
+  const { discovered, error, loading, refreshing, refreshError, refresh } = useConnectionDiscovery(connection);
 
   const repos = useMemo(
     () => [...(discovered?.repos ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
@@ -104,12 +101,16 @@ export function RepoPicker({
 
       {connection && (
         <div className="field">
-          <label>
-            discovered repos
-            {discovered?.discoveredAt && (
-              <span className="help">discovered {new Date(discovered.discoveredAt).toLocaleString()}</span>
-            )}
-          </label>
+          <label>discovered repos</label>
+          {!loading && !error && (
+            <DiscoveryStatus
+              testId={testId}
+              discovered={discovered}
+              refreshing={refreshing}
+              refreshError={refreshError}
+              onRefresh={refresh}
+            />
+          )}
           {hasList ? (
             <>
               {filterBox}
@@ -166,30 +167,6 @@ export function RepoPicker({
       )}
     </div>
   );
-}
-
-/** The discovery cache of the picked connection, with its own loading/error state. */
-function useConnectionDiscovery(connectionId: string) {
-  const [discovered, setDiscovered] = useState<ConnectionRepos | null>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setDiscovered(null);
-    setError(null);
-    if (!connectionId) return;
-    const controller = new AbortController();
-    setLoading(true);
-    fetchConnectionRepos(connectionId, controller.signal)
-      .then((r) => setDiscovered(r))
-      .catch((err: Error) => {
-        if (err.name !== "AbortError") setError(err);
-      })
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [connectionId]);
-
-  return { discovered, error, loading };
 }
 
 /** Free text narrows the list; a wildcard narrows it to exactly what the rule would cover. */
@@ -287,7 +264,7 @@ function DiscoveryNotice({
   if (discovered?.discoveredAt === null)
     return (
       <span className="help" data-testid={`${testId}-undiscovered`}>
-        not discovered yet — run a discovery or type a name below
+        {discovered.discovering ? "discovering…" : "not discovered yet — Refresh now or type a name below"}
       </span>
     );
   if (discovered && discovered.repos.length === 0)

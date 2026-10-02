@@ -23,6 +23,7 @@ internal static class ConfigStudioEndpoints
         app.MapConfigEntityRoutes();
         app.MapConfigCapabilityEndpoints();
         app.MapConfigDraftCheckEndpoints(); // 2026-10-02-5f89b
+        app.MapConnectionDiscoveryEndpoints(); // 2026-10-02-5f89c
         app.MapConfigTransferEndpoints();
         app.MapConfigChangeEndpoints();
         app.MapConfigSettingsEndpoints();
