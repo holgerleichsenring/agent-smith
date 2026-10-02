@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-23a2c
+
+decisions:
+  - category: Scope
+    chose: "A member of series 2026-09-28-23a2, which came from one piece of work (the OpenHands comparison)"
+    reason: "CLAUDE.md's series rule is about shared provenance, not a shared topic."
+
+  - category: Scope
+    chose: "The phase no longer claims any worker-mode fix"
+    over: "Presenting the clamp as the cure for the ~380k-character timeouts"
+    reason: |
+      The compactor triggers only on the estimated size of the view (CompactingChatClient.cs:88-89,
+      228-242). The replayed agent stated no window (ChatClientFactory.cs:240-249), so the clamp had
+      nothing to apply. The fold sits at ~560k characters, which the ~380k-character prompt never
+      reached. Setting compaction.max_context_tokens to about 100000 makes it fold today. The operator
+      memory's "measured from reported input tokens" reading is contradicted by the code.
+
+  - category: Architecture
+    chose: "Keep MasterLoopHooks.Compaction and clamp it: Derive(hooks?.Compaction ?? compaction, window) ?? hooks?.Compaction"
+    over: "Removing the hook field and passing the setting as request.Compaction"
+    reason: |
+      Rejected review suggestion 7. The field carries a real distinction: the master compacts even
+      with no window stated, while a scout with no window deliberately does not
+      (ScoutContextWindowTests Role_TheWindowIsAbsent_NoThresholdIsDerived). The factory's
+      Derive-or-null rule would take compaction away from the master.
+
+  - category: Implementation
+    chose: "Estimate tool-call arguments by their JSON length, stated as 'closer to', not 'exact'"
+    reason: "Tool schemas, a worker's envelope and JSON escaping stay uncounted. Accepted from review."
+
+  - category: Implementation
+    chose: "The preflight compares the clamped trigger with the finaliser bound and lists agents without a models block"
+    reason: |
+      Today the check flags the clamped scout as a false alarm, passes windows from 140001 to ~164700
+      while the master still finalises first, and says nothing about an agent without a models
+      block (ContextWindowThresholdCheck.cs:77). The existing 128000/200000/0.7 test inverts.
+
+  - category: Scope
+    chose: "Keep the phase, now smaller"
+    reason: "A 128k master finalises today where it should fold, and the check gives wrong advice in both directions. The fix is small but real."

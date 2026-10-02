@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-05-16e7
+
+goal: "A run step names its files the one way both sandboxes resolve, so the rename that migrates a retired principles file stops dying under the CLI on a path only a container has."
+
+applies_to: "backend (the two run steps that put an absolute sandbox path in their arguments, and the coverage that never executed one)"
+
+requires:
+  - 2026-09-01-72c5
+
+scope:
+  in: >
+    The two Run steps that interpolate an absolute /work path into a shell string take a working
+    directory and name their files relative to it — the one position both sandbox backends
+    resolve. A test performs the rename through the in-process sandbox against a real git
+    working tree, tracked and untracked, which is the coverage this rename never had. The fake
+    sandbox stops normalising the prefix that broke it.
+  out: >
+    RESOLVING /work INSIDE ARBITRARY ARGUMENTS. A Run step's arguments are opaque text: a grep
+    pattern, a commit message or a script may contain those characters without naming a path, and
+    rewriting them would corrupt exactly the cases nobody would think to test. The contract stays
+    "a working directory plus paths relative to it".
+    BootstrapPaths, MetaDirFor AND THE REFUSAL TEXT. The probe reads through the file-step path,
+    which IS resolved, and the refusal quotes those paths to the operator; both keep the absolute
+    form they have, so no shape splits in two and no existing assertion moves.
+    THE CONTAINER PATH. It works there already — /work exists — and neither step's behaviour
+    changes there.
+
+decisions:
+  - key: |
+      THE CONTRACT IS A WORKING DIRECTORY PLUS RELATIVE PATHS, AND TWO PRODUCERS BROKE IT. The
+      in-process sandbox resolves the canonical /work prefix for a step's PATH and its WORKING
+      DIRECTORY — its own comment says why — but a Run step's ARGUMENTS pass through verbatim,
+      because they are opaque text. BootstrapMetaFiles interpolates two absolute paths into an
+      `sh -c` string and sets no working directory, so the CLI hands the host a directory that
+      does not exist: "mv: rename /work/.agentsmith/... : No such file or directory". Observed
+      live on a re-init. BootstrapDocumentHandler does the same with the path it feeds to
+      markitdown — a path ListAsync had just virtualised INTO the /work form.
+  - key: |
+      FIX THE PRODUCERS, NOT THE SANDBOX. Rewriting /work inside arguments would touch a grep
+      pattern, a commit message or a script that merely contains those characters. Two producers
+      break the contract; the contract is not the thing to change.
+  - key: |
+      THE WORKING DIRECTORY IS THE ONE POSITION ALREADY RESOLVED IN BOTH BACKENDS. The container
+      agent defaults it to /work and the in-process sandbox translates it, so a step that names
+      its directory and then bare file names needs nothing new in either. The directory is known
+      to exist because the probe that gates the move just read a file in it — which matters,
+      because the in-process Process.Start is not wrapped: a missing working directory throws out
+      of RunStepAsync instead of returning a failed step.
+  - key: |
+      THE TEST DOUBLE LAUNDERED THE DIFFERENCE. Every existing test of this rename drives a fake
+      that is sandbox and file reader in one, whose lookup strips "/work/" before matching — so
+      the fake accepted absolute paths and answered relative ones, and the two worlds agreed
+      because it folded them together. That is why a rename shipped that could never run in the
+      backend the CLI, the demo and the harness use. The fake resolves the step's arguments
+      against the step's working directory now, like the thing it stands in for.
+
+steps:
+  - id: the-move-step-names-its-directory
+    action: "The rename runs with the context's meta directory as its working directory and bare file names as arguments."
+  - id: the-document-step-names-its-directory
+    action: "The markitdown step runs at the workspace root with the source file named relative to it."
+  - id: the-in-process-sandbox-runs-the-rename
+    action: "A test performs the rename through the in-process sandbox against a real git working tree, tracked and untracked."
+
+done:
+  - "the rename performed through the in-process sandbox moves the file on disk"
+  - "a git-tracked file keeps its history (git mv), an untracked one still moves"
+  - "no run step in the bootstrap path carries an absolute sandbox path in its arguments"
+  - "the new test declares the external-process collection, and its sandbox job id is unique per test"
+  - "dashboard tests and build green, backend build green, full suite green"

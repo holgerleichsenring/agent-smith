@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-ef94
+
+decisions:
+  - category: Scope
+    chose: "Minted anew; follows the 2026-09-28-23a2 series in prose"
+    over: "A fifth letter of the 23a2 series"
+    reason: "A review of the series found it after the series was minted, and CLAUDE.md says a later addition mints anew."
+
+  - category: Security
+    chose: "Strip the declared secret names (AgentSecretNames.For) from in-process step environments"
+    over: "An allowlisted environment, or masking the output"
+    reason: |
+      Removing a value beats masking it. A declared list is a field (AgentSecretNames.cs:29-46, which
+      includes REDIS_URL through AgentSecretBinding.cs:26); matching a *TOKEN* pattern would be a
+      heuristic. An empty allowlisted environment would break toolchains that read proxy and SDK
+      settings from the host.
+
+  - category: Implementation
+    chose: "The strip list is a required constructor argument of InProcessSandbox"
+    over: "An optional parameter that defaults to stripping nothing"
+    reason: "With an optional default, a new construction site could leak silently. The three production sites all pass the list (InProcessSandboxFactory.cs:24, SecurityTrendCommand.cs:52, CompileWikiCommand.cs:73)."
+
+  - category: Scope
+    chose: "Variables used only by the secrets block stay out of scope until a source-name field exists"
+    reason: |
+      ConfigSecretResolver replaces ${NAME} with its value and keeps no record of NAME
+      (ConfigSecretResolver.cs:19-25). Naming those variables means carrying the source name on the
+      resolved secret. That field is the fix, and it is a phase of its own.
+
+  - category: Security
+    chose: "State that the strip stops accidents, not a deliberate script"
+    reason: |
+      An in-process step runs as the same user as its parent, whose environment and arguments stay
+      readable through /proc/$PPID. The boundary for repository code is the container sandbox
+      (2026-09-28-2f8c, 23a2b).
+
+  - category: Scope
+    chose: "The secrets-block source names moved to 2026-09-28-c657"
+    reason: "Operator ruling 2026-09-28: spec the named follow-ups now, each under its own minted id."

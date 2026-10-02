@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-23a2d
+
+decisions:
+  - category: Scope
+    chose: "Re-cut for the HTTP transport: ingress only from server pods on the agent port; egress DNS, public 80/443 and the operator allowance; no Redis"
+    over: "The first cut, which allowed sandbox egress to Redis"
+    reason: |
+      Operator decision 2026-09-28: Redis leaves the sandbox (2026-09-28-2f8c). The server now dials
+      the agent, so the policy inverts, and it requires the transport phase.
+
+  - category: Scope
+    chose: "Record that p0304's setup-only is refuted; p0304 itself is not edited"
+    reason: |
+      The review of the dropped successor showed the run pushes from the sandbox after setup
+      (PipelinePresets.Parking.cs:42-60 into GitBranchPusher.cs:47; CommitAndPR, PrCrossLink,
+      PersistWorkBranch). ProbeTarget needs the target, dotnet test restores implicitly
+      (CommandNames.Pipeline.cs:43-45), and sandboxes are created after any switch point. Recorded
+      here so nobody re-specs it.
+
+  - category: Scope
+    chose: "The allowance section leads the manifest, and the rollout notes require it first for any private git host, feed or target"
+    reason: "A reference deployment clones from a self-managed git server on a private intranet network; the default policy would break its first checkout. Described generically; no deployment is named."
+
+  - category: Security
+    chose: "Carried from the first review: WireServer except, DNS selector with documented variants, IPv4-only named, http_request targets in the allowance, enforcement as a manual step, token automount off"
+    reason: "Every one of these still holds after the transport change."
+
+  - category: Scope
+    chose: "The Docker backend stays out"
+    reason: "Docker has no NetworkPolicy; narrowing it needs a proxy or host firewall, which is p0304's docker step."
+
+  - category: Scope
+    chose: "Relabelled to sandbox-network-policy; out of scope now names the job pods (until 10ffb) and the in-process backend"
+    reason: "Review: the old label described the first cut; repository code also runs in pods this policy does not select."
+
+  - category: Security
+    chose: "The allowance section shows how to except the server's public ingress; done claims only the in-cluster path"
+    reason: "Public 443 reaches the webhook endpoints, which accept unverified payloads when their secrets are unset (8-deployment-server.yaml:95-99)."

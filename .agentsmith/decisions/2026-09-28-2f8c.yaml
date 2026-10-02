@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-2f8c
+
+decisions:
+  - category: Architecture
+    chose: "The owning server drives the agent over HTTP with a per-job key; Redis stays only between servers"
+    over: "Keeping Redis as the sandbox transport and scoping a Redis user per job"
+    reason: "Operator decision 2026-09-28. After this change the sandbox holds no credential to shared infrastructure. A per-job ACL only narrows a credential; this removes it."
+
+  - category: Scope
+    chose: "Withdraw the per-job Redis ACL phase (formerly 2026-09-28-23a2a) and its agent-handshake prerequisite, both never merged"
+    reason: "With Redis gone from the sandbox, they protect nothing. Carried over: a password key that never fails open, and the redaction in 2026-09-28-2ac3."
+
+  - category: Architecture
+    chose: "The server pushes and the agent answers"
+    over: "The agent polling the server"
+    reason: "The owning process holds the pipeline, the ISandbox and the IProgress (SandboxRedisChannel.cs:24-66); a poll through a Service would reach a random replica."
+
+  - category: Scope
+    chose: "No mid-run pipeline failover; the owner-loss acceptance asserts today's behaviour"
+    over: "Requiring the surviving replica to complete the same run"
+    reason: |
+      Today a dead replica's lease ages out and the ticket is re-taken (ActiveRunReaper.cs:7-22;
+      StaleLeaseRelease.cs:55-72). Held sandboxes are per process (HeldSandboxRegister.cs:16, 24-32).
+      Pipeline state lives in the owning process, so no transport can continue it elsewhere. Raised as
+      an open question for the operator.
+
+  - category: Architecture
+    chose: "Depend on 2026-09-28-3ca9 for keepalive on every backend"
+    over: "A Kubernetes-only keepalive timer inside the transport"
+    reason: "Review finding 1: nothing contacts an idle Kubernetes sandbox today except its own Redis check. A watcher on every backend is liveness and keepalive in one, and it is proven before the transport depends on it."
+
+  - category: Implementation
+    chose: "Idempotent PUT by StepId, a FIFO queue, execution decoupled from the response, an HTTP client with no timeout of its own and TCP keepalive"
+    reason: "Review findings 5-7 and 11: a retried submit must not run twice, sub-agents share sandboxes, HttpListener gives no abort token, and the default 100-second client timeout would cut builds."
+
+  - category: Implementation
+    chose: "Refusal reads the protocol reported by /health; an agent that never answers is reported with image, exit code and log tail"
+    over: "Relying on WireProtocolWatcher or on parsing tags"
+    reason: "The watcher only advises (WireProtocolWatcher.cs:13-17), and an old agent exits before any result (Program.cs:53-57)."
+
+  - category: Implementation
+    chose: "The dial address comes from the existing self-inspect: inside Docker, dial the container; otherwise publish the port and dial the Docker host"
+    over: "Publishing only when the fallback bridge network is used"
+    reason: "Review finding 4: the network in use says nothing about where the server runs, as the harness shows (DockerHarnessRegistrations.cs:96-98)."
+
+  - category: Implementation
+    chose: "The owner identity keeps its value by naming the server's REDIS_URL as its input"
+    reason: "In production options.RedisUrl is the server's own URL (KubernetesSandboxRegistrations.cs:19-23), so existing labels stay valid across the upgrade."
+
+  - category: Implementation
+    chose: "HttpListener, with the bundle size measured"
+    over: "Kestrel"
+    reason: "The injected agent is self-contained and untrimmed, and its loader is limited to 256Mi (PodSpecBuilder.cs:63-75)."
+
+  - category: Security
+    chose: "The per-job key is accepted as readable from inside the sandbox; it is kept out of child environments and masked by 23a2b"
+    over: "Delivering the key as a file that is unlinked after reading"
+    reason: "Review 4: /proc/1/environ is readable by a step running as the same user. The key authorises talking to this one agent, which the step is already inside."
+
+  - category: Implementation
+    chose: "A per-job event buffer of 10,000 with an explicit gap marker; a /health timeout; watchers stop when the run leaves the active set; ephemeral loopback publishing; an unconditional network-attachment check for the dial"
+    reason: "Review 4 findings 8, 9, 11, 12 and 14, each checked against the cited code."

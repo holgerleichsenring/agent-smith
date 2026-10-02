@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-7667
+
+decisions:
+  - category: Tooling
+    chose: "A transport-neutral contract suite that must be green on today's Redis transport before the transport changes"
+    over: "Writing the HTTP transport's tests alongside the HTTP transport"
+    reason: "Operator safety bar: the program must work as well afterwards as now. A suite proven against the old transport is the only definition of 'now' a test can hold."
+
+  - category: Implementation
+    chose: "An idle-limit field on SandboxSpec, unset in production"
+    over: "Dropping the idle cases and pointing at JobLoopTests"
+    reason: "The idle cases are exactly where the Kubernetes regression hid (review 2f8c #1). They must run end to end in about two minutes, not thirty."
+
+  - category: Tooling
+    chose: "The drop invariant is what Redis measurably does: at least once, in order, for a 3-second drop"
+    over: "Exactly once, or any drop length"
+    reason: |
+      Redis can duplicate a batch on retry and loses events beyond its 6.2-second budget
+      (RedisEventChannel.cs:60-96). Claiming more would promise a parity that does not exist. The
+      longer-drop gap is recorded instead of asserted.
+
+  - category: Tooling
+    chose: "CI builds the agent from the tree, pins the harness to it, creates the harness topology, and gates publishing"
+    reason: "Without the pin, the harness would test the published agent (AgentImageResolver.cs:21-30), so a green result would say nothing about the change."
+
+  - category: Security
+    chose: "Baseline: three runs per reference estate, a tolerance of ±25% on median cost and duration, the same status in two of three; run ids kept outside the repository"
+    over: "One run with a 'comparable' judgement"
+    reason: "One live LLM run is one sample. Estate identifiers must never enter the repository, and run-row archiving must not be able to erase the baseline."
+
+  - category: Scope
+    chose: "Fix concurrent steps on one sandbox here, with a per-sandbox step gate"
+    over: "Recording the defect and deferring it"
+    reason: "Review 4: two waiters on one sandbox take and discard each other's results, and share one event cursor (SandboxRedisChannel.cs:87, 96-100; SandboxEventDrain.cs:31, 44, 62). Sub-agents share sandboxes. That is a live defect, and the case cannot be measured green without the fix."
+
+  - category: Tooling
+    chose: "A fixed-subnet network with reconnect at the same IP; a window of about 26 s from client timeouts; first occurrences in order, keyed by line sequence numbers"
+    reason: "Review 4: the previous 6.2 s budget ignored the 5 s async timeout per attempt, and a plain disconnect can change the container IP."
+
+  - category: Tooling
+    chose: "A harness override pins every Docker fixture to the agent built from the tree; the job does not gate until ten consecutive green runs, and then gates only the sandbox-agent leg"
+    over: "Gating publishing immediately"
+    reason: "Review 4: the fixtures pin published agents (0.74.1, 0.134.1), the tier has never been measured on Linux, and a flake on the version commit would leave that release's agent tag unpublished."
+
+  - category: Tooling
+    chose: "Tolerance from the baseline's own spread, widened by 10%; status judged against the before-runs' majority"
+    over: "A fixed ±25% on medians"
+    reason: "Review 4: the transport does not change model cost, so a fixed band mostly measures model variance."

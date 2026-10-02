@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-10ffa
+
+decisions:
+  - category: Architecture
+    chose: "Fix intents go through ISpawnPipelineRunsUseCase; init intents go through InitRunLauncher"
+    over: "Routing both through the claim path"
+    reason: |
+      Operator intent: server runs, no CLI spawn. Review showed that init cannot use the claim path:
+      the use case refuses an empty ticket id (SpawnPipelineRunsUseCase.cs:96-97), and the pre-check
+      refuses init-project (ClaimPreChecker.cs:21-22, 38-48). InitRunLauncher is the ticketless door
+      the dashboard already uses.
+
+  - category: Implementation
+    chose: "The chat origin gets a carrier of its own through the request, the queue candidate, PipelineRequest and RunStarted"
+    over: "Reusing Run.Platform"
+    reason: "Run.Platform already means the tracker platform (Run.cs:15), and ClaimResult carries no run id (ClaimResult.cs:11)."
+
+  - category: Implementation
+    chose: "Questions use the existing bus path, keyed by run id"
+    over: "Leaving chat-origin questions to the ticket only"
+    reason: "RedisDialogueTransport is keyed by job id, which is the run id for server runs (DialogueJobIdentity.cs:20-23), and Slack answers publish under ConversationState.JobId (SlackInteractionHandler.cs:118-123)."
+
+  - category: Implementation
+    chose: "Posts are deduplicated with a SETNX per run and event"
+    reason: "Every replica reads every run stream (JobsBroadcaster.cs:12-19)."
+
+  - category: Scope
+    chose: "The webhook status filter is not applied to chat requests"
+    reason: "An operator asking in chat has chosen the ticket; the filter exists so that tracker noise does not start runs."
+
+  - category: Scope
+    chose: "Split into series 2026-09-28-10ff (a: chat path; b: server spawner removal; c: CLI job mode; d: configuration, deploy, docs)"
+    reason: "Review: four separable deliverables, and each slice ships complete. None of the four was committed before the split."
+
+  - category: Implementation
+    chose: "The origin rides IncomingTicketEnvelope and then the initial context; the use case returns the run id"
+    over: "A new ExecuteAsync parameter and a queue column"
+    reason: "Review 4: a parameter breaks every Moq Setup on ExecuteAsync, a column needs four provider migrations (QueuedTicket.cs:21), and the handler could not learn the run id (ClaimResult.cs:6-18)."
+
+  - category: Implementation
+    chose: "The relay ends a conversation by publishing Done or Error on the bus"
+    reason: "Review 4: the subscription ends only on those messages (RedisMessageBus.cs:77-82). With OrphanJobDetector deleted, nothing else would end it."
+
+  - category: Scope
+    chose: "After a stale-lease reap, chat is told the server retries the ticket; the relaunch itself is not relayed"
+    reason: "EnqueuedReconciler rebuilds the request from scratch (EnqueuedReconciler.cs:88-92), so the relaunch carries no origin. The chat is not left silent."

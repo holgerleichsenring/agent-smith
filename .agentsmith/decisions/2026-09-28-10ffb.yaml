@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-10ffb
+
+decisions:
+  - category: TradeOff
+    chose: "The orchestrator pod leaves the run footprint"
+    over: "Keeping a reserved orchestrator share under a new name"
+    reason: |
+      A server run spawns no such pod, so admission has been over-reserving it for every webhook run
+      (RunFootprintCalculator.cs:33-36). p0336c's rule is that the footprint equals the pods that run.
+      More runs fit the same quota; the release notes say so.
+
+  - category: Implementation
+    chose: "One sandbox-backend probe replaces the three spawner probes"
+    reason: "Otherwise the server loses its only sandbox health signal, and SandboxSpawnCheck loses its registration (ServerPreflightExtensions.cs:21)."
+
+  - category: Implementation
+    chose: "Kubeconfig resolution moves into KubernetesSandboxRegistrations"
+    reason: "Today the spawner setup's kubeconfig-aware client wins by registration order (JobSpawnerSetup.cs:73, 88-101; ServerHostFactory.cs:33-34); deleting it without moving it would break out-of-cluster sandboxes."
+
+  - category: Scope
+    chose: "Name contradicted planned phases rather than editing them: 2026-08-24-035a needs a successor; p0342 and p0382 are re-read when they are taken up"
+    reason: "The phase-versioning rule forbids mutating their decisions from another phase."
+
+  - category: Implementation
+    chose: "The kubeconfig client is resolved lazily in the sandbox registrations"
+    reason: "Review 4: resolving it eagerly would re-create the pre-bind file I/O that 2026-08-24-035a removes (JobSpawnerSetup.cs:88-101)."

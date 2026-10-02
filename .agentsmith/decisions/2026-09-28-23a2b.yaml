@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-23a2b
+
+decisions:
+  - category: Scope
+    chose: "A member of series 2026-09-28-23a2, which came from one piece of work (the OpenHands comparison)"
+    reason: "CLAUDE.md's series rule is about shared provenance, not a shared topic."
+
+  - category: Architecture
+    chose: "Mask where the content is produced (process lines, file reads, grep rows, directory names)"
+    over: "One mask at the agent's Redis egress"
+    reason: |
+      Review refuted the claim that a single-line value is never split. Grep cuts rows at 240
+      characters (GrepStepHandler.cs:309-312), and results are JSON-serialized with the default
+      encoder, which escapes '+' among other characters (GrepStepHandler.cs:86, 172;
+      WireFormat.cs:10-16). Both happen before egress, so a mask there misses the secret.
+
+  - category: Security
+    chose: "StepResult names the keys it masked, and the diff and history gates treat a non-empty list as a leak"
+    over: "Masking with no signal"
+    reason: |
+      Review: the commit and checkpoint gates scan a staged diff that is read through the sandbox
+      (CommitAndPRHandler.cs:253, 282; RepoWorkPusher.cs:39-47). A masked diff would pass the
+      scanner while the real bytes were pushed, and consolidation would apply a placeholder as a
+      patch (SandboxGitOperations.cs:157-160).
+
+  - category: Implementation
+    chose: "The model's write tools refuse content that carries a placeholder"
+    over: "Refusing inside the agent's WriteFile"
+    reason: |
+      Review: server-side writes go through the same step and throw on refusal
+      (SandboxFileReader.cs:36-42), including plan.md, result.md and the consolidation patch. Only
+      model-authored writes can carry a placeholder the model copied back.
+
+  - category: Scope
+    chose: "No server-side mask at the model boundary; in-process belongs to ef94"
+    over: "A chat-client decorator over server-held values"
+    reason: |
+      Review showed that the decorator would sit behind server-side truncation (BoundedResultTool.cs:40-45),
+      would read a config snapshot, and would leave the in-process trail unmasked anyway. Once ef94
+      strips the framework's secrets from in-process steps, nothing of ours is left there to mask.
+      Registry tokens, which the server stages into the sandbox (StagedAuthFileWriter.cs:37-40), are masked by the agent (operator ruling 2026-09-28: private feeds are in use); get_artifact_credentials still hands one to the model on purpose.
+
+  - category: Security
+    chose: "Declared secrets carry mask (default true), set by the operator"
+    over: "Masking every line of a multi-line value unconditionally"
+    reason: "PEM armour lines and public CA bundles would be masked everywhere and would block edits. The operator decides; the code does not guess. Accepted from review."
+
+  - category: Implementation
+    chose: "Secret names travel as AGENTSMITH_MASK_ENV and AGENTSMITH_MASK_FILES environment variables"
+    over: "Command-line arguments"
+    reason: "An unknown argument stops an older agent (Program.cs:24-42); an unknown environment variable is ignored. These two names are a cross-version contract."
+
+  - category: TradeOff
+    chose: "GIT_TOKEN stays in Step.Env and its value is masked in that step's output"
+    over: "A credential helper that keeps the token out of the step environment"
+    reason: |
+      The git process receives the value either way, and after 2026-09-28-2f8c it crosses only the
+      owner's own connection. Masking covers the accident this phase is about. Not scheduled; recorded so
+      it is a decision, not a silent defer.

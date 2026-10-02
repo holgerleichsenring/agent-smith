@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-c657
+
+decisions:
+  - category: Scope
+    chose: "Minted anew; follows 2026-09-28-ef94"
+    reason: "Operator ruling 2026-09-28: spec the named follow-ups now, each under its own id."
+
+  - category: Architecture
+    chose: "The reader returns (value, source), the resolver collects a local set, and the composer puts it on AgentSmithConfig"
+    over: "Recording names on the shared ConfigSecretReferences instance, or adding a property to RawAgentSmithConfig"
+    reason: |
+      Review: the reader is a single instance serving concurrent loads (ServiceCollectionExtensions.cs:45),
+      so state kept on it would mix loads. The raw type is exported to YAML (ConfigYamlExporter.cs:24),
+      so a file could forge the list.
+
+  - category: TradeOff
+    chose: "Accept that an in-process build reading an operator variable breaks (e.g. a committed .npmrc using ${NPM_TOKEN})"
+    reason: "Staged registry auth replaces it. Recorded so the break is a decision, not a surprise."
+
+  - category: Scope
+    chose: "Registry tokens join 23a2b's mask list (operator ruling 2026-09-28)"
+    over: "Excluding them because the model can be handed one on purpose"
+    reason: |
+      Review refuted the claim that a container sandbox never sees the secrets block: registry tokens
+      are staged into auth files there (StagedAuthFileWriter.cs:37-40). Private feeds are in use, so a
+      staged token printed by a build must not reach the trace or the model; get_artifact_credentials
+      remains the deliberate hand-over (AgenticMasterHandler.cs:286).
+
+  - category: Implementation
+    chose: "The in-process factory reads the configuration at CreateAsync"
+    over: "Accepting the startup snapshot, as 4722b did"
+    reason: "Every run already reloads the configuration (ExecutePipelineUseCase.cs:265), so a secret added in Studio should be stripped from the next run, not after a restart."

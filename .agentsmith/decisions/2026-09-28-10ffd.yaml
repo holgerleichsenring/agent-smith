@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-10ffd
+
+decisions:
+  - category: Implementation
+    chose: "The orchestrator blocks stay modelled and are announced by the deprecation warner"
+    over: "Dropping them from the model, or throwing as p0281e plans"
+    reason: |
+      Unknown keys are ignored silently (YamlConfigurationLoader.cs:84), so dropping the model would
+      tell nobody. The precedent for a retired setting is the warner (StartupAnnouncer.cs:21-23).
+      p0281e's throw remains that phase's decision and is not edited.
+
+  - category: Scope
+    chose: "Keep the RBAC Role name; shrink only its rules"
+    reason: "A rename forces a RoleBinding migration in every deployment for no functional gain."
+
+  - category: Scope
+    chose: "Keep MaxRunWallTimeSeconds and compose's root user; retire only the spawner settings; drop deployment's feed into them"
+    reason: |
+      Review 4 refuted two premises. The top-level block carries a live wall-time limit
+      (OrchestratorGlobalConfig.cs:38, read at ExecutePipelineUseCase.cs:113 and CancelEnforcer.cs:43).
+      Compose needs root for the Docker sandbox's socket, not only for the spawner. Without the
+      deployment feed, the new warner does not warn every deployment-pinned install.

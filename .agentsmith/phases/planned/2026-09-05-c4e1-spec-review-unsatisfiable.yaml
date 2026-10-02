@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-05-c4e1
+goal: "A derived phase spec is challenged against the repository before it binds, so a criterion no work can satisfy is corrected or returned to its author instead of re-driven."
+
+applies_to: "backend (spec derivation, the code pipeline preset, the acceptance gate's vocabulary) + config (limits) + dashboard (config studio settings rail)"
+
+scope:
+  in: "One reviewing sub-agent between DeriveSpec and SpecHandback, with the checked-out repository and the derived spec in hand; a typed correction published as a spec revision; a handback for what it cannot correct; the round count as a global operator knob in YAML and in the studio."
+  out: "Whether the spec is FAITHFUL to the ticket — a different question with a different input, deliberately deferred. A per-project dimension for the knob: the machinery has none and this phase does not invent one. And the missing attribution inside MasterAcceptanceGate, which is real but is its own phase; nothing here depends on it."
+
+decisions:
+  - key: |
+      THE FAILURE THIS PHASE EXISTS FOR IS A RUN THAT COULD NOT FINISH AND DID NOT KNOW IT.
+      A dependency-upgrade ticket derived a phase whose done-criterion required the package manifest
+      AND the lockfile to carry the upgraded versions. Every high finding in that repository sat in a
+      TRANSITIVE dependency, so the fix moves the lockfile and never the manifest. The criterion was
+      therefore false before the run started and no amount of correct work could make it true.
+      MasterAcceptanceGate.ObjectivelySatisfied requires Met or a justified NotApplicable for EVERY
+      criterion, so it returned false on every pass; ShouldReengage re-drove the master; each pass
+      re-sent the whole thread. The ledger was green throughout, because the STEPS were done. The
+      operator cancelled at $10 with the actual work — two lockfiles and one test line — finished in
+      the first minutes.
+  - key: |
+      THE CRITERION WAS WRITTEN BEFORE ANYONE RAN THE AUDIT. That is the root cause, not a missing
+      review. The deriver reads ticket prose and must produce something checkable; with no facts in
+      hand it guesses the SHAPE of the fix — which files will change — and the guess is then binding.
+      In a repository whose findings are direct dependencies the identical criterion is correct. So
+      the defect is not in the sentence and cannot be seen by reading it: it is the sentence crossed
+      with this repository. Only something holding both halves can see it.
+  - key: |
+      THIS IS THE SPEC ACCOUNTANT, MIRRORED — THE SAME MACHINE AT THE OPPOSITE END. p0420 already asks
+      a FRESH model instance what the branch does not satisfy: it reads the diff and never the run's
+      own reasoning, so it has no argument of its own to defend; it is asked adversarially, because
+      "all done" is the cheap answer to the positive question and the expensive answer to the negative
+      one; and every Satisfied row must carry a citation the CitationResolver resolves — against the
+      diff, the commands that ran, or the account's own branch searches — or it degrades to
+      NotSatisfied. That is the shape this reviewer takes: fresh instance, adversarial question, one
+      row per criterion, every claim carrying its own evidence. It should reuse that shape rather than
+      grow a second vocabulary beside it. What differs is the subject and the moment: the accountant
+      judges the WORK against the contract after the money is spent; this judges the CONTRACT against
+      the repository before any of it is. One free check falls out of the similarity — accounting the
+      criteria against an EMPTY diff finds the criterion that is already true before the work. It does
+      not find the one that can never be true.
+  - key: |
+      THE ACCOUNTANT CANNOT EXPRESS THIS FINDING, AND THAT IS WHY THIS PHASE EXISTS. AccountDisposition
+      is exactly NotSatisfied, NotApplicable, Satisfied — there is no value meaning "no diff can satisfy
+      this". Point the existing machinery at that manifest criterion and it answers "outstanding" every
+      time, and PhaseVerdict.IsRepairable — all problems null plus a non-empty outstanding list — calls
+      the phase repairable. What that costs is ONE master pass, not a loop: VerifyPhaseHandler guards
+      the repair with ContextKeys.PhaseRepairAttempted and its own rule, "one pass, not a loop — a
+      second correct no is information, a third is a carousel". So the price of the missing disposition
+      is a wasted repair pass and a verdict that names the wrong reason, handing the master a criterion
+      it cannot close as though it were work it forgot. That is worth ending, and it is not the
+      unbounded burn this phase's opening decision describes. A reviewer built in the accountant's
+      vocabulary would inherit exactly this blind spot; the disposition it does not have is the point.
+  - key: |
+      AND THE ACCOUNTANT ALREADY SOLVED THE ATTRIBUTION THE FAILING RUN LACKED, ONE LAYER UP.
+      PhaseVerdict.Outstanding NAMES the outstanding criteria, VerifyPhaseHandler publishes them as
+      ContextKeys.OutstandingCriteria, and PhaseExecutionPromptFactory hands them to the agent that
+      wrote the work rather than only to the operator's error message. The gate INSIDE the master loop
+      does not: MasterAcceptanceGate.ObjectivelySatisfied walks the dispositions, knows exactly which
+      one is missing, and returns a bare bool — so the re-engagement that follows can only log how many
+      ledger steps remain, which in this failure is zero. The pattern to copy is in the same repository,
+      one layer above the hole. Copying it is not in this phase.
+  - key: |
+      ONE QUESTION, MECHANICAL: DOES THIS CRITERION DESCRIBE THE STATE OF THE WORLD AFTER THE WORK, OR
+      THE SHAPE OF THE SOLUTION? An audit reporting zero high findings is state. A manifest containing
+      the new versions is shape — it prescribes HOW the fix must look, and the world is free to refuse.
+      Judgement criteria ("the ones worth fixing") are the second half of the same rule: no observation
+      settles them. Both reduce to one test the reviewer can actually apply — can the agent make this
+      true by working, and can it see that it is true? Everything softer than that is taste, and taste
+      is what produces false alarms.
+  - key: |
+      THE CORRECTION IS TYPED, WHICH IS WHY ONE ROUND IS ENOUGH. The reviewer may not rewrite the
+      contract: a critic free to reshape what it is judged by will make it satisfiable, which is the
+      p0393 disease one level up and without the diff as a counter-check. It may (a) drop a criterion
+      that prescribes shape, (b) add an exception clause where the world offers no fix, (c) replace an
+      unobservable criterion with the observation that decides it. Because that space is closed, a
+      corrected spec cannot carry a NEW undecidable criterion, and a second review round would inspect
+      something that could not have broken. Anything outside the three shapes changes what "done" MEANS
+      and goes back to the author. The reviewer rules on decidability; scope stays with a human.
+  - key: |
+      THE CONTRACT IS ALREADY PUBLISHED WHEN THE REVIEWER RUNS, SO A CORRECTION IS A REVISION.
+      DeriveSpecHandler writes the set to the branch and comments it on the ticket before it returns.
+      A reviewer that ran afterwards and edited the draft in memory would leave the branch and the
+      ticket stating a contract nobody is judged by. Every correction therefore lands as an appended
+      SpecSet revision carrying the reviewer's evidence as its cause, and the set is re-published.
+      Note for the implementer: revisions live in SpecSet / work-spec.schema.json, NOT in
+      phase-spec.schema.json, which has no such property.
+  - key: |
+      THE ROUND KNOB IS GLOBAL AND LIVES IN limits:. Default 1; the value an operator actually reaches
+      for is 0, which turns the check off. LoopLimitsConfig is where the per-loop ceilings already live
+      and it declares itself global on purpose, the config schema already admits a limits: object, and
+      the studio already renders that rail through LimitsForm — so YAML and UI both come nearly free.
+      An earlier draft of this phase cited pipeline_cost_cap as the precedent for "a default plus
+      per-project overrides". That was wrong: its slots are default, per-pipeline and per-tier, keyed
+      by pipeline name and complexity, with no project dimension anywhere — two projects on the same
+      pipeline cannot differ. Building one for this knob would add a whole override dimension for a
+      feature nobody asked to vary per project. If anyone ever sets the count to 2 and the second round
+      returns a finding, that is evidence the typed-correction argument above is wrong, and it should
+      be recorded as such.
+  - key: |
+      A RETURN COSTS THE AUTHOR'S NEXT WORKING DAY, SO IT IS RATIONED — AND THE RATIONING EXISTS.
+      The reviewer returns only what it can DEMONSTRATE: the criterion, and the fact that contradicts
+      it. Everything else passes. Three unfounded returns and the author stops reading, and the channel
+      this phase builds is worth less than the money it saved. The handback path is already built for
+      exactly this shape — SpecHandbackCase.RequirementsContradictRepository is the case, and
+      SpecHandbackProgress.RepeatsWithoutProgress already refuses to ask the same unanswered question
+      twice.
+  - key: |
+      FAITHFULNESS IS A DIFFERENT QUESTION AND IS NOT IN THIS PHASE. Whether the spec covers everything
+      the ticket asked for needs the TICKET as input, and a reviewer holding the ticket drifts from the
+      hard question ("is this decidable against this repo") to a soft one ("is this a good summary"),
+      where it generates opinions. It is also routed differently: an undecidable criterion is usually
+      repairable by the spec author, an omitted scope is not. Separate inputs, separate verdicts,
+      separate phase — which is also why this phase is named for the finding it makes and not for
+      being a review, since that sibling would fit the broader name just as well.
+
+steps:
+  - id: the-reviewer-has-the-repo-and-one-question
+    action: "Add a pipeline command between DeriveSpec and SpecHandback in the code preset that asks a fresh model instance the decidability question above, in the SpecAccountant's shape — one row per criterion, every claim carrying the observation it ran and that observation's output — over the checked-out repository with read-only tools and a small command budget, and with the disposition the accountant has no room for: a criterion no work can satisfy. Registering the command means its entries in the command name, beat, step-class, model-use, gate-silence and handler-registration maps, all of which have coverage tests."
+  - id: a-finding-becomes-a-typed-correction
+    action: "Apply a finding to the spec as one of the three permitted corrections and publish it as an appended SpecSet revision whose cause carries the reviewer's evidence, so the branch and the ticket state the contract the run is actually judged by."
+  - id: what-cannot-be-corrected-goes-back
+    action: "Hand a finding outside the three shapes to the existing handback path as RequirementsContradictRepository, carrying the criterion, the contradicting fact and a proposed replacement, and park the run there instead of admitting the contract to the master."
+  - id: the-round-count-is-an-operator-knob
+    action: "Carry the review round count in the limits: section with a default of 1, bind it on LoopLimitsConfig, and render it in the studio's limits rail; zero skips the review."
+  - id: the-finding-survives-the-run
+    action: "Record each finding on the run — the criterion, the evidence, and whether it was corrected or handed back — so it is readable where the run's other outcomes are read."
+
+tests:
+  - "SpecReview_ACriterionPrescribingWhichFilesChange_IsReportedWithTheObservationThatContradictsIt"
+  - "SpecReview_AManifestCriterionOverTransitiveFindings_IsReturnedAsAFinding"
+  - "SpecReview_ACriterionNoObservationCanSettle_IsReported"
+  - "SpecReview_ACriterionAlreadyTrueBeforeAnyWork_IsReported"
+  - "SpecReview_AnUnsatisfiableCriterion_IsNotReportedAsMerelyOutstanding"
+  - "SpecReview_AnOutcomeCriterionThatIsFalseAtBaseline_PassesUntouched"
+  - "SpecReview_ARequestOutsideTheThreeShapes_ReachesTheHandbackInstead"
+  - "SpecReview_ACorrectedSpec_IsPublishedAsARevisionCarryingTheFinding"
+  - "SpecReview_RoundsZero_SkipsTheReviewEntirely"
+
+done:
+  - "a spec whose criterion the reviewer found unsatisfiable does not reach the master in that run"
+  - "a finding carries the observation that was run and that observation's output"
+  - "a correction is one of the three shapes and is published as a spec revision naming the finding"
+  - "a finding outside the three shapes reaches the author through the handback with the contradicting fact and a replacement"
+  - "the round count is set from YAML and from the studio, and zero skips the review"
+  - "the run record names each finding, its evidence, and whether it was corrected or handed back"
+  - "build green, full suite green"

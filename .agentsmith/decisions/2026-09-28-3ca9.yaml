@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-09-28-3ca9
+
+decisions:
+  - category: Architecture
+    chose: "Move liveness onto the sandbox and watch every container backend, on the Redis transport, before HTTP"
+    over: "Folding a Kubernetes keepalive into the HTTP transport phase"
+    reason: |
+      Review of 2f8c and 7667: Kubernetes has no watcher today (DockerSandboxRegistrations.cs:74-80;
+      PipelineExecutionExtensions.cs:47). Today the agent's own active-set check is all that keeps an
+      idle Kubernetes sandbox alive (JobLoop.cs:55-62). Under HTTP that check is gone, and the
+      watcher's calls must become the contact. Proving the watcher on Kubernetes first, while Redis
+      still works, splits the risk. New id, per the series rule.
+
+  - category: Implementation
+    chose: "ISandboxHeartbeatProbe is replaced by IHoldableSandbox.IsAliveAsync"
+    reason: "The probe is keyed by job id only (ISandboxHeartbeatProbe.cs:21), and an HTTP probe needs the address and key that live on the sandbox."
+
+  - category: Security
+    chose: "Cancel only after the backend confirms the sandbox is gone, on Kubernetes as on Docker"
+    reason: "A new watcher must not cancel healthy runs on a transient miss; the Docker rule already works that way (SandboxLivenessWatcher.cs:79-110)."
+
+  - category: Architecture
+    chose: "A separate ISandboxLiveness contract that the projector forwards through a nullable inner reference"
+    over: "Putting liveness on IHoldableSandbox"
+    reason: "Review 4: the supervisor receives the projector (PipelineSandboxCoordinator.cs:188, 267), which is not holdable, and making it holdable would make it lie around an in-process sandbox."
+
+  - category: Scope
+    chose: "Source scopes opened with a run id are watched too"
+    reason: "Review 4: they spawn outside the coordinator (SourceScopeOpener.cs:51-53) and would otherwise idle out under HTTP."
+
+  - category: Security
+    chose: "Probe errors never cancel, on either backend; the verdict carries the exit facts"
+    reason: "Review 4: Docker today cancels on Unknown and ProbeError (SandboxLivenessWatcher.cs:96-108, 152, 167-171). Carrying that to Kubernetes would cancel on API-server blips. This is a stated behaviour change on Docker."
