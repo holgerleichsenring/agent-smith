@@ -21,6 +21,9 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
 
     public int PythonRuns { get; private set; }
 
+    /// <summary>2026-10-02-075dc: the shell commands that reached it.</summary>
+    public List<string> Shells { get; } = [];
+
     public string JobId { get; } = "mem-" + Guid.NewGuid().ToString("N")[..8];
 
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken) =>
@@ -32,6 +35,7 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
             StepKind.ListFiles => Ok(step, List(step)),
             StepKind.Grep => Ok(step, Grep(step)),
             StepKind.Run when step.Command == "python3" => Decode(step),
+            StepKind.Run when step.Command == "/bin/sh" => Shell(step),
             _ => Ok(step, string.Empty),
         });
 
@@ -40,6 +44,12 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
         Writes++;
         Files[Resolve(step.Path!)] = Encoding.UTF8.GetBytes(step.Content ?? string.Empty);
         return Ok(step, string.Empty);
+    }
+
+    private StepResult Shell(Step step)
+    {
+        Shells.Add(step.Args![^1]);
+        return Ok(step, "ran");
     }
 
     private StepResult Decode(Step step)

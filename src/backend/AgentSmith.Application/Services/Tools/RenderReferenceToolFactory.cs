@@ -17,8 +17,13 @@ namespace AgentSmith.Application.Services.Tools;
 /// addresses the websites the run carries. 2026-10-01-283di: compare_reference joins wherever
 /// render_reference is, over the same scope and so the same browser sandbox.
 /// </para>
+/// <para>
+/// 2026-10-02-075dc: a design turn also gets <see cref="ReferenceDesignTools"/> — the uploads'
+/// own containers, beside the browser that renders them.
+/// </para>
 /// </summary>
-public sealed class RenderReferenceToolFactory(RenderReferenceServices services, CompareReferenceServices compare)
+public sealed class RenderReferenceToolFactory(
+    RenderReferenceServices services, CompareReferenceServices compare, ReferenceDesignTools? design = null)
 {
     /// <summary>The host for a design turn (<paramref name="isDesignTurn"/>) or a run's coding master, or null.</summary>
     public RenderReferenceToolHost? Create(PipelineContext pipeline, bool isDesignTurn) =>
@@ -28,7 +33,8 @@ public sealed class RenderReferenceToolFactory(RenderReferenceServices services,
     public IReadOnlyList<AITool> Tools(PipelineContext pipeline, bool isDesignTurn) =>
         Scope(pipeline, isDesignTurn) is { } scope
             ? [.. new RenderReferenceToolHost(services, scope).GetTools(null, null),
-               .. new CompareReferenceToolHost(compare, scope).GetTools(null, null)]
+               .. new CompareReferenceToolHost(compare, scope).GetTools(null, null),
+               .. isDesignTurn && design is not null ? design.For(pipeline) : []]
             : [];
 
     private static RenderReferenceScope? Scope(PipelineContext pipeline, bool isDesignTurn)

@@ -38,8 +38,8 @@ scope:
     here changes what is stored; python3 with pip — install into a venv (python3 -m venv), /shared is read-only;
     anything else is installed by the command (curl a pinned release; apt only where the image runs as root);
     scripts lost their executable bit (sh script.sh); start a server detached (nohup … >log 2>&1 &) or the step waits
-    for it; the container may be fresh on any turn, so follow the set's recipe again. RenderReferenceToolFactory becomes
-    ReferenceToolFactory and composes render, compare and run_in_reference, so the composition line stays one.
+    for it; the container may be fresh on any turn, so follow the set's recipe again. ReferenceDesignTools builds it and
+    RenderReferenceToolFactory composes it beside render and compare on a design turn, so the composition line stays one.
   out: >
     A toolchain image per set (the command installs what it needs). Reaching a process started here from
     render_reference (the browser's egress guard refuses private addresses by design). Egress and REDIS_URL exposure
@@ -58,14 +58,14 @@ steps:
   - id: tool
     action: "ReferenceCommandToolHost (run_in_reference) over the turn's reference: sandboxes with RunCommandTimeout(default, cap)."
   - id: compose
-    action: "ReferenceToolFactory (renamed) composes render, compare and run_in_reference; gated on SandboxContainerRuntime."
+    action: "ReferenceDesignTools (gated on SandboxContainerRuntime and an upload) joins RenderReferenceToolFactory.Tools on a design turn."
 
 tests:
   - "ReferenceSetSandbox_ShellRunStep_IsServed; WriteFileStep_IsRefused"
   - "ReferenceSetSandbox_SpawnSpec_CarriesNoProjectSecrets"
   - "ReferenceCommandToolHost_RunsInTheNamedReference_ThroughTheShell; TimeoutClampedToTheStepCap"
   - "ReferenceCommandToolHost_RepoOrTemplateAddress_AnswersErrorListingReferences"
-  - "ReferenceToolFactory_DesignTurnWithAReference_HasRunInReference; WithoutOne_DoesNot; NoContainerRuntime_DoesNot; CodingRun_DoesNot"
+  - "ReferenceDesignTools_For_NeedsAContainerRuntimeAndAnUpload; DesignTurn_WithAnUpload_HasRunInReference_ItsChildrenDoNot; DesignTurn_WithoutAnUpload_HasNoRunInReference"
 
 done:
   - "a design turn's run_in_reference runs a shell command in the set's sandbox and returns run_command-shaped output; a repository scope still refuses a shell"
