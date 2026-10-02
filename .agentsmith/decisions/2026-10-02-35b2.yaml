@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-35b2
+
+decisions:
+  - category: Security
+    chose: "Scrub REDIS_URL and JOB_ID from every step's inherited environment and drop --redis-url from the agent's command line (operator request after 075dc)"
+    over: "Leaving the exposure to 23a2d; scrubbing only for run_in_reference"
+    reason: |
+      A model-authored command in run_in_reference or run_command printed the shared step bus's
+      address with a plain `env`, and `ps` showed it on the agent's command line. Neither the
+      command nor any build or test needs it. All sandboxes, because the leak was never specific
+      to the new tool.
+  - category: Scope
+    chose: "Name the remainder: /proc/<agent pid>/environ stays readable to a process of the same uid; planned 2026-10-02-f35f decides between a per-job Redis ACL and a separate uid for commands"
+    over: "Calling the scrub a fix"
+    reason: |
+      The scrub makes the value invisible to the obvious reads, not unreachable. Only a credential
+      that is worthless outside its job, or a process boundary, closes it.
+  - category: Implementation
+    chose: "A step that sets REDIS_URL or JOB_ID itself keeps its value"
+    over: "Removing them unconditionally"
+    reason: |
+      A project's own tests may need a Redis of their own; only the agent's inherited value goes.

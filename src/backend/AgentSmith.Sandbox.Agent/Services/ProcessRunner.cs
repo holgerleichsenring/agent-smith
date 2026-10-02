@@ -74,6 +74,7 @@ internal sealed class ProcessRunner : IProcessRunner
             info.Environment[key] = value;
         }
         ApplyPythonPath(info, PythonBinDir, step.Env);
+        AgentProcessEnvironment.Scrub(info, step.Env); // 2026-10-02-35b2
         return info;
     }
 
