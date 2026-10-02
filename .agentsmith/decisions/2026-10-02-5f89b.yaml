@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89b
+
+decisions:
+  - category: Architecture
+    chose: "Per-type IConnectionDraftCheck / ITrackerDraftCheck yield their steps as an IAsyncEnumerable; DraftCheckCollector stops enumerating at the first failure under the 30 s budget, so no call after a failing step is made"
+    over: "Each check building and truncating its own list"
+    reason: |
+      Stopping is one rule in one place; a check reads top to bottom as the order of its calls,
+      and the host and identity steps come from the same first call.
+  - category: Security
+    chose: "The draft check owns its HTTP: a named client 'draft-check' with AllowAutoRedirect=false, ten seconds per call, and the repo count read by the check on that client (discovery's own query filters, one page)"
+    over: "Counting repos through IRepoDiscoveryService, as the spec's step names it"
+    reason: |
+      The discovery providers send through clients that follow redirects; GitLab's PRIVATE-TOKEN
+      survives a redirect, so a typed host answering 302 on the project listing would receive
+      the token. The count keeps discovery's include_subgroups/with_shared filters and the
+      GitHub org-then-user fallback.
+  - category: Security
+    chose: "Both routes need config.write AND diagnostics.probe; a step's detail is a status code plus a fixed sentence or a parsed field (login, display name, count); a transport failure becomes our sentence from HttpRequestError"
+    over: "diagnostics.probe alone; copying a response body or an exception message"
+    reason: "The draft names any saved secret and any host. A host's body can echo the token or a sign-in page."
+  - category: Implementation
+    chose: "The draft takes the save path — RawConfigPatch then ConnectionCatalogBuilder / TrackerCatalogBuilder — and the secret step resolves the record through the 5f89a ICredentialResolver; a MissingCredentialException is the failing secret step, its message naming entity and secret"
+    over: "Reading the picked secret's value directly from the store"
+    reason: |
+      The check then tests what saving would store, with the token the saved entity's calls
+      would send. A draft with no auth fails the secret step instead of presuming the legacy
+      migration's fill, which runs on a whole configuration at load, not on one draft.
+  - category: Implementation
+    chose: "A Jira draft without email fails the secret step; a Jira draft without project passes scope as 'every project the account sees'"
+    over: "Failing at identity with a 401"
+    reason: "Jira signs in with email and token; the missing field is named where it can be fixed. The project is optional in the descriptor."
+  - category: Implementation
+    chose: "ITicketCountCapability per tracker type, all four implemented on one page (GitHub without pull requests, GitLab opened issues, Azure DevOps WIQL over AzureDevOpsOpenScope, Jira's search endpoint with statusCategory != Done); a type without one passes with 'Count not supported by this tracker'"
+    over: "Calling ITicketProvider.ListOpenAsync"
+    reason: |
+      ListOpenAsync reads up to ten pages on redirect-following clients and answers empty for a
+      provider that cannot list, which would read as zero tickets.
+  - category: TradeOff
+    chose: "A full page (100) says 'at least 100'; Jira reads isLast"
+    over: "Reading total or next-page headers per host"
+    reason: "One rule for every host; the Test asks whether the scope is visible, not for an exact inventory."
+  - category: Implementation
+    chose: "The GitHub tracker check talks to api.github.com; the Azure DevOps tracker check to dev.azure.com/{organization}"
+    over: "Deriving an API host from the tracker url"
+    reason: "That is where the providers send — Octokit's default host and TrackerConnections.AzureDevOps."

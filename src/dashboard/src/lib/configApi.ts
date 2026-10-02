@@ -339,6 +339,36 @@ export async function validateTrackerDraft(
   return sendJson<ConfigFinding[]>("POST", `/api/config/trackers/validate`, draft, signal);
 }
 
+// --- 2026-10-02-5f89b: the Test action — the unsaved draft checked against its host, step by
+// step (secret, host, identity, scope, repos or open tickets). The steps stop at the first
+// failure; a detail is the server's own sentence, never a token or a host's response body.
+
+export interface DraftCheckStep {
+  key: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface DraftCheckReport {
+  steps: DraftCheckStep[];
+  ok: boolean;
+}
+
+export async function checkConnectionDraft(
+  draft: StudioConnection,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/connections/check`, draft, signal);
+}
+
+export async function checkTrackerDraft(
+  draft: StudioTracker,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/trackers/check`, draft, signal);
+}
+
 /** p0345c: one repo the discovery cache knows inside a connection. */
 export interface DiscoveredRepo {
   name: string;

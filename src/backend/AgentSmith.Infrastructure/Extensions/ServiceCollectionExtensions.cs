@@ -6,6 +6,7 @@ using AgentSmith.Infrastructure.Services.Output;
 using AgentSmith.Infrastructure.Services.Providers.Design;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using AgentSmith.Infrastructure.Services.Providers.Discovery;
+using AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Infrastructure.Services.Security;
@@ -35,6 +36,7 @@ public static class ServiceCollectionExtensions
         services.AddDialogueTransport();
         services.AddProjectMeta();
         services.AddDesignProviders(); // 2026-10-01-7f7ab
+        services.AddDraftChecks(); // 2026-10-02-5f89b
         return services;
     }
 }

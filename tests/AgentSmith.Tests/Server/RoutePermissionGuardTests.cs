@@ -129,6 +129,17 @@ public sealed class RoutePermissionGuardTests
             .Equal(Permissions.ConfigImport, Permissions.SecretsWrite);
     }
 
+    // 2026-10-02-5f89b: the draft names any saved secret and any host; probe alone would let a
+    // caller send an admin-held token to a host of their choosing.
+    [Fact]
+    public void Routes_DraftChecks_NeedConfigWriteAndDiagnosticsProbe()
+    {
+        Declaration("POST", "/api/config/connections/check").Should()
+            .Equal(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+        Declaration("POST", "/api/config/trackers/check").Should()
+            .Equal(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+    }
+
     [Fact]
     public void RouteGuard_TheAnonymousRoutes_AreExactlyTheDeclaredSet()
     {

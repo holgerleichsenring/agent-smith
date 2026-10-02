@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5f89b
+goal: "A connection or tracker form in the Config Studio has a Test action that checks the unsaved draft against its host step by step — secret, host, identity, scope, repos or tickets — with no token shown."
+
+applies_to: "backend (studio draft-check endpoints, per-type checks), dashboard (connection and tracker forms)"
+
+requires: ["2026-10-02-5f89a"]
+
+facts:
+  - claim: "The studio already reads unsaved tracker and project drafts through POST .../validate, and the form calls it through useDraftFindings."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:45-53; src/dashboard/src/lib/configApi.ts:328-339; src/dashboard/src/components/config/useDraftFindings.ts:39-40"
+  - claim: "An outbound authenticated call with the installation's credentials takes diagnostics.probe; the operator role carries diagnostics.probe but not config.write; a route may require several permissions."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:71-85; src/backend/AgentSmith.Server/Security/Permissions.cs:32-34; src/backend/AgentSmith.Server/Security/BuiltInRoles.cs:27-32; src/backend/AgentSmith.Server/Extensions/RoutePermissionExtensions.cs:15-20; tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:25"
+  - claim: "The design-source HTTP client turns auto-redirect off — the precedent for a client carrying a token to an operator-typed host."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Design/DesignProviderExtensions.cs:21"
+  - claim: "The existing probes test SAVED boot-time entries only, return one ok/error pair, and do not cover connections."
+    evidence: "src/backend/AgentSmith.Server/Services/Diagnostics/ConnectionDiagnosticsService.cs:16-17,45-54,75-91; src/backend/AgentSmith.Contracts/Providers/ConnectionProbeResult.cs:10-15"
+  - claim: "A draft becomes the resolved record the way a save does: RawConfigPatch maps the entity, the catalog builders resolve it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs:58,116; src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConnectionCatalogBuilder.cs:16-40; TrackerCatalogBuilder.cs:17-53"
+  - claim: "Discovery lists a connection's repos per type and raises errors carrying only the HTTP status."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRepoDiscoveryService.cs:9-13; src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/GitLabRepoDiscoveryProvider.cs:54-57; AzureDevOpsRepoDiscoveryProvider.cs:40-43"
+  - claim: "ListOpenAsync defaults to an empty list for a provider that cannot list, so an empty answer does not mean zero tickets."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:30-34"
+  - claim: "The Jira probe is 'who am I' (/rest/api/3/myself); the GitLab one reads the project."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:62-65; GitLabTicketProvider.cs:51-58"
+  - claim: "ConfigStudioRouteSplitTests pins the studio's mapped routes at exactly 45 and lists them; MapConfigStudioEndpoints maps the entity and capability routes."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/ConfigStudioRouteSplitTests.cs:41-46,59; src/backend/AgentSmith.Server/Extensions/ConfigStudioEndpoints.cs:23-24"
+
+scope:
+  in: >
+    POST /api/config/connections/check (ConnectionEntity draft) and POST /api/config/trackers/check (TrackerEntity
+    draft), each needing config.write AND diagnostics.probe, in a new ConfigDraftCheckEndpoints mapped inside
+    MapConfigStudioEndpoints; the route pin moves to 47 with both routes listed, deliberately. The answer is an
+    ordered list of steps {key, label, ok, detail}, stopping at the first failure: secret (the picked secret has a
+    value — names it, never the value); host (the first call gets an HTTP answer — DNS, connect and TLS failures land
+    here); identity (GitLab /api/v4/user, GitHub /user, Azure DevOps _apis/connectionData, Jira /rest/api/3/myself;
+    401/403 land here); scope (GitLab group, GitHub org or user, Azure DevOps project, Jira project, tracker project
+    path or repository); then repos visible via discovery (connections) or open tickets (trackers). Ticket counting is
+    a capability: a provider that cannot list reports 'count not supported by this tracker', never 0; counting reads
+    at most one page and says 'at least N' when more exist. The check's HTTP client has auto-redirect off. 10 s per
+    step, 30 s overall. Dashboard: a Test button on both forms renders the steps.
+  out: >
+    Testing saved entries from the diagnostics page. Repos and design sources. Discovery status — 2026-10-02-5f89c.
+
+decisions:
+  - key: "CONFIG.WRITE AND DIAGNOSTICS.PROBE. The draft names any saved secret and any host; with probe alone an operator could send an admin-held token to a host of their choosing. Whoever may write that connection may test it."
+  - key: "NO REDIRECTS. GitLab's PRIVATE-TOKEN header survives a redirect; a typed host answering 302 to elsewhere must not receive it. A redirect is reported as the host step failing."
+  - key: "BLIND SSRF BEHIND CONFIG.WRITE IS ACCEPTED. The step's status and timing reveal whether an internal address answers; a config writer can already point a saved connection anywhere."
+  - key: "STEPS, NOT A VERDICT. The first failing step says whether to fix DNS, the token, its scope or the group name."
+  - key: "DETAIL IS OURS, NEVER THE RESPONSE BODY. A status code plus a fixed sentence or a parsed field (login, display name, count); no body is copied and no header logged."
+  - key: "AZURE DEVOPS ANSWERS A BAD PAT WITH A SIGN-IN PAGE. connectionData that is not JSON fails the identity step, not the host step."
+  - key: "THE DRAFT TAKES THE SAVE PATH. RawConfigPatch and the catalog builder, so the check tests what saving would store."
+
+steps:
+  - id: contracts
+    action: "DraftCheckStep and DraftCheckReport records; IConnectionDraftCheck and ITrackerDraftCheck keyed by type; ITicketCountCapability (bounded count or not supported)."
+  - id: checks
+    action: "One check per connection type and per tracker type on a named HttpClient with AllowAutoRedirect=false; token via CredentialResolver (5f89a)."
+  - id: endpoints
+    action: "ConfigDraftCheckEndpoints with Needs(ConfigWrite, DiagnosticsProbe), mapped from MapConfigStudioEndpoints; route-permission rows; ConfigStudioRouteSplitTests count and list."
+  - id: dashboard
+    action: "configApi checkConnectionDraft / checkTrackerDraft; DraftCheckPanel in the connection and tracker forms."
+
+tests:
+  - "ConnectionDraftCheck_GitLab_WrongToken_StopsAtIdentityWith401"
+  - "ConnectionDraftCheck_GitLab_UnknownGroup_StopsAtScope"
+  - "ConnectionDraftCheck_HostAnswersARedirect_FailsHostAndNeverFollows"
+  - "ConnectionDraftCheck_AzureDevOps_SignInPageAnswer_IsAnIdentityFailure"
+  - "ConnectionDraftCheck_SecretWithoutValue_StopsAtSecretNamingItNotAValue"
+  - "TrackerDraftCheck_ProviderWithoutListing_SaysCountNotSupported"
+  - "TrackerDraftCheck_Jira_ReportsTheAccountAndABoundedOpenTicketCount"
+  - "DraftCheck_Report_NeverContainsTheTokenValue"
+  - "Routes_DraftChecks_NeedConfigWriteAndDiagnosticsProbe"
+  - "the connection form's Test renders each step with its mark and stops at the failing one"
+
+done:
+  - "Test on an unsaved GitLab connection shows host, identity, group and repo count"
+  - "build green, full suite green, dashboard tests and build green"
