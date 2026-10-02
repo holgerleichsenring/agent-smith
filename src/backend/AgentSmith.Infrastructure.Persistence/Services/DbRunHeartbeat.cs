@@ -25,4 +25,12 @@ public sealed class DbRunHeartbeat(IServiceScopeFactory scopeFactory, TimeProvid
         return await scope.ServiceProvider.GetRequiredService<RunLivenessRepository>()
             .GetFreshRunIdsAsync(freshFor, timeProvider.GetUtcNow(), cancellationToken);
     }
+
+    public async Task<IReadOnlyCollection<string>> GetFreshUnparkedRunIdsAsync(
+        TimeSpan freshFor, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<RunLivenessRepository>()
+            .GetFreshUnparkedRunIdsAsync(freshFor, timeProvider.GetUtcNow(), cancellationToken);
+    }
 }

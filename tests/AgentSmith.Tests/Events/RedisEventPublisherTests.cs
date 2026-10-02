@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Events;
 /// (1) stream key follows run:{runId}:events;
 /// (2) MAXLEN + TTL applied per append;
 /// (3) RunStarted adds runId to the active SET;
-/// (4) RunFinished removes from active SET and LPUSH+LTRIM the recent LIST;
+/// (4) RunFinished removes from active SET and LPUSH+LTRIM the recent LIST, in one transaction;
 /// (5) missing runId throws.
 /// </summary>
 public sealed class RedisEventPublisherTests
@@ -52,20 +52,27 @@ public sealed class RedisEventPublisherTests
     [Fact]
     public async Task PublishRunFinished_RemovesFromActiveSet_AppendsAndTrimsRecentList()
     {
+        // 2026-10-02-5ab2c: the three index commands are one transaction.
+        var tx = new Mock<ITransaction>();
+        tx.Setup(t => t.ExecuteAsync(It.IsAny<CommandFlags>())).ReturnsAsync(true);
+        _db.Setup(d => d.CreateTransaction(It.IsAny<object?>())).Returns(tx.Object);
         var sut = new RedisEventPublisher(_redis.Object, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
         var ev = new RunFinishedEvent("run-2", "success", null, "done", DateTimeOffset.UtcNow);
 
         await sut.PublishAsync(ev);
 
-        _db.Verify(d => d.SetRemoveAsync(
+        tx.Verify(d => d.SetRemoveAsync(
             (RedisKey)EventStreamKeys.ActiveRunsSet, (RedisValue)"run-2",
             CommandFlags.None), Times.Once);
-        _db.Verify(d => d.ListLeftPushAsync(
+        tx.Verify(d => d.ListLeftPushAsync(
             (RedisKey)EventStreamKeys.RecentRunsList, (RedisValue)"run-2",
             When.Always, CommandFlags.None), Times.Once);
-        _db.Verify(d => d.ListTrimAsync(
+        tx.Verify(d => d.ListTrimAsync(
             (RedisKey)EventStreamKeys.RecentRunsList,
             0, EventStreamKeys.RecentRunsCap - 1, CommandFlags.None), Times.Once);
+        tx.Verify(t => t.ExecuteAsync(It.IsAny<CommandFlags>()), Times.Once);
+        _db.Verify(d => d.SetRemoveAsync(
+            It.IsAny<RedisKey>(), It.IsAny<RedisValue>(), It.IsAny<CommandFlags>()), Times.Never);
     }
 
     [Fact]

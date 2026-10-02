@@ -25,10 +25,14 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
     // p0378: cold-start terminal repair — null when relational persistence is off.
     IRunTerminalReconciler? reconciler = null,
     // 2026-08-24-ca23: the store's unfinished runs — a run that waited through a restart.
-    IUnfinishedRunSource? unfinishedRuns = null) : IHostedService, IAsyncDisposable
+    IUnfinishedRunSource? unfinishedRuns = null,
+    TimeProvider? timeProvider = null) : IHostedService, IAsyncDisposable
 {
     private const int RecentCapacity = EventStreamKeys.RecentRunsCap;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
+    // 2026-10-02-5ab2c: how often the store, not only the active set, names the runs to track.
+    public static readonly TimeSpan DatabaseDiscoveryInterval = TimeSpan.FromSeconds(30);
+    private DateTimeOffset _nextDatabaseDiscovery = DateTimeOffset.MinValue;
 
     private readonly ConcurrentDictionary<string, RunSnapshot> _active = new(StringComparer.Ordinal);
     private readonly RecentRunsRingBuffer _recent = new(RecentCapacity);
@@ -202,6 +206,7 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             try
             {
                 await DiscoverNewRunsAsync(db, ct);
+                await DiscoverDatabaseRunsAsync(db, ct);
                 await DrainAsync(db, ct);
                 await _system.DrainAsync(db, ct);
             }
@@ -226,6 +231,16 @@ public sealed class JobsBroadcaster(IConnectionMultiplexer redis,
             if (!_cursors.IsTracked(runId)) await _cursors.TrackAsync(db, runId);
             _active.GetOrAdd(runId, RunSnapshot.Empty);
         }
+    }
+
+    // 2026-10-02-5ab2c: the broadcaster is the projector, so it reads the store itself rather
+    // than wait for the leader's re-seed: a run the set lost to a flush is found here.
+    private async Task DiscoverDatabaseRunsAsync(IDatabase db, CancellationToken ct)
+    {
+        var now = (timeProvider ?? TimeProvider.System).GetUtcNow();
+        if (unfinishedRuns is null || now < _nextDatabaseDiscovery) return;
+        _nextDatabaseDiscovery = now + DatabaseDiscoveryInterval;
+        await _cursors.TrackUnparkedAsync(db, unfinishedRuns, ct);
     }
 
     private async Task DrainAsync(IDatabase db, CancellationToken ct)
