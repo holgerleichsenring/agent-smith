@@ -17,4 +17,12 @@ public sealed class DbRunHeartbeat(IServiceScopeFactory scopeFactory, TimeProvid
         await scope.ServiceProvider.GetRequiredService<RunLivenessRepository>()
             .RenewHeartbeatAsync(runId, timeProvider.GetUtcNow(), cancellationToken);
     }
+
+    public async Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(
+        TimeSpan freshFor, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<RunLivenessRepository>()
+            .GetFreshRunIdsAsync(freshFor, timeProvider.GetUtcNow(), cancellationToken);
+    }
 }

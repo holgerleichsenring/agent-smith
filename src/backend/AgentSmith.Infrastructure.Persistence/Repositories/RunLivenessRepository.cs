@@ -35,6 +35,21 @@ public sealed class RunLivenessRepository(IUnitOfWork unitOfWork)
         return running.Where(r => now - LastSignOfLife(r) > staleAfter).ToList();
     }
 
+    /// <summary>
+    /// 2026-10-02-75dc: the ids of unfinished runs whose last sign of life is within
+    /// <paramref name="freshFor"/> — the sandbox reapers' flush-proof proof that a run with no
+    /// lease (init) is still driven. Any unfinished status counts: a sandbox outliving its
+    /// run's driver is the reapers' call, not this read's. Time filtered client-side.
+    /// </summary>
+    public async Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(
+        TimeSpan freshFor, DateTimeOffset now, CancellationToken ct)
+    {
+        var unfinished = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.FinishedAt == null)
+            .ToListAsync(ct);
+        return unfinished.Where(r => now - LastSignOfLife(r) <= freshFor).Select(r => r.Id).ToList();
+    }
+
     private static DateTimeOffset LastSignOfLife(Run run) =>
         run.HeartbeatAt is { } beat && beat > run.StartedAt ? beat : run.StartedAt;
 }

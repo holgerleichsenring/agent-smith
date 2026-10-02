@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Server.Services.Sandbox;
 using AgentSmith.Tests.TestSupport;
 using Docker.DotNet.Models;
@@ -98,7 +99,8 @@ public sealed class SandboxOrphanReaperOwnershipTests
         new(daemon.Client,
             new DockerSandboxQuery(Owner),
             new LiveRunSetReader(
-                InMemoryRedis.Connection(), new NoOpActiveRunLease(), NullLogger<LiveRunSetReader>.Instance),
+                InMemoryRedis.Connection(), new NoOpActiveRunLease(), new NoOpRunHeartbeat(),
+                NullLogger<LiveRunSetReader>.Instance),
             SandboxHoldRailDoubles.Reader(),
             new DockerSandboxRemover(daemon.Client, NullLogger<DockerSandboxRemover>.Instance),
             NullLogger<SandboxOrphanReaper>.Instance);

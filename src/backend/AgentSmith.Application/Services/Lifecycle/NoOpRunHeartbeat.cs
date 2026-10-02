@@ -9,4 +9,7 @@ namespace AgentSmith.Application.Services.Lifecycle;
 public sealed class NoOpRunHeartbeat : IRunHeartbeat
 {
     public Task RenewAsync(string runId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<string>>([]);
 }

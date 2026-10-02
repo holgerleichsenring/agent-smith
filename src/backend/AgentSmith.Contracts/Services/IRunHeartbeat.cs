@@ -9,4 +9,10 @@ namespace AgentSmith.Contracts.Services;
 public interface IRunHeartbeat
 {
     Task RenewAsync(string runId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-02-75dc: ids of unfinished runs whose row beat (or start) is within
+    /// <paramref name="freshFor"/> — the sandbox reapers union them into their live set.
+    /// </summary>
+    Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken);
 }

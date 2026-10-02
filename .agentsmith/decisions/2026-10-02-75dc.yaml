@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-75dc
+
+decisions:
+  - category: Architecture
+    chose: "IRunHeartbeat gains GetFreshRunIdsAsync; LiveRunSetReader unions it beside the lease"
+    over: "A new contract for the read, or LiveRunSetReader taking the scoped RunLivenessRepository directly"
+    reason: |
+      IActiveRunLease already pairs its renewal with GetActiveRunIdsAsync, so the row beat's
+      port carrying both is the same shape. The singleton reader cannot hold the scoped
+      repository; DbRunHeartbeat already opens a scope per call, and the no-op returns an
+      empty set wherever no relational store exists.
+  - category: Architecture
+    chose: "The row beat shares LiveRunSetReader.LeaseFreshFor (3 min)"
+    over: "A second freshness window for the row beat"
+    reason: "Both signals mean a process is driving this run; two numbers could drift."
+  - category: Implementation
+    chose: "Every unfinished row counts, whatever its status or cancel flag; freshness is the later of HeartbeatAt and StartedAt"
+    over: "Status running only, as the stale-run scan selects"
+    reason: |
+      The read answers 'is this run still driven', not 'may it be reaped'. A cancel-requested
+      run is still driven until the enforcer ends it; a queued or parked row has no beat and
+      ages out within the window. The later-of rule is the one 5f89e chose for resumed runs.
+  - category: Implementation
+    chose: "Time filtered client-side over the unfinished rows"
+    over: "A SQL time comparison"
+    reason: "SQLite cannot compare DateTimeOffset in SQL; the stale-run scan beside it does the same."
