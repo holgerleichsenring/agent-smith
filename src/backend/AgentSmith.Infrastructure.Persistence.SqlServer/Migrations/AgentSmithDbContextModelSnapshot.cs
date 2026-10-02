@@ -1728,6 +1728,26 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("UnmovedTickets");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.WebhookLastSeen", b =>
+                {
+                    b.Property<string>("Platform")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Platform");
+
+                    b.ToTable("WebhookLastSeen", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigRef", b =>
                 {
                     b.HasOne("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", null)

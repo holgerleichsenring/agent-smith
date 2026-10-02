@@ -93,6 +93,19 @@ public sealed class ServerRestorePolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsWebhookLastSeen()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new WebhookLastSeen { Platform = "github", LastSeenAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<WebhookLastSeen>().CountAsync()).Should().Be(0,
+            "it says what reached this server, not what reached the archive's");
+    }
+
+    [Fact]
     public async Task Policy_ARunThatWasRecorded_LeavesTheBookkeepingAlone()
     {
         await using var db = MigratedStoreTemplate.Context(_store);

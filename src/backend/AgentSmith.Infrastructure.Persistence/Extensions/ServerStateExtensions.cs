@@ -17,6 +17,7 @@ public static class ServerStateExtensions
     {
         services.AddScoped<ConnectionDiscoveryRepository>();
         services.AddScoped<PendingClarificationRepository>(); // 2026-10-02-5ab2d
+        services.AddScoped<WebhookLastSeenRepository>(); // 2026-10-02-5ab2e
         services.TryAddSingleton(TimeProvider.System);
         services.RemoveAll<IConnectionRepoSnapshot>().RemoveAll<IConnectionRepoSnapshotStore>();
         services.AddSingleton<DbConnectionRepoSnapshot>();

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2e
+
+decisions:
+  - category: Architecture
+    chose: "WebhookLastSeen table (Platform key, LastSeenAt); DbWebhookDeliveryTracker (singleton, scope per operation) registered by AddWebhookHandlers in place of the Redis tracker, its repository in AddServerState"
+    over: "The Redis hash webhook:last-seen"
+    reason: "Diagnostics after a flush must show the last delivery, not 'never seen'. The Redis tracker had no tests; it is deleted."
+  - category: Implementation
+    chose: "One update of the platform's row; nothing updated inserts; a concurrent insert's unique violation turns into the update"
+    over: "Read-then-write"
+    reason: "The shape of the other server-state rows; two replicas recording a platform's first webhook both land."
+  - category: TradeOff
+    chose: "At most one write per platform per 60 s in this process, measured on the delivery's own time, the mark set only after a successful write"
+    over: "A write per delivery"
+    reason: "The panel reads minutes; a failed write leaves no mark, so the next delivery writes at once."
+  - category: Implementation
+    chose: "Last-seen keeps today's meaning: every delivery of a known platform records, signature failures and ignored events included"
+    over: "Recording accepted deliveries only"
+    reason: "Diagnostics asks whether anything reached the server; a wrong secret proves the route works. The per-outcome detail stays in WebhookReceivedEvent."
+  - category: Implementation
+    chose: "A database error is caught, logged at Debug and reads as 'never seen'"
+    over: "Letting it reach the webhook"
+    reason: "A display signal never fails a webhook; the error path is the Redis tracker's."

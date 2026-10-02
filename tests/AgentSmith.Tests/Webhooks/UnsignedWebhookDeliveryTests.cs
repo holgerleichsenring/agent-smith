@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Webhooks;
+using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Services.Webhooks;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -44,15 +46,31 @@ public sealed class UnsignedWebhookDeliveryTests
         handler.WasAsked.Should().BeFalse();
     }
 
-    private static WebhookRequestProcessor Processor(IWebhookHandler handler)
+    [Fact]
+    public async Task WebhookRequestProcessor_SignatureFailure_StillRecordsLastSeen()
     {
-        var services = new ServiceCollection()
+        // 2026-10-02-5ab2e: a delivery with a wrong secret proves the route works and the
+        // secret does not — diagnostics must see that it ARRIVED.
+        using var store = new ServerStateStore();
+        var tracker = new DbWebhookDeliveryTracker(store.ScopeFactory, NullLogger<DbWebhookDeliveryTracker>.Instance);
+
+        var (status, _) = await Processor(new SpyWebhookHandler(), tracker).ProcessAsync(
+            "/webhook/github", """{"action":"labeled"}""", Headers("issues"));
+
+        status.Should().Be(401);
+        (await tracker.GetLastSeenAsync()).Should().ContainKey("github");
+    }
+
+    private static WebhookRequestProcessor Processor(IWebhookHandler handler, IWebhookDeliveryTracker? tracker = null)
+    {
+        var services = new ServiceCollection();
+        if (tracker is not null) services.AddSingleton(tracker);
+        services
             .AddSingleton<IWebhookSecretResolver>(new WebhookSecretResolver(_ => "the-shared-secret"))
             .AddSingleton(new ServerContext("agentsmith.yml"))
             .AddSingleton<IConfigurationLoader>(new FixedConfigurationLoader(new AgentSmithConfig()))
-            .AddSingleton<IWebhookHandler>(handler)
-            .BuildServiceProvider();
-        return new WebhookRequestProcessor(services, "agentsmith.yml", NullLogger.Instance);
+            .AddSingleton<IWebhookHandler>(handler);
+        return new WebhookRequestProcessor(services.BuildServiceProvider(), "agentsmith.yml", NullLogger.Instance);
     }
 
     private static Dictionary<string, string> Headers(string githubEvent) =>

@@ -12,8 +12,8 @@ namespace AgentSmith.Server.Services.Archive;
 /// four tables with keys of its own, and an insert onto an occupied key fails on the
 /// constraint rather than merging. So what a server fills before anyone can press the button —
 /// the callers it has observed, its connection discoveries (2026-10-02-5ab2a), its pending chat
-/// confirmations (2026-10-02-5ab2d), and the config store a boot migrated the bootstrap role
-/// mapping into — is removed first. All of it is replaced by what the archive carries moments
+/// confirmations (2026-10-02-5ab2d), its webhook last-seen times (2026-10-02-5ab2e), and the
+/// config store a boot migrated the bootstrap role mapping into — is removed first. All of it is replaced by what the archive carries moments
 /// later, and the whole thing runs inside the import's transaction, so a
 /// restore that fails anywhere leaves them exactly as they were.
 /// </para>
@@ -28,6 +28,8 @@ public sealed class ServerBookkeepingReset(ILogger<ServerBookkeepingReset> logge
         var discoveries = await db.Set<ConnectionDiscovery>().ExecuteDeleteAsync(cancellationToken);
         // 2026-10-02-5ab2d: a pending chat confirmation belongs to this server's channels.
         var clarifications = await db.Set<PendingClarification>().ExecuteDeleteAsync(cancellationToken);
+        // 2026-10-02-5ab2e: what reached this server, not what reached the archive's.
+        var webhooks = await db.Set<WebhookLastSeen>().ExecuteDeleteAsync(cancellationToken);
         // The reference edges point at the entities, so they go first.
         var refs = await db.ConfigRefs.ExecuteDeleteAsync(cancellationToken);
         var versions = await db.ConfigEntityVersions.ExecuteDeleteAsync(cancellationToken);
@@ -35,7 +37,7 @@ public sealed class ServerBookkeepingReset(ILogger<ServerBookkeepingReset> logge
         logger.LogInformation(
             "Cleared this server's own bookkeeping before a restore: {Callers} observed caller(s), "
             + "{Discoveries} connection discovery row(s), {Clarifications} pending clarification(s), "
-            + "{Entities} config entity/entities, {Versions} version(s), {Refs} reference(s).",
-            callers, discoveries, clarifications, entities, versions, refs);
+            + "{Webhooks} webhook last-seen row(s), {Entities} config entity/entities, {Versions} version(s), {Refs} reference(s).",
+            callers, discoveries, clarifications, webhooks, entities, versions, refs);
     }
 }
