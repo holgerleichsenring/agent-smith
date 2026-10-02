@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Init;
+using AgentSmith.Server.Services.Lifecycle;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.ChatLaunch;
@@ -20,7 +21,7 @@ namespace AgentSmith.Server.Services.ChatLaunch;
 public sealed class ChatTicketlessRunLauncher(
     InitRunRepository runs,
     InitRunAdmission admission,
-    IRedisJobQueue jobQueue,
+    QueuedRunDispatch dispatch,
     TimeProvider timeProvider,
     ILogger<ChatTicketlessRunLauncher> logger)
 {
@@ -34,7 +35,8 @@ public sealed class ChatTicketlessRunLauncher(
         if (!decision.Admitted) return ChatLaunchResult.Refused(decision.Reason!);
 
         await runs.CreateQueuedRunAsync(runId, project.Name, pipeline, ReposOf(project, context), QueuedSummary, ct);
-        await jobQueue.EnqueueAsync(new PipelineRequest(
+        // 2026-10-02-5ab2b: stored on the row, then pushed — a flush cannot take it.
+        await dispatch.DispatchAsync(new PipelineRequest(
             project.Name, pipeline, TicketId: null, Headless: true, Context: context, RunId: runId), ct);
 
         logger.LogInformation(

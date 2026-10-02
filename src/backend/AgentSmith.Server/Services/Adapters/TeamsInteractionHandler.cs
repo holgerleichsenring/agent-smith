@@ -15,9 +15,8 @@ namespace AgentSmith.Server.Services.Adapters;
 /// </summary>
 public sealed class TeamsInteractionHandler(
     ChatRunAnswerRouter answers,
-    ClarificationStateManager clarificationState,
+    ClarificationTaker clarifications,
     SlackMessageDispatcher messageDispatcher,
-    HelpHandler helpHandler,
     TeamsAdapter adapter,
     ILogger<TeamsInteractionHandler> logger)
 {
@@ -71,20 +70,10 @@ public sealed class TeamsInteractionHandler(
     private async Task HandleClarificationAsync(
         string conversationId, string userId, string answer, CancellationToken ct)
     {
-        var pending = await clarificationState.GetAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
-        if (pending is null)
-        {
-            logger.LogWarning("Teams clarification clicked but no pending state for {ConversationId}", conversationId);
-            return;
-        }
-
-        await clarificationState.ClearAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
-
-        if (answer == "confirm")
+        var pending = await clarifications.TakeAsync(DispatcherDefaults.PlatformTeams, conversationId, answer, ct);
+        if (pending is not null)
             await messageDispatcher.DispatchAsync(pending.SuggestedText, userId, conversationId, ct,
                 conversationId, DispatcherDefaults.PlatformTeams);
-        else
-            await helpHandler.SendHelpAsync(DispatcherDefaults.PlatformTeams, conversationId, ct);
     }
 
     private async Task HandleJobQuestionAsync(

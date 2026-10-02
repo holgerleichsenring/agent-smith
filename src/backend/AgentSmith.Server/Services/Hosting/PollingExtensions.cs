@@ -19,6 +19,8 @@ internal static class PollingExtensions
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<QueueConsumerHostedService>().Health);
 
+        // 2026-10-02-5ab2c: one of the housekeeping leader's loops.
+        services.AddSingleton<AgentSmith.Server.Services.Events.ActiveRunSetReseeder>();
         services.AddSingleton<HousekeepingLeaderHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<HousekeepingLeaderHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp =>

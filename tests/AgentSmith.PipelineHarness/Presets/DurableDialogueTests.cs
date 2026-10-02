@@ -73,7 +73,7 @@ public sealed class DurableDialogueTests
             second.ChatClient.EnqueueText("Discussion synthesised.");
             await AnswerAsync(second, checkpoint, "keep the current design");
             (await Sweeper(second).ScanOnceAsync(CancellationToken.None)).Should().Be(1);
-            await DurableDialogueHarness.BuildPump(second, Fixture, jobQueue)
+            await DurableDialogueHarness.BuildPump(second, Fixture)
                 .TickAsync(CancellationToken.None);
 
             var resumeRequest = jobQueue.DequeueViaJsonRoundTrip();

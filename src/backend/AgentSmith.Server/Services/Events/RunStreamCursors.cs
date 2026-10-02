@@ -90,4 +90,20 @@ public sealed class RunStreamCursors
         }
         return unread;
     }
+
+    /// <summary>
+    /// 2026-10-02-5ab2c: track the unparked runs the STORE calls unfinished that this drain does
+    /// not track and whose stream exists — a run the active set lost to a flush. The drain
+    /// untracks a run only after persisting its ending, so such a run never ended here; its
+    /// stored position is used, else 0-0, which is right for a stream re-created after a flush.
+    /// </summary>
+    public async Task TrackUnparkedAsync(IDatabase db, IUnfinishedRunSource source, CancellationToken ct)
+    {
+        foreach (var runId in await source.GetUnparkedRunIdsAsync(ct))
+        {
+            ct.ThrowIfCancellationRequested();
+            if (IsTracked(runId) || !await db.KeyExistsAsync(EventStreamKeys.RunStream(runId))) continue;
+            await TrackAsync(db, runId);
+        }
+    }
 }

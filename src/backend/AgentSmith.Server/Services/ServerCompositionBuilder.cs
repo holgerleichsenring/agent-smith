@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Config;
 using AgentSmith.Server.Services.Logging;
@@ -43,6 +44,8 @@ public static class ServerCompositionBuilder
             // DB-backed guard when AGENTSMITH_PERSISTENCE_PROVIDER is set). Must
             // run AFTER the overrides registered the NoOp default so RemoveAll wins.
             .AddRelationalPersistence()
+            // 2026-10-02-5ab2a: state that must survive a Redis flush, in the database.
+            .AddServerState()
             // 2026-08-28-3793: the archive endpoints' graph — the persistence project's
             // writer and reader, plus this server's own restore policy.
             .AddDataArchiveTransfer()

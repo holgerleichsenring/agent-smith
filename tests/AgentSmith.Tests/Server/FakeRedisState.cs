@@ -118,6 +118,35 @@ public sealed class FakeRedisState
         lock (_gate) Collection(_lists, key, () => new List<string>()).Remove(value);
     }
 
+    /// <summary>2026-10-02-5ab2c: FLUSHALL — every stream, index and stored position gone.</summary>
+    public void Flush()
+    {
+        lock (_gate)
+        {
+            _streams.Clear();
+            _sets.Clear();
+            _lists.Clear();
+            _strings.Clear();
+        }
+    }
+
+    /// <summary>2026-10-02-5ab2c: the re-seed script's contract — SADD each id the list lacks.</summary>
+    public long AddUnlessListed(string setKey, string listKey, IEnumerable<string> ids)
+    {
+        lock (_gate)
+        {
+            var listed = Collection(_lists, listKey, () => new List<string>());
+            var set = Collection(_sets, setKey, () => new HashSet<string>());
+            return ids.Count(id => !listed.Contains(id) && set.Add(id));
+        }
+    }
+
+    /// <summary>2026-10-02-5ab2c: apply queued commands under one lock, as EXEC does.</summary>
+    public void Atomically(IEnumerable<Action> commands)
+    {
+        lock (_gate) foreach (var command in commands) command();
+    }
+
     private List<StreamEntry> Stream(string key) =>
         Collection(_streams, key, () => new List<StreamEntry>());
 

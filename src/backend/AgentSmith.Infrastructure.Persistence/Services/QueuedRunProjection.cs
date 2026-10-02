@@ -28,6 +28,11 @@ public sealed class QueuedRunProjection
         if (!string.IsNullOrEmpty(e.Project)) run.Project = e.Project;
         if (!string.IsNullOrEmpty(e.Platform)) run.Platform = e.Platform;
         if (!string.IsNullOrEmpty(e.JobId)) run.JobId = e.JobId; // p0330: kill handle
+        // 2026-10-02-5ab2b: the request has started — a row parked and resumed later is judged
+        // by its new request, under the same claim rule.
+        run.QueuedRequestJson = null;
+        run.RequestEnqueuedAt = null;
+        run.ClaimedAt = null;
         await AddMissingReposAsync(uow, e, ct);
         await uow.SaveChangesAsync(ct);
     }

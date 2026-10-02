@@ -1,4 +1,6 @@
 using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Persistence;
+using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
@@ -36,6 +38,14 @@ public sealed class RelationalPersistenceWiringTests
         scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Should().BeOfType<AgentSmithDbContext>();
     }
 
+    // 2026-10-02-5ab2f: the core's in-memory TryAdd is replaced, not decorated.
+    [Fact]
+    public void ServerComposition_IRunArtifactStore_IsTheDatabaseStore()
+    {
+        using var provider = BuildProvider();
+        provider.GetRequiredService<IRunArtifactStore>().Should().BeOfType<DbRunArtifactStore>();
+    }
+
     private static ServiceProvider BuildProvider()
     {
         var services = new ServiceCollection();
@@ -53,6 +63,7 @@ public sealed class RelationalPersistenceWiringTests
         // Mirror the Server chain: the overrides register the NoOp default first,
         // then AddRelationalPersistence always RemoveAll-swaps it.
         services.AddSingleton<IActiveRunLease, NoOpActiveRunLease>();
+        services.AddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
         services.AddRelationalPersistence();
         return services.BuildServiceProvider();
     }

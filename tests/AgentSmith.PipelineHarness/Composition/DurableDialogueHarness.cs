@@ -112,7 +112,7 @@ public static class DurableDialogueHarness
     }
 
     public static CapacityQueuePump BuildPump(
-        RealCompositionHarness harness, string fixtureName, RecordingJobQueue jobQueue)
+        RealCompositionHarness harness, string fixtureName)
     {
         var sp = harness.Services;
         return new CapacityQueuePump(
@@ -133,7 +133,9 @@ public static class DurableDialogueHarness
                     Microsoft.Extensions.Logging.ILogger<CapacityQueueDrop>>()),
             sp.GetRequiredService<IRunCancelStateReader>(),
             new ResumeRunLauncher(
-                sp, sp.GetRequiredService<IActiveRunLease>(), jobQueue,
+                sp, sp.GetRequiredService<IActiveRunLease>(),
+                // 2026-10-02-5ab2b: the production dispatch over the recorded queue.
+                sp.GetRequiredService<QueuedRunDispatch>(),
                 sp.GetRequiredService<ICapacityQueue>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ResumeRunLauncher>>()),
             sp.GetRequiredService<IConfigurationLoader>(),

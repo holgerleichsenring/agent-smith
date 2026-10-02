@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Services.Lifecycle;
 
 namespace AgentSmith.Server.Services.Init;
 
@@ -20,7 +21,7 @@ public sealed class InitRunLauncher(
     ServerContext serverContext,
     InitRunRepository runs,
     InitRunAdmission admission,
-    IRedisJobQueue jobQueue,
+    QueuedRunDispatch dispatch,
     IRedisClaimLock launchLock,
     TimeProvider timeProvider,
     ILogger<InitRunLauncher> logger)
@@ -79,8 +80,8 @@ public sealed class InitRunLauncher(
         await runs.CreateQueuedRunAsync(
             runId, project.Name, PipelineName,
             project.Repos.Select(r => r.Name).ToList(), QueuedSummary, ct);
-        await jobQueue.EnqueueAsync(
-            ToRequest(project.Name, runId, autoCompletePullRequests), ct);
+        // 2026-10-02-5ab2b: stored on the row, then pushed — a flush cannot take it.
+        await dispatch.DispatchAsync(ToRequest(project.Name, runId, autoCompletePullRequests), ct);
 
         logger.LogInformation(
             "Init launched for project {Project} (run {RunId}) — ticketless, trigger manual",

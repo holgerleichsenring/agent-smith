@@ -18,7 +18,8 @@ internal static class WebhookEndpointsExtensions
     internal static IServiceCollection AddWebhookHandlers(this IServiceCollection services)
     {
         services.AddSingleton<WebhookSpawnDispatcher>();
-        services.AddSingleton<IWebhookDeliveryTracker, WebhookDeliveryTracker>();
+        // 2026-10-02-5ab2e: last-seen per platform in the database, so a Redis flush keeps it.
+        services.AddSingleton<IWebhookDeliveryTracker, AgentSmith.Infrastructure.Persistence.Services.DbWebhookDeliveryTracker>();
         // 2026-09-25-d83b: the PR-label handlers ask this for the review-request word
         // instead of carrying a literal each.
         services.AddSingleton<PrTriggerLabelResolver>();

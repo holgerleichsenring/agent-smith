@@ -27,7 +27,6 @@ public sealed class RawAgentSmithConfig
     public SkillsConfig Skills { get; set; } = new();
     public string? PrimaryProvider { get; set; }
     public LoopLimitsConfig Limits { get; set; } = new();
-    public PipelineStorageConfig PipelineStorage { get; set; } = new();
     public PipelineDataFlowConfig PipelineDataFlow { get; set; } = new();
     public DeploymentConfig Deployment { get; set; } = new();
     public SandboxGlobalConfig Sandbox { get; set; } = new();

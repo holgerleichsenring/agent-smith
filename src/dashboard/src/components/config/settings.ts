@@ -20,7 +20,6 @@ export const SETTING_KEYS: SettingKey[] = [
   "queue",
   "dialogue",
   "skills",
-  "pipeline_storage",
   "pipeline_data_flow",
   "trace",
 ];
@@ -36,7 +35,6 @@ export const SETTING_LABEL: Record<SettingKey, string> = {
   queue: "Queue",
   dialogue: "Dialogue",
   skills: "Skills",
-  pipeline_storage: "Pipeline storage",
   pipeline_data_flow: "Pipeline data flow",
   trace: "Trace",
 };
@@ -53,7 +51,6 @@ export const SETTING_SUBTITLE: Record<SettingKey, string> = {
   queue: "consumer backpressure and Redis retry cadence",
   dialogue: "hot-wait window and approval timeout for human dialogue",
   skills: "where the skill catalog is resolved from",
-  pipeline_storage: "in-flight run-artifact store TTL",
   pipeline_data_flow: "data-flow gating — warn only, or enforce",
   trace: "record each run's conversation, not only its numbers — AGENTSMITH_TRACE overrides it",
 };
@@ -70,7 +67,6 @@ export const SETTING_ICON: Record<SettingKey, string> = {
   queue: "≡",
   dialogue: "◊",
   skills: "✧",
-  pipeline_storage: "⛁",
   pipeline_data_flow: "⇢",
   trace: "⌁",
 };

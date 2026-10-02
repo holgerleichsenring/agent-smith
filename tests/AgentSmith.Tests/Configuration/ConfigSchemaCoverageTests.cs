@@ -1,6 +1,7 @@
 using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Core.Services.Configuration.Retired;
 using AgentSmith.Tests.Architecture;
 using FluentAssertions;
 
@@ -48,9 +49,21 @@ public sealed class ConfigSchemaCoverageTests
 
     [Fact]
     public void ConfigSchema_DeclaresNothingTheLoaderIgnores() =>
-        Loader().Unbound.Where(key => key != "tool_runner")
+        Loader().Unbound.Where(key => key != "tool_runner" && !KeptDeprecated(key))
             .Concat(ToolRunner().Unbound)
             .Should().BeEmpty("a declared key nothing reads is accepted and silently does nothing");
+
+    // 2026-10-02-5ab2f: a retired root key may stay declared so an editor validating an older
+    // file does not flag it — only as a RetiredConfigKeys row the schema marks deprecated.
+    private static bool KeptDeprecated(string key) =>
+        RetiredConfigKeys.All.Any(r => r.Path == key)
+        && ConfigSchemaFile.Properties(ConfigSchemaFile.Root).TryGetValue(key, out var node)
+        && node["deprecated"] is JsonValue deprecated && deprecated.GetValue<bool>();
+
+    [Fact]
+    public void ConfigSchema_PipelineStorage_IsDeclaredDeprecated() =>
+        KeptDeprecated("pipeline_storage").Should().BeTrue(
+            "the operator keeps the retired block declared so older files validate");
 
     [Fact]
     public void ConfigSchema_EveryObjectClosesItsProperties() =>

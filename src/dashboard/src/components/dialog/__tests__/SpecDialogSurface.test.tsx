@@ -482,7 +482,7 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_TheComposer_PutsTheTurnInTheTranscript", async () => {
     await renderSurface();
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "a widget that reads the ledger" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1824,7 +1824,7 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_WhileATurnRuns_ShowsThatItIsWorking", async () => {
     await renderSurface();
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1834,7 +1834,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_WhenTheAnswerArrives_StopsShowingThatItIsWorking", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1852,7 +1852,7 @@ describe("SpecDialogSurface", () => {
   // repository at its latest state, a failure included, so no line spins forever.
   it("SpecDialog_WhileATurnReads_ShowsEachOpenedRepositoryAndItsState", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1879,7 +1879,7 @@ describe("SpecDialogSurface", () => {
   // bottom where the next line arrives, with everything older folded away.
   it("SpecDialog_WhileATurnRuns_ListsWhatItDoesNewestLast", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1933,7 +1933,7 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_ThePageThatPosted_KeepsItsWorkingLineWhenTheViewSaysNothing", async () => {
     await renderSurface();
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -1978,7 +1978,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_TwoIdenticalStepsInOneTurn_AreShownAsTwo", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2086,7 +2086,7 @@ describe("SpecDialogSurface", () => {
   // one of the two liveness cues dies for the rest of the turn. The sequence is the true count.
   it("SpecDialog_ATurnPastTheKeptBound_StillCountsEveryStepItTook", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2175,7 +2175,7 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2194,7 +2194,7 @@ describe("SpecDialogSurface", () => {
     render(<SpecDialogSurface />);
     await waitFor(() => expect(fetchSpecDialog).toHaveBeenCalled());
     await waitFor(() => expect(subscribeSpecDialog).toHaveBeenCalled());
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2217,7 +2217,7 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_AMessageWithASessionOpen_IsStillEchoedOnce", async () => {
     await renderSurface();
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2602,7 +2602,7 @@ describe("SpecDialogSurface", () => {
   // each repository as it opens.
   it("SpecDialog_ARunningTurn_NamesEachRepositoryItOpensAndHowLongItHasBeen", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2623,7 +2623,7 @@ describe("SpecDialogSurface", () => {
   // per-turn check for whether the ticket has moved — and both were pauses with nothing on screen.
   it("DialogWorking_ATicketBeingRead_SaysSoAndTheHeaderAnswersForIt", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -2641,7 +2641,7 @@ describe("SpecDialogSurface", () => {
 
   it("DialogWorking_ATicketNamedLikeARepository_DoesNotOverwriteItsLine", async () => {
     await renderSurface();
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -3534,7 +3534,7 @@ describe("SpecDialogSurface", () => {
     fetchSpecDialog.mockResolvedValue(view({ session: null }));
     await renderSurface();
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "update every dependency" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -3618,7 +3618,7 @@ describe("SpecDialogSurface", () => {
     expect(note).toHaveAttribute("role", "alert");
     expect(note.textContent).toBe(reason);
     expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
-    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
   });
 
   it("SpecDialog_ARefusedImage_SaysWhyAtTheComposer", async () => {
@@ -3851,7 +3851,7 @@ describe("a page addressed with a ticket", () => {
 
     await renderSurface();
     await waitFor(() => expect(readTicketConversation).toHaveBeenCalled());
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "let us work it out" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -3893,7 +3893,7 @@ describe("a page addressed with a ticket and no project", () => {
 
     await renderSurface();
     await waitFor(() => expect(readTicketProject).toHaveBeenCalledWith("DPG-1239"));
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "work it out" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -4026,7 +4026,7 @@ describe("The ticket search", () => {
 
     expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-ticket-search")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
   });
 
   it("SpecDialogSurface_ThreeCharacters_SearchesOnceAfterTheDebounce", async () => {
@@ -4081,7 +4081,7 @@ describe("The ticket search", () => {
 
     // One routed project IS the project: send is a no-op without one and the server drops the
     // ticket without a word, so a pick that did not resolve one could not be discussed at all.
-    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
     expect(screen.getByTestId("dialog-ticket-picked").textContent).toContain("DPG-1239");
   });
@@ -4126,7 +4126,7 @@ describe("The ticket search", () => {
     await waitFor(() => expect(screen.getByTestId("dialog-ticket-hit-DPG-1239")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("dialog-ticket-hit-DPG-1239"));
 
-    fireEvent.change(screen.getByTestId("dialog-composer-text"), {
+    fireEvent.change(await screen.findByTestId("dialog-composer-text"), {
       target: { value: "the reset link expires too early" },
     });
     fireEvent.click(screen.getByTestId("dialog-composer-send"));
@@ -4218,7 +4218,7 @@ describe("The ticket search", () => {
 
     expect(resolveTicketProjects.mock.calls[0].slice(0, 2)).toEqual(["jira-main", "DPG-1239"]);
     // One project after the read, so there is nothing left to choose and the composer opens.
-    await waitFor(() => expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument());
+    expect(await screen.findByTestId("dialog-composer-text")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-project-choice")).not.toBeInTheDocument();
   });
 

@@ -100,7 +100,7 @@ public sealed class DataArchiveRefusalTests : IDisposable
 
         var manifest = await _archive.Writer.WriteAsync(db, archive);
 
-        manifest.Tables.Sum(t => t.Rows).Should().Be(60);
+        manifest.Tables.Sum(t => t.Rows).Should().Be(66);
     }
 
     private static DataArchiveManifest Overstated(DataArchiveManifest manifest) =>

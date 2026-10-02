@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2d
+
+decisions:
+  - category: Architecture
+    chose: "PendingClarifications table keyed (Platform, ChannelId) with ExpiresAt and a Token; ClarificationStateManager keeps its singleton shape over the scoped PendingClarificationRepository, registered in AddServerState"
+    over: "The Redis string with a two-hour TTL"
+    reason: "The operator's pending command must survive a Redis flush; its two hours are a column, compared client-side because SQLite cannot compare a DateTimeOffset in SQL."
+  - category: Implementation
+    chose: "Token stored as the Guid's 32-digit text, not a Guid column"
+    over: "A Guid-typed column"
+    reason: "Every other column in the model is text, number, time or bytes; the archive seed and transfer cover exactly those, and the token is only ever compared for equality."
+  - category: Implementation
+    chose: "TakeAsync reads the row, deletes it by key and token, and returns it only when that delete removed one row and it had not expired; an expired row is deleted by the take that found it"
+    over: "Read and clear as two calls"
+    reason: "The conditional delete lets one replica win a double click; today both could read before either cleared and dispatch twice."
+  - category: Implementation
+    chose: "Set overwrites with one update, inserts when nothing was updated, and turns a concurrent insert's unique violation back into the update"
+    over: "Read-then-write upsert"
+    reason: "The same shape as the connection-discovery row; one row per channel, the latest request wins."
+  - category: Implementation
+    chose: "ClarificationTaker (scoped, one per click) takes the pending command; Confirm with nothing pending sends HelpHandler.SendClarificationExpiredAsync; Help always shows help; Slack rewrites the clicked message on every click — 'Confirmed', 'No longer pending' or 'Showing help'; both handlers lose their HelpHandler dependency"
+    over: "Each handler keeping its own read-and-clear"
+    reason: "Expired and gone read the same — nothing will run — so the person is told to resend instead of hearing nothing; help needs no pending command. SlackInteractionHandler drops to 123 lines and its ratchet row with it."
+  - category: Tooling
+    chose: "ServerStateStore gains an on-disk mode; the concurrent-take test runs ten rounds of two simultaneous takes and requires exactly one winner per round"
+    over: "A scripted interleaving"
+    reason: "The claim holds under every interleaving, so real concurrency is a fair test; a file store gives each context its own connection."

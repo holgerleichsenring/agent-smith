@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2b
+
+decisions:
+  - category: Architecture
+    chose: "Run gains QueuedRequestJson, RequestEnqueuedAt and ClaimedAt; QueuedRunDispatch stores the request (serialized as RedisJobQueue does) on the row, then pushes it; init, chat and resume launches go through it"
+    over: "Replacing the Redis list with a database queue"
+    reason: |
+      Redis carries a copy to wake a consumer; the row is what a flush cannot take. The request
+      holds no credential, so the row holds none. No entity configuration: like HeartbeatAt the
+      columns need no length, precision or index; both migration sets were generated with
+      `dotnet ef migrations add AddRunQueuedRequest`.
+  - category: Implementation
+    chose: "QueuedRunDispatch is a singleton opening a scope per dispatch"
+    over: "A scoped service resolved by each launcher"
+    reason: "ResumeRunLauncher is a singleton; one shape serves the scoped launchers, the singleton one and the harness."
+  - category: Implementation
+    chose: "RunStartGate (Application) claims at the pop through IRunStartClaim and keeps the p0330 pre-start cancel gate; the claimed start beats its row through RunHeartbeatPump with no ticket id until the request's run ends; PipelineQueueConsumer drops to 120 lines and leaves the ratchet baseline"
+    over: "The claim inside PipelineQueueConsumer"
+    reason: |
+      The consumer was a ratchet row; the gate holds both pre-start decisions. The pump's beat
+      loop already survives a failed renewal; with no ticket id it renews only the row.
+  - category: Implementation
+    chose: "The claim is one conditional update (ClaimedAt and HeartbeatAt where a request is stored and no claim exists); a lost update or a running row is Duplicate; a row with no stored request, or no row, is Unclaimed and starts as today"
+    over: "A status check in the update"
+    reason: "Promotion clears the request, so a running row never matches the update; the follow-up read only names why nothing matched."
+  - category: TradeOff
+    chose: "A claim that throws drops the popped copy"
+    over: "Starting it unclaimed"
+    reason: |
+      Started unclaimed, the row would look lost and be pushed again — two starts. Dropped, the
+      row keeps the request and the sweeper pushes it again within 90 s; a ticket request with a
+      reserved run id recovers through the taken-ticket record as before.
+  - category: Implementation
+    chose: "StoreRequestAsync resets ClaimedAt; QueuedRunProjection clears all three columns on promotion"
+    over: "Leaving an earlier claim in place"
+    reason: "A row parked and resumed later is judged by its new request under the same claim rule."
+  - category: Implementation
+    chose: "QueuedRunSweeper (housekeeping leader, 30 s, SuspendGapDetector) pushes again an unflagged unfinished unclaimed request older than 60 s and renews its push time; flags interrupted a claim whose later of HeartbeatAt and ClaimedAt is older than RunLivenessReaper.StaleAfter; a suspend gap suppresses both"
+    over: "Suppressing only the interrupted verdict"
+    reason: "Mirrors RunLivenessReaper; after a suspend every push time is old by construction too, and a re-push then is only noise the claim would absorb."
+  - category: Tooling
+    chose: "The docker-tier flush test starts its own redis:7-alpine container on a random loopback port, flushes it and removes it"
+    over: "Flushing the Redis the harness environment points at"
+    reason: "FLUSHALL on a shared Redis would wipe an operator's queue and leases; a container the test created is the only one it may flush."
+  - category: Scope
+    chose: "The fast-tier and docker-tier proofs stop at the start gate: the re-pushed copy is claimed once, carrying the auto-complete flag"
+    over: "Running the init pipeline from the re-pushed request"
+    reason: "What happens after the claim is the consumer's unchanged path; the phase changes how a request reaches it."
+  - category: Tooling
+    chose: "ReadCountingClock moved from RunLivenessReaperTests into TestSupport"
+    over: "A second private copy"
+    reason: "The sweeper's suspend-gap test drives its loop the same way."

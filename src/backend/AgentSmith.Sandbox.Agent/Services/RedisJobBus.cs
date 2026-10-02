@@ -62,6 +62,8 @@ internal sealed class RedisJobBus : IRedisJobBus
     {
         var json = JsonSerializer.Serialize(result, WireFormat.Json);
         await _database.ListLeftPushAsync(RedisKeys.ResultsKey(jobId), json);
+        // 2026-10-02-5ab2f: the server may never pop this result (it died); the key expires.
+        await _database.KeyExpireAsync(RedisKeys.ResultsKey(jobId), RedisKeys.JobKeyTtl);
     }
 
     public async Task<bool> IsRunActiveAsync(string runId, CancellationToken cancellationToken)

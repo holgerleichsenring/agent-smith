@@ -12,4 +12,7 @@ public sealed class NoOpRunHeartbeat : IRunHeartbeat
 
     public Task<IReadOnlyCollection<string>> GetFreshRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyCollection<string>>([]);
+
+    public Task<IReadOnlyCollection<string>> GetFreshUnparkedRunIdsAsync(TimeSpan freshFor, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyCollection<string>>([]);
 }

@@ -37,6 +37,11 @@ public sealed class HelpHandler(
             "Type `help` to see what I can do.", ct);
     }
 
+    /// <summary>2026-10-02-5ab2d: Confirm was clicked, but nothing is pending any more.</summary>
+    public Task SendClarificationExpiredAsync(string platform, string channelId, CancellationToken ct) =>
+        adapters.SendMessageAsync(platform, channelId,
+            "This request is no longer pending — please send it again.", ct);
+
     public async Task SendClarificationAsync(
         string platform, string channelId, string suggestion, CancellationToken ct)
     {
