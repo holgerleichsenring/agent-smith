@@ -12,7 +12,7 @@ facts:
   - claim: "Dialog rules are already tested against the pinned master."
     evidence: "tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs"
   - claim: "Skills PR #205 carries design-partner-master 1.11.0 and coding-agent-master 1.28.0: documents, subject binding, scenario criteria, listed bug criteria, design_read, visual references and source precedence rule 4."
-    evidence: "agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd)"
+    evidence: "observed: agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd), 2026-10-01"
 
 scope:
   in: "Skills PR #205 shipped in 5.8.0; the pin moves to 5.8.1, which carries it and tests read every rule it added from the pinned masters. 5.8.1 (2026-10-02-3f06g) also drops the C# delta's base-class line limit, so the C# principles golden is regenerated with the move."
