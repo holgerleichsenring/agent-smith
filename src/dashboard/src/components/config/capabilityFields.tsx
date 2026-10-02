@@ -1,7 +1,7 @@
 "use client";
 
 import type { CapabilityField, ConfigFinding } from "@/lib/configApi";
-import { TextField, ListField, CheckField, MapField } from "./formFields";
+import { TextField, ListField, CheckField, MapField, SelectField } from "./formFields";
 
 // p0345c: renders the per-TYPE field set the capabilities descriptor declares
 // for the selected tracker/connection type. The field LIST comes entirely from
@@ -11,6 +11,9 @@ import { TextField, ListField, CheckField, MapField } from "./formFields";
 // offered without editing this file — and the twelve tracker fields the descriptor did
 // not declare included needs_clarification_status, whose absence refused a boot on
 // 2026-07-31 and could not be fixed from the UI at all.
+// 2026-10-02-140d: a secret field is a pick from the secrets catalog, at the descriptor's
+// position. The tracker and connection forms used to add a fixed picker for authSecret
+// beside the descriptor's text box, so the field showed twice — once inviting the token.
 
 export function CapabilityFieldInputs({
   fields,
@@ -18,6 +21,7 @@ export function CapabilityFieldInputs({
   onFieldChange,
   orgLabel,
   findings = [],
+  secrets = [],
 }: {
   fields: CapabilityField[];
   /** The entity draft, read as a loose record keyed by field key. */
@@ -28,6 +32,8 @@ export function CapabilityFieldInputs({
   orgLabel?: string;
   /** What the server said about this draft; a finding naming a field is shown on it. */
   findings?: ConfigFinding[];
+  /** The secrets catalog's names — what a `secret` field may be set to. */
+  secrets?: string[];
 }) {
   return (
     <>
@@ -78,6 +84,22 @@ export function CapabilityFieldInputs({
                   testId={`form-field-${f.key}`}
                   valueChoices={f.choices}
                   onChange={(v) => onFieldChange(f.key, v)}
+                />
+              </FieldSlot>
+            );
+          }
+          case "secret": {
+            const current = typeof values[f.key] === "string" ? (values[f.key] as string) : "";
+            return (
+              <FieldSlot key={f.key} finding={finding} fieldKey={f.key}>
+                <SelectField
+                  label={label}
+                  value={current}
+                  options={secrets}
+                  required={f.required}
+                  help={help}
+                  testId={`form-field-${f.key}`}
+                  onChange={(v) => onFieldChange(f.key, v === "" ? undefined : v)}
                 />
               </FieldSlot>
             );

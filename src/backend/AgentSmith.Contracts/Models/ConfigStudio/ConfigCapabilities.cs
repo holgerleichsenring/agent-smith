@@ -58,11 +58,16 @@ public enum CapabilityFieldKind
     Bool,
     /// <summary>A string-to-string map (a YAML mapping).</summary>
     Map,
+    /// <summary>
+    /// 2026-10-02-140d: the NAME of an entry in the secrets catalog, never its value. A secret
+    /// field declared as text rendered as a free text box that invites the token itself.
+    /// </summary>
+    Secret,
 }
 
 /// <summary>
 /// p0456: serialises <see cref="CapabilityFieldKind"/> as the lowercase word the client
-/// contract declares (text / list / bool / map). Without a naming policy the enum crosses
+/// contract declares (text / list / bool / map / secret). Without a naming policy the enum crosses
 /// the wire as its .NET member name ("List"), which is the one vocabulary on this payload
 /// a client is not told about anywhere: every other value here is an explicit wire name
 /// (azure_devops, area_path, the camelCased role keys). A naming policy cannot be passed
