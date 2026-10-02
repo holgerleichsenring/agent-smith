@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7ac
+
+decisions:
+  - category: Architecture
+    chose: "DesignNodeRender (Application/Design) exports and deposits through IToolImageDeposit; DesignReadToolHostFactory takes IToolImageDeposit by DI and hands every host one"
+    over: "A second relay, or design_read placing the image itself"
+    reason: |
+      ONE IMAGE PATH per the spec and 2026-10-01-283dd: placement, the per-loop ceiling, the
+      provider and vision notes and trace hashes stay the relay's. The host takes the render as an
+      optional constructor argument beside the recorder, so the 7f7ab host tests stay as they were.
+  - category: Architecture
+    chose: "A refused deposit's reason is repeated in design_read's result ('rendered image: not shown — <reason>'); an accepted one says a PNG follows"
+    over: "The spec's silence on what the tool says, or promising a picture unconditionally"
+    reason: |
+      283dd settles that a refusal is returned to the producer to repeat, and that a withheld image
+      (Copilot, worker, no vision, ceiling) is noted inside the tool result by the relay. The tool
+      therefore states only what it knows at deposit time; the relay adds the rest.
+  - category: Security
+    chose: "A separate typed client, FigmaImageDownloader, with no ISecretValues, no default headers and AllowAutoRedirect false; it fetches only https on the default port, with no user info, on figma-alpha-api.s3.us-west-2.amazonaws.com"
+    over: "Downloading through FigmaClient's client, or accepting any https url the images call returns"
+    reason: |
+      THE TOKEN NEVER LEAVES api.figma.com: the downloader cannot send it because it never holds it,
+      and with redirects off a storage url cannot bounce the request elsewhere. Figma's documentation
+      names no image host (it says only that render urls expire after 30 days); the host is the one
+      the images endpoint is publicly observed to return. UNVERIFIED live: should Figma answer from
+      another host, the render fails stated and the summary still returns — refused, not guessed.
+  - category: Security
+    chose: "The download is capped at TicketImageAttachment.MaxSizeBytes (5 MB) — by Content-Length and by reading at most one byte past it — and must start with the PNG signature; failures name statuses and exception types only"
+    over: "Trusting the deposit rule alone, or quoting the url or exception message"
+    reason: |
+      The cap stops an unbounded body before it is buffered; the deposit rule would refuse it only
+      after. The render url is an unauthenticated link to the design, so it stays out of text, logs
+      and failures like the token.
+  - category: Implementation
+    chose: "Scale = floor(1568 / longest side of absoluteBoundingBox, 4 decimals), clamped to 0.01..2; use_absolute_bounds=true; 1x when the node has no bounds"
+    over: "Bounding only (never enlarging), or Figma's default render bounds"
+    reason: |
+      Absolute bounds make the render exactly box x scale, so the floor keeps the long edge within
+      the 1568 px the deposit accepts; effects outside the box are cropped. A small component at 2x
+      is legible to a vision model; past 2x adds bytes, not detail.
+  - category: Implementation
+    chose: "The export names the version the nodes response carried (version=), and the caption states node, file, version and scale"
+    over: "Exporting the current version"
+    reason: "The picture and the summary are of one version even when read_version reads a cited one or the file moves between the two calls."
+  - category: TradeOff
+    chose: "PROVEN ONLY AGAINST THE DOCUMENTED CONTRACT: GET /v1/images/:key?ids=&format=png&scale=&use_absolute_bounds=&version= answering {err, images: {id: url|null}, status}, scale 0.01-4, a null entry for a node that cannot be rendered"
+    over: "A live export"
+    reason: |
+      No Figma token exists in this repository; FakeFigmaHandler answers images and downloads from
+      the documented shape. A scripted loop over the real factory chain proves the PNG reaches the
+      next request after the tool result. UNVERIFIED live: the image host, and that a render at the
+      computed scale lands within the 1568 px edge the deposit enforces (a miss is refused by name).

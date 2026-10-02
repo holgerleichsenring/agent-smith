@@ -39,6 +39,10 @@ public static class LoopRuntimeExtensions
         // default so every producer can call it unconditionally and pay nothing.
         services.AddSingleton<Contracts.Runs.TraceSwitch>();
         services.AddSingleton<Contracts.Runs.SecretMasker>();
+        // 2026-10-01-7f7aa: the values of the configuration this process loaded; the server
+        // replaces it with CurrentSecretValues, which follows the config store.
+        services.TryAddSingleton<ISecretValues>(sp =>
+            new LoadedSecretValues(sp.GetRequiredService<Contracts.Models.Configuration.AgentSmithConfig>()));
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
         services.AddSingleton<SkillPromptLogger>();
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();

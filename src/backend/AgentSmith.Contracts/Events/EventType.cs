@@ -107,4 +107,6 @@ public enum EventType
     // Its own event and its own artifact row: the record body carries the findings as
     // prose for a reader, and 2026-09-17-042ej reads them back as data.
     PhaseReviewed = 81,
+    // 2026-10-01-7f7ae: a design_read Figma answered — source, file, node and the version read.
+    DesignRead = 82,
 }

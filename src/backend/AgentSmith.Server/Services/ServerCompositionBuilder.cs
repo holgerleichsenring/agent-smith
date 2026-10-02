@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Extensions;
+using AgentSmith.Server.Services.Config;
 using AgentSmith.Server.Services.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -73,6 +74,10 @@ public static class ServerCompositionBuilder
         // overwrite us — that was the bug in p0198-followup v1.
         services.AddSingleton<AgentSmithConfig>(sp =>
             sp.GetRequiredService<IConfigurationLoader>().LoadConfig(configPath));
+        // 2026-10-01-7f7aa: the masker and every token lookup follow the config store, so a
+        // secret added in the Studio after startup is resolved and masked like a booted one.
+        services.RemoveAll<ISecretValues>();
+        services.AddSingleton<ISecretValues, CurrentSecretValues>();
 
         // 2026-09-22-6968: the single resolution pass run against an EMPTY per-project
         // sandbox block — what a project would inherit if it said nothing. A dashboard

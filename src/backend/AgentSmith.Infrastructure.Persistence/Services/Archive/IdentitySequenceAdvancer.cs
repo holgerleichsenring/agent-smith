@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
@@ -18,7 +19,11 @@ public sealed class IdentitySequenceAdvancer(
         AgentSmithDbContext db, IEntityType type, long maxKey, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(db);
-        if (maxKey <= 0 || generatedKey.Of(type) is null || !db.Database.IsSqlServer()) return;
+        if (maxKey <= 0 || generatedKey.Of(type) is not { } key || !db.Database.IsSqlServer()) return;
+        // 2026-10-01-283da: never below the declared seed. A table whose identity starts high
+        // (the reference files, above every legacy image id) may arrive holding only keys below
+        // it; reseeding to them would hand the next new row a number the legacy range owns.
+        if (maxKey < SeedOf(db, type, key)) return;
 
         var table = QualifiedName(type);
         // EF1002: the only interpolated value is the table name the MODEL declares.
@@ -27,6 +32,11 @@ public sealed class IdentitySequenceAdvancer(
         #pragma warning restore EF1002
         logger.LogDebug("Advanced the identity generator of {Table} to {MaxKey}.", table, maxKey);
     }
+
+    // The seed is design-time configuration, which the read-optimized runtime model drops.
+    private static long SeedOf(AgentSmithDbContext db, IEntityType type, IProperty key) =>
+        db.GetService<IDesignTimeModel>().Model.FindEntityType(type.Name)?
+            .FindProperty(key.Name)?.GetIdentitySeed() ?? 1;
 
     private static string QualifiedName(IEntityType type) =>
         type.GetSchema() is { } schema ? $"{schema}.{type.GetTableName()}" : type.GetTableName()!;

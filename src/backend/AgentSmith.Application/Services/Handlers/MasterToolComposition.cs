@@ -27,6 +27,8 @@ public sealed class MasterToolComposition(
     SubAgentNameValidator subAgentNameValidator,
     IDecisionLogger decisionLogger,
     IChildAnswerStore childAnswerStore,
+    DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
+    RenderReferenceToolFactory renderReference, // 2026-10-01-283de
     ILogger<MasterToolComposition> logger)
 {
     // p0280: the master surface = its base surface (read-only Review for a scan master,
@@ -66,6 +68,16 @@ public sealed class MasterToolComposition(
                     recall: recall, remember: remember);
 
         var master = BaseSurface();
+        // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
+        // source — the MASTER only, outside BaseSurface: children fanning out over one file would
+        // multiply calls against one rate limit, so no child surface derived from it carries it.
+        if (!isScanMaster && designRead.Create(context.Pipeline) is { } design)
+            master = [.. master, .. design.GetTools(null, null)];
+        // 2026-10-01-283de: render_reference joins the design MASTER — one browser sandbox serves the
+        // conversation, so children fanning out would only queue on it. 2026-10-01-283df: and the
+        // coding master of a project whose config enables the browser; the factory decides.
+        // 2026-10-01-283di: with compare_reference beside it.
+        if (!isScanMaster) master = [.. master, .. renderReference.Tools(context.Pipeline, isSpecDialog)];
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
         // counterpart to ScopeRepos' conservative narrowing. Scan masters read
         // everything anyway (full scope, no narrowing) and must not spawn.

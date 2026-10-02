@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- 2026-10-01-283de: the render fixture's site (check.mjs). Every request to a private target below
+     must be refused by the egress guard; the module script, the root-relative stylesheet and the tall
+     page prove the local origin serves the set as a real site. -->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Render fixture</title>
+  <link rel="stylesheet" href="/css/site.css">
+  <script type="module" src="/js/app.mjs"></script>
+</head>
+<body>
+  <h1>Fixture</h1>
+  <h2>Service worker probe</h2>
+  <button>Go</button>
+  <img src="http://127.0.0.1:6379/probe" alt="">
+  <img src="http://internal.test/probe" alt="">
+  <img src="http://[::1]:6380/probe" alt="">
+  <img src="http://[::ffff:127.0.0.1]:6381/probe" alt="">
+  <img src="http://0.0.0.0:6382/probe" alt="">
+  <div class="tall"></div>
+</body>
+</html>

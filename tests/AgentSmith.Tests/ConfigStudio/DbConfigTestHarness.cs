@@ -38,6 +38,7 @@ public sealed class DbConfigTestHarness : IDisposable
         services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.RawConfigYaml>();
         services.AddSingleton<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigYamlExporter>();
         services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
+        services.AddSingleton<ConfigChangeReverter>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         _provider = services.BuildServiceProvider();
 

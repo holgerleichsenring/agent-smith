@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -66,7 +67,8 @@ public sealed class RunFootprintCalculatorTests
             .Returns<ResolvedProject, string?, ContextYamlStackResources?>(
                 (_, _, res) => new ResourceLimits("250m", "1", "1Gi", res?.MemoryLimit ?? "1Gi"));
         var calc = new RunFootprintCalculator(
-            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance);
+            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance,
+            Options.Create(new SandboxGlobalConfig()));
 
         var footprint = await calc.CalculateAsync(project, "code", CancellationToken.None);
 
@@ -89,6 +91,31 @@ public sealed class RunFootprintCalculatorTests
         footprint.TotalMemBytes.Should().Be(4L * 1024 * 1024 * 1024); // the 4Gi sandbox alone
     }
 
+    // 2026-10-01-283df: config decides the browser, so admission reserves its pod before the run starts.
+    [Theory]
+    [InlineData(true, "code", 2)]
+    [InlineData(false, "code", 1)]
+    [InlineData(true, "security-scan", 1)]
+    public async Task RunFootprint_BrowserEnabled_AddsABrowserPod(bool enabled, string pipeline, int pods)
+    {
+        var project = Project("only");
+        project = project with { Sandbox = new SandboxConfig { Browser = new ProjectBrowserConfig { Enabled = enabled } } };
+        var language = new Mock<ISandboxLanguageResolver>();
+        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Discovery("default")]);
+
+        var footprint = await Calculator(language).CalculateAsync(project, pipeline, CancellationToken.None);
+
+        footprint.Pods.Should().HaveCount(pods);
+        if (pods == 2)
+        {
+            var browser = footprint.Pods[1];
+            (browser.Repo, browser.Image, browser.CpuLimit, browser.MemLimit).Should().Be(
+                ("browser", "browser", "2000m", "2Gi"), "the browser pod is sized at the process-wide browser profile");
+            footprint.TotalMemBytes.Should().Be(6L * 1024 * 1024 * 1024);
+        }
+    }
+
     private static RunFootprintCalculator Calculator(Mock<ISandboxLanguageResolver> language)
     {
         var resource = new Mock<ISandboxResourceResolver>();
@@ -96,7 +123,8 @@ public sealed class RunFootprintCalculatorTests
                 It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextYamlStackResources?>()))
             .Returns(ResourceLimits.Default); // 250m/1000m/1Gi/4Gi
         return new RunFootprintCalculator(
-            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance);
+            language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance,
+            Options.Create(new SandboxGlobalConfig()));
     }
 
     private static ResolvedProject Project(params string[] repos) => new()

@@ -483,6 +483,7 @@ public sealed class ConfigStudioApiSmokeTests
         builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.StoredKeyDiff>();
         builder.Services.AddTransient<AgentSmith.Infrastructure.Core.Services.Configuration.Studio.ConfigImportPlanner>();
         builder.Services.AddSingleton<IBundledModelPriceList, BundledModelPriceList>();
+        builder.Services.AddSingleton<ConfigChangeReverter>();
         builder.Services.AddSingleton<IConfigStore, DbConfigStore>();
         // p0353: the write endpoints emit a config-reload signal; mirror the server's
         // CLI/no-Redis baseline so [FromServices] resolves.

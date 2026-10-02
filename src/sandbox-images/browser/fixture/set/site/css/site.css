@@ -1,0 +1,4 @@
+/* 2026-10-01-283de: applied only when the root-relative path resolves against the local origin. */
+button { background-color: rgb(192, 255, 238); color: rgb(20, 20, 20); padding: 8px 16px; border-radius: 12px; }
+h2 { color: rgb(4, 5, 6); }
+.tall { height: 6000px; background: linear-gradient(rgb(240, 240, 240), rgb(200, 200, 200)); }

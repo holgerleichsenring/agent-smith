@@ -33,7 +33,10 @@ public sealed record ProjectEntity(
     // reason Templates is: absent means "I was not told", and the patch leaves the stored
     // block untouched. A form that shows the block sends all six, so a null INSIDE a sent
     // block means cleared-to-inherit.
-    ProjectSandbox? Sandbox = null)
+    ProjectSandbox? Sandbox = null,
+    // 2026-10-01-7f7aa: names from the design-sources catalog. Nullable for the same reason
+    // Templates is — absent leaves the stored list alone.
+    IReadOnlyList<string>? DesignSources = null)
 {
     public ProjectEntity() : this(string.Empty, string.Empty, string.Empty, [], null, []) { }
 }

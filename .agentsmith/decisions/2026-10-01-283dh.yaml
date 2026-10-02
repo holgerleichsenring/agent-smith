@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283dh
+
+decisions:
+  - category: Architecture
+    chose: "A mock is an .html in the spec directory whose NAME starts with the phase id and then '.' or '-'; SpecSetReader lists the directory once per set and SpecPhase.MockPaths (appended last) carries the matches"
+    over: "Matching the id-slug stem, or a mocks: field in the phase spec"
+    reason: |
+      The stem is minted from the goal at approval and moves with every goal edit; the id is
+      frozen. Listing once per set keeps it one sandbox call however many phases there are. A
+      phase built anywhere but a branch read carries null, which reads as no mock.
+  - category: Architecture
+    chose: "One stager for three sources: RenderSourceStager hands ReferenceRenderer a staged URL, a set directory, or a directory copied out of a repository"
+    over: "A second renderer for repository pages"
+    reason: |
+      An uploaded set, a mock and a built page differ only in where the bytes come from; the
+      script, the egress guard and the screenshots are the same. 2026-10-01-283di's comparer stages
+      both of its sides through the same seam.
+  - category: TradeOff
+    chose: "The HTML file's whole directory tree is copied (excluding GrepScope's directory list and .agentsmith/reference), text only; a file that does not read as UTF-8 or is over the 1 MB read is named as not copied"
+    over: "Parsing the page's links, or packing binaries through a python3 step in the repository sandbox"
+    reason: |
+      DEVIATION in mechanism. Copying the tree gives every link that resolves inside it — the
+      spec's rule — without an HTML/CSS link parser. A sandbox read returns UTF-8 text only, and a
+      design turn's repository scope is read-only and refuses python3 (not in
+      SourceScopeProgramAllowance); widening that allowance is a security decision this phase does
+      not take. Mocks are HTML and CSS; an image left behind is named in the result, never silent.
+  - category: Implementation
+    chose: "The tree is held to ReferenceSetLimits (500 files, 5 MB per file, 25 MB in all, 240-character paths), moved to Contracts and referenced by the upload route's limits"
+    over: "Copying the upload route's numbers into Application"
+    reason: |
+      Application cannot reference the server's ReferenceUploadLimits, and two copies of one bound
+      drift. A listing cut at the agent's 1000-entry cap is past the file bound by itself.
+  - category: Implementation
+    chose: "A page path may name its repository first (<repo>/<path>); otherwise the first repository of the scope that holds the file renders it"
+    over: "Requiring the prefix whenever a run has several repositories"
+    reason: |
+      The phase prompt names a mock by its repository-relative path; the spec directory is keyed
+      by ticket, so two repositories holding the same path is not a real ambiguity. Absolute paths,
+      '..', backslashes and ':' are refused before anything spawns.
+  - category: Implementation
+    chose: "SpecSetStaleFiles is unchanged; a test pins that an .html beside the specs is never selected"
+    over: "Teaching the revision about mocks"
+    reason: "A mock is a reviewer's file; the full-replace rule exists for files the writer produced. A dropped phase's mock stays and the prompt simply stops naming it."
+  - category: Tooling
+    chose: "Unit tests over the real render composition with in-memory sandboxes; no Docker-tier run of a mock in this phase"
+    over: "Building the browser image here"
+    reason: |
+      The browser script needs no change for a copied tree: site.mjs already serves a directory and
+      finds a page relative to it. The image is rebuilt and its fixture run in 2026-10-01-283di, which
+      changes the script.

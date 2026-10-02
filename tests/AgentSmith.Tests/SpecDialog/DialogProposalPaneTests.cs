@@ -190,7 +190,8 @@ public sealed class DialogProposalPaneTests : IDisposable
     public void RenderBody_WithAcceptanceCriteria_PutsThemUnderTheirOwnHeading() =>
         new BugTicketRenderer()
             .RenderBody(new BugTicketDraft("t", "It drops.", "It stops dropping."))
-            .Should().Be("It drops.\n\n## Acceptance criteria\nIt stops dropping.");
+            .Should().Be("It drops.\n\n## Acceptance criteria\n- It stops dropping.",
+                "2026-10-01-f5c3b: an unlisted line is not an item, and only an item is read back");
 
     [Fact]
     public void RenderBody_WithoutAcceptanceCriteria_IsTheDescriptionAlone() =>

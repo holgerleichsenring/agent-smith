@@ -63,6 +63,9 @@ public sealed class ChatClientCallScopeRuleTests
         // it emits NO LlmCallFinished event. With nothing to attribute, the
         // BeginCallScope requirement does not apply to this out-of-run 1-token probe.
         "ChatClientFactory.cs",
+        // 2026-10-01-283dd: the tool loop itself — it opens the loop's image frame and hands
+        // the caller's already-scoped invocation to FunctionInvokingChatClient unchanged.
+        "ToolImageFunctionInvokingChatClient.cs",
     ];
 
     private static readonly string[] TargetProjectDirs =

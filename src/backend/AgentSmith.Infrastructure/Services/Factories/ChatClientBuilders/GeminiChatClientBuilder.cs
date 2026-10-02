@@ -11,6 +11,8 @@ public sealed class GeminiChatClientBuilder : IChatClientBuilder
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "gemini", "google" };
 
+    public bool AcceptsImageAfterToolResult => true;
+
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)
     {
         var apiKey = ResolveApiKey(agent)

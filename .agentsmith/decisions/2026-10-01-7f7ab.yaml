@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7ab
+
+decisions:
+  - category: Architecture
+    chose: "IFigmaClient in Contracts/Providers and FigmaLink, FigmaReadResult, FigmaReadFailure(Kind) in Contracts/Models/Design; FigmaClient, its status classifier and AddDesignProviders in Infrastructure"
+    over: "IFigmaClient and FigmaReadFailure in Infrastructure, as the spec's step put them"
+    reason: |
+      The host that calls the client lives in Application, which references Contracts and
+      Domain only. A cross-layer interface and the types it returns belong in Contracts
+      (principles.md, Project Structure); the implementation and its typed HttpClient stay in
+      Infrastructure as the spec intended.
+  - category: Architecture
+    chose: "design_read joins the master's list AFTER BaseSurface(), so no child surface — design or coding — is derived with it; SpecDialogChildTools is unchanged"
+    over: "design_read inside BaseSurface plus a name on SpecDialogChildTools' deny-list"
+    reason: |
+      The spec's reason — children fanning out over one file multiply calls against one rate
+      limit — holds for a coding master's children too, and they receive BaseSurface() verbatim.
+      Joining after the derivation keeps every child off it with no list to keep in step. The
+      test SpecDialogChildTools_DesignRead_IsDenied is replaced by CodingMaster_… and
+      DesignTurn_…_ItsChildrenDoNot, which read the child surface the spawn actually received.
+  - category: Architecture
+    chose: "DesignReadToolHostFactory is injected into MasterToolComposition, which builds the host from the pipeline it already receives"
+    over: "Building the host in AgenticMasterHandler and passing it to Compose"
+    reason: |
+      Compose already holds context.Pipeline and decides surfaces; the handler spends none of its
+      ratchet lines (900 of 922 stays), leaving the room for 2026-10-01-7f7ad and the publisher
+      2026-10-01-7f7ae hands the factory.
+  - category: Implementation
+    chose: "A design turn is seeded with the project's DesignSource records under SpecDialogDesignSources (name, vendor, secret NAME); a run reads ResolvedProject.DesignSources off ProjectConfig"
+    over: "A seed of source names only"
+    reason: |
+      The host needs each source's secret name to resolve the token, and the record carries
+      names only — no value. The runner passes project.DesignSources on an existing line, so it
+      stays at 120; a project without sources seeds nothing. The key joins the checkpoint's
+      ExcludedKeys: it is re-derived from the project on every turn.
+  - category: Security
+    chose: "The token is resolved through ISecretValues per request and set on that request's X-Figma-Token header only; failures are composed from status and Retry-After, never the body; an exception reports its type, never its message; a secret with no value fails as forbidden before any request"
+    over: "A default request header on the typed client, or relaying Figma's error text"
+    reason: |
+      A default header lives as long as the pooled client; a body or an exception message is where
+      a proxy or a socket error could echo a header back. DesignRead_OutputNeverContainsToken and
+      FigmaClient_ConnectionFails_ReportsUnreachableWithoutTheMessage pin it.
+  - category: Implementation
+    chose: "Retry once when Retry-After is at most 30 s, waiting through an injected TimeProvider; otherwise report rate_limited with the wait"
+    over: "Thread.Sleep/Task.Delay on the wall clock"
+    reason: "Tests prove the wait honoured (2 s recorded) without sleeping; TimeProvider.System is TryAdd-registered next to the client."
+  - category: Scope
+    chose: "A link without node-id is refused with how to get one; hidden layers (visible: false) are not rendered; FigJam /board links are refused"
+    over: "Reading the whole file when no node is named"
+    reason: |
+      A whole-file read is the megabyte response the tool exists to avoid; the nodes endpoint needs
+      ids. A hidden layer is not part of what is built.
+  - category: Implementation
+    chose: "Variables are read once per source and file per host instance, and only an answered read is kept"
+    over: "A variables call on every design_read"
+    reason: "Two calls per read would halve the rate-limit headroom; a rate-limited variables read is asked again next call."
+  - category: TradeOff
+    chose: "PROVEN ONLY AGAINST THE DOCUMENTED CONTRACT: base https://api.figma.com, X-Figma-Token, GET /v1/files/:key/nodes?ids=&depth= with name/version/lastModified/nodes{id:{document,components,styles}}, node fields (absoluteBoundingBox, layoutMode, itemSpacing, padding*, *AxisAlignItems, fills/strokes, cornerRadius, rectangleCornerRadii, characters, style, componentId, styles, boundVariables), GET /v1/files/:key/variables/local meta shape, 403/404/429 + Retry-After, a branch addressed by its own key"
+    over: "A live read"
+    reason: |
+      No Figma token exists in this repository; every response in the tests is built from
+      Figma's public REST documentation (FigmaFakes). UNVERIFIED live: the Variables API's
+      Enterprise-plan and file_variables:read requirement, whether 401 or 403 answers a bad token
+      (both map to forbidden), and the exact Retry-After form Figma sends (delta and date both read).

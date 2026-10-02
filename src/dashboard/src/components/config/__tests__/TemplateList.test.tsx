@@ -32,6 +32,7 @@ const catalog = {
     { id: "refapp", agent: "a", tracker: "t", repos: ["api"], pipeline: "", pipelines: [], resolution: null },
   ],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [],
 } as unknown as ConfigCatalog;
 

@@ -47,6 +47,7 @@ vi.mock("@/lib/configApi", () => {
     reposApi: client(repos),
     projectsApi: client(projects),
     mcpServersApi: client([]),
+    designSourcesApi: client([]),
     secretsApi: client([]),
     fetchChanges: vi.fn().mockResolvedValue([]),
     // 2026-09-22-6968: the catalog load reads the inherited-sandbox projection beside

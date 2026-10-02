@@ -64,11 +64,13 @@ public sealed class ChatClientFactoryProbeTests
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
+            new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             NullLoggerFactory.Instance);
 
     private sealed class FakeBuilder(IChatClient client) : IChatClientBuilder
     {
         public IReadOnlyList<string> SupportedTypes => new[] { "test" };
+        public bool AcceptsImageAfterToolResult => true;
         public IChatClient Build(AgentConfig agent, ModelAssignment assignment) => client;
     }
 

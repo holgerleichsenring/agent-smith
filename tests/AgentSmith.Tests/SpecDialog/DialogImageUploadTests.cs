@@ -6,6 +6,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
@@ -46,7 +47,7 @@ public sealed class DialogImageUploadTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
     private readonly SpecDialogSessionRepository _repository;
-    private readonly SpecDialogAttachmentRepository _attachments;
+    private readonly ReferenceFileRepository _attachments;
     private readonly SpecDialogTicketTextRepository _ticketText;
     private readonly SpecDialogSessionManager _sessions;
     private readonly SpecDialogOwnership _ownership;
@@ -60,7 +61,7 @@ public sealed class DialogImageUploadTests : IDisposable
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
         _context.Database.Migrate();
         _repository = new SpecDialogSessionRepository(_context);
-        _attachments = new SpecDialogAttachmentRepository(_context);
+        _attachments = new ReferenceFileRepository(_context);
         _ticketText = new SpecDialogTicketTextRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
@@ -80,7 +81,7 @@ public sealed class DialogImageUploadTests : IDisposable
         stored.Should().ContainSingle();
         stored[0].SessionId.Should().Be(session, "a dialog id is a tab; the session is the conversation");
         stored[0].MediaType.Should().Be("image/png");
-        Convert.FromBase64String(stored[0].ContentBase64).Should().Equal(Png);
+        stored[0].Content.Should().Equal(Png, "2026-10-01-283da: the bytes are stored as bytes");
     }
 
     [Fact]
@@ -198,7 +199,7 @@ public sealed class DialogImageUploadTests : IDisposable
             session, Principal(Owner), _ownership, new SpecDialogTurnGate(TimeProvider.System),
             new SpecDialogConversationDeleter(_context, _repository, new DialogueAnswerRepository(
                 _context, new AgentSmith.Infrastructure.Persistence.Services.Translators.SqliteUniqueViolationTranslator()),
-                _attachments),
+                _attachments, new ApprovedSpecSetRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
         (await StoredAsync()).Select(row => row.Id).Should().Equal([elsewhere],
@@ -227,6 +228,25 @@ public sealed class DialogImageUploadTests : IDisposable
             "an id is a number a caller can guess, so 'not yours' and 'not there' answer alike");
     }
 
+    /// <summary>2026-10-01-283da: an image an older replica stored, before the copy reached it.</summary>
+    [Fact]
+    public async Task ImageServe_UncopiedLegacyId_IsServedFromTheLegacyTable()
+    {
+        var session = await OpenAsync();
+        var legacy = new SpecDialogAttachment
+        {
+            SessionId = session, MediaType = "image/png", ContentBase64 = Convert.ToBase64String(Png),
+        };
+        _context.Add(legacy);
+        await _context.SaveChangesAsync();
+
+        var served = await SpecDialogImageEndpoints.ServeAsync(
+            legacy.Id, Principal(Owner), _ownership, _attachments, CancellationToken.None);
+
+        served.Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.FileContentHttpResult>()
+            .Which.FileContents.ToArray().Should().Equal(Png);
+    }
+
     [Fact]
     public async Task Dialog_TheTranscriptRead_AddressesTheImagesRatherThanCarryingThem()
     {
@@ -248,14 +268,16 @@ public sealed class DialogImageUploadTests : IDisposable
                 new SpecDialogLatestOutcomeStore(
                     _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText)
+                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText,
+                new ReferenceSetRepository(_context))
             .ReadAsync(dialogId, CancellationToken.None)).Session;
 
     private async Task<long> StoreAgainstAsync(string sessionId) =>
         (await _attachments.AddAsync(
-            new SpecDialogAttachment
+            new ReferenceFile
             {
-                SessionId = sessionId, MediaType = "image/png", ContentBase64 = Convert.ToBase64String(Png),
+                SessionId = sessionId, SetId = sessionId, Kind = ReferenceFileKind.Image,
+                MediaType = "image/png", Length = Png.Length, Content = Png,
             },
             CancellationToken.None)).Id;
 
@@ -296,10 +318,10 @@ public sealed class DialogImageUploadTests : IDisposable
             Platform, Dialog, Dialog, owner,
             new ActiveScope { Project = Project, Repos = ["repo-a"] }, CancellationToken.None)).JobId;
 
-    private async Task<IReadOnlyList<SpecDialogAttachment>> StoredAsync()
+    private async Task<IReadOnlyList<ReferenceFile>> StoredAsync()
     {
         _context.ChangeTracker.Clear(); // a bulk delete is not tracked; read what the store holds
-        return await _context.Set<SpecDialogAttachment>().AsNoTracking().OrderBy(a => a.Id).ToListAsync();
+        return await _context.Set<ReferenceFile>().AsNoTracking().OrderBy(a => a.Id).ToListAsync();
     }
 
     private static int StatusOf(IResult result) =>

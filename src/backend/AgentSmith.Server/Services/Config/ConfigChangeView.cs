@@ -35,6 +35,7 @@ public sealed record ConfigChangeView(
         ConfigEntityType.McpServer => "mcp-servers",
         ConfigEntityType.Secret => "secrets",
         ConfigEntityType.Connection => "connections",
+        ConfigEntityType.DesignSource => "design-sources",
         ConfigEntityType.Settings => "settings",
         _ => type.ToString().ToLowerInvariant()
     };

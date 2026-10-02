@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-7f7af
+goal: "The design-partner and coding masters learn design_read: read a Figma reference with it, never web_fetch, and cite link and version in every ticket derived from a design."
+
+applies_to: "skills (design-partner-master, coding-agent-master)"
+
+requires: ["2026-10-01-7f7ab", "2026-10-01-7f7ae"]
+
+facts:
+  - claim: "The coding master sends a URL the ticket points at to web_fetch."
+    evidence: "agent-smith-skills skills/_masters/coding-agent-master/SKILL.md:326-327"
+  - claim: "The coding master already treats ticket images and documents as requirement data."
+    evidence: "agent-smith-skills skills/_masters/coding-agent-master/SKILL.md:76-80"
+  - claim: "The design-partner master's tools serve the subject of the conversation; on the open skills PR #205 branch (phase/2026-10-01-aeb6) it is 1.8.0, coding-agent-master 1.26.0."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:5,30; skills/_masters/coding-agent-master/SKILL.md:5"
+
+scope:
+  in: >
+    design-partner-master: with a Figma reference, read the frames the request is about with
+    design_read before drafting; derive one ticket per screen or flow the operator names, each citing the
+    link with node-id and the version design_read reported, and its acceptance criteria from the
+    summary's concrete values; state unavailable variables rather than naming tokens. coding-agent-master:
+    read a cited Figma link with design_read, pass the cited version as expected_version, report 'design
+    moved' in the result instead of silently building either version, and never web_fetch a figma.com
+    link. Committed onto the skills PR #205 branch; each master takes the next minor version at build time (another phase moves design-partner to 1.9.0 first).
+  out: "The pin move — folded into 2026-10-01-aeb6d, which releases PR #205."
+
+decisions:
+  - key: "THE SKILL STATES WHAT THE TOOL CAN DO. The masters learn a capability and a citation rule; no prohibition list beyond the one web_fetch line the tool makes wrong."
+
+steps:
+  - id: partner
+    action: "design-partner-master SKILL.md: design references paragraph."
+  - id: coding
+    action: "coding-agent-master SKILL.md: design_read paragraph; the web_fetch line excludes figma.com."
+
+tests:
+  - "skills repo: master description stays under the loader's 200-character limit"
+
+done:
+  - "both masters carry the rule on the PR #205 branch; the pin moves in 2026-10-01-aeb6d"

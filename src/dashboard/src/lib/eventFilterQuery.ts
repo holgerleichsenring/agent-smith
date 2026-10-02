@@ -22,6 +22,7 @@ export const L1_TYPES: ReadonlySet<EventType> = new Set([
 export const L2_TYPES: ReadonlySet<EventType> = new Set([
   EventType.DecisionLogged, EventType.GateChecked, EventType.TriageRoute,
   EventType.LlmCallStarted, EventType.LlmCallFinished,
+  EventType.DesignRead, // 2026-10-01-7f7ae: which design version the master read
 ]);
 
 export const L3_TYPES: ReadonlySet<EventType> = new Set([
@@ -64,6 +65,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   SubAgentCompleted: EventType.SubAgentCompleted,
   RunCancelRequested: EventType.RunCancelRequested,
   SandboxVanished: EventType.SandboxVanished,
+  DesignRead: EventType.DesignRead, // 2026-10-01-7f7ae
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

@@ -31,7 +31,6 @@ public sealed class SourceScopeSandbox(
 
     /// <summary>2026-09-22-46ef: empty means every write is refused — the default.</summary>
     private readonly SourceScopeWritePolicy _writes = new(writablePrefixes ?? []);
-
     private ISandbox? _inner;
 
     public string RepoName => repo.Name;
@@ -85,7 +84,8 @@ public sealed class SourceScopeSandbox(
             {
                 (var opened, ResolvedSha) = hold is null
                     ? await opener.OpenAsync(project, repo, revision, ct)
-                    : await hold.OpenAsync(project, opener, ct);
+                    : await hold.OpenAsync((conversation, c) => opener.SpawnAsync(project, c, conversation),
+                        (sandbox, c) => opener.PrepareAsync(sandbox, repo, revision, c), ct);
                 _inner = opened;
             }
             catch

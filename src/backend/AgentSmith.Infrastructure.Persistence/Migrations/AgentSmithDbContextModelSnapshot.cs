@@ -454,6 +454,59 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("QueuedTickets");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ReferenceFile", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Length")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MediaType")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RelativePath")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SessionId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SetId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("SetId");
+
+                    b.ToTable("ReferenceFiles", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.Run", b =>
                 {
                     b.Property<string>("Id")

@@ -8,6 +8,7 @@ import type {
   StudioAgent,
   StudioConnection,
   StudioEntity,
+  StudioDesignSource,
   StudioMcpServer,
   StudioProject,
   StudioRepo,
@@ -28,6 +29,8 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // p0345c: tracker/connection/agent forms are CAPABILITIES-driven — type and
 // provider are dropdowns from the backend descriptor, and the field set below
 // a type renders from that type's declared fields. No hardcoded type knowledge.
+
+const DESIGN_VENDORS = ["figma"];
 
 export function EntityForm({
   kind,
@@ -175,6 +178,37 @@ export function EntityForm({
             options={catalog.secrets}
             testId="form-ref-authSecret"
             onChange={(v) => onChange({ ...m, authSecret: v })}
+          />
+        </div>
+      );
+    }
+    case "design-sources": {
+      // 2026-10-01-7f7aa: the vendor list is closed (figma), and the token is a secret
+      // picked by NAME — no field here can hold a value.
+      const d = draft as StudioDesignSource;
+      return (
+        <div className="flex flex-col gap-4">
+          {idField}
+          <SelectField
+            label="vendor"
+            value={d.vendor}
+            options={DESIGN_VENDORS}
+            required
+            testId="form-field-vendor"
+            onChange={(v) => onChange({ ...d, vendor: v })}
+          />
+          <RefSelect
+            label="auth secret"
+            value={d.authSecret}
+            options={catalog.secrets}
+            testId="form-ref-authSecret"
+            onChange={(v) => onChange({ ...d, authSecret: v })}
+          />
+          <TextField
+            label="display name"
+            value={d.displayName ?? ""}
+            testId="form-field-displayName"
+            onChange={(v) => onChange({ ...d, displayName: v || null })}
           />
         </div>
       );

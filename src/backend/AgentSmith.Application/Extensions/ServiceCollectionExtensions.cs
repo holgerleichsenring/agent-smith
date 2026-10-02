@@ -1,5 +1,6 @@
 using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Services;
+using AgentSmith.Application.Services.Browser;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Events;
@@ -30,9 +31,11 @@ public static class ServiceCollectionExtensions
         services.AddTolerantJsonParser();
         services.AddPipelineHandlers();
         services.AddSourceScopes();
+        services.AddBrowserRender(); // 2026-10-01-283de
         services.AddTurnActivity(); // 2026-09-17-042ee
         services.AddRunPreflight(); // p0428
         services.AddTargetProbe(); // 2026-09-01-379a
+        services.AddReferenceSetCarry(); // 2026-10-01-283df
         services.AddSkillRunHandlers();
         services.AddContextBuilders();
         services.AddPipelineExecution();

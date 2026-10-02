@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7aa
+
+decisions:
+  - category: Architecture
+    chose: "ISecretValues (Contracts) with two answers: LoadedSecretValues over one loaded AgentSmithConfig, and the server's CurrentSecretValues, which rebuilds a LoadedSecretValues through IConfigurationLoader whenever IConfigStore.Catalog is a new instance"
+    over: "Reading the stored secret docs off DbConfigStore, or reloading the configuration on every lookup"
+    reason: |
+      The store port deliberately carries secret NAMES only; giving it a values member would
+      undo that. The loader is the path every run already reads its configuration through, so
+      the values it yields are exactly the ones a run sees — bootstrap secrets included. The
+      catalog instance changes on every reload (own write or epoch advance), which makes it a
+      free change signal; the masker asks on every trace line, so an unchanged instance must
+      not reload.
+  - category: Implementation
+    chose: "In the CLI, ISecretValues is LoadedSecretValues over the AgentSmithConfig singleton — the file config the process loaded, fixed for its lifetime"
+    over: "CurrentSecretValues over the CLI's FileConfigStore"
+    reason: |
+      The CLI has no Studio and its configuration is a file read once per process; there is
+      nothing to follow. FileConfigStore reads its own location, which need not be the file
+      the verb was given. Registered with TryAdd beside the masker in LoopRuntimeExtensions;
+      the server replaces it (RemoveAll + Add). CliProvider_SecretValues_AreThoseOfTheLoadedFile
+      pins it.
+  - category: Security
+    chose: "SecretMasker reads ISecretValues.All() at mask time and re-orders only when the returned list instance changes"
+    over: "Freezing the values of the startup AgentSmithConfig"
+    reason: |
+      A secret added in the Studio after startup was never masked. Registry tokens stay in the
+      masked set; they are part of All().
+  - category: Security
+    chose: "A design source's auth must name a secret of the catalog: a blocking startup finding (source not built) in the loader, a refused save in the Studio"
+    over: "Accepting any name and failing at the first read"
+    reason: |
+      The spec's own rationale for refusing a secret delete. The Studio check is also forced by
+      the code: the design_source -> secret edge FKs config_entity with RESTRICT, so a name
+      with no stored secret row would fail as a database error. Consequence: a Studio source
+      can name only a secret stored in the Studio, not a bootstrap-file-only one.
+  - category: Implementation
+    chose: "Project references resolve in ProjectDesignSourceResolver; DesignSourceCatalogBuilder is constructed inline in ConfigCatalogResolver"
+    over: "Members on ResolvedProjectBuilder and a builder field on the resolver"
+    reason: |
+      Same carve ProjectPipelineResolver already is. ConfigCatalogResolver sat one line under
+      the 120-line limit; the inline construction keeps it at 120.
+  - category: TradeOff
+    chose: "The vendor is a DesignSourceVendor enum (YAML word 'figma'); the studio entity carries the word and an unknown word is refused at save"
+    over: "A free string vendor"
+    reason: |
+      Only figma exists; the enum makes an unknown vendor fail at YAML binding exactly like an
+      unknown tracker type, and the stored doc follows the tracker type's numeric encoding.
+  - category: Scope
+    chose: "Only ResolvedProject carries DesignSources; AgentSmithConfig gets no design-source catalog"
+    over: "A config-level catalog beside Trackers and Repos"
+    reason: "2026-10-01-7f7ab reads a project's sources; nothing reads a global list."
+  - category: Tooling
+    chose: "DbConfigStore.Revert's body moved to ConfigChangeReverter, registered next to DbConfigStore in the server and the three test compositions; baseline row 161 -> 156"
+    over: "Registering the reverter in the core chain"
+    reason: "Its IConfigDocumentStore exists only where the database does; the CLI validates its graph at build."

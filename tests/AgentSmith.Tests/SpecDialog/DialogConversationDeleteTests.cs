@@ -249,7 +249,8 @@ public sealed class DialogConversationDeleteTests : IDisposable
                 sp.GetRequiredService<SqliteUniqueViolationTranslator>())
             .AddScoped<SpecDialogSessionRepository>()
             .AddScoped<DialogueAnswerRepository>()
-            .AddScoped<SpecDialogAttachmentRepository>()
+            .AddScoped<ReferenceFileRepository>()
+            .AddScoped<ApprovedSpecSetRepository>()
             .AddSingleton(tracker.Object)
             .AddSingleton(trackers.Object)
             .AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>()
@@ -261,7 +262,8 @@ public sealed class DialogConversationDeleteTests : IDisposable
         SpecDialogDeletionEndpoints.DeleteAsync(
             sessionId, Principal(caller), _ownership, _gate,
             deleter ?? new SpecDialogConversationDeleter(
-                _context, _repository, _answers, new SpecDialogAttachmentRepository(_context)),
+                _context, _repository, _answers, new ReferenceFileRepository(_context),
+                new ApprovedSpecSetRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
     private static int StatusOf(IResult result) =>

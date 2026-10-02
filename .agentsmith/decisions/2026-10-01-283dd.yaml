@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283dd
+
+decisions:
+  - category: Architecture
+    chose: "ToolImageFunctionInvokingChatClient overrides CreateResponseMessages and returns the tool message plus ONE user message carrying the images"
+    over: "A DelegatingChatClient that appends the images to each outgoing request, the way MasterLoopGovernorChatClient appends its reminder"
+    reason: |
+      What CreateResponseMessages returns, FunctionInvokingChatClient 10.3.0 adds to the history it
+      keeps (messages.AddRange) — once. A per-call append works on a copy and would re-send the
+      image on every iteration. The scripted three-iteration test proves one DataContent per request.
+  - category: Architecture
+    chose: "The tool loop opens the image frame itself, in its GetResponseAsync override"
+    over: "Opening the frame in AgenticLoopRunner, as the spec stated"
+    reason: |
+      Deviation from the spec. Every tool loop the factory builds — scout sweep, bootstrap rounds,
+      spec derivation, not only AgenticLoopRunner's — gets its own frame, and a sub-agent's loop is
+      by construction its own GetResponseAsync on its own async flow, so its images stay out of the
+      parent. The intent (one frame per loop, sub-agents isolated) is unchanged; the runner is untouched.
+  - category: Architecture
+    chose: "A withheld image is noted inside the FunctionResultContent of the call that deposited it"
+    over: "A user message carrying the 'image exists, not shown' line"
+    reason: |
+      Deviation from the spec's wording. A Copilot continuation is tool messages only
+      (CopilotPendingCalls.IsContinuation) and Copilot reads only FunctionResultContent.Result, so a
+      user-message note would break the turn there. The result text is the one place every
+      transport keeps; the ceiling overflow is noted the same way for one consistent shape.
+  - category: Architecture
+    chose: "IChatClientBuilder.AcceptsImageAfterToolResult, stated by every builder; delivery = capability AND AgentConfig.SupportsVision"
+    over: "The vision flag alone, or a default interface member"
+    reason: |
+      Vision says the model can see; whether the transport delivers is the builder's fact. An
+      abstract member makes each builder (and test stub) say it, so a new builder cannot default to
+      a claim nobody checked. Copilot and external_worker false, the rest true.
+  - category: Implementation
+    chose: "The deposit takes tool name and call id from FunctionInvokingChatClient.CurrentContext"
+    over: "Producers passing the call id themselves"
+    reason: |
+      The AsyncLocal invocation context is set by the base loop for the duration of each call, so a
+      producer states only the image and the caption; a deposit outside a tool call is refused by name.
+  - category: Implementation
+    chose: "Header-only dimension readers for png, gif, jpeg (SOF walk) and webp (VP8, VP8L, VP8X)"
+    over: "An imaging library, or trusting the producer's size"
+    reason: |
+      The rule only checks the producer's bounds (5 MB, long edge 1568 px, accepted media type);
+      reading a header needs no decoder and also refuses a mislabelled or truncated file.
+  - category: Security
+    chose: "Traces record each DataContent as media type, byte size and sha256"
+    over: "Rendering text only (the image left no trace) or embedding base64"
+    reason: |
+      A hash identifies the exact picture the model saw without copying screenshots of uploaded
+      sites into the run trace.
+  - category: Implementation
+    chose: "Wire tests through the real OpenAI and Anthropic builders' test transport"
+    over: "Trusting the decompiled adapter reading"
+    reason: |
+      They prove the user-message shape reaches the wire as image_url / a base64 image block after
+      the tool result, and that OpenAI drops an image placed inside the tool message.
+  - category: Scope
+    chose: "ReplayChatClientFactory and the harness factories keep plain UseFunctionInvocation"
+    over: "Threading the relay through every test and replay factory"
+    reason: |
+      No producer exists yet; a deposit in a loop without a frame is refused with
+      AsyncLocalToolImageDeposit.NoLoopRefusal, which the producer phases (283de, 7f7ac) report in
+      their own text. Streaming tool loops are likewise unframed — nothing streams through one today.

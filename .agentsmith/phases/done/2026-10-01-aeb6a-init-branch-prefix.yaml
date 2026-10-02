@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-aeb6a
+goal: "An init-project run works on agent-smith/init, the same branch prefix every other agent-smith run uses."
+
+applies_to: "backend (the init pipeline's checkout branch)"
+
+requires: []
+
+facts:
+  - claim: "The init run's checkout branch is the literal agentsmith/init."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:334"
+  - claim: "Every ticket run composes its branch from TicketBranchNamer.Prefix, which is agent-smith."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:18"
+  - claim: "ExecutePipelineUseCase.cs is on the file-length ratchet at 655 lines; it has 650."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:7"
+
+scope:
+  in: "The init branch is composed from TicketBranchNamer.Prefix as <prefix>/init, exposed as one constant the use case and its test read."
+  out: "Open init pull requests on the old agentsmith/init branch. The operator closes them; a re-run opens a new one on the new branch."
+
+decisions:
+  - key: "ONE PREFIX, ONE SOURCE. The init branch reads TicketBranchNamer.Prefix rather than restating it, so the two can never disagree again."
+
+steps:
+  - id: constant
+    action: "TicketBranchNamer gains InitBranch = Prefix + \"/init\"; ExecutePipelineUseCase sets CheckoutBranch from it."
+
+tests:
+  - "TicketBranchNamer_InitBranch_UsesTheTicketPrefix"
+
+done:
+  - "an init run checks out agent-smith/init"
+  - "build green, full suite green"

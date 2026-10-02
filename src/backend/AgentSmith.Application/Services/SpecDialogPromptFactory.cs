@@ -24,11 +24,13 @@ namespace AgentSmith.Application.Services;
 public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 {
     // A request for work is answered with what a proposal would need settled; a question is
-    // answered as it is asked, in plain prose, not padded into that shape.
+    // answered as it is asked, and a request for a text to take elsewhere with that text
+    // (2026-10-01-aeb6b) — neither is padded into the work shape.
     private const string FirstAnswer =
         "When the operator asks for work, answer with what you found in the code (with the files "
         + "you read), the edge cases, and the open questions only the operator can decide. "
-        + "A question is answered as it is asked.";
+        + "A question is answered as it is asked, and a request for a document — a prompt, a "
+        + "summary, a brief to take elsewhere — with the document itself.";
 
     public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
@@ -87,7 +89,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     private static string ProposalContract(bool mayPropose) => mayPropose
         ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced "
           + "```yaml phase spec (or an ```outcome block) only when the conversation has converged "
-          + "on work that warrants it — otherwise reply with no artifact."
+          + "on work that warrants it — otherwise reply with neither block."
         : "This turn MAY NOT propose: the operator has not yet replied to a discussion of this "
           + "work. Draft no ```yaml or ```outcome block — it would be refused. " + FirstAnswer;
 

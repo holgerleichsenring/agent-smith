@@ -5,6 +5,7 @@ import type {
   InheritedSandboxProjection,
   StudioAgent,
   StudioConnection,
+  StudioDesignSource,
   StudioMcpServer,
   StudioProject,
   StudioRepo,
@@ -19,6 +20,7 @@ import {
   reposApi,
   projectsApi,
   mcpServersApi,
+  designSourcesApi,
   secretsApi,
 } from "@/lib/configApi";
 
@@ -35,6 +37,7 @@ export interface ConfigCatalog {
   repos: StudioRepo[];
   projects: StudioProject[];
   "mcp-servers": StudioMcpServer[];
+  "design-sources": StudioDesignSource[];
   secrets: StudioSecret[];
 }
 
@@ -45,6 +48,7 @@ const EMPTY: ConfigCatalog = {
   repos: [],
   projects: [],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [],
 };
 
@@ -80,7 +84,7 @@ export function useConfigCatalog(): UseConfigCatalog {
     setLoading(true);
     setError(null);
     try {
-      const [agents, trackers, connections, repos, projects, mcp, secrets, inherited] =
+      const [agents, trackers, connections, repos, projects, mcp, designSources, secrets, inherited] =
         await Promise.all([
           agentsApi.list(signal),
           trackersApi.list(signal),
@@ -88,6 +92,7 @@ export function useConfigCatalog(): UseConfigCatalog {
           reposApi.list(signal),
           projectsApi.list(signal),
           mcpServersApi.list(signal),
+          designSourcesApi.list(signal),
           secretsApi.list(signal),
           // Advisory, never load-bearing: the catalog is what the studio EDITS and the
           // inherited values only label its controls, so a refusal here must not take
@@ -107,6 +112,7 @@ export function useConfigCatalog(): UseConfigCatalog {
         repos: byId(repos),
         projects: byId(projects),
         "mcp-servers": byId(mcp),
+        "design-sources": byId(designSources),
         secrets: byId(secrets),
       });
     } catch (err) {

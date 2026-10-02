@@ -93,7 +93,7 @@ public sealed class BootstrapRoleBindingTests
         builder.Chat.Ceilings.Should().Equal([StatedCeiling, StatedCeiling]);
         builder.Chat.SawTools.Should().Equal([true, true], "both rounds hand over a tool list");
         factory.Create(agent, TaskType.ContextGeneration)
-            .Should().BeOfType<FunctionInvokingChatClient>(
+            .Should().BeAssignableTo<FunctionInvokingChatClient>(
                 "a task outside ToolBearingTasks returns before the function-invocation "
                 + "middleware, so the tools both rounds hand over would never be executed");
     }
@@ -240,6 +240,7 @@ public sealed class BootstrapRoleBindingTests
             TurnActivityRecorder.Silent(),
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
+            new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
             NullLoggerFactory.Instance);
 
     // ---- doubles ----
@@ -271,6 +272,7 @@ public sealed class BootstrapRoleBindingTests
     private sealed class AssignmentRecordingBuilder : IChatClientBuilder
     {
         public IReadOnlyList<string> SupportedTypes { get; } = ["stub"];
+        public bool AcceptsImageAfterToolResult => true;
         public List<string> Models { get; } = [];
         public CannedChat Chat { get; } = new(DiscoveryAnswer);
 

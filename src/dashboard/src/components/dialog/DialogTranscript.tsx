@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 import { Markdown } from "@/components/ui/Markdown";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
-import type { SpecDialogImage, SpecDialogProposalPush } from "@/types/spec-dialog";
+import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { DialogProposalCard } from "./DialogProposalCard";
+import { DialogDocumentCard } from "./DialogDocumentCard";
+import { documentBlocks } from "./documentBlocks";
 
 // 2026-09-15-cb3e: the conversation in order. What the agent sent is MARKDOWN and is
 // rendered as such — the framework composes its lines for this channel and the design
@@ -22,6 +24,9 @@ import { DialogProposalCard } from "./DialogProposalCard";
 // mark of this page's own — the studio's card icon leads a card, this leads a line.
 // 2026-09-20-3af8: an image the operator attached is one of their own lines, shown where they
 // attached it. The bytes come from a route of their own, so the transcript read stays small.
+// 2026-10-01-aeb6b: a document in an agent turn is a card of its own, between the prose around it.
+// 2026-10-01-283db: an uploaded website is one of the operator's lines too, as ONE chip — its name,
+// how many files and how large — however many files it holds.
 
 export function DialogTranscript({
   entries,
@@ -64,6 +69,7 @@ function Turn({
 }) {
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
   if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
+  if (entry.kind === "reference" && entry.reference) return <ReferenceSetChip set={entry.reference} />;
   const mine = entry.kind !== "agent";
   const said = entry.text.trim().length > 0;
   return (
@@ -71,10 +77,24 @@ function Turn({
       {mine ? (
         <p className="dsh-body whitespace-pre-wrap text-ink">{entry.text}</p>
       ) : (
-        said && <Markdown>{entry.text}</Markdown>
+        said && <AgentText text={entry.text} />
       )}
       {entry.proposal && <DialogProposalCard proposal={entry.proposal} onInspect={onInspect} />}
     </DialogMessage>
+  );
+}
+
+function AgentText({ text }: { text: string }) {
+  return (
+    <>
+      {documentBlocks(text).map((part, i) =>
+        part.kind === "document" ? (
+          <DialogDocumentCard key={i} text={part.text} />
+        ) : (
+          <Markdown key={i}>{part.text}</Markdown>
+        ),
+      )}
+    </>
   );
 }
 
@@ -89,6 +109,29 @@ function Attached({ image }: { image: SpecDialogImage }) {
       />
     </DialogMessage>
   );
+}
+
+function ReferenceSetChip({ set }: { set: SpecDialogReferenceSet }) {
+  return (
+    <DialogMessage who="user" testId="dialog-turn-reference">
+      <div data-testid={`dialog-reference-${set.setId}`} className="ecard inert">
+        <div className="flex items-center gap-2.5 px-3 py-2">
+          <span className="ec-mark">website</span>
+          <span className="ec-name sans min-w-0 flex-1">{set.name}</span>
+          <span className="ec-sub">
+            {set.files} {set.files === 1 ? "file" : "files"} · {sizeOf(set.bytes)}
+          </span>
+        </div>
+      </div>
+    </DialogMessage>
+  );
+}
+
+/** A set's size the way a file manager says it. */
+function sizeOf(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function Decision({ entry }: { entry: DialogEntry }) {

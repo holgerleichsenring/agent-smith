@@ -72,6 +72,7 @@ const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
   { kind: "repos", icon: "⎇" },
   { kind: "connections", icon: "◳" },
   { kind: "mcp-servers", icon: "⇄" },
+  { kind: "design-sources", icon: "◩" },
   { kind: "secrets", icon: "◍" },
 ];
 

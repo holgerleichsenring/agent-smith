@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
@@ -48,12 +49,20 @@ public sealed class RecordingChatClient(
         foreach (var message in messages)
         {
             sb.Append("=== ").Append(message.Role).AppendLine(" ===");
-            foreach (var text in message.Contents.OfType<TextContent>())
-                sb.AppendLine(text.Text);
+            foreach (var content in message.Contents)
+            {
+                if (content is TextContent text) sb.AppendLine(text.Text);
+                // 2026-10-01-283dd: an image is recorded as what identifies it, never as base64.
+                else if (content is DataContent data) sb.AppendLine(ImageLine(data));
+            }
             sb.AppendLine();
         }
         return sb.ToString();
     }
+
+    private static string ImageLine(DataContent data) =>
+        $"[image {data.MediaType}, {data.Data.Length} bytes, sha256 "
+        + $"{Convert.ToHexStringLower(SHA256.HashData(data.Data.Span))}]";
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<ChatMessage> messages,

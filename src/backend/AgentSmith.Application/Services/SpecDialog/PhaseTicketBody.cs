@@ -40,39 +40,35 @@ internal static class PhaseTicketBody
     /// own inner pair: the stripper that removes it at the ticket-fetch door matches that one,
     /// and the region says nothing about which parts of itself a model may read.
     /// </para>
+    /// <para>
+    /// 2026-10-01-f5c3b: the READER'S shape — the goal leads unheaded and verbatim (divergence
+    /// finds it word for word), then Why, What changes, Acceptance criteria, Out of scope and
+    /// Preconditions. The criteria heading stays: two readers find criteria by it.
+    /// </para>
     /// </summary>
     public static string Requirement(
-        PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null) =>
-        FramedTicketRegion.Wrap(Done(Shared(draft, ScopeLines, (body, map) =>
-        {
-            AppendLines(body, AcceptanceCriteriaSection.Heading, DoneLines(map));
-            AppendLines(body, "## Preconditions", draft.Requires);
-        }, sb => { extraSections(sb); sb.Append(labelNote); })));
-
-    private static IEnumerable<string> DoneLines(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "done") ?? []).Select(line => CriterionLine.Collapse(line?.ToString() ?? string.Empty));
-
-    private static StringBuilder Shared(
-        PhaseDraft draft,
-        Func<IReadOnlyDictionary<string, object?>, IEnumerable<string>> middle,
-        Action<StringBuilder, IReadOnlyDictionary<string, object?>> tail,
-        Action<StringBuilder> extraSections)
+        PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null)
     {
         var map = OutcomeYamlReader.ReadMap(draft.Yaml);
         var sb = new StringBuilder();
-        sb.AppendLine("## Goal");
         sb.AppendLine(draft.Goal);
         sb.AppendLine();
-        AppendLines(sb, "## Why", Decisions(map));
-        AppendLines(sb, "## Scope", middle(map));
-        tail(sb, map);
+        AppendItems(sb, "## Why", PhaseSpecProse.Decisions(map));
+        AppendProse(sb, "## What changes", PhaseSpecProse.ScopeIn(map));
+        AppendItems(sb, AcceptanceCriteriaSection.Heading, DoneLines(draft));
+        AppendProse(sb, "## Out of scope", PhaseSpecProse.ScopeOut(map));
+        AppendItems(sb, "## Preconditions", draft.Requires);
         extraSections(sb);
-        return sb;
+        sb.Append(labelNote);
+        return FramedTicketRegion.Wrap(sb.ToString().TrimEnd() + "\n");
     }
 
-    private static string Done(StringBuilder sb) => sb.ToString().TrimEnd() + "\n";
+    // 2026-10-01-f5c3a: the draft's done list, never the raw yaml — a scenario entry is a
+    // mapping there and would print as its type name.
+    private static IEnumerable<string> DoneLines(PhaseDraft draft) =>
+        draft.Done.Select(CriterionLine.Collapse);
 
-    private static void AppendLines(StringBuilder sb, string heading, IEnumerable<string> items)
+    private static void AppendItems(StringBuilder sb, string heading, IEnumerable<string> items)
     {
         var list = items.Where(i => !string.IsNullOrWhiteSpace(i)).ToList();
         if (list.Count == 0) return;
@@ -81,31 +77,11 @@ internal static class PhaseTicketBody
         sb.AppendLine();
     }
 
-    /// <summary>
-    /// 2026-09-13-b7ba: a decision is a bare line in the oldest phases and a {key: '…'} map
-    /// in every modern one — which used to render as an empty string and be filtered away,
-    /// so the REASONING was absent from every ticket this product has ever filed.
-    /// </summary>
-    private static IEnumerable<string> Decisions(IReadOnlyDictionary<string, object?> map) =>
-        (OutcomeYamlReader.GetList(map, "decisions") ?? []).Select(Decision);
-
-    private static string Decision(object? decision) => decision switch
+    private static void AppendProse(StringBuilder sb, string heading, string text)
     {
-        string line => line,
-        Dictionary<object, object?> entry =>
-            string.Join(" ", entry.Values.Select(v => v?.ToString()?.Trim()).Where(v => !string.IsNullOrEmpty(v))),
-        _ => decision?.ToString() ?? string.Empty,
-    };
-
-    /// <summary>The scope as the spec states it — what is in, and what is deliberately out.</summary>
-    private static IEnumerable<string> ScopeLines(IReadOnlyDictionary<string, object?> map)
-    {
-        var scope = OutcomeYamlReader.GetMap(map, "scope");
-        if (scope is null) yield break;
-        if (OutcomeYamlReader.GetString(scope, "in") is { } inScope && inScope.Trim().Length > 0)
-            yield return $"In: {inScope.Trim()}";
-        if (OutcomeYamlReader.GetString(scope, "out") is { } outScope && outScope.Trim().Length > 0)
-            yield return $"Out: {outScope.Trim()}";
+        if (text.Length == 0) return;
+        sb.AppendLine(heading);
+        sb.AppendLine(text);
+        sb.AppendLine();
     }
-
 }

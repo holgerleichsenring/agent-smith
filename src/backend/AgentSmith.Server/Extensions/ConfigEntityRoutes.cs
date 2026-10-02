@@ -42,6 +42,10 @@ internal static class ConfigEntityRoutes
         MapEntity<ConnectionEntity>(app, "connections", Permissions.ConfigRead, Permissions.ConfigWrite,
             s => s.GetConnections(), (s, e, by) => s.UpsertConnection(e, by), (s, id, by) => s.DeleteConnection(id, by),
             (e, id) => e with { Id = id });
+        // 2026-10-01-7f7aa: design tools a project reads designs from.
+        MapEntity<DesignSourceEntity>(app, "design-sources", Permissions.ConfigRead, Permissions.ConfigWrite,
+            s => s.GetDesignSources(), (s, e, by) => s.UpsertDesignSource(e, by), (s, id, by) => s.DeleteDesignSource(id, by),
+            (e, id) => e with { Id = id });
 
         return app;
     }

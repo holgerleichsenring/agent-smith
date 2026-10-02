@@ -48,14 +48,24 @@ namespace AgentSmith.Contracts.Specs;
 /// the wrong value.
 /// </para>
 /// </param>
+/// <param name="References">
+/// 2026-10-01-283df: the uploaded website SETS the conversation held when the person approved,
+/// by set id — what the run builds against. The approval freezes the list: a set uploaded later
+/// needs a new approval. Null on a record written before this phase, which cites none. Appended
+/// LAST for the reason the two before it are.
+/// </param>
 public sealed record SpecApprovalRecord(
     string Key,
     SpecSet Set,
     IReadOnlyList<string> Repositories,
     string Tracker = "",
     string CarryingRepo = "",
-    string TicketId = "")
+    string TicketId = "",
+    IReadOnlyList<string>? References = null)
 {
     /// <summary>The approval the set carries — null only on a record built without one.</summary>
     public SpecApproval? Approval => Set.Approval;
+
+    /// <summary>2026-10-01-283df: the cited set ids, empty when the record cites none.</summary>
+    public IReadOnlyList<string> CitedSets => References ?? [];
 }

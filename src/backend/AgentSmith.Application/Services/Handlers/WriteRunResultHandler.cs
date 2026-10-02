@@ -286,7 +286,7 @@ public sealed class WriteRunResultHandler(
             // findings instead of only inside the gate that read it.
             RunAccountSection.Build(context.Pipeline),
             // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
-            DeclinedCriteriaSection.Build(context.Pipeline));
+            DeclinedCriteriaSection.Build(context.Pipeline) + VisualComparisonSection.Build(context.Pipeline)); // + 283di
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
         if (cacheResult) await TryStoreResultAsync(runId, resultMd, ct);
 

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -63,7 +64,7 @@ public sealed class ApprovedSetAmendmentTests
 
     private static ApprovedPhaseSetRecorder Recorder(
         ISpecApprovalStore store, TimeProvider? time = null) =>
-        new(store, time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        new(store, new NoReferenceSetReader(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"Do {id}", $"phase: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };

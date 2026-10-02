@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-aeb6a
+
+decisions:
+  - category: Architecture
+    chose: "TicketBranchNamer.InitBranch = Prefix + \"/init\", read by ExecutePipelineUseCase"
+    over: "Changing the literal to \"agent-smith/init\""
+    reason: |
+      The init literal drifted from the ticket prefix once already. Composing it from the one
+      prefix constant makes a second drift impossible rather than corrected.
+    alternatives:
+      - "Keep agentsmith/init and change the ticket prefix: every existing ticket branch would move"
+  - category: Scope
+    chose: "No migration of open init pull requests on agentsmith/init"
+    over: "Reading both branch names when completing an init PR"
+    reason: |
+      Operator ruling: the change is wanted, and the deployments that hold an old branch are not
+      reachable from here. A re-run opens its pull request on the new branch; the old one is closed by hand.

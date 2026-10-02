@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283df
+
+decisions:
+  - category: Architecture
+    chose: "SpecApprovalRecord.References (set ids, appended last) filled from IReferenceSetReader.SetIdsAsync at approval; the conversation delete keeps every set an approval of that conversation cites"
+    over: "Carrying set contents or names in the record, or a separate citation table"
+    reason: |
+      The approval freezes the list: a set uploaded later needs a new approval. Ids are enough
+      because the files are keyed by (conversation, set) in the store; the name is derived from
+      the paths by ReferenceSetName, moved to Contracts so the repository and the run name a set
+      the same way. Cited sets are read from the approved rows' own JSON by ApprovedInConversation,
+      so a re-approval elsewhere that stopped citing a set frees it.
+  - category: Architecture
+    chose: "MaterializeReferenceSets reads EVERY cited set before writing any, into the carrying repository's first sandbox at .agentsmith/reference/<setId>/, and fails naming the sets when one reads empty"
+    over: "Writing as it reads, or skipping an unreadable set with a warning"
+    reason: |
+      A set holds at least one file by construction (283db), so an empty read means no store in
+      this process or a deleted set; either way the run would build without the reference its
+      approval names. Reading first means a refused carry leaves nothing behind. The first sandbox
+      of the carrying repo is the one the master's path tools alias that name to.
+  - category: Implementation
+    chose: "The run-record force-stage (`git add -f -- <path> :(exclude).agentsmith/reference`) excludes the directory by pathspec, beside the .git/info/exclude line"
+    over: "Relying on .git/info/exclude alone, as the spec stated"
+    reason: |
+      DEVIATION. The spec's fact was wrong: CommitAndPRHandler force-stages the WHOLE .agentsmith
+      directory and `git add -f` ignores every exclude, so the uploaded site would have landed in
+      the pull request. Verified with real git; ReferenceCommitExclusionTests pins it through the
+      real SandboxGitOperations. The exclude line still keeps `git add -A` and per-phase commits clean.
+  - category: Implementation
+    chose: "GrepScope's rooted exclusion is decided against the step's repository root (WorkingDirectory, else /work); ripgrep gets an anchored `!/.agentsmith/reference/**` glob and runs with that root as its working directory"
+    over: "An unanchored `**/.agentsmith/reference/**` glob"
+    reason: |
+      rg matches an anchored override glob against its working directory (measured with rg 14.1),
+      so the exclusion is exactly the repository's own directory and a nested project's is still
+      searched. The managed walk and directory_tree apply the same predicate; directory_tree now
+      reads GrepScope's directory list instead of its own copy. The dev-only InProcessSandbox grep
+      and tree are not changed.
+  - category: Implementation
+    chose: "A run's render_reference has no conversation: the browser is spawned for each render and disposed after it; a carried address resolves to the set and the APPROVAL's conversation, which is where the store keeps it"
+    over: "Holding the run's browser under its run id in the hold register"
+    reason: |
+      A hold outlives the run and its capacity reservation, and the register is released only by
+      conversation lifecycle events a run never raises. RenderReferenceScope (project, conversation
+      or null, sandbox map, carried sets) replaces the host's three loose parameters.
+  - category: Architecture
+    chose: "projects.<name>.sandbox.browser.enabled (ProjectBrowserConfig, default off) decides both the coding surface and a browser pod in RunFootprintCalculator at sandbox.browser.resources, for code-changing pipelines"
+    over: "Reusing BrowserSandboxConfig at project level, or letting the model's first call spawn one"
+    reason: |
+      DEVIATION in naming only: the process-wide BrowserSandboxConfig is sizing, the project block
+      is a switch, and one type at both levels would leave half its fields meaningless at each.
+      The factory now takes isDesignTurn, so a coding master never gets the dialog's host by
+      accident of a seed. The studio carries it as ProjectSandbox.BrowserEnabled (appended last);
+      off and absent are one state and store no block.
+  - category: Implementation
+    chose: "The server's IOptions<SandboxGlobalConfig> reads the configuration on first Value, not at construction (LoadedSandboxGlobalConfig)"
+    over: "Injecting the configuration loader into RunFootprintCalculator"
+    reason: |
+      Admission's footprint is composed into graphs (the init launcher) that the DI tests build
+      without a config file; the eager factory threw there. Every consumer reads Value at use.
+  - category: Implementation
+    chose: "MaterializeReferenceSets joins the re-provisioning steps a dialogue checkpoint re-runs before its cursor"
+    over: "Restoring ContextKeys.ReferenceSets alone on resume"
+    reason: "A resumed run gets fresh sandboxes; the restored list would name directories that no longer exist."
+  - category: Tooling
+    chose: "Unit and real-git proof; the end-to-end run with an uploaded site is not exercised"
+    over: "A live run in this phase"
+    reason: |
+      No server, tracker or model is reachable from the worktree. The carry, exclusion, commit
+      staging, search scope, footprint, surface and studio toggle are each pinned by tests.

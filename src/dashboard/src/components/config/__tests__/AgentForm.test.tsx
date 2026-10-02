@@ -51,6 +51,7 @@ const catalog: ConfigCatalog = {
   repos: [],
   projects: [],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [],
 };
 

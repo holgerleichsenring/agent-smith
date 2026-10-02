@@ -1,4 +1,3 @@
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -16,36 +15,60 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// sandbox the last one left behind.
 /// </para>
 /// </summary>
+/// <para>
+/// 2026-10-01-283dc: the hold no longer knows what it holds. A repository and an uploaded
+/// website are both "spawn once per conversation, prepare every turn", so the caller hands in
+/// the two steps and <paramref name="name"/>/<paramref name="revision"/> only key the claim.
+/// </para>
 public sealed class SourceScopeHold(
     IHeldSandboxRegister register,
     string conversationId,
-    RepoConnection repo,
+    string name,
     string? revision,
     ILogger logger)
 {
-    private readonly string _key = HeldSandbox.KeyFor(conversationId, repo.Name, revision);
+    private readonly string _key = HeldSandbox.KeyFor(conversationId, name, revision);
 
     /// <summary>
-    /// The prepared sandbox and the sha it is on — from the hold when this conversation left
-    /// one that is still alive, and from a spawn otherwise. A held sandbox that could not be
-    /// prepared is force-removed here: it is out of the register and nobody else can reach it.
+    /// The prepared sandbox and what <paramref name="prepare"/> says it is on — from the hold
+    /// when this conversation left one that is still alive, and from <paramref name="spawn"/>
+    /// otherwise. A sandbox that could not be prepared is removed here — a spawned one disposed,
+    /// a held one force-removed — so a caller that sees the exception holds nothing.
     /// </summary>
     public async Task<(ISandbox Sandbox, string Sha)> OpenAsync(
-        ResolvedProject project, SourceScopeOpener opener, CancellationToken ct)
+        Func<string, CancellationToken, Task<ISandbox>> spawn,
+        Func<ISandbox, CancellationToken, Task<string>> prepare, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(opener);
+        ArgumentNullException.ThrowIfNull(spawn);
+        ArgumentNullException.ThrowIfNull(prepare);
         var held = await register.TakeAsync(_key, ct);
-        if (held is null) return await opener.OpenAsync(project, repo, revision, ct, conversationId);
+        if (held is null) return await SpawnedAsync(spawn, prepare, ct);
         logger.LogInformation(
-            "Conversation {Conversation} reads '{Repo}' through the sandbox it already holds",
-            conversationId, repo.Name);
+            "Conversation {Conversation} reads '{Name}' through the sandbox it already holds",
+            conversationId, name);
         try
         {
-            return (held, await opener.PrepareAsync(held, repo, revision, ct));
+            return (held, await prepare(held, ct));
         }
         catch
         {
             await ForceRemoveAsync(held);
+            throw;
+        }
+    }
+
+    private async Task<(ISandbox Sandbox, string Sha)> SpawnedAsync(
+        Func<string, CancellationToken, Task<ISandbox>> spawn,
+        Func<ISandbox, CancellationToken, Task<string>> prepare, CancellationToken ct)
+    {
+        var created = await spawn(conversationId, ct);
+        try
+        {
+            return (created, await prepare(created, ct));
+        }
+        catch
+        {
+            await created.DisposeAsync();
             throw;
         }
     }
@@ -72,7 +95,7 @@ public sealed class SourceScopeHold(
         catch (Exception ex)
         {
             logger.LogWarning(ex,
-                "Could not remove the held sandbox of '{Repo}' after it failed to prepare", repo.Name);
+                "Could not remove the held sandbox of '{Name}' after it failed to prepare", name);
         }
     }
 }

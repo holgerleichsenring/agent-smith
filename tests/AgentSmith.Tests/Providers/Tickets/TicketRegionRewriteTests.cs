@@ -141,7 +141,7 @@ public sealed class TicketRegionRewriteTests
                 "p9001", "the widget stops dropping", "phase: p9001", [])).Body;
 
         FramedTicketRegion.Marked(body).Should().BeTrue();
-        body.Should().Contain("## Goal").And.Contain("the widget stops dropping");
+        body.Should().Contain("the widget stops dropping");
     }
 
     /// <summary>The label note keeps its own inner pair, which the ticket-fetch door strips; the

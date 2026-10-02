@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-aeb6b
+
+decisions:
+  - category: Architecture
+    chose: "A document is an answer carrying a ````document fence; no DocumentOutcome type, no turn kind"
+    over: "A fifth OutcomeProposal subtype with its own SpecDialogTurnKind"
+    reason: |
+      A document proposes nothing, is confirmed by nobody and files nothing; its one consumer is
+      the reader. A subtype would add a case to six proposal switches that never reach it, and a
+      turn kind would only feed a conversation-list label the transcript already makes redundant.
+    alternatives:
+      - "Prompt-only change: the text would arrive but sink in the transcript with nothing to copy it by"
+  - category: Architecture
+    chose: "Four backticks, and every draft rule reads the reply with its documents blanked"
+    over: "A three-backtick ```document fence"
+    reason: |
+      A hand-off prompt routinely carries code, and a ```yaml example inside it was matched by the
+      draft patterns wherever it stood: refused on a first turn, validated or even proposed as a
+      phase later, and cut out of the shown and reloaded transcript. The adversarial review traced
+      all four paths; they share SpecDialogDraftBlocks, so the fix lives there once.
+  - category: Architecture
+    chose: "The dashboard splits a reply into prose and documents before markdown renders it"
+    over: "A code renderer for language-document inside the shared Markdown component"
+    reason: |
+      Inside markdown a document would be a code block and render as raw text; split first, it
+      renders as markdown in a card while Copy takes the raw text. An unclosed fence — the reply
+      cap can cut one — is a document to the end, so what arrived is still copyable.
+  - category: Implementation
+    chose: "references/writing-documents.md: written for a reader who missed the conversation, grounded in the project record, in the operator's language; a fixed five-part shape when the reader is an agent"
+    over: "A free-form 'write a summary' rule"
+    reason: |
+      The failing case was a request for a prompt to continue development with. Such a prompt is
+      only useful when it carries the state, the house rules and the definition of done on its own.

@@ -318,7 +318,9 @@ public sealed class AgenticMasterHandler(
         }
         // 2026-09-13-ed5a: over the ADDRESSES, so the spec dialog — which seeds its
         // templates into the sandbox map this list is read from — gets the same section.
-        masterBody += TemplatePromptSection.Build(allAddresses);
+        masterBody += TemplatePromptSection.Build(allAddresses) + ReferencePromptSection.Build(allAddresses) // + 283dc
+            + DesignSystemPromptSection.Render(context.Pipeline) // 2026-10-01-283dg
+            + ReferencePromptSection.Carried(context.Pipeline, allAddresses.Count > 1); // 2026-10-01-283df
 
         // Every master surface gets web_fetch — a read-only GET of a public URL that
         // mutates nothing, so even the read-only scan surface carries it safely.
@@ -354,6 +356,10 @@ public sealed class AgenticMasterHandler(
                     ? scanPromptFactory.Build(context.Pipeline, context.Repository, addressNames)
                     : MasterUserPrompt.Build(ticket, context.Repository, addressNames,
                         extras.Conversation, extras.Attachments);
+        // 2026-10-01-7f7ad: the Figma links of ticket or conversation, rebuilt from key and node.
+        if (!isScanMaster)
+            userPrompt += DesignReferenceSection.Render(DesignReferenceTexts.From(context.Pipeline, ticket),
+                Design.PipelineDesignSources.Figma(context.Pipeline).Count > 0);
 
         // p0341c: the shared cost tracker + the open-loop governor hooks (within-pass
         // money fence + periodic ledger-reminder injection). Built once; reused across

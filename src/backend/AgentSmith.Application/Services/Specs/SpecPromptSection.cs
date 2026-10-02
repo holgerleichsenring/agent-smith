@@ -56,6 +56,21 @@ public static class SpecPromptSection
             sb.AppendLine(phase.Markdown.TrimEnd());
         }
 
+        AppendMocks(sb, phase.MockPaths ?? []);
         return sb.ToString();
+    }
+
+    // 2026-10-01-283dh: a mock beside the phase's spec is what this phase's screen should look like.
+    private static void AppendMocks(StringBuilder sb, IReadOnlyList<string> mocks)
+    {
+        if (mocks.Count == 0) return;
+        sb.AppendLine();
+        sb.AppendLine("### This phase's design mock");
+        sb.AppendLine(
+            "A reviewer placed the HTML mock(s) below beside this phase's spec, in the repository that "
+            + "carries the spec set. It shows what this phase's screen should look like. Read its CSS with "
+            + "read_file for the exact values; when render_reference is on your surface, pass the path as "
+            + "its source to see the mock and read its computed styles. It is a reviewer's file: never edit or delete it.");
+        foreach (var mock in mocks) sb.AppendLine($"- `{mock}`");
     }
 }
