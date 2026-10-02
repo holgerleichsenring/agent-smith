@@ -3582,12 +3582,12 @@ describe("SpecDialogSurface", () => {
     expect(shown).toHaveAttribute("src", "/api/spec-dialog/images/7");
   });
 
-  // 2026-10-02-0d72: a folder pick of a real website carries a LICENSE and a .gitignore. The set
-  // is stored without them, and the composer says which were left out.
-  it("SpecDialog_AFolderWithNonSiteFiles_IsStoredAndTheComposerNamesTheSkipped", async () => {
+  // 2026-10-02-075da: a folder pick carries a .venv and a .env. The set is stored without the
+  // first, and the composer says what was left out and that the model reads the second.
+  it("SpecDialog_AFolderWithAVenv_IsStoredAndTheComposerNamesWhatWasLeftOut", async () => {
     uploadSpecDialogReferences.mockResolvedValueOnce({
       setId: "s1", name: "site", files: 2, bytes: 20, at: "2026-10-02T10:00:00Z",
-      skipped: ["site/LICENSE", "site/.gitignore"], skippedCount: 2,
+      leftOut: [{ path: "site/.venv/", reason: "rebuildable" }], leftOutCount: 1, credentialFiles: ["site/.env"],
     });
     await renderSurface();
 
@@ -3597,15 +3597,15 @@ describe("SpecDialogSurface", () => {
 
     const note = await screen.findByTestId("dialog-composer-upload-note");
     expect(note).toHaveAttribute("data-tone", "stored");
-    expect(note.textContent).toContain("Skipped 2");
-    expect(note.textContent).toContain("site/LICENSE, site/.gitignore");
+    expect(note.textContent).toContain("Left out: site/.venv/ (rebuildable)");
+    expect(note.textContent).toContain("can read site/.env");
     expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
   });
 
   // A refused upload is a sentence beside the control that made it — the server's own reason —
   // and the page goes on working; it used to replace the page with "could not be rendered".
   it("SpecDialog_ARefusedFolder_SaysWhyAtTheComposerAndThePageStays", async () => {
-    const reason = "The upload holds no file a website is made of — 2 skipped, such as 'site/LICENSE'";
+    const reason = "The upload holds no file to keep — all 1 entries were left out, such as 'site/.git/' (rebuildable).";
     uploadSpecDialogReferences.mockRejectedValueOnce(
       new ApiResponseError("/api/spec-dialog/references", 400, `HTTP 400 — ${reason}`, reason));
     await renderSurface();

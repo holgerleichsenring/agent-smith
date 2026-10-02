@@ -9,7 +9,8 @@ public static class ReferenceSetLimits
 {
     public const int MaxFiles = 500;
 
-    public const long MaxFileBytes = 5L * 1024 * 1024;
+    /// <summary>2026-10-02-075da: as large as the set — a 10 MB single-file page is the material, not noise.</summary>
+    public const long MaxFileBytes = MaxSetBytes;
 
     public const long MaxSetBytes = 25L * 1024 * 1024;
 

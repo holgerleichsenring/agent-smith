@@ -1,20 +1,29 @@
 import { describe, expect, it } from "vitest";
 import { ApiRefusal, ApiResponseError } from "@/lib/apiResponse";
-import { refusedNote, skippedNote } from "../uploadNote";
+import { refusedNote, storedNote } from "../uploadNote";
 
 // 2026-10-02-0d72: what an upload leaves at the composer.
 describe("uploadNote", () => {
   const stored = { setId: "s", name: "site", files: 3, bytes: 9, at: "2026-10-02T10:00:00Z" };
 
-  it("SkippedNote_EveryFileKept_IsNull", () => {
-    expect(skippedNote({ ...stored, skipped: [], skippedCount: 0 })).toBeNull();
+  const none = { leftOut: [], leftOutCount: 0, credentialFiles: [] };
+
+  it("StoredNote_EveryFileKeptNoCredentials_IsNull", () => {
+    expect(storedNote({ ...stored, ...none })).toBeNull();
   });
 
-  it("SkippedNote_MoreSkippedThanListed_SaysHowManyMore", () => {
-    const note = skippedNote({ ...stored, skipped: ["site/a.xml"], skippedCount: 4 })!;
+  it("StoredNote_MoreLeftOutThanListed_SaysWhyAndHowManyMore", () => {
+    const note = storedNote({
+      ...stored, ...none, leftOut: [{ path: "site/.venv/", reason: "rebuildable" }], leftOutCount: 4,
+    })!;
 
     expect(note.tone).toBe("stored");
-    expect(note.text).toBe("Stored 3 files of 'site'. Skipped 4 that are not part of a website: site/a.xml and 3 more.");
+    expect(note.text).toBe("Stored 3 files of 'site'. Left out: site/.venv/ (rebuildable) and 3 more.");
+  });
+
+  it("StoredNote_CredentialFiles_SaysTheModelReadsThem", () => {
+    expect(storedNote({ ...stored, ...none, credentialFiles: ["site/.env"] })!.text)
+      .toBe("Stored 3 files of 'site'. The model and any run it starts can read site/.env.");
   });
 
   it("RefusedNote_AStatedReason_IsTheNote", () => {

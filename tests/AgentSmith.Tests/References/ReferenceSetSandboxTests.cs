@@ -30,7 +30,7 @@ public sealed class ReferenceSetSandboxTests
         var files = _fixture.Spawned.Single().Files;
         files["/work/site/index.html"].Should().Equal(Encoding.UTF8.GetBytes("<h1>Hi</h1>"));
         files["/work/site/img/logo.png"].Should().Equal(Png, "a binary file is decoded back to its bytes");
-        files.Keys.Should().NotContain(k => k.EndsWith(".b64"));
+        files.Keys.Should().NotContain(k => k.EndsWith(ReferenceSetMaterialiser.EncodedSuffix));
         scope.RepoName.Should().Be("reference:site");
         scope.ResolvedSha.Should().HaveLength(64, "the address carries the set's content hash");
     }
@@ -46,6 +46,35 @@ public sealed class ReferenceSetSandboxTests
         var sandbox = _fixture.Spawned.Single();
         sandbox.PythonRuns.Should().Be(1, "fifty files decoded file by file would be fifty round trips");
         sandbox.Files.Keys.Count(k => k.EndsWith(".png")).Should().Be(50);
+    }
+
+    // 2026-10-02-075da: text is what decodes, whatever the extension.
+    [Fact]
+    public async Task ReferenceSetMaterialiser_PyAndDockerfile_AreWrittenAsText()
+    {
+        _fixture.Set.AddRange([Text("app/app.py", "print(1)"), Text("app/Dockerfile", "FROM x"),
+            new ReferenceSetFile("app/blob.bin", [0x41, 0x00, 0x42])]);
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        var sandbox = _fixture.Spawned.Single();
+        sandbox.Files["/work/app/app.py"].Should().Equal(Encoding.UTF8.GetBytes("print(1)"));
+        sandbox.Files["/work/app/blob.bin"].Should().Equal([0x41, 0x00, 0x42], "a NUL byte sends a file encoded");
+        sandbox.PythonRuns.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ReferenceSetMaterialiser_AnUploadedB64File_IsLeftAsIs()
+    {
+        _fixture.Set.Add(Text("app/logo.b64", "aGVsbG8="));
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        var sandbox = _fixture.Spawned.Single();
+        sandbox.Files["/work/app/logo.b64"].Should().Equal(Encoding.UTF8.GetBytes("aGVsbG8="));
+        sandbox.PythonRuns.Should().Be(0);
     }
 
     [Fact]

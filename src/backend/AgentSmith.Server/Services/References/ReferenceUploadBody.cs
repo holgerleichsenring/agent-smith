@@ -23,7 +23,7 @@ public sealed class ReferenceUploadBody(ILogger<ReferenceUploadBody> logger)
         Bound(context);
         if (context.Request.ContentLength is > ReferenceUploadLimits.RouteBodyBytes)
         {
-            logger.LogInformation("A website upload declared {Declared} byte(s), over the {Bound}-byte "
+            logger.LogInformation("An upload declared {Declared} byte(s), over the {Bound}-byte "
                 + "ceiling — refused without reading the body.", context.Request.ContentLength, ReferenceUploadLimits.RouteBodyBytes);
             return null;
         }
@@ -35,7 +35,7 @@ public sealed class ReferenceUploadBody(ILogger<ReferenceUploadBody> logger)
         }
         catch (InvalidDataException ex)
         {
-            logger.LogInformation(ex, "A website upload passed a multipart bound while being read — refused.");
+            logger.LogInformation(ex, "An upload passed a multipart bound while being read — refused.");
             return null;
         }
     }
@@ -64,7 +64,7 @@ public sealed class ReferenceUploadBody(ILogger<ReferenceUploadBody> logger)
         var limit = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
         if (limit is null || limit.IsReadOnly)
         {
-            logger.LogDebug("No request-body ceiling could be set for a website upload; the server "
+            logger.LogDebug("No request-body ceiling could be set for an upload; the server "
                 + "exposes none, or the body is already being read.");
             return;
         }

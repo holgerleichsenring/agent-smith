@@ -8,11 +8,12 @@ namespace AgentSmith.Tests.References;
 /// <summary>
 /// 2026-10-01-283db: what an uploaded set must be. The ignore list drops what an operating system
 /// left first; then every file passes or none is stored, and a refusal names the file and the limit.
+/// 2026-10-02-075da: a file is kept unless a rebuildable folder or the per-file bound leaves it out.
 /// </summary>
 public sealed class ReferenceSetValidatorTests
 {
     private readonly ReferenceSetValidator _validator =
-        new(new ReferencePathRule(), new ReferenceIgnoreList(), new ReferenceFileTypes());
+        new(new ReferencePathRule(), new ReferenceIgnoreList());
 
     [Fact]
     public void ReferenceSetValidator_Check_NormalisesBackslashesAndKeepsTheOrder()
@@ -45,21 +46,61 @@ public sealed class ReferenceSetValidatorTests
     }
 
     [Fact]
-    public void ReferenceSetValidator_AFileOverFiveMegabytes_IsRefusedNamingTheLimit()
+    public void ReferenceUpload_SourceFolder_KeepsEveryAuthoredFile()
     {
-        var big = new ReferenceUploadPart("site/hero.png", new byte[ReferenceUploadLimits.MaxFileBytes + 1]);
+        var check = _validator.Check([Part("app/form/app.py"), Part("app/.env"), Part("app/Dockerfile"), Part("app/LICENSE")]);
 
-        _validator.Check([big]).Refusal.Should().Contain("'site/hero.png'").And.Contain("5 MB per-file limit");
+        check.Files.Select(f => f.Path).Should().Equal("app/form/app.py", "app/.env", "app/Dockerfile", "app/LICENSE");
+        check.LeftOut.Should().BeEmpty();
     }
 
     [Fact]
-    public void ReferenceSetValidator_ASetOverTwentyFiveMegabytes_IsRefusedAtTheFileThatCrossesIt()
+    public void ReferenceUpload_VenvAndGitFolders_AreLeftOutCollapsedWithReason()
     {
-        var parts = Enumerable.Range(0, 6)
-            .Select(i => new ReferenceUploadPart($"site/{i}.png", new byte[ReferenceUploadLimits.MaxFileBytes]))
-            .ToList();
+        var check = _validator.Check([Part("pong/pong.py"), Part("pong/.venv/lib/a.py"), Part("pong/.venv/lib/b.py"),
+            Part("pong/.git/HEAD")]);
 
-        _validator.Check(parts).Refusal.Should().Contain("'site/5.png'").And.Contain("25 MB set limit");
+        check.Files.Select(f => f.Path).Should().Equal("pong/pong.py");
+        check.LeftOut.Should().Equal(
+            new ReferenceLeftOut("pong/.git/", ReferenceLeftOut.Rebuildable),
+            new ReferenceLeftOut("pong/.venv/", ReferenceLeftOut.Rebuildable));
+    }
+
+    [Fact]
+    public void ReferenceUpload_OneFileOverTheFileBound_IsLeftOutAndTheRestIsStored()
+    {
+        var big = new ReferenceUploadPart("m/deck.pdf", new byte[ReferenceUploadLimits.MaxFileBytes + 1]);
+
+        var check = _validator.Check([big, Part("m/page.html")]);
+
+        check.Files.Select(f => f.Path).Should().Equal("m/page.html");
+        check.LeftOut.Should().ContainSingle().Which.Reason.Should().Contain("25 MB per-file limit");
+    }
+
+    [Fact]
+    public void ReferenceUpload_OverTheSetBound_RefusesNamingTheLargestTopLevelEntries()
+    {
+        var parts = Enumerable.Range(0, 3)
+            .Select(i => new ReferenceUploadPart($"app/cache/{i}.bin", new byte[10L * 1024 * 1024]))
+            .Append(Part("app/server.js")).ToList();
+
+        _validator.Check(parts).Refusal.Should().Contain("25 MB set limit").And.Contain("'app/cache/' (30 MB)");
+    }
+
+    [Fact]
+    public void ReferenceUpload_OverLongPathUnderVenv_DoesNotRefuseTheSet()
+    {
+        var check = _validator.Check([Part("p/.venv/" + new string('a', 260) + ".py"), Part("p/main.py")]);
+
+        check.IsRefused.Should().BeFalse();
+        check.Files.Select(f => f.Path).Should().Equal("p/main.py");
+    }
+
+    [Fact]
+    public void ReferenceUpload_OnlyRebuildableFiles_IsRefusedNamingThem()
+    {
+        _validator.Check([Part("p/node_modules/x/index.js")]).Refusal.Should()
+            .Contain("no file to keep").And.Contain("'p/node_modules/' (rebuildable)");
     }
 
     [Fact]
@@ -84,14 +125,22 @@ public sealed class ReferenceSetValidatorTests
     }
 
     [Fact]
-    public void ReferenceFileTypes_MediaTypeOf_ComesFromTheExtension()
+    public void ReferenceFileTypes_MediaTypeOf_ComesFromTheExtensionAndDefaultsToOctetStream()
     {
         var types = new ReferenceFileTypes();
 
         types.MediaTypeOf("site/FAVICON.ICO").Should().Be("image/x-icon");
         types.MediaTypeOf("site/app.mjs").Should().Be("text/javascript");
-        types.MediaTypeOf("site/run.php").Should().BeNull();
-        ReferenceFileTypes.Allowed.Should().Contain("woff2");
+        types.MediaTypeOf("site/run.php").Should().Be(ReferenceFileTypes.Untyped);
+    }
+
+    [Fact]
+    public void ReferenceCredentialFiles_Holds_NamesTheCommonOnes()
+    {
+        new[] { "a/.env", "a/.env.local", "a/runtime.env", "a/.npmrc", "a/tls.pem", "a/id_rsa", "a/credentials.json" }
+            .Should().OnlyContain(p => ReferenceCredentialFiles.Holds(p));
+        ReferenceCredentialFiles.Holds("a/.env.example.md").Should().BeTrue();
+        ReferenceCredentialFiles.Holds("a/app.py").Should().BeFalse();
     }
 
     [Fact]

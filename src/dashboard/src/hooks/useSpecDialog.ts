@@ -19,7 +19,7 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
-import { refusedNote, skippedNote, type UploadNote } from "@/components/dialog/uploadNote";
+import { refusedNote, storedNote, type UploadNote } from "@/components/dialog/uploadNote";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
@@ -540,7 +540,7 @@ export function useSpecDialog(): SpecDialogState {
       if (!dialogId || files.length === 0) return;
       setUploadNote(null);
       try {
-        setUploadNote(skippedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files)));
+        setUploadNote(storedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files)));
       } catch (thrown) {
         setUploadNote(refusedNote(thrown));
         return;

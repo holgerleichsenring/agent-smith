@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-075dc
+goal: "The design partner runs shell commands in an uploaded set's own container sandbox — install, start, request, inspect — while repositories and templates stay read-only."
+
+applies_to: "backend (reference set sandbox and its spawn, a design-turn tool, the reference tool factory)"
+
+requires: ["2026-10-02-075da"]
+
+facts:
+  - claim: "The design surface is read-only filesystem tools plus http_request, ask_human, web_fetch, recall, remember; the master also gets design_read, render_reference, compare_reference. No run_command."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:69-89; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:560-573; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:74-80"
+  - claim: "A reference set's sandbox refuses every Run step whose program is not git, find or curl, and every write."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:29,43-57; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:33-59"
+  - claim: "It is spawned lazily from the project's spec — the project's toolchain_image if set, else the generic image; the light profile; the project's sandbox.secrets — and held per conversation, address and set."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:65-83; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:47-54; src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs:44-66"
+  - claim: "Every sandbox has CPython 3.12 with pip on PATH from a read-only /shared mount, so pip installs need a venv."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:37-58,82-84; DockerContainerSpecBuilder (':ro' bind), PodSpecBuilder (ReadOnly mount)"
+  - claim: "A sandbox shell inherits REDIS_URL and, on Kubernetes, the spec's secrets as env; on Docker it joins the server's network; only the browser sandbox guards egress."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:78-82; PodSpecBuilder.cs:89,118-129; .agentsmith/phases/planned/2026-09-28-23a2d-sandbox-network-policy.yaml:1-30"
+  - claim: "The InProcess backend runs a step inside the server process; the browser opener refuses to start without a container runtime."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:10-13; src/backend/AgentSmith.Application/Services/Browser/BrowserSandboxOpener.cs:43"
+  - claim: "A model-authored command goes as /bin/sh -c through SandboxStepRunner.RunAsync with run_command's timeout clamp and output; the step waits for stdout EOF."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:90-109; src/backend/AgentSmith.Application/Services/Tools/RunCommandTimeout.cs:30-33; src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:137-138"
+  - claim: "The design turn's sandbox map holds ReferenceSetSandbox instances unwrapped under reference: addresses."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:43-57; src/backend/AgentSmith.Application/Services/Browser/RenderSourceParser.cs:53"
+  - claim: "MasterToolComposition is at 112 of its 120-line bound; children are built from BaseSurface, so a tool added beside it never reaches them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56-80,104"
+
+scope:
+  in: >
+    ReferenceSetSandbox serves reads and EVERY Run step, the shell included; WriteFile and other kinds stay refused.
+    Repository and template scopes are untouched. It is spawned WITHOUT the project's sandbox.secrets (a copy of an
+    upload needs none). A design-master tool run_in_reference(reference, command, timeout_seconds?) resolves a
+    reference: address in the turn's map — any other address answers an error listing the reference addresses — and
+    runs the command through SandboxStepRunner.RunAsync with the turn's run-command default AND step-timeout cap. It is
+    present only on a design turn with at least one reference address and a container runtime (SandboxContainerRuntime).
+    The description says: a disposable container holding a copy of the upload under /work/<set name>/; nothing run
+    here changes what is stored; python3 with pip — install into a venv (python3 -m venv), /shared is read-only;
+    anything else is installed by the command (curl a pinned release; apt only where the image runs as root);
+    scripts lost their executable bit (sh script.sh); start a server detached (nohup … >log 2>&1 &) or the step waits
+    for it; the container may be fresh on any turn, so follow the set's recipe again. RenderReferenceToolFactory becomes
+    ReferenceToolFactory and composes render, compare and run_in_reference, so the composition line stays one.
+  out: >
+    A toolchain image per set (the command installs what it needs). Reaching a process started here from
+    render_reference (the browser's egress guard refuses private addresses by design). Egress and REDIS_URL exposure
+    (2026-09-28-23a2d; this tool has the reach a coding run's run_command already has). Coding runs already run
+    commands where the carried set lies.
+
+decisions:
+  - key: "SAME REACH AS A CODING RUN, NOT LESS. The shell sees REDIS_URL and the network a coding run's run_command sees; it gets no project secrets and no in-process host. Narrowing both is 23a2d's, for every sandbox."
+  - key: "A TOOL OF ITS OWN, NOT run_command. run_command addresses repositories, which stay read-only here."
+  - key: "MASTER ONLY. One container per set; the agent serves one step at a time."
+  - key: "NO IMAGE CHOICE. The model installs what the material needs and records how (075dd)."
+
+steps:
+  - id: sandbox
+    action: "ReferenceSetSandbox: reads and Run served, writes refused; SourceScopeOpener.SpawnAsync takes withoutSecrets for it."
+  - id: tool
+    action: "ReferenceCommandToolHost (run_in_reference) over the turn's reference: sandboxes with RunCommandTimeout(default, cap)."
+  - id: compose
+    action: "ReferenceToolFactory (renamed) composes render, compare and run_in_reference; gated on SandboxContainerRuntime."
+
+tests:
+  - "ReferenceSetSandbox_ShellRunStep_IsServed; WriteFileStep_IsRefused"
+  - "ReferenceSetSandbox_SpawnSpec_CarriesNoProjectSecrets"
+  - "ReferenceCommandToolHost_RunsInTheNamedReference_ThroughTheShell; TimeoutClampedToTheStepCap"
+  - "ReferenceCommandToolHost_RepoOrTemplateAddress_AnswersErrorListingReferences"
+  - "ReferenceToolFactory_DesignTurnWithAReference_HasRunInReference; WithoutOne_DoesNot; NoContainerRuntime_DoesNot; CodingRun_DoesNot"
+
+done:
+  - "a design turn's run_in_reference runs a shell command in the set's sandbox and returns run_command-shaped output; a repository scope still refuses a shell"
+  - "build green, full suite green"

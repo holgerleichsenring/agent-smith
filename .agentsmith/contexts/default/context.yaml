@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-075da: "AN UPLOAD KEEPS EVERY AUTHORED FILE (reference upload, materialiser, prompt). The extension allow-list only types now; rebuildable folders and files over the per-file bound (now 25 MB) are left out and named; credential files are kept and named; text is what decodes. -> .agentsmith/phases/done/2026-10-02-075da-reference-upload-any-file.yaml"
     2026-10-02-0d72: "A WEBSITE FOLDER PICK WORKS (website upload, dialog composer). Files that are not site files are skipped and named in the answer; a set is refused only when none remains or a limit is crossed, the refusal is logged at Warning and shown at the composer with the server's reason. -> .agentsmith/phases/done/2026-10-02-0d72-reference-upload-refusal-reason.yaml"
     2026-10-02-5f89e: "A RUN NO SERVER DRIVES ENDS AS INTERRUPTED (run heartbeat, liveness reaper, persistence). Run.HeartbeatAt renewed every 45 s for every run by RunHeartbeatPump; RunLivenessReaper flags a running row silent for 3 min, CancelEnforcer ends it cancelled within five minutes. -> .agentsmith/phases/done/2026-10-02-5f89e-run-restart-orphan.yaml"
     2026-10-02-75dc: "SANDBOX REAPERS SEE A BEATING RUN AS LIVE (sandbox reapers, run liveness). LiveRunSetReader unions the unfinished runs whose row beat is within LeaseFreshFor, so a flushed Redis no longer orphans the sandboxes of a lease-less init run. -> .agentsmith/phases/done/2026-10-02-75dc-reaper-run-heartbeat.yaml"

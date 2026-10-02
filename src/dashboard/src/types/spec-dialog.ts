@@ -50,11 +50,19 @@ export interface SpecDialogReferenceSet {
   at: string;
 }
 
-/** 2026-10-02-0d72: what a website upload answers — the stored set, and the files left out of it
- *  because they are not what a website is made of: the first few paths and how many in all. */
+/** 2026-10-02-075da: one entry an upload did not store, and why — a rebuildable folder or a file
+ *  over the per-file bound. */
+export interface SpecDialogLeftOut {
+  path: string;
+  reason: string;
+}
+
+/** 2026-10-02-075da: what an upload answers — the stored set, the entries left out of it (the first
+ *  few and how many in all), and the stored files that commonly hold credentials. */
 export interface SpecDialogReferenceUpload extends SpecDialogReferenceSet {
-  skipped: string[];
-  skippedCount: number;
+  leftOut: SpecDialogLeftOut[];
+  leftOutCount: number;
+  credentialFiles: string[];
 }
 
 export interface SpecDialogSession {

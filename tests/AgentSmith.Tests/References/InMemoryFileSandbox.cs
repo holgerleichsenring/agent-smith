@@ -45,9 +45,10 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
     private StepResult Decode(Step step)
     {
         PythonRuns++;
-        foreach (var encoded in Files.Keys.Where(p => p.EndsWith(".b64", StringComparison.Ordinal)).ToList())
+        var suffix = AgentSmith.Application.Services.Sandbox.ReferenceSetMaterialiser.EncodedSuffix;
+        foreach (var encoded in Files.Keys.Where(p => p.EndsWith(suffix, StringComparison.Ordinal)).ToList())
         {
-            Files[encoded[..^4]] = Convert.FromBase64String(Encoding.UTF8.GetString(Files[encoded]));
+            Files[encoded[..^suffix.Length]] = Convert.FromBase64String(Encoding.UTF8.GetString(Files[encoded]));
             Files.Remove(encoded);
         }
         return Ok(step, string.Empty);

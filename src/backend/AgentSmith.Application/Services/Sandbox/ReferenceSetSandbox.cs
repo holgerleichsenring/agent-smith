@@ -52,7 +52,7 @@ public sealed class ReferenceSetSandbox(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "Reference '{Address}' failed to materialise", address);
-            return SourceScopeRefusal.Because(step, $"The uploaded website '{address}' could not be opened: {ex.Message}");
+            return SourceScopeRefusal.Because(step, $"The upload '{address}' could not be opened: {ex.Message}");
         }
     }
 
