@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06c
+
+decisions:
+  - category: Architecture
+    chose: "SandboxEvidenceProbe is built per turn by ProposalEvidenceReview over DerivationLookFactory.ProposalRepositories, the one filter the review look uses too"
+    over: "A DI-resolved probe reading the pipeline itself, or a copy of the template/reference filter"
+    reason: |
+      The probe's state is the turn's repository map and its read cache, both of which live exactly
+      as long as one review; a singleton would have to be handed the pipeline on every call. The
+      filter was extracted as a static method on the factory so the look and the probe cannot drop
+      different scopes.
+  - category: Implementation
+    chose: "Every qualified path is NotChecked in the probe, a repository-named qualifier included"
+    over: "Routing a qualifier that names one of the turn's repositories"
+    reason: |
+      The spec says every qualifier is NotChecked, and the partner is taught to write a repository
+      as a path prefix, not as 'name:'. The 3f06b note that a qualifier not on the policy's list still
+      reaches the probe is why the probe answers NotChecked itself rather than relying on the policy.
+  - category: Implementation
+    chose: "A bare path on a multi-repository turn resolves only when exactly one repository holds it as a file; none or several is NotChecked"
+    over: "Reporting NotAFile when no repository holds the bare path"
+    reason: |
+      The conservative reading of 'one File resolves, otherwise NotChecked': the tools refuse a bare
+      path on a multi-repository turn, so which repository the partner meant is unknown, and a
+      finding built on that guess could be false.
+  - category: Implementation
+    chose: "A read that throws, times out or answers anything but exit 0 or the reader's 'file not found' is NotChecked per read"
+    over: "Letting the exception reach the evidence half's guard"
+    reason: |
+      One sandbox that went silent would otherwise drop every other fact's finding with it. The
+      guard in SpecDialogProposalReview still catches anything else, on the run's token.
+  - category: Implementation
+    chose: "The epic's first child is taken only when it exists; the first child is not additionally filtered on requiring a phase id"
+    over: "Applying the single-phase requires rule to the first child too"
+    reason: |
+      The spec names the first child in EpicChildOrderer order; a child requiring a non-sibling id is
+      already refused by RequiresEdgeChecker before an epic is a proposal.
+  - category: Implementation
+    chose: "Facts and Assumptions are init properties of SpecDialogPhaseView with empty defaults, reusing PhaseFact"
+    over: "New positional constructor parameters and a separate fact view record"
+    reason: |
+      The same pattern the push's Findings uses: the composer's shape is unchanged and the TypeScript
+      type gains two optional fields, which a proposal stored before this phase lacks.
+  - category: Tooling
+    chose: "The panel's fact block is named RestsOn"
+    over: "Facts"
+    reason: |
+      dialog-surfaces.test.ts bans local components named Chip, Eyebrow or Facts as a regression
+      guard against hand-typed surfaces; the block uses the same list styling as the panel's Lines.
+  - category: Tooling
+    chose: "The harness's missing file is declared under both readings, stripped and as written"
+    over: "Declaring only the stripped path"
+    reason: |
+      The stub answers every undeclared read with an empty file, and a single repository's path is
+      tried both ways with File winning — so declaring one reading alone yields 'past the end of a
+      0-line file' instead of 'not a file'.
+  - category: Architecture
+    chose: "EpicChildOrderer, EvidenceReferences, EvidenceCheck and ProposalEvidenceReview are registered in Application; the Server's EpicChildOrderer registration moved there"
+    over: "Registering the orderer twice"
+    reason: |
+      SpecDialogProposalReview is resolved in every host through the Application registrations, so
+      its new dependency must be resolvable there and not only in the Server.

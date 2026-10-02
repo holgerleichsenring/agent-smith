@@ -28,4 +28,17 @@ public sealed record EvidencePolicy(
         UncheckedQualifiers: ["agent-smith-skills", "spec-first"],
         RefusedPathPrefixes: [".agentsmith/phases/planned/", ".agentsmith/phases/active/"],
         ObservedNeedsDate: true);
+
+    /// <summary>
+    /// 2026-10-02-3f06c: a design turn's rule. A minted look line is the partner's own evidence; an
+    /// observation needs no date, because the partner is never taught to write one; a fact with no
+    /// reference, and every qualified path, is not checked rather than reported. Nothing is refused.
+    /// </summary>
+    public static EvidencePolicy Product { get; } = new(
+        AllowMinted: true,
+        NoReferenceIsProblem: false,
+        UnknownQualifierIsProblem: false,
+        UncheckedQualifiers: [],
+        RefusedPathPrefixes: [],
+        ObservedNeedsDate: false);
 }

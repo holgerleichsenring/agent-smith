@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Each fact's cited file is read in the turn's repositories, routed by prefix; an unopened scope or failed read is not checked; the panel shows facts and assumptions. -> .agentsmith/phases/done/2026-10-02-3f06c-proposal-evidence-check.yaml"
     2026-10-02-3f06b: "A PLANNED FACT CITES WHAT RESOLVES (spec evidence, architecture tests). EvidenceReferences + EvidenceCheck with a policy and an async probe; each planned path a file, each line inside it, else a dated observed:; date-minted planned phases state facts, 60 baselined. -> .agentsmith/phases/done/2026-10-02-3f06b-spec-evidence-check.yaml"
     2026-10-02-3f06a: "THE SCHEMA DECLARES THE PREMISE KEYS (phase-spec schema, draft reader). facts, assumptions, applies_to, contexts get a shape; an assumption {claim, check} is read as its claim; the renderer and epic re-serializer quote number-shaped strings. -> .agentsmith/phases/done/2026-10-02-3f06a-spec-premise-keys.yaml"
     2026-10-02-3f06f: "THE BASE-CLASS LINE LIMIT LEAVES THIS REPOSITORY (principles, memory, content test). The 30 lines a Claude session wrote in p73 go from principles.md and the code-style memory; template-method skeleton only stays; the content test drops the anchor. -> .agentsmith/phases/done/2026-10-02-3f06f-principles-base-class.yaml"
@@ -1037,7 +1038,6 @@ state:
   active: {}
   planned:
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/phases/planned/2026-10-02-60ca-decision-file-schema.yaml"
-    2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Routed by repository prefix, no clone for a check, a failed read never reported missing; the panel shows facts and assumptions. -> .agentsmith/phases/planned/2026-10-02-3f06c-proposal-evidence-check.yaml"
     2026-10-02-3f06d: "THE PLUGIN SHIPS 2.2.0 (spec-first plugin). Spec budget and date-minted ids in one commit, counter ids kept wide; scope, facts and assumptions in its own schema; verification and review in step 5; migration rows. -> .agentsmith/phases/planned/2026-10-02-3f06d-plugin-pr-landing.yaml"
     2026-10-02-3f06e: "THE PLUGIN RUNS THE LOOP, 2.3.0 (spec-first plugin). Spec committed in a worktree; review-spec runs an evidence script and a fresh reviewer; ship-phase runs verify:, commits and opens the PR. -> .agentsmith/phases/planned/2026-10-02-3f06e-plugin-review-ship.yaml"
     2026-10-02-3f06g: "THE C# DELTA DROPS IT TOO (skills catalog). Released as 5.8.1 before aeb6d, whose single pin move carries it and regenerates the C# principles golden. -> .agentsmith/phases/planned/2026-10-02-3f06g-csharp-delta-base-class.yaml"
