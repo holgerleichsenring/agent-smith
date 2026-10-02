@@ -37,6 +37,16 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         cancellationToken.ThrowIfCancellationRequested();
         var json = JsonSerializer.Serialize(step, WireFormat.Json);
         await _database.ListLeftPushAsync(RedisKeys.InputKey(_jobId), json);
+        await ExpireJobKeysAsync();
+    }
+
+    // 2026-10-02-5ab2f: dispose deletes the keys, but a server that crashed never disposes;
+    // refreshing the expiry on every push bounds what a dead job leaves behind.
+    private async Task ExpireJobKeysAsync()
+    {
+        await _database.KeyExpireAsync(RedisKeys.InputKey(_jobId), RedisKeys.JobKeyTtl);
+        await _database.KeyExpireAsync(RedisKeys.ResultsKey(_jobId), RedisKeys.JobKeyTtl);
+        await _database.KeyExpireAsync(RedisKeys.EventsKey(_jobId), RedisKeys.JobKeyTtl);
     }
 
     public async Task<StepResult> WaitForResultAsync(

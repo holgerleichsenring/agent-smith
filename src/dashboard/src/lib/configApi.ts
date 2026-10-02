@@ -841,7 +841,6 @@ export type SettingKey =
   | "deployment"
   | "registries"
   | "primary_provider"
-  | "pipeline_storage"
   | "pipeline_data_flow"
   | "trace";
 
@@ -933,10 +932,6 @@ export interface PrimaryProviderSetting {
   value: string | null;
 }
 
-export interface PipelineStorageSetting {
-  redisTtlHours: number;
-}
-
 export interface PipelineDataFlowSetting {
   enforce: boolean;
 }
@@ -959,7 +954,6 @@ export interface SettingShapes {
   deployment: DeploymentSetting;
   registries: RegistriesSetting;
   primary_provider: PrimaryProviderSetting;
-  pipeline_storage: PipelineStorageSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
   trace: TraceSetting;
 }

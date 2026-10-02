@@ -18,8 +18,8 @@ namespace AgentSmith.Server.Extensions;
 
 /// <summary>
 /// Redis composition: connects the multiplexer once and registers the queue,
-/// claim-lock, leader-lease, heartbeat, conversation-lookup, dialogue-transport,
-/// and run-artifact-store services. Server adds these onto the CLI-safe baseline
+/// claim-lock, leader-lease, heartbeat, conversation-lookup and dialogue-transport
+/// services. Server adds these onto the CLI-safe baseline
 /// Application + Infrastructure registered.
 /// </summary>
 internal static class RedisExtensions
@@ -41,7 +41,6 @@ internal static class RedisExtensions
         services.AddSingleton<IRedisLeaderLease, RedisLeaderLease>();
         services.AddSingleton<IConfigReloadSignal, RedisConfigReloadSignal>(); // p0353
         services.AddSingleton<IDialogueTransport, RedisDialogueTransport>();
-        services.AddSingleton<IRunArtifactStore, RedisRunArtifactStore>();
         // p0388a: the Redis publisher is the transport; the step-attributing
         // decorator in front of it is the single place the ambient step scope is
         // stamped onto every event, so no emit site plumbs a step index.

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { AgentForm } from "../AgentForm";
 import type { ConfigCatalog } from "../useConfigCatalog";
 import type { ConfigCapabilities, ModelPriceList, StudioAgent } from "@/lib/configApi";
@@ -165,7 +165,8 @@ describe("AgentForm (2026-09-30-62bab)", () => {
     );
     await screen.findByText(/public price list/);
 
-    expect(screen.getByTestId("agent-model-source-gpt-4.1")).toHaveTextContent("price list");
+    // 2026-10-02-5ab2f: the card exists before the price list labels it; wait for the label.
+    await waitFor(() => expect(screen.getByTestId("agent-model-source-gpt-4.1")).toHaveTextContent("price list"));
     expect(screen.getByTestId("agent-model-price-gpt-4.1")).toHaveTextContent("$2.00 / $8.00 / $0.50");
     expect(screen.getByTestId("agent-model-source-mini")).toHaveTextContent("override");
     expect(screen.getByTestId("agent-model-price-mini")).toHaveTextContent("$0.30 / $1.20 / —");

@@ -168,10 +168,9 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<CriteriaMetRepository>().AddScoped<CriterionJudgementRepository>();
         services.AddScoped<RunRetentionService>();
 
-        // p0246e: mirror the durable markdown slots into the DB so result.md / plan.md
-        // survive a process restart AND a Redis flush.
-        Decorate<IRunArtifactStore>(services, (inner, sp) =>
-            new DbRunArtifactStore(inner, sp.GetRequiredService<IServiceScopeFactory>()));
+        // p0246e: the run's markdown lives in the DB; 2026-10-02-5ab2f: nothing else holds it.
+        services.RemoveAll<IRunArtifactStore>();
+        services.AddSingleton<IRunArtifactStore, DbRunArtifactStore>();
 
         // p0246: migrations are applied EXPLICITLY by `agentsmith database migrate`
         // in the deployment pipeline — NEVER on app startup (replica races + operator

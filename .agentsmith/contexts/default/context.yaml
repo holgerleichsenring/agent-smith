@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-5ab2f: "SANDBOX JOB KEYS EXPIRE AND PIPELINE_STORAGE IS RETIRED (sandbox wire, run artifacts, config). sandbox:{job}:in/results/events carry a sliding 24 h TTL from server and agent; run markdown lives only in the DB; plan/diff/bootstrap slots and RedisRunArtifactStore are gone; pipeline_storage loads with a retired-key advisory. -> .agentsmith/phases/done/2026-10-02-5ab2f-redis-key-hygiene.yaml"
     2026-10-02-5ab2c: "AFTER A REDIS FLUSH NO LIVE RUN READS AS DEAD (active-run set, housekeeping, event broadcaster). The housekeeping leader re-seeds agentsmith:runs:active every 30 s from fresh unparked rows, skipping the recent list; RunFinished indices are one transaction; the broadcaster also tracks unparked DB runs. -> .agentsmith/phases/done/2026-10-02-5ab2c-active-run-set-reseed.yaml"
     2026-10-02-5ab2e: "THE LAST WEBHOOK PER PLATFORM SURVIVES A REDIS FLUSH (webhooks, diagnostics, persistence, archive). WebhookLastSeen row per platform, written at most once a minute per process, any delivery outcome counts; a database error still reads as never seen. -> .agentsmith/phases/done/2026-10-02-5ab2e-webhook-last-seen-database.yaml"
     2026-10-02-5ab2d: "A CHAT COMMAND AWAITING CONFIRMATION SURVIVES A REDIS FLUSH (chat clarification, Slack, Teams, persistence, archive). PendingClarifications row with its expiry; a take is one conditional delete, so a double click dispatches once; Confirm on nothing pending asks to resend. -> .agentsmith/phases/done/2026-10-02-5ab2d-clarification-state-database.yaml"

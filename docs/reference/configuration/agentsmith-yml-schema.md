@@ -26,7 +26,7 @@ key is listed in the [agentsmith.yml reference](agentsmith-yml.md).
 | `projects` | map<name, project> | yes | project entries |
 | `secrets` | map<name, `${ENV}`> | no | env-var-resolved secret references |
 | `persistence`, `auth`, `trace`, `tool_runner` | object | no | bootstrap and file-only blocks |
-| `deployment`, `sandbox`, `orchestrator`, `registries`, `primary_provider`, `limits`, `pipeline_cost_cap`, `queue`, `dialogue`, `skills`, `pipeline_storage`, `pipeline_data_flow` | object | no | global settings |
+| `deployment`, `sandbox`, `orchestrator`, `registries`, `primary_provider`, `limits`, `pipeline_cost_cap`, `queue`, `dialogue`, `skills`, `pipeline_data_flow` | object | no | global settings |
 
 Operator mistakes (unknown agent/tracker/repo references, trigger blocks
 that don't match their tracker's type, template rules) are reported as

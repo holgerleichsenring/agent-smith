@@ -16,8 +16,7 @@ namespace AgentSmith.Application.Services.Loop;
 /// skill drops become pipeline-visible), the scoped SkillCallRuntime that composes
 /// the collaborators, the schema validators + factory (JsonSchemaLoader caches the
 /// four hand-written schemas at boot for the process lifetime — singleton), and the
-/// in-memory run-artifact-store fallback (Cli/Server replace with RedisRunArtifactStore
-/// when a ConnectionMultiplexer is available).
+/// in-memory run-artifact store (the server replaces it with the database store).
 /// </summary>
 public static class LoopRuntimeExtensions
 {

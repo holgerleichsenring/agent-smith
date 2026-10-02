@@ -23,7 +23,7 @@ public sealed class SettingsRoundTripTests
         h.Store.SettingTypes.Should().BeEquivalentTo(new[]
         {
             "orchestrator", "limits", "pipeline_cost_cap", "skills", "sandbox", "queue",
-            "dialogue", "deployment", "registries", "primary_provider", "pipeline_storage",
+            "dialogue", "deployment", "registries", "primary_provider",
             // 2026-08-25-1806: what a role name means is application configuration too.
             "pipeline_data_flow", "role_mapping", "trace",
         });

@@ -13,11 +13,8 @@ public static class EventStreamKeys
     public const int RecentRunsCap = 50;
     public const int StreamMaxLen = 10_000;
     /// <summary>
-    /// p0169j-a: operator look-back window. Paired with the
-    /// IRunArtifactStore result-slot TTL — both default to 24h so the
-    /// Trail + Result tabs share the same "yesterday's run still works"
-    /// horizon. Beyond 24h, the PR is the durable surface (result.md
-    /// shipped via <c>git add -A</c> in <c>CommitAndPR</c>).
+    /// p0169j-a: operator look-back window for the live event stream. Beyond 24h the
+    /// database holds the run's trail and markdown.
     /// </summary>
     public static readonly TimeSpan StreamTtl = TimeSpan.FromHours(24);
 
