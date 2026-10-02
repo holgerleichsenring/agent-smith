@@ -105,14 +105,14 @@ public static class ConfigStudioCapabilities
         [
             new CapabilityField("organization", "Organization", Required: true),
             new CapabilityField("project", "Project", Required: true),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             new CapabilityField("host", "Base URL", Required: false),
             new CapabilityField("defaultBranch", "Default branch", Required: false),
         ],
         RepoType.GitHub or RepoType.GitLab =>
         [
             new CapabilityField("organization", type == RepoType.GitHub ? "Owner" : "Group", Required: true),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             // p0392: ConnectionRepoUrlBuilder reads host on every type, so a self-hosted
             // GitLab or GitHub Enterprise was configurable in YAML and nowhere else.
             new CapabilityField("host", "Base URL", Required: false),

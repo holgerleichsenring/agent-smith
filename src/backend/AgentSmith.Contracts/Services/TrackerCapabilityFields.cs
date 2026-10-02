@@ -15,7 +15,8 @@ public static class TrackerCapabilityFields
     /// <summary>
     /// Grounded in TicketProviderFactory: ADO builds its org URL from organization +
     /// project; GitHub/Jira connect by URL; GitLab addresses the project path. Every
-    /// tracker authenticates via a secret NAME.
+    /// tracker authenticates via a secret NAME — declared Secret (2026-10-02-140d), so the
+    /// form offers a pick from the secrets catalog instead of a box for the token.
     /// </summary>
     public static IReadOnlyList<CapabilityField> For(TrackerType type) => type switch
     {
@@ -24,28 +25,28 @@ public static class TrackerCapabilityFields
             new CapabilityField("organization", "Organization", Required: true),
             new CapabilityField("project", "Project", Required: true),
             new CapabilityField("url", "URL", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             .. WorkflowFields,
             WorkItemKinds,
         ],
         TrackerType.GitHub =>
         [
             new CapabilityField("url", "Repository URL", Required: true),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             .. WorkflowFields,
         ],
         TrackerType.GitLab =>
         [
             new CapabilityField("project", "Project path", Required: true),
             new CapabilityField("url", "Base URL", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             .. WorkflowFields,
         ],
         TrackerType.Jira =>
         [
             new CapabilityField("url", "Base URL", Required: true),
             new CapabilityField("project", "Project key", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
             .. WorkflowFields,
             WorkItemKinds,
             new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map),

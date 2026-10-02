@@ -75,6 +75,7 @@ vi.mock("@/lib/configApi", () => {
           fields: [
             { key: "organization", label: "organization", required: true },
             { key: "project", label: "project", required: true },
+            { key: "authSecret", label: "auth secret", required: true, kind: "secret" },
             { key: "defaultBranch", label: "default branch", required: false },
           ],
         },
@@ -127,8 +128,9 @@ describe("ConfigStudio connections (p0345b)", () => {
     expect(screen.getByTestId("form-field-organization")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-project")).toBeInTheDocument();
     expect(screen.getByTestId("form-field-defaultBranch")).toBeInTheDocument();
-    // authSecret is a pick-only secret FK, never free text.
-    const secret = screen.getByTestId("form-ref-authSecret");
+    // authSecret is a pick-only secret FK, never free text — and declared by the descriptor
+    // as a secret field (2026-10-02-140d), so it renders once, at its declared position.
+    const secret = screen.getByTestId("form-field-authSecret");
     expect(secret.tagName).toBe("SELECT");
     expect(secret.querySelector('option[value="AZDO_PAT"]')).not.toBeNull();
   });
