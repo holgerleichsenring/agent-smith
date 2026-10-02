@@ -10,7 +10,7 @@ import type {
   FiledWork,
   SpecDialogConversationPage,
   SpecDialogImage,
-  SpecDialogReferenceSet,
+  SpecDialogReferenceUpload,
   SpecDialogView,
 } from "@/types/spec-dialog";
 
@@ -112,19 +112,21 @@ export async function uploadSpecDialogImage(
  * or one .zip the server unpacks. Each file goes under its path inside the set: a folder pick
  * carries it as webkitRelativePath, a plain pick has only its name. The server checks the set
  * whole and stores all of it or none, so a refusal is the one error this can throw.
+ * 2026-10-02-0d72: files that are not site files (a LICENSE, a .gitignore) are skipped and named
+ * in the answer rather than refusing the set.
  */
 export async function uploadSpecDialogReferences(
   dialogId: string,
   project: string,
   files: File[],
-): Promise<SpecDialogReferenceSet> {
+): Promise<SpecDialogReferenceUpload> {
   const path = `/api/spec-dialog/references?dialogId=${encodeURIComponent(dialogId)}`
     + `&project=${encodeURIComponent(project)}`;
   const form = new FormData();
   for (const file of files) form.append("file", file, file.webkitRelativePath || file.name);
   const res = await apiFetch(path, { method: "POST", body: form });
   if (!res.ok) throw await refused(res, path);
-  return (await res.json()) as SpecDialogReferenceSet;
+  return (await res.json()) as SpecDialogReferenceUpload;
 }
 
 /** Where the transcript reads one stored image from. */

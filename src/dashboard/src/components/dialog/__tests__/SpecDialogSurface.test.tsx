@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SpecDialogSurface } from "../SpecDialogSurface";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { __forgetDialogIdForTests } from "@/lib/specDialogSession";
+import { ApiResponseError } from "@/lib/apiResponse";
 import type {
   SpecDialogActivityPush,
   SpecDialogFilingPush,
@@ -109,7 +110,12 @@ const resumeSpecDialogConversation =
 const uploadSpecDialogImage =
   vi.fn<(dialogId: string, project: string, file: File) => Promise<unknown>>(
     async () => ({ id: 7, mediaType: "image/png", at: "2026-09-15T09:30:00Z" }));
+// 2026-10-02-0d72: a website upload — a folder pick's files, each under its path.
+const uploadSpecDialogReferences =
+  vi.fn<(dialogId: string, project: string, files: File[]) => Promise<unknown>>();
 vi.mock("@/lib/specDialogApi", () => ({
+  uploadSpecDialogReferences: (dialogId: string, project: string, files: File[]) =>
+    uploadSpecDialogReferences(dialogId, project, files),
   fetchSpecDialog: (dialogId: string) => fetchSpecDialog(dialogId),
   fetchSpecDialogConversations: (limit?: number) => fetchSpecDialogConversations(limit),
   fetchFiledWork: (dialogId: string) => fetchFiledWork(dialogId),
@@ -432,6 +438,7 @@ beforeEach(() => {
   // Answering null keeps the hit's own routed set, which is what every case that predates the
   // per-pick read asserts.
   resolveTicketProjects.mockResolvedValue(null);
+  uploadSpecDialogReferences.mockReset();
 });
 
 /** 2026-09-27-5c1eb: what the search route answers — the hits, the cap, and the trackers that
@@ -3573,6 +3580,58 @@ describe("SpecDialogSurface", () => {
     expect(file.name).toBe("shot.png");
     const shown = await screen.findByTestId("dialog-image-7");
     expect(shown).toHaveAttribute("src", "/api/spec-dialog/images/7");
+  });
+
+  // 2026-10-02-0d72: a folder pick of a real website carries a LICENSE and a .gitignore. The set
+  // is stored without them, and the composer says which were left out.
+  it("SpecDialog_AFolderWithNonSiteFiles_IsStoredAndTheComposerNamesTheSkipped", async () => {
+    uploadSpecDialogReferences.mockResolvedValueOnce({
+      setId: "s1", name: "site", files: 2, bytes: 20, at: "2026-10-02T10:00:00Z",
+      skipped: ["site/LICENSE", "site/.gitignore"], skippedCount: 2,
+    });
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-folder"), {
+      target: { files: [new File(["<h1>"], "index.html"), new File(["MIT"], "LICENSE")] },
+    });
+
+    const note = await screen.findByTestId("dialog-composer-upload-note");
+    expect(note).toHaveAttribute("data-tone", "stored");
+    expect(note.textContent).toContain("Skipped 2");
+    expect(note.textContent).toContain("site/LICENSE, site/.gitignore");
+    expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
+  });
+
+  // A refused upload is a sentence beside the control that made it — the server's own reason —
+  // and the page goes on working; it used to replace the page with "could not be rendered".
+  it("SpecDialog_ARefusedFolder_SaysWhyAtTheComposerAndThePageStays", async () => {
+    const reason = "The upload holds no file a website is made of — 2 skipped, such as 'site/LICENSE'";
+    uploadSpecDialogReferences.mockRejectedValueOnce(
+      new ApiResponseError("/api/spec-dialog/references", 400, `HTTP 400 — ${reason}`, reason));
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-folder"), {
+      target: { files: [new File(["MIT"], "LICENSE"), new File(["bin/"], ".gitignore")] },
+    });
+
+    const note = await screen.findByTestId("dialog-composer-upload-note");
+    expect(note).toHaveAttribute("role", "alert");
+    expect(note.textContent).toBe(reason);
+    expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
+    expect(screen.getByTestId("dialog-composer-text")).toBeInTheDocument();
+  });
+
+  it("SpecDialog_ARefusedImage_SaysWhyAtTheComposer", async () => {
+    uploadSpecDialogImage.mockRejectedValueOnce(
+      new ApiResponseError("/api/spec-dialog/images", 413, "HTTP 413 — too large", "too large"));
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-image"), {
+      target: { files: [new File(["png"], "shot.png", { type: "image/png" })] },
+    });
+
+    expect((await screen.findByTestId("dialog-composer-upload-note")).textContent).toBe("too large");
+    expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
   });
 
   // Nothing ties an image to a turn: the upload is a post of its own and the durable transcript

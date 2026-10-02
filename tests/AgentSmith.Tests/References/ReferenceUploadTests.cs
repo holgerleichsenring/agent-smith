@@ -58,7 +58,7 @@ public sealed class ReferenceUploadTests : IDisposable
             ("site/index.html", Text("<h1>")), ("site/css/site.css", Text("h1{color:#c0ffee}")),
             ("site/.DS_Store", Text("x")), ("__MACOSX/site/._index.html", Text("x")));
 
-        var set = result.Should().BeOfType<Ok<ReferenceSetView>>().Subject.Value!;
+        var set = result.Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
         set.Name.Should().Be("site");
         set.Files.Should().Be(2);
         var stored = await StoredAsync();
@@ -73,7 +73,7 @@ public sealed class ReferenceUploadTests : IDisposable
         var files = Enumerable.Range(0, 4)
             .Select(i => ($"site/img/{i}.png", new byte[ReferenceUploadLimits.MaxFileBytes])).ToArray();
 
-        var set = (await UploadAsync(files)).Should().BeOfType<Ok<ReferenceSetView>>().Subject.Value!;
+        var set = (await UploadAsync(files)).Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
 
         set.Bytes.Should().Be(4 * ReferenceUploadLimits.MaxFileBytes);
         (await StoredAsync()).Select(f => f.SetId).Distinct().Should().Equal(set.SetId);
@@ -99,13 +99,59 @@ public sealed class ReferenceUploadTests : IDisposable
         (await StoredAsync()).Select(f => f.MediaType).Should().BeEquivalentTo("image/x-icon", "image/avif", "image/svg+xml");
     }
 
+    // 2026-10-02-0d72: a file that is not a site file is skipped and named, never a reason to refuse.
     [Fact]
-    public async Task ReferenceUpload_DisallowedExtension_RefusesTheWholeSet()
+    public async Task ReferenceUpload_DisallowedExtension_IsSkippedAndNamed()
     {
         var result = await UploadAsync(("site/index.html", Text("<h1>")), ("site/deploy.sh", Text("rm")));
 
-        result.Should().BeOfType<BadRequest<string>>().Which.Value.Should().Contain("'site/deploy.sh'");
+        var answer = result.Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
+        answer.Files.Should().Be(1);
+        answer.Skipped.Should().Equal("site/deploy.sh");
+        answer.SkippedCount.Should().Be(1);
+        (await StoredAsync()).Select(f => f.RelativePath).Should().Equal("site/index.html");
+    }
+
+    [Fact]
+    public async Task ReferenceUpload_OnlyNonSiteFiles_IsRefusedNamingThem()
+    {
+        var result = await UploadAsync(("site/LICENSE", Text("MIT")), ("site/.gitignore", Text("bin/")));
+
+        result.Should().BeOfType<BadRequest<string>>().Which.Value.Should()
+            .Contain("no file a website is made of").And.Contain("'site/LICENSE'");
         (await StoredAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ReferenceUpload_SkippedPathThatClimbsOut_StillRefusesTheSet()
+    {
+        var result = await UploadAsync(("site/index.html", Text("<h1>")), ("site/../../etc/passwd", Text("x")));
+
+        result.Should().BeOfType<BadRequest<string>>().Which.Value.Should().Contain("'site/../../etc/passwd'");
+        (await StoredAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ReferenceUpload_ManySkippedFiles_ListsTheFirstTwentyAndCountsAll()
+    {
+        var files = Enumerable.Range(0, 30).Select(i => ($"site/notes/{i}.xml", Text("x")))
+            .Append(("site/index.html", Text("<h1>"))).ToArray();
+
+        var answer = (await UploadAsync(files)).Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
+
+        answer.Skipped.Should().HaveCount(ReferenceUploadLimits.MaxSkippedListed);
+        answer.SkippedCount.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task ReferenceUpload_ZipWithASitemapAndALicense_SkipsThemAndStoresTheSite()
+    {
+        var zip = Zip(("index.html", Text("<h1>")), ("sitemap.xml", Text("<urlset/>")), ("LICENSE", Text("MIT")));
+
+        var answer = (await UploadAsync(("landing.zip", zip))).Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
+
+        answer.Files.Should().Be(1);
+        answer.Skipped.Should().BeEquivalentTo("sitemap.xml", "LICENSE");
     }
 
     [Fact]
@@ -139,7 +185,7 @@ public sealed class ReferenceUploadTests : IDisposable
     {
         var zip = Zip(("index.html", Text("<h1>")), ("css/a.css", Text("a{}")));
 
-        var set = (await UploadAsync(("landing.zip", zip))).Should().BeOfType<Ok<ReferenceSetView>>().Subject.Value!;
+        var set = (await UploadAsync(("landing.zip", zip))).Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
 
         set.Name.Should().Be("landing");
         (await StoredAsync()).Select(f => f.RelativePath).Should().BeEquivalentTo("landing/index.html", "landing/css/a.css");
@@ -180,10 +226,10 @@ public sealed class ReferenceUploadTests : IDisposable
         var paths = new ReferencePathRule();
         var ignore = new ReferenceIgnoreList();
         var upload = new ReferenceSetUpload(
-            new ReferenceZipReader(paths, ignore, new ZipEntryChecksum()),
+            new ReferenceZipReader(paths, ignore, new ZipEntryChecksum(), new ReferenceFileTypes()),
             new ReferenceSetValidator(paths, ignore, new ReferenceFileTypes()), new ReferenceFileTypes(),
             new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
-            new ReferenceSetRepository(_context));
+            new ReferenceSetRepository(_context), NullLogger<ReferenceSetUpload>.Instance);
         return await SpecDialogReferenceEndpoints.UploadAsync(
             http, Dialog, Project, new ReferenceUploadBody(NullLogger<ReferenceUploadBody>.Instance), upload,
             CancellationToken.None);

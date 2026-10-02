@@ -13,9 +13,13 @@ namespace AgentSmith.Server.Services.References;
 /// An archive whose files share no top folder is unpacked under its own name, so the set is
 /// named for what the operator dropped rather than called nothing.
 /// </para>
+/// <para>
+/// 2026-10-02-0d72: an entry that is not a site file is skipped before anything is counted or
+/// inflated, and named in the answer — as a folder's is.
+/// </para>
 /// </summary>
 public sealed class ReferenceZipReader(
-    ReferencePathRule paths, ReferenceIgnoreList ignored, ZipEntryChecksum checksum)
+    ReferencePathRule paths, ReferenceIgnoreList ignored, ZipEntryChecksum checksum, ReferenceFileTypes types)
 {
     private const int ChunkBytes = 81920;
 
@@ -27,12 +31,20 @@ public sealed class ReferenceZipReader(
         try
         {
             using var zip = new ZipArchive(new MemoryStream(archive), ZipArchiveMode.Read);
-            var entries = zip.Entries.Where(e => !e.FullName.EndsWith('/'))
+            var kept = zip.Entries.Where(e => !e.FullName.EndsWith('/'))
                 .Where(e => !ignored.IsIgnored(paths.Normalise(e.FullName))).ToList();
+            var entries = kept.Where(e => types.MediaTypeOf(e.FullName) is not null).ToList();
+            if (entries.Count == 0 && kept.Count > 0)
+                return ReferenceSetCheck.Refused(
+                    ReferenceSetValidator.NoSiteFile([.. kept.Select(e => paths.Normalise(e.FullName))]));
             if (entries.Count > ReferenceUploadLimits.MaxFiles)
                 return ReferenceSetCheck.Refused(
                     $"'{archiveName}' holds {entries.Count} files, over the {ReferenceUploadLimits.MaxFiles}-file limit.");
-            return Inflate(archiveName, entries);
+            var inflated = Inflate(archiveName, entries);
+            return inflated.IsRefused ? inflated : inflated with
+            {
+                SkippedPaths = [.. kept.Except(entries).Select(e => paths.Normalise(e.FullName))],
+            };
         }
         catch (InvalidDataException)
         {

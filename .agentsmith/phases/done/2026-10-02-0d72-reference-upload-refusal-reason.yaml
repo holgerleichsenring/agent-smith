@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-0d72
+goal: "A website folder pick works: non-site files are skipped and named, and a refusal that remains is shown at the composer and logged, not a page-wide 'HTTP 400'."
+
+applies_to: "backend (website upload route, set validator, zip reader), dashboard (API refusal reading, dialog composer)"
+
+requires: ["2026-10-01-283db"]
+
+facts:
+  - claim: "Reproduced through the booted server (ServerHostFactory) with the dashboard's exact query string and a browser-shaped folder multipart: a clean folder answers 200, the GET on the same URL answers 200 (the extra 'project' query value is ignored, every handler parameter binds); a folder holding LICENSE or .gitignore answers 400 with a JSON string naming the file."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/BootedServer.cs:46-69; src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:23-27,31-51"
+  - claim: "The banner's path is the POST's: both routes share it, and the dashboard never issues the GET."
+    evidence: "src/dashboard/src/lib/specDialogApi.ts:116-128; src/dashboard/src/hooks/useSpecDialog.ts:530-541"
+  - claim: "A folder pick sends every file of the folder; nothing filters it by the accepted types."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:106-113,214-218"
+  - claim: "The validator refuses the whole set for any file outside the extension list, over 500 files, or a bad path."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:14-45; ReferenceFileTypes.cs:10-18; src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:10"
+  - claim: "Every refusal of the store step is returned as a result and written nowhere; only the 413 paths log, at Information."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetUpload.cs:31-40; ReferenceUploadBody.cs:23-37"
+  - claim: "The client drops the body of every refusal other than 401/403 and throws '<path>: HTTP <status>'; the hook puts it on the page-wide failure surface."
+    evidence: "src/dashboard/src/lib/apiResponse.ts:72-95; src/dashboard/src/hooks/useSpecDialog.ts:539; src/dashboard/src/components/dialog/SpecDialogSurface.tsx:296"
+
+scope:
+  in: >
+    The validator and the ZIP reader SKIP files outside the website extension list instead of refusing the set; the
+    ignore list stays silent. Every non-ignored path must still stay inside the set. A set is refused only when no
+    site file remains, or for the limits (500 site files, 5 MB per file, 25 MB per set, a lying ZIP entry). The upload
+    answers ReferenceUploadView: the stored set plus the first 20 skipped paths and their count; the multipart part
+    bound rises to 5000 so a folder's skipped files fit under the unchanged 26 MB body ceiling. ReferenceSetUpload
+    logs each refusal once at Warning with dialog id and reason, and a skip at Information. The dashboard's refused()
+    carries a 4xx's stated reason (ApiResponseError.reason); an image or website upload's refusal and a stored
+    website's skipped files are shown at the composer, never on the page-wide failure panel. BootPlan gains a services
+    hook so a booted case can record logs.
+  out: >
+    Filtering a folder pick in the browser before it is sent (a .git folder still counts against the 26 MB body
+    ceiling); the list route and the transcript view keep ReferenceSetView.
+
+decisions:
+  - key: "SKIP, DON'T REFUSE (operator ruling). A real website folder always carries a LICENSE, a .gitignore or a sitemap.xml, and the operator cannot edit their folder to please this check."
+  - key: "PATH RULES STILL COVER SKIPPED FILES. A path that climbs out is hostile whether or not it would be stored."
+  - key: "THE REFUSAL BELONGS TO THE CONTROL. A refused upload changes nothing on the page; only the composer that made it says so."
+  - key: "WARNING, ONCE; REASONS FROM 4xx ONLY."
+
+steps:
+  - id: server
+    action: "ReferenceSetCheck carries skipped paths; the validator and the ZIP reader skip non-site files; ReferenceUploadView answers the set with them; ReferenceSetUpload logs refusals at Warning."
+  - id: rig
+    action: "BootPlan.Services, applied by BootSubstitutions, and a RecordingLoggerProvider."
+  - id: dashboard
+    action: "refused() reads a 4xx reason into ApiResponseError.reason; uploadNote.ts turns an upload's answer or refusal into a note; useSpecDialog holds it; DialogComposer shows it."
+
+tests:
+  - "ReferenceUploadRoute_BrowserFolderWithLicenseAndGitignore_IsStoredListingThemAsSkipped (booted server, exact dashboard request)"
+  - "ReferenceUploadRoute_BrowserFolderOfNonSiteFilesOnly_Answers400NamingThemAndLogsAWarning (booted server)"
+  - "ReferenceUpload_SkippedPathThatClimbsOut_StillRefusesTheSet; ReferenceZipReader_NonSiteEntries_AreSkippedAndNamed"
+  - "SpecDialog_ARefusedFolder_SaysWhyAtTheComposerAndThePageStays; SpecDialog_AFolderWithNonSiteFiles_IsStoredAndTheComposerNamesTheSkipped"
+
+done:
+  - "a folder with LICENSE and .gitignore beside a site is stored with both named as skipped; a folder of only non-site files is refused with the reason at the composer and a Warning in the log"
+  - "build green, full suite green, dashboard tests and build green"

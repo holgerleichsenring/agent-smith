@@ -35,8 +35,6 @@ internal static class SpecDialogReferenceEndpoints
         ArgumentNullException.ThrowIfNull(http);
         var parts = await body.ReadAsync(http, cancellationToken);
         if (parts is null) return Results.Json(TooLarge, statusCode: StatusCodes.Status413PayloadTooLarge);
-        if (string.IsNullOrWhiteSpace(dialogId)) return Results.BadRequest("dialogId is required");
-        if (parts.Count == 0) return Results.BadRequest("The upload carries no file.");
         return await upload.StoreAsync(dialogId, project, http.User, parts, cancellationToken);
     }
 

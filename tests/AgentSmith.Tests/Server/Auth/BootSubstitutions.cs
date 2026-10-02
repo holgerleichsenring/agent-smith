@@ -21,6 +21,7 @@ internal static class BootSubstitutions
         SubstituteTransport(plan, services);
         SubstituteClock(plan, services);
         SelectHostedServices(plan, services);
+        plan.Services?.Invoke(services);
     };
 
     /// <summary>A case that asserts on a duration supplies the clock that measures it.</summary>

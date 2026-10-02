@@ -12,8 +12,9 @@ namespace AgentSmith.Server.Services.References;
 /// </summary>
 public sealed class ReferenceUploadBody(ILogger<ReferenceUploadBody> logger)
 {
-    // Room for the ignored files a copied folder carries beside the ones it keeps.
-    private const int MaxParts = ReferenceUploadLimits.MaxFiles * 2;
+    // Room for the ignored and skipped files a copied folder carries beside the ones it keeps
+    // (2026-10-02-0d72: a .git folder alone holds hundreds); the body ceiling still bounds them all.
+    private const int MaxParts = ReferenceUploadLimits.MaxFiles * 10;
 
     /// <summary>The uploaded parts, or null when the body is over the route's ceiling.</summary>
     public async Task<IReadOnlyList<ReferenceUploadPart>?> ReadAsync(HttpContext context, CancellationToken ct)

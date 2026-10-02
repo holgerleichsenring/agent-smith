@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-0d72
+
+decisions:
+  - category: Scope
+    chose: "Skip files outside the website extension list and name them in the answer; refuse only when no site file remains or a real limit is crossed (operator ruling)"
+    over: "Refusing the whole set for one such file (2026-10-01-283db), or only making that refusal visible"
+    reason: |
+      Reproduced through the booted server: binding is sound, a clean folder is stored, and a
+      folder holding LICENSE or .gitignore answered 400. A real website folder always carries
+      such files — a LICENSE, a .gitignore, a sitemap.xml, a source map — and the operator
+      cannot edit their folder to please this check, so refusing made the Folder entry fail on
+      every real site. Skipping loses nothing the design partner reads; naming the skipped
+      paths keeps it from being silent. The limits that protect the server stay refusals: the
+      file count and sizes apply to what is stored, a path that climbs out is refused even on a
+      skipped file, and a lying ZIP entry is refused as before.
+  - category: Implementation
+    chose: "The ZIP reader drops non-site entries before counting or inflating them, and the multipart part bound rises from 1000 to 5000"
+    over: "Inflating every entry and letting the validator skip; keeping the 1000-part bound"
+    reason: |
+      A skipped entry is never stored, so inflating it only spends the set's byte budget. A
+      folder pick sends its skipped files too (a .git folder alone holds hundreds), and the
+      26 MB body ceiling, unchanged, still bounds all of them.
+  - category: Architecture
+    chose: "An upload's refusal and a stored website's skipped files are a note held by useSpecDialog and shown by DialogComposer (uploadNote.ts builds it); the image upload goes the same way"
+    over: "The page-wide failure state, which rendered 'could not be rendered'"
+    reason: |
+      A refused upload is a statement about the files picked, not a fault of the page; the
+      page goes on working and the sentence sits under the control that made it.
+  - category: Implementation
+    chose: "The route's own two 400s (no dialog id, no file) move into ReferenceSetUpload.StoreAsync, so one helper logs every refusal and answers it"
+    over: "A logger parameter on the endpoint delegate beside the one in the store step"
+    reason: |
+      Two logging sites for one route's refusals would drift; the store step already owned
+      every other refusal.
+  - category: Implementation
+    chose: "apiResponse.refused appends the reason a 4xx states (JSON string, problem-details detail or title, or short text) to every non-401/403 refusal and keeps it as ApiResponseError.reason"
+    over: "Reading the body in uploadSpecDialogReferences alone"
+    reason: |
+      Every route answering Results.BadRequest(string) had the same blind spot. 5xx and bodies
+      that start with '<' stay the bare status, so a proxy's HTML page is never shown as a reason.
+  - category: Tooling
+    chose: "BootPlan.Services, applied last by BootSubstitutions, plus a RecordingLoggerProvider in TestSupport"
+    over: "A hand-built WebApplication mapping only the reference routes"
+    reason: |
+      The regression has to go through the real composition and binding the operator's server
+      runs; the booted rig is that, and a case needed a way to read what the server logged.

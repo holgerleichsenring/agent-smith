@@ -27,12 +27,16 @@ export function apiUrl(path: string): string {
 export class ApiResponseError extends Error {
   readonly path: string;
   readonly status: number;
+  /** 2026-10-02-0d72: what the server said was wrong, when a 4xx said it — the sentence a
+   *  surface can put beside the control that was refused. Null when it said nothing. */
+  readonly reason: string | null;
 
-  constructor(path: string, status: number, detail: string) {
+  constructor(path: string, status: number, detail: string, reason: string | null = null) {
     super(`${path}: ${detail}`);
     this.name = "ApiResponseError";
     this.path = path;
     this.status = status;
+    this.reason = reason;
   }
 }
 
@@ -91,7 +95,39 @@ export function refusalIn(thrown: unknown): ApiRefusal | null {
 
 /** How a non-ok response fails: a refusal where there is one, a fault otherwise. */
 export async function refused(res: Response, path: string): Promise<Error> {
-  return (await refusalOf(res, path)) ?? new ApiResponseError(path, res.status, `HTTP ${res.status}`);
+  const refusal = await refusalOf(res, path);
+  if (refusal) return refusal;
+  const reason = await statedReason(res);
+  return new ApiResponseError(path, res.status, `HTTP ${res.status}${reason ? ` — ${reason}` : ""}`, reason);
+}
+
+// 2026-10-02-0d72: a 4xx is the server saying why, and the reason is the one thing the person can
+// act on — a website refused for a LICENSE file read as a bare "HTTP 400". The server states it
+// as a JSON string, as problem details, or as text. A 5xx or a proxy's page is not a reason.
+const MaxReasonChars = 500;
+
+async function statedReason(res: Response): Promise<string | null> {
+  if (res.status < 400 || res.status >= 500) return null;
+  try {
+    const text = (await res.text()).trim();
+    if (!text || text.startsWith("<")) return null;
+    return reasonIn(text).slice(0, MaxReasonChars) || null;
+  } catch {
+    return null;
+  }
+}
+
+function reasonIn(text: string): string {
+  try {
+    const body = JSON.parse(text) as unknown;
+    if (typeof body === "string") return body;
+    const problem = body as { detail?: unknown; title?: unknown } | null;
+    if (typeof problem?.detail === "string") return problem.detail;
+    if (typeof problem?.title === "string") return problem.title;
+    return text;
+  } catch {
+    return text;
+  }
 }
 
 // p0503b writes the permission names into the forbid body precisely because

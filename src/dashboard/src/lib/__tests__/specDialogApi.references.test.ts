@@ -33,13 +33,15 @@ describe("uploadSpecDialogReferences", () => {
     expect(parts.map((part) => part.name)).toEqual(["site/css/a.css", "index.html"]);
   });
 
-  it("throws when the server refuses the set", async () => {
+  // 2026-10-02-0d72: the refusal carries the server's reason, which names the file to remove.
+  it("throws the server's reason when it refuses the set", async () => {
     fetchMock.mockResolvedValue({
       ok: false, status: 400, headers: new Headers(),
-      text: async () => "'site/deploy.sh' is not a file a website is made of",
+      text: async () => JSON.stringify("'site/LICENSE' is not a file a website is made of"),
     });
     const { uploadSpecDialogReferences } = await import("@/lib/specDialogApi");
 
-    await expect(uploadSpecDialogReferences("d-1", "sample", [new File(["x"], "deploy.sh")])).rejects.toThrow();
+    await expect(uploadSpecDialogReferences("d-1", "sample", [new File(["x"], "LICENSE")]))
+      .rejects.toThrow("HTTP 400 — 'site/LICENSE' is not a file a website is made of");
   });
 });

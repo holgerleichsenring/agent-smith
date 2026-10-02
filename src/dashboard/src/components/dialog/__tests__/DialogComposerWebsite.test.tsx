@@ -47,3 +47,21 @@ describe("DialogComposer, attaching a website", () => {
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Image"]);
   });
 });
+
+// 2026-10-02-0d72: the composer says what the last upload left, under itself.
+describe("DialogComposer, the upload note", () => {
+  it("DialogComposer_ARefusalNote_IsAnAlertInTheBadTone", () => {
+    render(<DialogComposer onSend={vi.fn()} onAttach={vi.fn()} note={{ tone: "refused", text: "no site file" }} />);
+
+    const note = screen.getByTestId("dialog-composer-upload-note");
+    expect(note).toHaveAttribute("role", "alert");
+    expect(note).toHaveClass("d-upload-note", "bad");
+    expect(note).toHaveTextContent("no site file");
+  });
+
+  it("DialogComposer_NoNote_RendersNone", () => {
+    render(<DialogComposer onSend={vi.fn()} onAttach={vi.fn()} />);
+
+    expect(screen.queryByTestId("dialog-composer-upload-note")).not.toBeInTheDocument();
+  });
+});
