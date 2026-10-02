@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.155.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.154.0...v0.155.0) (2026-10-02)
+
+
+### Features
+
+* a pending chat confirmation lives in the database and a stale click answers (2026-10-02-5ab2d) ([e638e4f](https://github.com/holgerleichsenring/agent-smith/commit/e638e4fa164a10ae7d0cfbd9ed88c4de1f28afc1))
+* a picked folder is shown and chosen before it is sent (2026-10-02-075db) ([78f83ff](https://github.com/holgerleichsenring/agent-smith/commit/78f83ff8978983cf6365fab6e79646504565a067))
+* a queued run's request is kept on its row and recovered when Redis loses it (2026-10-02-5ab2b) ([a61226c](https://github.com/holgerleichsenring/agent-smith/commit/a61226c04fdaa696f7fd62c83ed8dcbf8e114f66))
+* an upload keeps every authored file (2026-10-02-075da) ([46c56d5](https://github.com/holgerleichsenring/agent-smith/commit/46c56d5451530743773b9be429480eaa3047c8a2))
+* an upload keeps what the model worked out about it (2026-10-02-075dd) ([0bb35f2](https://github.com/holgerleichsenring/agent-smith/commit/0bb35f202beac3caf846d834ed0343c9d0822de7))
+* connection discovery state lives in the database, not Redis (2026-10-02-5ab2a) ([5c840fd](https://github.com/holgerleichsenring/agent-smith/commit/5c840fda5d45e8dab28eba49a3e924744a48d363))
+* the design partner runs commands in an upload's own container (2026-10-02-075dc) ([9311855](https://github.com/holgerleichsenring/agent-smith/commit/93118553d45722449849adf49b9aa1aa19f39774))
+* the last webhook per platform lives in the database, not Redis (2026-10-02-5ab2e) ([490e97f](https://github.com/holgerleichsenring/agent-smith/commit/490e97f60b144c3ab2cb905c4c1439f8e77a2982))
+* uploads are material the design partner can read, run and note (2026-10-02-075da-d) ([5c7d745](https://github.com/holgerleichsenring/agent-smith/commit/5c7d745126caf61471d03c3cb2cd0bab96cd8025))
+
+
+### Bug Fixes
+
+* a sandbox command no longer sees the step bus (2026-10-02-35b2) ([c65c40a](https://github.com/holgerleichsenring/agent-smith/commit/c65c40a5cfbfc13948daee8e05861cc50dc1ee41))
+* a sandbox command no longer sees the step bus (2026-10-02-35b2) ([4e87a4b](https://github.com/holgerleichsenring/agent-smith/commit/4e87a4bd52e22446909a04aad4a3c84072a3e7b0))
+* a website folder pick works and a refused upload says why (2026-10-02-0d72) ([7d31b60](https://github.com/holgerleichsenring/agent-smith/commit/7d31b609523d3df4c655d10c2bbedeb5c1d60697))
+* a website folder uploads, non-site files are skipped and named, refusals show inline (2026-10-02-0d72) ([7402607](https://github.com/holgerleichsenring/agent-smith/commit/7402607dc456968eed1c2eed6ce1cbbd392c6048))
+* after a Redis flush the active-run set is re-seeded from the database (2026-10-02-5ab2c) ([63fb564](https://github.com/holgerleichsenring/agent-smith/commit/63fb5641352995e0d64d9f9cb1d64cb0f35f3b2c))
+* sandbox job keys expire, run markdown lives in the DB only, pipeline_storage retired (2026-10-02-5ab2f) ([e7ebcfa](https://github.com/holgerleichsenring/agent-smith/commit/e7ebcfa6c873187b8791e269c722c933fce4f994))
+
 ## [0.154.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.153.0...v0.154.0) (2026-10-02)
 
 
