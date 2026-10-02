@@ -28,21 +28,42 @@ internal sealed class EmbeddedSkillsCatalogPath(
     public string Origin => $"embedded catalog {catalog.Version} at {Root}";
 
     /// <summary>Extraction is per PROCESS, not per composition: a scored run composes the
-    /// harness several times and unpacking the release each time buys nothing.</summary>
+    /// harness several times and unpacking the release each time buys nothing.
+    /// <para>
+    /// 2026-10-02-5f89f: and per process ONLY. The directory carries a GUID and goes when the
+    /// process exits, because a version-named directory reused across processes outlived the
+    /// files in it — macOS's temp cleaner removes files by age and keeps directories, so an
+    /// existing <c>patterns/</c> said nothing about its contents and the scan loaded zero
+    /// definitions.
+    /// </para></summary>
     private string Extracted()
     {
         lock (Gate)
         {
             if (_root is not null) return _root;
             var directory = Path.Combine(
-                Path.GetTempPath(), $"agentsmith-eval-catalog-{catalog.Version}");
-            if (!Directory.Exists(Path.Combine(directory, "patterns")))
-            {
-                using var stream = catalog.Open();
+                Path.GetTempPath(), $"agentsmith-eval-catalog-{catalog.Version}-{Guid.NewGuid():n}");
+            using (var stream = catalog.Open())
                 extractor.Extract(stream, directory);
-            }
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => TryDelete(directory);
             _root = directory;
             return _root;
+        }
+    }
+
+    private static void TryDelete(string directory)
+    {
+        try
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+        catch (IOException)
+        {
+            // A leftover extraction is never reused, so failing to remove it costs only disk.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // As above.
         }
     }
 }

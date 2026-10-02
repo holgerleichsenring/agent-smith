@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5f89f
+goal: "The harness's eval catalog is extracted fresh into a directory owned by the test process, so a temp cleaner that emptied an older extraction can no longer fail the security corpus tests."
+
+applies_to: "tests (pipeline harness evals)"
+
+requires: []
+
+facts:
+  - claim: "The eval catalog is extracted into a fixed, version-named directory under the system temp dir and reused by every later process when its patterns directory exists — files inside are never checked."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/EmbeddedSkillsCatalogPath.cs:30-46"
+  - claim: "The guarding test loads the pattern definitions from that root and fails when none load."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/SecurityCorpusMechanicsTests.cs:167-186"
+  - claim: "Extraction stages into a sibling directory and swaps it into place."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogTarballExtractor.cs:17-48"
+  - claim: "Other harness fixtures already use a GUID-named temp directory per use."
+    evidence: "tests/AgentSmith.PipelineHarness/Evals/ScratchDirectory.cs:17; tests/AgentSmith.PipelineHarness/Evals/SecurityCorpusTree.cs:26"
+
+scope:
+  in: >
+    EmbeddedSkillsCatalogPath extracts once per process into agentsmith-eval-catalog-{version}-{guid} under the temp
+    dir and deletes it on process exit; the cross-process reuse goes.
+  out: >
+    The production embedded-catalog cache (EmbeddedSourceHandler): it lives under the configured cache dir with a
+    version marker, not under the system temp dir.
+
+decisions:
+  - key: "NO REUSE ACROSS PROCESSES, NOT A BETTER MARKER. macOS's temp cleaner deletes files by age one by one and keeps directories, so no marker file can vouch for its siblings; a per-process extraction costs one tarball unpack and cannot be stale."
+
+steps:
+  - id: path
+    action: "EmbeddedSkillsCatalogPath: unique per-process directory, ProcessExit cleanup, no Directory.Exists shortcut."
+
+tests:
+  - "EmbeddedSkillsCatalogPath_AnEmptiedEarlierExtraction_IsNotReused"
+  - "SecurityCorpus_TheEvalCatalog_CarriesThePatternDefinitionsTheScanApplies stays green"
+
+done:
+  - "emptying a leftover agentsmith-eval-catalog-* directory does not fail the security corpus tests"
+  - "build green, full suite green, dashboard tests and build green"

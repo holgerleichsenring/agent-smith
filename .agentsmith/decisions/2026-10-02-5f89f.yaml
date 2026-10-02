@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89f
+
+decisions:
+  - category: Implementation
+    chose: "Extract the eval catalog once per process into agentsmith-eval-catalog-{version}-{guid} and delete it on ProcessExit"
+    over: "Keeping the version-named directory and checking a marker file or the pattern files before reusing it"
+    reason: |
+      macOS's temp cleaner removes files by age one by one and keeps directories, so no file
+      inside an extraction can vouch for its siblings. A per-process extraction costs one
+      tarball unpack and cannot be stale.
+  - category: Scope
+    chose: "The production embedded-catalog cache (EmbeddedSourceHandler) stays as it is"
+    over: "Applying the same change there"
+    reason: |
+      It lives under the configured cache directory with a version marker, not under the
+      system temp dir the cleaner sweeps.
+  - category: Implementation
+    chose: "Leave the old version-named agentsmith-eval-catalog-* directories alone"
+    over: "Sweeping them from the temp dir on start"
+    reason: |
+      Other checkouts still on the old code read them; the new code never does, so they cost
+      only disk until the temp cleaner takes them.
