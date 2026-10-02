@@ -90,7 +90,8 @@ internal static class ConfigCatalogMapper
             tracker.DefaultPipeline,
             tracker.WorkItemKinds is { Count: > 0 } kinds ? kinds : null,
             tracker.LabelNames is { Count: > 0 } labelNames ? labelNames : null,
-            JiraEndpointsMap.Overrides(tracker.Endpoints));
+            JiraEndpointsMap.Overrides(tracker.Endpoints),
+            tracker.Email);
 
     private static RepoEntity ToRepo(string id, RawRepoEntry repo) =>
         new(id, repo.Url ?? repo.Path ?? string.Empty, repo.DefaultBranch);

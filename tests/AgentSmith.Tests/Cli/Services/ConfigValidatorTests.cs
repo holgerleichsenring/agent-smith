@@ -31,6 +31,7 @@ public sealed class ConfigValidatorTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -62,6 +63,7 @@ public sealed class ConfigValidatorTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -89,6 +91,7 @@ public sealed class ConfigValidatorTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:

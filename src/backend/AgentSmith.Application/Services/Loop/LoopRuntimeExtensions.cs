@@ -43,6 +43,11 @@ public static class LoopRuntimeExtensions
         // replaces it with CurrentSecretValues, which follows the config store.
         services.TryAddSingleton<ISecretValues>(sp =>
             new LoadedSecretValues(sp.GetRequiredService<Contracts.Models.Configuration.AgentSmithConfig>()));
+        // 2026-10-02-5f89a: every git-host and tracker token is read through the entity's own
+        // auth secret from those values, so it follows whichever ISecretValues the host chose.
+        // Deferred: those values come from a configuration whose load discovers repos with it.
+        services.TryAddSingleton<ICredentialResolver>(sp => new CredentialResolver(
+            sp.GetRequiredService<ISecretValues>, sp.GetRequiredService<IMaterializingSecrets>()));
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
         services.AddSingleton<SkillPromptLogger>();
         services.AddScoped<ISkillCallRuntime, SkillCallRuntime>();

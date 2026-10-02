@@ -540,8 +540,9 @@
         "path": { "type": "string" },
         "organization": { "type": "string" },
         "project": { "type": "string" },
-        "auth": { "type": "string", "description": "Reference into secrets:" },
-        "default_branch": { "type": "string" }
+        "auth": { "type": "string", "description": "Name of the secrets: entry this repo authenticates with (API calls, clone, fetch, push). Empty is filled with the type's legacy secret at load; a local repo takes none." },
+        "default_branch": { "type": "string" },
+        "host": { "type": "string", "description": "2026-10-02-5f89a: the GitLab instance base url when it is not the url's own host (a GitLab under a sub-path). Filled from GITLAB_URL at load when unset." }
       },
       "additionalProperties": false
     },
@@ -559,7 +560,7 @@
           "type": "string",
           "description": "Optional API host override for self-hosted GitHub Enterprise / GitLab."
         },
-        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "auth": { "type": "string", "description": "Name of the secrets: entry this connection's discovery and repos authenticate with. Empty is filled with the type's legacy secret at load." },
         "default_branch": {
           "type": "string",
           "description": "Fallback branch used only until discovery reads each repo's real default branch."
@@ -577,7 +578,8 @@
         "url": { "type": "string" },
         "organization": { "type": "string" },
         "project": { "type": "string" },
-        "auth": { "type": "string", "description": "Reference into secrets:" },
+        "auth": { "type": "string", "description": "Name of the secrets: entry this tracker authenticates with. Empty is filled with the type's legacy secret at load." },
+        "email": { "type": "string", "description": "2026-10-02-5f89a, Jira only: the account the API token belongs to. Filled from the jira_email secret, else JIRA_EMAIL, when unset." },
         "open_states": { "type": "array", "items": {"type": "string"} },
         "done_status": { "type": "string" },
         "trigger_statuses": {

@@ -5,17 +5,17 @@ using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
 
 /// <summary>
 /// p0281a: lists the repositories of a GitHub owner (org or user) via the REST API, paged at
-/// 100/req. Bearer token from GITHUB_TOKEN (SourceProviderFactory convention). Falls back from
-/// the org endpoint to the user endpoint when the owner is a user account.
+/// 100/req. Bearer token from the connection's own auth secret (2026-10-02-5f89a). Falls back
+/// from the org endpoint to the user endpoint when the owner is a user account.
 /// </summary>
-public sealed class GitHubRepoDiscoveryProvider(SecretsProvider secrets, ILogger<GitHubRepoDiscoveryProvider> logger)
+public sealed class GitHubRepoDiscoveryProvider(
+    ICredentialResolver credentials, ILogger<GitHubRepoDiscoveryProvider> logger)
     : IRepoDiscoveryProvider
 {
     private const int PageSize = 100;
@@ -30,7 +30,7 @@ public sealed class GitHubRepoDiscoveryProvider(SecretsProvider secrets, ILogger
             throw new ConfigurationException($"Connection '{connection.Name}' (github) requires 'owner' for discovery.");
 
         var apiHost = string.IsNullOrEmpty(connection.Host) ? "https://api.github.com" : connection.Host.TrimEnd('/');
-        var token = secrets.GetRequired("GITHUB_TOKEN");
+        var token = credentials.For(connection);
         var all = new List<DiscoveredRepo>();
 
         for (var page = 1; ; page++)

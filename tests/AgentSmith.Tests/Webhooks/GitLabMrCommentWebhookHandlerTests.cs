@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
@@ -25,7 +26,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
             NullLogger<GitLabMrCommentWebhookHandler>.Instance);
 
     private void AccessLevel(int? level) =>
-        _members.Setup(m => m.ReadAccessLevelAsync(RepoUrl, "7", "42", It.IsAny<CancellationToken>()))
+        _members.Setup(m => m.ReadAccessLevelAsync(It.Is<RepoConnection>(r => r.Url == RepoUrl), "7", "42", It.IsAny<CancellationToken>()))
             .ReturnsAsync(level);
 
     private static string Note(string body, string noteableType = "MergeRequest") => $$"""
@@ -96,7 +97,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
     public async Task GitLabMrComment_MemberLookupFails_IsNotHandled()
     {
         _members.Setup(m => m.ReadAccessLevelAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("gitlab down"));
 
         var result = await CreateSut().HandleAsync(Note("/agent-smith fix"), EmptyHeaders);

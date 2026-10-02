@@ -5,8 +5,8 @@ namespace AgentSmith.Tests.Factories;
 
 /// <summary>
 /// p0296: the GitLab API base URL must come from the repo url's own host — a
-/// self-managed instance needs no GITLAB_URL. GITLAB_URL only overrides for
-/// sub-path installs.
+/// self-managed instance needs no override. The repo's Host (2026-10-02-5f89a, formerly
+/// GITLAB_URL) only overrides for sub-path installs.
 /// </summary>
 public sealed class SourceProviderFactoryGitLabTests
 {
@@ -14,11 +14,11 @@ public sealed class SourceProviderFactoryGitLabTests
     public void ResolveGitLabTarget_SelfManagedHostInUrl_UsesUrlHostNotGitlabCom()
     {
         var (baseUrl, path, clone) = SourceProviderFactory.ResolveGitLabTarget(
-            "https://gitlab.example.com/group/sub/team/sample", null);
+            "https://git.intranet.example/team/s1/area/service", null);
 
-        baseUrl.Should().Be("https://gitlab.example.com");
-        path.Should().Be("group/sub/team/sample");
-        clone.Should().Be("https://gitlab.example.com/group/sub/team/sample.git");
+        baseUrl.Should().Be("https://git.intranet.example");
+        path.Should().Be("team/s1/area/service");
+        clone.Should().Be("https://git.intranet.example/team/s1/area/service.git");
     }
 
     [Fact]

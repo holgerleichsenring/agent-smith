@@ -38,6 +38,7 @@ public sealed class ConfigImportExportTests : IDisposable
             repos: [test-repo]
             pipeline: code
         secrets:
+          token: ${AGENTSMITH_TEST_TOKEN}
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
 

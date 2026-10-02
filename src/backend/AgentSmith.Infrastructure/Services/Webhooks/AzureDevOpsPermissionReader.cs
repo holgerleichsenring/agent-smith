@@ -1,28 +1,29 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.VisualStudio.Services.Identity;
 
 namespace AgentSmith.Infrastructure.Services.Webhooks;
 
 /// <summary>
-/// Two Azure DevOps calls with <c>AZURE_DEVOPS_TOKEN</c>: the Identities API turns the
+/// Two Azure DevOps calls with the repository's own auth secret (2026-10-02-5f89a): the Identities API turns the
 /// identity id into its descriptor (PAT scope Identity: Read), and the Access Control Lists
 /// query with <c>includeExtendedInfo=true</c> returns that descriptor's effective bits,
 /// group grants included (PAT scope Security: Manage — Azure DevOps has no read-only one).
 /// </summary>
 public sealed class AzureDevOpsPermissionReader(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     IAzDoClientFactory clients,
     IHttpClientFactory httpClientFactory) : IAzureDevOpsPermissionReader
 {
     public async Task<AzureDevOpsEffectivePermission?> ReadAsync(
-        string organizationUrl, Guid securityNamespaceId, IReadOnlyList<string> tokens,
+        RepoConnection repo, string organizationUrl, Guid securityNamespaceId, IReadOnlyList<string> tokens,
         Guid identityId, CancellationToken cancellationToken)
     {
-        var pat = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
+        var pat = credentials.For(repo);
         var identities = await clients.CreateIdentityClient(organizationUrl, pat)
             .ReadIdentitiesAsync([identityId], QueryMembership.None, cancellationToken: cancellationToken);
         var descriptor = identities.FirstOrDefault()?.Descriptor

@@ -3,20 +3,20 @@ using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
 
 /// <summary>
 /// p0281a: lists the projects of a GitLab group via the REST API (incl. subgroups), paged at
-/// 100/req. PRIVATE-TOKEN from GITLAB_TOKEN (SourceProviderFactory convention).
+/// 100/req. PRIVATE-TOKEN from the connection's own auth secret (2026-10-02-5f89a).
 /// </summary>
-public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger<GitLabRepoDiscoveryProvider> logger)
+public sealed class GitLabRepoDiscoveryProvider(
+    ICredentialResolver credentials, IHttpClientFactory httpClientFactory,
+    ILogger<GitLabRepoDiscoveryProvider> logger)
     : IRepoDiscoveryProvider
 {
     private const int PageSize = 100;
-    private static readonly HttpClient Http = new();
 
     public RepoType Type => RepoType.GitLab;
 
@@ -27,7 +27,7 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
             throw new ConfigurationException($"Connection '{connection.Name}' (gitlab) requires 'group' for discovery.");
 
         var apiHost = string.IsNullOrEmpty(connection.Host) ? "https://gitlab.com" : connection.Host.TrimEnd('/');
-        var token = secrets.GetRequired("GITLAB_TOKEN");
+        var token = credentials.For(connection);
         var group = Uri.EscapeDataString(connection.Group);
         var all = new List<DiscoveredRepo>();
 
@@ -51,7 +51,9 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add("PRIVATE-TOKEN", token);
 
-        var response = await Http.SendAsync(request, cancellationToken);
+        // 2026-10-02-5f89a: through the factory, so a composition test sees which token each
+        // connection's discovery sends.
+        using var response = await httpClientFactory.CreateClient().SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException(
                 $"GitLab repo discovery for '{connection.Name}' failed: HTTP {(int)response.StatusCode}.");
@@ -59,9 +61,8 @@ public sealed class GitLabRepoDiscoveryProvider(SecretsProvider secrets, ILogger
         return await response.Content.ReadAsStringAsync(cancellationToken);
     }
 
-    // 2026-08-26-5c85: internal — the test seam. The static HttpClient leaves
-    // DiscoverAsync without an HTTP seam, so the API→DiscoveredRepo mapping is
-    // pinned directly (same pattern as SourceProviderFactory.ResolveGitLabTarget).
+    // 2026-08-26-5c85: internal — the API→DiscoveredRepo mapping is pinned directly
+    // (same pattern as SourceProviderFactory.ResolveGitLabTarget).
     internal IReadOnlyList<DiscoveredRepo> Parse(string body, string group)
     {
         var projects = JsonSerializer.Deserialize<List<GitLabProject>>(body);

@@ -70,6 +70,7 @@ public sealed class RepoGlobExpander(
             Organization = connection.Organization,
             Project = connection.Project,
             Auth = connection.Auth,
+            Host = connection.Host,
             DefaultBranch = repo.DefaultBranch ?? connection.DefaultBranch,
         };
 

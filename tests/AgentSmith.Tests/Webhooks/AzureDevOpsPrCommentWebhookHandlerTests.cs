@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
@@ -28,7 +29,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
             NullLogger<AzureDevOpsPrCommentWebhookHandler>.Instance);
 
     private void Effective(int allow, int deny = 0) =>
-        _permissions.Setup(p => p.ReadAsync(
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(),
                 "https://dev.azure.com/org", new Guid("2e9eb7ed-3c0a-47d4-87c1-0ffdd275fd87"),
                 It.Is<IReadOnlyList<string>>(t => t[0] == $"repoV2/{ProjectId}/{RepositoryId}"),
                 new Guid(AuthorId), It.IsAny<CancellationToken>()))
@@ -101,7 +102,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
     [Fact]
     public async Task AzureDevOpsPrComment_AclLookupFails_IsNotHandled()
     {
-        _permissions.Setup(p => p.ReadAsync(It.IsAny<string>(), It.IsAny<Guid>(),
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<Guid>(),
                 It.IsAny<IReadOnlyList<string>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("no Security scope"));
 

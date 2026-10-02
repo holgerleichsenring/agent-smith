@@ -5,7 +5,6 @@ using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
@@ -13,9 +12,10 @@ namespace AgentSmith.Infrastructure.Services.Providers.Discovery;
 /// <summary>
 /// p0281a: lists the git repositories of an Azure DevOps project via
 /// <c>{org}/{project}/_apis/git/repositories</c> (Basic auth, empty user + PAT). The PAT is
-/// read from AZURE_DEVOPS_TOKEN, matching SourceProviderFactory's env convention.
+/// the connection's own auth secret (2026-10-02-5f89a).
 /// </summary>
-public sealed class AzureDevOpsRepoDiscoveryProvider(SecretsProvider secrets, ILogger<AzureDevOpsRepoDiscoveryProvider> logger)
+public sealed class AzureDevOpsRepoDiscoveryProvider(
+    ICredentialResolver credentials, ILogger<AzureDevOpsRepoDiscoveryProvider> logger)
     : IRepoDiscoveryProvider
 {
     private static readonly HttpClient Http = new();
@@ -34,7 +34,7 @@ public sealed class AzureDevOpsRepoDiscoveryProvider(SecretsProvider secrets, IL
                   "/_apis/git/repositories?api-version=7.1";
 
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{secrets.GetRequired("AZURE_DEVOPS_TOKEN")}"));
+        var token = Convert.ToBase64String(Encoding.UTF8.GetBytes($":{credentials.For(connection)}"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", token);
 
         var response = await Http.SendAsync(request, cancellationToken);

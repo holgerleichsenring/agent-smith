@@ -13,6 +13,12 @@ public sealed class ConfigSecretReferences(Func<string, string?> envReader)
         Referenced(value) is { } name ? envReader(name) ?? string.Empty : value;
 
     /// <summary>
+    /// 2026-10-02-5f89a: the raw value of one environment variable, for the legacy-credential
+    /// migration — the one reader of the fixed credential variables left.
+    /// </summary>
+    public string? Environment(string name) => envReader(name);
+
+    /// <summary>
     /// A reference resolves against the already-materialized secrets map first — the
     /// registry-token convention — then against the environment variable it names.
     /// </summary>

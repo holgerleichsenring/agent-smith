@@ -47,6 +47,8 @@ public static class TrackerCapabilityFields
             new CapabilityField("url", "Base URL", Required: true),
             new CapabilityField("project", "Project key", Required: false),
             new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
+            // 2026-10-02-5f89a: the account the token belongs to — a field of the tracker, not JIRA_EMAIL.
+            new CapabilityField("email", "Account email", Required: true),
             .. WorkflowFields,
             WorkItemKinds,
             new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map),

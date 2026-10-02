@@ -79,7 +79,7 @@ The `agent-smith-server` deployment takes webhooks, polls trackers and listens f
 | `SLACK_BOT_TOKEN` | Server only | Slack adapter |
 | `SLACK_SIGNING_SECRET` | Server only | Slack request verification |
 
-\* At least one AI provider key required. \*\* At least one source/ticket platform token required.
+\* At least one AI provider key required. \*\* At least one source/ticket platform token required. A repo, connection or tracker reads its token through the secret its `auth` names (`github_token: ${GITHUB_TOKEN}`), so a second instance of one platform uses a variable of its own; an empty `auth` falls back to the variable above and says so in the startup findings.
 
 ## Supported Platforms
 

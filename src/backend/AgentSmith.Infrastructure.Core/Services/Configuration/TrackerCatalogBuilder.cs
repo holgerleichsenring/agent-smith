@@ -15,14 +15,17 @@ public sealed class TrackerCatalogBuilder
     private readonly CatalogKeyCollisions _collisions = new();
 
     public Dictionary<string, TrackerConnection> Build(
-        IReadOnlyDictionary<string, RawTrackerEntry> raw, List<StartupFinding> findings)
+        IReadOnlyDictionary<string, RawTrackerEntry> raw, IEnumerable<string> secretNames,
+        List<StartupFinding> findings)
     {
         var dropped = _collisions.Detect("trackers", raw.Keys, findings);
+        var secrets = secretNames.ToHashSet(ConfigNames.Comparer);
         var result = new Dictionary<string, TrackerConnection>(raw.Count, ConfigNames.Comparer);
 
         foreach (var (name, entry) in raw)
         {
             if (dropped.Contains(name)) continue;
+            Check(name, entry, secrets, findings);
             result[name] = new TrackerConnection
             {
                 Name = name,
@@ -46,10 +49,21 @@ public sealed class TrackerCatalogBuilder
                 LabelNames = entry.LabelNames ?? new Dictionary<string, string>(),
                 WorkItemKinds = entry.WorkItemKinds ?? new Dictionary<string, string>(),
                 Endpoints = entry.Endpoints ?? new JiraEndpoints(),
+                Email = entry.Email,
             };
         }
 
         return result;
+    }
+
+    // 2026-10-02-5f89a: what the tracker authenticates with must exist; the entry stays either way.
+    private static void Check(
+        string name, RawTrackerEntry entry, IReadOnlySet<string> secrets, List<StartupFinding> findings)
+    {
+        if (MissingSecretFindings.Check("trackers", "Tracker", name, entry.Auth, secrets) is { } missing)
+            findings.Add(missing);
+        if (entry.Type == TrackerType.Jira && string.IsNullOrWhiteSpace(entry.Email))
+            findings.Add(MissingSecretFindings.JiraWithoutEmail(name));
     }
 
     private static PollingConfig MapPolling(RawPollingEntry? raw)

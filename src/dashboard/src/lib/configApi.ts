@@ -508,6 +508,8 @@ export interface StudioTracker {
   // Jira only: REST paths that differ from the Jira Cloud v3 defaults (search, issue,
   // comment, transitions, create). Absent means every default applies.
   endpoints?: Record<string, string>;
+  // 2026-10-02-5f89a, Jira only: the account the API token belongs to.
+  email?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

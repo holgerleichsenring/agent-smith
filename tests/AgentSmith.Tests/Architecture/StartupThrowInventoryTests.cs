@@ -44,9 +44,6 @@ public sealed class StartupThrowInventoryTests
         ["RawRepoRefYamlConverter.cs"] =
             "YAML binding; both loaders catch it (the file loader as a parse error, the DB "
             + "loader as a configuration finding).",
-        ["SecretsProvider.cs"] =
-            "Not on a startup path: the materializer resolves env references with a null-coalesce, "
-            + "so a missing secret is a provider-construction failure at request time.",
         ["YamlConfigurationLoader.cs"] =
             "STAYS FATAL, deliberately. This is the one-shot loader — CLI, sandbox agent, harness. "
             + "That process exists to run one command against one file the operator just named, so "

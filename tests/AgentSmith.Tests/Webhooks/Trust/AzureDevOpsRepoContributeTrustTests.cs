@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using FluentAssertions;
@@ -28,9 +29,9 @@ public sealed class AzureDevOpsRepoContributeTrustTests
     public async Task IsTrustedAsync_AsksTheRepositoryTokenFirst_ThenItsParents()
     {
         IReadOnlyList<string>? asked = null;
-        _permissions.Setup(p => p.ReadAsync(It.IsAny<string>(), It.IsAny<Guid>(),
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<Guid>(),
                 It.IsAny<IReadOnlyList<string>>(), Author, It.IsAny<CancellationToken>()))
-            .Callback((string _, Guid _, IReadOnlyList<string> tokens, Guid _, CancellationToken _) => asked = tokens)
+            .Callback((AgentSmith.Contracts.Models.Configuration.RepoConnection _, string _, Guid _, IReadOnlyList<string> tokens, Guid _, CancellationToken _) => asked = tokens)
             .ReturnsAsync(new AzureDevOpsEffectivePermission(4, 0));
 
         (await CreateSut("https://dev.azure.com/org/P/_git/r").IsTrustedAsync(TheAuthor(), default)).Should().BeTrue();
@@ -41,7 +42,7 @@ public sealed class AzureDevOpsRepoContributeTrustTests
     [Fact]
     public async Task IsTrustedAsync_OnAzureDevOpsServer_AsksTheCollection()
     {
-        _permissions.Setup(p => p.ReadAsync("https://tfs.example.com/tfs/DefaultCollection", It.IsAny<Guid>(),
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), "https://tfs.example.com/tfs/DefaultCollection", It.IsAny<Guid>(),
                 It.IsAny<IReadOnlyList<string>>(), Author, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AzureDevOpsEffectivePermission(4, 0));
 
@@ -53,7 +54,7 @@ public sealed class AzureDevOpsRepoContributeTrustTests
     [Fact]
     public async Task IsTrustedAsync_NoAclAnswers_IsUntrusted()
     {
-        _permissions.Setup(p => p.ReadAsync(It.IsAny<string>(), It.IsAny<Guid>(),
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<Guid>(),
                 It.IsAny<IReadOnlyList<string>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((AzureDevOpsEffectivePermission?)null);
 
@@ -72,7 +73,7 @@ public sealed class AzureDevOpsRepoContributeTrustTests
     [Fact]
     public async Task IsTrustedAsync_Twice_AsksAzureDevOpsOnce()
     {
-        _permissions.Setup(p => p.ReadAsync(It.IsAny<string>(), It.IsAny<Guid>(),
+        _permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<Guid>(),
                 It.IsAny<IReadOnlyList<string>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AzureDevOpsEffectivePermission(4, 0));
         var sut = CreateSut("https://dev.azure.com/org/P/_git/r");
@@ -80,7 +81,7 @@ public sealed class AzureDevOpsRepoContributeTrustTests
         await sut.IsTrustedAsync(TheAuthor(), default);
         await sut.IsTrustedAsync(TheAuthor(), default);
 
-        _permissions.Verify(p => p.ReadAsync(It.IsAny<string>(), It.IsAny<Guid>(),
+        _permissions.Verify(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<Guid>(),
             It.IsAny<IReadOnlyList<string>>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

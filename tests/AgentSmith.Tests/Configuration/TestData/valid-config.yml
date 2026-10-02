@@ -7,14 +7,14 @@ repos:
   test-repo:
     type: github
     url: https://github.com/test/repo
-    auth: token
+    auth: github_token
 
 trackers:
   test-ado:
     type: azure_devops
     organization: testorg
     project: TestProject
-    auth: token
+    auth: github_token
 
 projects:
   testproject:

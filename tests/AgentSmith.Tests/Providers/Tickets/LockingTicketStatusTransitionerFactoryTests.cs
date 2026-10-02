@@ -1,6 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Factories;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Tests.TestSupport;
@@ -10,19 +9,8 @@ using Moq;
 
 namespace AgentSmith.Tests.Providers.Tickets;
 
-[Collection(EnvVarCollection.Name)]
-public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
+public sealed class LockingTicketStatusTransitionerFactoryTests
 {
-    private static readonly string[] EnvVars =
-    {
-        "GITHUB_TOKEN", "GITLAB_TOKEN", "GITLAB_URL", "GITLAB_PROJECT",
-        "AZURE_DEVOPS_TOKEN", "JIRA_URL", "JIRA_EMAIL", "JIRA_TOKEN"
-    };
-
-    public void Dispose()
-    {
-        foreach (var v in EnvVars) Environment.SetEnvironmentVariable(v, null);
-    }
 
     [Fact]
     public void Create_Jira_ReturnsLockedDecoratorWrappingInner()
@@ -40,7 +28,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
     {
         var sut = BuildSut(out _);
 
-        var result = sut.Create(new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r" });
+        var result = sut.Create(new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r", Auth = "token" });
 
         result.Should().BeOfType<GitHubTicketStatusTransitioner>();
     }
@@ -52,7 +40,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
 
         var result = sut.Create(new TrackerConnection
         {
-            Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p"
+            Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p", Auth = "token"
         });
 
         result.Should().BeOfType<GitLabTicketStatusTransitioner>();
@@ -65,7 +53,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
 
         var result = sut.Create(new TrackerConnection
         {
-            Type = TrackerType.AzureDevOps, Organization = "org", Project = "proj"
+            Type = TrackerType.AzureDevOps, Organization = "org", Project = "proj", Auth = "token"
         });
 
         result.Should().BeOfType<AzureDevOpsTicketStatusTransitioner>();
@@ -83,17 +71,8 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
 
     private static LockingTicketStatusTransitionerFactory BuildSut(out Mock<IRedisClaimLock> claimLock)
     {
-        Environment.SetEnvironmentVariable("GITHUB_TOKEN", "x");
-        Environment.SetEnvironmentVariable("GITLAB_TOKEN", "x");
-        Environment.SetEnvironmentVariable("GITLAB_URL", "https://gitlab.com");
-        Environment.SetEnvironmentVariable("GITLAB_PROJECT", "g/p");
-        Environment.SetEnvironmentVariable("AZURE_DEVOPS_TOKEN", "x");
-        Environment.SetEnvironmentVariable("JIRA_URL", "https://jira.com");
-        Environment.SetEnvironmentVariable("JIRA_EMAIL", "x@y");
-        Environment.SetEnvironmentVariable("JIRA_TOKEN", "x");
-
         var inner = new TicketStatusTransitionerFactory(
-            new SecretsProvider(),
+            TestCredentials.With(("token", "x")),
             new JiraWorkflowCatalog(NullLogger<JiraWorkflowCatalog>.Instance),
             new HttpClientFactoryStub(),
             NullLoggerFactory.Instance);
@@ -104,7 +83,7 @@ public sealed class LockingTicketStatusTransitionerFactoryTests : IDisposable
 
     private static TrackerConnection JiraConfig() => new()
     {
-        Type = TrackerType.Jira, Url = "https://jira.com", Project = "PROJ"
+        Type = TrackerType.Jira, Url = "https://jira.com", Project = "PROJ", Auth = "token", Email = "x@y"
     };
 
     private sealed class HttpClientFactoryStub : IHttpClientFactory

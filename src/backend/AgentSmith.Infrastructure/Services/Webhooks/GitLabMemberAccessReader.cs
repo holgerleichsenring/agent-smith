@@ -1,25 +1,25 @@
 using System.Net;
 using System.Text.Json;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Factories;
 
 namespace AgentSmith.Infrastructure.Services.Webhooks;
 
 /// <summary>
-/// Asks the GitLab instance the repository lives on, with <c>GITLAB_TOKEN</c> (scope
-/// <c>read_api</c>). The instance is the repository URL's own host unless <c>GITLAB_URL</c>
-/// overrides it, the same rule the source provider follows.
+/// Asks the GitLab instance the repository lives on, with the repository's own auth secret
+/// (scope <c>read_api</c>). The instance is the repository URL's own host unless the repo's
+/// <c>Host</c> overrides it, the same rule the source provider follows (2026-10-02-5f89a).
 /// </summary>
 public sealed class GitLabMemberAccessReader(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     IHttpClientFactory httpClientFactory) : IGitLabMemberAccessReader
 {
     public async Task<int?> ReadAccessLevelAsync(
-        string repositoryUrl, string projectId, string userId, CancellationToken cancellationToken)
+        RepoConnection repo, string projectId, string userId, CancellationToken cancellationToken)
     {
-        var token = secrets.GetRequired("GITLAB_TOKEN");
-        var (baseUrl, _, _) = SourceProviderFactory.ResolveGitLabTarget(
-            repositoryUrl, secrets.GetOptional("GITLAB_URL"));
+        var token = credentials.For(repo);
+        var (baseUrl, _, _) = SourceProviderFactory.ResolveGitLabTarget(repo.Url!, repo.Host);
         var url = $"{baseUrl}/api/v4/projects/{Uri.EscapeDataString(projectId)}"
                   + $"/members/all/{Uri.EscapeDataString(userId)}";
 

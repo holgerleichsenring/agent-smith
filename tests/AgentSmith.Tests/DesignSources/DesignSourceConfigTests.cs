@@ -19,6 +19,7 @@ public sealed class DesignSourceConfigTests
         trackers:
           t: { type: github, auth: t }
         secrets:
+          t: x
           figma_token: figd-literal-token-value
         """;
 

@@ -60,6 +60,7 @@ public sealed class FileConfigStoreTests : IDisposable
             repos: [test-repo]
             pipeline: code
         secrets:
+          token: x
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
 

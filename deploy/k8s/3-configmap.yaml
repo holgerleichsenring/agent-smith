@@ -45,6 +45,10 @@ data:
     # Secret NAME map: config placeholders (${github_token} etc.) resolve to
     # these environment variables. The VALUES come from the agentsmith-secrets
     # Secret (4-secret-template.yaml) — never write a real value here.
+    # 2026-10-02-5f89a: every repo, connection and tracker reads its token through
+    # the entry its auth names; a second instance of one platform adds an entry
+    # (gitlab_token_b: ${GITLAB_TOKEN_B}) and names it in its auth. jira_email
+    # fills a Jira tracker that declares no email.
     secrets:
       anthropic_api_key: ${ANTHROPIC_API_KEY}
       azure_openai_api_key: ${AZURE_OPENAI_API_KEY}

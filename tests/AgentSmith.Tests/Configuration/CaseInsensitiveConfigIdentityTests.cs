@@ -25,6 +25,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               Claude-Default: { type: Claude }
+            secrets: { t: x }
             repos:
               Service.Api: { type: GitHub, url: https://x, auth: t }
             connections:
@@ -52,6 +53,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               Claude-Default: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -82,6 +84,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -110,6 +113,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -132,6 +136,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               Service.Api: { type: GitHub, url: https://x, auth: t }
               service.api: { type: GitHub, url: https://y, auth: t }
@@ -164,6 +169,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
             agents:
               Shared: { type: Claude }
               shared: { type: Claude }
+            secrets: { t: x }
             repos:
               Shared: { type: GitHub, url: https://x, auth: t }
               shared: { type: GitHub, url: https://y, auth: t }
@@ -185,6 +191,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
         var resolved = Resolve("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:

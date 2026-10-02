@@ -77,7 +77,7 @@ GitLab-specific things to notice:
 - **Groups belong to connections** — to discover repos under a group or subgroup, add a `connections:` entry with `group: acme-org` (or `acme-org/team-platform`). A repo discovered there is named by its path relative to that group, so `team-platform/todolist-api` and `team-billing/todolist-api` stay two repos, and a wildcard like `acme/team-platform/*` matches against that path. See [Repos: multi-repo](repos-multi.md).
 - **`open_states: [opened]`** — GitLab uses `opened` (not `open`). The MR terminology likewise — pull requests are merge requests, and Agent Smith opens MRs when the tracker type is `gitlab`.
 - **`work_item_kinds` does nothing here** — GitLab issues have no type this setting could pick, so the tracker ignores it.
-- **GitLab self-managed** — for repositories the API base URL is derived from each repo URL's own scheme and authority, so they need no extra config. The issue tracker is different: it talks to `https://gitlab.com` unless the `GITLAB_URL` environment variable says otherwise, so a self-managed instance sets `GITLAB_URL=https://gitlab.acme.com` on the server process. `GITLAB_URL` is also how a sub-path install (`https://tools.acme.com/gitlab`) is reached.
+- **GitLab self-managed** — for repositories the API base URL is derived from each repo URL's own scheme and authority, so they need no extra config; a sub-path install (`https://tools.acme.com/gitlab`) sets `host:` on the repo or its connection. The issue tracker talks to its own `url` (default `https://gitlab.com`), so a self-managed instance sets `url: https://gitlab.acme.com` on the tracker. Two instances are two trackers or connections, each with its own `url`/`host` and its own `auth` secret. An older configuration that relied on the `GITLAB_URL` variable still loads: the empty fields are filled from it, and each fill is reported as an advisory finding.
 
 The tracker owns the workflow: `open_states`, `done_status`, `failed_status`, `trigger_statuses` (falls back to `open_states`) and `pipeline_from_label` can all sit on the tracker block, inherited by every project routed to it. A project then only declares its resolution:
 
@@ -115,6 +115,8 @@ Generate a Personal Access Token at `User Settings → Access Tokens` with scope
 ```bash
 export GITLAB_TOKEN=glpat-...
 ```
+
+The token reaches the tracker and the repos through the secret their `auth` names (`gitlab_token: ${GITLAB_TOKEN}` above), for API calls and for clone and push alike. A second instance gets its own secret and its own variable.
 
 For org-scoped automation, prefer a Group Access Token instead of a personal one — it doesn't disappear when the user leaves.
 

@@ -167,6 +167,8 @@ Set it in the environment:
 export AZURE_DEVOPS_TOKEN=...
 ```
 
+The tracker, the connections and the repos read it through the secret their `auth` names (`azure_devops_token: ${AZURE_DEVOPS_TOKEN}`), for API calls and for clone and push alike, so a second organization gets a secret and a variable of its own.
+
 The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
 
 ## How tickets reach Agent Smith

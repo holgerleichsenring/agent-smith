@@ -58,7 +58,7 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         _fixturePath = Path.Combine(Path.GetTempPath(),
             $"agentsmith-composition-{Guid.NewGuid():N}.yml");
         File.WriteAllText(_fixturePath, FixtureYaml);
-        Environment.SetEnvironmentVariable("AZURE_DEVOPS_TOKEN", "test-token-xyz");
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_COMPOSITION_TOKEN", "test-token-xyz");
     }
 
     private string? _dbPath;
@@ -68,7 +68,7 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         try { File.Delete(_fixturePath); } catch { /* best-effort */ }
         if (_dbPath is not null) try { File.Delete(_dbPath); } catch { /* best-effort */ }
         if (_fixtureExtra is not null) try { File.Delete(_fixtureExtra); } catch { /* best-effort */ }
-        Environment.SetEnvironmentVariable("AZURE_DEVOPS_TOKEN", null);
+        Environment.SetEnvironmentVariable("AGENTSMITH_TEST_COMPOSITION_TOKEN", null);
         Environment.SetEnvironmentVariable("CONFIG_PATH", null);
     }
 
@@ -140,7 +140,7 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         var path = Path.Combine(Path.GetTempPath(), $"agentsmith-bootstrap-{Guid.NewGuid():N}.yml");
         File.WriteAllText(path,
             $"persistence:\n  provider: sqlite\n  connection_string: 'Data Source={dbPath}'\n" +
-            "secrets:\n  azure_devops_token: ${AZURE_DEVOPS_TOKEN}\n  gh_token: ${AZURE_DEVOPS_TOKEN}\n");
+            "secrets:\n  azure_devops_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}\n  gh_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}\n");
         _fixtureExtra = path;
         return path;
     }
@@ -190,8 +190,8 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
             repos: [repo1]
 
         secrets:
-          azure_devops_token: ${AZURE_DEVOPS_TOKEN}
-          gh_token: ${AZURE_DEVOPS_TOKEN}
+          azure_devops_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}
+          gh_token: ${AGENTSMITH_TEST_COMPOSITION_TOKEN}
 
         registries:
           - host: pkgs.dev.azure.com

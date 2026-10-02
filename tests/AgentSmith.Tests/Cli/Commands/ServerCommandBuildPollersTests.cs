@@ -77,6 +77,7 @@ public sealed class ServerCommandBuildPollersTests
         var yaml = """
             agents:
               a: { type: Claude }
+            secrets: { token: x, pat: x }
             repos:
               gh-repo: { type: GitHub, url: https://github.com/o/r, auth: token }
               azdo-repo: { type: AzureDevOps, url: https://dev.azure.com/o/p/_git/r, auth: pat }
@@ -85,7 +86,7 @@ public sealed class ServerCommandBuildPollersTests
               gh-tr: { type: GitHub, url: https://github.com/o/r, auth: token, polling: { enabled: true } }
               azdo-tr: { type: AzureDevOps, organization: https://dev.azure.com/o, project: p, auth: pat, polling: { enabled: true } }
               gl-tr: { type: GitLab, project: g/r, auth: token, polling: { enabled: true } }
-              jr-tr: { type: Jira, url: https://jira.example, project: PROJ, auth: token, polling: { enabled: true } }
+              jr-tr: { type: Jira, url: https://jira.example, project: PROJ, auth: token, email: a@b.example, polling: { enabled: true } }
             projects:
               gh:
                 agent: a

@@ -19,13 +19,17 @@ public sealed class RawConfigMaterializer(
     IAgentSmithPaths paths,
     IStartupFindings? findings = null,
     ConfigSecretReferences? secretReferences = null,
-    ModelRoleFindings? modelRoles = null)
+    ModelRoleFindings? modelRoles = null,
+    LegacyCredentialMigration? legacyCredentials = null,
+    IMaterializingSecrets? inFlight = null)
 {
     private readonly ModelRoleFindings _modelRoles = modelRoles ?? new ModelRoleFindings();
     private readonly IStartupFindings _findings = findings ?? new StartupFindings();
     private readonly ConfigSecretResolver _secrets = new(
         secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
     private readonly List<StartupFinding> _unmaterializable = [];
+    private readonly LegacyCredentialMigration _legacyCredentials = legacyCredentials ?? new(
+        secretReferences ?? new ConfigSecretReferences(Environment.GetEnvironmentVariable));
 
     /// <summary>
     /// p0391b: what the LAST materialization could not resolve. A configuration whose
@@ -42,11 +46,15 @@ public sealed class RawConfigMaterializer(
         _findings.Clear(StartupSubsystems.Configuration);
         _unmaterializable.Clear();
         _secrets.Apply(raw);
+        // 2026-10-02-5f89a: advisory, so recorded but never part of what the one-shot loader refuses on.
+        foreach (var note in _legacyCredentials.Apply(raw)) _findings.Record(note);
         deploymentDefaults.Apply(raw);
         ApplyEffectiveTriggers(raw);
         NormalizeProjects(raw);
         FillSkillsDefaults(raw);
-        var config = resolver.Resolve(raw);
+        // 2026-10-02-5f89a: discovery during resolution authenticates with THIS configuration's secrets.
+        AgentSmithConfig config;
+        using (inFlight?.Begin(raw.Secrets)) config = resolver.Resolve(raw);
         // Advisory, so recorded but never part of what the one-shot loader refuses on.
         foreach (var finding in _modelRoles.For(config.Agents)) _findings.Record(finding);
         LastResolutionFindings = [.. _unmaterializable, .. resolver.LastFindings];

@@ -25,6 +25,7 @@ public class MultiPipelineBehaviorPreservationTests
           azopenai:
             type: azure-openai
             endpoint: https://oai-example-dev.openai.azure.com
+        secrets: { token: x }
         repos:
           agent-smith:
             type: GitHub

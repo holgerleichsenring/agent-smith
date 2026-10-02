@@ -39,6 +39,7 @@ public sealed class StaticConnectionRepoRefTests : IDisposable
         Write($$"""
             agents:
               a: { type: Claude }
+            secrets: { t: x, token: x }
             trackers:
               t: { type: GitHub, auth: t }
             {{ConnectionsBlock}}
@@ -64,6 +65,7 @@ public sealed class StaticConnectionRepoRefTests : IDisposable
         Write($$"""
             agents:
               a: { type: Claude }
+            secrets: { t: x, token: x }
             trackers:
               t: { type: GitHub, auth: t }
             {{ConnectionsBlock}}
@@ -84,6 +86,7 @@ public sealed class StaticConnectionRepoRefTests : IDisposable
         Write($$"""
             agents:
               a: { type: Claude }
+            secrets: { t: x, token: x }
             trackers:
               t: { type: GitHub, auth: t }
             {{ConnectionsBlock}}
@@ -109,6 +112,7 @@ public sealed class StaticConnectionRepoRefTests : IDisposable
         Write($$"""
             agents:
               a: { type: Claude }
+            secrets: { t: x, token: x }
             trackers:
               t: { type: GitHub, auth: t }
             {{ConnectionsBlock}}

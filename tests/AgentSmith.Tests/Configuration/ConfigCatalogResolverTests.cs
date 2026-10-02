@@ -41,7 +41,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
                 tracker: demo
                 repos: [demo]
                 pipeline: code
-            secrets: {}
+            secrets: { token: x }
             """);
 
         var config = Load();
@@ -62,6 +62,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               real: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, auth: t }
             trackers:
@@ -81,6 +82,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, auth: t }
             trackers:
@@ -100,6 +102,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               real: { type: GitHub, auth: t }
             trackers:
@@ -119,6 +122,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, auth: t }
             trackers:
@@ -140,6 +144,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               only: { type: GitHub, url: https://example.com, auth: t }
             trackers:
@@ -164,6 +169,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
             agents:
               fast: { type: Claude, model: claude-haiku-4-5-20251001 }
               big: { type: Claude, model: claude-opus-4-7 }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -192,6 +198,7 @@ public sealed class ConfigCatalogResolverTests : IDisposable
         Write("""
             agents:
               real: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:

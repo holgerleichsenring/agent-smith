@@ -17,7 +17,6 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddAgentSmithCore(this IServiceCollection services)
     {
-        services.AddSingleton<SecretsProvider>();
         // p0391a: the findings list every startup dependency and configuration rule
         // records into instead of throwing. Singleton — it IS the installation's
         // current "what is wrong" picture, read by the endpoint and the dashboard.
@@ -51,6 +50,8 @@ public static class ServiceCollectionExtensions
         // server's DB loader run over a RawAgentSmithConfig.
         services.AddSingleton<RawConfigMaterializer>();
         services.AddTransient<ModelRoleFindings>();
+        services.AddTransient<LegacyCredentialMigration>(); // 2026-10-02-5f89a
+        services.AddSingleton<IMaterializingSecrets, MaterializingSecrets>(); // 2026-10-02-5f89a
         services.AddTransient<Services.Configuration.Retired.RawConfigTreeReader>();
         services.AddTransient<Services.Configuration.Retired.ConfigKeyPathMatcher>();
         services.AddTransient<Services.Configuration.Retired.RetiredConfigKeyDetector>();

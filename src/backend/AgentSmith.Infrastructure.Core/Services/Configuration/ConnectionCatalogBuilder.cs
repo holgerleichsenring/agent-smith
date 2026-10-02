@@ -8,20 +8,25 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// snake_case enum convention.
 /// p0515: the catalog is keyed by <see cref="ConfigNames.Comparer"/> — RepoGlobExpander
 /// already grouped connection references case-insensitively before looking them up here.
+/// 2026-10-02-5f89a: an auth naming no secret of the catalog is a blocking finding; the entry stays.
 /// </summary>
 public sealed class ConnectionCatalogBuilder
 {
     private readonly CatalogKeyCollisions _collisions = new();
 
     public Dictionary<string, ResolvedConnection> Build(
-        IReadOnlyDictionary<string, RawConnectionEntry> raw, List<StartupFinding> findings)
+        IReadOnlyDictionary<string, RawConnectionEntry> raw, IEnumerable<string> secretNames,
+        List<StartupFinding> findings)
     {
         var dropped = _collisions.Detect("connections", raw.Keys, findings);
+        var secrets = secretNames.ToHashSet(ConfigNames.Comparer);
         var result = new Dictionary<string, ResolvedConnection>(raw.Count, ConfigNames.Comparer);
 
         foreach (var (name, entry) in raw)
         {
             if (dropped.Contains(name)) continue;
+            if (MissingSecretFindings.Check("connections", "Connection", name, entry.Auth, secrets) is { } missing)
+                findings.Add(missing);
             result[name] = new ResolvedConnection
             {
                 Name = name,

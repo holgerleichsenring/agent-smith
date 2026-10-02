@@ -24,6 +24,7 @@ public sealed class ConnectionRepoUrlBuilder : IConnectionRepoUrlBuilder
             Organization = conn.Organization,
             Project = conn.Project,
             Auth = conn.Auth,
+            Host = conn.Host,
             DefaultBranch = branchOverride ?? conn.DefaultBranch,
         };
 
