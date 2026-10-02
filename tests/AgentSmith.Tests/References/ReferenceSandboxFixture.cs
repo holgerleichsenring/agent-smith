@@ -21,6 +21,9 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
 
     public List<InMemoryFileSandbox> Spawned { get; } = [];
 
+    /// <summary>2026-10-02-075dc: the spec each container was spawned from.</summary>
+    public List<SandboxSpec> Specs { get; } = [];
+
     public List<ReferenceSetFile> Set { get; } = [];
 
     public int SetReads { get; private set; }
@@ -43,6 +46,7 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
     {
         var sandbox = new InMemoryFileSandbox();
         Spawned.Add(sandbox);
+        Specs.Add(spec);
         return Task.FromResult<ISandbox>(sandbox);
     }
 

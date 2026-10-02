@@ -5,21 +5,18 @@ namespace AgentSmith.Server.Services.References;
 
 /// <summary>
 /// 2026-10-01-283db: unpacks the ONE archive a set may arrive as, on the server, counting rather
-/// than trusting. The entry count is read from the archive's directory before anything is
-/// inflated, and the inflated bytes are counted while they are read — an entry's declared length
+/// than trusting. The inflated bytes are counted while they are read — an entry's declared length
 /// is attacker-supplied, so a lying one stops at the bound, not at what it claimed — and one the
-/// runtime cut short at its claim fails its checksum.
+/// runtime cut short at its claim fails its checksum. An archive whose files share no top folder
+/// is unpacked under its own name.
 /// <para>
-/// An archive whose files share no top folder is unpacked under its own name, so the set is
-/// named for what the operator dropped rather than called nothing.
-/// </para>
-/// <para>
-/// 2026-10-02-0d72: an entry that is not a site file is skipped before anything is counted or
-/// inflated, and named in the answer — as a folder's is.
+/// 2026-10-02-075da: <see cref="ReferenceKeepRule"/> decides by path and DECLARED length before
+/// anything is inflated, so a .venv inside costs nothing. A kept entry is still held to the
+/// per-file bound and the set's while it inflates, whatever it declared. Every entry's path must
+/// stay inside the set; the count and size bounds then apply to what was kept.
 /// </para>
 /// </summary>
-public sealed class ReferenceZipReader(
-    ReferencePathRule paths, ReferenceIgnoreList ignored, ZipEntryChecksum checksum, ReferenceFileTypes types)
+public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreList ignored, ZipEntryChecksum checksum)
 {
     private const int ChunkBytes = 81920;
 
@@ -31,20 +28,20 @@ public sealed class ReferenceZipReader(
         try
         {
             using var zip = new ZipArchive(new MemoryStream(archive), ZipArchiveMode.Read);
-            var kept = zip.Entries.Where(e => !e.FullName.EndsWith('/'))
-                .Where(e => !ignored.IsIgnored(paths.Normalise(e.FullName))).ToList();
-            var entries = kept.Where(e => types.MediaTypeOf(e.FullName) is not null).ToList();
-            if (entries.Count == 0 && kept.Count > 0)
+            var candidates = zip.Entries.Where(e => !e.FullName.EndsWith('/'))
+                .Select(e => (Entry: e, Path: paths.Normalise(e.FullName))).Where(e => !ignored.IsIgnored(e.Path)).ToList();
+            if (candidates.Select(e => paths.HostileRefusalOf(e.Path)).FirstOrDefault(why => why is not null) is { } hostile)
+                return ReferenceSetCheck.Refused(hostile);
+            var judged = candidates.Select(e => (e.Entry, Why: ReferenceKeepRule.LeftOut(e.Path, e.Entry.Length))).ToList();
+            var kept = judged.Where(e => e.Why is null).Select(e => e.Entry).ToList();
+            var leftOut = ReferenceKeepRule.Collapsed(judged.Select(e => e.Why).OfType<ReferenceLeftOut>());
+            if (kept.Count == 0 && leftOut.Count > 0)
+                return ReferenceSetCheck.Refused(ReferenceSetValidator.NothingKept(leftOut));
+            if (kept.Count > ReferenceUploadLimits.MaxFiles)
                 return ReferenceSetCheck.Refused(
-                    ReferenceSetValidator.NoSiteFile([.. kept.Select(e => paths.Normalise(e.FullName))]));
-            if (entries.Count > ReferenceUploadLimits.MaxFiles)
-                return ReferenceSetCheck.Refused(
-                    $"'{archiveName}' holds {entries.Count} files, over the {ReferenceUploadLimits.MaxFiles}-file limit.");
-            var inflated = Inflate(archiveName, entries);
-            return inflated.IsRefused ? inflated : inflated with
-            {
-                SkippedPaths = [.. kept.Except(entries).Select(e => paths.Normalise(e.FullName))],
-            };
+                    $"'{archiveName}' keeps {kept.Count} files, over the {ReferenceUploadLimits.MaxFiles}-file limit.");
+            var inflated = Inflate(archiveName, kept);
+            return inflated.IsRefused ? inflated : inflated with { LeftOutEntries = leftOut };
         }
         catch (InvalidDataException)
         {
@@ -59,10 +56,11 @@ public sealed class ReferenceZipReader(
         foreach (var entry in entries)
         {
             var path = paths.Normalise(entry.FullName);
-            var bytes = Counted(entry, ReferenceUploadLimits.MaxSetBytes - total);
-            if (bytes is null || total + bytes.LongLength > ReferenceUploadLimits.MaxSetBytes)
+            var budget = Math.Min(ReferenceUploadLimits.MaxFileBytes, ReferenceUploadLimits.MaxSetBytes - total);
+            if (Counted(entry, budget) is not { } bytes)
                 return ReferenceSetCheck.Refused(
-                    $"'{path}' takes '{archiveName}' over the {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxSetBytes)} set limit once unpacked.");
+                    $"'{path}' takes '{archiveName}' over the {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxFileBytes)} "
+                    + $"per-file or {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxSetBytes)} set limit once unpacked.");
             if (checksum.Of(bytes) != entry.Crc32)
                 return ReferenceSetCheck.Refused(
                     $"'{path}' in '{archiveName}' does not match its own checksum; the archive is damaged or misstates its size.");
@@ -73,7 +71,7 @@ public sealed class ReferenceZipReader(
         return new ReferenceSetCheck(Rooted(archiveName, files), null);
     }
 
-    // The inflated bytes, or null as soon as they pass what the set has left.
+    // The inflated bytes, or null as soon as they pass the budget.
     private static byte[]? Counted(ZipArchiveEntry entry, long budget)
     {
         using var source = entry.Open();

@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.References;
 /// <summary>2026-10-01-283db: the one archive a set may arrive as is counted, not trusted.</summary>
 public sealed class ReferenceZipReaderTests
 {
-    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new ZipEntryChecksum(), new ReferenceFileTypes());
+    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new ZipEntryChecksum());
 
     [Fact]
     public void ReferenceUpload_ZipEntryLyingAboutItsSize_StopsAtTheSetBound()
@@ -24,11 +24,21 @@ public sealed class ReferenceZipReaderTests
     }
 
     [Fact]
-    public void ReferenceZipReader_AnEntryOverTheSetBound_IsRefusedWhileInflating()
+    public void ReferenceZipReader_AnEntryDeclaringOverTheFileBound_IsLeftOutUninflated()
     {
-        var big = Zip(("site/zeros.txt", new byte[ReferenceUploadLimits.MaxSetBytes + 1]));
+        var read = _reader.Read("site.zip", Zip(("site/zeros.txt", new byte[ReferenceUploadLimits.MaxFileBytes + 1]),
+            ("site/index.html", Text("<p>"))));
 
-        _reader.Read("site.zip", big).Refusal.Should().Contain("'site/zeros.txt'").And.Contain("25 MB set limit");
+        read.Files.Select(f => f.Path).Should().Equal("site/index.html");
+        read.LeftOut.Should().ContainSingle().Which.Path.Should().Be("site/zeros.txt");
+    }
+
+    [Fact]
+    public void ReferenceZipReader_KeptEntriesOverTheSetBound_AreRefusedWhileInflating()
+    {
+        var parts = Enumerable.Range(0, 3).Select(i => ($"site/{i}.bin", new byte[10L * 1024 * 1024])).ToArray();
+
+        _reader.Read("site.zip", Zip(parts)).Refusal.Should().Contain("'site/2.bin'").And.Contain("25 MB set limit");
     }
 
     [Fact]
@@ -47,21 +57,15 @@ public sealed class ReferenceZipReaderTests
         read.Files.Select(f => f.Path).Should().Equal("s/index.html");
     }
 
-    // 2026-10-02-0d72: a non-site entry is skipped before it is counted or inflated, and named.
+    // 2026-10-02-075da: any authored entry is kept; a rebuildable one is named and never inflated.
     [Fact]
-    public void ReferenceZipReader_NonSiteEntries_AreSkippedAndNamed()
+    public void ReferenceZipReader_RebuildableEntries_AreNotInflated()
     {
-        var read = _reader.Read("s.zip", Zip(("s/index.html", Text("<p>")), ("s/app.js.map", Text("{}"))));
+        var read = _reader.Read("s.zip", Zip(("s/app.py", Text("print()")), ("s/LICENSE", Text("MIT")),
+            ("s/node_modules/x/i.js", Text("x"))));
 
-        read.Files.Select(f => f.Path).Should().Equal("s/index.html");
-        read.Skipped.Should().Equal("s/app.js.map");
-    }
-
-    [Fact]
-    public void ReferenceZipReader_OnlyNonSiteEntries_IsRefusedNamingThem()
-    {
-        _reader.Read("s.zip", Zip(("s/LICENSE", Text("MIT")))).Refusal.Should()
-            .Contain("no file a website is made of").And.Contain("'s/LICENSE'");
+        read.Files.Select(f => f.Path).Should().Equal("s/app.py", "s/LICENSE");
+        read.LeftOut.Should().Equal(new AgentSmith.Server.Models.ReferenceLeftOut("s/node_modules/", "rebuildable"));
     }
 
     [Fact]

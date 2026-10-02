@@ -16,7 +16,7 @@ namespace AgentSmith.Server.Extensions;
 internal static class SpecDialogReferenceEndpoints
 {
     private const string TooLarge =
-        "The upload is over the 26 MB ceiling for one website, or holds too many parts.";
+        "The upload is over the 26 MB ceiling for one upload, or holds too many parts.";
 
     internal static WebApplication MapSpecDialogReferenceEndpoints(this WebApplication app)
     {

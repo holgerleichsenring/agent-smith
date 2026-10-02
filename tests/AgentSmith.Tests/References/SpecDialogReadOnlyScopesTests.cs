@@ -29,14 +29,35 @@ public sealed class SpecDialogReadOnlyScopesTests
         var first = await sets.AddAsync("s-1", [Css("My Site/a.css")], CancellationToken.None);
         var second = await sets.AddAsync("s-1", [Css("my-site/b.css")], CancellationToken.None);
         var references = new Mock<IReferenceSetSandboxFactory>();
-        references.Setup(f => f.Create(Project, "s-1", It.IsAny<string>(), It.IsAny<string>()))
-            .Returns((ResolvedProject _, string _, string address, string _) => Scope(address));
+        references.Setup(f => f.Create(Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns((ResolvedProject _, string _, string address, string _, string? _) => Scope(address));
 
         var opened = await Scopes(sets, references.Object).OpenAsync(Project, "s-1", CancellationToken.None);
 
         opened.Keys.Should().Equal("reference:my-site", "reference:my-site-2");
-        references.Verify(f => f.Create(Project, "s-1", "reference:my-site", first.SetId));
-        references.Verify(f => f.Create(Project, "s-1", "reference:my-site-2", second.SetId));
+        references.Verify(f => f.Create(Project, "s-1", "reference:my-site", first.SetId, null));
+        references.Verify(f => f.Create(Project, "s-1", "reference:my-site-2", second.SetId, null));
+    }
+
+    // 2026-10-02-075dd: a note written in one turn reaches the next turn's scope with its set.
+    [Fact]
+    public async Task SpecDialogReadOnlyScopes_OpenAsync_HandsEachSetItsNote()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var sets = new ReferenceSetRepository(db);
+        var set = await sets.AddAsync("s-1", [Css("app/a.css")], CancellationToken.None);
+        await new ReferenceNoteRepository(db).SetAsync("s-1", set.SetId, "open index.html", CancellationToken.None);
+        var references = new Mock<IReferenceSetSandboxFactory>();
+        references.Setup(f => f.Create(Project, "s-1", It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns((ResolvedProject _, string _, string address, string _, string? _) => Scope(address));
+
+        await new SpecDialogReadOnlyScopes(
+                new ProjectTemplateScopes(Mock.Of<ISourceScopeSandboxFactory>(), NullLogger<ProjectTemplateScopes>.Instance),
+                sets, references.Object, NullLogger<SpecDialogReadOnlyScopes>.Instance, new ReferenceNoteRepository(db))
+            .OpenAsync(Project, "s-1", CancellationToken.None);
+
+        references.Verify(f => f.Create(Project, "s-1", "reference:app", set.SetId, "open index.html"));
     }
 
     [Fact]

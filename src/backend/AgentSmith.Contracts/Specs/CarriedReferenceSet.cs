@@ -11,5 +11,6 @@ namespace AgentSmith.Contracts.Specs;
 /// <param name="Path">Its directory, relative to that repository's root.</param>
 /// <param name="Session">The conversation the set was uploaded to — where the store keeps it.</param>
 /// <param name="Files">How many files it holds.</param>
+/// <param name="Note">2026-10-02-075dd: the set's note as the run began — live, not frozen at approval.</param>
 public sealed record CarriedReferenceSet(
-    string SetId, string Name, string Address, string Repo, string Path, string Session, int Files);
+    string SetId, string Name, string Address, string Repo, string Path, string Session, int Files, string? Note = null);

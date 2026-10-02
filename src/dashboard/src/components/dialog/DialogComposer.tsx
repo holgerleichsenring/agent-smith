@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { DialogReferenceSelection } from "./DialogReferenceSelection";
+import type { PickLeftOut } from "./referenceSelection";
 import type { UploadNote } from "./uploadNote";
 
 // 2026-09-15-cb3e: what the operator says. One path for everything they write — a design
@@ -24,6 +26,11 @@ import type { UploadNote } from "./uploadNote";
 // or one .zip the server unpacks) and a Folder (the directory picker, each file under its path).
 // 2026-10-02-0d72: and what an upload left — its refusal, or the files a website went without —
 // is said HERE, under the control that made it, not on the page-wide failure panel.
+// 2026-10-02-075db: a pick of several files or a folder is SHOWN before it is sent — the
+// selection card, where the operator ticks what goes — because the server refuses an
+// oversized body unread. One file (a .zip the server unpacks, or any single file) goes at once.
+// 'Website' became 'Files': since 075da the server keeps any authored file, so the input no
+// longer narrows the dialog to website types.
 
 export function DialogComposer({
   onSend,
@@ -35,8 +42,9 @@ export function DialogComposer({
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
   onAttach: (file: File) => void;
-  /** 2026-10-01-283db: a website the operator picked — its files, stored as one set. */
-  onAttachSite?: (files: File[]) => void;
+  /** 2026-10-01-283db: a website the operator picked — its files, stored as one set.
+   *  2026-10-02-075db: with what the selection card left out, when one was shown. */
+  onAttachSite?: (files: File[], leftOut?: PickLeftOut) => void;
   /** What the last upload left: a refusal, or what a stored website went without. */
   note?: UploadNote | null;
   disabled?: boolean;
@@ -44,9 +52,10 @@ export function DialogComposer({
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
-  const website = useRef<HTMLInputElement>(null);
+  const several = useRef<HTMLInputElement>(null);
   const folder = useRef<HTMLInputElement>(null);
   const attach = useRef<HTMLDivElement>(null);
+  const [pick, setPick] = useState<File[] | null>(null);
 
   const send = () => {
     const said = text.trim();
@@ -101,13 +110,12 @@ export function DialogComposer({
           {onAttachSite && (
             <>
               <input
-                ref={website}
-                data-testid="dialog-composer-website"
+                ref={several}
+                data-testid="dialog-composer-files"
                 type="file"
                 multiple
-                accept={SITE_FILES}
                 className="hidden"
-                onChange={(event) => pickSite(event.target, onAttachSite)}
+                onChange={(event) => pickFiles(event.target, onAttachSite, setPick)}
               />
               <input
                 ref={folder}
@@ -115,7 +123,7 @@ export function DialogComposer({
                 type="file"
                 {...{ webkitdirectory: "" }}
                 className="hidden"
-                onChange={(event) => pickSite(event.target, onAttachSite)}
+                onChange={(event) => pickFolder(event.target, setPick)}
               />
             </>
           )}
@@ -151,14 +159,14 @@ export function DialogComposer({
                   <button
                     type="button"
                     role="menuitem"
-                    data-testid="dialog-composer-attach-website"
+                    data-testid="dialog-composer-attach-files"
                     onClick={() => {
                       setAttaching(false);
-                      website.current?.click();
+                      several.current?.click();
                     }}
                     className="d-menu-item"
                   >
-                    Website
+                    Files
                   </button>
                   <button
                     type="button"
@@ -206,7 +214,17 @@ export function DialogComposer({
           <ArrowGlyph />
         </button>
       </div>
-      {note && (
+      {pick && onAttachSite && (
+        <DialogReferenceSelection
+          files={pick}
+          onCancel={() => setPick(null)}
+          onSend={(files, leftOut) => {
+            setPick(null);
+            onAttachSite(files, leftOut);
+          }}
+        />
+      )}
+      {note && !pick && (
         <p
           role={note.tone === "refused" ? "alert" : "status"}
           data-testid="dialog-composer-upload-note"
@@ -220,17 +238,24 @@ export function DialogComposer({
   );
 }
 
-/** What a website is made of, as the server's allow-list has it, and the one archive it unpacks. */
-const SITE_FILES = [
-  ".html", ".htm", ".css", ".js", ".mjs", ".json", ".svg", ".png", ".jpg", ".jpeg", ".gif",
-  ".webp", ".avif", ".ico", ".woff", ".woff2", ".ttf", ".otf", ".txt", ".md", ".zip",
-].join(",");
-
-/** The picked files, handed on once; the input is cleared so the same pick can be made again. */
-function pickSite(input: HTMLInputElement, onAttachSite: (files: File[]) => void) {
+/** Files picked: one goes at once — a .zip is what its author packed — several are shown first.
+ *  The input is cleared so the same pick can be made again. */
+function pickFiles(
+  input: HTMLInputElement,
+  onAttachSite: (files: File[]) => void,
+  show: (files: File[]) => void,
+) {
   const picked = Array.from(input.files ?? []);
   input.value = "";
-  if (picked.length > 0) onAttachSite(picked);
+  if (picked.length === 1) onAttachSite(picked);
+  else if (picked.length > 1) show(picked);
+}
+
+/** A folder picked: always shown first, whatever it holds. */
+function pickFolder(input: HTMLInputElement, show: (files: File[]) => void) {
+  const picked = Array.from(input.files ?? []);
+  input.value = "";
+  if (picked.length > 0) show(picked);
 }
 
 // The two glyphs, drawn to the shape every ported mock surface uses — a 16-unit box, no fill,

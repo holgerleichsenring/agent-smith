@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-075da
+
+decisions:
+  - category: Scope
+    chose: "Store every file unless a reason leaves it out — a rebuildable folder or the per-file bound; the extension list only types (operator ruling)"
+    over: "The twenty-type website allow-list (283db) and its skip-and-name softening (0d72)"
+    reason: |
+      An upload is material, not always a website: a Flask app's .py files, a Dockerfile, a .env
+      say what it is and what it needs. The model can only work out what it holds from what was
+      kept; a type list decided for it in advance.
+  - category: Scope
+    chose: "Credential files (.env, .npmrc, *.pem, id_rsa, credentials*.json, kubeconfig) are kept and named in the answer"
+    over: "Leaving env files out as secrets"
+    reason: |
+      Operator ruling: a .env tells the model which services the material needs; excluding it
+      means knowing less. The answer names the common credential files so the composer can say
+      the model and the run read them — a reminder, not a scanner.
+  - category: Implementation
+    chose: "Per-file bound raised from 5 MB to the 25 MB set bound"
+    over: "Keeping 5 MB"
+    reason: |
+      A single-file HTML page with inlined images runs to 10 MB and is the design material; nothing
+      downstream needs 5 MB. The set bound, held by the 26 MB route ceiling, is unchanged.
+  - category: Implementation
+    chose: "A left-out path is held to the hostile path rules only; length and duplicates apply to stored paths"
+    over: "Every path held to every rule"
+    reason: |
+      A deep path under a .venv that is never stored cannot overflow the column or collide, but
+      refused the whole set. Climbing out stays hostile whether stored or not.
+  - category: Implementation
+    chose: "Materialiser: text is strict UTF-8 without NUL, whatever the extension; encoded files use the .agentsmith-b64 suffix"
+    over: "A text-extension list; the .b64 suffix"
+    reason: |
+      Any type reaches the sandbox now, so the bytes decide. An operator's own *.b64 file would
+      have been decoded and deleted by the old suffix.
+  - category: Scope
+    chose: "The run carry is unchanged: a set lies under .agentsmith/reference/<id>/ in the repository tree"
+    over: "Moving it out of the tree in this phase"
+    reason: |
+      Pre-existing since 283df for JavaScript sets; a tool that walks dot-directories now also
+      meets source files there. Named here; no run has shown it.

@@ -30,7 +30,7 @@ public sealed class ReferenceSetSandboxTests
         var files = _fixture.Spawned.Single().Files;
         files["/work/site/index.html"].Should().Equal(Encoding.UTF8.GetBytes("<h1>Hi</h1>"));
         files["/work/site/img/logo.png"].Should().Equal(Png, "a binary file is decoded back to its bytes");
-        files.Keys.Should().NotContain(k => k.EndsWith(".b64"));
+        files.Keys.Should().NotContain(k => k.EndsWith(ReferenceSetMaterialiser.EncodedSuffix));
         scope.RepoName.Should().Be("reference:site");
         scope.ResolvedSha.Should().HaveLength(64, "the address carries the set's content hash");
     }
@@ -48,6 +48,35 @@ public sealed class ReferenceSetSandboxTests
         sandbox.Files.Keys.Count(k => k.EndsWith(".png")).Should().Be(50);
     }
 
+    // 2026-10-02-075da: text is what decodes, whatever the extension.
+    [Fact]
+    public async Task ReferenceSetMaterialiser_PyAndDockerfile_AreWrittenAsText()
+    {
+        _fixture.Set.AddRange([Text("app/app.py", "print(1)"), Text("app/Dockerfile", "FROM x"),
+            new ReferenceSetFile("app/blob.bin", [0x41, 0x00, 0x42])]);
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        var sandbox = _fixture.Spawned.Single();
+        sandbox.Files["/work/app/app.py"].Should().Equal(Encoding.UTF8.GetBytes("print(1)"));
+        sandbox.Files["/work/app/blob.bin"].Should().Equal([0x41, 0x00, 0x42], "a NUL byte sends a file encoded");
+        sandbox.PythonRuns.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ReferenceSetMaterialiser_AnUploadedB64File_IsLeftAsIs()
+    {
+        _fixture.Set.Add(Text("app/logo.b64", "aGVsbG8="));
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        var sandbox = _fixture.Spawned.Single();
+        sandbox.Files["/work/app/logo.b64"].Should().Equal(Encoding.UTF8.GetBytes("aGVsbG8="));
+        sandbox.PythonRuns.Should().Be(0);
+    }
+
     [Fact]
     public async Task ReferenceSetMaterialiser_TextThatIsNotUtf8_GoesInEncoded()
     {
@@ -61,20 +90,42 @@ public sealed class ReferenceSetSandboxTests
     }
 
     [Fact]
-    public async Task ReferenceSetSandbox_WriteFile_IsRefused()
+    public async Task ReferenceSetSandbox_WriteFileStep_IsRefused()
     {
         _fixture.Set.Add(Text("site/index.html", "<h1>"));
         await using var scope = _fixture.Open(Holds.None());
 
         var write = await scope.RunStepAsync(
             At(StepKind.WriteFile, "site/index.html") with { Content = "changed" }, null, CancellationToken.None);
-        var shell = await scope.RunStepAsync(
-            new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "/bin/sh", Args: ["-c", "rm -rf /work"]),
-            null, CancellationToken.None);
 
         write.ExitCode.Should().NotBe(0);
-        shell.ExitCode.Should().NotBe(0);
         _fixture.Spawned.Should().BeEmpty("a refused step spawns nothing");
+    }
+
+    // 2026-10-02-075dc: the container holds a copy of the upload and nothing else; a shell is served.
+    [Fact]
+    public async Task ReferenceSetSandbox_ShellRunStep_IsServed()
+    {
+        _fixture.Set.Add(Text("app/app.py", "print(1)"));
+        await using var scope = _fixture.Open(Holds.None());
+
+        var shell = await scope.RunStepAsync(
+            new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "/bin/sh", Args: ["-c", "python3 app/app.py"]),
+            null, CancellationToken.None);
+
+        shell.ExitCode.Should().Be(0);
+        _fixture.Spawned.Single().Shells.Should().Equal("python3 app/app.py");
+    }
+
+    [Fact]
+    public async Task ReferenceSetSandbox_SpawnSpec_CarriesNoProjectSecrets()
+    {
+        _fixture.Set.Add(Text("app/app.py", "print(1)"));
+        await using var scope = _fixture.Open(Holds.None());
+
+        await scope.MaterializeAsync(CancellationToken.None);
+
+        _fixture.Specs.Single().Secrets.Should().Be(ResolvedSandboxSecrets.Empty);
     }
 
     [Fact]

@@ -4,8 +4,8 @@ using AgentSmith.Infrastructure.Persistence.Models;
 namespace AgentSmith.Server.Services.References;
 
 /// <summary>
-/// 2026-10-01-283db: the limits an uploaded website is held to, stated once. A refusal names the
-/// one that was crossed; nothing is truncated and nothing is stored in part.
+/// 2026-10-01-283db: the limits an upload is held to, stated once. A refusal names the one that
+/// was crossed; nothing is truncated.
 /// </summary>
 public static class ReferenceUploadLimits
 {
@@ -17,8 +17,8 @@ public static class ReferenceUploadLimits
 
     public const int MaxSetsPerConversation = 3;
 
-    /// <summary>2026-10-02-0d72: how many skipped paths an upload answer lists; the count is always whole.</summary>
-    public const int MaxSkippedListed = 20;
+    /// <summary>2026-10-02-075da: how many left-out entries an upload answer lists; the count is always whole.</summary>
+    public const int MaxLeftOutListed = 20;
 
     /// <summary>The path column's width; a longer path is refused, never cut.</summary>
     public const int MaxPathChars = PersistenceLimits.ReferencePath;

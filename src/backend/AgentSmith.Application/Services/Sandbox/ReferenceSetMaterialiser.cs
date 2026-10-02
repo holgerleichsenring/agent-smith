@@ -15,23 +15,26 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// five hundred round trips. A marker carries the content hash, so a held sandbox that already
 /// holds the set is taken back without a single write.
 /// </para>
+/// <para>
+/// 2026-10-02-075da: TEXT IS WHAT DECODES. A set holds any type now, so the rule is no extension
+/// list but the bytes: strict UTF-8 and no NUL. The encoded suffix is one no upload carries, so an
+/// operator's own <c>*.b64</c> file is never decoded.
+/// </para>
 /// </summary>
 public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxFileReaderFactory files)
 {
     internal const string Marker = ".agentsmith-reference";
-    internal const string EncodedSuffix = ".b64";
+    internal const string EncodedSuffix = ".agentsmith-b64";
     private const string WorkRoot = "/work";
-    private static readonly string[] TextExtensions =
-        [".html", ".htm", ".css", ".js", ".mjs", ".json", ".svg", ".txt", ".md"];
     private static readonly UTF8Encoding StrictUtf8 = new(false, throwOnInvalidBytes: true);
 
     internal const string DecodeScript =
         "import base64,os,sys\n"
         + "for d,_,names in os.walk(sys.argv[1]):\n"
         + "    for n in names:\n"
-        + "        if n.endswith('.b64'):\n"
+        + "        if n.endswith('.agentsmith-b64'):\n"
         + "            p=os.path.join(d,n)\n"
-        + "            open(p[:-4],'wb').write(base64.b64decode(open(p,'rb').read()))\n"
+        + "            open(p[:-15],'wb').write(base64.b64decode(open(p,'rb').read()))\n"
         + "            os.remove(p)\n";
 
     /// <summary>The set in the sandbox, and its content hash.</summary>
@@ -87,7 +90,7 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
 
     private static string? AsText(ReferenceSetFile file)
     {
-        if (!TextExtensions.Contains(Path.GetExtension(file.Path), StringComparer.OrdinalIgnoreCase)) return null;
+        if (Array.IndexOf(file.Content, (byte)0) >= 0) return null;
         try { return StrictUtf8.GetString(file.Content); }
         catch (DecoderFallbackException) { return null; }
     }
@@ -98,7 +101,7 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
             Command: "python3", Args: ["-c", DecodeScript, root], WorkingDirectory: WorkRoot, TimeoutSeconds: 300);
         var result = await sandbox.RunStepAsync(step, null, ct);
         if (result.ExitCode != 0)
-            throw new IOException($"Decoding the uploaded website's binary files failed: {result.ErrorMessage ?? "exit " + result.ExitCode}");
+            throw new IOException($"Decoding the upload's binary files failed: {result.ErrorMessage ?? "exit " + result.ExitCode}");
     }
 
     private static string HashOf(IReadOnlyList<ReferenceSetFile> set)

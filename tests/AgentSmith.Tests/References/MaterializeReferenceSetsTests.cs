@@ -87,11 +87,33 @@ public sealed class MaterializeReferenceSetsTests
         Text(_repo, "/work/.git/info/exclude").Should().Be("# local\n*.log\n/.agentsmith/reference/\n");
     }
 
-    private MaterializeReferenceSetsHandler Handler(IReferenceSetReader reader)
+    // 2026-10-02-075dd: a carried set brings its note as it stands when the run begins.
+    [Fact]
+    public async Task ReferenceSetCarrier_CarriesTheLiveNote()
+    {
+        _sets.Add("set-a", ("app/app.py", "print(1)"));
+        var pipeline = Pipeline(["set-a"]);
+
+        await Handler(_sets, new FixedNotes("set-a", "python3 app/app.py"))
+            .ExecuteAsync(new MaterializeReferenceSetsContext(pipeline), CancellationToken.None);
+
+        pipeline.Get<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets).Single().Note.Should().Be("python3 app/app.py");
+    }
+
+    private sealed class FixedNotes(string setId, string note) : IReferenceNotes
+    {
+        public Task<IReadOnlyDictionary<string, string>> NotesAsync(string sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<string, string>>(new Dictionary<string, string> { [setId] = note });
+
+        public Task<bool> SetAsync(string sessionId, string set, string text, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+    }
+
+    private MaterializeReferenceSetsHandler Handler(IReferenceSetReader reader, IReferenceNotes? notes = null)
     {
         var files = new SandboxFileReaderFactory();
         return new MaterializeReferenceSetsHandler(ApprovedSetDoubles.Resolver(),
-            new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files), new ReferenceGitExclusion(files)),
+            new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files), new ReferenceGitExclusion(files), notes),
             NullLogger<MaterializeReferenceSetsHandler>.Instance);
     }
 

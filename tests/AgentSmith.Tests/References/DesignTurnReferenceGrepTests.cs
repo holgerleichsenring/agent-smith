@@ -37,7 +37,7 @@ public sealed class DesignTurnReferenceGrepTests
             .ExecuteAsync(Context(reference), CancellationToken.None);
 
         loop.Found.Should().Contain("site/css/site.css").And.Contain("#c0ffee");
-        loop.SystemPrompt.Should().Contain("## Websites the operator uploaded").And.Contain($"`{Address}`");
+        loop.SystemPrompt.Should().Contain("## Material the operator uploaded").And.Contain($"`{Address}`");
     }
 
     private static AgenticMasterContext Context(ISandbox reference)
