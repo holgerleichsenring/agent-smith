@@ -27,6 +27,8 @@ public sealed class OpenAiChatClientBuilder(HttpMessageHandler? testTransport = 
 
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "openai", "azure_openai" };
 
+    public bool AcceptsImageAfterToolResult => true;
+
     public static TimeSpan ResolveNetworkTimeout(AgentConfig agent) =>
         TimeSpan.FromSeconds(agent.NetworkTimeoutSeconds > 0
             ? agent.NetworkTimeoutSeconds : DefaultNetworkTimeoutSeconds);

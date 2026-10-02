@@ -417,6 +417,7 @@ export function SpecDialogSurface() {
                     )
                   }
                   onAttach={(file) => void dialog.attach(file, project)}
+                  onAttachSite={(files) => void dialog.attachSite(files, project)}
                 />
               )}
             </section>

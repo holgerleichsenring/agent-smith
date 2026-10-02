@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
@@ -56,8 +57,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class ApprovedPhaseSetRecorder(
     ISpecApprovalStore store,
-    TimeProvider time,
-    ILogger<ApprovedPhaseSetRecorder> logger)
+    IReferenceSetReader references, // 2026-10-01-283df: the sets the approval cites
+    TimeProvider time, ILogger<ApprovedPhaseSetRecorder> logger)
 {
     /// <summary>The record that was stored — what filing then writes to the ticket branch.</summary>
     public async Task<SpecApprovalRecord> RecordAsync(
@@ -79,14 +80,16 @@ public sealed class ApprovedPhaseSetRecorder(
         var repositories = Repositories(state, project);
         // 2026-09-25-c1f7: the ticket id is stored as it was GIVEN, because discovery has to name
         // it in a tracker query and the spec key above has already lowered and re-spelled it.
+        // 2026-10-01-283df: and the website sets held NOW — the approval freezes the list.
         var record = new SpecApprovalRecord(
             key.Value, set, repositories, project.Tracker.Name,
-            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty);
+            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty,
+            await references.SetIdsAsync(state.JobId, cancellationToken));
         await store.SaveAsync(record, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation "
-            + "{Conversation}, carried by {Repo}",
-            key.Value, set.Phases.Count, approval.Principal, approval.Conversation, record.CarryingRepo);
+            + "{Conversation}, carried by {Repo}, citing {Sets} website set(s)", key.Value, set.Phases.Count,
+            approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count);
         return record;
     }
 

@@ -67,6 +67,7 @@ public static class PipelineHandlersExtensions
         services.AddContextLoading(); // 2026-09-04-cf3d: both loaders + the per-context reader
         // p0380: plan-time experiential-memory index + green-run narrative twin.
         services.AddTransient<ICommandHandler<LoadMemoryIndexContext>, LoadMemoryIndexHandler>();
+        services.AddTransient<ICommandHandler<LoadDesignSystemContext>, LoadDesignSystemHandler>(); // 283dg
         services.AddTransient<Memory.RunNarrativeMemoryWriter>();
         services.AddTransient<ICommandHandler<AnalyzeCodeContext>, AnalyzeProjectHandler>();
         services.AddTransient<IProjectMapJsonReader, ProjectMapJsonReader>().AddTransient<IProjectMapFinalizer, ProjectMapFinalizer>();
@@ -96,7 +97,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<Lifecycle.TicketLifecycle>();
         services.AddTransient<ProjectMapCacheKey>();
         services.AddSingleton<SandboxTargets>();
-        services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>();
+        services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>()
+            .AddTransient<Tools.DesignReadToolHostFactory>(); // 2026-10-01-7f7ab
         services.AddSingleton<Polling.PipelineResolver>();
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();

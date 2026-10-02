@@ -15,12 +15,12 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 5 | RunPreflight | Proves the run's preconditions before anything is spent on them |
 | 6 | SetupRegistryAuth | Pre-stages private-feed credentials in the sandboxes |
 | 7 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` context |
-| 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadContext | Loads the repo's principles, memory index and context |
+| 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadDesignSystem / LoadContext | Loads the repo's principles, memory index, root DESIGN.md and context |
 | 9 | AnalyzeCode | Scout agent maps the relevant code |
 | 10 | DeriveSpec | Turns the ticket into an ordered set of phase specs on the ticket branch |
 | 11 | SpecHandback | Parks the ticket when the derivation handed it back |
 | 12 | PhaseSpecGate | Validates the spec before a single master token is spent |
-| 13 | EnsurePrerequisites / ProbeTarget | Installs what the work needs, then checks the target answers |
+| 13 | EnsurePrerequisites / ProbeTarget / MaterializeReferenceSets | Installs what the work needs, checks the target answers, and writes the websites the approval cites |
 | 14 | PhaseSequence | Splices one block of steps per phase that hasn't run yet |
 | 15 | WriteRunResult | Writes `result.md` with the account, token usage and cost |
 | 16 | CommitAndPR / PrCrossLink | Commits, pushes, finalizes the PRs and cross-links them |
@@ -28,6 +28,8 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 `RunPreflight` fails the run, naming the fix, when the agent configuration is the empty placeholder, when a sandbox home isn't writable, or when a declared credential is malformed or didn't arrive. A branch that already carries earlier work, or a registry whose secret resolved to nothing, is reported without stopping the run.
 
 `ProbeTarget` runs the `probe` command a repository declares, after the prerequisites are installed and before the master starts, so a target that refuses costs no model token. Both come from the [context file](../concepts/context-file.md).
+
+`MaterializeReferenceSets` writes every website set the approval cites into the carrying repository at `.agentsmith/reference/<setId>/`. The directory is excluded from the commit and from whole-repository searches; the master's prompt names each set. A cited set the run cannot read fails the run, naming it. A project whose `sandbox.browser.enabled` is on also gives the coding master `render_reference` and `compare_reference` and reserves one browser pod per run. `compare_reference` lists every computed-style difference between mapped selectors of a reference and a candidate page and a screenshot similarity; the run's comparisons appear in `result.md` under *Visual comparison*, with up to four diff images under the run record. They report and never gate.
 
 ### The per-phase block
 

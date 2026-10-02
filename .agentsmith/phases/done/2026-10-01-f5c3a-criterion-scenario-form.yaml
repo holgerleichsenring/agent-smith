@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-f5c3a
+goal: "A done criterion may be a when/then scenario (given optional) besides one line; every reader of the done list sees one plain line either way, so no consumer changes shape."
+
+applies_to: "backend (phase-spec schema, PhaseDraftReader, the phase-execution prompt, the ticket's criteria lines), docs (spec field reference)"
+
+requires: []
+
+facts:
+  - claim: "The schema types every done item as a string, so a scenario mapping is refused today by the design draft, epic children and hand-written phase tickets alike."
+    evidence: ".agentsmith/phase-spec.schema.json:183-189; src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:65-70; src/backend/AgentSmith.Application/Services/PhaseExecution/PhaseSpecFromTicket.cs:38-43"
+  - claim: "The schema is embedded into the binary from that one file; there is no second copy in this repository."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:61-63"
+  - claim: "PhaseDraftReader reads done through ReadStrings, which turns each entry into e?.ToString() — a mapping would become its type name."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:24,101-110"
+  - claim: "PhaseDraftReader is the one reader of a stored phase file too: the approved set's phase files go through it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPhaseFileReader.cs:18,34"
+  - claim: "PhaseDraft.Done is IReadOnlyList<string>: the run's acceptance contract the keystone scores, the pull request renders and result.md reports against."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:15-21; src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:20-25"
+  - claim: "Every other done consumer reads PhaseDraft.Done as strings: master prompt, spec markdown, set comment, cut-review quotes, coverage refusal, epic child check, proposal pane."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterPromptSections.cs:90-94; Specs/SpecMarkdown.cs:62-64; Specs/SpecSetComment.cs:99; Specs/PhaseQuotableText.cs:30,84; Specs/SpecCoverageRefusal.cs:32; SpecDialog/EpicOutcomeParser.cs:54; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:71; src/dashboard/src/types/spec-dialog.ts:235"
+  - claim: "Two places bypass PhaseDraft.Done and call ToString on each raw yaml done entry: the phase-execution prompt block and the filed ticket's criteria lines — a scenario would print a Dictionary type name in both."
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecutionPromptBlocks.cs:53-63; src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs:52-53"
+  - claim: "A ticket with no acceptance field falls back to the body's criteria section, one criterion per list item."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:52-64"
+  - claim: "The derivation reads done from the model's JSON as strings and renders them as such; it is untouched by an optional yaml form."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:36; src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseYamlRenderer.cs:53"
+  - claim: "The docs' spec field references show done as a plain checklist with no scenario form."
+    evidence: "docs/reference/architecture/phase-workflow.md:55-56; docs/reference/concepts/phases-and-runs.md:73-74"
+  - claim: "PhaseDraftReader.cs has 112 lines, PhaseTicketBody.cs 111 and PhaseExecutionPromptBlocks.cs 64; none is on the file-length baseline."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+scope:
+  in: >
+    The schema admits a done item as a string or a closed mapping {given?, when, then}. One reader, DoneCriterion,
+    gives the LINE FORM of either: a string trimmed; a scenario as "GIVEN <given> WHEN <when> THEN <then>" — plain
+    uppercase keywords, no markup, the GIVEN part omitted when absent, each part whitespace-collapsed, single spaces,
+    trimmed. PhaseDraftReader sets Done from it, so PhaseDraft.Done stays a string list and no consumer changes. The
+    phase-execution prompt block and PhaseTicketBody's criteria lines list draft.Done instead of re-reading the yaml.
+    The two docs field references show the scenario form.
+  out: >
+    The ticket's section shape — 2026-10-01-f5c3b. The derivation's JSON done list — it writes what it read from a
+    ticket, and a ticket criterion is a line. A structured Done type on PhaseDraft — every consumer scores or prints a
+    line. The upstream methodology schema.
+
+decisions:
+  - key: "FLATTEN AT THE READER. Eleven consumers take a string; one conversion where the yaml is read keeps them all."
+  - key: "ONE LINE FORM, NO MARKUP. The ticket, the prompt and the read-back of a filed body must all equal PhaseDraft.Done; markup survives one tracker encoding and not the next."
+  - key: "A CLOSED MAPPING. when and then required, given optional, nothing else — a typo is refused like a scope key, not silently dropped."
+  - key: "NO SCENARIO NAME. A one-line criterion has none either; the WHEN clause already says which case it is."
+
+steps:
+  - id: schema
+    action: "phase-spec.schema.json: done items oneOf string | object{given, when, then; required when, then; additionalProperties false}."
+  - id: reader
+    action: "DoneCriterion (Application/Services/Specs): Line(entry) gives the line form, Lines(map) one per done item."
+  - id: consumers
+    action: "PhaseDraftReader sets Done from DoneCriterion.Lines; PhaseExecutionPromptBlocks.DoneCriteria and PhaseTicketBody.DoneLines list draft.Done."
+  - id: docs
+    action: "phase-workflow.md and phases-and-runs.md show a done list with one line item and one given/when/then item."
+
+tests:
+  - "Line_AScenarioWithGiven_IsGivenWhenThenInPlainKeywords"
+  - "Line_AScenarioWithoutGiven_StartsWithWhen"
+  - "Line_AString_IsTrimmed"
+  - "Validate_ADoneScenarioWithAnUnknownKey_IsRefused"
+  - "Read_ADoneListMixingLinesAndScenarios_GivesOneLineEach"
+  - "Extract_AHandWrittenTicketWithAScenario_CarriesItsLine"
+  - "Parse_AnEpicChildWithOnlyScenarios_HasDone"
+  - "DoneCriteria_AScenario_RendersItsLineNotATypeName"
+  - "RequirementBody_AScenarioCriterion_ListsItsLineNotATypeName"
+
+done:
+  - "WHEN a phase draft's done list mixes lines and scenarios THEN it validates and PhaseDraft.Done holds one line-form string per item"
+  - "WHEN a done mapping carries a key other than given, when, then THEN the schema refuses it"
+  - "WHEN a phase with a scenario criterion is filed THEN its ticket and its execution prompt carry the line form, never a type name"
+  - "build green, full suite green"

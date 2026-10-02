@@ -18,7 +18,7 @@ public sealed class OutcomeProposalResolver(
     public OutcomeResolution Resolve(string reply)
     {
         var text = reply ?? string.Empty;
-        var blocks = SpecDialogDraftBlocks.OutcomeBlock().Matches(text);
+        var blocks = SpecDialogDraftBlocks.OutcomeBlocks(text);
         if (blocks.Count == 0) return ResolveFromDraft(text);
         if (blocks.Count > 1)
             return new OutcomeInvalid(

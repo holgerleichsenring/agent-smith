@@ -32,6 +32,20 @@ public sealed class ProposalReviewLookTests
         look.Terms.EvidencePrefix.Should().Be("P");
     }
 
+    /// <summary>2026-10-01-283dc: an uploaded website is no repository a proposal assumes either.</summary>
+    [Fact]
+    public void DerivationLookFactory_ProposalReview_ExcludesReferenceAddresses()
+    {
+        var pipeline = Turn(new RecordingScope(), new RecordingScope());
+        var sandboxes = new Dictionary<string, ISandbox>(pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes))
+        {
+            ["reference:site"] = new RecordingScope(),
+        };
+        pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)sandboxes);
+
+        Factory().ForProposalReview(pipeline)!.Repositories.Should().Equal([Repo]);
+    }
+
     [Fact]
     public void ReviewLook_ATurnWithNoRepository_IsNoLook()
     {

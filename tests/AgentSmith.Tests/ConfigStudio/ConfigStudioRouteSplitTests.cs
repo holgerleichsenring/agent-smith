@@ -35,11 +35,11 @@ public sealed class ConfigStudioRouteSplitTests
     ];
 
     private static readonly string[] EntityRoutes =
-        ["agents", "trackers", "repos", "projects", "mcp-servers", "secrets", "connections"];
+        ["agents", "trackers", "repos", "projects", "mcp-servers", "secrets", "connections", "design-sources"];
 
     [Fact]
     public void ConfigStudio_MappedRoutes_AreTheSameThirtyNineAfterTheSplit() =>
-        MappedRoutes().Should().HaveCount(41);
+        MappedRoutes().Should().HaveCount(45);
 
     [Fact]
     public void ConfigStudio_MappedRoutes_KeepTheirVerbsAndPaths() =>

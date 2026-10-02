@@ -8,7 +8,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 /// store's core. Collections are keyed by catalog id; singletons carry the fixed
 /// id 'default'. Adding a config type is exactly one entry here plus a C# record;
 /// adding a field inside an existing type is zero db migration (the doc is opaque
-/// JSON). Only projects carry reference edges.
+/// JSON). Projects carry the reference edges, plus one deliberate exception: a design source
+/// names its secret (2026-10-01-7f7aa), so the secret cannot be deleted from under it.
 /// </summary>
 internal static class ConfigDocumentTaxonomy
 {
@@ -20,6 +21,7 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Collection(ConfigDocTypes.Repo, r => r.Repos),
         ConfigDocDescriptor.Collection(ConfigDocTypes.Project, r => r.Projects, ProjectEdges),
         ConfigDocDescriptor.Collection(ConfigDocTypes.McpServer, r => r.McpServers),
+        ConfigDocDescriptor.Collection(ConfigDocTypes.DesignSource, r => r.DesignSources, DesignSourceEdges),
         ConfigDocDescriptor.Collection(ConfigDocTypes.Secret, r => r.Secrets),
         ConfigDocDescriptor.Collection(ConfigDocTypes.PipelineTrigger, r => r.PipelineTriggers),
 
@@ -61,6 +63,8 @@ internal static class ConfigDocumentTaxonomy
         // one is built after would succeed and leave a dangling declaration.
         foreach (var target in project.Templates.Select(t => t.Project).Distinct(StringComparer.OrdinalIgnoreCase))
             if (!string.IsNullOrWhiteSpace(target)) yield return new(ConfigDocTypes.Project, target);
+        foreach (var source in project.DesignSources.Distinct(StringComparer.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(source)) yield return new(ConfigDocTypes.DesignSource, source);
         foreach (var repoRef in project.Repos.Select(r => r.Ref))
         {
             var slash = repoRef.IndexOf('/');
@@ -68,6 +72,12 @@ internal static class ConfigDocumentTaxonomy
                 ? new ConfigDocEdge(ConfigDocTypes.Connection, repoRef[..slash])
                 : new ConfigDocEdge(ConfigDocTypes.Repo, repoRef);
         }
+    }
+
+    private static IEnumerable<ConfigDocEdge> DesignSourceEdges(JsonElement doc)
+    {
+        var source = doc.Deserialize<RawDesignSourceEntry>(new ConfigDocJson().Options);
+        if (!string.IsNullOrWhiteSpace(source?.Auth)) yield return new(ConfigDocTypes.Secret, source.Auth);
     }
 }
 

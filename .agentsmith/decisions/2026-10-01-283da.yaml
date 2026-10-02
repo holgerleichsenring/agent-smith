@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283da
+
+decisions:
+  - category: Architecture
+    chose: "One id space: ReferenceFiles' identity starts at 1,000,000,000 and a copied legacy image keeps its id"
+    over: "A route split between legacy and new ids, or renumbering on copy"
+    reason: |
+      A page served by an old replica and a request served by a new one mean the same image by
+      the same number. An id below the seed was born legacy, which is also what lets the orphan
+      sweep tell a copy from a new upload.
+  - category: Architecture
+    chose: "An additive migration plus a forward-only copy (LegacyAttachmentCopy) driven by the housekeeping leader; the legacy table, entity and union readers stay until 283dk"
+    over: "A data-moving migration or MigrateAsync(target)"
+    reason: |
+      Pods migrate in an init container while old pods keep serving; a moving migration strands
+      them, and MigrateAsync(target) on a newer database runs Down. The primary key is the claim:
+      a row copied twice is a unique violation, translated and skipped, so a second leader or a
+      lease handover cannot duplicate it. Proven by a deterministic interleaving (a rival copier
+      runs between the first copier's read and its first write).
+  - category: Implementation
+    chose: "The union reads list metadata from both tables, order by CreatedAt in memory, and load bytes only for the chosen ids"
+    over: "Ordering by CreatedAt in SQL, or by Id"
+    reason: |
+      SQLite cannot ORDER BY a DateTimeOffset, and id order is wrong while an old replica writes
+      a legacy row (low id) after a new upload (high id). A conversation's image list is small;
+      the bytes of the four a turn sends are the only large read.
+  - category: Implementation
+    chose: "The shared migration seeds the identity for SQLite only (sqlite_sequence = 999999999); SQL Server carries it in its model (UseIdentityColumn, provider-conditional like RunRecordIdentityConfiguration) and so in its own migration and snapshot"
+    over: "The spec's per-provider seed for Postgres and MySQL in the shared set"
+    reason: |
+      DEVIATION. Scripting the shared set under Npgsql and Pomelo shows the Id literal carries
+      no identity on either provider for ANY table (and MySQL cannot index its TEXT literals),
+      so there is no generator to seed there. Seeding them would pretend a support the set does
+      not give; that defect predates this phase and is not repaired here.
+  - category: Implementation
+    chose: "IdentitySequenceAdvancer never reseeds below the identity's declared seed, read from the design-time model"
+    over: "Leaving the archive import as it was"
+    reason: |
+      Not in the spec, found by running the SQL Server archive round trip: an archive holding only
+      copied legacy images (ids below the seed) would RESEED ReferenceFiles to its max key and the
+      next new image would be born in the legacy range — where the orphan sweep deletes it. The
+      seed is design-time configuration the read-optimized model drops, hence IDesignTimeModel.
+  - category: Implementation
+    chose: "The archive importer flushes at 500 rows or at 64 MB of decoded content (byte arrays by length, strings by characters)"
+    over: "Rows only"
+    reason: |
+      Five hundred five-megabyte reference files would be 2.5 GB in the change tracker. Strings
+      count too, so the legacy table's base64 rows are bounded the same way.
+  - category: Implementation
+    chose: "DialogFileConfigurations applies the legacy and the reference configuration; ReferenceFileExtensions registers the repository, the copy and its sweeper"
+    over: "New lines in AgentSmithDbContext (120) and RelationalPersistenceExtensions (ratchet 225)"
+    reason: "Both files are at their ceiling; each change replaced one line with one line."
+  - category: Tooling
+    chose: "Both halves generated with `dotnet ef migrations add AddReferenceFiles` per migrations project, then the shared Content column's type removed by hand"
+    over: "Hand-written migrations"
+    reason: |
+      Designer files and snapshots stay derived from the model; has-pending-model-changes reports
+      none for either set. Verified on SQL Server 2022 with AGENTSMITH_TEST_DB_CONNSTR: a legacy
+      image is served byte-identical under its old id before and after the copy, and a new upload
+      is born at or above the seed.

@@ -11,6 +11,8 @@ public enum ConfigEntityType
     Secret,
     // p0345b: git-host connections (the p0281a discovery catalog).
     Connection,
+    // 2026-10-01-7f7aa: design tools a project reads designs from.
+    DesignSource,
     // p0353: the global settings singletons (orchestrator, limits, pipeline_cost_cap, …),
     // addressed by their settings-type key so one kind covers every singleton form.
     Settings

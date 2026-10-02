@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283dj
+
+decisions:
+  - category: Architecture
+    chose: "Source-precedence rule 4 gains a visual-reference paragraph: the look (colours, type, spacing, radii, shadows as computed values or DESIGN.md tokens) is part of the WHAT; markup and stylesheet structure stay form without authority"
+    over: "Leaving rule 4 as it stood, or a separate fifth rule"
+    reason: |
+      Rule 4 denied a design's style any authority, which tells the coding master to ignore the
+      stylesheet it was asked to match. The amendment sits inside rule 4 so "never the form"
+      still holds for markup, and the validator's phrases are unchanged. The design partner's
+      lead-in now says "code style" for the same reason.
+  - category: Implementation
+    chose: "Tools described as shipped and as capabilities: what each address and tool takes and returns, the public-address guard as a refusal to pass on, the comparison as a report that never decides the run"
+    over: "Rules forbidding estimation from screenshots"
+    reason: |
+      The computed value is offered first; a model that knows render_reference states the exact
+      value has no reason to estimate. Wording follows the tool descriptions and prompt sections
+      of 283dc-283di (default selectors, 20/30 limits, viewports, 'render it as' names).
+  - category: Scope
+    chose: "The coding master fixes or names each remaining difference in the verdict's summary or the criterion's evidence, with a log_decision; no new verdict field"
+    over: "A visual_differences array in the verdict"
+    reason: |
+      The comparison is already recorded in result.md by the server (283di), and a new verdict
+      field would need a parser change; differences report and never gate.
+  - category: Scope
+    chose: "A drafted phase names the uploaded website (name and reference: address) in goal or scope.in, and a website uploaded after approval is said not to be carried"
+    over: "Citing set ids"
+    reason: |
+      The approval carries every site set of the conversation (283df); the name ties the
+      criteria to the set the run lists by name and id. The pin stays with 2026-10-01-aeb6d.

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -19,8 +20,23 @@ public sealed class BugOutcomeParser
         if (string.IsNullOrWhiteSpace(description))
             return new OutcomeInvalid("bug outcome is missing 'description'");
 
-        var acceptanceCriteria = OutcomeYamlReader.GetString(map, "acceptance_criteria");
         return new OutcomeResolved(new BugOutcome(
-            new BugTicketDraft(title.Trim(), description.Trim(), acceptanceCriteria?.Trim())));
+            new BugTicketDraft(title.Trim(), description.Trim(), AcceptanceCriteria(map))));
     }
+
+    // 2026-10-01-f5c3b: a string or a list. A list used to vanish here — GetString yields null
+    // for anything not a string — so each item now becomes one listed line the section reader
+    // takes as one criterion.
+    private static string? AcceptanceCriteria(IReadOnlyDictionary<string, object?> map) =>
+        map.TryGetValue("acceptance_criteria", out var value) ? value switch
+        {
+            string text => NullIfEmpty(text.Trim()),
+            List<object?> items => NullIfEmpty(string.Join("\n", items
+                .Select(item => CriterionLine.Collapse(DoneCriterion.Line(item)))
+                .Where(line => line.Length > 0)
+                .Select(line => $"- {line}"))),
+            _ => null,
+        } : null;
+
+    private static string? NullIfEmpty(string text) => text.Length == 0 ? null : text;
 }

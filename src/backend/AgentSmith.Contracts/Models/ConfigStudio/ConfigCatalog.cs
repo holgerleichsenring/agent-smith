@@ -15,7 +15,8 @@ public sealed record ConfigCatalog(
     IReadOnlyList<ProjectEntity> Projects,
     IReadOnlyList<McpServerEntity> McpServers,
     IReadOnlyList<SecretEntity> Secrets,
-    IReadOnlyList<ConnectionEntity> Connections)
+    IReadOnlyList<ConnectionEntity> Connections,
+    IReadOnlyList<DesignSourceEntity> DesignSources) // 2026-10-01-7f7aa
 {
-    public ConfigCatalog() : this([], [], [], [], [], [], []) { }
+    public ConfigCatalog() : this([], [], [], [], [], [], [], []) { }
 }

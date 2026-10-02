@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283dg
+
+decisions:
+  - category: Architecture
+    chose: "DesignSystemPromptSection.Render(pipeline) is appended to the master body on the template/reference line, for every master; only the code preset's LoadDesignSystem and the dialog's GroundSpecDialog publish ContextKeys.DesignSystem"
+    over: "A declared skill input, or a surface check in the handler"
+    reason: |
+      A SERVER SECTION, NOT A SKILL INPUT (spec). Scan presets never publish the key, so the
+      section is empty there without a flag; the handler spends one ratchet line (905 of 922).
+  - category: Implementation
+    chose: "LoadDesignSystemHandler walks ContextKeys.Repos and reads /work/DESIGN.md from the sandboxes SandboxTargets.SandboxesForRepo names, the first that answers speaking for the repository; the document is keyed by repository name"
+    over: "One read per sandbox, as LoadCodingPrinciples does"
+    reason: |
+      DESIGN.md sits at the repository root, so a repository served by several sandboxes (one
+      per context or toolchain) holds one file; per-sandbox reads would render it twice. The
+      repository name is also the address read_file takes, which the section's cut note names.
+      Like LoadMemoryIndex it only reads existing sandboxes and is not sandbox-requiring.
+  - category: Implementation
+    chose: "The 32,000-character budget spans the documents' content and is cut from the end at a line boundary; each cut names the remaining characters and read_file \"<repo>/DESIGN.md\"; a repository past the budget is still headed and named"
+    over: "Parsing the frontmatter to cut prose and frontmatter separately"
+    reason: |
+      The frontmatter opens the file, so cutting from the end removes prose first and keeps the
+      tokens VERBATIM whenever they fit — this repository's 29,160-byte file renders whole.
+      A frontmatter parser would be a second reading of a format nothing else here parses.
+  - category: Tooling
+    chose: "The grounding's remote read moved from DialogGroundingReader into RemoteFileRead (injected, TryAsync + SingleAsync); the flat principles probe and DESIGN.md both use SingleAsync"
+    over: "A third copy of the read inside the reader"
+    reason: |
+      The reader stood at 119 of 120 lines. A static helper taking a logger is refused by
+      NoStaticStateRuleTests, so it is a DI-registered class; the absent/unreadable split is
+      unchanged and SpecDialogGroundingTests pass as they were.
+  - category: Scope
+    chose: "The grounding report counts DESIGN.md and names a refused read under 'could not be read'; an absent DESIGN.md is not listed under 'no file'"
+    over: "Listing every repository without one"
+    reason: |
+      context.yaml and principles.md are bootstrap files a repository must carry; DESIGN.md is
+      optional, and listing its absence on every turn would bury the absences that matter.
+  - category: Tooling
+    chose: "docs/assets/control-flow.svg regenerated (AGENTSMITH_WRITE_DIAGRAM=1) and the fix-and-feature step table names LoadDesignSystem"
+    over: "Leaving the generated diagram stale"
+    reason: "ControlFlowDiagram_MatchesThePresets compares the committed diagram with the presets."

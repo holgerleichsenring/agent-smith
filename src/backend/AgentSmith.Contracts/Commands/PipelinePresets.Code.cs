@@ -47,6 +47,7 @@ public static partial class PipelinePresets
         CommandNames.SetupRegistryAuth, // p0198: pre-stage private-feed credentials
         CommandNames.BootstrapCheck, CommandNames.BootstrapGate, // p0130a strict gate
         CommandNames.LoadCodingPrinciples, CommandNames.LoadMemoryIndex, // p0380
+        CommandNames.LoadDesignSystem, // 2026-10-01-283dg
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
         // p0393a: any ticket becomes an ordered SET of phase specs here — after
@@ -59,6 +60,9 @@ public static partial class PipelinePresets
         // 2026-09-01-379a: after the prerequisites installed the CLI the probe calls,
         // and before the master, so a target that refuses costs no model token.
         CommandNames.ProbeTarget,
+        // 2026-10-01-283df: the uploaded websites the approval cites, written into the carrying
+        // repository outside the commit — directly before the master that builds against them.
+        CommandNames.MaterializeReferenceSets,
         // p0393a: one master → verify → record block per derived phase, spliced in
         // order. p0328's NegotiateExpectation is gone with it: every run now carries a
         // schema-validated done-list, so negotiating a second acceptance contract would

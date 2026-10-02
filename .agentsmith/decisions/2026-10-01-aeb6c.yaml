@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-aeb6c
+
+decisions:
+  - category: Implementation
+    chose: "The master names its subject — the project, and the bound ticket — and answers anything else with one sentence back, no tool call, ahead of the grounding tiers"
+    over: "Removing http_request and web_fetch from the spec dialog"
+    reason: |
+      Operator ruling: the tools are useful, the nonsense is what needs bounding. A dialog answered
+      the live weather in a South American city from a project-scoped conversation.
+    alternatives:
+      - "A code-side topic filter: a heuristic around a judgement only the model can make"
+  - category: Implementation
+    chose: "What the bound ticket raises is on topic even outside the code"
+    over: "Binding to the repositories alone"
+    reason: |
+      A ticket that integrates a weather API makes the weather a legitimate question. The rule has
+      to read the ticket, which is why it is stated to the model rather than enforced around it.

@@ -49,9 +49,11 @@ public sealed class SpecSetReader(
         if (doc is null) return await AbsentOrBrokenAsync(files, indexPath, cancellationToken);
 
         var read = new List<SpecPhase>(doc.Phases.Count);
+        // 2026-10-01-283dh: listed once per set, for the design mocks beside the phase files.
+        var listed = await files.ListAsync(key.Directory, maxDepth: 1, cancellationToken);
         foreach (var stem in doc.Phases)
         {
-            var phase = await phases.ReadAsync(files, key, stem, doc, cancellationToken);
+            var phase = await phases.ReadAsync(files, key, stem, doc, listed, cancellationToken);
             if (phase is null)
             {
                 logger.LogWarning(

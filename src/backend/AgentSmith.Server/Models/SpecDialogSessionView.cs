@@ -26,6 +26,10 @@ namespace AgentSmith.Server.Models;
 /// it requires, which is why a field that may stay null forever does not make that read a poll.
 /// Null until one is minted, and for every conversation older than the mint.
 /// </param>
+/// <param name="References">
+/// 2026-10-01-283db: the websites the operator uploaded to this conversation, oldest first — a
+/// name, a file count and a size each, never the files.
+/// </param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
 /// last assistant turn that carried a draft. Null when there is no proposal.
@@ -40,7 +44,8 @@ public sealed record SpecDialogSessionView(
     SpecDialogProposalPush? Proposal = null,
     SpecDialogFilingPush? Filing = null,
     int? ProposalTurn = null,
-    SpecDialogTicketView? Ticket = null);
+    SpecDialogTicketView? Ticket = null,
+    IReadOnlyList<ReferenceSetView>? References = null);
 
 /// <summary>
 /// 2026-09-27-481bc: the ticket text this conversation was GROUNDED ON — what every turn of it is

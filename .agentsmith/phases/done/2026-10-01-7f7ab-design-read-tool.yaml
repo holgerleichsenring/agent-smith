@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-01-7f7ab
+goal: "design_read, on the design and coding surfaces of a project with a figma source, turns a Figma link into a trimmed node summary with the file version; the token never reaches the model."
+
+applies_to: "backend (a Figma client, a tool host, the master's tool composition, dialog seeds)"
+
+requires: ["2026-10-01-7f7aa"]
+
+facts:
+  - claim: "A tool host contributes AIFunctions; web_fetch is an in-process host with its own typed HttpClient, registered in Application."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/IToolHost.cs:12-18; src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:20-43; src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:28"
+  - claim: "Infrastructure registers its providers through per-feature extensions using AddHttpClient<T>."
+    evidence: "src/backend/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs:24-35"
+  - claim: "AgenticToolSurface stands at the limit (119 lines); conditional hosts join in MasterToolComposition's BaseSurface, which children of a design turn derive from through a name deny-list."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpecDialogChildTools.cs:20-22,31-33; src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:54-66,92"
+  - claim: "The master handler builds the conditional hosts per call and hands them to Compose; it is on the ratchet at 922 lines, 900 today — 22 spare lines, of which this slice takes at most 12 and 2026-10-01-7f7ad at most 6."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:273-287,376-378; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6"
+  - claim: "A run carries its ResolvedProject under ProjectConfig; a design turn's seeds do not, though its runner resolves the project."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:131; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:45-67; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:45"
+  - claim: "SpecDialogTurnRunner is 120 lines and may not grow; the seed goes through SpecDialogTurnSeeds.Build."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs (120 lines); SpecDialogTurnSeeds.cs:38-42"
+  - claim: "Pipeline keys holding live or re-derived values are excluded from the resume checkpoint by name."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-38"
+  - claim: "The only tool that hands the model a token does so on purpose and is scrubbed from later turns; design_read must never be of that kind."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/GetArtifactCredentialsToolHost.cs:11-16"
+  - claim: "Both surfaces carry http_request, so the model can reach api.figma.com itself — but holds no token to send."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:82; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:539"
+  - claim: "PROVEN ONLY AGAINST THE DOCUMENTED CONTRACT: Figma REST — base https://api.figma.com, header X-Figma-Token for a personal access token, GET /v1/files/:key/nodes?ids=&depth= returning name, lastModified, version and nodes; GET /v1/files/:key/variables/local; 403 bad token or no access, 404 unknown file, 429 with Retry-After. UNVERIFIED: the Variables API needs an Enterprise plan and the file_variables:read scope."
+    evidence: "Figma REST API documentation (developers.figma.com); no live token exists in this repository"
+
+scope:
+  in: >
+    FigmaLink parses https links whose host is figma.com or www.figma.com and whose path is
+    /file|design|proto/<key>[/branch/<branchKey>], taking node-id (1-2 -> 1:2); anything else is refused
+    without a fetch. IFigmaClient (Infrastructure, typed HttpClient registered there, base api.figma.com
+    only) takes the source's secret name and resolves the token through CurrentSecretValues per request.
+    A 429 is retried once after Retry-After when that is at most 30 s, then reported rate_limited with the
+    wait. FigmaNodeSummary renders, per node: id, type, name, size, auto-layout (mode, spacing, padding,
+    alignment), fills/strokes as hex, corner radius, text with font family/weight/size/line height, the
+    component an instance is of, applied style names, bound variable names — under a character budget,
+    truncation stated. Variables answered: names and values per mode. Variables refused (403/404): one
+    line says so and why; values stay those read from nodes — none guessed. Header lines: file name,
+    version, lastModified. Failure kinds: not_found, forbidden, rate_limited, unreachable, unknown — never a
+    raw body. DesignReadToolHost is built when the project has a figma source (run: ProjectConfig; turn: a
+    DesignSources seed of names, added to ExcludedKeys) and joins BaseSurface for design and coding
+    masters, not scan; several sources -> an argument names which. Design-turn children do not get it.
+  out: >
+    The rendered image — 2026-10-01-7f7ac. Links offered from ticket and dialog text — 2026-10-01-7f7ad.
+    The version recorded on the run and moved-design detection — 2026-10-01-7f7ae. Skill text —
+    2026-10-01-7f7af. Generating code from nodes; FigJam (/board) links.
+
+decisions:
+  - key: "A TOOL, NOT http_request WITH A TOKEN. The token would sit in the model's context, and a raw file response runs to megabytes; the summary is what a builder needs."
+  - key: "THE HOST ALLOW-LIST IS THE CLIENT'S, NOT A GATE. The client only ever calls api.figma.com, so a crafted link can choose a file key, never a host."
+  - key: "VARIABLES DEGRADE LOUDLY. A plan without the Variables API still yields every concrete value on the nodes; the summary says variables were unavailable rather than inventing tokens."
+  - key: "THE PARENT READS DESIGNS. Children fanning out over one file would multiply calls against one rate limit; design_read joins the child deny-list."
+  - key: "ONE RETRY, BOUNDED. A short Retry-After is cheaper to honour than to explain; a long one is the model's decision."
+
+steps:
+  - id: link
+    action: "FigmaLink.TryParse (Contracts/Models): key, branch key, node id."
+  - id: client
+    action: "IFigmaClient + FigmaClient + FigmaReadFailure in Infrastructure, with its AddHttpClient there."
+  - id: summary
+    action: "FigmaNodeSummary + FigmaVariableSummary, pure, each under 120 lines."
+  - id: host
+    action: "DesignReadToolHost (design_read: url, source?, depth?) and its factory; MasterToolComposition takes it; SpecDialogChildTools denies it; dialog seeds the project's source names; ExcludedKeys gains the seed key."
+
+tests:
+  - "FigmaLink_DesignUrlWithNodeId_ParsesKeyAndColonNodeId"
+  - "FigmaLink_LookalikeHost_IsRefused"
+  - "FigmaClient_SendsTokenHeaderOnlyToApiHost (fake handler)"
+  - "FigmaClient_429ShortRetryAfter_RetriesOnceThenSucceeds"
+  - "FigmaClient_429Twice_ReportsRateLimitedWithWait"
+  - "DesignRead_Forbidden_ReportsForbiddenKind_WithoutBody"
+  - "DesignRead_VariablesForbidden_SaysUnavailableAndKeepsNodeValues"
+  - "DesignRead_OverBudget_StatesTruncation"
+  - "DesignRead_OutputNeverContainsToken"
+  - "MasterToolComposition_ProjectWithoutDesignSource_HasNoDesignRead"
+  - "SpecDialogChildTools_DesignRead_IsDenied"
+  - "PipelineContextSerializer_DesignSourcesSeed_IsNotCheckpointed"
+
+done:
+  - "design_read on a recorded Figma nodes response returns a summary with version, layout, colours and text"
+  - "every failure kind reports distinctly; no tool output contains the token"
+  - "build green, full suite green"

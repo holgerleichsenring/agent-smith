@@ -16,6 +16,9 @@ namespace AgentSmith.Application.Services;
 public static class TicketBranchNamer
 {
     public const string Prefix = "agent-smith";
+
+    /// <summary>The branch an init-project run works on, under the same prefix as every ticket run.</summary>
+    public const string InitBranch = Prefix + "/init";
     private const int MaxSlugChars = 64;
     private const int MaxBranchChars = 200;
     private static readonly Regex NonAlnum = new(@"[^a-z0-9]+", RegexOptions.Compiled);

@@ -37,6 +37,11 @@ public static partial class CommandStepClasses
             // because a repository nothing asked about must not read like one that asked.
             "The target answered",
         ],
+        [CommandNames.MaterializeReferenceSets] =
+        [
+            // MaterializeReferenceSetsHandler: the approval cites no uploaded website.
+            "The approval cites no uploaded website",
+        ],
         [CommandNames.PhaseSpecGate] =
         [
             // PhaseSpecGateHandler: "Phase spec pX validated: ..." / "N phase specs validated, ...".

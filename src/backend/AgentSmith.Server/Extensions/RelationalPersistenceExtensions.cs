@@ -77,11 +77,12 @@ internal static class RelationalPersistenceExtensions
         services.AddScoped<ConfigImportRepository>();
         services.AddSingleton<IConfigDocumentStore, EfConfigDocumentStore>();
         services.RemoveAll<IConfigStore>();
+        services.AddSingleton<ConfigChangeReverter>();
         services.AddSingleton<IConfigStore, DbConfigStore>();
         services.AddScoped<ActiveRunRepository>().AddScoped<ActiveRunLivenessRepository>();
         services.AddScoped<RunArtifactRepository>();
         // p0315a: volatile Redis must never be the only holder of a design transcript; 8e51c: nor
-        services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogAttachmentRepository>()
+        services.AddScoped<SpecDialogSessionRepository>().AddReferenceFiles() // 2026-10-01-283da
             .AddScoped<SpecDialogTicketTextRepository>(); // of the ticket text it was grounded on
 
         services.RemoveAll<IActiveRunLease>();

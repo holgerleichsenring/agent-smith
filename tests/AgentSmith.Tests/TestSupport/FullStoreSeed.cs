@@ -98,6 +98,7 @@ internal sealed class FullStoreSeed
         if (clrType == typeof(decimal)) return 12.34m + index;
         if (clrType == typeof(double)) return 1.5 + index;
         if (clrType == typeof(DateTimeOffset)) return Instant(property, index);
+        if (clrType == typeof(byte[])) return System.Text.Encoding.UTF8.GetBytes(Text(property, index)); // 283da
         throw new NotSupportedException(
             $"The model gained a {clrType.Name} column ({property.Name}); the seed must cover it.");
     }

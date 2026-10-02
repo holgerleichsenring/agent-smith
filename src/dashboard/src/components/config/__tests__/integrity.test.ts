@@ -17,6 +17,7 @@ const catalog: ConfigCatalog = {
   ],
   projects: [],
   "mcp-servers": [],
+  "design-sources": [],
   secrets: [{ id: "K" }, { id: "T" }],
 };
 

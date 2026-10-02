@@ -1,4 +1,4 @@
-using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Contracts.Runs;
 
@@ -11,39 +11,44 @@ namespace AgentSmith.Contracts.Runs;
 /// match and no false sense of safety from one. A trace nobody may share is a trace nobody
 /// will use, and a trace that leaks a token once is worse than none.
 /// </para>
+/// <para>
+/// 2026-10-01-7f7aa: the values are read at mask time from <see cref="ISecretValues"/>, not
+/// frozen from the configuration loaded at startup — a secret added in the Studio later was
+/// otherwise never masked. The ordered list is rebuilt only when the source list changes.
+/// </para>
 /// </summary>
-public sealed class SecretMasker
+public sealed class SecretMasker(ISecretValues secrets)
 {
     private const string Mask = "***";
     private const int TooShortToBeWorthMasking = 6;
 
-    private readonly IReadOnlyList<string> _values;
+    private Snapshot _snapshot = new([], []);
 
-    public SecretMasker(AgentSmithConfig config)
+    public string Apply(string text)
     {
-        _values = Known(config)
+        if (string.IsNullOrEmpty(text)) return text;
+        foreach (var value in Maskable())
+            text = text.Replace(value, Mask, StringComparison.Ordinal);
+        return text;
+    }
+
+    private IReadOnlyList<string> Maskable()
+    {
+        var source = secrets.All();
+        var snapshot = _snapshot;
+        if (ReferenceEquals(snapshot.Source, source)) return snapshot.Values;
+        _snapshot = snapshot = new Snapshot(source, Order(source));
+        return snapshot.Values;
+    }
+
+    private static IReadOnlyList<string> Order(IReadOnlyList<string> values) =>
+        values
             .Where(v => !string.IsNullOrWhiteSpace(v) && v.Length >= TooShortToBeWorthMasking)
             .Distinct(StringComparer.Ordinal)
             // Longest first: a token that contains a shorter secret must not be left
             // half-masked by the shorter replacement running first.
             .OrderByDescending(v => v.Length)
             .ToList();
-    }
 
-    public string Apply(string text)
-    {
-        if (string.IsNullOrEmpty(text) || _values.Count == 0) return text;
-        foreach (var value in _values)
-            text = text.Replace(value, Mask, StringComparison.Ordinal);
-        return text;
-    }
-
-    private static IEnumerable<string> Known(AgentSmithConfig config)
-    {
-        foreach (var secret in config.Secrets.Values) yield return secret;
-        foreach (var registry in config.Registries)
-        {
-            yield return registry.Token;
-        }
-    }
+    private sealed record Snapshot(IReadOnlyList<string> Source, IReadOnlyList<string> Values);
 }

@@ -89,4 +89,7 @@ public sealed class SandboxConfig
     /// <c>sf org login jwt</c>) lives in context.yaml <c>prerequisites</c>.
     /// </summary>
     public SandboxSecrets? Secrets { get; set; }
+
+    /// <summary>2026-10-01-283df: whether this project's runs may render in a browser sandbox. Null = off.</summary>
+    public ProjectBrowserConfig? Browser { get; set; }
 }

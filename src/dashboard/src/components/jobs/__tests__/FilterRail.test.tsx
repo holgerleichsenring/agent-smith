@@ -36,6 +36,11 @@ describe("FilterRail", () => {
     expect(screen.getByTestId("filter-toggle-StepStarted")).toBeChecked();
   });
 
+  it("lists DesignRead among the L2 decisions, on by default (2026-10-01-7f7ae)", () => {
+    render(<EventFilterProvider><FilterRail /></EventFilterProvider>);
+    expect(screen.getByTestId("filter-toggle-DesignRead")).toBeChecked();
+  });
+
   it("clicking a toggle writes the URL via router.replace", () => {
     render(<EventFilterProvider><FilterRail /></EventFilterProvider>);
     fireEvent.click(screen.getByTestId("filter-toggle-ToolCall"));

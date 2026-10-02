@@ -38,8 +38,10 @@ public sealed class RequirementTicketTests
           - "the table exists and the repository reads it"
         """;
 
+    // 2026-10-01-f5c3a: read, not constructed — the body lists the draft's done list, which
+    // only the reader fills.
     private static readonly PhaseDraft Draft =
-        new("p9000a", "Widget storage layer", Yaml, ["p9000", "2026-09-17-042ea"]);
+        new PhaseDraftReader().Read(Yaml) with { Requires = ["p9000", "2026-09-17-042ea"] };
 
     [Fact]
     public void RequirementBody_HasNoFencedBlock() =>
@@ -50,8 +52,8 @@ public sealed class RequirementTicketTests
     {
         var body = Render();
 
-        body.Should().Contain("## Scope");
-        body.Should().Contain("The table, the migration");
+        body.Should().Contain("## What changes\nThe table, the migration");
+        body.Should().Contain("## Out of scope\nTHE API ON TOP");
         body.Should().Contain("THE API ON TOP",
             "what a slice deliberately excludes is half of what a requirement says");
     }
@@ -98,7 +100,7 @@ public sealed class RequirementTicketTests
         const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
 
         var body = new PhaseTicketRenderer()
-            .RenderPhase(new PhaseDraft("p9000a", "Widget storage layer", yaml, [])).Body;
+            .RenderPhase(new PhaseDraftReader().Read(yaml)).Body;
 
         AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
     }

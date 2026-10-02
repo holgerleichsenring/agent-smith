@@ -46,6 +46,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.PhaseStateChanged]: "PhaseStateChanged", // p0466
   [EventType.PhaseRecorded]: "PhaseRecorded", // p0466
   [EventType.PhaseReviewed]: "PhaseReviewed", // 2026-09-17-042eh
+  [EventType.DesignRead]: "DesignRead", // 2026-10-01-7f7ae
 };
 
 interface FilterRailProps {

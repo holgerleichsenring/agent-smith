@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-283de
+
+decisions:
+  - category: Architecture
+    chose: "The browser is a sandbox of its own (agent-smith-sandbox-browser, a TOOLCHAIN image the carrier's agent is injected into), spawned by the existing ISandboxFactory and held per conversation under key 'browser'"
+    over: "Chromium in the server image, or in the repository sandbox images"
+    reason: |
+      The server never runs a browser and a repo image never ships one. BrowserSandboxOpener builds the
+      project's spec with the browser image, the browser profile (sandbox.browser.resources) and a 600 s
+      readiness window, and asks SandboxContainerRuntime first: the in-process backend runs no image,
+      so it answers that no browser runtime exists instead of spawning something that cannot render.
+  - category: Security
+    chose: "Two halves of one egress guard: RenderUrlGuard refuses a URL before any spawn when ANY address its host resolves to is non-public; inside the sandbox every Chromium request goes through egress.mjs's proxy, which resolves once and connects to the checked address"
+    over: "page.route interception, or the server-side check alone"
+    reason: |
+      Route interception sees a host name that Chromium resolves again afterwards; a proxy that
+      resolves once leaves no rebinding gap and also sees websockets and service-worker fetches.
+      --proxy-bypass-list=<-loopback> sends loopback through it too, so the only loopback target let
+      through is the local origin serving the set. Ranges (one table in C#, one in JS): loopback,
+      private, link-local, ULA, CGNAT, unspecified, multicast, 240/4 incl. broadcast, ::/96, NAT64;
+      IPv4-mapped unwrapped first. Proven in the image by the fixture, including a negative control.
+  - category: Security
+    chose: "Service workers are blocked by the context (serviceWorkers: 'block') and the fixture proves no worker becomes ACTIVE"
+    over: "Asserting that registration rejects"
+    reason: |
+      Measured in Playwright 1.63: under 'block' register() still resolves, but no worker activates or
+      controls a fetch. The fixture's first check asserted a rejection and failed against a correct
+      block; it now asserts navigator.serviceWorker.ready never resolves, and the same check fails
+      when the script runs with 'allow'.
+  - category: Implementation
+    chose: "Screenshots are encoded by Chromium itself: the PNG capture is drawn on a canvas in an offline page, downscaled to a 1568 px long edge and walked down a JPEG quality ladder until under 700 KB"
+    over: "An image library (sharp) in the browser image"
+    reason: |
+      No native dependency beside the browser the image already pins. The JPEG is written base64,
+      because a sandbox ReadFile returns UTF-8 text only; 700 KB encodes to under the 1 MB read cap.
+  - category: Implementation
+    chose: "The style property list lives in C# (BrowserStyleProperties) and travels in the request; render.mjs carries none"
+    over: "A list in the script"
+    reason: |
+      One source the comparer of 2026-10-01-283di can use too. node gets the baked script path and one
+      request-file path; URL, set and selectors never appear on a command line.
+  - category: Implementation
+    chose: "The browser sandbox is taken from the hold register and handed back at the end of EACH call (BrowserSandboxLease)"
+    over: "Holding it for the turn and disposing it from the turn runner"
+    reason: |
+      The turn runner sits at its 120-line limit and owns only the sandbox map; a per-call lease needs no
+      lifecycle hook and still pays one spawn per conversation. Calls in one host are serialised, so two
+      leases never race for the one key.
+  - category: Implementation
+    chose: "ReferenceSetMaterialiser.PrepareUnderAsync with a root; its content-hash marker is the once-per-sandbox marker"
+    over: "A separate BrowserSetCopy with a .complete marker, as the spec named it"
+    reason: |
+      Deviation from the spec's naming. The 283dc materialiser already writes text as-is, decodes
+      binaries in one python3 step and writes its marker last; a second copier would duplicate it. The
+      set lands at /work/sets/<setId>/ as specified, and 283df shares the same method.
+  - category: Implementation
+    chose: "A design turn seeds ContextKeys.SpecDialogProject; RenderReferenceToolFactory reads it with DialogueJobId and the sandbox map"
+    over: "Seeding ContextKeys.ProjectConfig into a design turn"
+    reason: |
+      Deviation the spec did not foresee: a design turn carries no ProjectConfig, and seeding it would
+      switch on run-only readers (template proof, secret checks). The seed is excluded from checkpoints
+      like SpecDialogDesignSources.
+  - category: Implementation
+    chose: "The served origin is rooted at the set's shallowest index.html; a page may be named relative to that root or to the set root"
+    over: "Serving the set root as the origin"
+    reason: |
+      Uploads keep their shared folder ('site/index.html'), so root-relative paths like /css/site.css
+      only resolve when the origin's root is that folder. The model reads paths with that prefix, so
+      either spelling of a page is accepted.
+  - category: TradeOff
+    chose: "Computed styles from the desktop viewport only; both viewports are screenshotted; refused and failed requests are listed up to 50 each with a count of the rest"
+    over: "Styles per viewport and an unbounded refusal list"
+    reason: |
+      The text stays bounded for the model while every refusal is still counted. Per-viewport styles
+      belong with the comparison in 2026-10-01-283di. Mobile is 390 px wide at device scale 1, captured to
+      2532 px as the spec states, which downscales to a narrow image.
+  - category: Tooling
+    chose: "Per-architecture CI legs on native runners (ubuntu-latest, ubuntu-24.04-arm) that run the fixture on the loaded image, push by digest, and a manifest job that joins the digests under the carrier's tags"
+    over: "A QEMU multi-platform leg in the existing matrix"
+    reason: |
+      A render under emulation proves nothing about the real one, and the fixture must run on the image
+      each arch ships. Base pinned by version and digest (playwright v1.63.0-noble), playwright-core by
+      lockfile with npm ci. Verified locally: arm64 natively, amd64 under emulation (see the commit
+      report); the GitHub Actions run itself was not exercised.
+  - category: Tooling
+    chose: "A Docker-tier harness test (BrowserRenderDockerTests) drives render_reference through the production DockerSandboxFactory, carrier injection and the agent"
+    over: "Proving the image only by its in-image fixture"
+    reason: |
+      It is the closest local proof of 'on Docker, a design turn renders an uploaded site': the set is
+      copied through the agent, the button's background-color is quoted and a subresource from the
+      sandbox network's Redis host is refused and listed. Opt-in like every docker-tier test.
+  - category: Scope
+    chose: "Design master only; the coding surface, run carry and the footprint reservation stay with 2026-10-01-283df"
+    over: "Offering render_reference to children or coding masters now"
+    reason: |
+      One browser sandbox serves a conversation; children fanning out would queue on it. The spec puts
+      the coding surface and the run's capacity in 283df.

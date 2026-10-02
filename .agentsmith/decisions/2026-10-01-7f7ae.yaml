@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-7f7ae
+
+decisions:
+  - category: Architecture
+    chose: "DesignReadToolHostFactory takes IEventPublisher (and a logger) by DI and builds a DesignReadRecorder over the pipeline's ContextKeys.RunId; the handler is untouched"
+    over: "The handler passing its own publisher to the factory, as the spec's scope put it"
+    reason: |
+      The factory is injected into MasterToolComposition, which already holds the pipeline; the
+      handler's publisher is the same DI singleton. Passing it through the handler would spend
+      ratchet lines for nothing (904 of 922 stays).
+  - category: Scope
+    chose: "A design turn that carries a run id records its reads on that run; only a pipeline with no run id publishes nothing. The test is DesignRead_WithoutRunId_PublishesNothing"
+    over: "DesignRead_InADesignTurn_PublishesNothing"
+    reason: |
+      The spec's fact that a design turn has no run id of its own is wrong against the code: the
+      turn runner executes the spec-dialog preset through ExecutePipelineUseCase, which sets
+      ContextKeys.RunId for every pipeline (ExecutePipelineUseCase.cs:52,274). The intent kept is
+      that no run id is invented — the 'run' fallback is never used — and a read is recorded on
+      the run that made it. The version a filed ticket carries still travels in its text (7f7af).
+  - category: Implementation
+    chose: "expected_version (string) and read_version (bool): a read compares the response's version with the cited one and opens with 'design moved: E -> C (lastModified)' or 'design unchanged'; read_version true reads the cited version through ?version= and says so"
+    over: "read_version as a second version string"
+    reason: |
+      'read_version reads the cited one' needs no second identifier. A cited read is not compared
+      with the current version — that would cost a second call per read against one rate limit; the
+      caller learns it moved from the default read first. read_version without expected_version is
+      refused before a request.
+  - category: Implementation
+    chose: "IFigmaClient.GetNodesAsync gains a version parameter; the event's version and lastModified are those of the response read"
+    over: "A separate client method for versioned reads"
+    reason: "One endpoint, one query parameter; a cited read records the version it actually read."
+  - category: Implementation
+    chose: "Only an answered read is recorded, and a publish that throws is logged and never fails the read"
+    over: "Recording failures too"
+    reason: "The event says which design version a run built from; a failed read built from nothing. Every other producer treats publishing as best-effort."
+  - category: Tooling
+    chose: "Dashboard: DesignRead joins L2_TYPES (on by default), TYPE_KEYS and the FilterRail LABELS; the mirror carries the interface and union member; no timeline renderer"
+    over: "Leaving it in no filter level"
+    reason: "A type in no level never appears in the rail; the renderer is out of scope per the spec."
+  - category: TradeOff
+    chose: "PROVEN ONLY AGAINST THE DOCUMENTED CONTRACT: nodes responses carry version and lastModified; ?version= reads a past version"
+    over: "A live read"
+    reason: "No Figma token exists in this repository; the fake API answers from the documented shape."

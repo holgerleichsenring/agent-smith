@@ -7,6 +7,8 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// has three shapes and an operator reading the row has to tell them apart: a repository
 /// that names no location was never asked, a location that carries no such file answered
 /// and has none, and a read that was refused says nothing at all about whether it is there.
+/// <para>2026-10-01-283dg: DESIGN.md is counted and a refused read is named; its absence is not
+/// listed, because a repository need not carry one — the two bootstrap files it must.</para>
 /// </summary>
 internal static class DialogGroundingReport
 {
@@ -17,7 +19,8 @@ internal static class DialogGroundingReport
         {
             $"Grounded the design turn on {reached.Count} of {grounded.Count} scoped repo(s): "
             + $"{reached.Sum(g => g.Contexts.Documents.Count)} context document(s), "
-            + $"{reached.Sum(g => g.Principles.Documents.Count)} principles file(s)",
+            + $"{reached.Sum(g => g.Principles.Documents.Count)} principles file(s), "
+            + $"{reached.Sum(g => g.Design.Documents.Count)} {ProjectMetaPaths.DesignSystem}",
         };
         Add(parts, "no location", [.. grounded.Where(g => !g.Located).Select(g => g.Repo)]);
         Add(parts, "no file", [.. reached.SelectMany(Absent)]);
@@ -39,6 +42,7 @@ internal static class DialogGroundingReport
             yield return $"{grounding.Repo}/{ProjectMetaPaths.Contexts} ({grounding.Unreachable})";
         foreach (var entry in grounding.Contexts.Unreadable) yield return $"{grounding.Repo}/{entry}";
         foreach (var entry in grounding.Principles.Unreadable) yield return $"{grounding.Repo}/{entry}";
+        foreach (var entry in grounding.Design.Unreadable) yield return $"{grounding.Repo}/{entry}";
     }
 
     private static void Add(List<string> parts, string label, IReadOnlyList<string> items)

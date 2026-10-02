@@ -9,16 +9,11 @@ namespace AgentSmith.Sandbox.Agent.Services;
 /// <summary>
 /// Renders a nested-tree text view of a directory. Mirrors MCP filesystem-server
 /// directory_tree shape. Walks up to MaxDepth (default 4) levels and skips
-/// entries matching ExcludeGlobs (plus the standard noisy dirs).
+/// entries matching ExcludeGlobs (plus GrepScope's directory list and its rooted reference directory).
 /// </summary>
 internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler> logger)
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(2);
-    private static readonly string[] DefaultExclusions =
-    [
-        ".git", "node_modules", "bin", "obj", ".vs", ".idea", "dist", "build",
-        ".next", ".nuxt", "coverage", ".terraform", "vendor", "__pycache__"
-    ];
 
     public Task<StepResult> HandleAsync(
         Step step,
@@ -44,7 +39,9 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
             // 2026-08-27-3eb1: entries are counted DOWN so the recursion can stop; the
             // budget is the same 1000 list_files uses.
             var budget = SizeLimits.DirectoryTreeMaxEntries;
-            Render(path, depth: 1, maxDepth, excludeRegexes, prefix: "", sb, ref budget);
+            // 2026-10-01-283df: the repository's reference directory, unless the tree starts in it.
+            var skipped = GrepScope.SkipsReferences(path, GrepScope.RepoRootOf(step)) ? GrepScope.RepoRootOf(step) : null;
+            Render(path, depth: 1, maxDepth, excludeRegexes, skipped, prefix: "", sb, ref budget);
             if (budget <= 0)
                 sb.Append("… [truncated at ")
                   .Append(SizeLimits.DirectoryTreeMaxEntries)
@@ -59,7 +56,7 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
     }
 
     private static void Render(
-        string dir, int depth, int maxDepth, Regex[] excludes, string prefix,
+        string dir, int depth, int maxDepth, Regex[] excludes, string? referencesOf, string prefix,
         StringBuilder sb, ref int budget)
     {
         if (depth > maxDepth || budget <= 0) return;
@@ -68,6 +65,7 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
         catch { return; }
         var list = children
             .Where(c => !ShouldExclude(System.IO.Path.GetFileName(c), excludes))
+            .Where(c => referencesOf is null || !GrepScope.IsUnderReferences(c, referencesOf))
             .OrderBy(c => !Directory.Exists(c))
             .ThenBy(c => c, StringComparer.Ordinal)
             .ToList();
@@ -84,13 +82,13 @@ internal sealed class DirectoryTreeStepHandler(ILogger<DirectoryTreeStepHandler>
             if (isDir) sb.Append('/');
             sb.Append('\n');
             if (isDir)
-                Render(entry, depth + 1, maxDepth, excludes, prefix + (isLast ? "    " : "│   "), sb, ref budget);
+                Render(entry, depth + 1, maxDepth, excludes, referencesOf, prefix + (isLast ? "    " : "│   "), sb, ref budget);
         }
     }
 
     private static bool ShouldExclude(string name, Regex[] excludes)
     {
-        if (DefaultExclusions.Contains(name)) return true;
+        if (GrepScope.ExcludedDirs.Contains(name)) return true;
         foreach (var rx in excludes) if (rx.IsMatch(name)) return true;
         return false;
     }

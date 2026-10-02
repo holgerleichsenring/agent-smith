@@ -28,10 +28,12 @@ public static partial class CommandNames
         [CheckoutSource] = "Checking out source",
         [RunPreflight] = "Checking preconditions", // p0428
         [ProbeTarget] = "Asking the target", // 2026-09-01-379a
+        [MaterializeReferenceSets] = "Carrying the uploaded websites", // 2026-10-01-283df
         [BootstrapProject] = "Bootstrapping project context",
         [LoadCodeMap] = "Loading code map",
         [LoadCodingPrinciples] = "Loading coding principles",
         [LoadMemoryIndex] = "Loading memory index", // p0380
+        [LoadDesignSystem] = "Loading design system", // 2026-10-01-283dg
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
         [DeriveSpec] = "Deriving the phase specs",

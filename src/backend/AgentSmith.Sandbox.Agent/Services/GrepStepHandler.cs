@@ -64,7 +64,8 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         Stopwatch sw, CancellationToken ct)
     {
         var rgStep = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "rg", Args: RipgrepArguments.For(step, headLimit), TimeoutSeconds: step.TimeoutSeconds);
+            Command: "rg", Args: RipgrepArguments.For(step, headLimit), TimeoutSeconds: step.TimeoutSeconds,
+            WorkingDirectory: GrepScope.RepoRootOf(step)); // 2026-10-01-283df: the anchored glob's root
         var output = new List<string>();
         var outcome = await runner.RunAsync(rgStep,
             (kind, line) => { if (kind == StepEventKind.Stdout) output.Add(line); }, ct);
@@ -178,7 +179,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         var matchCount = 0;
         var before = step.ContextBefore ?? 0;
         var after = step.ContextAfter ?? 0;
-        foreach (var file in EnumerateFiles(step.Path!, step.Glob))
+        foreach (var file in EnumerateFiles(step))
         {
             if (matchCount >= headLimit) return (rows, true);
             try
@@ -213,7 +214,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
     private static (List<JsonObject> Rows, bool Truncated) ScanFilesWithMatches(Step step, Regex regex, int headLimit)
     {
         var rows = new List<JsonObject>();
-        foreach (var file in EnumerateFiles(step.Path!, step.Glob))
+        foreach (var file in EnumerateFiles(step))
         {
             if (rows.Count >= headLimit) return (rows, true);
             try
@@ -240,7 +241,7 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
     private static (List<JsonObject> Rows, bool Truncated) ScanCounts(Step step, Regex regex, int headLimit)
     {
         var rows = new List<JsonObject>();
-        foreach (var file in EnumerateFiles(step.Path!, step.Glob))
+        foreach (var file in EnumerateFiles(step))
         {
             if (rows.Count >= headLimit) return (rows, true);
             try
@@ -270,6 +271,12 @@ internal sealed class GrepStepHandler(IProcessRunner runner, ILogger<GrepStepHan
         string.Equals(root, file, StringComparison.OrdinalIgnoreCase)
             ? System.IO.Path.GetFileName(file)
             : System.IO.Path.GetRelativePath(root, file);
+
+    // 2026-10-01-283df: and the repository's reference directory, unless the search starts in it.
+    private static IEnumerable<string> EnumerateFiles(Step step) =>
+        GrepScope.SkipsReferences(step.Path!, GrepScope.RepoRootOf(step))
+            ? EnumerateFiles(step.Path!, step.Glob).Where(f => !GrepScope.IsUnderReferences(f, GrepScope.RepoRootOf(step)))
+            : EnumerateFiles(step.Path!, step.Glob);
 
     private static IEnumerable<string> EnumerateFiles(string root, string? glob)
     {

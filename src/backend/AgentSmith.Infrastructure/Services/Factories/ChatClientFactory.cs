@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
@@ -31,6 +32,7 @@ public sealed class ChatClientFactory(
     Contracts.Turns.ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee
     CompactionSummaryRequest summaryRequest,
     WindowDerivedCompaction windowCompaction,
+    ToolImages.IToolImageRelay toolImages, // 2026-10-01-283dd
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -191,10 +193,11 @@ public sealed class ChatClientFactory(
         if (masterLoopHooks is not null)
             loopInner = new MasterLoopGovernorChatClient(loopInner, masterLoopHooks);
 
-        var iterations = maxIterations ?? MaxIterationsPerRequest;
-        return new ChatClientBuilder(loopInner)
-            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
-            .Build();
+        // 2026-10-01-283dd: the tool loop also places a tool's deposited image after the tool
+        // result, once; the builder says whether its transport delivers it, the agent whether it sees.
+        var delivery = ToolImageDelivery.For(builder.AcceptsImageAfterToolResult, agent.SupportsVision);
+        return new ToolImages.ToolImageFunctionInvokingChatClient(loopInner, toolImages, delivery)
+            { MaximumIterationsPerRequest = maxIterations ?? MaxIterationsPerRequest };
     }
 
     // p0341d: the compactor's summarizer — a cheap, non-tool Summarization-task client

@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Commands;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
@@ -16,8 +18,11 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class RunFootprintCalculator(
     ISandboxLanguageResolver languageResolver,
     ISandboxResourceResolver resourceResolver,
-    ILogger<RunFootprintCalculator> logger) : IRunFootprintCalculator
+    ILogger<RunFootprintCalculator> logger,
+    IOptions<SandboxGlobalConfig> sandbox) : IRunFootprintCalculator
 {
+    internal const string BrowserPodName = "browser";
+
     public async Task<RunFootprintBreakdown> CalculateAsync(
         ResolvedProject project, string? pipelineName, CancellationToken ct)
     {
@@ -28,6 +33,7 @@ public sealed class RunFootprintCalculator(
             foreach (var group in discoveries.GroupBy(ImageOf, StringComparer.Ordinal))
                 pods.Add(PodForGroup(project, pipelineName, repo.Name ?? "?", group.ToList()));
         }
+        if (BrowserPod(project, pipelineName) is { } browser) pods.Add(browser);
 
         return Totalize(pods, project);
     }
@@ -42,6 +48,14 @@ public sealed class RunFootprintCalculator(
             repoName, group.Select(d => d.ContextName).ToList(),
             ImageOf(group[0]), limits.CpuLimit, limits.MemoryLimit);
     }
+
+    // 2026-10-01-283df: a project whose runs may render gets the browser pod reserved at the browser
+    // profile — only for a pipeline whose master writes code, the one surface render_reference joins.
+    private RunFootprintPod? BrowserPod(ResolvedProject project, string? pipeline) =>
+        project.Sandbox?.Browser?.Enabled == true && (pipeline is null || PipelinePresets.ExpectsCodeChanges(pipeline))
+            ? new RunFootprintPod(BrowserPodName, [], BrowserPodName,
+                sandbox.Value.Browser.Resources.CpuLimit, sandbox.Value.Browser.Resources.MemoryLimit)
+            : null;
 
     private static string ImageOf(RemoteContextDiscovery discovery) =>
         discovery.ToolchainImage ?? discovery.Language ?? "default";

@@ -75,6 +75,7 @@ public static partial class CommandStepClasses
         [CommandNames.BootstrapGate] = Gate,       // speaks when a repo lacks its bootstrap files
         [CommandNames.RunPreflight] = Gate,        // p0428: speaks when a precondition does not hold
         [CommandNames.ProbeTarget] = Gate,         // 379a: silent only when the target answered
+        [CommandNames.MaterializeReferenceSets] = Gate, // 283df: speaks when it carried a website
 
         // --- Internals: sub-second mechanics, collapsed by default. ---
         [CommandNames.SetupRegistryAuth] = Internal,
@@ -82,6 +83,7 @@ public static partial class CommandStepClasses
         [CommandNames.LoadCodeMap] = Internal,           // retired loader
         [CommandNames.LoadCodingPrinciples] = Internal,
         [CommandNames.LoadMemoryIndex] = Internal,
+        [CommandNames.LoadDesignSystem] = Internal,
         [CommandNames.LoadContext] = Internal,
         [CommandNames.LoadSkills] = Internal,
         [CommandNames.LoadCachedCodeMap] = Internal,

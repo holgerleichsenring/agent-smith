@@ -169,5 +169,5 @@ public sealed class ConfigDraftRulesTests
 
     private static ConfigCatalog CatalogWith(TrackerEntity tracker) =>
         new(Agents: [], Trackers: [tracker], Repos: [], Projects: [],
-            McpServers: [], Secrets: [], Connections: []);
+            McpServers: [], Secrets: [], Connections: [], DesignSources: []);
 }

@@ -6,6 +6,7 @@ using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Adapters;
 using AgentSmith.Server.Services.Handlers;
+using AgentSmith.Server.Services.References;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -42,6 +43,7 @@ internal static class IntentExtensions
         // spec-dialog filers and by the chat-filed ticket below, so it registers here.
         services.AddTransient<TicketKindResolver>();
         services.AddSpecDialogServices();
+        services.AddReferenceUploads(); // 2026-10-01-283db
         services.AddChatRunLaunch();
         services.AddScoped<FixTicketIntentHandler>();
         services.AddScoped<ListTicketsIntentHandler>();

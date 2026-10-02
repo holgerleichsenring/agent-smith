@@ -15,6 +15,13 @@ public interface IChatClientBuilder
     IReadOnlyList<string> SupportedTypes { get; }
 
     /// <summary>
+    /// 2026-10-01-283dd: whether the built client delivers an image placed in a user message
+    /// right after a tool result. A transport fact, not the agent's vision flag: vision says
+    /// the model can see, this says the picture arrives.
+    /// </summary>
+    bool AcceptsImageAfterToolResult { get; }
+
+    /// <summary>
     /// Builds the bare IChatClient for the given agent + task assignment.
     /// FunctionInvokingChatClient wrapping is the factory's responsibility.
     /// </summary>

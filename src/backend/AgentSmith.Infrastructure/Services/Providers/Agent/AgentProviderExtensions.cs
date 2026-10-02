@@ -47,6 +47,14 @@ public static class AgentProviderExtensions
         services.TryAddSingleton<Contracts.Runs.IRunTraceWriter, Contracts.Runs.NullRunTraceWriter>();
         services.AddSingleton<CompactionSummaryRequest>();
         services.AddSingleton<WindowDerivedCompaction>();
+        // 2026-10-01-283dd: the one path by which a tool's image reaches the model — the
+        // deposit tools call and the relay the factory's tool loop runs, over one ambient frame.
+        services.AddSingleton<ToolImages.ToolImageLoopFrames>();
+        services.AddSingleton<ToolImages.ImageDimensionReader>();
+        services.AddSingleton<ToolImages.ToolImageRule>();
+        services.AddSingleton<ToolImages.ToolImageMessageComposer>();
+        services.AddSingleton<Contracts.Providers.IToolImageDeposit, ToolImages.AsyncLocalToolImageDeposit>();
+        services.AddSingleton<ToolImages.IToolImageRelay, ToolImages.ToolImageRelay>();
         services.AddSingleton<IChatClientFactory, ChatClientFactory>();
         services.AddSingleton<LoopLimitsConfig>(_ => new LoopLimitsConfig());
         return services;

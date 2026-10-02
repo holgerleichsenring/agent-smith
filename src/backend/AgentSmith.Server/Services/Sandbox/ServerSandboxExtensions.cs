@@ -35,12 +35,7 @@ internal static class ServerSandboxExtensions
 
     internal static IServiceCollection AddSandboxGlobalConfig(this IServiceCollection services)
     {
-        services.AddSingleton<IOptions<SandboxGlobalConfig>>(sp =>
-        {
-            var loader = sp.GetRequiredService<IConfigurationLoader>();
-            var context = sp.GetRequiredService<ServerContext>();
-            return Options.Create(loader.LoadConfig(context.ConfigPath).Sandbox);
-        });
+        services.AddSingleton<IOptions<SandboxGlobalConfig>, LoadedSandboxGlobalConfig>(); // read on first use, 283df
         return services;
     }
 
@@ -72,6 +67,8 @@ internal static class ServerSandboxExtensions
             case SandboxBackend.InProcess: AddInProcess(services); break;
         }
         services.AddSingleton(new SandboxBackendInfo(backend));
+        // 2026-10-01-283de: the in-process backend runs no image, so it has no browser runtime.
+        services.AddSingleton(new SandboxContainerRuntime(backend != SandboxBackend.InProcess));
         return services;
     }
 

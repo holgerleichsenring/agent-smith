@@ -53,6 +53,10 @@ public static partial class CommandNames
     /// index) into the pipeline context at plan time. Absent store = empty
     /// section, never an error.</summary>
     public const string LoadMemoryIndex = "LoadMemoryIndexCommand";
+
+    /// <summary>2026-10-01-283dg: reads the root DESIGN.md of every repository in the run
+    /// from its sandbox, so the coding master sees the design system's tokens.</summary>
+    public const string LoadDesignSystem = "LoadDesignSystemCommand";
     public const string LoadContext = "LoadContextCommand";
     public const string LoadSkills = "LoadSkillsCommand";
     public const string AnalyzeCode = "AnalyzeCodeCommand";

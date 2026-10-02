@@ -51,6 +51,8 @@ Approval files exactly one ticket into the project's tracker, on all four tracke
 3. **The routing tag.** When the project resolves tickets by tag, that tag is added so the poller routes the ticket to this project. An empty value, or one the tracker's label syntax can't carry, is reported instead of sent.
 4. **The start.** If routing would claim the ticket, it's moved into the project's first trigger status, which starts the run. On the dashboard that move needs the `runs.control` permission. An approval from Slack or Teams never moves a ticket. Either way, a ticket created in a status that already triggers starts on its own. When the ticket isn't started, the filing says why and what would start it.
 
+The ticket reads like one a person would write: the goal first, then **Why**, **What changes**, **Acceptance criteria**, **Out of scope** and **Preconditions**, with no steps. [Writing a ticket](../trigger-it/writing-a-ticket.md) gives the same shape as a template for tickets you write yourself.
+
 A bug is filed the same way without labels and without an approved set: the ticket, the routing tag, the start. It runs the `code` pipeline from its own text.
 
 A run on a filed phase or epic works the approved set as it stands. It doesn't derive a spec of its own. If there's no set on the branch and no stored record, the ticket is parked, and the park names the path it looked at. A person can still type the `phase` label onto a ticket to route it the same way.

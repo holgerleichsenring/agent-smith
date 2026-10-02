@@ -5,6 +5,7 @@ import type { ConfigEntityKind, StudioEntity } from "@/lib/configApi";
 import type {
   StudioAgent,
   StudioConnection,
+  StudioDesignSource,
   StudioMcpServer,
   StudioProject,
   StudioRepo,
@@ -148,6 +149,8 @@ function typeBadge(kind: ConfigEntityKind, entity: StudioEntity): string {
       return ENTITY_BADGE.projects; // unreachable: a project card renders no badge (b706)
     case "mcp-servers":
       return (entity as StudioMcpServer).transport || ENTITY_BADGE["mcp-servers"];
+    case "design-sources":
+      return (entity as StudioDesignSource).vendor || ENTITY_BADGE["design-sources"];
     case "secrets":
       return "env-name";
   }
@@ -185,6 +188,10 @@ function SubLine({
       const m = entity as StudioMcpServer;
       return <div className="ec-sub">{m.url || "—"}</div>;
     }
+    case "design-sources": {
+      const d = entity as StudioDesignSource;
+      return <div className="ec-sub">{d.displayName || "—"}</div>;
+    }
     case "secrets": {
       const s = entity as StudioSecret;
       const used = secretUsers(catalog, s.id);
@@ -206,6 +213,7 @@ function secretUsers(catalog: ConfigCatalog, id: string): string[] {
   for (const t of catalog.trackers) if (t.authSecret === id) used.push(t.id);
   for (const c of catalog.connections) if (c.authSecret === id) used.push(c.id);
   for (const m of catalog["mcp-servers"]) if (m.authSecret === id) used.push(m.id);
+  for (const d of catalog["design-sources"]) if (d.authSecret === id) used.push(d.id);
   return used;
 }
 
@@ -320,6 +328,28 @@ function CardBody({
               style={!resolves(catalog, "secrets", m.authSecret) ? { color: "var(--bad)" } : undefined}
             >
               {m.authSecret || "—"}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    case "design-sources": {
+      // 2026-10-01-7f7aa: the secret's NAME — the token is never sent to this client.
+      const d = entity as StudioDesignSource;
+      return (
+        <div className="fields">
+          <FieldBlock label="Vendor">{d.vendor || "—"}</FieldBlock>
+          <div
+            className="f"
+            data-testid={`config-card-design-source-auth-${d.id}`}
+            data-resolved={resolves(catalog, "secrets", d.authSecret) ? "true" : "false"}
+          >
+            <span className="fl">Auth</span>
+            <span
+              className="fv"
+              style={!resolves(catalog, "secrets", d.authSecret) ? { color: "var(--bad)" } : undefined}
+            >
+              {d.authSecret || "—"}
             </span>
           </div>
         </div>

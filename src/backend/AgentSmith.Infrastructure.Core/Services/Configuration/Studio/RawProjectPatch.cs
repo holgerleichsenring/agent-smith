@@ -30,6 +30,7 @@ public static class RawProjectPatch
         if (entity.Resolution is { } resolution)
             project.Resolution = new Dictionary<string, string> { [resolution.Strategy] = resolution.Value };
         if (entity.Sandbox is { } sandbox) ApplySandbox(sandbox, project);
+        if (entity.DesignSources is { } designSources) project.DesignSources = [.. designSources]; // 2026-10-01-7f7aa
         ApplyPipelines(entity, project, existing);
         return project;
     }
@@ -53,6 +54,7 @@ public static class RawProjectPatch
         block.AgentRegistry = sandbox.AgentRegistry;
         block.AgentVersion = sandbox.AgentVersion;
         block.HoldSeconds = sandbox.HoldSeconds;
+        block.Browser = sandbox.BrowserEnabled == true ? new ProjectBrowserConfig { Enabled = true } : null; // 283df
         if (sandbox.Structured is { } structured) ApplyStructured(structured, block);
     }
 

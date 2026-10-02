@@ -21,7 +21,8 @@ internal static class ConfigCatalogMapper
             Projects: raw.Projects.Select(kv => ProjectEntityMapping.ToProject(kv.Key, kv.Value)).ToList(),
             McpServers: raw.McpServers.Select(kv => ToMcpServer(kv.Key, kv.Value)).ToList(),
             Secrets: raw.Secrets.Keys.Select(k => new SecretEntity(k)).ToList(),
-            Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList());
+            Connections: raw.Connections.Select(kv => ToConnection(kv.Key, kv.Value)).ToList(),
+            DesignSources: raw.DesignSources.Select(kv => DesignSourceEntityMapping.ToEntity(kv.Key, kv.Value)).ToList());
 
     // p0345c: the FULL raw agent surface. 2026-09-30-62bab: models surface in catalog form —
     // AgentCatalogProjection turns inline roles and the agent's own model into entries — and

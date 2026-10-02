@@ -28,6 +28,7 @@ Pipeline: code
 ├── PhaseSpecGate
 ├── EnsurePrerequisites
 ├── ProbeTarget
+├── MaterializeReferenceSets
 ├── PhaseSequence
 ├── WriteRunResult
 ├── CommitAndPR
