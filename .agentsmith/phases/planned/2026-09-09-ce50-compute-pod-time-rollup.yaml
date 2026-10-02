@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-ce50
+goal: "Pod time is answerable per ticket: how long every sandbox of every attempt lived, why each one ended, and what a slow answer actually costs once the sandboxes are gone."
+
+applies_to: "backend (sandbox lifecycle projection, run and ticket read models) — the compute half of the ticket view"
+
+requires:
+  - 2026-09-09-fd21
+
+scope:
+  in: "An end reason on RunSandbox taken from the event that closed it — disposed, vanished, cancelled, run ended — because SpawnedAt and DisposedAt exist since p0332 but say nothing about why. A per-run compute summary over the sandbox rows: pod count, pod-minutes, memory-minutes from MemoryRequest, and the wall-time split. A ticket rollup of the same across attempts. The cost of a park measured as what it actually is: the wall-clock gap, and the re-provisioning and re-reading the resume pays afterwards."
+  out: "A fleet-wide capacity total — there is no total-capacity API and inventing one from one ticket's rows would be a fiction; it belongs to a capacity page and is named here, not silently dropped. Changing provisioning, reaping or sizing. Closing the Kubernetes liveness gap the sandbox agent's idle exit leaves open — this phase makes an idle-kill visible, it does not prevent one."
+
+decisions:
+  - key: |
+      "HELD FOR A PERSON" WAS FALSIFIED BY THE CODE AND IS NOT BUILT. The design called for pods
+      alive multiplied by parked time, and it would read zero: a parking run tears its sandboxes
+      down while the executor unwinds, before RunFinished(waiting_for_input) — DialogueResumeSweeper
+      names that gap explicitly. Sandboxes are cattle and a parked run holds none. Shipping the
+      figure would have put a confident zero, or worse a modelled number, on the most prominent
+      tile of the page.
+  - key: |
+      WHAT A SLOW ANSWER ACTUALLY COSTS IS MEASURED INSTEAD. The gap is real, it is just not pod
+      time: the wall-clock delay before anyone answers, and then the price of coming back —
+      fresh sandboxes provisioned, sources checked out, context re-read. Those are recordable
+      from the resumed run's own first steps, and unlike held pods they are a number an operator
+      can act on by answering sooner.
+  - key: |
+      THE END REASON IS THE FINDING. An idle-killed pod and a cleanly disposed one both have a
+      DisposedAt, so today the sandbox agent's idle exit (JobLoop's p0257 counter, backstopped
+      by the p0360b liveness probe) is visible only as a later step failing on a dead pod. That
+      is how it stayed hidden. The closing event already distinguishes them; the projection has
+      to keep which one it was.
+  - key: |
+      NO ESTIMATE WHERE A ROW IS NULL. Pre-p0332 sandboxes have no lifetime and pre-phase rows no
+      end reason; those attempts report unknown rather than an interpolation. A compute figure
+      that is quietly modelled is worse than one that is missing.
+
+steps:
+  - id: the-end-reason
+    action: "RunSandbox gains EndReason, written by the projection from the closing event; migrations in both migration assemblies; null stays null for old rows."
+  - id: per-run-compute
+    action: "A compute summary over the run's sandbox rows: pods, pod-minutes, memory-minutes and the wall-time split."
+  - id: the-price-of-a-park
+    action: "For a run that parked and resumed: the answer gap, and the re-provisioning and re-reading its resume paid, from the resumed run's own first steps."
+  - id: the-ticket-rollup
+    action: "Ticket detail carries the per-attempt compute rows and the ticket totals; a repository's pod facts are reachable per attempt."
+
+tests:
+  - "Sandbox_ADisposedPod_RecordsTheDisposeReason"
+  - "Sandbox_AVanishedPod_RecordsThatItVanished"
+  - "Sandbox_APreP0332Row_ReportsUnknownNotZero"
+  - "Compute_PodMinutes_SumOverTheRunsSandboxes"
+  - "Compute_MemoryMinutes_UseTheDeclaredRequest"
+  - "Compute_AParkedRun_HoldsNoPodsWhileItWaits"
+  - "Compute_AResumedRun_ReportsTheAnswerGapAndTheRestartItPaid"
+  - "TicketCompute_FourAttempts_SumTheirPodTime"
+
+done:
+  - "every sandbox row records why it ended, and an idle-kill is readable as one"
+  - "a ticket answers pod time and memory-minutes across all its attempts"
+  - "the cost of a slow answer is reported as the gap plus the restart, never as held pods"
+  - "rows that predate the fields report unknown and are never interpolated"
+  - "build green, full suite green"

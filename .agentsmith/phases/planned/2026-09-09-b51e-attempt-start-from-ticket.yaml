@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-b51e
+goal: "An operator starts the next attempt from the ticket, choosing what it starts from and writing why, instead of flipping a tracker status and hoping the poller makes the run they meant."
+
+applies_to: "backend (server endpoints, run launcher, seeding) — the one thing the ticket view can do rather than only show"
+
+requires:
+  - 2026-09-09-fd21
+  - 2026-09-09-debf
+
+scope:
+  in: "POST that starts a new attempt for a ticket, taking a seed choice and a mandatory reason. Three seed choices, each already expressible: carry the previous attempt's ledger (what PriorRunLedgerSeeder does today), keep the specification but drop the plan, or start as if the ticket had never been seen. The reason and the seed choice are recorded as this attempt's cause and lineage. Refusals with the launcher's own outcomes: a live attempt on this ticket, no budget, unknown project. The reason written to the ticket as a comment. Three guards the tracker-driven path already has or needs: clearing the hand-back state, consuming a pending failure checkpoint, and admitting the run to the capacity queue without a trigger status."
+  out: "Continuing an existing run at its cursor — that is p0382 and stays a separate, cheaper path; if it ships, its control sits beside this one and this phase does not implement it. A generic start-any-pipeline endpoint: p0489 declined one and the reason still holds, so this takes no pipeline parameter and starts the pipeline the ticket's project is configured for. Editing expectations before starting; the button belongs to the acceptance surface and is a named follow-up. Cancelling, which RunControlEndpoints already does."
+
+decisions:
+  - key: |
+      THE REFUSAL FROM p0489 IS NARROWED, NOT REVERSED. What was declined is a generic launcher
+      with a pipeline parameter and no tested path per preset. This endpoint has one subject, a
+      ticket that already has runs, and therefore one pipeline: the one its project is configured
+      for and has demonstrably run before. The untested-launch-path argument does not apply to a
+      preset this ticket has already executed.
+  - key: |
+      RETRY TODAY IS A TRACKER SIDE EFFECT. NotImplementableRetryService moves the ticket back to a
+      trigger status and lets the poller create a fresh, unlinked run. The operator cannot say what
+      it will start from, cannot give a reason, and gets no run id back. The old path stays for the
+      tracker-driven flow; this one is the deliberate path and returns the run id it created.
+  - key: |
+      THE REASON IS MANDATORY. An attempt that exists for no recorded reason is the thing this whole
+      surface was built to stop. The reason goes to three places that are read by different people:
+      the attempt, the ticket, and, where one exists, the pull request.
+  - key: |
+      IT DOES WHAT THE TRACKER RETRY DOES, OR IT BREAKS. NotImplementableRetryService does not only
+      flip a status: it clears LastHandbackCase and RepeatedHandbackCount on the spec pointer. An
+      attempt started without that clearing walks straight into the repeat guard of 2026-09-07-bd7a,
+      which ends the run as a failure. The endpoint performs the same clearing, from the same place.
+  - key: |
+      p0382 OWNS ONE CONTINUATION AT A TIME, AND THIS OBEYS IT. That phase marks a pending failure
+      checkpoint consumed when a fresh trigger arrives, so exactly one continuation exists. A new
+      attempt started here is such a fresh start and consumes the pending checkpoint the same way;
+      otherwise a resume and a new attempt could both claim the same failed run.
+  - key: |
+      ADMISSION IS NAMED, NOT ASSUMED. The capacity queue keys on (Project, TicketId) and re-checks
+      the ticket's native tracker status on each tick, so a run started without a trigger status
+      could be dequeued by the admission check. The endpoint launches through the manual path p0489
+      already built for an operator-started run, and the phase states which admission rule applies
+      to it — a run nobody's poller will re-admit must not be left to a heartbeat reaper.
+  - key: |
+      SEED CHOICE IS EXPLICIT, NOT INFERRED FROM AGE. The seeder's 72h cap is a safety default for
+      an automatic path; an operator saying "carry the plan" should be obeyed or refused with a
+      reason, never silently downgraded to a fresh start. Where the cap would bite, the endpoint
+      answers with what it would do instead and the caller decides.
+
+steps:
+  - id: the-endpoint
+    action: "POST /api/tickets/{project}/{key}/attempts taking seed choice and reason, behind its own tickets.start permission because it causes spend; launched through the manual launcher p0489 built; answers the run id, or 409 with the live run id, 503 with the budget reason, 400 for an unknown project."
+  - id: the-three-guards
+    action: "Clear the hand-back state as the retry service does, consume any pending failure checkpoint for this ticket, and admit the run on the manual path so the queue's tracker-status re-check cannot dequeue it."
+  - id: seeding-obeys-the-choice
+    action: "The seed choice is passed into the launch path: carry the prior ledger, carry only the specification, or seed nothing; the resolved choice and its reason are recorded as the attempt's lineage and cause."
+  - id: the-reason-is-published
+    action: "The reason is written as a ticket comment, and onto the open pull request when the ticket has one."
+  - id: refusals-that-explain
+    action: "Where the seed choice cannot be honoured — no prior run, prior ledger too old — the answer names what it would do instead rather than doing it."
+
+tests:
+  - "Start_CarryThePlan_SeedsFromTheLastAttemptAndRecordsIt"
+  - "Start_KeepTheSpecOnly_SeedsNoLedger"
+  - "Start_Fresh_SeedsNothing"
+  - "Start_NoReason_Is400"
+  - "Start_ALiveAttemptOnThisTicket_Is409WithItsRunId"
+  - "Start_NoBudget_Is503WithTheBudgetReason"
+  - "Start_UnknownProject_Is400"
+  - "Start_CarryThePlanButThePriorIsTooOld_RefusesAndNamesTheAlternative"
+  - "Start_TheReason_ReachesTheTicketAndThePullRequest"
+  - "Start_TheCreatedRun_CarriesCauseOperatorAndTheReason"
+  - "Start_ATicketWithARepeatedHandback_ClearsItBeforeLaunching"
+  - "Start_APendingFailureCheckpoint_IsConsumed"
+  - "Start_ATicketNotInATriggerStatus_IsStillAdmitted"
+
+done:
+  - "an operator starts an attempt from a ticket with a seed choice and a reason, and gets the run id"
+  - "the reason is on the attempt, the ticket and the open pull request"
+  - "a seed choice that cannot be honoured is refused with the alternative named, never silently downgraded"
+  - "the tracker-driven retry path is unchanged"
+  - "an operator-started attempt clears the hand-back state, consumes a pending checkpoint, and survives admission"
+  - "build green, full suite green"

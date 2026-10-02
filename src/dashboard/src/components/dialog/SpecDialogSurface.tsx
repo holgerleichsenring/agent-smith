@@ -424,6 +424,7 @@ export function SpecDialogSurface() {
             <DialogPane
               session={session}
               projects={settled ? projects.filter((held) => held.name === project) : offered}
+              starting={session ? null : pickedTicket}
               proposal={dialog.proposal}
               filed={dialog.filed}
               work={work}

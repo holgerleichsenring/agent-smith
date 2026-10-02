@@ -218,6 +218,31 @@ public sealed class TicketSearchTests
         handler.LastRequest!.RequestUri!.Query.Should().Contain("search=widget").And.NotContain("iids");
     }
 
+
+    [Fact]
+    public async Task TicketNumberPrefix_DoesNotFilterByState_AsTheExactLookupNeverDid()
+    {
+        // The live case: an operator typed "194" looking for 19400, a ticket whose work was
+        // finished. Typing the WHOLE number found it — the by-id fetch reads any state — while the
+        // prefix did not, because it inherited the text search's open-state scope. The same ticket
+        // was findable one way and not the other.
+        var handler = new RecordingHandler("[]");
+        await GitLab(handler).SearchAsync("194", 10, default);
+
+        handler.LastRequest!.RequestUri!.Query.Should().Contain("iids[]=19400")
+            .And.NotContain("state=opened");
+    }
+
+    [Fact]
+    public async Task TicketSearch_TheTextQuery_IsStillOpenOnly()
+    {
+        // A closed TEXT match is a board's history, which is what a picker must not become.
+        var handler = new RecordingHandler("[]");
+        await GitLab(handler).SearchAsync("widget", 10, default);
+
+        handler.LastRequest!.RequestUri!.Query.Should().Contain("state=opened");
+    }
+
     private static JiraTicketSearch Jira(RecordingHandler handler, string? projectKey) =>
         new(new JiraTicketConnection("https://jira.example.com", "a@b.c", "token", projectKey),
             new HttpClient(handler), new JiraFieldMapper(), NullLogger.Instance);

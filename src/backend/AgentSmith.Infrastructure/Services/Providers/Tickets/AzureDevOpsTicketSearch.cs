@@ -51,11 +51,16 @@ public sealed class AzureDevOpsTicketSearch : ITicketSearch
             // one above it would compete for the same cap under an ordering by last change — so a
             // wanted row could be missing while the query worked, and a real title match could be
             // evicted by prefix noise.
+            // It is NOT state-filtered, and the exact lookup beside it never was either: typing a
+            // number is a targeted act about a ticket somebody already has in mind, and a finished
+            // one is exactly what "is this really done?" is asked about. Filtering the prefix while
+            // not filtering the whole number made the same ticket findable one way and not the
+            // other. The TEXT search stays open-only — there a closed match is a board's history.
             if (TicketNumberPrefix.Of(text) is { } prefix)
             {
                 var numbered = await _runner.RunAsync(
-                    $"{scope} AND {AzureDevOpsIdPrefixClause.For(prefix)}", limit + 1,
-                    cancellationToken, orderBy: "[System.Id] ASC");
+                    $"{AzureDevOpsOpenScope.Project(_project)} AND {AzureDevOpsIdPrefixClause.For(prefix)}",
+                    limit + 1, cancellationToken, orderBy: "[System.Id] ASC");
                 tickets = [.. tickets, .. numbered.Where(n => tickets.All(t => t.Id.Value != n.Id.Value))];
             }
 

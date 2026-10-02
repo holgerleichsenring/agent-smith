@@ -34,10 +34,12 @@ public sealed class GitLabTicketSearch(
             + $"&state=opened&order_by=updated_at&sort=desc&per_page={limit + 1}";
         // 2026-09-28-1da5a: a typed NUMBER also names iids. GitLab has no prefix filter, but it
         // takes an enumerated list — the same mechanism Azure DevOps expresses as ranges — so the
-        // prefix is asked for separately and merged, its own query rather than a widened one.
+        // prefix is asked for separately and merged, its own query rather than a widened one. It
+        // carries no state filter: the exact lookup beside it never had one, and a number typed on
+        // purpose is about a ticket somebody already has in mind, finished or not.
         var byNumber = TicketNumberPrefix.Of(text) is { } prefix
             ? $"{connection.BaseUrl.TrimEnd('/')}/api/v4/projects/{connection.ProjectPath}/issues"
-                + $"?state=opened&per_page={limit + 1}&"
+                + $"?per_page={limit + 1}&"
                 + string.Join("&", TicketNumberPrefix.Ids(prefix).Select(id => $"iids[]={id}"))
             : null;
         try

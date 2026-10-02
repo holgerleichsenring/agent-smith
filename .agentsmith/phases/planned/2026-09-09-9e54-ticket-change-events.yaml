@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-9e54
+goal: "What happened to a ticket between two attempts is recorded as events, so the operator can see why the next attempt exists and whether a failed one is worth repeating."
+
+applies_to: "backend (tracker read path, question answering, persistence, ticket read model) — the between-the-attempts half of the ticket view"
+
+requires:
+  - 2026-09-09-fd21
+
+scope:
+  in: "A ticket-keyed event row: what changed, when, by whom where the tracker says so, and a short rendering of the change. Sources in this phase: the ticket revision stamp read at run start (so a later read can say the description changed), an operator answering a pending question, and a run reaching a terminal status. A ticket revision stamp on the run so unchanged-since is decidable. The events on the ticket detail payload, ordered with the attempts."
+  out: "Pull-request review comments as events — that needs the review integration in 2026-09-09-5cb7 and is added there. Configuration changes as events — the config studio already has its own audit trail (p0345) and duplicating it here would create two histories of one fact; the ticket payload links to it instead. Polling trackers more often than the poller already does. Backfilling events for past tickets."
+
+decisions:
+  - key: |
+      THE REVISION STAMP IS THE LOAD-BEARING PART. "Three attempts failed and nothing has changed
+      since" is the difference between a retry worth paying for and one that cannot end differently.
+      That sentence needs one comparable value per attempt, captured when the ticket was read.
+      Trackers expose one — Azure DevOps System.Rev, Jira updated, GitHub updated_at — so the run
+      stores whatever its provider gave and the comparison is per provider, never across.
+  - key: |
+      AN EVENT IS RECORDED WHERE IT IS OBSERVED, NOT INVENTED ON READ. A change is written when the
+      system sees it: at a ticket read, at an answer, at a run's end. Nothing is reconstructed by
+      diffing rows on query, because a reconstruction would silently change as rows are deleted.
+  - key: |
+      NO EVENT FOR WHAT ANOTHER SYSTEM ALREADY OWNS. Config edits are versioned in the config
+      entity's own version table (p0349 replaced the dead audit skeleton with it); the ticket page
+      links there. A copy here would be a second history that disagrees the first time one is
+      reverted.
+  - key: |
+      THE STAMP IS A DOMAIN CHANGE, NOT A ONE-LINE READ. The ticket domain model carries no
+      revision field today, so the stamp means adding one and filling it in every tracker adapter,
+      each from its own concept — a work-item revision, an updated timestamp. An adapter that
+      cannot answer records nothing and the ticket reports unknown-changed, never unchanged.
+
+steps:
+  - id: the-domain-carries-a-revision
+    action: "The ticket domain model gains a provider revision; every tracker adapter fills it from its own concept or leaves it null; the run records what it was handed at fetch."
+  - id: the-stamp-is-readable
+    action: "The reader exposes the stamp per attempt and computes unchanged-since only when both attempts have one from the same provider."
+  - id: the-event-row
+    action: "A TicketEvent entity keyed by (Project, ticket key): kind, occurred-at, actor when known, a rendered line, and the run id it relates to when there is one. Migration per provider."
+  - id: the-writers
+    action: "Three writers: ticket read (revision changed since the last attempt), answer accepted (the question and the answer), run terminal (outcome). Each writes exactly once and is idempotent on replay, because the event stream is drained more than once."
+  - id: on-the-payload
+    action: "Ticket detail carries the events, interleaved with attempts by timestamp; the unchanged-since verdict is computed from the stamps and named in the payload rather than in the UI."
+
+tests:
+  - "Stamp_ARunReadingATicket_RecordsTheProviderRevision"
+  - "Stamp_TwoAttemptsSameRevision_IsUnchangedSince"
+  - "Stamp_DifferentProviders_AreNeverCompared"
+  - "Stamp_AnAdapterThatCannotAnswer_ReportsUnknownNotUnchanged"
+  - "Event_AnAnsweredQuestion_IsOneEvent"
+  - "Event_ARedeliveredStreamEvent_DoesNotDuplicateTheRow"
+  - "Event_ATerminalRun_IsOneEventWithItsOutcome"
+  - "TicketDetail_EventsAndAttempts_AreOrderedByTime"
+  - "TicketDetail_ConfigChanges_AreALinkNotACopy"
+
+done:
+  - "a ticket page can say what changed between two attempts, from recorded events"
+  - "unchanged-since is computed from a stored revision, not guessed"
+  - "a replayed event stream does not duplicate ticket events"
+  - "build green, full suite green"

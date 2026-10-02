@@ -18,6 +18,11 @@ internal static class AzureDevOpsOpenScope
     public static IReadOnlyList<string> States(IReadOnlyList<string>? configured) =>
         configured is { Count: > 0 } ? configured : Default;
 
+    /// <summary>2026-09-28-1da5a: the team project alone. A number-prefix search is scoped but not
+    /// state-filtered — see the search's own decision.</summary>
+    public static string Project(string project) =>
+        $"[System.TeamProject] = '{Escaped(project)}'";
+
     public static string Where(string project, IReadOnlyList<string>? configured) =>
         $"[System.TeamProject] = '{Escaped(project)}' "
         + $"AND [System.State] IN ({string.Join(", ", States(configured).Select(s => $"'{Escaped(s)}'"))})";

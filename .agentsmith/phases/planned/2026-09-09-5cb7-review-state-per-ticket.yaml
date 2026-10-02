@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-5cb7
+goal: "A ticket knows what its pull requests are waiting for: open, changes requested, approved or merged, and how long it has sat there, so waiting-on-review is a state and not a guess."
+
+applies_to: "backend (git provider adapters, run repo projection, ticket read model) — the human half of the ticket lifecycle"
+
+requires:
+  - 2026-09-09-fd21
+
+scope:
+  in: "Review state on the pull requests a run opened: review decision, last review activity, reviewer count, and merged state, refreshed for tickets whose PRs are still open. Provider adapters for the hosts already supported; a host with no review API reports open or merged only, and says which. The state on the ticket read model, with the age of the last activity. A review that requested changes recorded as a ticket change event, which is the source 2026-09-09-9e54 deliberately left to this phase."
+  out: "Reacting to a review — no run is started, no comment is answered, nothing is pushed. Reading review comment bodies or attributing them to a criterion; the state is a status, not a conversation. A webhook subscription per repository; this phase polls the PRs it already knows about and a webhook is a named follow-up."
+
+decisions:
+  - key: |
+      THE PULL REQUESTS COME FROM PullRequestsJson. p0347 records in the Run entity that the single
+      per-repo PrUrl column is lossy for a multi-repo run and that PullRequestsJson keeps every
+      repository's outcome. Review state is written back into that same structure, so the ticket
+      page and the existing pull-request page cannot disagree about which PRs exist.
+  - key: |
+      THE CREDENTIALS ARE ANSWERED BEFORE THE ADAPTERS ARE WRITTEN. Reading a review decision is a
+      different API surface from opening a pull request, and on some hosts a different scope. The
+      first step establishes, per supported host, whether the token the system already holds can
+      answer — and where it cannot, the host reports unsupported rather than the phase quietly
+      requiring a new grant from every operator.
+  - key: |
+      POLL WHAT WE OPENED, NOT THE REPOSITORY. The system knows every PR url it created; asking
+      about those is a bounded number of calls proportional to open work. Subscribing to repository
+      webhooks would need per-repository setup on every host and grants the system does not need.
+  - key: |
+      A HOST WITHOUT A REVIEW API SAYS SO. Where the provider cannot answer, the ticket reports
+      open or merged and names the limitation. A missing review decision must never render as
+      approved, because the bucket it drives is the one an operator uses to decide whether to look.
+  - key: |
+      TIME SINCE LAST ACTIVITY IS THE ACTIONABLE HALF. "Open" is not information after two days;
+      "open, nothing happened for two days" is. The age is carried on the payload, not computed in
+      the UI, so the runs list and the ticket page cannot disagree about it.
+
+steps:
+  - id: what-the-existing-token-can-ask
+    action: "Per supported host, establish whether the credential the system already uses can read a review decision, and record the answer with its scope requirement in the decision log."
+  - id: the-provider-question
+    action: "One capability on the git provider port: review state for a known pull request. Implementations for the hosts the previous step cleared; an explicit not-supported answer for the rest."
+  - id: the-refresh
+    action: "A bounded refresh for tickets with open PRs, updating the run's PullRequestsJson entries and writing a ticket change event when a decision moves to changes-requested."
+  - id: the-payload
+    action: "Ticket read model carries review decision, last activity and its age; the waiting-on-review bucket is defined by it."
+
+tests:
+  - "Review_ChangesRequested_ReachesTheTicket"
+  - "Review_Approved_ReachesTheTicket"
+  - "Review_Merged_ClosesTheTicketsWaiting"
+  - "Review_AHostWithNoReviewApi_ReportsUnsupportedNotApproved"
+  - "Review_AMultiRepoRun_KeepsEveryRepositorysPullRequest"
+  - "Review_AHostTheTokenCannotAsk_ReportsUnsupported"
+  - "Review_ChangesRequested_WritesOneTicketEvent"
+  - "Review_TheSameDecisionTwice_DoesNotWriteASecondEvent"
+  - "Review_LastActivityAge_IsOnThePayload"
+  - "Refresh_OnlyOpenPullRequests_AreAsked"
+
+done:
+  - "a ticket reports its pull requests' review decision and how long they have waited"
+  - "a host without a review API is named as such and never reads as approved"
+  - "a changes-requested decision appears once as a ticket event"
+  - "build green, full suite green"

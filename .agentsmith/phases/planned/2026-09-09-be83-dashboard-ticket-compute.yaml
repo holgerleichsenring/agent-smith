@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-09-09-be83
+goal: "The ticket's cost and compute tab: what each attempt spent, what survived, how long its sandboxes lived, and what waiting for an answer actually cost."
+
+applies_to: "dashboard (ticket detail, cost and compute tab) — split out of 2026-09-09-094f, which was too big for one phase"
+
+requires:
+  - 2026-09-09-ce50
+  - 2026-09-09-3158
+
+scope:
+  in: "One tab: cost per attempt with the share that survived into the final plan and the share that bought nothing, pod time and memory-minutes per attempt and for the ticket, a wall-clock bar per attempt to scale, each attempt's sandboxes with their end reason, and the cost of a park shown as the answer gap plus the restart it paid. A named, visible absence where a figure has no source."
+  out: "A fleet capacity view, which has no API and belongs to the capacity page. Held-for-a-person as pod time: 2026-09-09-ce50 established that a parking run holds no sandboxes, so the figure would be a confident zero. Attributing cost to a criterion or a repository beyond what the backend already attributes."
+
+decisions:
+  - key: |
+      KEPT VERSUS LOST IS THE COST QUESTION AN OPERATOR ACTUALLY HAS. Four attempts and one merged
+      pull request is not four times the price of one attempt: most of the later work is carried.
+      The bar therefore splits each attempt into what survived into the final plan and what did not,
+      which is the same distinction the graph draws as dashed nodes.
+  - key: |
+      THE PARK IS SHOWN AS A GAP AND A RESTART, NOT AS HELD COMPUTE. The design's original headline
+      figure was falsified in 2026-09-09-ce50: sandboxes are torn down when a run parks. What the
+      tab shows instead is the wall-clock gap before the answer and the re-provisioning the resume
+      paid — smaller numbers, but true ones, and still the argument for answering sooner.
+  - key: |
+      AN ATTEMPT WITH NO SANDBOX ROWS SAYS SO. Runs that predate the lifetime fields report unknown
+      compute. The tab renders that as unknown, never as zero, because a zero would read as a cheap
+      attempt rather than an unmeasured one.
+  - key: |
+      WHAT CANNOT BE FILLED IS NAMED IN THE UI. Where a figure has no source — a fleet total — the
+      tab says so and names where it would live. The mock-parity stylesheet already carries that
+      convention for unmatchable elements.
+
+steps:
+  - id: cost-per-attempt
+    action: "The per-attempt cost bars with the kept and lost split and the ticket total against the budget cap."
+  - id: compute-per-attempt
+    action: "Pod time, memory-minutes, the wall-clock bar to scale across attempts, and each attempt's sandboxes with their end reason."
+  - id: the-price-of-a-park
+    action: "For an attempt that parked: the answer gap and the restart it paid, rendered beside the attempt it belongs to."
+  - id: honest-absences
+    action: "Unknown compute rendered as unknown; the fleet total named as living on the capacity page."
+
+tests:
+  - "Cost_EachAttempt_ShowsItsKeptAndLostShare"
+  - "Cost_TheTicketTotal_IsMeasuredAgainstTheBudgetCap"
+  - "Compute_TheWallClockBars_AreToScaleAcrossAttempts"
+  - "Compute_AnIdleKilledSandbox_IsLabelledAsOne"
+  - "Compute_AnAttemptWithNoSandboxRows_RendersUnknownNotZero"
+  - "Compute_AParkedAttempt_ShowsTheGapAndTheRestart"
+  - "Compute_NoHeldForAPersonFigure_IsRendered"
+
+done:
+  - "an operator can see what each attempt cost and how much of it survived"
+  - "pod time and sandbox end reasons are visible per attempt and summed for the ticket"
+  - "a park is shown as a gap and a restart, never as held pods"
+  - "unmeasured compute renders as unknown"
+  - "dashboard tests and build green"
