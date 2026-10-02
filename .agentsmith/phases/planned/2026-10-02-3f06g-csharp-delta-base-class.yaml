@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-3f06g
+goal: "The C# delta stops stating a 30-line base-class limit, released as skills 5.8.1 so aeb6d's single pin move carries it along with #205."
+
+applies_to: "skills catalog (C# delta), the composed C# principles golden via 2026-10-01-aeb6d"
+
+requires: []
+
+facts:
+  - claim: "The C# delta states the limit under its hard limits, on skills main and in the pinned v5.7.3 tarball."
+    evidence: "agent-smith-skills:principles/deltas/csharp.md:14-15"
+  - claim: "The composed C# golden carries the line byte for byte and is compared against the pinned catalog."
+    evidence: "tests/AgentSmith.Tests/Skills/Goldens/principles-csharp.md:137; tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:27-60"
+  - claim: "Skills main is released at 5.8.0, the pin is v5.7.3, and aeb6d moves it to the release carrying #205."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54; observed: skills git log origin/main (094abb6, 5.8.0) and planned phase 2026-10-01-aeb6d, 2026-10-02"
+
+assumptions: []
+
+scope:
+  in: >
+    csharp.md: the number goes and the remaining sentence leaves 'Hard limits (enforced)' for the abstractions
+    section; a 'fix:' PR from a branch cut from origin/main; release 5.8.1 with no other merge to skills main before it (a feat: would make it 5.9.0). aeb6d pins 5.8.1 and regenerates the C#
+    principles golden in its own commit.
+  out: >
+    Any other number in the delta.
+
+decisions:
+  - key: "BEFORE AEB6D, NOT AFTER. 5.8.1 carries #205 too, so aeb6d's one pin move takes both; a later move would be a second one."
+
+steps:
+  - id: delta
+    action: "Edit, PR, release 5.8.1 in the skills repository."
+  - id: aeb6d
+    action: "aeb6d's scope names 5.8.1 and the golden regeneration (planned, edited in place)."
+
+tests:
+  - "ComposedPrinciplesGoldenTests green after aeb6d's pin move"
+
+done:
+  - "skills 5.8.1 released without a base-class line limit in the C# delta"

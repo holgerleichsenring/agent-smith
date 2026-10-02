@@ -40,8 +40,8 @@ in DI, and injectable wherever needed.
 **Composition over inheritance (NON-NEGOTIABLE).** Orchestrate behavior by
 injecting small, focused services — not by building fat base classes. Prefer
 interfaces + DI injection over abstract base classes. When inheritance is
-unavoidable (e.g. template method), the base class must be thin (max 30 lines)
-and contain only the execution skeleton, never business logic. If a base class
+unavoidable (e.g. template method), the base class must be thin and contain
+only the execution skeleton, never business logic. If a base class
 needs to do something complex, inject a service that does it.
 
 **Small classes are non-negotiable.** Most service classes should be 20-60 lines.
@@ -122,10 +122,10 @@ Rules:
 - Build methods return the product, never void.
 
 ### Base Classes
-- **Max 30 lines.** Template method scaffolding only.
+- Template method scaffolding only.
 - Define the execution skeleton. Subclasses provide the specifics.
 - Never contain business logic, parsing, or I/O.
-- If a base class grows beyond 30 lines, extract the logic into
+- If a base class grows beyond its skeleton, extract the logic into
   injectable services that the base class orchestrates.
 
 ### Handlers / Consumers
@@ -233,7 +233,7 @@ The `.agentsmith/context.yaml` is the single source of truth for what has been b
 ## What NOT To Do
 
 - No god classes (>120 lines = refactor immediately).
-- No fat base classes (>30 lines = extract services).
+- No fat base classes (logic beyond the skeleton = extract services).
 - No static services (use instance + DI).
 - No magic strings (use constants or enums).
 - No nested `if` blocks (>2 levels = extract).
