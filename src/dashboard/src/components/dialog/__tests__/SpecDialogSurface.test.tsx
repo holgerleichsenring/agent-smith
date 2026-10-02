@@ -389,6 +389,13 @@ function reviewedBy(review: FiledWorkReview | null): FiledWork {
 }
 
 /** The id the page minted and is holding — every push must carry it to be rendered. */
+/** 2026-10-02-075db: a file from a folder pick, under the path the browser gives it. */
+function inFolder(path: string): File {
+  const file = new File(["x"], path.split("/").at(-1)!);
+  Object.defineProperty(file, "webkitRelativePath", { value: path });
+  return file;
+}
+
 function heldDialogId(): string {
   return fetchSpecDialog.mock.calls.at(-1)?.[0] as string;
 }
@@ -3584,22 +3591,44 @@ describe("SpecDialogSurface", () => {
 
   // 2026-10-02-075da: a folder pick carries a .venv and a .env. The set is stored without the
   // first, and the composer says what was left out and that the model reads the second.
-  it("SpecDialog_AFolderWithAVenv_IsStoredAndTheComposerNamesWhatWasLeftOut", async () => {
+  // 2026-10-02-075db: the pick is shown first — .venv/ unticked — and only Send uploads; the
+  // note joins what the card left out to what the server left out.
+  it("SpecDialog_AFolderWithAVenv_IsShownSentAndTheComposerNamesWhatWasLeftOut", async () => {
     uploadSpecDialogReferences.mockResolvedValueOnce({
       setId: "s1", name: "site", files: 2, bytes: 20, at: "2026-10-02T10:00:00Z",
-      leftOut: [{ path: "site/.venv/", reason: "rebuildable" }], leftOutCount: 1, credentialFiles: ["site/.env"],
+      leftOut: [{ path: "site/build.log", reason: "not a site file" }], leftOutCount: 1, credentialFiles: ["site/.env"],
     });
     await renderSurface();
 
     fireEvent.change(screen.getByTestId("dialog-composer-folder"), {
-      target: { files: [new File(["<h1>"], "index.html"), new File(["MIT"], "LICENSE")] },
+      target: { files: [inFolder("site/index.html"), inFolder("site/.env"), inFolder("site/.venv/lib/a.py")] },
     });
 
+    expect(within(await screen.findByTestId("dialog-reference-entry-.venv/")).getByRole("checkbox")).not.toBeChecked();
+    expect(uploadSpecDialogReferences).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("dialog-reference-selection-send"));
+
+    await waitFor(() => expect(uploadSpecDialogReferences).toHaveBeenCalled());
+    const [, , files] = uploadSpecDialogReferences.mock.calls[0] as [string, string, File[]];
+    expect(files.map((file) => file.webkitRelativePath)).toEqual(["site/index.html", "site/.env"]);
     const note = await screen.findByTestId("dialog-composer-upload-note");
     expect(note).toHaveAttribute("data-tone", "stored");
-    expect(note.textContent).toContain("Left out: site/.venv/ (rebuildable)");
+    expect(note.textContent).toContain("Not sent (1 file): .venv/ (rebuildable)");
+    expect(note.textContent).toContain("Left out: site/build.log (not a site file)");
     expect(note.textContent).toContain("can read site/.env");
     expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
+  });
+
+  it("SpecDialog_AFolderPickCancelled_UploadsNothing", async () => {
+    await renderSurface();
+
+    fireEvent.change(screen.getByTestId("dialog-composer-folder"), {
+      target: { files: [inFolder("site/index.html")] },
+    });
+    fireEvent.click(await screen.findByTestId("dialog-reference-selection-cancel"));
+
+    expect(screen.queryByTestId("dialog-reference-selection")).not.toBeInTheDocument();
+    expect(uploadSpecDialogReferences).not.toHaveBeenCalled();
   });
 
   // A refused upload is a sentence beside the control that made it — the server's own reason —
@@ -3611,8 +3640,9 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
 
     fireEvent.change(screen.getByTestId("dialog-composer-folder"), {
-      target: { files: [new File(["MIT"], "LICENSE"), new File(["bin/"], ".gitignore")] },
+      target: { files: [inFolder("site/LICENSE"), inFolder("site/notes.txt")] },
     });
+    fireEvent.click(await screen.findByTestId("dialog-reference-selection-send"));
 
     const note = await screen.findByTestId("dialog-composer-upload-note");
     expect(note).toHaveAttribute("role", "alert");

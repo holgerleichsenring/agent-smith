@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-075db
+
+decisions:
+  - category: Scope
+    chose: "A pick of several files or a folder opens a selection card; one picked file (a .zip or any single file) uploads at once"
+    over: "Showing the card for every pick, or only for folder picks"
+    reason: |
+      A single file has nothing to choose between; the server's answer names what it left out. A
+      multi-file pick can carry a cache as easily as a folder can, so both go through the card.
+  - category: Implementation
+    chose: "The per-file bound in the card is 25 MB — the spec's test line said 'over 5 MB'"
+    over: "Following the test line's 5 MB"
+    reason: |
+      075da raised ReferenceSetLimits.MaxFileBytes to the set bound (25 MB); the 5 MB in the spec's
+      test list predates it. The card mirrors what the server enforces.
+  - category: Implementation
+    chose: "Ticking re-adds .gitignore'd files only for an entry that started unticked; a pre-ticked entry sends its kept files"
+    over: "Every ticked entry sending its .gitignore'd files"
+    reason: |
+      The spec's own case: src/ stays ticked while its *.log files stay out. An entry the operator
+      ticks against the default is the one they want whole, so it gets what the .gitignore named.
+  - category: Implementation
+    chose: "An entry with nothing sendable (every file rebuildable or oversized) shows a disabled tick"
+    over: "A tick that sends zero files"
+    reason: |
+      Rebuildable and oversized files stay out whatever is ticked; a live checkbox that changes
+      nothing is a dead control.
+  - category: Implementation
+    chose: "A .gitignore's rules are applied shallowest first, a deeper file's negation able to re-include"
+    over: "Only the nearest .gitignore applying"
+    reason: |
+      Git applies every .gitignore above a path, the deeper one winning on conflict; 'ignore'
+      reports both ignored and unignored, which is enough to fold them in that order.
+  - category: Implementation
+    chose: "The rebuildable list is pinned equal to the C# file by a vitest that reads it; the credential predicate is held to the C# test's own cases"
+    over: "Parsing the C# credential predicate too"
+    reason: |
+      The rebuildable list is data and parses cleanly from Names; the credential rule is code
+      (exact names, prefixes, suffixes) and a regex over it would be more fragile than the copy.
