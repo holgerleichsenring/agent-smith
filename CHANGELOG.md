@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.154.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.153.0...v0.154.0) (2026-10-02)
+
+
+### Features
+
+* a connection or tracker form tests its unsaved draft step by step (2026-10-02-5f89b) ([1c0e0c6](https://github.com/holgerleichsenring/agent-smith/commit/1c0e0c60a5aada8b86b27acb8f100707231028e4))
+* a design mock beside a phase spec is named and rendered from the repository (2026-10-01-283dh) ([e8496dd](https://github.com/holgerleichsenring/agent-smith/commit/e8496dd6682b85924acdaf1ccc3ddfd4c6d631bb))
+* a design reply can carry a document to copy (2026-10-01-aeb6b) ([64e2ca9](https://github.com/holgerleichsenring/agent-smith/commit/64e2ca9569273c3f23d01c1466a7296deebd225d))
+* a done criterion may be a when/then scenario (2026-10-01-f5c3a) ([8dcb7e6](https://github.com/holgerleichsenring/agent-smith/commit/8dcb7e63f79d56e418bf2b80aad5136a56253e1d))
+* a Figma link in a ticket or conversation is offered to the master as a rebuilt design reference (2026-10-01-7f7ad) ([c77f4a1](https://github.com/holgerleichsenring/agent-smith/commit/c77f4a153e390bff8630088c17ee5acb2e5b991c))
+* a filed ticket reads in a reader's shape (2026-10-01-f5c3b) ([1299d5f](https://github.com/holgerleichsenring/agent-smith/commit/1299d5fffeae5804cfff90a4814aaa9be0dd4141))
+* a tool's image reaches the model once, after its tool result (2026-10-01-283dd) ([ac02472](https://github.com/holgerleichsenring/agent-smith/commit/ac02472b36ba67cf9b48325c17499564941d807c))
+* a website dropped into a design conversation is stored as one set (2026-10-01-283db) ([5505a23](https://github.com/holgerleichsenring/agent-smith/commit/5505a239aa1be8b7c2d88e613c0c29434078b3b1))
+* an approval carries its uploaded websites into the run (2026-10-01-283df) ([3ab483c](https://github.com/holgerleichsenring/agent-smith/commit/3ab483cab4fe555d2e3c37724bbd312f0c20ce93))
+* an uploaded website is a read-only reference address in the design turn (2026-10-01-283dc) ([dc222cc](https://github.com/holgerleichsenring/agent-smith/commit/dc222cc3b6353bbed70ff7cf011f201c3f80e83e))
+* compare_reference reports how a page differs from its reference (2026-10-01-283di) ([01975d3](https://github.com/holgerleichsenring/agent-smith/commit/01975d35d149baa5f1928c06581991c0dc751bdb))
+* design sources as config entities projects reference, with secrets masked from the current store (2026-10-01-7f7aa) ([ec9c53b](https://github.com/holgerleichsenring/agent-smith/commit/ec9c53bf5449a174d226e1fba48c677478d4ca8c))
+* design_read reads a Figma link through a server-side client holding the token (2026-10-01-7f7ab) ([2bc2087](https://github.com/holgerleichsenring/agent-smith/commit/2bc208724bfcf16a350566c02e3d2247dbb9c56e))
+* **design:** a repo-root DESIGN.md reaches the design partner and the coding master (2026-10-01-283dg) ([b8af5ed](https://github.com/holgerleichsenring/agent-smith/commit/b8af5ed0ef6ee0c4c3d69a526bfc3669ef029380))
+* **design:** design_read shows the model a PNG render of the node it read (2026-10-01-7f7ac) ([97c9044](https://github.com/holgerleichsenring/agent-smith/commit/97c9044e4a201477864597e342b218552767dff7))
+* each design_read is recorded on its run with the version read, and a cited version reports a moved design (2026-10-01-7f7ae) ([75a5332](https://github.com/holgerleichsenring/agent-smith/commit/75a5332bcff7083ae2378fdb10d5e90c1e896363))
+* every clone, fetch and push authenticates with its repo's own auth secret (2026-10-02-5f89g) ([baf765c](https://github.com/holgerleichsenring/agent-smith/commit/baf765c115f844eb1691bf5e1182deb58291fdb1))
+* every git-host and tracker API call authenticates with its own auth secret (2026-10-02-5f89a) ([8448492](https://github.com/holgerleichsenring/agent-smith/commit/8448492be67610ce1ec83dccbce7760026d70de1))
+* every replica shows a connection's last discovery success, last error and repo count (2026-10-02-5f89c) ([e72ff49](https://github.com/holgerleichsenring/agent-smith/commit/e72ff49f856ec4589e67b3722dde2f29e72885f9))
+* reference files stored as bytes, legacy images copied in place (2026-10-01-283da) ([096924c](https://github.com/holgerleichsenring/agent-smith/commit/096924ce0b224d6a1d0a04879aa9967ef189301c))
+* render_reference renders an uploaded site or public URL in a browser sandbox (2026-10-01-283de) ([d21bc1a](https://github.com/holgerleichsenring/agent-smith/commit/d21bc1a0a20117f5a9983beb1c0eed9e649f9c5d))
+* the design partner stays on its project and ticket (2026-10-01-aeb6c) ([ad4dd3b](https://github.com/holgerleichsenring/agent-smith/commit/ad4dd3b0c68b7d86cc55e834095e01dd811d0286))
+
+
+### Bug Fixes
+
+* a run no server drives ends as interrupted — every run renews a row heartbeat, a liveness reaper flags the silent ones (2026-10-02-5f89e) ([1786361](https://github.com/holgerleichsenring/agent-smith/commit/1786361b6350e143aff4d7076d96bbc385b2ec8d))
+* a tracker or connection form shows its auth secret once, as a pick from the secrets catalog (2026-10-02-140d) ([b1a893d](https://github.com/holgerleichsenring/agent-smith/commit/b1a893db61b7ebc6deb70a3952ee22e38994cbab))
+* a typed number finds a finished ticket too (2026-09-28-1da5a) ([fac9cd1](https://github.com/holgerleichsenring/agent-smith/commit/fac9cd11405c146c203cbb6be8710c8e14b01e62))
+* an init run works on agent-smith/init, the ticket branch prefix (2026-10-01-aeb6a) ([098541d](https://github.com/holgerleichsenring/agent-smith/commit/098541d35fa4d7765e0628306b5625aaa4cbe819))
+* init on a repository with no source fails naming it (2026-09-03-9b41) ([75a3b6f](https://github.com/holgerleichsenring/agent-smith/commit/75a3b6f700e82a79eca2e990429a3bd02d8769f2))
+* init on a repository with no source fails naming it (2026-09-03-9b41) ([be789df](https://github.com/holgerleichsenring/agent-smith/commit/be789df850ee99b3c285b98cfe6518bafafa4ace))
+* the browser image's render fixture site is committed (2026-10-01-283de) ([1fb136c](https://github.com/holgerleichsenring/agent-smith/commit/1fb136cccb2dc20acb835e9f415f55c7f371fd67))
+* the harness extracts its eval catalog per process, so an emptied temp extraction is never reused (2026-10-02-5f89f) ([940b81d](https://github.com/holgerleichsenring/agent-smith/commit/940b81ddaf7fe115a1f46390cd26cb0123b0b856))
+* the Initialize button reads the project's live init run, one launch per project, a finished reserved row never starts (2026-10-02-5f89d) ([a71f0e2](https://github.com/holgerleichsenring/agent-smith/commit/a71f0e283a3e930d74ff66f570cfab0e18e100cc))
+* the sandbox reapers treat a run whose row heartbeat is fresh as alive (2026-10-02-75dc) ([97d3dae](https://github.com/holgerleichsenring/agent-smith/commit/97d3dae5caf07e706dfd7a4aea5390839dd773f7))
+* the scope pane says what is about to start, and shows the ticket (2026-09-27-481bd) ([156f732](https://github.com/holgerleichsenring/agent-smith/commit/156f7328257506972b74bb07dae733aa7bd945d8))
+* the studio shows a connection's auth secret once, as a pick (2026-10-02-140d) ([a94bf17](https://github.com/holgerleichsenring/agent-smith/commit/a94bf1759f16843755b3e1c56eeb90f8d1e26cba))
+
 ## [0.153.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.152.0...v0.153.0) (2026-09-30)
 
 
