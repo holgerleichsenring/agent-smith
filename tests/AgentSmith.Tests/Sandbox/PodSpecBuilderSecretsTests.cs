@@ -89,4 +89,13 @@ public sealed class PodSpecBuilderSecretsTests
         pod.Spec.Volumes.Should().HaveCount(2);
         toolchain.Env.Select(e => e.Name).Should().BeEquivalentTo("JOB_ID", "REDIS_URL");
     }
+
+    // 2026-10-02-5f89g: no pod-wide token — each git step carries its own repo's credential.
+    [Fact]
+    public void PodSpecBuilder_Env_HasNoGitTokenSecretRef()
+    {
+        var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets: null), owner: null);
+
+        pod.Spec.Containers.SelectMany(c => c.Env ?? []).Should().NotContain(e => e.Name == "GIT_TOKEN");
+    }
 }

@@ -26,6 +26,7 @@ public sealed class RepoConsumesDeclarationTests : IDisposable
     private const string Catalogs = """
         agents:
           a: { type: Claude }
+        secrets: { token: x, t: x }
         trackers:
           t: { type: GitHub, auth: t }
         connections:

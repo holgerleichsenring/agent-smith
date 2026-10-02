@@ -339,17 +339,54 @@ export async function validateTrackerDraft(
   return sendJson<ConfigFinding[]>("POST", `/api/config/trackers/validate`, draft, signal);
 }
 
+// --- 2026-10-02-5f89b: the Test action — the unsaved draft checked against its host, step by
+// step (secret, host, identity, scope, repos or open tickets). The steps stop at the first
+// failure; a detail is the server's own sentence, never a token or a host's response body.
+
+export interface DraftCheckStep {
+  key: string;
+  label: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface DraftCheckReport {
+  steps: DraftCheckStep[];
+  ok: boolean;
+}
+
+export async function checkConnectionDraft(
+  draft: StudioConnection,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/connections/check`, draft, signal);
+}
+
+export async function checkTrackerDraft(
+  draft: StudioTracker,
+  signal?: AbortSignal,
+): Promise<DraftCheckReport> {
+  return sendJson<DraftCheckReport>("POST", `/api/config/trackers/check`, draft, signal);
+}
+
 /** p0345c: one repo the discovery cache knows inside a connection. */
 export interface DiscoveredRepo {
   name: string;
   defaultBranch: string | null;
 }
 
-/** The discovery snapshot for one connection — discoveredAt null means the
- *  discovery never ran (the honest "not discovered yet" state). */
+/** The discovery snapshot for one connection — discoveredAt null means no discovery has
+ *  succeeded yet. 2026-10-02-5f89c: beside the last success, the last attempt and its error
+ *  (a failure never erases the last success), the repo count of the last success, and
+ *  `discovering` while a first discovery outlasts the server's wait. Every replica answers
+ *  the same: the server reads one shared store. */
 export interface ConnectionRepos {
   discoveredAt: string | null;
   repos: DiscoveredRepo[];
+  lastAttemptAt?: string | null;
+  lastError?: string | null;
+  repoCount?: number | null;
+  discovering?: boolean;
 }
 
 /** 2026-09-14-620e: the context names one repo of one project declares, read live
@@ -379,6 +416,15 @@ export async function fetchConnectionRepos(
 ): Promise<ConnectionRepos> {
   return getJson<ConnectionRepos>(
     `/api/config/connections/${encodeURIComponent(connectionId)}/repos`, signal);
+}
+
+/** 2026-10-02-5f89c: discover now and answer the new state (needs diagnostics.probe). */
+export async function refreshConnectionDiscovery(
+  connectionId: string,
+  signal?: AbortSignal,
+): Promise<ConnectionRepos> {
+  return sendJson<ConnectionRepos>(
+    "POST", `/api/config/connections/${encodeURIComponent(connectionId)}/discovery/refresh`, {}, signal);
 }
 
 /** The operator's word on a catalog entry; null = untiered, never reported. */
@@ -508,6 +554,8 @@ export interface StudioTracker {
   // Jira only: REST paths that differ from the Jira Cloud v3 defaults (search, issue,
   // comment, transitions, create). Absent means every default applies.
   endpoints?: Record<string, string>;
+  // 2026-10-02-5f89a, Jira only: the account the API token belongs to.
+  email?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

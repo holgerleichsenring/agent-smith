@@ -1,7 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using Microsoft.Extensions.Logging;
 
@@ -12,14 +12,15 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 /// themselves come from <see cref="TrackerConnections"/>, which all three capabilities share.
 /// </summary>
 public sealed class TicketProviderFactory(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory) : ITicketProviderFactory
 {
     private readonly ILogger _logger = loggerFactory.CreateLogger<TicketProviderFactory>();
-    private readonly TrackerConnections _connections = new(secrets);
-    private readonly TicketCapabilities _capabilities =
-        new(new TrackerConnections(secrets), httpClientFactory, loggerFactory);
+    private readonly TrackerConnections _connections = new(credentials);
+
+    // 2026-10-02-5f89a: the capabilities read the provider's one TrackerConnections.
+    private TicketCapabilities Capabilities => new(_connections, httpClientFactory, loggerFactory);
 
     public ITicketProvider Create(TrackerConnection config) => config.Type switch
     {
@@ -37,12 +38,12 @@ public sealed class TicketProviderFactory(
     /// type is the one thing the per-file limit exists to prevent.
     /// </summary>
     public ITicketRewriter CreateRewriter(TrackerConnection config) =>
-        _capabilities.Rewriter(config);
+        Capabilities.Rewriter(config);
 
-    public ITicketSearch CreateSearch(TrackerConnection config) => _capabilities.Search(config);
+    public ITicketSearch CreateSearch(TrackerConnection config) => Capabilities.Search(config);
 
     public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
-        _capabilities.LinkedWork(config);
+        Capabilities.LinkedWork(config);
 
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {

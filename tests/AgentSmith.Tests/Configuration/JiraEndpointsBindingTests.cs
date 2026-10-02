@@ -27,7 +27,7 @@ public sealed class JiraEndpointsBindingTests
     {
         var raw = new RawConfigYaml().Deserialize(Yaml);
 
-        var tracker = new TrackerCatalogBuilder().Build(raw.Trackers, []).Single().Value;
+        var tracker = new TrackerCatalogBuilder().Build(raw.Trackers, [], []).Single().Value;
 
         tracker.Endpoints.Search.Should().Be("/rest/api/2/search");
         tracker.Endpoints.Issue.Should().Be(new JiraEndpoints().Issue, "a key left out keeps its default");

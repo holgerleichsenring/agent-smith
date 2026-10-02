@@ -212,7 +212,7 @@ public sealed class WorkBranchBaseMergeTests
         var sandbox = new RecordingSandbox(new InProcessSandbox(
             jobId: "p0496", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance));
         var cloner = new SandboxRepoCloner(
-            factory.Object, TestGit.Identity, TestGit.WorkBranchCheckout,
+            factory.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, TestGit.Identity, TestGit.WorkBranchCheckout,
             NullLogger<SandboxRepoCloner>.Instance);
 
         var checkout = await cloner.CheckoutIntoSandboxesAsync(

@@ -2,7 +2,8 @@
 
 import { useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { startProjectInit } from "@/lib/projectInitApi";
+import { startProjectInit, type LiveInitRun } from "@/lib/projectInitApi";
+import { useProjectInitRun } from "@/hooks/useProjectInitRun";
 
 // p0489: the operator's Initialize affordance for one project. Two failures,
 // two places, and this must not invent a third: a REFUSED launch answers inline
@@ -23,11 +24,16 @@ import { startProjectInit } from "@/lib/projectInitApi";
 // now wear the studio's own chip idiom from --accent/--line, and they form one action
 // group the card can separate from its badge. Appearance only: every test id, state
 // and refusal path below is p0489's and p0490's, unchanged.
+//
+// 2026-10-02-5f89d: the live run is the SERVER's answer, not this component's memory. It
+// used to live in useState alone, so a navigation away and back showed Initialize beside a
+// running init. The server's live run is read on mount and on every relevant RunsChanged,
+// and it says whether the run waits for a slot, runs, or is being cancelled.
 
 type InitState =
   | { kind: "idle" }
   | { kind: "starting" }
-  | { kind: "running"; runId: string }
+  | { kind: "started"; runId: string }
   | { kind: "refused"; reason: string };
 
 /** The .pick chip the repo picker established, as inline tokens so the one
@@ -56,23 +62,28 @@ const CHIP: CSSProperties = {
 export function ProjectInitAction({ project }: { project: string }) {
   const [state, setState] = useState<InitState>({ kind: "idle" });
   const [autoAccept, setAutoAccept] = useState(true);
+  const { live, refresh } = useProjectInitRun(project);
 
   async function start() {
     setState({ kind: "starting" });
     try {
       const launch = await startProjectInit(project, { autoCompletePullRequests: autoAccept });
-      setState(
-        launch.runId
-          ? { kind: "running", runId: launch.runId }
-          : { kind: "refused", reason: launch.reason ?? "The initialization could not be started." },
-      );
+      if (!launch.runId) {
+        setState({ kind: "refused", reason: launch.reason ?? "The initialization could not be started." });
+        void refresh();
+        return;
+      }
+      // Once the server has answered, its live run is what shows; without an answer the
+      // run this press started is the best knowledge there is.
+      setState(await refresh() ? { kind: "idle" } : { kind: "started", runId: launch.runId });
     } catch {
       setState({ kind: "refused", reason: "The server could not be reached." });
     }
   }
 
-  if (state.kind === "running") {
-    return <RunningLink project={project} runId={state.runId} />;
+  const shown = shownRun(state, live);
+  if (shown) {
+    return <RunningLink project={project} run={shown} />;
   }
   const starting = state.kind === "starting";
   return (
@@ -181,17 +192,32 @@ function AutoAcceptToggle({
   );
 }
 
+// The server's answer wins. A press whose re-read failed keeps the run it started, shown as
+// running — what the button showed before this read existed.
+function shownRun(state: InitState, live: LiveInitRun | null): LiveInitRun | null {
+  if (live) return live;
+  if (state.kind === "started") return { runId: state.runId, state: "running" };
+  return null;
+}
+
+const RUN_LABEL: Record<LiveInitRun["state"], string> = {
+  running: "Initializing — view run",
+  queued: "Waiting for a slot — view run",
+  cancelling: "Cancelling — view run",
+};
+
 // While the init is live the affordance IS the way to it — the run page carries
 // the ledger, the cost and the cancel, exactly like a polled run.
-function RunningLink({ project, runId }: { project: string; runId: string }) {
+function RunningLink({ project, run }: { project: string; run: LiveInitRun }) {
   return (
     <Link
-      href={`/jobs/${encodeURIComponent(runId)}`}
+      href={`/jobs/${encodeURIComponent(run.runId)}`}
       style={{ ...CHIP, borderColor: "var(--accent)", color: "var(--accent)", textDecoration: "none" }}
       data-testid={`project-init-running-${project}`}
+      data-state={run.state}
       onClick={(e) => e.stopPropagation()}
     >
-      Initializing — view run
+      {RUN_LABEL[run.state] ?? RUN_LABEL.running}
     </Link>
   );
 }

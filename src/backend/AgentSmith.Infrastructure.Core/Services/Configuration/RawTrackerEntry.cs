@@ -75,6 +75,12 @@ public sealed class RawTrackerEntry
     /// Jira Cloud v3 default, so an operator sets only the path Atlassian moved.
     /// </summary>
     public JiraEndpoints? Endpoints { get; set; }
+
+    /// <summary>
+    /// 2026-10-02-5f89a, Jira only: the account the API token belongs to. Filled at load from the
+    /// jira_email secret, else JIRA_EMAIL, when unset; a Jira tracker without one is blocking.
+    /// </summary>
+    public string? Email { get; set; }
 }
 
 /// <summary>

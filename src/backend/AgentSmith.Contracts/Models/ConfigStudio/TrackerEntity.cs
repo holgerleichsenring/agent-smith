@@ -39,7 +39,9 @@ public sealed record TrackerEntity(
     // 2026-09-25-3c7ac: what this board calls the labels the framework writes. APPENDED.
     IReadOnlyDictionary<string, string>? LabelNames = null,
     // Jira only: the REST paths that differ from the Jira Cloud v3 defaults. APPENDED.
-    IReadOnlyDictionary<string, string>? Endpoints = null)
+    IReadOnlyDictionary<string, string>? Endpoints = null,
+    // 2026-10-02-5f89a, Jira only: the account the API token belongs to. APPENDED.
+    string? Email = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

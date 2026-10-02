@@ -82,7 +82,7 @@ public sealed class DeriveSpecCommentRecutTests
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
         var gitOps = new SandboxGitOperations(
-            new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, factory.Object,
+            new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var draftReader = new PhaseDraftReader();
         var reader = new SpecSetReader(

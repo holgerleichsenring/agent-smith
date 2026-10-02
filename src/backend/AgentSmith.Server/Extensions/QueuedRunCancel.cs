@@ -23,6 +23,10 @@ internal static class QueuedRunCancel
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is not { Status: "queued", FinishedAt: null }) return false;
 
+        // 2026-10-02-5f89d: the cancel is stamped first, so the row says WHO ended it. An
+        // init's request sits in the job queue, not the capacity queue; the consumer's
+        // pre-start gate refuses the finished row there.
+        await runs.MarkCancelRequestedAsync(runId, "operator", DateTimeOffset.UtcNow, cancellationToken);
         await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
         // 2026-08-24-ca23: the SECOND cancel entry point, with the same undrained stream as
         // the enforcer's — see CancelTerminalWriter.

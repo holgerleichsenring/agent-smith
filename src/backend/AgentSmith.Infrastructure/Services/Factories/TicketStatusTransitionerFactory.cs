@@ -3,8 +3,6 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
-using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using Microsoft.Extensions.Logging;
 
@@ -12,14 +10,19 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
 /// Creates the platform-specific ITicketStatusTransitioner. p95a shipped GitHub;
-/// p95b adds GitLab, AzureDevOps, and Jira.
+/// p95b adds GitLab, AzureDevOps, and Jira. 2026-10-02-5f89a: the connection records come from
+/// the same <see cref="TrackerConnections"/> the ticket provider reads, so a transition
+/// authenticates exactly as the provider does — with the tracker's own auth secret.
 /// </summary>
 public sealed class TicketStatusTransitionerFactory(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     JiraWorkflowCatalog jiraCatalog,
     IHttpClientFactory httpClientFactory,
     ILoggerFactory loggerFactory) : ITicketStatusTransitionerFactory
 {
+    private const string DefaultJiraProjectKey = "default";
+    private readonly TrackerConnections _connections = new(credentials);
+
     public ITicketStatusTransitioner Create(TrackerConnection config)
         => config.Type switch
         {
@@ -31,52 +34,30 @@ public sealed class TicketStatusTransitionerFactory(
                 $"ITicketStatusTransitioner not implemented for platform '{config.Type}'")
         };
 
-    private GitHubTicketStatusTransitioner CreateGitHub(TrackerConnection config)
-    {
-        var token = secrets.GetRequired("GITHUB_TOKEN");
-        var connection = new GitHubTicketConnection(
-            config.Url ?? throw new ArgumentException("GitHub URL required"),
-            token, TicketLabelVocabulary.For(config));
-        return new GitHubTicketStatusTransitioner(
-            connection,
+    private GitHubTicketStatusTransitioner CreateGitHub(TrackerConnection config) =>
+        new(_connections.GitHub(config),
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitHubTicketStatusTransitioner>());
-    }
 
-    private GitLabTicketStatusTransitioner CreateGitLab(TrackerConnection config)
-    {
-        var baseUrl = secrets.GetOptional("GITLAB_URL") ?? AgentDefaults.DefaultGitLabBaseUrl;
-        var token = secrets.GetRequired("GITLAB_TOKEN");
-        var projectPath = Uri.EscapeDataString(
-            config.Project ?? secrets.GetRequired("GITLAB_PROJECT"));
-        var connection = new GitLabTicketConnection(baseUrl, projectPath, token, TicketLabelVocabulary.For(config));
-        return new GitLabTicketStatusTransitioner(
-            connection,
+    private GitLabTicketStatusTransitioner CreateGitLab(TrackerConnection config) =>
+        new(_connections.GitLab(config),
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitLabTicketStatusTransitioner>());
-    }
 
-    private AzureDevOpsTicketStatusTransitioner CreateAzureDevOps(TrackerConnection config)
-    {
-        var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
-        var orgUrl = $"https://dev.azure.com/{config.Organization}";
-        var connection = new AzureDevOpsTicketConnection(orgUrl, config.Project!, token, TicketLabelVocabulary.For(config));
-        return new AzureDevOpsTicketStatusTransitioner(
-            connection,
+    private AzureDevOpsTicketStatusTransitioner CreateAzureDevOps(TrackerConnection config) =>
+        new(_connections.AzureDevOps(config),
             httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<AzureDevOpsTicketStatusTransitioner>());
-    }
 
+    // A Jira tracker with no project still transitions under the 'default' key it always had.
     private JiraTicketStatusTransitioner CreateJira(TrackerConnection config)
     {
-        var url = config.Url ?? secrets.GetRequired("JIRA_URL");
-        var email = secrets.GetRequired("JIRA_EMAIL");
-        var token = secrets.GetRequired("JIRA_TOKEN");
-        var projectKey = config.Project ?? secrets.GetOptional("JIRA_PROJECT") ?? "default";
-        var lifecycleMap = BuildLifecycleMap(config.LifecycleStatusNames, projectKey);
-        var connection = new JiraTicketConnection(
-            url, email, token, projectKey, config.Endpoints, lifecycleMap,
-            Labels: TicketLabelVocabulary.For(config));
+        var projectKey = config.Project ?? DefaultJiraProjectKey;
+        var connection = _connections.Jira(config) with
+        {
+            ProjectKey = projectKey,
+            LifecycleStatusMap = BuildLifecycleMap(config.LifecycleStatusNames, projectKey),
+        };
         return new JiraTicketStatusTransitioner(
             connection, jiraCatalog,
             httpClientFactory.CreateClient(),

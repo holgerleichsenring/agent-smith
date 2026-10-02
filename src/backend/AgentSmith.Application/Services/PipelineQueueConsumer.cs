@@ -73,10 +73,10 @@ public sealed class PipelineQueueConsumer(
             await using var scope = services.CreateAsyncScope();
             // p0330: pre-start cancel gate. The operator may have cancelled while
             // the request sat in the Redis queue or on the semaphore — the
-            // persisted flag is the authority. RunId travels only on capacity-
-            // queue reuse (p0320c); without it there is no row to consult.
+            // persisted row is the authority — flagged or finished (5f89d) never starts.
+            // RunId travels on a reserved row (p0320c, init); without it there is none.
             if (request.RunId is { Length: > 0 } reservedRunId
-                && await cancelState.IsCancelRequestedAsync(reservedRunId, ct))
+                && await cancelState.IsStartRefusedAsync(reservedRunId, ct))
             {
                 await ShortCircuitCancelledAsync(scope.ServiceProvider, request, reservedRunId);
                 return;

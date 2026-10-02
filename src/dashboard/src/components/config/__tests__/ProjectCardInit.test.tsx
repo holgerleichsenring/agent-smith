@@ -35,16 +35,28 @@ function renderCard() {
   );
 }
 
-function respond(status: number, body: unknown) {
-  return vi.fn().mockResolvedValue({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  } as unknown as Response);
+// 2026-10-02-5f89d: the card also READS the project's live init on mount and after a
+// press. Like the server, the read answers 204 until a POST answered with a run id, and
+// that run, running, afterwards.
+function respond(status: number, body: { runId: string | null; reason: string | null }) {
+  let live: string | null = null;
+  return vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      live = body.runId;
+      return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
+    }
+    return (live
+      ? { ok: true, status: 200, json: async () => ({ runId: live, state: "running" }) }
+      : { ok: true, status: 204, json: async () => null }) as unknown as Response;
+  });
 }
 
-function bodyOf(fetchMock: ReturnType<typeof vi.fn>): unknown {
-  const init = fetchMock.mock.calls[0][1] as RequestInit;
+function posts(fetchMock: ReturnType<typeof respond>) {
+  return fetchMock.mock.calls.filter(([, init]) => init?.method === "POST");
+}
+
+function bodyOf(fetchMock: ReturnType<typeof respond>): unknown {
+  const init = posts(fetchMock)[0][1] as RequestInit;
   return JSON.parse(init.body as string);
 }
 
@@ -108,7 +120,7 @@ describe("ProjectCard init action", () => {
     const button = screen.getByTestId("project-init-sample");
     expect(button).toBeEnabled();
     fireEvent.click(button);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(posts(fetchMock)).toHaveLength(2));
   });
 
   it("ProjectCard_WhileAnInitRuns_ShowsItRunning_AndLinksToIt", async () => {

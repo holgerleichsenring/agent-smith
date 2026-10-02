@@ -372,6 +372,9 @@ connections:
 # ────────────────────────────────────────────────────────────────────────
 #  Repos catalog (legacy / escape hatch for a single non-discoverable repo)
 # ────────────────────────────────────────────────────────────────────────
+# 2026-10-02-5f89a: `auth` names the secrets: entry this repo authenticates with — API calls,
+# clone, fetch and push. Two GitLab instances are two secrets; a sub-path GitLab sets `host:`.
+# An empty auth is filled with the type's legacy secret at load and reported as an advisory.
 repos:
   acme-app:
     type: github
@@ -444,6 +447,7 @@ trackers:
     type: jira
     url: https://acme.atlassian.net/
     auth: jira_token
+    email: agent-smith@acme.example   # 2026-10-02-5f89a: the account jira_token belongs to
     open_states: ["To Do", "In Progress"]
     done_status: "In Review"
     needs_clarification_status: "Blocked"    # p0318/p0391 — see acme-github above

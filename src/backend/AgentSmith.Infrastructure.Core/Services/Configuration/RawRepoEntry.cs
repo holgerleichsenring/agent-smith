@@ -15,4 +15,10 @@ public sealed class RawRepoEntry
     public string? Project { get; set; }
     public string Auth { get; set; } = string.Empty;
     public string? DefaultBranch { get; set; }
+
+    /// <summary>
+    /// 2026-10-02-5f89a: the instance a GitLab repo's API calls go to when it is not the url's
+    /// own host — a GitLab under a sub-path. Filled from GITLAB_URL at load when that is set.
+    /// </summary>
+    public string? Host { get; set; }
 }

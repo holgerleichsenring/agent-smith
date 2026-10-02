@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Configuration;
+
 namespace AgentSmith.Infrastructure.Services.Webhooks;
 
 /// <summary>
@@ -5,10 +7,11 @@ namespace AgentSmith.Infrastructure.Services.Webhooks;
 /// explicit grants, grants through group membership and grants inherited from parent tokens
 /// alike. <paramref name="tokens"/> run from the most specific to the least; the first token
 /// that carries an access control list answers. <c>null</c> when none does.
+/// 2026-10-02-5f89a: authenticated with the configured repository's own auth secret.
 /// </summary>
 public interface IAzureDevOpsPermissionReader
 {
     Task<AzureDevOpsEffectivePermission?> ReadAsync(
-        string organizationUrl, Guid securityNamespaceId, IReadOnlyList<string> tokens,
+        RepoConnection repo, string organizationUrl, Guid securityNamespaceId, IReadOnlyList<string> tokens,
         Guid identityId, CancellationToken cancellationToken);
 }

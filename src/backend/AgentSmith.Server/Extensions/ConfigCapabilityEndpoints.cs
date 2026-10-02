@@ -12,9 +12,9 @@ namespace AgentSmith.Server.Extensions;
 
 /// <summary>
 /// p0345c: the config studio's READ surface for everything a form needs before it can
-/// be filled in — the backend-truth capabilities descriptor, the two draft validators,
-/// and the repo picker's discovery cache. Nothing here writes, so none of it touches
-/// the write guard.
+/// be filled in — the backend-truth capabilities descriptor and the two draft validators.
+/// Nothing here writes, so none of it touches the write guard. The repo picker's discovery
+/// read moved to ConnectionDiscoveryEndpoints with its Refresh now (2026-10-02-5f89c).
 /// </summary>
 internal static class ConfigCapabilityEndpoints
 {
@@ -51,22 +51,6 @@ internal static class ConfigCapabilityEndpoints
             ([FromBody] TrackerEntity draft, [FromServices] ConfigDraftRules rules) =>
                 Results.Ok(Views(rules.ForTracker(draft))))
            .Needs(Permissions.ConfigWrite);
-
-        // p0345c: the repo picker's discovery cache — the p0281a last-good snapshot.
-        // Unknown connection → 404; known-but-undiscovered → 200 with
-        // discoveredAt null + empty repos (honest "not discovered yet").
-        app.MapGet("/api/config/connections/{id}/repos",
-            async (string id, IConfigStore store,
-                [FromServices] IConnectionRepoSnapshotStore snapshots, CancellationToken ct) =>
-            {
-                if (store.GetConnections().All(c => c.Id != id))
-                    return Results.NotFound(new { error = $"Unknown connection '{id}'." });
-                var discovery = await snapshots.TryGetDiscoveryAsync(id, ct);
-                return Results.Ok(new ConnectionReposView(
-                    discovery?.DiscoveredAt,
-                    discovery?.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch)).ToList()
-                        ?? []));
-            }).Needs(Permissions.ConfigRead);
 
         // 2026-09-14-620e: the template form's context picker. Unlike the repo picker above,
         // which reads a CACHE, this makes an outbound authenticated call into a customer

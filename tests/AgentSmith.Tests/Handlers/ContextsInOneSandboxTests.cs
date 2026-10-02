@@ -165,7 +165,7 @@ public sealed class ContextsInOneSandboxTests
         return new AnalyzeProjectHandler(
             Mock.Of<IProjectAnalyzer>(), new StubSandboxFileReaderFactory(), mapStore.Object,
             new SandboxGitOperations(
-                new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             Mock.Of<IRunArtifactStore>(), new ProjectMapCacheKey(), new SandboxTargets(),
             NullLogger<AnalyzeProjectHandler>.Instance);

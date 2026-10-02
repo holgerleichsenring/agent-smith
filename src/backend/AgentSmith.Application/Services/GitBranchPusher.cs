@@ -1,6 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 
@@ -22,12 +21,12 @@ public sealed class GitBranchPusher
 
     public async Task PushAsync(
         ISandbox sandbox, string branch, string credentialHelper,
-        RepoType repoType, CancellationToken ct)
+        GitCredential credential, CancellationToken ct)
     {
-        var token = GitTokenResolver.Resolve(repoType);
-        var env = token is null
-            ? null
-            : (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = token };
+        // 2026-10-02-5f89g: the repo's own credential, resolved by the caller that holds the repo.
+        var env = credential.HasToken
+            ? (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! }
+            : null;
 
         var result = await PushOnceAsync(sandbox, branch, credentialHelper, env, ct);
         if (result.ExitCode != 0 && Mentions(result, "stale info"))

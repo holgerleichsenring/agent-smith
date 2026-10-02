@@ -383,7 +383,7 @@ public sealed class FiledSpecBranchTests
         var reader = new SpecSetReader(
             readers.Object,
             new SandboxGitOperations(
-                new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, readers.Object,
+                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, readers.Object,
                 new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetPhaseFileReader(
                 new PhaseDraftReader(), NullLogger<SpecSetPhaseFileReader>.Instance),

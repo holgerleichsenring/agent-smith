@@ -27,6 +27,7 @@ public sealed class ConfigNameCollisionTests : IDisposable
     private const string SampleYaml = """
         agents:
           claude-default: { type: claude, model: sonnet-4 }
+        secrets: { token: "${AGENTSMITH_TEST_TOKEN}" }
         repos:
           test-repo: { type: github, url: https://github.com/test/repo, auth: token }
         trackers:
@@ -36,6 +37,7 @@ public sealed class ConfigNameCollisionTests : IDisposable
     private const string CollidingYaml = """
         agents:
           claude-default: { type: claude, model: sonnet-4 }
+        secrets: { token: "${AGENTSMITH_TEST_TOKEN}" }
         repos:
           Service.Api: { type: github, url: https://x, auth: token }
           service.api: { type: github, url: https://y, auth: token }

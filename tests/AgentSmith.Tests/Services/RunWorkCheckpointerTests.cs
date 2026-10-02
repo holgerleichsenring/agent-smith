@@ -29,7 +29,7 @@ public sealed class RunWorkCheckpointerTests
     // p0437: putting ONE repo's work on the branch moved to RepoWorkPusher; the
     // checkpointer decides WHEN, the pusher does it.
     private RepoWorkPusher BuildPusher() => new(
-        new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+        new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         _scanner.Object,
         new SandboxTargets(), NullLogger<RepoWorkPusher>.Instance);
 

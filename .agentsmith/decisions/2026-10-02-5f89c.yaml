@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89c
+
+decisions:
+  - category: Architecture
+    chose: "RedisConnectionRepoSnapshot (one hash per connection, no TTL) implements IConnectionRepoSnapshot and IConnectionRepoSnapshotStore and is registered once in AddRedis; the core's in-memory and disk registrations became TryAdd and stay the CLI's"
+    over: "RemoveAll in AddRedis, as RedisProjectMapStore does"
+    reason: |
+      AddRedis runs BEFORE the core chain in ServerCompositionBuilder, so a later AddSingleton
+      in the core wins a single-service resolve. A composition test pins the server's
+      registration to the Redis store. The same ordering means the server's IProjectMapStore
+      resolves to the disk store today; that is outside this phase and left as it is.
+  - category: Implementation
+    chose: "A success sets repos, discovered_at and last_attempt_at and deletes last_error in one MULTI/EXEC; a failure sets last_attempt_at and last_error in one HSET"
+    over: "last_attempt_at owned by failures alone"
+    reason: |
+      The studio shows the latest attempt whatever its outcome. The disjointness that matters
+      holds: a failure never touches repos or discovered_at, so it cannot erase the last
+      success on any replica. A slow success landing after a newer failure clears that error —
+      the same last-writer rule, accepted.
+  - category: Implementation
+    chose: "On the server the hash is also the hot snapshot; RedisConnectionRepoSnapshot.Set writes nothing"
+    over: "Set writing the repos field"
+    reason: |
+      The refresher records every outcome in the store before it sets the hot snapshot, so the
+      hash already holds those repos; a second repos-only write from a fallback could pair one
+      replica's list with another replica's discovered_at.
+  - category: Implementation
+    chose: "ConnectionRefreshFlights: one refresh task per connection, shared by the glob expander, the endpoint and the sweep; it runs on no caller's token; on its own flow (AsyncLocal) a refresh asking for the same connection runs directly"
+    over: "A plain shared-task map"
+    reason: |
+      Discovery reads its token through CurrentSecretValues, which can reload the configuration;
+      that load expands the same connection's globs on a missing key and would wait on the very
+      task it runs inside — a deadlock. A waiter that gives up stops waiting, not the refresh.
+  - category: Implementation
+    chose: "Every outcome is recorded; a MissingCredentialException falls back to last-good like a transport failure; any other ConfigurationException is recorded and still thrown; the error is the exception's message bounded to 300 characters"
+    over: "Recording only transport failures"
+    reason: "A missing secret is an outage for discovery: yesterday's repos are still the repos, shown with the error until the secret is fixed."
+  - category: Implementation
+    chose: "ConnectionDiscoveryReader behind ConnectionDiscoveryEndpoints: GET serves the stored status; a key nothing was recorded under resolves the connection through the loader and refreshes at once, waiting 30 s before answering with Discovering=true; POST .../discovery/refresh (diagnostics.probe) refreshes and answers the view; an id the store lacks is 404"
+    over: "Keeping the GET in ConfigCapabilityEndpoints with the spec's three new fields only"
+    reason: |
+      The view gains Discovering beside LastAttemptAt, LastError and RepoCount — "discovering"
+      needs a field. The loader is the one path from a stored entry to the connection a run
+      would use, the legacy credential migration included; a stored entry the loader dropped
+      answers the empty view instead of a refresh.
+  - category: Implementation
+    chose: "The CLI's disk store writes {name}.status.json (discovered_at, last_attempt_at, last_error) beside {name}.repos.json; a repos file without a status file keeps its last-write time as discovered_at"
+    over: "Folding the status into the repos file"
+    reason: "Repos files written before this phase stay readable; the store contract now carries the time the refresher took from TimeProvider."
+  - category: TradeOff
+    chose: "On the server a Redis that does not answer fails the discovery read and write"
+    over: "A per-process fallback cache"
+    reason: "Redis is already the server's queue, lease and event stream (operator ruling for discovery); a per-pod fallback is the divergence this phase removes."
+  - category: Tooling
+    chose: "FakeRedisHashes: Moq-backed hashes shared by several multiplexers, a transaction applying its queued commands together"
+    over: "A Redis container in the unit suite"
+    reason: "Two replicas over one server is the claim; the fast tier needs no Docker."

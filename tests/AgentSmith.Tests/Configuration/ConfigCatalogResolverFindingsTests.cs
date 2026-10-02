@@ -20,6 +20,7 @@ public sealed class ConfigCatalogResolverFindingsTests
         var raw = new RawConfigYaml().Deserialize("""
             agents:
               real: { type: Claude }
+            secrets: { t: x }
             repos:
               real: { type: GitHub, auth: t }
             trackers:
@@ -47,6 +48,7 @@ public sealed class ConfigCatalogResolverFindingsTests
         var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -69,6 +71,7 @@ public sealed class ConfigCatalogResolverFindingsTests
         var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -93,6 +96,7 @@ public sealed class ConfigCatalogResolverFindingsTests
         var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:
@@ -125,6 +129,7 @@ public sealed class ConfigCatalogResolverFindingsTests
         var raw = new RawConfigYaml().Deserialize("""
             agents:
               a: { type: Claude }
+            secrets: { t: x }
             repos:
               r: { type: GitHub, url: https://x, auth: t }
             trackers:

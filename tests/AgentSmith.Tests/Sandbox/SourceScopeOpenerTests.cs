@@ -48,7 +48,7 @@ public sealed class SourceScopeOpenerTests
             new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         return new SourceScopeOpener(
-            new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder,
+            new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), factory, specBuilder,
             Mock.Of<IRunContextAccessor>());
     }
 

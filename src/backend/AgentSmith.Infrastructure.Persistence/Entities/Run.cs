@@ -39,6 +39,10 @@ public sealed class Run : EntityBase
     // deadline elapsed. Persisted so a server restart inside the grace window
     // still guarantees the kill — never an in-process timer.
     public DateTimeOffset? CancelDeadlineAt { get; set; }
+    // 2026-10-02-5f89e: renewed every 45 s by the process driving the run (RunHeartbeatPump),
+    // for EVERY run — the ActiveRun lease beat only for ticket runs. Null until the first
+    // renewal and on older rows; RunLivenessReaper then reads StartedAt as the first beat.
+    public DateTimeOffset? HeartbeatAt { get; set; }
     // p0344b: the run-story snapshot taken at run end (RunStoryRecordedEvent) —
     // camelCase wire JSON served verbatim on the run detail. ProgressLedgerJson
     // is the p0341 ledger ([{id,activity,status,target}]), AcceptanceJson the

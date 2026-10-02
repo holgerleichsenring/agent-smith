@@ -145,6 +145,7 @@ public static class ConfigStudioCapabilities
         "organization" => tracker.Organization,
         "project" => tracker.Project,
         "authSecret" => tracker.AuthSecret,
+        "email" => tracker.Email,
         "doneStatus" => tracker.DoneStatus,
         "failedStatus" => tracker.FailedStatus,
         "needsClarificationStatus" => tracker.NeedsClarificationStatus,

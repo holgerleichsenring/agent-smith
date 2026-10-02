@@ -2,17 +2,18 @@ using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
-/// Creates the appropriate ISourceProvider based on configuration type.
+/// Creates the appropriate ISourceProvider based on configuration type. 2026-10-02-5f89a: the
+/// token is the repo's own auth secret, and a GitLab repo's instance is its own host.
 /// </summary>
 public sealed class SourceProviderFactory(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     IHttpClientFactory httpClientFactory,
     IGitHubClientFactory gitHubClientFactory,
     IAzDoClientFactory azDoClientFactory,
@@ -37,7 +38,7 @@ public sealed class SourceProviderFactory(
 
     private GitHubSourceProvider CreateGitHub(RepoConnection config)
     {
-        var token = secrets.GetRequired("GITHUB_TOKEN");
+        var token = credentials.For(config);
         var connection = new GitHubSourceConnection(config.Url!, token, config.DefaultBranch);
         return new GitHubSourceProvider(
             connection, gitHubClientFactory,
@@ -46,9 +47,8 @@ public sealed class SourceProviderFactory(
 
     private GitLabSourceProvider CreateGitLab(RepoConnection config)
     {
-        var token = secrets.GetRequired("GITLAB_TOKEN");
-        var (baseUrl, projectPath, cloneUrl) =
-            ResolveGitLabTarget(config.Url!, secrets.GetOptional("GITLAB_URL"));
+        var token = credentials.For(config);
+        var (baseUrl, projectPath, cloneUrl) = ResolveGitLabTarget(config.Url!, config.Host);
         var connection = new GitLabSourceConnection(
             baseUrl, Uri.EscapeDataString(projectPath), cloneUrl, token, config.DefaultBranch);
         return new GitLabSourceProvider(
@@ -58,7 +58,7 @@ public sealed class SourceProviderFactory(
 
     private AzureReposSourceProvider CreateAzureRepos(RepoConnection config)
     {
-        var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
+        var token = credentials.For(config);
         var (orgUrl, project, repoName) = ParseAzureReposUrl(config.Url!);
         var connection = new AzureReposSourceConnection(
             orgUrl, project, repoName, token, config.DefaultBranch);
@@ -70,7 +70,7 @@ public sealed class SourceProviderFactory(
 
     /// <summary>
     /// The GitLab API base URL comes from the repo url's OWN host — the url is complete,
-    /// so a self-managed instance needs no extra config. <c>GITLAB_URL</c> is only an
+    /// so a self-managed instance needs no extra config. The repo's <c>Host</c> is only an
     /// optional override for a GitLab installed under a sub-path (host/gitlab/…), where the
     /// host is not the instance root and the path can't be split from it algorithmically.
     /// </summary>

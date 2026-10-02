@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -13,12 +12,12 @@ internal static class GitStepCredentials
     public const string Helper =
         "credential.helper=!f() { echo \"username=x-access-token\"; echo \"password=$GIT_TOKEN\"; }; f";
 
-    /// <summary>Null when the platform has no token configured — git then prompts nobody.</summary>
-    public static IReadOnlyDictionary<string, string>? TokenEnv(RepoConnection config)
-    {
-        var token = GitTokenResolver.Resolve(config.Type);
-        return token is null
-            ? null
-            : new Dictionary<string, string> { ["GIT_TOKEN"] = token };
-    }
+    /// <summary>
+    /// 2026-10-02-5f89g: the step env for the repo's own credential; null for
+    /// <see cref="GitCredential.None"/>, a local working copy that talks to no remote host.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string>? TokenEnv(GitCredential credential) =>
+        credential.HasToken
+            ? new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! }
+            : null;
 }

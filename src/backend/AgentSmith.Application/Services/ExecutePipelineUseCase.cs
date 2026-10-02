@@ -31,6 +31,7 @@ public sealed class ExecutePipelineUseCase(
     IModelPricingResolver modelPricingResolver,
     IRunCancellationRegistry cancellationRegistry,
     IActiveRunLease activeRunLease,
+    Lifecycle.RunHeartbeatPump heartbeatPumps,
     IConfigResolver configResolver,
     IProgressReporter progressReporter,
     IPipelineErrorHandler errorHandler,
@@ -38,11 +39,8 @@ public sealed class ExecutePipelineUseCase(
 {
     // p0242: the single-run lease is CLAIMED by the poller at enqueue; this use
     // case owns the rest of its lifecycle — ATTACH the run id on start, RENEW the
-    // heartbeat while the run executes, and RELEASE on every terminal exit. Renew
-    // well under the reaper's 3-min stale threshold so a legit multi-minute run
-    // never looks crashed. CLI binds a no-op lease; non-ticket runs hold none.
-    private static readonly TimeSpan LeaseHeartbeatInterval = TimeSpan.FromSeconds(45);
-
+    // heartbeat while the run executes (2026-10-02-5f89e: RunHeartbeatPump, which
+    // beats the run row for every run too), and RELEASE on every terminal exit.
     public async Task<CommandResult> ExecuteAsync(
         PipelineRequest request, string configPath, CancellationToken cancellationToken)
     {
@@ -85,7 +83,7 @@ public sealed class ExecutePipelineUseCase(
         // p0515: under the CONFIGURED spelling — two capitalisations, not two leases.
         await AttachLeaseAsync(request, projectConfig.Name, runId, cancellationToken);
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var heartbeatPump = RunHeartbeatPumpAsync(request, projectConfig.Name, runId, heartbeatCts.Token);
+        var heartbeatPump = heartbeatPumps.RunAsync(projectConfig.Name, request.TicketId, runId, heartbeatCts.Token);
         // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
         // PipelineRunWatchdog can signal this execution by runId.
         var runCt = cancellationRegistry.Register(runId, cancellationToken);
@@ -391,37 +389,6 @@ public sealed class ExecutePipelineUseCase(
     {
         if (request.TicketId is null) return;
         await activeRunLease.ReleaseAsync(project, request.TicketId, runId, ct);
-    }
-
-    private async Task RunHeartbeatPumpAsync(
-        PipelineRequest request, string project, string runId, CancellationToken ct)
-    {
-        if (request.TicketId is null) return;
-        // p0376: the try/catch lives INSIDE the loop so a transient DB fault on ONE
-        // renewal does not kill the pump. A dead pump freezes ActiveRun.HeartbeatAt,
-        // and the ActiveRunReaper then false-positive-reaps a LIVE run (observed: a run
-        // reaped ~4 min after a fresh boot while its 3 sandboxes were still working —
-        // a SQLite connection-open aborted under boot contention and surfaced as an
-        // OperationCanceledException even though OUR token never fired, which the old
-        // single catch(OperationCanceledException) mistook for "run ended"). Only a
-        // cancellation of the pump's OWN token means the run is ending; anything else
-        // is transient — log and retry on the next tick.
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                await Task.Delay(LeaseHeartbeatInterval, ct);
-                await activeRunLease.RenewHeartbeatAsync(project, request.TicketId, CancellationToken.None);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested)
-            {
-                break; // the run is ending — stop renewing
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Lease heartbeat renewal failed for run {RunId} — retrying next tick", runId);
-            }
-        }
     }
 
     // p0281d: pick the project this run executes against. A CLI scan sets request.AgentName

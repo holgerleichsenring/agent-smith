@@ -24,6 +24,9 @@ internal static class CancelReasonNarrator
         // summary (SandboxVanishSummary); this row only names the cause category.
         "sandbox-vanished" =>
             "Cancelled — the sandbox container exited mid-run (see the sandbox container log for the exit cause).",
+        // 2026-10-02-5f89e: RunLivenessReaper — the row's heartbeat stopped.
+        "interrupted" =>
+            "Interrupted — no server was driving this run any more (restart or crash).",
         "operator" or null or "" =>
             "Cancelled by operator — enforced after the grace period.",
         _ => $"Cancelled ({reason}) — enforced after the grace period.",
@@ -38,6 +41,7 @@ internal static class CancelReasonNarrator
             "budget" => "Cancelled — exceeded the cost/capacity budget.",
             "crashed" => "Cancelled — the run crashed.",
             "sandbox-vanished" => "Cancelled — the sandbox exited mid-run.",
+            "interrupted" => "Interrupted — no server was driving this run any more.",
             _ => "Cancelled by operator.",
         };
         return $"<b>Agent Smith — Cancelled</b><br/>{headline}";

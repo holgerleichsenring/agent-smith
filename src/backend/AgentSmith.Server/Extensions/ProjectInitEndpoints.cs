@@ -10,12 +10,19 @@ namespace AgentSmith.Server.Extensions;
 /// outcomes: the run id on success, 409 with the LIVE run id when an init of this
 /// project is already going, 503 with the budget's reason when it does not fit, and
 /// 400 when no such project is configured.
+/// <para>
+/// 2026-10-02-5f89d: the GET answers the project's live init run — so the button restores
+/// itself after navigation — under runs.read, the permission every other run read needs:
+/// 200 with the run and its state, 204 when none is live, 404 when no such project is
+/// configured. A launch that finds another launch of the project mid-flight answers 409.
+/// </para>
 /// </summary>
 internal static class ProjectInitEndpoints
 {
     internal static WebApplication MapProjectInitEndpoints(this WebApplication app)
     {
         app.MapPost("/api/projects/{name}/init", InitAsync).Needs(Permissions.ProjectsInit);
+        app.MapGet("/api/projects/{name}/init", GetStateAsync).Needs(Permissions.RunsRead);
         return app;
     }
 
@@ -32,10 +39,19 @@ internal static class ProjectInitEndpoints
         return result.Outcome switch
         {
             InitLaunchOutcome.Started => Results.Ok(body),
-            InitLaunchOutcome.AlreadyRunning => Results.Conflict(body),
+            InitLaunchOutcome.AlreadyRunning or InitLaunchOutcome.BeingStarted => Results.Conflict(body),
             InitLaunchOutcome.NoCapacity =>
                 Results.Json(body, statusCode: StatusCodes.Status503ServiceUnavailable),
             _ => Results.BadRequest(body),
         };
+    }
+
+    // Internal so the 2026-10-02-5f89d endpoint tests drive the real reader without a host.
+    internal static async Task<IResult> GetStateAsync(
+        string name, InitRunStateReader reader, CancellationToken cancellationToken)
+    {
+        var lookup = await reader.ReadAsync(name, cancellationToken);
+        if (!lookup.IsKnownProject) return Results.NotFound();
+        return lookup.Live is null ? Results.NoContent() : Results.Ok(lookup.Live);
     }
 }

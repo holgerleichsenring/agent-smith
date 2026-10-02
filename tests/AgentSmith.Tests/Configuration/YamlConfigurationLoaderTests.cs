@@ -143,6 +143,7 @@ public class YamlConfigurationLoaderTests
                 type: claude
                 model: sonnet-4
 
+            secrets: { token: x }
             repos:
               test-repo:
                 type: github

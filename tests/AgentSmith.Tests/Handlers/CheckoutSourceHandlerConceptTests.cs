@@ -20,7 +20,7 @@ public sealed class CheckoutSourceHandlerConceptTests
     private readonly Mock<IHostSourceCloner> _clonerMock = new();
 
     private CheckoutSourceHandler CheckoutHandler() => new(
-        new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+        new SandboxRepoCloner(_factoryMock.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
         RunStateConceptsTestFactory.Default,
         new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
 

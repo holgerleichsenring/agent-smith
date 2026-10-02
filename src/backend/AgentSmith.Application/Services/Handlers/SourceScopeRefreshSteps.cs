@@ -34,14 +34,14 @@ internal static class SourceScopeRefreshSteps
 
     /// <summary>
     /// The remote's own HEAD, one commit deep. It carries the credential for the reason the
-    /// clone does: it talks to the remote.
+    /// clone does: it talks to the remote — the repo's own (2026-10-02-5f89g).
     /// </summary>
-    public static Step BuildFetchHeadAtDepthStep(RepoConnection config) =>
+    public static Step BuildFetchHeadAtDepthStep(GitCredential credential) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", "HEAD"],
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: GitStepCredentials.TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: FetchTimeoutSeconds);
 
     /// <summary>

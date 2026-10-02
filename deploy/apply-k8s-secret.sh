@@ -69,6 +69,9 @@ add_literal "github-token"        "${GITHUB_TOKEN:-}"
 # The derivation is the env var lower-cased with underscores turned into dashes, so
 # COPILOT_TOKEN_TEAM_A becomes copilot-token-team-a. Add it with add_literal beside these.
 add_literal "copilot-github-token" "${COPILOT_GITHUB_TOKEN:-}"
+# 2026-10-02-5f89a: a repo, connection or tracker authenticates with the secret its auth names;
+# a second GitLab instance or Azure DevOps organization needs its own variable, added here with
+# add_literal and mapped in the configmap's secrets: catalog.
 add_literal "azure-devops-token"  "${AZURE_DEVOPS_TOKEN:-}"
 add_literal "gitlab-token"        "${GITLAB_TOKEN:-}"
 add_literal "jira-token"          "${JIRA_TOKEN:-}"

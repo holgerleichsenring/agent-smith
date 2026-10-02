@@ -41,10 +41,11 @@ public sealed class SourceScopeRefresh
     /// the rung that talks to the remote, so its failure is classified as the clone's is; a
     /// reset that fails over what the fetch delivered could not reach the remote's state either.
     /// </summary>
-    public async Task ToRemoteHeadAsync(ISandbox sandbox, RepoConnection repo, CancellationToken ct)
+    public async Task ToRemoteHeadAsync(
+        ISandbox sandbox, RepoConnection repo, GitCredential credential, CancellationToken ct)
     {
         var fetch = await sandbox.RunStepAsync(
-            SourceScopeRefreshSteps.BuildFetchHeadAtDepthStep(repo), null, ct);
+            SourceScopeRefreshSteps.BuildFetchHeadAtDepthStep(credential), null, ct);
         if (fetch.ExitCode != 0)
             throw SourceScopeFailures.Fail(SourceScopeFailures.KindOf(fetch), repo, revision: null,
                 $"the held tree could not be refreshed: {SourceScopeFailures.Text(fetch)}");

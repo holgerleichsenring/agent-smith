@@ -9,6 +9,8 @@ import { ProjectInitAction } from "../ProjectInitAction";
 
 vi.mock("@/lib/projectInitApi", () => ({
   startProjectInit: vi.fn(async () => ({ runId: "2026-08-21T00-00-00-aaaa" })),
+  // 2026-10-02-5f89d: no live init — the button renders as it always did.
+  fetchProjectInit: vi.fn(async () => null),
 }));
 
 const box = () => screen.getByTestId("project-init-auto-accept-box-sample");

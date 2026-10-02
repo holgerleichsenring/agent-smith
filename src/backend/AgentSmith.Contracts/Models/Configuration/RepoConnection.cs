@@ -16,6 +16,13 @@ public sealed record RepoConnection
     public string? DefaultBranch { get; init; }
 
     /// <summary>
+    /// 2026-10-02-5f89a: the instance a GitLab repo's API calls go to when it is not the url's own
+    /// host — copied from the connection for a connection repo, filled from GITLAB_URL at load for
+    /// a repo under repos:. Null means the url's own host.
+    /// </summary>
+    public string? Host { get; init; }
+
+    /// <summary>
     /// 2026-08-30-c6ec: the served interface this repository CONSUMES, named as the
     /// interface's served description titles it. It is what tells a run which checkouts
     /// hold first-party call sites — the intent an interface is used with lives in its

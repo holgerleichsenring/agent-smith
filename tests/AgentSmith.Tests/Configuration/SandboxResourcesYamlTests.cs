@@ -37,7 +37,7 @@ public sealed class SandboxResourcesYamlTests : IDisposable
                     cpu_limit: 2000m
                     memory_request: 1Gi
                     memory_limit: 4Gi
-            secrets: {}
+            secrets: { token: x }
             """);
         var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 
@@ -65,7 +65,7 @@ public sealed class SandboxResourcesYamlTests : IDisposable
                 repos: [r]
                 sandbox:
                   toolchain_image: my-registry/dotnet-sdk:8
-            secrets: {}
+            secrets: { token: x }
             """);
         var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 

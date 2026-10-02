@@ -21,18 +21,8 @@ namespace AgentSmith.Tests.Integration;
 /// composition (no Redis) must resolve ITicketStatusTransitionerFactory and
 /// create non-Jira transitioners without throwing on missing IRedisClaimLock.
 /// </summary>
-[Collection(EnvVarCollection.Name)]
-public sealed class CliShapedDiTests : IDisposable
+public sealed class CliShapedDiTests
 {
-    private static readonly string[] EnvVars =
-    {
-        "GITHUB_TOKEN", "GITLAB_TOKEN", "GITLAB_URL", "GITLAB_PROJECT", "AZURE_DEVOPS_TOKEN"
-    };
-
-    public void Dispose()
-    {
-        foreach (var v in EnvVars) Environment.SetEnvironmentVariable(v, null);
-    }
 
     [Theory]
     [InlineData("github")]
@@ -40,8 +30,7 @@ public sealed class CliShapedDiTests : IDisposable
     [InlineData("azuredevops")]
     public void Cli_ResolvesFactoryAndCreatesNonJiraTransitioner_DoesNotThrow(string platform)
     {
-        SetEnvForAllPlatforms();
-        var provider = BuildCliLikeProvider();
+        var provider = BuildCliLikeProvider(TestCredentials.Config(("token", "x")));
         var factory = provider.GetRequiredService<ITicketStatusTransitionerFactory>();
 
         var act = () => factory.Create(ConfigFor(platform));
@@ -151,32 +140,26 @@ public sealed class CliShapedDiTests : IDisposable
             "the nudge's only binding is the server composition — the CLI composes no surface");
     }
 
-    private static ServiceProvider BuildCliLikeProvider()
+    // 2026-10-02-5f89a: the tokens come from the loaded configuration's secrets, the way the
+    // CLI's credential resolver reads them — never from process-wide variables.
+    private static ServiceProvider BuildCliLikeProvider(AgentSmithConfig? config = null)
     {
         var services = new ServiceCollection();
         services.AddLogging(b => b.AddProvider(NullLoggerProvider.Instance));
         services.AddAgentSmithInfrastructure();
         services.AddAgentSmithCommands();
         services.AddInProcessSandbox();
+        if (config is not null) services.AddSingleton(config);
         services.AddSingleton(Mock.Of<IDialogueTransport>());
         services.AddSingleton(Mock.Of<IProgressReporter>());
         return services.BuildServiceProvider();
     }
 
-    private static void SetEnvForAllPlatforms()
-    {
-        Environment.SetEnvironmentVariable("GITHUB_TOKEN", "x");
-        Environment.SetEnvironmentVariable("GITLAB_TOKEN", "x");
-        Environment.SetEnvironmentVariable("GITLAB_URL", "https://gitlab.com");
-        Environment.SetEnvironmentVariable("GITLAB_PROJECT", "g/p");
-        Environment.SetEnvironmentVariable("AZURE_DEVOPS_TOKEN", "x");
-    }
-
     private static TrackerConnection ConfigFor(string platform) => platform switch
     {
-        "github" => new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r" },
-        "gitlab" => new TrackerConnection { Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p" },
-        "azuredevops" => new TrackerConnection { Type = TrackerType.AzureDevOps, Organization = "org", Project = "p" },
+        "github" => new TrackerConnection { Type = TrackerType.GitHub, Url = "https://github.com/o/r", Auth = "token" },
+        "gitlab" => new TrackerConnection { Type = TrackerType.GitLab, Url = "https://gitlab.com", Project = "g/p", Auth = "token" },
+        "azuredevops" => new TrackerConnection { Type = TrackerType.AzureDevOps, Organization = "org", Project = "p", Auth = "token" },
         _ => throw new ArgumentException($"unknown platform: {platform}")
     };
 }

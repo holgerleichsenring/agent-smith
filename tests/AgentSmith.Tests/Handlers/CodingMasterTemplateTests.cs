@@ -302,7 +302,7 @@ public sealed class CodingMasterTemplateTests
             ProjectWithTemplate(), ProjectWithTemplate().Templates[0].Repo, "v4.2.0",
             hold: null,
             new SourceScopeOpener(
-                new SourceScopeMaterialiser(new SourceScopeRefresh()), spawns,
+                new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), spawns,
                 new SandboxSpecBuilder(
                     new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                     Mock.Of<IAgentImageResolver>(

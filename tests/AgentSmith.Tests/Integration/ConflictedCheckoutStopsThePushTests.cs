@@ -91,7 +91,7 @@ public sealed class ConflictedCheckoutStopsThePushTests
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         return new CheckoutSourceHandler(
             new SandboxRepoCloner(
-                factory.Object, TestGit.Identity, TestGit.WorkBranchCheckout,
+                factory.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, TestGit.Identity, TestGit.WorkBranchCheckout,
                 NullLogger<SandboxRepoCloner>.Instance),
             RunStateConceptsTestFactory.Default,
             new SandboxTargets(), NullLogger<CheckoutSourceHandler>.Instance);
@@ -99,7 +99,7 @@ public sealed class ConflictedCheckoutStopsThePushTests
 
     private static PersistWorkBranchHandler PersistHandler() =>
         new(new SandboxGitOperations(
-                new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), TestGit.Identity),
             new SandboxTargets(), NullLogger<PersistWorkBranchHandler>.Instance);
 }

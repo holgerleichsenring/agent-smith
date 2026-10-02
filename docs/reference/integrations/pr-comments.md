@@ -42,8 +42,8 @@ A command is acted on only when its author can write to the repository. The chec
 | Platform | Write access means | How it is checked |
 |----------|--------------------|-------------------|
 | GitHub | `author_association` is `OWNER`, `MEMBER` or `COLLABORATOR` | from the webhook payload, no API call |
-| GitLab | Developer role or higher on the project, directly or through a group | members API with `GITLAB_TOKEN` (`read_api`) |
-| Azure DevOps | effective **Contribute** permission on the repository, however it is granted | security API with `AZURE_DEVOPS_TOKEN` (Identity: Read, Security: Manage) |
+| GitLab | Developer role or higher on the project, directly or through a group | members API with the repo's `auth` secret (`read_api`) |
+| Azure DevOps | effective **Contribute** permission on the repository, however it is granted | security API with the repo's `auth` secret (Identity: Read, Security: Manage) |
 
 `CONTRIBUTOR` on GitHub is not enough: it means a commit of theirs was once merged, not that they can push. On GitLab and Azure DevOps the repository must be declared in a project's `repos:`, because that is where the server learns which instance or organization to ask. A lookup that fails, a missing token or an undeclared repository counts as no write access. A verdict is remembered for five minutes per author and repository.
 

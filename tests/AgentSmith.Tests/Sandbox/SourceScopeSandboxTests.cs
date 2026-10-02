@@ -208,7 +208,7 @@ public sealed class SourceScopeSandboxTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandbox(
             Project, repo, revision, hold: null,
-            new SourceScopeOpener(new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, runContext.Object),
+            new SourceScopeOpener(new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), factory, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), NullLogger<SourceScopeSandbox>.Instance,
             prefixes);
     }

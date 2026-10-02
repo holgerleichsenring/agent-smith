@@ -129,6 +129,35 @@ public sealed class RoutePermissionGuardTests
             .Equal(Permissions.ConfigImport, Permissions.SecretsWrite);
     }
 
+    // 2026-10-02-5f89b: the draft names any saved secret and any host; probe alone would let a
+    // caller send an admin-held token to a host of their choosing.
+    [Fact]
+    public void Routes_DraftChecks_NeedConfigWriteAndDiagnosticsProbe()
+    {
+        Declaration("POST", "/api/config/connections/check").Should()
+            .Equal(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+        Declaration("POST", "/api/config/trackers/check").Should()
+            .Equal(Permissions.ConfigWrite, Permissions.DiagnosticsProbe);
+    }
+
+    // 2026-10-02-5f89c: Refresh now is an outbound call with the installation's credentials.
+    [Fact]
+    public void Routes_DiscoveryRefresh_NeedsDiagnosticsProbe()
+    {
+        Declaration("POST", "/api/config/connections/{id}/discovery/refresh").Should()
+            .Equal(Permissions.DiagnosticsProbe);
+        Declaration("GET", "/api/config/connections/{id}/repos").Should().Equal(Permissions.ConfigRead);
+    }
+
+    // 2026-10-02-5f89d: the init button's read of the live run is a run read — any viewer of
+    // runs may see it; starting one still needs projects.init.
+    [Fact]
+    public void Routes_ProjectInitState_NeedsRunsRead()
+    {
+        Declaration("GET", "/api/projects/{name}/init").Should().Equal(Permissions.RunsRead);
+        Declaration("POST", "/api/projects/{name}/init").Should().Equal(Permissions.ProjectsInit);
+    }
+
     [Fact]
     public void RouteGuard_TheAnonymousRoutes_AreExactlyTheDeclaredSet()
     {

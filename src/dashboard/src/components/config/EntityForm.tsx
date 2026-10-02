@@ -18,6 +18,7 @@ import { ENTITY_SINGULAR } from "./entities";
 import { TextField, SelectField, NumberField, CheckField, RefSelect } from "./formFields";
 import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
 import { AgentForm } from "./AgentForm";
+import { DraftCheckPanel } from "./DraftCheckPanel";
 import { ProjectForm } from "./ProjectForm";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
@@ -104,6 +105,7 @@ export function EntityForm({
             />
           )}
           <TrackerPollingBlock tracker={t} onChange={onChange} />
+          <DraftCheckPanel kind="trackers" draft={t} />
         </div>
       );
     }
@@ -132,6 +134,7 @@ export function EntityForm({
               secrets={secretNames}
             />
           )}
+          <DraftCheckPanel kind="connections" draft={c} />
         </div>
       );
     }

@@ -21,7 +21,7 @@ public sealed class GitLabMemberAccessTrust(
         try
         {
             var configured = repos.Find(author.RepositoryUrl);
-            if (configured?.Repo.Url is not { } repositoryUrl)
+            if (configured?.Repo is not { Url: { } repositoryUrl } repo)
             {
                 logger.LogInformation("GitLab repository {Repo} is not configured; its comments are untrusted",
                     author.RepositoryUrl);
@@ -29,9 +29,10 @@ public sealed class GitLabMemberAccessTrust(
             }
 
             return await verdicts.GetOrLookupAsync(
-                $"gitlab:{author.RepositoryId}:{author.AuthorId}",
+                // 2026-10-02-5f89a: a project id is unique per instance only, so the host is in the key.
+                $"gitlab:{new Uri(repositoryUrl).Authority}:{author.RepositoryId}:{author.AuthorId}",
                 async () => await members.ReadAccessLevelAsync(
-                    repositoryUrl, author.RepositoryId, author.AuthorId, cancellationToken) >= DeveloperAccessLevel);
+                    repo, author.RepositoryId, author.AuthorId, cancellationToken) >= DeveloperAccessLevel);
         }
         catch (Exception ex)
         {

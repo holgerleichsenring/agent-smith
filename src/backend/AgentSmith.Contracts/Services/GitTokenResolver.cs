@@ -3,26 +3,12 @@ using AgentSmith.Contracts.Models.Configuration;
 namespace AgentSmith.Contracts.Services;
 
 /// <summary>
-/// Maps a repo's <see cref="RepoType"/> to the environment-variable name that
-/// holds the operator's PAT for that platform, and reads the value from the
-/// host environment.
-///
-/// The git credential helper used by clone Steps echoes <c>$GIT_TOKEN</c> as
-/// the password (see CheckoutSourceHandler / HostSourceCloner / SandboxGitOperations);
-/// the resolved value here is what the caller stamps into <c>Step.Env["GIT_TOKEN"]</c>
-/// or the spawned process environment so the helper has something to expand.
-///
-/// Returns <c>null</c> when the env var isn't set or the type has no associated
-/// remote PAT (Local); callers decide whether that's a soft-skip (HostSourceCloner)
-/// or a hard fail later in the clone (CheckoutSourceHandler).
+/// 2026-10-02-5f89g: <see cref="IGitTokenResolver"/> over <see cref="ICredentialResolver"/>. It
+/// used to map the repo TYPE to GITHUB_TOKEN, GITLAB_TOKEN or AZURE_DEVOPS_TOKEN, which put one
+/// token behind every repo of a type; the repo's own auth secret answers now.
 /// </summary>
-public static class GitTokenResolver
+public sealed class GitTokenResolver(ICredentialResolver credentials) : IGitTokenResolver
 {
-    public static string? Resolve(RepoType type) => type switch
-    {
-        RepoType.GitHub => Environment.GetEnvironmentVariable("GITHUB_TOKEN"),
-        RepoType.GitLab => Environment.GetEnvironmentVariable("GITLAB_TOKEN"),
-        RepoType.AzureDevOps => Environment.GetEnvironmentVariable("AZURE_DEVOPS_TOKEN"),
-        _ => null,
-    };
+    public GitCredential For(RepoConnection repo) =>
+        repo.Type == RepoType.Local ? GitCredential.None : new GitCredential(credentials.For(repo));
 }

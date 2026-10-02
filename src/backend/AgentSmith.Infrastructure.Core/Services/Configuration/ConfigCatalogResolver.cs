@@ -51,9 +51,9 @@ public sealed class ConfigCatalogResolver(
         var collected = new List<StartupFinding>();
         var catalogs = new ConfigCatalogs(
             _agents.Build(raw.Agents, collected),
-            _repos.Build(raw.Repos, collected),
-            _trackers.Build(raw.Trackers, collected),
-            _connections.Build(raw.Connections, collected),
+            _repos.Build(raw.Repos, raw.Secrets.Keys, collected),
+            _trackers.Build(raw.Trackers, raw.Secrets.Keys, collected),
+            _connections.Build(raw.Connections, raw.Secrets.Keys, collected),
             new DesignSourceCatalogBuilder().Build(raw.DesignSources, raw.Secrets.Keys, collected));
 
         var projects = ResolveProjects(raw, catalogs, collected);

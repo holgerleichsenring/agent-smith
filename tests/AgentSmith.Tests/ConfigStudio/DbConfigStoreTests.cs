@@ -44,6 +44,7 @@ public sealed class DbConfigStoreTests : IDisposable
         limits:
           max_tool_calls_per_skill: 42
         secrets:
+          token: ${AGENTSMITH_TEST_TOKEN}
           github_token: ${AGENTSMITH_TEST_GH_TOKEN}
         """;
 

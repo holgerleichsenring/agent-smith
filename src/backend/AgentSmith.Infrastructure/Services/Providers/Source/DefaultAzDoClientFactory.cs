@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// calc (read each repo's <c>.agentsmith/contexts</c> tree — one connection per
 /// file/dir read) paid 10-20 sequential handshakes and drove the synchronous
 /// poll toward its 20s ceiling. Connections are now cached per organization URL
-/// with a TTL, the same trick the ticket side already uses
+/// and token (2026-10-02-5f89a) with a TTL, the same trick the ticket side already uses
 /// (AzureDevOpsConnectionCache): the handshake is paid once per 30 min, not per
 /// read. Clients built from a connection are lightweight, so only the connection
 /// is pooled.
@@ -47,16 +47,16 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
     public IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken) =>
         Connect(organizationUrl, personalAccessToken).GetClient<IdentityHttpClient>();
 
-    // Keyed by org URL (the PAT is stable per org, same as the ticket-side cache).
-    // A stale entry (TTL reached) is disposed and rebuilt so a refreshed
-    // federation token / rotated location cache never wedges the connection.
-    private static VssConnection Connect(string organizationUrl, string personalAccessToken)
+    // 2026-10-02-5f89a: keyed by org URL AND token hash — two connections to one org, or a
+    // re-pointed secret, each get their own connection. A stale entry (TTL reached) is disposed
+    // and rebuilt so a refreshed federation token / rotated location cache never wedges it.
+    internal static VssConnection Connect(string organizationUrl, string personalAccessToken)
     {
         var entry = Cache.AddOrUpdate(
-            organizationUrl,
-            addValueFactory: url => Build(url, personalAccessToken),
-            updateValueFactory: (url, existing) =>
-                existing.IsStale(Ttl) ? Rebuild(url, personalAccessToken, existing) : existing);
+            AzureDevOpsConnectionKey.For(organizationUrl, personalAccessToken),
+            addValueFactory: _ => Build(organizationUrl, personalAccessToken),
+            updateValueFactory: (_, existing) =>
+                existing.IsStale(Ttl) ? Rebuild(organizationUrl, personalAccessToken, existing) : existing);
         return entry.Connection;
     }
 

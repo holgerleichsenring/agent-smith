@@ -70,7 +70,7 @@ public sealed class PipelineQueueConsumerCancelGateTests
         services.AddSingleton(events.Object);
         services.AddSingleton(_lease.Object);
         var reader = new Mock<IRunCancelStateReader>();
-        reader.Setup(r => r.IsCancelRequestedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        reader.Setup(r => r.IsStartRefusedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cancelRequested);
         return new PipelineQueueConsumer(
             services.BuildServiceProvider(), new SingleShotQueue(request), reader.Object,

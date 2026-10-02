@@ -57,6 +57,12 @@ internal static class RedisExtensions
         // from the CLI-safe baseline (disk-backed) registered upstream.
         services.RemoveAll<IProjectMapStore>();
         services.AddSingleton<IProjectMapStore, RedisProjectMapStore>();
+        // 2026-10-02-5f89c: connection discovery — repos and the last attempt's outcome — in one
+        // Redis hash per connection, so every replica answers the same. Registered before the
+        // core chain, whose in-memory and disk stores are TryAdd and stay the CLI's.
+        services.AddSingleton<RedisConnectionRepoSnapshot>();
+        services.AddSingleton<IConnectionRepoSnapshot>(sp => sp.GetRequiredService<RedisConnectionRepoSnapshot>());
+        services.AddSingleton<IConnectionRepoSnapshotStore>(sp => sp.GetRequiredService<RedisConnectionRepoSnapshot>());
         return services;
     }
 

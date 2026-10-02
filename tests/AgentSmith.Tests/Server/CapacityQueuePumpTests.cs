@@ -128,6 +128,58 @@ public sealed class CapacityQueuePumpTests : IDisposable
             .Should().Match<RunFinishedEvent>(e => e.RunId == reserved && e.Status == "cancelled");
     }
 
+    // 2026-10-02-5f89d: the gate reads the row's truth — a reserved row finished while it
+    // waited, by whatever ended it, is dropped and never claimed, and the drop does not
+    // claim it was the operator.
+    [Fact]
+    public async Task CapacityQueuePump_FinishedReservedRun_IsDroppedWithTheNeutralReason()
+    {
+        var harness = new Harness(_connection, ticketStatus: "Approved");
+        var reserved = await harness.EnqueueAsync("42");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            var row = ctx.Runs.Single(r => r.Id == reserved);
+            row.Status = "failed";
+            row.FinishedAt = DateTimeOffset.UtcNow;
+            await ctx.SaveChangesAsync();
+        }
+
+        await harness.Pump.TickAsync(CancellationToken.None);
+
+        harness.LastClaim.Should().BeNull("a finished reserved row must never start");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.QueuedTickets.Should().BeEmpty();
+            ctx.Runs.Single(r => r.Id == reserved).Status.Should().Be("failed", "a terminal row is set-once");
+        }
+        harness.Published.OfType<RunFinishedEvent>().Single().Summary
+            .Should().Be("dropped from capacity queue: reserved run already cancelled or finished");
+    }
+
+    // 2026-10-02-5f89d: IsStartRefusedAsync is the one read both pre-start gates consult.
+    [Fact]
+    public async Task RunRepository_IsStartRefused_FinishedReservedRow_IsTrue()
+    {
+        var harness = new Harness(_connection, ticketStatus: "Approved");
+        var reserved = await harness.EnqueueAsync("42");
+        var fresh = await harness.EnqueueAsync("43");
+        var flagged = await harness.EnqueueAsync("44");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Single(r => r.Id == reserved).FinishedAt = DateTimeOffset.UtcNow;
+            await ctx.SaveChangesAsync();
+            await new RunRepository(ctx).MarkCancelRequestedAsync(
+                flagged, "operator", DateTimeOffset.UtcNow, CancellationToken.None);
+        }
+
+        using var check = new AgentSmithDbContext(Options());
+        var runs = new RunRepository(check);
+        (await runs.IsStartRefusedAsync(reserved, CancellationToken.None)).Should().BeTrue();
+        (await runs.IsStartRefusedAsync(flagged, CancellationToken.None)).Should().BeTrue();
+        (await runs.IsStartRefusedAsync(fresh, CancellationToken.None)).Should().BeFalse();
+        (await runs.IsStartRefusedAsync("no-such-run", CancellationToken.None)).Should().BeFalse();
+    }
+
     // ---- 2026-09-21-c724c: a head the claim service REFUSES ----------------------------
     // An operator saw thirteen runs "waiting for capacity" over an EMPTY queue table: every
     // entry had been dropped, and the drop only PUBLISHED its terminal event. A run that never

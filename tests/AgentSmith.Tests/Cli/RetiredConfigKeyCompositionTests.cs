@@ -21,10 +21,12 @@ public sealed class RetiredConfigKeyCompositionTests
               default:
                 type: claude
                 model: sonnet
+            secrets: { token: x }
             trackers:
               jira-main:
                 type: jira
                 auth: token
+                email: a@b.example
                 parent_link_type: Relates
             """);
         try

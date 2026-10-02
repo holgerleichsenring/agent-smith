@@ -84,7 +84,7 @@ public sealed class SpecPhaseMockTests
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["primary"] = sandbox.Object });
         var reader = new SpecSetReader(readers.Object,
-            new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, readers.Object,
+            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, readers.Object,
                 new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetPhaseFileReader(new PhaseDraftReader(), NullLogger<SpecSetPhaseFileReader>.Instance),
             new SpecSetIndex(), new SandboxTargets(), NullLogger<SpecSetReader>.Instance);

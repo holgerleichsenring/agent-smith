@@ -55,7 +55,7 @@ public sealed class SpecSetWriterUnchangedTests
         return new SpecSetWriter(
             factory.Object,
             new SandboxGitOperations(
-                new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, factory.Object,
+                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
                 new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetFiles(new SpecSetIndex()), new SandboxTargets(),
             NullLogger<SpecSetWriter>.Instance);

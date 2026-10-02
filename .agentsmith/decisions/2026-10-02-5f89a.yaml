@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89a
+
+decisions:
+  - category: Architecture
+    chose: "ICredentialResolver (For repo, connection, tracker) and CredentialResolver over ISecretValues in Contracts; every server-side git-host and tracker API consumer resolves through it; SecretsProvider deleted"
+    over: "A per-type token lookup kept beside a per-entity one"
+    reason: |
+      Records carry the secret NAME; the value is read at call time from the values the host
+      follows (the server's store, the CLI's file). Two GitLab instances or two Azure DevOps
+      organizations each answer with their own token, and a secret re-pointed in the Studio is
+      read on the next call.
+  - category: Architecture
+    chose: "IMaterializingSecrets: while RawConfigMaterializer resolves the catalog, credentials come from the secrets of the configuration being built; the resolver reaches ISecretValues through a function"
+    over: "The resolver reading ISecretValues directly, as the spec implied"
+    reason: |
+      Found by the server composition test: catalog resolution discovers connection repos,
+      discovery asks for the connection's token, and the server's CurrentSecretValues reloads
+      through the very loader that is running — a DI cycle at construction and an unbounded
+      re-entry at runtime. The configuration a discovery belongs to is the one in flight, so
+      its own secrets answer; AsyncLocal keeps them on that flow only.
+  - category: Implementation
+    chose: "LegacyCredentialMigration in RawConfigMaterializer after secret resolution: empty auth -> the type's legacy secret; the catalog gains that secret as ${VARIABLE} whenever an entity's auth names it and the catalog lacks it; tracker url/project/email and GitLab repo host filled from the legacy variables; every note ADVISORY and only recorded"
+    over: "Adding the catalog entry only for an auth the migration itself filled"
+    reason: |
+      A configuration that already wrote auth: github_token but dropped its secrets: block (nothing
+      read it) worked yesterday and would otherwise become a blocking finding the CLI refuses.
+      Same intent as the spec: the legacy name and its entry are written into the loaded config
+      and reported, never thrown.
+  - category: Security
+    chose: "An auth naming no catalog secret, and a Jira tracker without email, are BLOCKING findings; the entry stays; an empty value is an advisory; no message carries a value"
+    over: "Dropping the entry, or failing silently at the first call"
+    reason: |
+      Dropping would cascade into unknown-reference findings on every project using it. The CLI
+      loader refuses blocking findings, so a fixture naming a secret it never declared now fails
+      to load — 17 test files gained the secrets they name.
+  - category: Implementation
+    chose: "Both Azure DevOps VssConnection caches key by org URL plus SHA-256 of the token (AzureDevOpsConnectionKey); GitLab and Azure DevOps trust verdicts key by host/org plus repository and author; the Azure DevOps permission reader takes the RepoConnection"
+    over: "Org-keyed caches"
+    reason: "Two connections to one org, or a re-pointed secret, kept the first token for up to 30 minutes."
+  - category: Implementation
+    chose: "One TrackerConnections per factory: TicketProviderFactory's capabilities read the provider's instance; TicketStatusTransitionerFactory builds every record through its own instead of re-deriving them, keeping the 'default' Jira project key"
+    over: "Registering TrackerConnections in DI"
+    reason: "It is internal to the factories; a DI registration would force it and its callers public for no second consumer."
+  - category: Implementation
+    chose: "MissingCredentialException derives from ConfigurationException, which is unsealed"
+    over: "A sibling of ConfigurationException"
+    reason: "Every catch that turns a configuration fault into a finding or a refusal already catches ConfigurationException."
+  - category: Tooling
+    chose: "GitLabRepoDiscoveryProvider sends through IHttpClientFactory instead of a static HttpClient"
+    over: "Proving two-instance discovery only at the resolver"
+    reason: "The done criterion asks for discovery over the real composition; the static client left no seam."
+  - category: Scope
+    chose: "RawConfigPatch's tracker mapping grows by one line (152 of its 198 row); the dashboard's StudioTracker gains email"
+    over: "A line-neutral contortion"
+    reason: "The ratchet bounds growth past the row, which one line does not reach; the form renders email from the descriptor."
+  - category: Scope
+    chose: "Clone, fetch and push keep the type-keyed GitTokenResolver until 2026-10-02-5f89g, the next commit of the same pull request"
+    over: "Both in one commit"
+    reason: "One commit per phase; the two never ship apart."

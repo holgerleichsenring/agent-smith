@@ -1,5 +1,5 @@
 using System.Net;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -7,16 +7,19 @@ using Moq;
 
 namespace AgentSmith.Tests.Webhooks.Trust;
 
-[Collection(EnvVarCollection.Name)]
 public sealed class GitLabMemberAccessReaderTests
 {
+    private static readonly RepoConnection Repo = new()
+    {
+        Name = "r", Type = RepoType.GitLab, Url = "https://gitlab.example.com/org/r", Auth = "gitlab_a",
+    };
+
     [Fact]
     public async Task ReadAccessLevelAsync_AMember_ReturnsTheLevelFromTheMembersAllEndpoint()
     {
         var handler = new StubHandler(HttpStatusCode.OK, """{ "id": 42, "access_level": 30 }""");
 
-        var level = await WithToken(() => Reader(handler).ReadAccessLevelAsync(
-            "https://gitlab.example.com/org/r", "7", "42", CancellationToken.None));
+        var level = await Reader(handler).ReadAccessLevelAsync(Repo, "7", "42", CancellationToken.None);
 
         level.Should().Be(30);
         handler.LastRequest!.RequestUri!.ToString()
@@ -24,11 +27,35 @@ public sealed class GitLabMemberAccessReaderTests
         handler.LastRequest.Headers.Contains("PRIVATE-TOKEN").Should().BeTrue();
     }
 
+    // 2026-10-02-5f89a: the repository's own auth secret, not a token picked by type.
+    [Fact]
+    public async Task GitLabMemberAccessReader_UsesTheConfiguredRepositorysSecret()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, """{ "id": 42, "access_level": 30 }""");
+        var reader = Reader(handler, ("gitlab_a", "token-a"), ("gitlab_b", "token-b"));
+
+        await reader.ReadAccessLevelAsync(Repo with { Auth = "gitlab_b" }, "7", "42", CancellationToken.None);
+
+        handler.LastRequest!.Headers.GetValues("PRIVATE-TOKEN").Should().Equal("token-b");
+    }
+
+    [Fact]
+    public async Task ReadAccessLevelAsync_RepoHost_IsTheInstanceAsked()
+    {
+        var handler = new StubHandler(HttpStatusCode.OK, """{ "id": 42, "access_level": 30 }""");
+
+        await Reader(handler).ReadAccessLevelAsync(
+            Repo with { Host = "https://gitlab.example.com/sub" }, "7", "42", CancellationToken.None);
+
+        handler.LastRequest!.RequestUri!.ToString()
+            .Should().StartWith("https://gitlab.example.com/sub/api/v4/");
+    }
+
     [Fact]
     public async Task ReadAccessLevelAsync_NoMember_ReturnsNull()
     {
-        var level = await WithToken(() => Reader(new StubHandler(HttpStatusCode.NotFound, "{}"))
-            .ReadAccessLevelAsync("https://gitlab.example.com/org/r", "7", "42", CancellationToken.None));
+        var level = await Reader(new StubHandler(HttpStatusCode.NotFound, "{}"))
+            .ReadAccessLevelAsync(Repo, "7", "42", CancellationToken.None);
 
         level.Should().BeNull();
     }
@@ -36,30 +63,19 @@ public sealed class GitLabMemberAccessReaderTests
     [Fact]
     public async Task ReadAccessLevelAsync_AnyOtherFailure_Throws()
     {
-        var act = () => WithToken(() => Reader(new StubHandler(HttpStatusCode.Forbidden, "{}"))
-            .ReadAccessLevelAsync("https://gitlab.example.com/org/r", "7", "42", CancellationToken.None));
+        var act = () => Reader(new StubHandler(HttpStatusCode.Forbidden, "{}"))
+            .ReadAccessLevelAsync(Repo, "7", "42", CancellationToken.None);
 
         await act.Should().ThrowAsync<Exception>();
     }
 
-    private static GitLabMemberAccessReader Reader(HttpMessageHandler handler)
+    private static GitLabMemberAccessReader Reader(
+        HttpMessageHandler handler, params (string, string)[] secrets)
     {
         var factory = new Mock<IHttpClientFactory>();
         factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler, false));
-        return new GitLabMemberAccessReader(new SecretsProvider(), factory.Object);
-    }
-
-    private static async Task<T> WithToken<T>(Func<Task<T>> act)
-    {
-        var (token, url) = (Environment.GetEnvironmentVariable("GITLAB_TOKEN"), Environment.GetEnvironmentVariable("GITLAB_URL"));
-        Environment.SetEnvironmentVariable("GITLAB_TOKEN", "test-token");
-        Environment.SetEnvironmentVariable("GITLAB_URL", null);
-        try { return await act(); }
-        finally
-        {
-            Environment.SetEnvironmentVariable("GITLAB_TOKEN", token);
-            Environment.SetEnvironmentVariable("GITLAB_URL", url);
-        }
+        var catalog = secrets.Length > 0 ? secrets : [("gitlab_a", "test-token")];
+        return new GitLabMemberAccessReader(TestCredentials.With(catalog), factory.Object);
     }
 
     private sealed class StubHandler(HttpStatusCode status, string body) : HttpMessageHandler

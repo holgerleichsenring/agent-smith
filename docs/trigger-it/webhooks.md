@@ -121,8 +121,8 @@ projects:
 
 A [PR comment command](../reference/integrations/pr-comments.md) runs only when its author can write to the repository, and on two platforms the server has to ask. The token it asks with needs more than cloning does:
 
-- **GitLab** — `GITLAB_TOKEN` with the `read_api` scope, to read the project's members.
-- **Azure DevOps** — `AZURE_DEVOPS_TOKEN` with **Identity (Read)** and **Security (Manage)**, to read the author's effective permission on the repository. Azure DevOps offers no read-only security scope.
+- **GitLab** — the token behind the repo's `auth` secret, with the `read_api` scope, to read the project's members.
+- **Azure DevOps** — the token behind the repo's `auth` secret, with **Identity (Read)** and **Security (Manage)**, to read the author's effective permission on the repository. Azure DevOps offers no read-only security scope.
 
 GitHub needs nothing extra: the payload carries the author's standing. Without the scopes every command on that platform is ignored, since a lookup that fails counts as no write access.
 

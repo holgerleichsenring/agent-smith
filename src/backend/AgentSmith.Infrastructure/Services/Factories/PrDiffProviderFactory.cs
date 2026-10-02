@@ -3,7 +3,7 @@ using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
 
@@ -11,11 +11,11 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
 /// p0167a: creates the platform-appropriate IPrDiffProvider from a repo
-/// connection, resolving tokens the same way SourceProviderFactory does
-/// (GITHUB_TOKEN / GITLAB_TOKEN / AZURE_DEVOPS_TOKEN via SecretsProvider).
+/// connection, resolving tokens the same way SourceProviderFactory does — 2026-10-02-5f89a:
+/// through the repo's own auth secret.
 /// </summary>
 public sealed class PrDiffProviderFactory(
-    SecretsProvider secrets,
+    ICredentialResolver credentials,
     IHttpClientFactory httpClientFactory,
     IGitHubClientFactory gitHubClientFactory,
     ILoggerFactory loggerFactory) : IPrDiffProviderFactory
@@ -32,7 +32,7 @@ public sealed class PrDiffProviderFactory(
 
     private GitHubPrDiffProvider CreateGitHub(RepoConnection repo)
     {
-        var token = secrets.GetRequired("GITHUB_TOKEN");
+        var token = credentials.For(repo);
         return new GitHubPrDiffProvider(
             gitHubClientFactory.Create(token),
             new GitHubTicketConnection(repo.Url!, token),
@@ -41,9 +41,8 @@ public sealed class PrDiffProviderFactory(
 
     private GitLabPrDiffProvider CreateGitLab(RepoConnection repo)
     {
-        var token = secrets.GetRequired("GITLAB_TOKEN");
-        var (baseUrl, projectPath, _) = SourceProviderFactory.ResolveGitLabTarget(
-            repo.Url!, secrets.GetOptional("GITLAB_URL"));
+        var token = credentials.For(repo);
+        var (baseUrl, projectPath, _) = SourceProviderFactory.ResolveGitLabTarget(repo.Url!, repo.Host);
         var httpClient = httpClientFactory.CreateClient();
         httpClient.BaseAddress = new Uri($"{baseUrl}/api/v4/");
         httpClient.DefaultRequestHeaders.Add("PRIVATE-TOKEN", token);
@@ -53,7 +52,7 @@ public sealed class PrDiffProviderFactory(
 
     private AzureDevOpsPrDiffProvider CreateAzureDevOps(RepoConnection repo)
     {
-        var token = secrets.GetRequired("AZURE_DEVOPS_TOKEN");
+        var token = credentials.For(repo);
         var (host, organization, project, repoName) = ParseAzureReposUrl(repo.Url!);
         var httpClient = httpClientFactory.CreateClient();
         httpClient.BaseAddress = new Uri(host);

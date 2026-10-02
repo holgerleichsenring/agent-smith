@@ -34,7 +34,7 @@ internal sealed class SourceScopeHoldFixture
             new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         var opener = new SourceScopeOpener(
-            new SourceScopeMaterialiser(new SourceScopeRefresh()), Spawner, specBuilder, Mock.Of<IRunContextAccessor>());
+            new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), Spawner, specBuilder, Mock.Of<IRunContextAccessor>());
         return new SourceScopeSandboxFactory(
             opener, Observers, register, NullLogger<SourceScopeSandbox>.Instance);
     }

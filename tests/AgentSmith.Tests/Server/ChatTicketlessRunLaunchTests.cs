@@ -124,8 +124,16 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
     private InitProjectIntentHandler InitHandler() => new(
         new InitRunLauncher(
             ConfigLoader(), new ServerContext("agentsmith.yml"), Runs(), Admission(), Queue(),
-            TimeProvider.System, NullLogger<InitRunLauncher>.Instance),
+            AcquiringLock(), TimeProvider.System, NullLogger<InitRunLauncher>.Instance),
         _chat.Get<ChatRunStart>());
+
+    private static IRedisClaimLock AcquiringLock()
+    {
+        var claimLock = new Mock<IRedisClaimLock>();
+        claimLock.Setup(l => l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("token");
+        return claimLock.Object;
+    }
 
     private InitRunRepository Runs() => new(new AgentSmithDbContext(Options()), TimeProvider.System);
 

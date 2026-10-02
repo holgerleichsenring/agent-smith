@@ -14,7 +14,7 @@ public sealed class SourceScopeRefreshTests
 {
     private const string Url = "https://stub.test/repo-a";
 
-    private readonly SourceScopeMaterialiser _materialiser = new(new SourceScopeRefresh());
+    private readonly SourceScopeMaterialiser _materialiser = new(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver);
 
     [Fact]
     public async Task Materialiser_AWorkPathAlreadyHoldingTheRepo_IsRefreshedAndNotCloned()

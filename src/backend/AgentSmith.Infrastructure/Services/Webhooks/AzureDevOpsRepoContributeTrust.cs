@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
 
@@ -22,7 +23,7 @@ public sealed class AzureDevOpsRepoContributeTrust(
         try
         {
             var configured = repos.Find(author.RepositoryUrl);
-            if (configured?.Repo.Url is not { } repositoryUrl)
+            if (configured?.Repo is not { Url: { } repositoryUrl } repo)
             {
                 logger.LogInformation("Azure DevOps repository {Repo} is not configured; its comments are untrusted",
                     author.RepositoryUrl);
@@ -30,8 +31,9 @@ public sealed class AzureDevOpsRepoContributeTrust(
             }
 
             return await verdicts.GetOrLookupAsync(
-                $"azuredevops:{author.RepositoryId}:{author.AuthorId}",
-                () => HasContributeAsync(repositoryUrl, author, cancellationToken));
+                // 2026-10-02-5f89a: keyed by organization too, so two organizations never share a verdict.
+                $"azuredevops:{OrganizationUrl(repositoryUrl)}:{author.RepositoryId}:{author.AuthorId}",
+                () => HasContributeAsync(repo, repositoryUrl, author, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -42,13 +44,13 @@ public sealed class AzureDevOpsRepoContributeTrust(
     }
 
     private async Task<bool> HasContributeAsync(
-        string repositoryUrl, PrCommentAuthor author, CancellationToken cancellationToken)
+        RepoConnection repo, string repositoryUrl, PrCommentAuthor author, CancellationToken cancellationToken)
     {
         var projectId = Guid.Parse(author.ProjectId ?? "");
         var repositoryId = Guid.Parse(author.RepositoryId);
         string[] tokens = [$"repoV2/{projectId}/{repositoryId}", $"repoV2/{projectId}", "repoV2"];
         var effective = await permissions.ReadAsync(
-            OrganizationUrl(repositoryUrl), GitRepositoriesNamespace, tokens,
+            repo, OrganizationUrl(repositoryUrl), GitRepositoriesNamespace, tokens,
             Guid.Parse(author.AuthorId), cancellationToken);
         return effective?.Grants(ContributeBit) == true;
     }

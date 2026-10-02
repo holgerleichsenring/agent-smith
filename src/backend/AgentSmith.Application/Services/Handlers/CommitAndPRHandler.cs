@@ -275,7 +275,7 @@ public sealed class CommitAndPRHandler(
                 // p0360: mid-run checkpoints already committed (and scanned) the work —
                 // a clean tree here is delivery, not emptiness. Ensure the remote has
                 // HEAD and open the PR over the checkpoint commits.
-                await gitOps.PushHeadAsync(sandbox, branch, repo.Type, ct);
+                await gitOps.PushHeadAsync(sandbox, branch, repo, ct);
             }
             else
             {
@@ -285,7 +285,7 @@ public sealed class CommitAndPRHandler(
                     logger.LogError("{Repo}: secret-pattern match in staged diff at {Where} — aborting commit", repo.Name, leak);
                     return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, $"secret-pattern match at {leak}"), null);
                 }
-                await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo.Type, ct);
+                await gitOps.CommitAndPushStagedAsync(sandbox, branch, message, repo, ct);
             }
         }
         catch (Exception ex) when (EmptyCommit.Explains(ex))

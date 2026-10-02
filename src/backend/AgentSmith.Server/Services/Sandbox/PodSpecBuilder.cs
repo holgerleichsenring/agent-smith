@@ -86,7 +86,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         Args = string.IsNullOrEmpty(spec.RunId)
             ? ["--redis-url", redisUrl, "--job-id", jobId]
             : ["--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
-        Env = BuildEnv(jobId, redisUrl, spec.GitTokenSecretRef, spec.Secrets?.Env),
+        Env = BuildEnv(jobId, redisUrl, spec.Secrets?.Env),
         VolumeMounts =
         [
             new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
@@ -116,15 +116,14 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
     };
 
     private static List<V1EnvVar> BuildEnv(
-        string jobId, string redisUrl, SecretRef? gitToken, IReadOnlyList<SecretEnvBinding>? secretEnv)
+        string jobId, string redisUrl, IReadOnlyList<SecretEnvBinding>? secretEnv)
     {
         var env = new List<V1EnvVar>
         {
             new() { Name = "JOB_ID", Value = jobId },
             new() { Name = "REDIS_URL", Value = redisUrl }
         };
-        if (gitToken is not null)
-            env.Add(SandboxSecretProjection.EnvVar("GIT_TOKEN", gitToken));
+        // 2026-10-02-5f89g: no pod-wide GIT_TOKEN — each git step carries its repo's own.
         foreach (var binding in secretEnv ?? [])
             env.Add(SandboxSecretProjection.EnvVar(binding.EnvName, binding.Source));
         return env;

@@ -1,56 +1,43 @@
+using AgentSmith.Contracts.Exceptions;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services.Resolvers;
 
 /// <summary>
-/// Shared GitTokenResolver replaces the duplicated switch across
-/// HostSourceCloner and CheckoutSourceHandler. Tests run with each env var
-/// explicitly set/cleared so they don't depend on the host's dev environment.
+/// 2026-10-02-5f89g: a clone, fetch or push authenticates with its repo's own auth secret — the
+/// type-keyed GITHUB_TOKEN / GITLAB_TOKEN / AZURE_DEVOPS_TOKEN lookup is gone.
 /// </summary>
-[Collection("EnvVars")]
-public sealed class GitTokenResolverTests : IDisposable
+public sealed class GitTokenResolverTests
 {
-    private readonly Dictionary<string, string?> _saved = new();
+    private readonly GitTokenResolver _sut = new(
+        TestCredentials.With(("gitlab_one", "token-one"), ("gitlab_two", "token-two")));
 
-    public GitTokenResolverTests()
+    [Fact]
+    public void GitTokenResolver_RepoOfTheSecondGitLabConnection_GetsItsOwnToken()
     {
-        foreach (var name in new[] { "GITHUB_TOKEN", "GITLAB_TOKEN", "AZURE_DEVOPS_TOKEN" })
-        {
-            _saved[name] = Environment.GetEnvironmentVariable(name);
-            Environment.SetEnvironmentVariable(name, null);
-        }
-    }
+        var first = new RepoConnection { Name = "a", Type = RepoType.GitLab, Url = "https://one.example/g/a", Auth = "gitlab_one" };
+        var second = first with { Name = "b", Url = "https://two.example/g/b", Auth = "gitlab_two" };
 
-    public void Dispose()
-    {
-        foreach (var (name, value) in _saved)
-            Environment.SetEnvironmentVariable(name, value);
-    }
-
-    [Theory]
-    [InlineData(RepoType.GitHub, "GITHUB_TOKEN")]
-    [InlineData(RepoType.GitLab, "GITLAB_TOKEN")]
-    [InlineData(RepoType.AzureDevOps, "AZURE_DEVOPS_TOKEN")]
-    public void Resolve_KnownType_ReadsMatchingEnvVar(RepoType type, string envVar)
-    {
-        Environment.SetEnvironmentVariable(envVar, "test-pat-12345");
-        try
-        {
-            GitTokenResolver.Resolve(type).Should().Be("test-pat-12345");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(envVar, null);
-        }
+        _sut.For(first).Token.Should().Be("token-one");
+        _sut.For(second).Token.Should().Be("token-two");
     }
 
     [Fact]
-    public void Resolve_LocalType_ReturnsNull() =>
-        GitTokenResolver.Resolve(RepoType.Local).Should().BeNull();
+    public void GitTokenResolver_LocalRepoWithStubUrl_GetsNoCredentialAndNoError()
+    {
+        var local = new RepoConnection { Name = "l", Type = RepoType.Local, Path = ".", Url = "https://stub.test/l" };
+
+        _sut.For(local).Should().Be(GitCredential.None);
+    }
 
     [Fact]
-    public void Resolve_KnownTypeButEnvVarUnset_ReturnsNull() =>
-        GitTokenResolver.Resolve(RepoType.AzureDevOps).Should().BeNull();
+    public void For_RemoteRepoWithMissingSecret_ThrowsNamingTheSecret()
+    {
+        var repo = new RepoConnection { Name = "r", Type = RepoType.GitHub, Url = "https://github.com/o/r", Auth = "nope" };
+
+        _sut.Invoking(s => s.For(repo)).Should().Throw<MissingCredentialException>().WithMessage("*'nope'*");
+    }
 }

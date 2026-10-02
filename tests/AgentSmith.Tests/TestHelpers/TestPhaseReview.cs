@@ -16,7 +16,7 @@ internal static class TestPhaseReview
     {
         var resolved = targets ?? new SandboxTargets();
         var gitOps = new SandboxGitOperations(
-            new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+            new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(),
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         return new PhaseReviewRevert(

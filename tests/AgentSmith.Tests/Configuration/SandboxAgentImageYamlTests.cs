@@ -54,7 +54,7 @@ public sealed class SandboxAgentImageYamlTests : IDisposable
                 sandbox:
                   agent_registry: corp-mirror
                   agent_version: 0.49.0-beta
-            secrets: {}
+            secrets: { token: x }
             """);
         var loader = new YamlConfigurationLoader(new RawConfigMaterializer(new ProjectConfigNormalizer(), new EffectiveTriggerBuilder(), new DeploymentDefaultsApplier(), new ConfigCatalogResolver(), new AgentSmithPaths()), new NoOpSystemEventPublisher());
 

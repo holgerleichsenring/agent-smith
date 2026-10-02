@@ -13,6 +13,9 @@ public sealed record TrackerConnection
     public string? Organization { get; init; }
     public string? Project { get; init; }
     public string Auth { get; init; } = string.Empty;
+
+    /// <summary>2026-10-02-5f89a, Jira only: the account the API token belongs to.</summary>
+    public string? Email { get; init; }
     public IReadOnlyList<string> OpenStates { get; init; } = [];
     public string? DoneStatus { get; init; }
     public string? CloseTransitionName { get; init; }

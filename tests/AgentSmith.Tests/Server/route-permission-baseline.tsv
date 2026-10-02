@@ -42,6 +42,7 @@ GET	/api/config/trackers	config.read
 GET	/api/diagnostics/connections	diagnostics.read
 GET	/api/identity	identity.read
 GET	/api/openapi.json	anonymous
+GET	/api/projects/{name}/init	runs.read
 GET	/api/pull-requests	runs.read
 GET	/api/runs	runs.read
 GET	/api/runs/expectations/metrics	runs.read
@@ -70,6 +71,8 @@ POST	/api/archive/import	archive.import
 POST	/api/config/agents	config.write
 POST	/api/config/changes/{id}/revert	config.write,secrets.write
 POST	/api/config/connections	config.write
+POST	/api/config/connections/check	config.write,diagnostics.probe
+POST	/api/config/connections/{id}/discovery/refresh	diagnostics.probe
 POST	/api/config/design-sources	config.write
 POST	/api/config/import	config.import,secrets.write
 POST	/api/config/mcp-servers	config.write
@@ -78,6 +81,7 @@ POST	/api/config/projects/validate	config.write
 POST	/api/config/repos	config.write
 POST	/api/config/secrets	secrets.write
 POST	/api/config/trackers	config.write
+POST	/api/config/trackers/check	config.write,diagnostics.probe
 POST	/api/config/trackers/validate	config.write
 POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe
 POST	/api/projects/{name}/init	projects.init

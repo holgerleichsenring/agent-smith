@@ -10,10 +10,13 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// set UNIONED with the flush-proof DB lease. An empty/flushed Redis is not 'all runs
 /// dead': a live run renews its DB heartbeat, so its id stays here regardless.
 /// p0465 extracted it from the two reapers that had grown their own copy.
+/// 2026-10-02-75dc: a run with no lease (init) is proven alive by its own row beat, under
+/// the same freshness — both signals mean "a process is driving this run".
 /// </summary>
 public sealed class LiveRunSetReader(
     IConnectionMultiplexer redis,
     IActiveRunLease activeRunLease,
+    IRunHeartbeat runHeartbeat,
     ILogger<LiveRunSetReader> logger)
 {
     public static readonly TimeSpan LeaseFreshFor = TimeSpan.FromMinutes(3);
@@ -28,9 +31,11 @@ public sealed class LiveRunSetReader(
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Could not read the Redis active-runs set — DB lease only");
+            logger.LogDebug(ex, "Could not read the Redis active-runs set — DB lease and run beats only");
         }
         foreach (var runId in await activeRunLease.GetActiveRunIdsAsync(LeaseFreshFor, cancellationToken))
+            live.Add(runId);
+        foreach (var runId in await runHeartbeat.GetFreshRunIdsAsync(LeaseFreshFor, cancellationToken))
             live.Add(runId);
         return live;
     }

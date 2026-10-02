@@ -574,6 +574,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<DateTimeOffset?>("HeartbeatAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<string>("JobId")
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");

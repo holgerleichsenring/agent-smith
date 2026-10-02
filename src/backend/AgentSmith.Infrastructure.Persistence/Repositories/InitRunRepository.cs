@@ -20,17 +20,15 @@ public sealed class InitRunRepository(IUnitOfWork unitOfWork, TimeProvider timeP
 
     private const string QueuedStatus = "queued";
 
-    /// <summary>The id of this project's live (non-terminal, not cancelled) run of
-    /// <paramref name="pipeline"/>, or null when none is in flight.</summary>
-    public async Task<string?> FindLiveRunIdAsync(string project, string pipeline, CancellationToken ct)
-    {
-        var live = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.Project == project && r.Pipeline == pipeline
-                        && r.FinishedAt == null && !r.CancelRequested)
+    /// <summary>This project's live run of <paramref name="pipeline"/> — unfinished, a
+    /// cancel-requested one included — or null when none is in flight.
+    /// 2026-10-02-5f89d: a cancelling run still holds its sandboxes until the enforcer ends
+    /// it, so it counts as live; skipping it admitted a second init beside them.</summary>
+    public Task<Run?> FindLiveRunAsync(string project, string pipeline, CancellationToken ct) =>
+        unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.Project == project && r.Pipeline == pipeline && r.FinishedAt == null)
             .OrderByDescending(r => r.Id)
             .FirstOrDefaultAsync(ct);
-        return live?.Id;
-    }
 
     /// <summary>Writes the pre-start row so the launch is immediately visible and
     /// immediately linkable. TicketId stays empty — this run has no ticket and none

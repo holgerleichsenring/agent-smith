@@ -45,6 +45,7 @@ trackers:
     url: https://acme.atlassian.net
     project: TL
     auth: jira_token
+    email: agent-smith@acme.org        # the account jira_token belongs to
     open_states: [Open, In Progress, To Do]
     done_status: Done
     close_transition_name: Done        # the transition Jira calls to reach done_status
@@ -117,14 +118,13 @@ The explicit `jira_trigger:` block from the full config works too and overrides 
 
 ## Authentication
 
-Jira's REST API authenticates with an email plus an API token. Create the token at `id.atlassian.com/manage-profile/security/api-tokens` and set both in the server's environment:
+Jira's REST API authenticates with an email plus an API token. Create the token at `id.atlassian.com/manage-profile/security/api-tokens`. The tracker's `email` names the account, and its `auth` names the secret that holds the token. Export the variable that secret references:
 
 ```bash
-export JIRA_EMAIL=agent-smith@acme.org
 export JIRA_TOKEN=...
 ```
 
-The Jira connection reads these two variables directly (and `JIRA_URL` when the tracker has no `url`). The email is the account the agent acts as, and you'll see it in the issue history. The token is scoped to that account, so make sure it has permission to comment, transition, and label-edit issues in the project.
+The email is the account the agent acts as, and you'll see it in the issue history. The token is scoped to that account, so make sure it has permission to comment, transition, and label-edit issues in the project. A tracker without `email` is a blocking finding. An older configuration that relied on `JIRA_EMAIL` and `JIRA_URL` still loads, because the empty fields are filled from those variables (or from a `jira_email` secret) and each fill is reported as an advisory finding.
 
 ## How tickets reach Agent Smith
 

@@ -63,6 +63,7 @@ public static class RawConfigPatch
         tracker.Organization = entity.Organization;
         tracker.Project = entity.Project;
         tracker.Auth = entity.AuthSecret ?? string.Empty;
+        tracker.Email = entity.Email; // 2026-10-02-5f89a
         if (entity.OpenStates is { } openStates) tracker.OpenStates = [.. openStates];
         tracker.DoneStatus = entity.DoneStatus;
         tracker.FailedStatus = entity.FailedStatus;

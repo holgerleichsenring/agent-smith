@@ -273,7 +273,9 @@ secrets:
   anthropic_api_key: ${ANTHROPIC_API_KEY}
 ```
 
-The tracker connections read their tokens from fixed environment variables (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN`, `JIRA_EMAIL` and `JIRA_TOKEN`), so export those under exactly these names.
+Every repo, connection and tracker authenticates with the secret its own `auth` names, for API calls and for clone, fetch and push alike, so two GitLab instances or two Azure DevOps organizations each get their own token. An `auth` that names no entry here is a blocking finding. A Jira tracker also needs `email`, the account its token belongs to.
+
+A configuration written before this rule keeps working. An empty `auth` is filled at load with its type's legacy secret (`github_token`, `gitlab_token`, `azure_devops_token`, `jira_token`), and that secret is added as `${GITHUB_TOKEN}` (and so on) when the catalog lacks it. An empty Jira `email` comes from the `jira_email` secret, else `JIRA_EMAIL`. An empty GitLab or Jira tracker `url` or `project` comes from `GITLAB_URL`, `JIRA_URL`, `GITLAB_PROJECT` or `JIRA_PROJECT`, and the `host` of a GitLab repo under `repos:` comes from `GITLAB_URL`. Each fill shows up as an advisory startup finding, and so does an `auth` that names a different secret while the old variable is still set, because that is the moment the token in use changes.
 
 ## pipeline_triggers
 

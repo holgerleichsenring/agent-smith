@@ -18,10 +18,11 @@ public sealed class ProjectTemplateTests
         agents:
           a: { provider: anthropic, model: m }
         trackers:
-          t: { type: jira, url: https://t.test, project: P }
+          t: { type: jira, url: https://t.test, project: P, auth: s, email: a@t.test }
+        secrets: { s: x }
         repos:
-          target: { url: https://git.test/target }
-          reference: { url: https://git.test/reference }
+          target: { url: https://git.test/target, auth: s }
+          reference: { url: https://git.test/reference, auth: s }
         projects:
           app:
             agent: a

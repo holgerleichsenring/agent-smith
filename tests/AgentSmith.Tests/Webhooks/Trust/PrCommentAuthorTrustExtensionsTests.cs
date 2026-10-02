@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
-using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Infrastructure.Services.Webhooks;
@@ -22,7 +21,7 @@ public sealed class PrCommentAuthorTrustExtensionsTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddHttpClient();
-        services.AddSingleton(new SecretsProvider());
+        services.AddSingleton(Mock.Of<ICredentialResolver>());
         services.AddSingleton(new ServerContext("config.yml"));
         services.AddSingleton(Mock.Of<IConfigurationLoader>());
         services.AddSingleton(Mock.Of<IAzDoClientFactory>());

@@ -108,10 +108,10 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
             .AnyAsync(r => r.Id == runId && r.FinishedAt == null && r.CancelRequested, ct);
     }
 
-    // p0330: pre-start gate read (queue consumer / capacity pump).
-    public Task<bool> IsCancelRequestedAsync(string runId, CancellationToken ct) =>
+    // p0330: pre-start gate read (queue consumer / capacity pump); 5f89d: finished refuses too.
+    public Task<bool> IsStartRefusedAsync(string runId, CancellationToken ct) =>
         unitOfWork.Set<Run>().AsNoTracking()
-            .AnyAsync(r => r.Id == runId && r.FinishedAt == null && r.CancelRequested, ct);
+            .AnyAsync(r => r.Id == runId && (r.FinishedAt != null || r.CancelRequested), ct);
 
     // p0330: enforcement candidates — cancel requested, not terminal, deadline
     // elapsed. SQLite cannot translate a DateTimeOffset comparison, so the (small)

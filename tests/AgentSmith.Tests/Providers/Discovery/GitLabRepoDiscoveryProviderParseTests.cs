@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Providers.Discovery;
 using FluentAssertions;
@@ -90,7 +91,7 @@ public sealed class GitLabRepoDiscoveryProviderParseTests
     }
 
     private static GitLabRepoDiscoveryProvider NewProvider(ILogger<GitLabRepoDiscoveryProvider>? logger = null) =>
-        new(new SecretsProvider(), logger ?? NullLogger<GitLabRepoDiscoveryProvider>.Instance);
+        new(TestCredentials.With(), Moq.Mock.Of<IHttpClientFactory>(), logger ?? NullLogger<GitLabRepoDiscoveryProvider>.Instance);
 
     private static string Projects(params string[] projects) => "[" + string.Join(",", projects) + "]";
 

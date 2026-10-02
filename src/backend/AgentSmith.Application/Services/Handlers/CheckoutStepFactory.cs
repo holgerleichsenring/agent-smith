@@ -8,7 +8,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Builds sandbox-side git Steps for the checkout flow. Each step runs inside
 /// the per-repo sandbox where /work is the repo root (p0158e), so the workdir
 /// is always /work — no per-call target directory parameter. The credential the
-/// remote-facing ones carry is <see cref="GitStepCredentials"/>'.
+/// remote-facing ones carry is <see cref="GitStepCredentials"/>'. 2026-10-02-5f89g: it is the
+/// repo's own, resolved once by the caller and passed in — these builders stay pure.
 /// </summary>
 internal static class CheckoutStepFactory
 {
@@ -19,7 +20,8 @@ internal static class CheckoutStepFactory
     /// The RUN's clone: the whole history, because a run diffs against a base, reads its own
     /// log and can be handed a revision reachable from nothing.
     /// </summary>
-    public static Step BuildCloneStep(RepoConnection config) => Clone(config, []);
+    public static Step BuildCloneStep(RepoConnection config, GitCredential credential) =>
+        Clone(config, credential, []);
 
     /// <summary>
     /// 2026-09-22-b41d: the READ-ONLY source scope's clone — one branch at one commit. A
@@ -27,15 +29,15 @@ internal static class CheckoutStepFactory
     /// other step kind, so nothing that addresses one can ask for history; a design
     /// conversation paid a whole history transfer per turn for what it never read.
     /// </summary>
-    public static Step BuildScopeCloneStep(RepoConnection config) =>
-        Clone(config, ["--depth", "1", "--single-branch"]);
+    public static Step BuildScopeCloneStep(RepoConnection config, GitCredential credential) =>
+        Clone(config, credential, ["--depth", "1", "--single-branch"]);
 
-    private static Step Clone(RepoConnection config, string[] narrowing) =>
+    private static Step Clone(RepoConnection config, GitCredential credential, string[] narrowing) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["-c", GitStepCredentials.Helper, "clone", .. narrowing, config.Url!, "."],
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: GitStepCredentials.TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>
@@ -45,12 +47,12 @@ internal static class CheckoutStepFactory
     /// the depth rung that follows runs when this one lands nothing. It carries the
     /// credential the plain checkout does not, because it talks to the remote.
     /// </summary>
-    public static Step BuildFetchRevisionStep(RepoConnection config, string revision) =>
+    public static Step BuildFetchRevisionStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: new[] { "-c", GitStepCredentials.Helper, "fetch", "origin", revision },
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: GitStepCredentials.TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>
@@ -60,12 +62,12 @@ internal static class CheckoutStepFactory
     /// this is the rung that runs when the fetch by name could not land the revision, and
     /// the tree lands on FETCH_HEAD because a single-branch clone tracks no other remote ref.
     /// </summary>
-    public static Step BuildFetchRevisionAtDepthStep(RepoConnection config, string revision) =>
+    public static Step BuildFetchRevisionAtDepthStep(GitCredential credential, string revision) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: ["-c", GitStepCredentials.Helper, "fetch", "--depth", "1", "origin", revision],
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: GitStepCredentials.TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     /// <summary>2026-09-13-9802: what the tree is actually on, asked of the clone.</summary>
@@ -81,12 +83,12 @@ internal static class CheckoutStepFactory
     /// lease, so a ref that already exists is refused rather than overwritten. It carries
     /// the credential for the same reason the clone does: it talks to the remote.
     /// </summary>
-    public static Step BuildCreateRemoteBranchStep(RepoConnection config, string atRef, string branch) =>
+    public static Step BuildCreateRemoteBranchStep(GitCredential credential, string atRef, string branch) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git",
             Args: new[] { "-c", GitStepCredentials.Helper, "push", "origin", $"{atRef}:refs/heads/{branch}" },
             WorkingDirectory: Repository.SandboxWorkPath,
-            Env: GitStepCredentials.TokenEnv(config),
+            Env: GitStepCredentials.TokenEnv(credential),
             TimeoutSeconds: CloneTimeoutSeconds);
 
     public static Step BuildCheckoutStep(string branch) =>

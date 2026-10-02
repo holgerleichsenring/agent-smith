@@ -244,7 +244,7 @@ public sealed class PullRequestTargetTests
             NullLogger<CommitAndPRHandler>.Instance);
 
     private static SandboxGitOperations GitOps() =>
-        new(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+        new(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     private static SpecSet EmptySet() =>
