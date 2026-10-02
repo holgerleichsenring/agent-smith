@@ -1,10 +1,12 @@
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Persistence;
 using AgentSmith.Infrastructure.Services.Providers.Discovery;
 using AgentSmith.Server.Services.Config;
 using AgentSmith.Tests.Persistence;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -67,10 +69,41 @@ public sealed class ConnectionDiscoveryEndpointsTests
         (await Reader().RefreshNowAsync("ghost", CancellationToken.None)).Should().BeNull();
     }
 
-    // One reader per call stands for one replica: its own process state, the shared hash.
-    private ConnectionDiscoveryReader Reader()
+    // 2026-10-02-b540: a flushed key answers this server's last good list at once, marked local,
+    // and the refresh that writes the key back starts behind it.
+    [Fact]
+    public async Task DiscoveryStore_RedisKeyMissing_ServesDiskAndStartsARefresh()
     {
-        var store = new RedisConnectionRepoSnapshot(_redis.Replica());
+        var root = Path.Combine(Path.GetTempPath(), $"agentsmith-b540-{Guid.NewGuid():N}");
+        try
+        {
+            var store = new ConnectionDiscoveryStore(new RedisConnectionRepoSnapshot(_redis.Replica()),
+                new DiskConnectionRepoSnapshotStore(new DiscoveryTempPaths(root), NullLogger<DiskConnectionRepoSnapshotStore>.Instance),
+                NullLogger<ConnectionDiscoveryStore>.Instance);
+            await Reader(store).ReadAsync("conn", CancellationToken.None);
+            _redis.Flush("agentsmith:discovery:conn");
+
+            var view = await Reader(store).ReadAsync("conn", CancellationToken.None);
+
+            view!.Source.Should().Be("local");
+            view.RepoCount.Should().Be(1);
+            var shared = new RedisConnectionRepoSnapshot(_redis.Replica());
+            (await TestWaits.ReachedAsync(() => shared.TryRead("conn") is not null))
+                .Should().BeTrue("the refresh started behind the local answer writes the key back");
+            _discoveries.Should().Be(2);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // One reader per call stands for one replica: its own process state, the shared hash.
+    private ConnectionDiscoveryReader Reader() => Reader(new RedisConnectionRepoSnapshot(_redis.Replica()));
+
+    private ConnectionDiscoveryReader Reader<TStore>(TStore store)
+        where TStore : IConnectionRepoSnapshot, IConnectionRepoSnapshotStore
+    {
         var discovery = new Mock<IRepoDiscoveryService>();
         discovery.Setup(d => d.DiscoverAsync(It.IsAny<ResolvedConnection>(), It.IsAny<CancellationToken>()))
             .Returns(() => { _discoveries++; return Task.FromResult(_answer()); });

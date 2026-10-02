@@ -10,6 +10,8 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// per connection. Reads the in-memory snapshot; on a cold connection it triggers a blocking
 /// refresh (which loads live discovery or the durable last-good, or fails loud). The resolved
 /// repo set is logged per connection so glob drift (a new repo silently matching) is visible.
+/// 2026-10-02-b540: a LOCAL answer (this server's last-good list, the shared store having none)
+/// expands at once and starts a refresh in the background, so a flushed key waits for no sweep.
 /// </summary>
 public sealed class RepoGlobExpander(
     IConnectionRepoSnapshot snapshot,
@@ -44,10 +46,25 @@ public sealed class RepoGlobExpander(
 
     private IReadOnlyList<DiscoveredRepo> ResolveDiscovered(ResolvedConnection connection)
     {
-        if (snapshot.TryGet(connection.Name, out var cached)) return cached;
+        if (snapshot.TryRead(connection.Name) is { } cached)
+        {
+            if (cached.Source == ConnectionDiscoverySource.Local) StartRefresh(connection);
+            return cached.Repos;
+        }
         // Cold cache: block once to populate it (live discovery or durable last-good, or throw).
         refresher.RefreshAsync(connection, CancellationToken.None).GetAwaiter().GetResult();
-        return snapshot.TryGet(connection.Name, out var fresh) ? fresh : Array.Empty<DiscoveredRepo>();
+        return snapshot.TryRead(connection.Name)?.Repos ?? Array.Empty<DiscoveredRepo>();
+    }
+
+    // On a fresh execution flow: a refresh whose secret read reloads the configuration lands
+    // here again, and must join its own in-flight task rather than run itself a second time.
+    // The refresher records the outcome; a failure here only needs to be seen, not thrown.
+    private void StartRefresh(ResolvedConnection connection)
+    {
+        using (ExecutionContext.SuppressFlow())
+            _ = Task.Run(() => refresher.RefreshAsync(connection, CancellationToken.None)).ContinueWith(
+                t => logger.LogWarning(t.Exception, "RepoGlobExpander: background refresh of '{Connection}' failed.", connection.Name),
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
     }
 
     private static IReadOnlyList<DiscoveredRepo> SelectMatching(

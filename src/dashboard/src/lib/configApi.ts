@@ -379,7 +379,7 @@ export interface DiscoveredRepo {
  *  succeeded yet. 2026-10-02-5f89c: beside the last success, the last attempt and its error
  *  (a failure never erases the last success), the repo count of the last success, and
  *  `discovering` while a first discovery outlasts the server's wait. Every replica answers
- *  the same: the server reads one shared store. */
+ *  the same: the server reads one shared store, and falls back to its own last good list. */
 export interface ConnectionRepos {
   discoveredAt: string | null;
   repos: DiscoveredRepo[];
@@ -387,6 +387,9 @@ export interface ConnectionRepos {
   lastError?: string | null;
   repoCount?: number | null;
   discovering?: boolean;
+  /** 2026-10-02-b540: "local" when the shared store had nothing and this server's own last
+   *  good list answered — discoveredAt is that list's time. */
+  source?: "shared" | "local";
 }
 
 /** 2026-09-14-620e: the context names one repo of one project declares, read live

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-b540
+goal: "On the server a connection's last good repo list is kept on disk again beside Redis, so a flushed or unreachable Redis serves it instead of failing discovery and every glob."
+
+applies_to: "backend (connection discovery stores on the server), dashboard (the discovery view's source)"
+
+requires: ["2026-10-02-5f89c"]
+
+facts:
+  - claim: "Since 5f89c the server registers RedisConnectionRepoSnapshot as both IConnectionRepoSnapshot and IConnectionRepoSnapshotStore; the disk and in-memory stores are only the CLI's fallback registrations."
+    evidence: "src/backend/AgentSmith.Server/Services/RedisExtensions.cs:63-65; src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs:32-33"
+  - claim: "The disk store keeps one last-good file per connection whose write time is the discovered-at."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DiskConnectionRepoSnapshotStore.cs"
+  - claim: "5f89c recorded that on the server a Redis outage now fails discovery reads and writes."
+    evidence: ".agentsmith/decisions/2026-10-02-5f89c.yaml"
+
+scope:
+  in: >
+    The server composes the two stores it already has: Redis stays the shared truth for the status every replica
+    must agree on (last attempt, last error, discovering) and for the repos; every SUCCESS is also written to the
+    pod's disk last-good file. A read (the glob expander's synchronous read and the studio's GET) uses Redis; when
+    the key is missing or Redis cannot be reached it serves the disk last-good list instead, marks the answer as
+    local (source + its discovered-at), and the missing-key refresh from 5f89c still starts. A failure is recorded
+    in Redis when Redis is reachable and is never written over the disk list. The studio shows "from this server's
+    last good list of <time>" when the answer is local.
+  out: "Persisting discovery in the database; changing the sweep interval; the project-map cache, which already uses disk."
+
+decisions:
+  - key: "REDIS FOR WHAT REPLICAS SHARE, DISK FOR WHAT MUST SURVIVE. The operator ruled that the disk last-good list was sensible: discovered repos are yesterday's truth until a discovery says otherwise, and a Redis flush or outage is not a reason to forget them."
+  - key: "A COMPOSITION OF THE TWO EXISTING STORES, not a third store. Each keeps its own job; the composition decides which answers."
+
+steps:
+  - id: compose
+    action: "A server-side discovery store composes RedisConnectionRepoSnapshot and DiskConnectionRepoSnapshotStore: writes success to both, failure to Redis only; reads Redis, falls back to disk on a missing key or a Redis exception, and says which source answered."
+  - id: wire
+    action: "RedisExtensions registers the composition for IConnectionRepoSnapshot and IConnectionRepoSnapshotStore; the disk store's cache root is the one the CLI uses."
+  - id: view
+    action: "The discovery view carries its source; the studio shows a local answer's time."
+
+tests:
+  - "DiscoveryStore_RedisUnreachable_ServesTheDiskLastGoodList"
+  - "DiscoveryStore_RedisKeyMissing_ServesDiskAndStartsARefresh"
+  - "DiscoveryStore_Success_WritesRedisAndDisk"
+  - "DiscoveryStore_Failure_NeverOverwritesTheDiskList"
+  - "the studio marks a local answer with its time"
+
+done:
+  - "with Redis stopped, a glob over a discovered connection still expands from the last good list"
+  - "build green, full suite green, dashboard tests and build green"

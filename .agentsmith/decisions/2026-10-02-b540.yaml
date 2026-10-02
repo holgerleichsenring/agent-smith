@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-b540
+
+decisions:
+  - category: Architecture
+    chose: "ConnectionDiscoveryStore composes RedisConnectionRepoSnapshot and DiskConnectionRepoSnapshotStore, both current stores with their own job, and is the server's IConnectionRepoSnapshot and IConnectionRepoSnapshotStore"
+    over: "Teaching the Redis store a disk fallback; a third store with its own format"
+    reason: |
+      Operator ruling: Redis for what replicas share, disk for what must survive a Redis flush or
+      outage. Each store stays what it is — the CLI keeps using the disk store alone — and one class
+      decides which answers. The disk store's cache root is IAgentSmithPaths.CacheRoot, the CLI's.
+  - category: Implementation
+    chose: "A success is written to disk first, then Redis; a failure goes to Redis only; a Redis outage (RedisException or TimeoutException) is logged and never thrown out of a read or a write"
+    over: "Failing discovery while Redis is down (5f89c's TradeOff)"
+    reason: |
+      The glob expander reads synchronously inside a configuration load; a throw there fails every
+      run. A failure written to disk would sit over the last good list, which is exactly what the
+      list exists to outlive.
+  - category: Implementation
+    chose: "IConnectionRepoSnapshot.TryGet became TryRead, answering ConnectionRepoSnapshotRead (repos + ConnectionDiscoverySource); the status and the studio view carry the source too"
+    over: "Keeping TryGet's bool/out shape and inferring locality elsewhere"
+    reason: |
+      The expander and the studio must start the 5f89c missing-key refresh although a local answer
+      now satisfies the read; only the store knows which store answered. Callers migrated directly.
+  - category: Implementation
+    chose: "A status read with no success in Redis serves the disk's success marked local, beside the attempt and error Redis recorded since"
+    over: "Serving disk only when the whole key is missing"
+    reason: "After a flush, the first failure creates a key holding only the failure half; the last good list must still answer, with that error shown."
+  - category: Implementation
+    chose: "The expander starts the background refresh on a fresh execution flow (ExecutionContext.SuppressFlow + Task.Run); the reader answers the local view at once and refreshes behind it"
+    over: "Calling the refresher inline from the expander"
+    reason: |
+      A refresh whose secret read reloads the configuration expands the same connection again; on the
+      refresh's own flow ConnectionRefreshFlights would run it directly — recursion. On a fresh flow it
+      joins the in-flight task.
+  - category: TradeOff
+    chose: "Every local answer starts a refresh, including while Redis is down"
+    over: "Refreshing only on a missing key"
+    reason: "Single-flight per connection bounds it to one discovery at a time, and while Redis is down the refresh keeps the disk list current; the source enum stays two-valued."
+  - category: Tooling
+    chose: "FakeRedisHashes.Down: every command throws the RedisConnectionException the client throws"
+    over: "A Redis container stopped mid-test"
+    reason: "The fast tier needs no Docker; the claim is how the composition reacts to the client's exception."

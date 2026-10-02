@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Persistence;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Infrastructure.Services.Dialogue;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Infrastructure.Services.Persistence;
@@ -60,9 +61,13 @@ internal static class RedisExtensions
         // 2026-10-02-5f89c: connection discovery — repos and the last attempt's outcome — in one
         // Redis hash per connection, so every replica answers the same. Registered before the
         // core chain, whose in-memory and disk stores are TryAdd and stay the CLI's.
+        // 2026-10-02-b540: composed with the pod's disk last-good list (the CLI's cache root), which
+        // answers when the key is missing or Redis cannot be reached.
         services.AddSingleton<RedisConnectionRepoSnapshot>();
-        services.AddSingleton<IConnectionRepoSnapshot>(sp => sp.GetRequiredService<RedisConnectionRepoSnapshot>());
-        services.AddSingleton<IConnectionRepoSnapshotStore>(sp => sp.GetRequiredService<RedisConnectionRepoSnapshot>());
+        services.AddSingleton<DiskConnectionRepoSnapshotStore>();
+        services.AddSingleton<ConnectionDiscoveryStore>();
+        services.AddSingleton<IConnectionRepoSnapshot>(sp => sp.GetRequiredService<ConnectionDiscoveryStore>());
+        services.AddSingleton<IConnectionRepoSnapshotStore>(sp => sp.GetRequiredService<ConnectionDiscoveryStore>());
         return services;
     }
 

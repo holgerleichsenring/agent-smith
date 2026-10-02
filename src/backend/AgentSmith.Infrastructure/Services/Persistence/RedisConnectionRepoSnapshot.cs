@@ -10,6 +10,8 @@ namespace AgentSmith.Infrastructure.Services.Persistence;
 /// 2026-10-02-5f89c: the server's connection discovery — one Redis hash per connection, no TTL,
 /// read by every replica. A Refresh now on one replica is read back on another, and a flushed
 /// key is re-discovered at once on the first read instead of after a sweep.
+/// 2026-10-02-b540: the shared half of <see cref="ConnectionDiscoveryStore"/>, which serves this
+/// server's disk last-good list when the key is missing or Redis cannot be reached.
 /// <para>
 /// FIELD-WISE WRITES. A success sets repos, discovered_at and last_attempt_at and deletes
 /// last_error in one transaction; a failure sets only last_attempt_at and last_error. A slow
@@ -33,11 +35,10 @@ public sealed class RedisConnectionRepoSnapshot(IConnectionMultiplexer redis)
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
-    public bool TryGet(string connectionName, out IReadOnlyList<DiscoveredRepo> repos)
+    public ConnectionRepoSnapshotRead? TryRead(string connectionName)
     {
         var value = redis.GetDatabase().HashGet(Key(connectionName), ReposField);
-        repos = value.IsNullOrEmpty ? [] : Repos(value);
-        return !value.IsNullOrEmpty;
+        return value.IsNullOrEmpty ? null : new ConnectionRepoSnapshotRead(Repos(value));
     }
 
     public void Set(string connectionName, IReadOnlyList<DiscoveredRepo> repos)

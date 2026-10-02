@@ -8,7 +8,11 @@ namespace AgentSmith.Contracts.Services;
 /// </summary>
 public interface IConnectionRepoSnapshot
 {
-    bool TryGet(string connectionName, out IReadOnlyList<DiscoveredRepo> repos);
+    /// <summary>
+    /// The connection's repos and which store answered (2026-10-02-b540), or null when none holds
+    /// any. Synchronous: the configuration loader expands globs on this read.
+    /// </summary>
+    ConnectionRepoSnapshotRead? TryRead(string connectionName);
 
     void Set(string connectionName, IReadOnlyList<DiscoveredRepo> repos);
 }

@@ -7,8 +7,10 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// says "not discovered yet" instead of guessing.
 /// 2026-10-02-5f89c: beside the last success, the last attempt and its error, the repo count of
 /// the last success, and whether a first discovery is still running.
+/// 2026-10-02-b540: <see cref="Source"/> is "shared" or "local" — local when the shared store had
+/// nothing and this server's own last-good list answered; the studio shows its time.
 /// </summary>
 public sealed record ConnectionReposView(
     DateTimeOffset? DiscoveredAt, IReadOnlyList<ConnectionRepoView> Repos,
     DateTimeOffset? LastAttemptAt = null, string? LastError = null, int? RepoCount = null,
-    bool Discovering = false);
+    bool Discovering = false, string Source = "shared");

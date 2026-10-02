@@ -7,11 +7,15 @@ namespace AgentSmith.Tests.Persistence;
 /// 2026-10-02-5f89c: Redis hashes held in memory and shared by every multiplexer made from one
 /// instance — two replicas reading and writing one server. A transaction queues its commands and
 /// applies them together on execute, as MULTI/EXEC does.
+/// 2026-10-02-b540: <see cref="Down"/> stands for a Redis that cannot be reached — every command
+/// throws the connection exception the client throws.
 /// </summary>
 internal sealed class FakeRedisHashes
 {
     private readonly object _gate = new();
     private readonly Dictionary<string, Dictionary<string, RedisValue>> _hashes = new();
+
+    public bool Down { get; set; }
 
     public IConnectionMultiplexer Replica()
     {
@@ -50,6 +54,7 @@ internal sealed class FakeRedisHashes
             .Returns((RedisKey k, RedisValue f, CommandFlags _) => { queued.Add(() => Delete(k, f)); return Task.FromResult(true); });
         tx.Setup(t => t.ExecuteAsync(It.IsAny<CommandFlags>())).ReturnsAsync(() =>
         {
+            Reach();
             lock (_gate) queued.ForEach(apply => apply());
             return true;
         });
@@ -58,18 +63,21 @@ internal sealed class FakeRedisHashes
 
     private RedisValue Get(RedisKey key, RedisValue field)
     {
+        Reach();
         lock (_gate)
             return _hashes.TryGetValue(key!, out var hash) && hash.TryGetValue(field!, out var v) ? v : RedisValue.Null;
     }
 
     private HashEntry[] All(RedisKey key)
     {
+        Reach();
         lock (_gate)
             return _hashes.TryGetValue(key!, out var hash) ? [.. hash.Select(kv => new HashEntry(kv.Key, kv.Value))] : [];
     }
 
     private void Set(RedisKey key, HashEntry[] entries)
     {
+        Reach();
         lock (_gate)
         {
             if (!_hashes.TryGetValue(key!, out var hash)) _hashes[key!] = hash = new Dictionary<string, RedisValue>();
@@ -81,5 +89,10 @@ internal sealed class FakeRedisHashes
     {
         lock (_gate)
             if (_hashes.TryGetValue(key!, out var hash)) hash.Remove(field!);
+    }
+
+    private void Reach()
+    {
+        if (Down) throw new RedisConnectionException(ConnectionFailureType.UnableToConnect, "No connection is available to service this operation.");
     }
 }

@@ -23,8 +23,7 @@ public sealed class RedisConnectionRepoSnapshotTests
 
         await a.SetAsync("Conn", [Api], Morning, CancellationToken.None);
 
-        b.TryGet("conn", out var hot).Should().BeTrue();
-        hot.Should().ContainSingle().Which.Should().Be(Api);
+        b.TryRead("conn")!.Repos.Should().ContainSingle().Which.Should().Be(Api);
         (await b.TryGetAsync("conn", CancellationToken.None)).Should().ContainSingle();
         var status = await b.TryGetDiscoveryAsync("conn", CancellationToken.None);
         status.Should().Be(status! with { DiscoveredAt = Morning, LastAttemptAt = Morning, LastError = null });
@@ -67,7 +66,7 @@ public sealed class RedisConnectionRepoSnapshotTests
     {
         var store = new RedisConnectionRepoSnapshot(new FakeRedisHashes().Replica());
 
-        store.TryGet("conn", out _).Should().BeFalse();
+        store.TryRead("conn").Should().BeNull();
         (await store.TryGetAsync("conn", CancellationToken.None)).Should().BeNull();
         (await store.TryGetDiscoveryAsync("conn", CancellationToken.None)).Should().BeNull();
     }

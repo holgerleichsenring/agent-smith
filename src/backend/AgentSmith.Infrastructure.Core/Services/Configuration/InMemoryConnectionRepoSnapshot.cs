@@ -12,8 +12,8 @@ public sealed class InMemoryConnectionRepoSnapshot : IConnectionRepoSnapshot
 {
     private readonly ConcurrentDictionary<string, IReadOnlyList<DiscoveredRepo>> _byConnection = new();
 
-    public bool TryGet(string connectionName, out IReadOnlyList<DiscoveredRepo> repos) =>
-        _byConnection.TryGetValue(connectionName, out repos!);
+    public ConnectionRepoSnapshotRead? TryRead(string connectionName) =>
+        _byConnection.TryGetValue(connectionName, out var repos) ? new ConnectionRepoSnapshotRead(repos) : null;
 
     public void Set(string connectionName, IReadOnlyList<DiscoveredRepo> repos) =>
         _byConnection[connectionName] = repos;

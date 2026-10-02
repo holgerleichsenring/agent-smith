@@ -14,21 +14,25 @@ namespace AgentSmith.Tests.Server;
 /// 2026-10-02-5f89c: the server keeps connection discovery in one Redis hash per connection for
 /// the hot read and the durable store alike; the CLI keeps memory and disk. Read off the
 /// descriptors, so no Redis is reached.
+/// 2026-10-02-b540: on the server both forward to the composition of that Redis store and the
+/// pod's disk last-good store.
 /// </summary>
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ConnectionDiscoveryCompositionTests
 {
     [Fact]
-    public void ServerComposition_DiscoveryStores_AreTheOneRedisHashStore()
+    public void ServerComposition_DiscoveryStores_AreRedisComposedWithTheDiskLastGood()
     {
         var services = new ServiceCollection();
         services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
         ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
 
         services.Where(d => d.ServiceType == typeof(IConnectionRepoSnapshot)).Should().ContainSingle()
-            .Which.ImplementationType.Should().BeNull("it forwards to the one RedisConnectionRepoSnapshot");
+            .Which.ImplementationType.Should().BeNull("it forwards to the one ConnectionDiscoveryStore");
         services.Where(d => d.ServiceType == typeof(IConnectionRepoSnapshotStore)).Should().ContainSingle();
+        services.Should().Contain(d => d.ServiceType == typeof(ConnectionDiscoveryStore));
         services.Should().Contain(d => d.ServiceType == typeof(RedisConnectionRepoSnapshot));
+        services.Should().Contain(d => d.ServiceType == typeof(DiskConnectionRepoSnapshotStore));
     }
 
     [Fact]

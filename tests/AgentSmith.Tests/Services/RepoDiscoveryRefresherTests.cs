@@ -37,8 +37,7 @@ public sealed class RepoDiscoveryRefresherTests : IDisposable
 
         await refresher.RefreshAsync(Conn, CancellationToken.None);
 
-        _snapshot.TryGet("conn", out var hot).Should().BeTrue();
-        hot.Should().HaveCount(1);
+        _snapshot.TryRead("conn")!.Repos.Should().HaveCount(1);
         var status = await _store.TryGetDiscoveryAsync("conn", CancellationToken.None);
         status!.RepoCount.Should().Be(1);
         status.LastError.Should().BeNull();
@@ -52,8 +51,7 @@ public sealed class RepoDiscoveryRefresherTests : IDisposable
 
         await refresher.RefreshAsync(Conn, CancellationToken.None);   // must not throw
 
-        _snapshot.TryGet("conn", out var hot).Should().BeTrue();
-        hot.Single().Name.Should().Be("old");
+        _snapshot.TryRead("conn")!.Repos.Single().Name.Should().Be("old");
         var status = await _store.TryGetDiscoveryAsync("conn", CancellationToken.None);
         status!.DiscoveredAt.Should().Be(Yesterday);
         status.RepoCount.Should().Be(1);
@@ -69,8 +67,7 @@ public sealed class RepoDiscoveryRefresherTests : IDisposable
 
         await refresher.RefreshAsync(Conn, CancellationToken.None);
 
-        _snapshot.TryGet("conn", out var hot).Should().BeTrue();
-        hot.Single().Name.Should().Be("old");
+        _snapshot.TryRead("conn")!.Repos.Single().Name.Should().Be("old");
         (await _store.TryGetDiscoveryAsync("conn", CancellationToken.None))!.LastError.Should().Contain("'gitlab_b'");
     }
 

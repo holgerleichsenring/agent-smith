@@ -9,6 +9,8 @@ namespace AgentSmith.Server.Services.Config;
 /// replica shares. A connection nothing was recorded for is discovered AT ONCE — a flushed key
 /// waits for no sweep — and the read waits up to <see cref="FirstDiscoveryWait"/> before
 /// answering "discovering". Refresh now runs the same single-flight refresh and answers the view.
+/// 2026-10-02-b540: a LOCAL answer — this server's last-good list, the shared store having none —
+/// is served at once, marked local, and the refresh starts behind it.
 /// </summary>
 public sealed class ConnectionDiscoveryReader(
     IConfigStore configStore,
@@ -22,8 +24,10 @@ public sealed class ConnectionDiscoveryReader(
     public async Task<ConnectionReposView?> ReadAsync(string id, CancellationToken cancellationToken)
     {
         if (configStore.GetConnections().All(c => !ConfigNames.AreSame(c.Id, id))) return null;
-        if (await store.TryGetDiscoveryAsync(id, cancellationToken) is { } status) return View(status);
-        return await RefreshAsync(id, FirstDiscoveryWait, cancellationToken);
+        var status = await store.TryGetDiscoveryAsync(id, cancellationToken);
+        if (status is null) return await RefreshAsync(id, FirstDiscoveryWait, cancellationToken);
+        if (status.Source == ConnectionDiscoverySource.Local) _ = RefreshAsync(id, Timeout.InfiniteTimeSpan, CancellationToken.None);
+        return View(status);
     }
 
     /// <summary>Refreshes now and answers the view, or null when no connection has this id.</summary>
@@ -59,5 +63,6 @@ public sealed class ConnectionDiscoveryReader(
     private static ConnectionReposView View(ConnectionDiscoveryStatus status) => new(
         status.DiscoveredAt,
         [.. status.Repos.Select(r => new ConnectionRepoView(r.Name, r.DefaultBranch))],
-        status.LastAttemptAt, status.LastError, status.RepoCount);
+        status.LastAttemptAt, status.LastError, status.RepoCount,
+        Source: status.Source == ConnectionDiscoverySource.Local ? "local" : "shared");
 }

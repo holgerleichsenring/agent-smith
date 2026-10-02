@@ -51,6 +51,22 @@ describe("RepoInventory discovery status", () => {
     expect(screen.queryByTestId("repo-inventory-conn-lasterror")).not.toBeInTheDocument();
   });
 
+  it("the studio marks a local answer with its time", async () => {
+    fetchConnectionRepos.mockResolvedValue({
+      discoveredAt: "2026-10-01T08:00:00Z",
+      repos: [{ name: "api", defaultBranch: "main" }],
+      repoCount: 1,
+      source: "local",
+    });
+    render(<RepoInventory connections={[connection]} projects={[]} />);
+
+    const local = await screen.findByTestId("repo-inventory-conn-local");
+    expect(local).toHaveTextContent("from this server's last good list of");
+    expect(local).toHaveTextContent(new Date("2026-10-01T08:00:00Z").toLocaleString());
+    expect(local).toHaveTextContent("· 1 repos");
+    expect(screen.queryByTestId("repo-inventory-conn-success")).not.toBeInTheDocument();
+  });
+
   it("a refused Refresh now says why and keeps the last answer", async () => {
     fetchConnectionRepos.mockResolvedValue({ discoveredAt: null, repos: [], lastError: null });
     refreshConnectionDiscovery.mockRejectedValue(new Error("HTTP 403"));
