@@ -70,12 +70,14 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
     /// Every file of one conversation, in both tables, deleted — inside whatever transaction the
     /// caller opened, which is how they join the conversation delete's unit of work.
     /// 2026-10-01-283df: except the website sets in <paramref name="keep"/>, which an approval cites.
+    /// 2026-10-02-075dd: and their notes — the run that carries a set reads how to run it.
     /// </summary>
     public async Task<int> DeleteBySessionAsync(string sessionId, IReadOnlySet<string> keep, CancellationToken ct)
     {
         var kept = keep.ToList();
         return await unitOfWork.Set<ReferenceFile>()
-                .Where(f => f.SessionId == sessionId && !(f.Kind == ReferenceFileKind.Site && kept.Contains(f.SetId)))
+                .Where(f => f.SessionId == sessionId
+                    && !((f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Note) && kept.Contains(f.SetId)))
                 .ExecuteDeleteAsync(ct)
             + await unitOfWork.Set<SpecDialogAttachment>().Where(a => a.SessionId == sessionId).ExecuteDeleteAsync(ct);
     }

@@ -29,9 +29,10 @@ facts:
 scope:
   in: >
     A set has at most one note: a ReferenceFile row of Kind 'note' under the set's id, UTF-8 text up to 8000 characters,
-    replaced whole (delete and insert in one save; a read tolerates a duplicate by taking the newest). A Contracts port
-    IReferenceNotes {NotesAsync(session) -> setId->note; SetAsync(session, setId, note) -> refused reason or null},
-    implemented by DbReferenceNotes (scope per call) and absent outside the server (the tool is then absent).
+    replaced whole (delete and insert in one save; a read tolerates a duplicate by taking the newest), kept by
+    ReferenceNoteRepository. A Contracts port IReferenceNotes {NotesAsync(session) -> setId->note; SetAsync(session,
+    setId, note) -> false when the conversation holds no such set}, implemented by DbReferenceNotes (scope per call) and
+    absent outside the server (the tool is then absent).
     Listings, names and file reads stay on Kind 'site', so a note never changes a set's name, count, hash or files.
     The delete sweep keeps a cited set's note with its files. SpecDialogReadOnlyScopes reads the notes with the
     listing and hands each to its ReferenceSetSandbox (Note); ReferencePromptSection.Build renders, under each address,
@@ -60,11 +61,11 @@ decisions:
 
 steps:
   - id: store
-    action: "ReferenceFileKind.Note; ReferenceSetRepository NoteAsync/NotesAsync/SetNoteAsync; delete keeps cited notes; IReferenceNotes + DbReferenceNotes."
+    action: "ReferenceFileKind.Note; ReferenceNoteRepository NotesAsync/SetAsync; delete keeps cited notes; IReferenceNotes + DbReferenceNotes."
   - id: turn
     action: "SpecDialogReadOnlyScopes passes notes to the factory; ReferenceSetSandbox.Note; ReferencePromptSection.Build renders them from the map."
   - id: tool
-    action: "ReferenceNoteToolHost (note_reference) in ReferenceToolFactory, master only, absent without IReferenceNotes."
+    action: "ReferenceNoteToolHost (note_reference) in ReferenceDesignTools, master only, absent without IReferenceNotes."
   - id: run
     action: "ReferenceSetCarrier fills CarriedReferenceSet.Note; Carried renders it."
   - id: view
@@ -77,7 +78,7 @@ tests:
   - "ReferenceSetRepository_SetNote_ForAnotherSessionsSet_IsRefused"
   - "ReferenceNoteToolHost_WritesTheNamedSetsNote; TooLong_Errors; UnknownAddress_ErrorsListingReferences"
   - "ReferencePromptSection_Build_ShowsEachNoteOrTheNoNoteLine; Carried_ShowsTheNote"
-  - "ReferenceToolFactory_DesignTurnWithAReference_HasNoteReference; WithoutNotesPort_DoesNot"
+  - "ReferenceDesignTools_NoteReference_NeedsTheNotesPort; SpecDialogReadOnlyScopes_OpenAsync_HandsEachSetItsNote"
   - "ReferenceFileRepository_Delete_KeepsACitedSetsNote"
   - "ReferenceSetCarrier_CarriesTheLiveNote"
 

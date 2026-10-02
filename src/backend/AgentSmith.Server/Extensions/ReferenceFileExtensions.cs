@@ -20,6 +20,8 @@ internal static class ReferenceFileExtensions
         // 2026-10-01-283dc: a design turn's reference sandbox reads its set from here.
         services.RemoveAll<IReferenceSetReader>();
         services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();
+        services.AddScoped<ReferenceNoteRepository>(); // 2026-10-02-075dd
+        services.AddSingleton<IReferenceNotes, DbReferenceNotes>();
         services.AddScoped<LegacyAttachmentCopy>();
         // The copy switches identity insertion the way the archive import does; the archive
         // graph is not wired in every composition, so the two it needs are offered here too.

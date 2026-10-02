@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-075dd
+
+decisions:
+  - category: Architecture
+    chose: "Determinism from a recorded recipe: the model writes what worked into the set's note, and every later turn and run reads it first (operator ruling: steering in a skill, freedom for the model)"
+    over: "A per-kind launcher; re-exploring every turn"
+    reason: |
+      Exploring is free and varies; following a written recipe does not. The note turns the first
+      turn's discovery into the next turn's instruction, for this model or another one.
+  - category: Implementation
+    chose: "A ReferenceFile row of kind 'note' under the set id, kept by its own ReferenceNoteRepository"
+    over: "A file inside the set; a new table; methods on ReferenceSetRepository"
+    reason: |
+      A file in the set would change its name, file count and hash, and a held sandbox is never
+      refilled. Kind is a string column, so 'note' needs no migration. A repository of its own
+      keeps ReferenceSetRepository about sets.
+  - category: Implementation
+    chose: "The note rides on ReferenceSetSandbox (set when the turn's scopes open) into ReferencePromptSection"
+    over: "A pipeline key; a prompt-time store query"
+    reason: |
+      SpecDialogTurnRunner is at its line bound and has no headroom for a seed; the scopes already
+      list the sets, so reading their notes there is one call, and the prompt reads it off the map
+      it already walks.
+  - category: Security
+    chose: "The note is fenced as data in both prompts, with a fence longer than any backtick run inside it"
+    over: "Pasting it verbatim"
+    reason: |
+      It is model-written from material that may carry anything and reaches a coding master that
+      can run and commit.
+  - category: Scope
+    chose: "Live note at carry time, not frozen at approval"
+    over: "Snapshotting the note into the approval record"
+    reason: |
+      The approval freezes WHICH sets; the note is how to run them, and a better recipe written
+      after approval helps the run rather than changing what was approved.
+  - category: Scope
+    chose: "The skills change ships as its own PR in agent-smith-skills; the embedded pin moves after its release"
+    over: "Waiting with this phase for the release"
+    reason: |
+      Skills are released by release-please; until the pin moves the masters read the previous
+      text, which still works with the new prompt headings.

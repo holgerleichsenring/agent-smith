@@ -15,7 +15,8 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    ReferenceFileRepository files, SpecDialogTicketTextRepository ticketText, ReferenceSetRepository sets)
+    ReferenceFileRepository files, SpecDialogTicketTextRepository ticketText, ReferenceSetRepository sets,
+    ReferenceNoteRepository? notes = null)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -69,11 +70,14 @@ public sealed class SpecDialogViewReader(
         [.. (await files.ListImagesAsync(sessionId, cancellationToken)) // 2026-10-01-283da: both tables
             .Select(row => new SpecDialogImageView(row.Id, row.MediaType, row.At))];
 
-    /// <summary>2026-10-01-283db: the conversation's websites, summarised — never their files.</summary>
-    private async Task<IReadOnlyList<ReferenceSetView>> References(
-        string sessionId, CancellationToken cancellationToken) =>
-        [.. (await sets.ListAsync(sessionId, cancellationToken))
-            .Select(s => new ReferenceSetView(s.SetId, s.Name, s.Files, s.Bytes, s.At))];
+    /// <summary>2026-10-01-283db: the conversation's uploads, summarised — never their files;
+    /// 2026-10-02-075dd: each with its note, so the operator sees what the model recorded.</summary>
+    private async Task<IReadOnlyList<ReferenceSetView>> References(string sessionId, CancellationToken cancellationToken)
+    {
+        var noted = notes is null ? new Dictionary<string, string>() : await notes.NotesAsync(sessionId, cancellationToken);
+        return [.. (await sets.ListAsync(sessionId, cancellationToken))
+            .Select(s => new ReferenceSetView(s.SetId, s.Name, s.Files, s.Bytes, s.At, noted.GetValueOrDefault(s.SetId)))];
+    }
 
     private SpecDialogSessionView Session(
         string dialogId, ConversationState state, SpecDialogLatestOutcome latest,

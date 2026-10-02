@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-075dd: "AN UPLOAD KEEPS WHAT THE MODEL WORKED OUT ABOUT IT (reference note, prompts, skills). note_reference writes a set's one note (a row of kind note, no migration); every later turn and every run that carries the set shows it fenced as data; the transcript chip shows it; skills teach note-first. -> .agentsmith/phases/done/2026-10-02-075dd-reference-note.yaml"
     2026-10-02-075dc: "THE DESIGN PARTNER RUNS COMMANDS IN AN UPLOAD'S OWN CONTAINER (reference sandbox, design tools). run_in_reference runs a shell where the set lies; the set's container serves reads and every Run, refuses writes, spawns without project secrets; master only, containers only. -> .agentsmith/phases/done/2026-10-02-075dc-reference-sandbox-command.yaml"
     2026-10-02-075da: "AN UPLOAD KEEPS EVERY AUTHORED FILE (reference upload, materialiser, prompt). The extension allow-list only types now; rebuildable folders and files over the per-file bound (now 25 MB) are left out and named; credential files are kept and named; text is what decodes. -> .agentsmith/phases/done/2026-10-02-075da-reference-upload-any-file.yaml"
     2026-10-02-0d72: "A WEBSITE FOLDER PICK WORKS (website upload, dialog composer). Files that are not site files are skipped and named in the answer; a set is refused only when none remains or a limit is crossed, the refusal is logged at Warning and shown at the composer with the server's reason. -> .agentsmith/phases/done/2026-10-02-0d72-reference-upload-refusal-reason.yaml"

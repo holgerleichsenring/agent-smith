@@ -1,6 +1,8 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Application.Services.Sandbox;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -13,13 +15,14 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class ReferencePromptSection
 {
-    internal static string Build(IReadOnlyList<string> addresses)
+    /// <param name="sandboxes">2026-10-02-075dd: the turn's map, where each upload's sandbox carries its note.</param>
+    internal static string Build(IReadOnlyList<string> addresses, IReadOnlyDictionary<string, ISandbox>? sandboxes = null)
     {
         var references = addresses?
             .Where(a => a.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal))
             .ToList();
         if (references is null || references.Count == 0) return string.Empty;
-        var bullets = string.Join("\n", references.Select(n => $"- `{n}`"));
+        var bullets = string.Join("\n", references.Select(n => $"- `{n}`" + ReferenceNoteText.Under(NoteOf(sandboxes, n))));
         return "\n\n## Material the operator uploaded\n"
             + "These addresses are what the operator uploaded to this conversation, every file at "
             + "its own path — a website, an application's source, documents; find out which before "
@@ -31,6 +34,9 @@ internal static class ReferencePromptSection
             + "it from a screenshot.\n";
     }
 
+    private static string? NoteOf(IReadOnlyDictionary<string, ISandbox>? sandboxes, string address) =>
+        sandboxes?.GetValueOrDefault(address) is ReferenceSetSandbox set ? set.Note : null;
+
     /// <summary>
     /// 2026-10-01-283df: the uploaded sets a RUN carries — each by name, id and directory inside the
     /// carrying repository (prefixed by its name when the master addresses several), outside the
@@ -41,7 +47,8 @@ internal static class ReferencePromptSection
         if (!pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var sets)
             || sets is null || sets.Count == 0) return string.Empty;
         var bullets = string.Join("\n", sets.Select(s =>
-            $"- {s.Name} (set {s.SetId}, {s.Files} files): `{(prefixed ? s.Repo + "/" : string.Empty)}{s.Path}/` — render it as `{s.Address}`"));
+            $"- {s.Name} (set {s.SetId}, {s.Files} files): `{(prefixed ? s.Repo + "/" : string.Empty)}{s.Path}/` — render it as `{s.Address}`"
+            + ReferenceNoteText.Carried(s.Note)));
         return "\n\n## Material the approval cites\n"
             + "The person who approved this work uploaded this material as the reference to build "
             + "against — a website, an application's source, documents. Each is in its own directory of the repository, NOT part of the commit — "

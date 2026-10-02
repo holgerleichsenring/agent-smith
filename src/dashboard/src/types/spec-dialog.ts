@@ -48,6 +48,8 @@ export interface SpecDialogReferenceSet {
   files: number;
   bytes: number;
   at: string;
+  /** 2026-10-02-075dd: what the design partner recorded about the set — what it is, how to run it. */
+  note?: string | null;
 }
 
 /** 2026-10-02-075da: one entry an upload did not store, and why — a rebuildable folder or a file

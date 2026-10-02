@@ -39,6 +39,12 @@ public sealed class ReferenceSetSandbox(
 
     /// <summary>2026-10-01-283de: the set behind the address, which render_reference copies into its browser.</summary>
     public string SetId => setId;
+
+    /// <summary>2026-10-02-075dd: the conversation the set was uploaded to — where its note is kept.</summary>
+    public string ConversationId => conversationId;
+
+    /// <summary>2026-10-02-075dd: the set's note as the turn began, or null.</summary>
+    public string? Note { get; init; }
     public bool IsMaterialized => _inner is not null;
 
     /// <summary>The set's content hash once it is in the sandbox.</summary>
