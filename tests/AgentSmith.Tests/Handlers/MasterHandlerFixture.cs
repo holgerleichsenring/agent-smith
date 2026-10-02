@@ -77,7 +77,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.RunWorkCheckpointer(
                 new AgentSmith.Application.Services.RepoWorkPusher(
                     new AgentSmith.Application.Services.SandboxGitOperations(
-                        new AgentSmith.Application.Services.GitBranchPusher(),
+                        new AgentSmith.Application.Services.GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                         NullLogger<AgentSmith.Application.Services.SandboxGitOperations>.Instance,
                         Mock.Of<AgentSmith.Contracts.Sandbox.ISandboxFileReaderFactory>(),
                         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
@@ -105,7 +105,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Application.Services.Sandbox.UnboundedCapacityProbe(),
                 new AgentSmith.Tests.Sandbox.StubSandboxResourceResolver(),
                 new SandboxRepoCloner(
-                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(),
+                    Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                     new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
                     AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
                 new SandboxTargets(),

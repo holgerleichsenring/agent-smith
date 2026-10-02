@@ -78,7 +78,7 @@ public sealed class PersistWorkBranchHandler(
                 return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
             }
 
-            await gitOps.CommitAndPushStagedAsync(sandbox, branch, commitMessage, repo.Type, ct);
+            await gitOps.CommitAndPushStagedAsync(sandbox, branch, commitMessage, repo, ct);
             logger.LogInformation("{Repo}: pushed WIP commit on branch {Branch}", repo.Name, branch);
             return new PerRepoPersistResult(repo.Name, Kind: null, Message: null);
         }

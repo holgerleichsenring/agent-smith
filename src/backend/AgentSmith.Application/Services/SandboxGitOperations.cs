@@ -13,8 +13,7 @@ namespace AgentSmith.Application.Services;
 /// Caller passes the right per-repo sandbox; the working directory is always
 /// /work inside that sandbox.
 /// </summary>
-public sealed class SandboxGitOperations(GitBranchPusher pusher,
-    
+public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolver credentials,
     ILogger<SandboxGitOperations> logger, ISandboxFileReaderFactory readerFactory,
     SandboxGitIdentity identity)
 {
@@ -32,10 +31,10 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher,
     // don't need the agent-credential gate.
     public async Task CommitAndPushAsync(
         ISandbox sandbox, string branchName, string message,
-        RepoType repoType, CancellationToken cancellationToken)
+        RepoConnection repo, CancellationToken cancellationToken)
     {
         await StageAllAsync(sandbox, cancellationToken);
-        await CommitAndPushStagedAsync(sandbox, branchName, message, repoType, cancellationToken);
+        await CommitAndPushStagedAsync(sandbox, branchName, message, repo, cancellationToken);
     }
 
     public async Task StageAllAsync(ISandbox sandbox, CancellationToken cancellationToken)
@@ -211,7 +210,7 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher,
 
     public async Task CommitAndPushStagedAsync(
         ISandbox sandbox, string branchName, string message,
-        RepoType repoType, CancellationToken cancellationToken)
+        RepoConnection repo, CancellationToken cancellationToken)
     {
         // p0394: the commit primitive owns the identity guarantee. The spec-set
         // writer commits in a fresh checkout sandbox before any staging method
@@ -229,13 +228,13 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher,
         // p0326: a Local repo without an 'origin' remote (the demo's materialized
         // workspace) is record-only — the local commit IS the result; a push would
         // only fail. Gated to Local so every remote-typed repo still pushes.
-        if (repoType == RepoType.Local && !await HasOriginRemoteAsync(sandbox, cancellationToken))
+        if (repo.Type == RepoType.Local && !await HasOriginRemoteAsync(sandbox, cancellationToken))
         {
             logger.LogInformation(
                 "Local repo has no 'origin' remote — commit recorded locally, push skipped (record-only)");
             return;
         }
-        await PushAsync(sandbox, branchName, repoType, cancellationToken);
+        await PushAsync(sandbox, branchName, repo, cancellationToken);
     }
 
     // p0326: `git remote` lists configured remotes, one per line; empty output on a
@@ -271,12 +270,14 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher,
     // time for a repo whose work was already committed by mid-run checkpoints (clean
     // tree, branch ahead). A no-op when the remote is already up to date.
     public Task PushHeadAsync(
-        ISandbox sandbox, string branch, RepoType repoType, CancellationToken cancellationToken) =>
-        PushAsync(sandbox, branch, repoType, cancellationToken);
+        ISandbox sandbox, string branch, RepoConnection repo, CancellationToken cancellationToken) =>
+        PushAsync(sandbox, branch, repo, cancellationToken);
 
+    // 2026-10-02-5f89g: the repo's own credential, resolved at the push and nowhere earlier — a
+    // local repo with no origin never reaches here.
     private Task PushAsync(
-        ISandbox sandbox, string branch, RepoType repoType, CancellationToken ct) =>
-        pusher.PushAsync(sandbox, branch, CredHelper, repoType, ct);
+        ISandbox sandbox, string branch, RepoConnection repo, CancellationToken ct) =>
+        pusher.PushAsync(sandbox, branch, CredHelper, credentials.For(repo), ct);
 
     private static async Task Run(
         ISandbox sandbox, string cmd, IReadOnlyList<string> args, CancellationToken ct)

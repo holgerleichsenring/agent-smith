@@ -1,8 +1,10 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Exceptions;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
@@ -22,6 +24,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class SandboxRepoCloner(
     ISourceProviderFactory factory,
+    IGitTokenResolver credentials,
     SandboxGitIdentity identity,
     SandboxWorkBranchCheckout branchCheckout,
     ILogger<SandboxRepoCloner> logger)
@@ -46,12 +49,17 @@ public sealed class SandboxRepoCloner(
         if (string.IsNullOrEmpty(config.Url))
             return FailWith("Checkout requires a non-empty source URL for non-local providers.", config);
 
+        // 2026-10-02-5f89g: the repo's own credential, resolved once; a missing secret refuses the
+        // checkout by name instead of leaving git to prompt nobody.
+        var (credential, missing) = Credential(config);
+        if (credential is null) return FailWith(missing!, config);
+
         // 2026-09-13-a284: one repository's sandboxes are clones of the SAME repository, so
         // they resolve the same rung; the first one that names it answers for the repo.
         string? rung = null;
         foreach (var (key, sandbox) in sandboxes)
         {
-            var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config), null, ct);
+            var clone = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCloneStep(config, credential), null, ct);
             if (clone.ExitCode != 0) return FailWith(CloneProblem(key, clone), config);
             // p0496: the identity comes BEFORE the branch switch. A base merge writes a
             // merge commit, and a sandbox with no committing user cannot make one — a
@@ -83,6 +91,19 @@ public sealed class SandboxRepoCloner(
             ? $"git clone into sandbox '{key}' could not start: {MissingGitInImage.Cause} "
               + $"(exit={clone.ExitCode}: {clone.ErrorMessage})"
             : $"git clone into sandbox '{key}' failed (exit={clone.ExitCode}): {clone.ErrorMessage}";
+
+    private (GitCredential? Credential, string? Problem) Credential(RepoConnection config)
+    {
+        try
+        {
+            return (credentials.For(config), null);
+        }
+        catch (MissingCredentialException ex)
+        {
+            logger.LogDebug(ex, "{Repo}: no credential behind its auth secret", config.Name);
+            return (null, ex.Message);
+        }
+    }
 
     private RepoCheckout FailWith(string message, RepoConnection config)
     {

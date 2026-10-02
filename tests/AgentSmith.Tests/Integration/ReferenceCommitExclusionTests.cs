@@ -33,7 +33,7 @@ public sealed class ReferenceCommitExclusionTests
             ReferenceDirectory.ForSet("set-a"), CancellationToken.None);
         await files.Create(sandbox).WriteAsync(".agentsmith/runs/r-1/result.md", "# result", CancellationToken.None);
         await files.Create(sandbox).WriteAsync("src/app.css", "h1 { color: #c0ffee; }", CancellationToken.None);
-        var git = new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+        var git = new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             files, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
         await git.StageAllAsync(sandbox, CancellationToken.None);

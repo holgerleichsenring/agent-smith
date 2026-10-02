@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -34,6 +35,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 public sealed class SandboxRungPublisher(
     SandboxBaseLadder ladder,
     CreateOnlyBranchPush push,
+    IGitTokenResolver credentials,
     ILogger<SandboxRungPublisher> logger)
 {
     /// <summary>
@@ -58,7 +60,9 @@ public sealed class SandboxRungPublisher(
         }
 
         var rung = TicketBranchNamer.Compose(new TicketId(parentTicketId.Trim())).Value;
-        var creation = await push.CreateAsync(sandbox, config, baseRef, rung, ct);
+        // 2026-10-02-5f89g: the publish and the adoption both talk to the remote as this repo.
+        var credential = credentials.For(config);
+        var creation = await push.CreateAsync(sandbox, credential, baseRef, rung, ct);
         if (creation == RemoteBranchCreation.Failed)
             logger.LogWarning(
                 "Publishing '{Rung}' at {BaseRef} did not succeed — if a sibling slice "
@@ -66,14 +70,14 @@ public sealed class SandboxRungPublisher(
         // The REMOTE decides who owns the rung, not this clone's push result: a create,
         // a refusal and a push that never ran all end in the same question, which is
         // whether the branch is there now.
-        return await AdoptAsync(sandbox, config, parentTicketId, rung, ct);
+        return await AdoptAsync(sandbox, credential, parentTicketId, rung, ct);
     }
 
     private async Task<ResolvedBase> AdoptAsync(
-        ISandbox sandbox, RepoConnection config, string parentTicketId, string rung, CancellationToken ct)
+        ISandbox sandbox, GitCredential credential, string parentTicketId, string rung, CancellationToken ct)
     {
         await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildFetchRevisionStep(config, rung), progress: null, ct);
+            CheckoutStepFactory.BuildFetchRevisionStep(credential, rung), progress: null, ct);
 
         var after = await ladder.ResolveAsync(sandbox, parentTicketId, ct);
         if (!after.FellThrough) return after;

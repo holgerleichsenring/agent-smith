@@ -50,7 +50,24 @@ public sealed class SandboxRepoClonerIdentityTests
         sandbox.RanSteps.Should().Contain(s => s.Args!.Contains("--get") && s.Args!.Contains("user.email"));
     }
 
-    private static SandboxRepoCloner Cloner(string providerType)
+    // 2026-10-02-5f89g: a missing secret refuses the checkout by name — no clone, no git prompt.
+    [Fact]
+    public async Task SandboxRepoCloner_RepoWithMissingSecret_FailsNamingTheSecret()
+    {
+        var sandbox = new RecordingSandbox();
+        var cloner = Cloner("GitHub", new AgentSmith.Contracts.Services.GitTokenResolver(
+            AgentSmith.Tests.TestSupport.TestCredentials.With()));
+
+        var checkout = await cloner.CheckoutIntoSandboxesAsync(
+            new RepoConnection { Name = "server", Type = RepoType.GitHub, Url = "https://host/org/repo.git", Auth = "absent_secret" },
+            branch: null, [new KeyValuePair<string, ISandbox>("server", sandbox)], CancellationToken.None);
+
+        checkout.Problem.Should().Contain("'absent_secret'");
+        sandbox.RanSteps.Should().NotContain(s => s.Args!.Contains("clone"));
+    }
+
+    private static SandboxRepoCloner Cloner(
+        string providerType, AgentSmith.Contracts.Services.IGitTokenResolver? credentials = null)
     {
         var provider = new Mock<ISourceProvider>();
         provider.SetupGet(p => p.ProviderType).Returns(providerType);
@@ -59,7 +76,7 @@ public sealed class SandboxRepoClonerIdentityTests
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         return new SandboxRepoCloner(
-            factory.Object,
+            factory.Object, credentials ?? AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
             AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance);
     }

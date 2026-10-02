@@ -118,7 +118,7 @@ public sealed class SourceScopeProgressTests
             new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         var opener = new SourceScopeOpener(
-            new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, Mock.Of<IRunContextAccessor>());
+            new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), factory, specBuilder, Mock.Of<IRunContextAccessor>());
         var repo = new RepoConnection
         {
             Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a",

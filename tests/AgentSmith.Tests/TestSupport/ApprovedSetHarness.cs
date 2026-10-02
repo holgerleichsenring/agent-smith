@@ -69,7 +69,7 @@ internal sealed class ApprovedSetHarness
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(Branch);
         var gitOps = new SandboxGitOperations(
-            new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance, factory.Object,
+            new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         if (PointerSha is { } sha)
             Pointers.SaveAsync(string.Empty, new SpecSetPointer(Branch.Key, Repo, sha, 1), default)

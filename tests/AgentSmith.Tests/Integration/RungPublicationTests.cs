@@ -162,7 +162,7 @@ public sealed class RungPublicationTests
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
         return new SandboxRepoCloner(
-            factory.Object, TestGit.Identity, TestGit.WorkBranchCheckout,
+            factory.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, TestGit.Identity, TestGit.WorkBranchCheckout,
             NullLogger<SandboxRepoCloner>.Instance);
     }
 

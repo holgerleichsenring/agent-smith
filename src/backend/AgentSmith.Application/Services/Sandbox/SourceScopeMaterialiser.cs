@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -28,7 +29,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// tree is already on and must not be walked off.
 /// </para>
 /// </summary>
-public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh)
+public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh, IGitTokenResolver credentials)
 {
     /// <summary>Clones or refreshes, lands on the revision when one is named, reports the sha.</summary>
     public async Task<string> PrepareAsync(
@@ -36,20 +37,22 @@ public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(repo);
+        // 2026-10-02-5f89g: the repo's own credential, once, for every rung that talks to the remote.
+        var credential = credentials.For(repo);
 
         if (!await refresh.HoldsRepoAsync(sandbox, repo, ct))
         {
             var clone = await sandbox.RunStepAsync(
-                CheckoutStepFactory.BuildScopeCloneStep(repo), null, ct);
+                CheckoutStepFactory.BuildScopeCloneStep(repo, credential), null, ct);
             if (clone.ExitCode != 0)
                 throw SourceScopeFailures.Fail(SourceScopeFailures.KindOf(clone), repo, revision,
                     $"git clone failed: {SourceScopeFailures.Text(clone)}");
             if (!string.IsNullOrWhiteSpace(revision))
-                await LandOnAsync(sandbox, repo, revision!, ct);
+                await LandOnAsync(sandbox, repo, credential, revision!, ct);
         }
         else if (string.IsNullOrWhiteSpace(revision))
         {
-            await refresh.ToRemoteHeadAsync(sandbox, repo, ct);
+            await refresh.ToRemoteHeadAsync(sandbox, repo, credential, ct);
         }
 
         var head = await sandbox.RunStepAsync(CheckoutStepFactory.BuildResolveHeadStep(), null, ct);
@@ -60,13 +63,13 @@ public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh)
     }
 
     private static async Task LandOnAsync(
-        ISandbox sandbox, RepoConnection repo, string revision, CancellationToken ct)
+        ISandbox sandbox, RepoConnection repo, GitCredential credential, string revision, CancellationToken ct)
     {
         var first = await sandbox.RunStepAsync(CheckoutStepFactory.BuildCheckoutStep(revision), null, ct);
         if (first.ExitCode == 0) return;
 
         var fetch = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildFetchRevisionStep(repo, revision), null, ct);
+            CheckoutStepFactory.BuildFetchRevisionStep(credential, revision), null, ct);
         if (fetch.ExitCode == 0)
         {
             var second = await sandbox.RunStepAsync(
@@ -80,7 +83,7 @@ public sealed class SourceScopeMaterialiser(SourceScopeRefresh refresh)
         // the last rung before any refusal, and the two stay apart: a host that hands the
         // revision over neither way is a revision not fetched, never an unreachable host.
         var deepened = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildFetchRevisionAtDepthStep(repo, revision), null, ct);
+            CheckoutStepFactory.BuildFetchRevisionAtDepthStep(credential, revision), null, ct);
         if (deepened.ExitCode != 0)
             throw SourceScopeFailures.Fail(SourceScopeFailureKind.RevisionNotFetched, repo, revision,
                 "the clone does not carry this revision and the host would not hand it over, "

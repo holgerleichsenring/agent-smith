@@ -159,7 +159,7 @@ public sealed class SpecArtifactTests
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
         return new SpecSetWriter(
             factory.Object,
-            new SandboxGitOperations(new GitBranchPusher(),
+            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                 NullLogger<SandboxGitOperations>.Instance, factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetFiles(new SpecSetIndex()),
             new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);

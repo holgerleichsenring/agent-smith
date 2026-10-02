@@ -17,10 +17,12 @@ public sealed class CheckoutStepFactoryTests
         Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a",
     };
 
+    private static readonly GitCredential Credential = new("token-a");
+
     [Fact]
     public void RunCheckout_IsUnchanged_AndStillClonesTheWholeHistory()
     {
-        var args = CheckoutStepFactory.BuildCloneStep(Repo).Args!;
+        var args = CheckoutStepFactory.BuildCloneStep(Repo, Credential).Args!;
 
         args.Should().HaveCount(5, "the credential, the word, the url and the target — nothing else");
         args[0].Should().Be("-c");
@@ -30,7 +32,7 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void ScopeClone_AsksForOneBranchAtOneCommit()
     {
-        var args = CheckoutStepFactory.BuildScopeCloneStep(Repo).Args!;
+        var args = CheckoutStepFactory.BuildScopeCloneStep(Repo, Credential).Args!;
 
         args.Skip(2).Should().Equal(
             "clone", "--depth", "1", "--single-branch", "https://stub.test/repo-a", ".");
@@ -40,7 +42,7 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void FetchRevisionAtDepth_AsksTheHostForOneRevisionAndOneCommit()
     {
-        var args = CheckoutStepFactory.BuildFetchRevisionAtDepthStep(Repo, "9f1c2d").Args!;
+        var args = CheckoutStepFactory.BuildFetchRevisionAtDepthStep(Credential, "9f1c2d").Args!;
 
         args.Skip(2).Should().Equal("fetch", "--depth", "1", "origin", "9f1c2d");
     }
@@ -48,10 +50,23 @@ public sealed class CheckoutStepFactoryTests
     [Fact]
     public void FetchRevisionByName_IsUnchanged()
     {
-        var args = CheckoutStepFactory.BuildFetchRevisionStep(Repo, "9f1c2d").Args!;
+        var args = CheckoutStepFactory.BuildFetchRevisionStep(Credential, "9f1c2d").Args!;
 
         // The rung the run's own rung publisher shares must not gain a depth: a depth-bounded
         // fetch into the run's full clone would make the run's tree shallow.
         args.Skip(2).Should().Equal("fetch", "origin", "9f1c2d");
     }
+
+    // 2026-10-02-5f89g: the step carries exactly the credential it was given.
+    [Fact]
+    public void CheckoutStepFactory_CloneStep_CarriesTheGivenCredentialAsGitToken()
+    {
+        var step = CheckoutStepFactory.BuildCloneStep(Repo, new GitCredential("token-b"));
+
+        step.Env.Should().ContainKey("GIT_TOKEN").WhoseValue.Should().Be("token-b");
+    }
+
+    [Fact]
+    public void CreateRemoteBranch_NoCredential_SetsNoGitToken() =>
+        CheckoutStepFactory.BuildCreateRemoteBranchStep(GitCredential.None, "HEAD", "b").Env.Should().BeNull();
 }

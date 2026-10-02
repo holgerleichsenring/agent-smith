@@ -39,7 +39,7 @@ public static class TestGit
     /// <summary>2026-09-13-35a4: publishes the feature's branch once, or adopts the one a
     /// sibling slice published first.</summary>
     public static SandboxRungPublisher RungPublisher =>
-        new(BaseLadder, BranchCreate, NullLogger<SandboxRungPublisher>.Instance);
+        new(BaseLadder, BranchCreate, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxRungPublisher>.Instance);
 
     public static SandboxWorkBranchCheckout WorkBranchCheckout =>
         new(RungPublisher, Merger, MergeReport, NullLogger<SandboxWorkBranchCheckout>.Instance);

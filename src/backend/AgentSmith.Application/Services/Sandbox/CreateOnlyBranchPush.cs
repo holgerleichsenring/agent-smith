@@ -26,11 +26,11 @@ public sealed class CreateOnlyBranchPush(ILogger<CreateOnlyBranchPush> logger)
 {
     /// <summary>Pushes <paramref name="atRef"/>'s sha to <c>refs/heads/{branch}</c> on origin.</summary>
     public async Task<RemoteBranchCreation> CreateAsync(
-        ISandbox sandbox, RepoConnection config, string atRef, string branch, CancellationToken ct)
+        ISandbox sandbox, GitCredential credential, string atRef, string branch, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sandbox);
         var result = await sandbox.RunStepAsync(
-            CheckoutStepFactory.BuildCreateRemoteBranchStep(config, atRef, branch), progress: null, ct);
+            CheckoutStepFactory.BuildCreateRemoteBranchStep(credential, atRef, branch), progress: null, ct);
 
         if (result.ExitCode == 0)
         {

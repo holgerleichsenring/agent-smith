@@ -87,7 +87,7 @@ public sealed class SandboxConversationLabelTests
         runContext.SetupGet(r => r.CurrentRunId).Returns("run-1");
         return new SourceScopeSandboxFactory(
             new SourceScopeOpener(
-                new SourceScopeMaterialiser(new SourceScopeRefresh()), factory, specBuilder, runContext.Object),
+                new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), factory, specBuilder, runContext.Object),
             new AsyncLocalSourceScopeObserverAccessor(), Holds.None(),
             NullLogger<SourceScopeSandbox>.Instance);
     }

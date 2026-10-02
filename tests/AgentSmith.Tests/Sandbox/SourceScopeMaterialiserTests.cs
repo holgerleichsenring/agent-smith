@@ -25,7 +25,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "abc123");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, revision: null, CancellationToken.None);
 
         sha.Should().Be("abc123");
@@ -37,7 +37,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "deadbeef");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         sha.Should().Be("deadbeef");
@@ -51,7 +51,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "error: pathspec 'nope' did not match")
             .Returning("fetch", 0, string.Empty);
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "nope", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -67,7 +67,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "fatal: reference is not a tree")
             .Returning("fetch", 1, "error: couldn't find remote ref 9f1c2d");
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -82,7 +82,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "9f1c2d");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         sha.Should().Be("9f1c2d");
@@ -97,7 +97,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("clone", 128, stderr);
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, null, CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
@@ -110,7 +110,7 @@ public sealed class SourceScopeMaterialiserTests
         var sandbox = new ScriptedSandbox()
             .Returning("clone", 128, "fatal: unable to access: Could not resolve host: stub.test");
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, null, CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())
@@ -126,7 +126,7 @@ public sealed class SourceScopeMaterialiserTests
 
         try
         {
-            await new SourceScopeMaterialiser(new SourceScopeRefresh())
+            await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
                 .PrepareAsync(sandbox, Repo, "nope", CancellationToken.None);
         }
         catch (SourceScopeUnavailableException)
@@ -147,7 +147,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "abc123");
 
-        await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, revision: null, CancellationToken.None);
 
         var clone = sandbox.AllArgs.Single(args => args.Contains("clone"));
@@ -161,7 +161,7 @@ public sealed class SourceScopeMaterialiserTests
     {
         var sandbox = new ScriptedSandbox().Returning("rev-parse", 0, "deadbeef");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         sha.Should().Be("deadbeef");
@@ -176,7 +176,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "9f1c2d");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         sha.Should().Be("9f1c2d");
@@ -195,7 +195,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("fetch", 0, string.Empty)
             .Returning("rev-parse", 0, "77c0de");
 
-        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var sha = await new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "release/7", CancellationToken.None);
 
         sha.Should().Be("77c0de");
@@ -213,7 +213,7 @@ public sealed class SourceScopeMaterialiserTests
             .Returning("checkout", 1, "fatal: reference is not a tree")
             .Returning("fetch", 1, "error: couldn't find remote ref 9f1c2d");
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "9f1c2d", CancellationToken.None);
 
         var failure = await act.Should().ThrowAsync<SourceScopeUnavailableException>();
@@ -229,7 +229,7 @@ public sealed class SourceScopeMaterialiserTests
         var sandbox = new ScriptedSandbox()
             .Returning("clone", 128, "fatal: unable to access: Could not resolve host: stub.test");
 
-        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh())
+        var act = () => new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver)
             .PrepareAsync(sandbox, Repo, "v2.1.0", CancellationToken.None);
 
         (await act.Should().ThrowAsync<SourceScopeUnavailableException>())

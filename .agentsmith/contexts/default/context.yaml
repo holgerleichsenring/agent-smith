@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-5f89g: "EVERY CLONE, FETCH AND PUSH AUTHENTICATES WITH ITS REPO'S OWN AUTH SECRET (sandbox git steps, push, host clone, pod spec). GitTokenResolver is an injected service over the 5f89a resolver; local repos get no credential; a missing secret refuses the checkout by name; the pod-wide GIT_TOKEN slot is gone. -> .agentsmith/phases/done/2026-10-02-5f89g-git-credential-per-repo.yaml"
     2026-10-02-5f89a: "EVERY GIT-HOST AND TRACKER API CALL AUTHENTICATES WITH ITS OWN AUTH SECRET (config, credentials, factories, discovery, trust, studio). Empty auth, tracker url/project/email and GitLab repo host migrate at load from the legacy variables as advisories; a missing secret blocks; caches keyed per token. -> .agentsmith/phases/done/2026-10-02-5f89a-auth-secret-per-connection.yaml"
     2026-10-02-5f89f: "THE HARNESS EXTRACTS ITS EVAL CATALOG PER PROCESS (pipeline harness evals). A GUID-named temp directory deleted on exit replaces the version-named one reused across processes, which a temp cleaner had emptied of files and the security corpus scan then loaded zero patterns from. -> .agentsmith/phases/done/2026-10-02-5f89f-harness-catalog-extraction.yaml"
     2026-10-02-140d: "A TRACKER OR CONNECTION FORM SHOWS ITS AUTH SECRET ONCE, AS A PICK FROM THE SECRETS CATALOG (capabilities descriptor, config studio). New field kind secret, declared on authSecret; the fixed picker beside the descriptor's text box is gone. -> .agentsmith/phases/done/2026-10-02-140d-studio-secret-field.yaml"

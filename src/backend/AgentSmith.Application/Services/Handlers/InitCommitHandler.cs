@@ -105,7 +105,7 @@ public sealed class InitCommitHandler(
             }
             await gitOps.CommitAndPushStagedAsync(
                 sandbox, context.Repository.CurrentBranch.Value,
-                "chore: initialize .agentsmith/ directory", repo.Type, ct);
+                "chore: initialize .agentsmith/ directory", repo, ct);
         }
         catch (Exception ex) when (EmptyCommit.Explains(ex))
         {

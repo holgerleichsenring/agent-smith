@@ -45,7 +45,7 @@ public sealed class GenerateTestsDocsSkipTests
     }
 
     private RepoDiffPartitioner NewPartitioner() =>
-        new(new SandboxGitOperations(new GitBranchPusher(),
+        new(new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
                 NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SandboxTargets(), NullLogger<RepoDiffPartitioner>.Instance);
 

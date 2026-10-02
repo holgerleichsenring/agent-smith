@@ -100,7 +100,7 @@ public sealed class SpecHandbackRepeatTests
         readers.Setup(f => f.Create(sandbox)).Returns(files);
         var writer = new SpecSetWriter(
             readers.Object,
-            new SandboxGitOperations(new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 readers.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SpecSetFiles(new SpecSetIndex()), new SandboxTargets(),
             NullLogger<SpecSetWriter>.Instance);

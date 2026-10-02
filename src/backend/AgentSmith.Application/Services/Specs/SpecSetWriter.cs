@@ -61,7 +61,7 @@ public sealed class SpecSetWriter(
             logger.LogInformation("Spec set {Key} is unchanged — no revision commit", key);
             return SpecSetWriteResult.Ok(await gitOps.GetLastCommitForPathAsync(sandbox, key.Directory, ct));
         }
-        await gitOps.CommitAndPushStagedAsync(sandbox, branch, MessageFor(set), repo.Type, ct);
+        await gitOps.CommitAndPushStagedAsync(sandbox, branch, MessageFor(set), repo, ct);
         var sha = await gitOps.GetHeadCommitAsync(sandbox, ct);
         logger.LogInformation(
             "Spec set {Key} revision {Revision} ({Phases} phase(s)) committed as {Sha} on {Branch}",

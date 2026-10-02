@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5f89g
+
+decisions:
+  - category: Architecture
+    chose: "IGitTokenResolver / GitTokenResolver (Contracts) over ICredentialResolver answering a GitCredential for a RepoConnection; a Local repo gets GitCredential.None without a lookup"
+    over: "The static type-keyed GitTokenResolver"
+    reason: |
+      Every repo of a type shared one token, so repos of two GitLab instances could not sit in
+      one run. The repo's own auth secret answers now, through the same resolver the API calls
+      use since 2026-10-02-5f89a.
+  - category: Architecture
+    chose: "The step builders stay static and pure and take the GitCredential as a parameter; SandboxRepoCloner, SourceScopeMaterialiser and SandboxRungPublisher resolve it once and hand it to CheckoutStepFactory, SourceScopeRefresh(Steps) and CreateOnlyBranchPush"
+    over: "Each of the six classes the spec named resolving on its own"
+    reason: |
+      SandboxWorkBranchCheckout builds no credentialed step, and the refresh and the create-only
+      push run inside a caller that already resolved — passing the credential down keeps "once
+      per repo" literal and leaves those three without a new dependency. Fetch and create-branch
+      steps take only the credential: the repo was used for nothing else.
+  - category: Implementation
+    chose: "SandboxGitOperations push methods take the RepoConnection and resolve at the push; GitBranchPusher takes the GitCredential; callers replace repo.Type with repo on the same line"
+    over: "Resolving before the local-origin check"
+    reason: "A local repo with no origin never pushes, so it never asks; InitCommitHandler and PersistWorkBranchHandler stay at their ratchet rows."
+  - category: Security
+    chose: "A missing secret refuses the checkout with the MissingCredentialException sentence before any clone runs; HostSourceCloner logs it and does not attempt the clone"
+    over: "Omitting GIT_TOKEN and letting git fail at an auth prompt nobody answers"
+    reason: "The named refusal says which secret is missing; HostSourceCloner keeps its Try contract (null on failure)."
+  - category: Scope
+    chose: "SandboxSpec.GitTokenSecretRef and PodSpecBuilder's GIT_TOKEN secretKeyRef removed"
+    over: "Keeping the unused slot"
+    reason: "It had no writer; a pod-wide type-keyed token is where a second credential would creep back in."
+  - category: Tooling
+    chose: "The two-connection proof is a test over the real CLI composition with a recording sandbox, not a PipelineHarness preset"
+    over: "A harness preset"
+    reason: |
+      The harness's fake remotes are local repos (no credential by design) and its presets run
+      against stub URLs; a composition test resolves the real cloner and git operations and
+      asserts the GIT_TOKEN each clone and push step carries.

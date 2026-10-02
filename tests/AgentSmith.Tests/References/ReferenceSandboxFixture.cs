@@ -31,7 +31,7 @@ internal sealed class ReferenceSandboxFixture : ISandboxFactory, IReferenceSetRe
             new StubSandboxResourceResolver(),
             Mock.Of<IAgentImageResolver>(r => r.Resolve(It.IsAny<ResolvedProject>()) == "agent:test"));
         var opener = new SourceScopeOpener(
-            new SourceScopeMaterialiser(new SourceScopeRefresh()), this, specBuilder, Mock.Of<IRunContextAccessor>());
+            new SourceScopeMaterialiser(new SourceScopeRefresh(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver), this, specBuilder, Mock.Of<IRunContextAccessor>());
         return new ReferenceSetSandboxFactory(
             opener, new ReferenceSetMaterialiser(this, this), holds, NullLogger<ReferenceSetSandbox>.Instance);
     }

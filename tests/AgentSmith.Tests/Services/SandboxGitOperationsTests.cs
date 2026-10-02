@@ -16,9 +16,14 @@ public sealed class SandboxGitOperationsTests
     private readonly Mock<ISandbox> _sandboxMock = new();
     private readonly List<Step> _steps = new();
     private readonly SandboxGitOperations _sut = new(
-        new GitBranchPusher(),
+        new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
         NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
         new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
+
+    private static readonly RepoConnection GitHubRepo = new()
+    {
+        Name = "r", Type = RepoType.GitHub, Url = "https://stub.test/r", Auth = "gh",
+    };
 
     public SandboxGitOperationsTests()
     {
@@ -34,7 +39,7 @@ public sealed class SandboxGitOperationsTests
     [Fact]
     public async Task CommitAndPushAsync_HappyPath_RunsConfigStageCommitPush_InOrder()
     {
-        await _sut.CommitAndPushAsync(_sandboxMock.Object, "feat/branch", "msg", RepoType.GitHub, CancellationToken.None);
+        await _sut.CommitAndPushAsync(_sandboxMock.Object, "feat/branch", "msg", GitHubRepo, CancellationToken.None);
 
         var commands = _steps.Select(s => string.Join(' ', new[] { s.Command }.Concat(s.Args ?? Array.Empty<string>()))).ToList();
         commands.Should().Contain(c => c.Contains("config user.email"));
@@ -51,7 +56,7 @@ public sealed class SandboxGitOperationsTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1, "nothing to commit, working tree clean")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", GitHubRepo, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("nothing to commit"));
@@ -116,7 +121,7 @@ public sealed class SandboxGitOperationsTests
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 1, false, 0.1,
                     "pre-commit hook failed: lint errors")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", GitHubRepo, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("pre-commit hook failed: lint errors")
@@ -138,7 +143,7 @@ public sealed class SandboxGitOperationsTests
                     ErrorMessage: null,
                     OutputContent: "On branch main\nnothing to commit, working tree clean\n")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", GitHubRepo, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("nothing to commit"));
@@ -152,7 +157,7 @@ public sealed class SandboxGitOperationsTests
     public async Task CommitAndPushStaged_ConfiguresIdentityBeforeCommit()
     {
         await _sut.CommitAndPushStagedAsync(
-            _sandboxMock.Object, "feat/branch", "msg", RepoType.GitHub, CancellationToken.None);
+            _sandboxMock.Object, "feat/branch", "msg", GitHubRepo, CancellationToken.None);
 
         var commands = Commands();
         var email = commands.FindIndex(c => c.Contains("config user.email"));
@@ -170,7 +175,7 @@ public sealed class SandboxGitOperationsTests
     {
         await _sut.StageAllAsync(_sandboxMock.Object, CancellationToken.None);
         await _sut.CommitAndPushStagedAsync(
-            _sandboxMock.Object, "feat/branch", "msg", RepoType.GitHub, CancellationToken.None);
+            _sandboxMock.Object, "feat/branch", "msg", GitHubRepo, CancellationToken.None);
 
         var commands = Commands();
         commands.Count(c => c.Contains("config user.email")).Should().Be(2);
@@ -190,9 +195,33 @@ public sealed class SandboxGitOperationsTests
             .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
                 Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 128, false, 0.1, "non-fast-forward")));
 
-        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", RepoType.GitHub, CancellationToken.None);
+        var act = async () => await _sut.CommitAndPushAsync(_sandboxMock.Object, "branch", "msg", GitHubRepo, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .Where(e => e.Message.Contains("non-fast-forward"));
+    }
+
+    // 2026-10-02-5f89g: the push carries the repo's own credential, not one picked by type.
+    [Fact]
+    public async Task SandboxGitOperations_CommitAndPush_UsesTheReposCredential()
+    {
+        var resolver = AgentSmith.Tests.TestSupport.TestCredentials.With(("gh", "first"), ("gh_two", "second"));
+        var sut = new SandboxGitOperations(
+            new GitBranchPusher(), new GitTokenResolver(resolver),
+            NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(),
+            new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
+
+        await sut.CommitAndPushAsync(_sandboxMock.Object, "b", "msg", GitHubRepo with { Auth = "gh_two" }, CancellationToken.None);
+
+        _steps.Single(s => s.Args!.Contains("push")).Env!["GIT_TOKEN"].Should().Be("second");
+    }
+
+    [Fact]
+    public async Task PushHeadAsync_PushesWithTheReposCredential()
+    {
+        await _sut.PushHeadAsync(_sandboxMock.Object, "b", GitHubRepo, CancellationToken.None);
+
+        _steps.Single(s => s.Args!.Contains("push")).Env!["GIT_TOKEN"]
+            .Should().Be(AgentSmith.Tests.TestSupport.TestGitCredentials.Token);
     }
 }

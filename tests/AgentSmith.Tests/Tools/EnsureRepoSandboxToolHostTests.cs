@@ -170,7 +170,7 @@ public sealed class EnsureRepoSandboxToolHostTests
         PipelineContext pipeline, FilesystemToolHost fs, ISandboxCapacityProbe probe,
         IHeldSandboxRegister? heldSandboxes = null) =>
         new(pipeline, fs, probe, new StubSandboxResourceResolver(),
-            new SandboxRepoCloner(_sourceFactoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+            new SandboxRepoCloner(_sourceFactoryMock.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
             NullLogger<EnsureRepoSandboxToolHost>.Instance, new SandboxTargets(),
             heldSandboxes ?? Spawning.CapacityTestDoubles.NoHolds());
 }

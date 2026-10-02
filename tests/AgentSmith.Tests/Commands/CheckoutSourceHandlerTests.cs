@@ -22,7 +22,7 @@ public sealed class CheckoutSourceHandlerTests
     public CheckoutSourceHandlerTests()
     {
         _handler = new CheckoutSourceHandler(
-            new SandboxRepoCloner(_factoryMock.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
+            new SandboxRepoCloner(_factoryMock.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance), AgentSmith.Tests.TestHelpers.TestGit.WorkBranchCheckout, NullLogger<SandboxRepoCloner>.Instance),
             RunStateConceptsTestFactory.Default,
             new SandboxTargets(),
             NullLoggerFactory.Instance.CreateLogger<CheckoutSourceHandler>());

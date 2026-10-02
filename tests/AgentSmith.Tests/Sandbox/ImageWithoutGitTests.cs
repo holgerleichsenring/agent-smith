@@ -74,7 +74,7 @@ public sealed class ImageWithoutGitTests
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
 
         var cloner = new SandboxRepoCloner(
-            factory.Object,
+            factory.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance),
             TestHelpers.TestGit.WorkBranchCheckout,
             NullLogger<SandboxRepoCloner>.Instance);

@@ -20,7 +20,7 @@ public sealed class UnverifiedWorkReverterTests
 
     private readonly UnverifiedWorkReverter _sut = new(
         new SandboxGitOperations(
-            new GitBranchPusher(), NullLogger<SandboxGitOperations>.Instance,
+            new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
         NullLogger<UnverifiedWorkReverter>.Instance);
 
