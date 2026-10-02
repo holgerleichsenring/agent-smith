@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-35b2: "A SANDBOX COMMAND NO LONGER SEES THE STEP BUS (sandbox agent, sandbox specs). A step's process loses the inherited REDIS_URL and JOB_ID unless it sets them; Docker Cmd and pod Args drop --redis-url. Hidden, not unreachable: /proc environ stays, planned 2026-10-02-f35f. -> .agentsmith/phases/done/2026-10-02-35b2-sandbox-redis-url-hidden.yaml"
     2026-10-02-075dd: "AN UPLOAD KEEPS WHAT THE MODEL WORKED OUT ABOUT IT (reference note, prompts, skills). note_reference writes a set's one note (a row of kind note, no migration); every later turn and every run that carries the set shows it fenced as data; the transcript chip shows it; skills teach note-first. -> .agentsmith/phases/done/2026-10-02-075dd-reference-note.yaml"
     2026-10-02-075dc: "THE DESIGN PARTNER RUNS COMMANDS IN AN UPLOAD'S OWN CONTAINER (reference sandbox, design tools). run_in_reference runs a shell where the set lies; the set's container serves reads and every Run, refuses writes, spawns without project secrets; master only, containers only. -> .agentsmith/phases/done/2026-10-02-075dc-reference-sandbox-command.yaml"
     2026-10-02-075db: "A PICKED FOLDER IS SHOWN AND CHOSEN BEFORE IT IS SENT (dialog composer, reference selection). Several files or a folder open a card: top-level entries, rebuildable and .gitignore'd ones unticked (credential files never), totals held to 25 MB / 500 files; 'Website' became 'Files'. -> .agentsmith/phases/done/2026-10-02-075db-reference-upload-selection.yaml"

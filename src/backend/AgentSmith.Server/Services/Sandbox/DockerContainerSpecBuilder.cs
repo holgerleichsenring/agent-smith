@@ -54,9 +54,10 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
         Name = containerName,
         Image = spec.ToolchainImage,
         // p0360b: --run-id arms the agent's run-alive idle guard (see PodSpecBuilder).
+        // 2026-10-02-35b2: the Redis URL travels in REDIS_URL only — a command line is readable by every process.
         Cmd = string.IsNullOrEmpty(spec.RunId)
-            ? [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId]
-            : [$"{SharedMount}/agent", "--redis-url", redisUrl, "--job-id", jobId, "--run-id", spec.RunId],
+            ? [$"{SharedMount}/agent", "--job-id", jobId]
+            : [$"{SharedMount}/agent", "--job-id", jobId, "--run-id", spec.RunId],
         WorkingDir = WorkMount,
         Env = BuildEnv(jobId, redisUrl, packageCaches),
         Labels = BuildLabels(jobId, spec.RunId, spec.ConversationId),
