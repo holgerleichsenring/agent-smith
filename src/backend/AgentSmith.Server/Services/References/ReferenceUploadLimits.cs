@@ -17,6 +17,9 @@ public static class ReferenceUploadLimits
 
     public const int MaxSetsPerConversation = 3;
 
+    /// <summary>2026-10-02-0d72: how many skipped paths an upload answer lists; the count is always whole.</summary>
+    public const int MaxSkippedListed = 20;
+
     /// <summary>The path column's width; a longer path is refused, never cut.</summary>
     public const int MaxPathChars = PersistenceLimits.ReferencePath;
 

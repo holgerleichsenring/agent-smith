@@ -6,6 +6,7 @@ import {
   apiUrl,
   getJson,
   readJson,
+  refused,
   refusalOf,
   sendJson,
 } from "../apiResponse";
@@ -28,12 +29,14 @@ function response(init: {
   ok?: boolean;
   status?: number;
   json?: () => Promise<unknown>;
+  text?: () => Promise<string>;
   contentType?: string;
 }): Response {
   return {
     ok: init.ok ?? true,
     status: init.status ?? 200,
     json: init.json ?? (async () => ({})),
+    text: init.text,
     headers: { get: () => init.contentType ?? null },
   } as unknown as Response;
 }
@@ -242,5 +245,33 @@ describe("apiFetch and the bearer header", () => {
     expect(headers.get("Content-Type")).toBe("application/json");
     expect(headers.get("Authorization")).toBe("Bearer at-1");
     expect(init.body).toBe(JSON.stringify({ id: "a" }));
+  });
+});
+
+// 2026-10-02-0d72: a website refused for one file read as a bare "HTTP 400" — the server had
+// said which file, and the client threw the sentence away.
+describe("refused", () => {
+  const body = (status: number, text: string) =>
+    response({ ok: false, status, text: async () => text });
+
+  it("Refused_A400StatingAJsonStringReason_CarriesIt", async () => {
+    const reason = "'site/LICENSE' is not a file a website is made of";
+
+    const error = await refused(body(400, JSON.stringify(reason)), "/api/spec-dialog/references");
+
+    expect(error).toBeInstanceOf(ApiResponseError);
+    expect(error.message).toBe(`/api/spec-dialog/references: HTTP 400 — ${reason}`);
+  });
+
+  it("Refused_A409WithProblemDetails_CarriesTheDetail", async () => {
+    const error = await refused(body(409, JSON.stringify({ title: "Conflict", detail: "not yours" })), "/x");
+
+    expect(error.message).toBe("/x: HTTP 409 — not yours");
+  });
+
+  it("Refused_A500OrAnHtmlPage_StaysTheBareStatus", async () => {
+    expect((await refused(body(500, "boom"), "/x")).message).toBe("/x: HTTP 500");
+    expect((await refused(body(400, "<html>proxy</html>"), "/x")).message).toBe("/x: HTTP 400");
+    expect((await refused(response({ ok: false, status: 400 }), "/x")).message).toBe("/x: HTTP 400");
   });
 });

@@ -19,6 +19,7 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
+import { refusedNote, skippedNote, type UploadNote } from "@/components/dialog/uploadNote";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
@@ -94,6 +95,9 @@ export interface SpecDialogState {
   /** What filing it actually created — the column's last state. */
   filed: SpecDialogFilingPush | null;
   failure: Error | null;
+  /** 2026-10-02-0d72: what the last upload left beside the composer — its refusal, or the files a
+   *  stored website went without. Never the page-wide failure: a refused upload breaks nothing. */
+  uploadNote: UploadNote | null;
   /** True between a post and the answer it will get. */
   awaiting: boolean;
   /** 2026-09-18-2f8b: whether the working line belongs on the page at all — this page's own
@@ -140,6 +144,7 @@ export function useSpecDialog(): SpecDialogState {
   const [proposal, setProposal] = useState<SpecDialogProposalPush | null>(null);
   const [filed, setFiled] = useState<SpecDialogFilingPush | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
+  const [uploadNote, setUploadNote] = useState<UploadNote | null>(null);
   // A design turn materialises the scope's repositories and reads them: a minute of
   // nothing is normal. SendProgressAsync is a no-op on this channel, and on a chat platform
   // that is right, because the platform shows the message was delivered and people expect
@@ -513,15 +518,17 @@ export function useSpecDialog(): SpecDialogState {
   const attach = useCallback(
     async (file: File, project?: string) => {
       if (!dialogId) return;
+      setUploadNote(null);
       try {
         await uploadSpecDialogImage(dialogId, project ?? "", file);
-        // The read has to RESEED: the image is not something this page said, so there is
-        // nothing to echo locally, and an unarmed read leaves the entries as they were.
-        reseed.current = true;
-        await load(dialogId);
       } catch (thrown) {
-        setFailure(asError(thrown));
+        setUploadNote(refusedNote(thrown));
+        return;
       }
+      // The read has to RESEED: the image is not something this page said, so there is
+      // nothing to echo locally, and an unarmed read leaves the entries as they were.
+      reseed.current = true;
+      await load(dialogId);
     },
     [dialogId, load],
   );
@@ -531,13 +538,15 @@ export function useSpecDialog(): SpecDialogState {
   const attachSite = useCallback(
     async (files: File[], project?: string) => {
       if (!dialogId || files.length === 0) return;
+      setUploadNote(null);
       try {
-        await uploadSpecDialogReferences(dialogId, project ?? "", files);
-        reseed.current = true;
-        await load(dialogId);
+        setUploadNote(skippedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files)));
       } catch (thrown) {
-        setFailure(asError(thrown));
+        setUploadNote(refusedNote(thrown));
+        return;
       }
+      reseed.current = true;
+      await load(dialogId);
     },
     [dialogId, load],
   );
@@ -559,6 +568,7 @@ export function useSpecDialog(): SpecDialogState {
     setWorkingSince(null);
     setReadings([]);
     setActivity([]);
+    setUploadNote(null);
     pending.current = resuming;
     setDialogId(to ? returnToDialog(to) : startNewDialog());
   }, []);
@@ -624,7 +634,7 @@ export function useSpecDialog(): SpecDialogState {
 
   working.current = awaiting || computing;
   return {
-    dialogId, view, conversations, entries, question, proposal, filed, failure, awaiting,
+    dialogId, view, conversations, entries, question, proposal, filed, failure, uploadNote, awaiting,
     working: working.current, workingSince,
     readings, activity, send, startNew, open, remove, attach, attachSite,
   };

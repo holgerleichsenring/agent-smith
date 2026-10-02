@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { UploadNote } from "./uploadNote";
 
 // 2026-09-15-cb3e: what the operator says. One path for everything they write — a design
 // message, an answer to a question, a note on a proposal — because the router reads the
@@ -21,11 +22,14 @@ import { useEffect, useRef, useState } from "react";
 // guard forbids drawing a surface out of theme utilities.
 // 2026-10-01-283db: the second and third kinds the menu was built for — a Website (several files,
 // or one .zip the server unpacks) and a Folder (the directory picker, each file under its path).
+// 2026-10-02-0d72: and what an upload left — its refusal, or the files a website went without —
+// is said HERE, under the control that made it, not on the page-wide failure panel.
 
 export function DialogComposer({
   onSend,
   onAttach,
   onAttachSite,
+  note,
   disabled,
 }: {
   onSend: (text: string) => void;
@@ -33,6 +37,8 @@ export function DialogComposer({
   onAttach: (file: File) => void;
   /** 2026-10-01-283db: a website the operator picked — its files, stored as one set. */
   onAttachSite?: (files: File[]) => void;
+  /** What the last upload left: a refusal, or what a stored website went without. */
+  note?: UploadNote | null;
   disabled?: boolean;
 }) {
   const [text, setText] = useState("");
@@ -200,6 +206,16 @@ export function DialogComposer({
           <ArrowGlyph />
         </button>
       </div>
+      {note && (
+        <p
+          role={note.tone === "refused" ? "alert" : "status"}
+          data-testid="dialog-composer-upload-note"
+          data-tone={note.tone}
+          className={`d-upload-note${note.tone === "refused" ? " bad" : ""}`}
+        >
+          {note.text}
+        </p>
+      )}
     </div>
   );
 }

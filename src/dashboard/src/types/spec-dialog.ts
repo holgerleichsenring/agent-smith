@@ -50,6 +50,13 @@ export interface SpecDialogReferenceSet {
   at: string;
 }
 
+/** 2026-10-02-0d72: what a website upload answers — the stored set, and the files left out of it
+ *  because they are not what a website is made of: the first few paths and how many in all. */
+export interface SpecDialogReferenceUpload extends SpecDialogReferenceSet {
+  skipped: string[];
+  skippedCount: number;
+}
+
 export interface SpecDialogSession {
   sessionId: string;
   scope: SpecDialogProject;

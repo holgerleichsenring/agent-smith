@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.References;
 /// <summary>2026-10-01-283db: the one archive a set may arrive as is counted, not trusted.</summary>
 public sealed class ReferenceZipReaderTests
 {
-    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new ZipEntryChecksum());
+    private readonly ReferenceZipReader _reader = new(new ReferencePathRule(), new ReferenceIgnoreList(), new ZipEntryChecksum(), new ReferenceFileTypes());
 
     [Fact]
     public void ReferenceUpload_ZipEntryLyingAboutItsSize_StopsAtTheSetBound()
@@ -45,6 +45,23 @@ public sealed class ReferenceZipReaderTests
         var read = _reader.Read("s.zip", Zip(("s/index.html", Text("<p>")), ("__MACOSX/s/._index.html", Text("x"))));
 
         read.Files.Select(f => f.Path).Should().Equal("s/index.html");
+    }
+
+    // 2026-10-02-0d72: a non-site entry is skipped before it is counted or inflated, and named.
+    [Fact]
+    public void ReferenceZipReader_NonSiteEntries_AreSkippedAndNamed()
+    {
+        var read = _reader.Read("s.zip", Zip(("s/index.html", Text("<p>")), ("s/app.js.map", Text("{}"))));
+
+        read.Files.Select(f => f.Path).Should().Equal("s/index.html");
+        read.Skipped.Should().Equal("s/app.js.map");
+    }
+
+    [Fact]
+    public void ReferenceZipReader_OnlyNonSiteEntries_IsRefusedNamingThem()
+    {
+        _reader.Read("s.zip", Zip(("s/LICENSE", Text("MIT")))).Refusal.Should()
+            .Contain("no file a website is made of").And.Contain("'s/LICENSE'");
     }
 
     [Fact]

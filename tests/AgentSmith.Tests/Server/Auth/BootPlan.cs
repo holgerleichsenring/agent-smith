@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace AgentSmith.Tests.Server.Auth;
 
 /// <summary>
@@ -37,6 +39,12 @@ public sealed record BootPlan(string ConfigPath)
     /// can wait that out.
     /// </summary>
     public TimeProvider? Clock { get; init; }
+
+    /// <summary>
+    /// 2026-10-02-0d72: what this case adds to the composition — a recording logger provider, for
+    /// a case whose subject is what the server wrote down. Applied after every substitution.
+    /// </summary>
+    public Action<IServiceCollection>? Services { get; init; }
 
     /// <summary>What REDIS_URL is set to for the boot — the dead address either way, so a
     /// substituted case can never reach a Redis that happens to run on the machine.</summary>
