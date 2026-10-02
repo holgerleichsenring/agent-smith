@@ -10,7 +10,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class DerivedPhaseYamlRenderer
 {
-    private readonly ISerializer _serializer = new SerializerBuilder().Build();
+    // 2026-10-02-3f06a: a string that reads as a number, a boolean or null is written quoted.
+    // The validator types plain scalars, and the schema now types facts, assumptions and
+    // contexts — an assumption "42" written plain would be refused as a number.
+    private readonly ISerializer _serializer = new SerializerBuilder().WithQuotingNecessaryStrings().Build();
 
     public string Render(
         string phaseId,

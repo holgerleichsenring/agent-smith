@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-3f06a: "THE SCHEMA DECLARES THE PREMISE KEYS (phase-spec schema, draft reader). facts, assumptions, applies_to, contexts get a shape; an assumption {claim, check} is read as its claim; the renderer and epic re-serializer quote number-shaped strings. -> .agentsmith/phases/done/2026-10-02-3f06a-spec-premise-keys.yaml"
     2026-10-02-3f06f: "THE BASE-CLASS LINE LIMIT LEAVES THIS REPOSITORY (principles, memory, content test). The 30 lines a Claude session wrote in p73 go from principles.md and the code-style memory; template-method skeleton only stays; the content test drops the anchor. -> .agentsmith/phases/done/2026-10-02-3f06f-principles-base-class.yaml"
     2026-10-02-0d72: "A WEBSITE FOLDER PICK WORKS (website upload, dialog composer). Files that are not site files are skipped and named in the answer; a set is refused only when none remains or a limit is crossed, the refusal is logged at Warning and shown at the composer with the server's reason. -> .agentsmith/phases/done/2026-10-02-0d72-reference-upload-refusal-reason.yaml"
     2026-10-02-5f89e: "A RUN NO SERVER DRIVES ENDS AS INTERRUPTED (run heartbeat, liveness reaper, persistence). Run.HeartbeatAt renewed every 45 s for every run by RunHeartbeatPump; RunLivenessReaper flags a running row silent for 3 min, CancelEnforcer ends it cancelled within five minutes. -> .agentsmith/phases/done/2026-10-02-5f89e-run-restart-orphan.yaml"
@@ -1034,7 +1035,6 @@ state:
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
   active: {}
   planned:
-    2026-10-02-3f06a: "THE SCHEMA DECLARES THE PREMISE KEYS (phase-spec schema, draft reader). facts, assumptions, applies_to, contexts get a shape; an assumption written as {claim, check} is read as its claim, not as a .NET type name. -> .agentsmith/phases/planned/2026-10-02-3f06a-spec-premise-keys.yaml"
     2026-10-02-3f06b: "A PLANNED FACT CITES WHAT RESOLVES (spec evidence, architecture tests). Each path a file, each line inside it, else a dated observed:; one reader and check with a policy per caller; date-minted phases state facts, 60 baselined. -> .agentsmith/phases/planned/2026-10-02-3f06b-spec-evidence-check.yaml"
     2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Routed by repository prefix, no clone for a check, a failed read never reported missing; the panel shows facts and assumptions. -> .agentsmith/phases/planned/2026-10-02-3f06c-proposal-evidence-check.yaml"
     2026-10-02-3f06d: "THE PLUGIN SHIPS 2.2.0 (spec-first plugin). Spec budget and date-minted ids in one commit, counter ids kept wide; scope, facts and assumptions in its own schema; verification and review in step 5; migration rows. -> .agentsmith/phases/planned/2026-10-02-3f06d-plugin-pr-landing.yaml"

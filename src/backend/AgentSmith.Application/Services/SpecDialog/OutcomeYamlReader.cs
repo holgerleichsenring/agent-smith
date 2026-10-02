@@ -31,6 +31,9 @@ internal static class OutcomeYamlReader
         IReadOnlyDictionary<string, object?> map, string key) =>
         map.TryGetValue(key, out var value) && value is List<object?> list ? list : null;
 
+    // 2026-10-02-3f06a: every scalar comes back from the untyped read as a string, so a quoted
+    // "42" must be written quoted again — plain, the validator would read it as the number the
+    // author did not write.
     internal static string ToYaml(object node) =>
-        new SerializerBuilder().Build().Serialize(node);
+        new SerializerBuilder().WithQuotingNecessaryStrings().Build().Serialize(node);
 }

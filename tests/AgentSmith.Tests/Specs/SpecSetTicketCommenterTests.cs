@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -67,6 +68,21 @@ public sealed class SpecSetTicketCommenterTests
         var body = SpecSetComment.Render(Set(), null);
 
         body.Should().NotContain("Contexts left out").And.NotContain("**Contexts:**");
+    }
+
+    // 2026-10-02-3f06a: an assumption written as {claim, check} reaches the author as its claim,
+    // never as the type name the map's ToString() used to render.
+    [Fact]
+    public void SpecSetComment_AssumptionMap_RendersItsClaim()
+    {
+        var set = Set();
+        var read = new PhaseDraftReader().Read(
+            "phase: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
+        var phase = set.Phases[0] with { Draft = set.Phases[0].Draft with { Assumptions = read.Assumptions } };
+
+        var body = SpecSetComment.Render(set with { Phases = [phase] }, null);
+
+        body.Should().Contain("- the cache is warm").And.NotContain("System.Collections");
     }
 
     [Fact]
