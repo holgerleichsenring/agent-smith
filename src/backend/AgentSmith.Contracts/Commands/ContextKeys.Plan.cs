@@ -4,8 +4,7 @@ namespace AgentSmith.Contracts.Commands;
 /// Plan + diff + approval PipelineContext keys. Covers the legacy Plan entity
 /// (p0394a retired its GeneratePlan producer; the key survives for the
 /// empty-plan gate and old run records), the open-questions round-trip, and the
-/// wire-format JSON/markdown payloads consumed by WriteRunResultHandler + the
-/// Redis pipeline-storage layer.
+/// wire-format JSON/markdown payloads consumed by WriteRunResultHandler.
 /// </summary>
 public static partial class ContextKeys
 {
@@ -66,8 +65,7 @@ public static partial class ContextKeys
 
     // p0128a: wire-format JSON/markdown payloads alongside the typed Plan/CodeChanges
     // entries. Existing Plan and CodeChanges keep their typed-entity semantics; the new
-    // keys carry the persisted shape consumed by WriteRunResultHandler and the Redis
-    // pipeline-storage layer.
+    // keys carry the persisted shape consumed by WriteRunResultHandler.
     public const string PlanJson = "PlanJson";
     public const string DiffJson = "DiffJson";
     public const string BootstrapMarkdown = "BootstrapMarkdown";

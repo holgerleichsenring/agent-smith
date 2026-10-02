@@ -4,6 +4,8 @@ namespace AgentSmith.Server.Services.References;
 /// 2026-10-01-283db: the files a website is made of, by extension, and the media type each is
 /// stored with. The extension decides, not the bytes: unlike a dialog image, a site's favicon.ico,
 /// avif and svg have no magic number the image path would accept, and they are what a site holds.
+/// 2026-10-02-075da: it TYPES a file and no longer decides whether it is stored — every other
+/// extension is application/octet-stream.
 /// </summary>
 public sealed class ReferenceFileTypes
 {
@@ -18,10 +20,9 @@ public sealed class ReferenceFileTypes
         [".txt"] = "text/plain", [".md"] = "text/markdown",
     };
 
-    /// <summary>The extensions a set may hold, as a refusal lists them.</summary>
-    public static string Allowed => string.Join(", ", MediaTypes.Keys.Select(k => k[1..]));
+    public const string Untyped = "application/octet-stream";
 
-    /// <summary>The media type <paramref name="path"/> is stored with, or null when its extension is not allowed.</summary>
-    public string? MediaTypeOf(string path) =>
-        MediaTypes.TryGetValue(Path.GetExtension(path), out var type) ? type : null;
+    /// <summary>The media type <paramref name="path"/> is stored with.</summary>
+    public string MediaTypeOf(string path) =>
+        MediaTypes.TryGetValue(Path.GetExtension(path), out var type) ? type : Untyped;
 }

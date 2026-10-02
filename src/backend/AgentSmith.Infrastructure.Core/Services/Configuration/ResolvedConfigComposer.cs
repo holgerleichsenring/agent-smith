@@ -28,7 +28,6 @@ public sealed class ResolvedConfigComposer
             Skills = raw.Skills,
             PrimaryProvider = raw.PrimaryProvider,
             Limits = raw.Limits,
-            PipelineStorage = raw.PipelineStorage,
             PipelineDataFlow = raw.PipelineDataFlow,
             Sandbox = raw.Sandbox,
             Orchestrator = raw.Orchestrator,

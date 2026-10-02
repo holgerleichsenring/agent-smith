@@ -116,12 +116,19 @@ function ReferenceSetChip({ set }: { set: SpecDialogReferenceSet }) {
     <DialogMessage who="user" testId="dialog-turn-reference">
       <div data-testid={`dialog-reference-${set.setId}`} className="ecard inert">
         <div className="flex items-center gap-2.5 px-3 py-2">
-          <span className="ec-mark">website</span>
+          <span className="ec-mark">upload</span>
           <span className="ec-name sans min-w-0 flex-1">{set.name}</span>
           <span className="ec-sub">
             {set.files} {set.files === 1 ? "file" : "files"} · {sizeOf(set.bytes)}
           </span>
         </div>
+        {/* 2026-10-02-075dd: the recipe the model recorded, so the operator sees what later turns follow. */}
+        {set.note && (
+          <details data-testid={`dialog-reference-note-${set.setId}`} className="px-3 pb-2">
+            <summary className="ec-sub cursor-pointer">note</summary>
+            <pre className="ec-sub whitespace-pre-wrap">{set.note}</pre>
+          </details>
+        )}
       </div>
     </DialogMessage>
   );

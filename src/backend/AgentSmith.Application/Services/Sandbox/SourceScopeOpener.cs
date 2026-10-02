@@ -43,13 +43,15 @@ public sealed class SourceScopeOpener(
         }
     }
 
-    /// <summary>The container, with nothing in it yet.</summary>
+    /// <summary>The container, with nothing in it yet. 2026-10-02-075dc: <paramref name="withoutSecrets"/>
+    /// spawns it without the project's sandbox secrets — an upload's container needs none.</summary>
     public Task<ISandbox> SpawnAsync(
-        ResolvedProject project, CancellationToken ct, string? conversationId = null)
+        ResolvedProject project, CancellationToken ct, string? conversationId = null, bool withoutSecrets = false)
     {
         // language/pipelineName null → generic git-bearing image, p0320a light profile.
         var spec = specBuilder.Build(project, language: null, pipelineName: null)
             with { RunId = runContext.CurrentRunId, ConversationId = conversationId };
+        if (withoutSecrets) spec = spec with { Secrets = ResolvedSandboxSecrets.Empty };
         return sandboxFactory.CreateAsync(spec, ct);
     }
 

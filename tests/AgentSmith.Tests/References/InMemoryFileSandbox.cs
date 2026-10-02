@@ -21,6 +21,9 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
 
     public int PythonRuns { get; private set; }
 
+    /// <summary>2026-10-02-075dc: the shell commands that reached it.</summary>
+    public List<string> Shells { get; } = [];
+
     public string JobId { get; } = "mem-" + Guid.NewGuid().ToString("N")[..8];
 
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken) =>
@@ -32,6 +35,7 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
             StepKind.ListFiles => Ok(step, List(step)),
             StepKind.Grep => Ok(step, Grep(step)),
             StepKind.Run when step.Command == "python3" => Decode(step),
+            StepKind.Run when step.Command == "/bin/sh" => Shell(step),
             _ => Ok(step, string.Empty),
         });
 
@@ -42,12 +46,19 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
         return Ok(step, string.Empty);
     }
 
+    private StepResult Shell(Step step)
+    {
+        Shells.Add(step.Args![^1]);
+        return Ok(step, "ran");
+    }
+
     private StepResult Decode(Step step)
     {
         PythonRuns++;
-        foreach (var encoded in Files.Keys.Where(p => p.EndsWith(".b64", StringComparison.Ordinal)).ToList())
+        var suffix = AgentSmith.Application.Services.Sandbox.ReferenceSetMaterialiser.EncodedSuffix;
+        foreach (var encoded in Files.Keys.Where(p => p.EndsWith(suffix, StringComparison.Ordinal)).ToList())
         {
-            Files[encoded[..^4]] = Convert.FromBase64String(Encoding.UTF8.GetString(Files[encoded]));
+            Files[encoded[..^suffix.Length]] = Convert.FromBase64String(Encoding.UTF8.GetString(Files[encoded]));
             Files.Remove(encoded);
         }
         return Ok(step, string.Empty);

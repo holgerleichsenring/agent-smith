@@ -6,13 +6,13 @@ namespace AgentSmith.Tests.References;
 public sealed class ReferencePromptSectionTests
 {
     [Fact]
-    public void ReferencePromptSection_Build_NamesTheAddressesAsAReadOnlyUploadedWebsite()
+    public void ReferencePromptSection_SaysMaterialNotWebsite()
     {
         var section = AgentSmith.Application.Services.Handlers.ReferencePromptSection.Build(
             ["repo-a", "template:server", "reference:site"]);
 
-        section.Should().Contain("`reference:site`").And.Contain("READ-ONLY").And.Contain("exact values")
-            .And.NotContain("template:server");
+        section.Should().Contain("## Material the operator uploaded").And.Contain("`reference:site`")
+            .And.Contain("an application's source").And.Contain("exact values").And.NotContain("template:server");
     }
 
     [Fact]

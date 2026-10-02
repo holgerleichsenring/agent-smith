@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2f
+
+decisions:
+  - category: Architecture
+    chose: "A sliding 24 h expiry (RedisKeys.JobKeyTtl) refreshed on every write, by the server per pushed step and by the agent per result and per event batch"
+    over: "Relying on dispose alone, or a reaper scanning sandbox:* keys"
+    reason: |
+      Dispose never runs for a crashed server. EXPIRE on every write keeps a live job's keys
+      alive and bounds a dead one's to a day, matching the event stream TTL. EXPIRE on a key
+      that does not exist yet is a no-op, so an agent image older than this phase still leaves
+      the keys it creates after the server's last push without a TTL until agents are updated.
+  - category: Architecture
+    chose: "DbRunArtifactStore is the server's only IRunArtifactStore, registered with RemoveAll + Add over the core's in-memory TryAdd"
+    over: "Keeping it as a decorator over a Redis copy"
+    reason: |
+      The database already held the markdown and was read first; the Redis copy only answered
+      for a write the database had refused. The plan/diff/bootstrap slots, PromoteAsync,
+      ClearAsync and RunArtifactSnapshot had no caller and were removed with RedisRunArtifactStore.
+  - category: Implementation
+    chose: "pipeline_storage retired as a RetiredConfigKeys row; model, composer, doc type, taxonomy, dashboard form, example and docs removed"
+    over: "Dropping the block silently"
+    reason: |
+      The setting does nothing once the transient slots are gone. The row reports a file or a
+      stored document that still sets it as an advisory; a stored row of the type is skipped by
+      the assembler, so a server keeps starting.
+  - category: Scope
+    chose: "pipeline_storage stays in config/agentsmith.schema.json, marked deprecated with an 'ignored' description (operator override of the spec)"
+    over: "Removing the schema section as the spec scoped it"
+    reason: |
+      An editor validating an older file must not flag the block. ConfigSchemaCoverageTests now
+      exempts an unbound root key only when it is a RetiredConfigKeys row the schema marks
+      deprecated, and pins that pipeline_storage is so marked.
+  - category: Tooling
+    chose: "The AgentForm source-label test waits with waitFor(... toHaveTextContent('price list'))"
+    over: "findByText followed by a synchronous getByTestId read"
+    reason: "The card renders before the price list labels it; waitFor retries the assertion itself."

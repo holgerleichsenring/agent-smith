@@ -17,5 +17,14 @@ describe("DialogTranscript, with an uploaded website", () => {
     expect(chip).toHaveTextContent("42 files · 3.0 MB");
     const turns = screen.getAllByTestId(/dialog-turn-(user|reference)/).map((t) => t.dataset.testid);
     expect(turns).toEqual(["dialog-turn-user", "dialog-turn-reference"]);
+    expect(screen.queryByTestId("dialog-reference-note-s1")).not.toBeInTheDocument();
+  });
+
+  // 2026-10-02-075dd: the note the model recorded is shown on the chip, folded.
+  it("transcript shows a set's note on its chip", () => {
+    const noted = { ...set, note: "Flask app. Run: python3 -m venv /tmp/v && /tmp/v/bin/pip install flask" };
+    render(<DialogTranscript entries={withImages([said], [], [noted])} onInspect={() => {}} />);
+
+    expect(screen.getByTestId("dialog-reference-note-s1")).toHaveTextContent("Flask app. Run:");
   });
 });

@@ -63,6 +63,49 @@ public sealed class ServerRestorePolicyTests : IDisposable
     }
 
     [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsConnectionDiscoveries()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new ConnectionDiscovery { ConnectionName = "conn", ReposJson = "[]", DiscoveredAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<ConnectionDiscovery>().CountAsync()).Should().Be(0,
+            "the next discovery rebuilds it, and the archive's row would collide with it");
+    }
+
+    [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsPendingClarifications()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new PendingClarification
+        {
+            Platform = "slack", ChannelId = "C1", SuggestedText = "fix #58", OriginalInput = "fix 58",
+            UserId = "U1", ExpiresAt = DateTimeOffset.UtcNow.AddHours(2), Token = Guid.NewGuid().ToString("N"),
+        });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<PendingClarification>().CountAsync()).Should().Be(0,
+            "a pending confirmation belongs to this server's channels, not to the archive's");
+    }
+
+    [Fact]
+    public async Task ServerBookkeepingReset_Restore_ClearsWebhookLastSeen()
+    {
+        await using var db = MigratedStoreTemplate.Context(_store);
+        db.Add(new WebhookLastSeen { Platform = "github", LastSeenAt = DateTimeOffset.UtcNow });
+        await db.SaveChangesAsync();
+
+        await Policy().EnforceAsync(db, Tables(db), CancellationToken.None);
+
+        (await db.Set<WebhookLastSeen>().CountAsync()).Should().Be(0,
+            "it says what reached this server, not what reached the archive's");
+    }
+
+    [Fact]
     public async Task Policy_ARunThatWasRecorded_LeavesTheBookkeepingAlone()
     {
         await using var db = MigratedStoreTemplate.Context(_store);

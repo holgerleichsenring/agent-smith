@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -73,7 +74,7 @@ public sealed class PipelineQueueConsumerCancelGateTests
         reader.Setup(r => r.IsStartRefusedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(cancelRequested);
         return new PipelineQueueConsumer(
-            services.BuildServiceProvider(), new SingleShotQueue(request), reader.Object,
+            services.BuildServiceProvider(), new SingleShotQueue(request), TestRunStartGate.Over(reader.Object),
             "config.yaml", maxParallelJobs: 1, shutdownGraceSeconds: 5,
             NullLogger<PipelineQueueConsumer>.Instance);
     }

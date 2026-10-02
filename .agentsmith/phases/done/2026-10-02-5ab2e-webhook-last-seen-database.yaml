@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5ab2e
+goal: "The last webhook received per platform is stored in the database, so connection diagnostics still show it after a Redis flush instead of 'never seen'."
+
+applies_to: "backend (webhook delivery tracker, persistence migration, archive bookkeeping)"
+
+requires: ["2026-10-02-5ab2d"]
+
+facts:
+  - claim: "Last-seen times live in one Redis hash webhook:last-seen keyed by platform; any Redis error degrades to 'never seen'."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookDeliveryTracker.cs:17-49"
+  - claim: "Every delivery of a known platform records its time — signature failures and ignored events included — because recording sits inside PublishWebhookReceivedAsync, which every outcome calls; 'unknown' is skipped."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:35,44,52,57,63-67,89-95"
+  - claim: "The data archive exports every mapped table; a restore first clears only the server's own bookkeeping, and the table count is pinned."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableOrder.cs:22-25; src/backend/AgentSmith.Server/Services/Archive/ServerBookkeepingReset.cs:23-27; tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33,54,81; tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+  - claim: "Connection diagnostics read all platforms in one call."
+    evidence: "src/backend/AgentSmith.Server/Services/Diagnostics/ConnectionDiagnosticsService.cs:24,96"
+  - claim: "The tracker is a singleton registered by the webhook handlers."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:21"
+
+scope:
+  in: >
+    WebhookLastSeen entity (table WebhookLastSeen): Platform (key, max 32), LastSeenAt; configured in
+    ServerStateConfigurations; migrations in both assemblies. Last-seen keeps today's meaning: a delivery arrived,
+    whatever its outcome. DbWebhookDeliveryTracker (singleton, scope per operation) updates the row, inserting when
+    none was updated and treating a concurrent insert's unique-key violation as an update; it writes at most once per
+    platform per 60 s in this process, the mark set only after a successful write; it reads all rows; a database error still degrades to 'never seen'
+    and logs at Debug, as today. Registered in place of the Redis tracker; WebhookDeliveryTracker and its tests go. WebhookLastSeen is
+    server-derived bookkeeping: ServerBookkeepingReset clears it before a restore; the pinned table counts rise by one.
+  out: "Per-event delivery history; only the last time is kept, as today."
+
+decisions:
+  - key: "WRITE AT MOST ONCE A MINUTE PER PLATFORM. A busy repository sends many webhooks; the panel reads minutes, not milliseconds, so one row write per minute per replica is enough."
+  - key: "ARRIVED, NOT ACCEPTED. Diagnostics asks whether anything reached the server at all; a delivery with a wrong secret proves the route works and the secret does not. The per-outcome detail stays in WebhookReceivedEvent."
+  - key: "STILL ADVISORY. A display signal never fails a webhook; the error path is unchanged."
+
+steps:
+  - id: schema
+    action: "Entity, configuration in ServerStateConfigurations, migrations in both assemblies."
+  - id: tracker
+    action: "WebhookLastSeenRepository and DbWebhookDeliveryTracker; registration swapped; Redis tracker removed."
+  - id: archive
+    action: "ServerBookkeepingReset clears WebhookLastSeen; archive table counts raised."
+
+tests:
+  - "DbWebhookDeliveryTracker_Record_IsReadBackPerPlatform"
+  - "DbWebhookDeliveryTracker_SecondRecordWithin60s_WritesNothing"
+  - "DbWebhookDeliveryTracker_DatabaseError_ReadsAsNeverSeen"
+  - "DbWebhookDeliveryTracker_FailedWrite_DoesNotSetTheThrottleMark"
+  - "DbWebhookDeliveryTracker_ConcurrentFirstInserts_BothLand"
+  - "WebhookRequestProcessor_SignatureFailure_StillRecordsLastSeen"
+  - "ServerBookkeepingReset_Restore_ClearsWebhookLastSeen"
+
+done:
+  - "a webhook received, Redis flushed: the diagnostics panel still shows its time"
+  - "build green, full suite green"

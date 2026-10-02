@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Services.Events;
 /// <summary>
 /// Appends events to <c>run:{runId}:events</c> with MAXLEN=10000 + 2h TTL on
 /// every append. Maintains two pointer indices: SADD active on RunStarted,
-/// SREM active + LPUSH+LTRIM recent on RunFinished. Indices let the
+/// SREM active + LPUSH+LTRIM recent on RunFinished (one transaction). Indices let the
 /// broadcaster cold-start without scanning the keyspace.
 /// </summary>
 public sealed class RedisEventPublisher(
@@ -57,10 +57,20 @@ public sealed class RedisEventPublisher(
                 await db.SetAddAsync(EventStreamKeys.ActiveRunsSet, runEvent.RunId);
                 break;
             case EventType.RunFinished:
-                await db.SetRemoveAsync(EventStreamKeys.ActiveRunsSet, runEvent.RunId);
-                await db.ListLeftPushAsync(EventStreamKeys.RecentRunsList, runEvent.RunId);
-                await db.ListTrimAsync(EventStreamKeys.RecentRunsList, 0, EventStreamKeys.RecentRunsCap - 1);
+                await RecordFinishedAsync(db, runEvent.RunId);
                 break;
         }
+    }
+
+    // 2026-10-02-5ab2c: one MULTI/EXEC, so the housekeeping re-seed script — which skips an id
+    // in the recent list — sees the run either still in the active set or already in the
+    // recent list, never in neither, and cannot re-add a run that just finished.
+    private static async Task RecordFinishedAsync(IDatabase db, string runId)
+    {
+        var transaction = db.CreateTransaction();
+        _ = transaction.SetRemoveAsync(EventStreamKeys.ActiveRunsSet, runId);
+        _ = transaction.ListLeftPushAsync(EventStreamKeys.RecentRunsList, runId);
+        _ = transaction.ListTrimAsync(EventStreamKeys.RecentRunsList, 0, EventStreamKeys.RecentRunsCap - 1);
+        await transaction.ExecuteAsync();
     }
 }

@@ -170,7 +170,8 @@ public sealed class WaitingRunQueuePlaceTests : IDisposable
             1, "the surface says queued while the row still says waiting_for_input");
         var jobQueue = new Mock<IRedisJobQueue>();
         var launcher = new ResumeRunLauncher(
-            BuildProvider(), new NoOpActiveRunLease(), jobQueue.Object, _queue,
+            BuildProvider(), new NoOpActiveRunLease(),
+            TestQueuedRunDispatch.Over(() => new AgentSmithDbContext(Options()), jobQueue.Object), _queue,
             NullLogger<ResumeRunLauncher>.Instance);
 
         await launcher.LaunchAsync(

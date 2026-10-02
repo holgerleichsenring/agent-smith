@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Tests.Browser;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
@@ -35,6 +36,42 @@ public sealed class RenderReferenceSurfaceTests
 
         loop.MasterTools.Should().Contain("render_reference");
         children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain("render_reference");
+    }
+
+    // 2026-10-02-075dc: a turn with an upload gets run_in_reference on the master only.
+    [Fact]
+    public async Task DesignTurn_WithAnUpload_HasRunInReference_ItsChildrenDoNot()
+    {
+        var loop = new CapturingLoop(spawn: true);
+        var children = new MasterHandlerFixture.StubSubAgentRunner();
+        var context = DesignContext();
+        context.Pipeline.Set(ContextKeys.SpecDialogProject, new ResolvedProject { Name = "p" });
+        var map = new Dictionary<string, ISandbox>(context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes))
+        {
+            ["reference:app"] = new AgentSmith.Tests.References.InMemoryFileSandbox(),
+        };
+        context.Pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, map);
+
+        await MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog(DesignMaster, "body"),
+                subAgents: children, limits: new LoopLimitsConfig(), render: _factory)
+            .ExecuteAsync(context, CancellationToken.None);
+
+        loop.MasterTools.Should().Contain("run_in_reference");
+        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain("run_in_reference");
+    }
+
+    [Fact]
+    public async Task DesignTurn_WithoutAnUpload_HasNoRunInReference()
+    {
+        var loop = new CapturingLoop();
+        var context = DesignContext();
+        context.Pipeline.Set(ContextKeys.SpecDialogProject, new ResolvedProject { Name = "p" });
+
+        await MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog(DesignMaster, "body"),
+                render: _factory)
+            .ExecuteAsync(context, CancellationToken.None);
+
+        loop.MasterTools.Should().NotContain("run_in_reference");
     }
 
     [Fact]

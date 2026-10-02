@@ -9,6 +9,9 @@ public static class ReferenceFileKind
     /// <summary>One file of an uploaded website, read through its set's address.</summary>
     public const string Site = "site";
 
+    /// <summary>2026-10-02-075dd: what the design partner worked out about one set — at most one per set.</summary>
+    public const string Note = "note";
+
     /// <summary>The column's width: the longest kind with room to grow.</summary>
     public const int MaxLength = 16;
 }

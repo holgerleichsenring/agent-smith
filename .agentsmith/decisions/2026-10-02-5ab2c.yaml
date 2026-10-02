@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-5ab2c
+
+decisions:
+  - category: Architecture
+    chose: "The database decides which runs are live; ActiveRunSetReseeder, a housekeeping-leader loop, projects the fresh unparked rows into agentsmith:runs:active at start and every 30 s"
+    over: "The sandbox agent reading the database, or relying on RunStarted alone to populate the set"
+    reason: |
+      The agent holds no database credentials and must not, so Redis stays its view and the
+      leader rebuilds it. A flush makes the leader's renew fail within 10 s and re-acquire within
+      5 s, which restarts the loop and re-seeds at once.
+  - category: Architecture
+    chose: "IRunHeartbeat gains GetFreshUnparkedRunIdsAsync beside GetFreshRunIdsAsync; IUnfinishedRunSource gains GetUnparkedRunIdsAsync"
+    over: "A status parameter on the existing reads, or the reseeder taking the scoped repository"
+    reason: |
+      Both ports already answer the neighbouring question in the shape their singleton callers
+      need (a scope per call). The sandbox reapers' read keeps counting parked rows; the re-seed
+      and the broadcaster's database pass must not, so they get their own named read.
+  - category: Implementation
+    chose: "One Lua script skips ids in the recent list and SADDs the rest; RunFinished's SREM, LPUSH and LTRIM become one MULTI/EXEC"
+    over: "Reading the list client-side, or leaving the three index commands separate"
+    reason: |
+      The row can still read running after RunFinished reached Redis, because the broadcaster
+      projects it a moment later. With the transaction the script sees the run either in the set
+      or in the recent list, never in neither, so it cannot resurrect a finished run.
+  - category: Implementation
+    chose: "The broadcaster's database pass lives in RunStreamCursors.TrackUnparkedAsync, throttled to 30 s by an injected TimeProvider; it tracks only, the first drained event fills the snapshot"
+    over: "Adding database discovery to DiscoverNewRunsAsync, or a fixed wall-clock throttle"
+    reason: |
+      The cursor type already owns every 'where does this run start' decision (stored position,
+      else 0-0). The clock makes the 30 s pass testable without waiting it out, and DI supplies
+      TimeProvider.System in the server. JobsBroadcaster's ratchet row drops from 330 to 311.
+  - category: TradeOff
+    chose: "A relaunched run still listed in the recent list is not re-seeded"
+    over: "Removing an id from the recent list on RunStarted"
+    reason: |
+      A pause (queued, waiting_for_input) also pushes onto the recent list, so a resumed run can
+      sit there for fifty finishes. It matters only if the set loses it while the list survives,
+      which a flush does not do; the broadcaster's own database pass still tracks such a run.
+  - category: Tooling
+    chose: "The docker-tier flush test starts its own redis:7-alpine container on a random loopback port and removes it"
+    over: "Flushing REDIS_URL (localhost:6379)"
+    reason: "FLUSHALL is destructive; the shared Redis belongs to the operator's running stack."
+  - category: Tooling
+    chose: "WaitingRunHarness takes an optional real multiplexer, a clock for the broadcaster, and builds the reseeder"
+    over: "A second harness for the docker tier"
+    reason: "The fast-tier fake test and the docker-tier test then prove the same scenario through one composition."

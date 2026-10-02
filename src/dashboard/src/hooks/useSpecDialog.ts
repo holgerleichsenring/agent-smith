@@ -19,7 +19,8 @@ import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialo
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
-import { refusedNote, skippedNote, type UploadNote } from "@/components/dialog/uploadNote";
+import { refusedNote, storedNote, type UploadNote } from "@/components/dialog/uploadNote";
+import type { PickLeftOut } from "@/components/dialog/referenceSelection";
 import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
@@ -132,7 +133,7 @@ export interface SpecDialogState {
    *  conversation at once — opening one if none is open — and rides the NEXT turn. */
   attach: (file: File, project?: string) => Promise<void>;
   /** 2026-10-01-283db: a website — its files, each under its path — stored as one set. */
-  attachSite: (files: File[], project?: string) => Promise<void>;
+  attachSite: (files: File[], project?: string, leftOut?: PickLeftOut) => Promise<void>;
 }
 
 export function useSpecDialog(): SpecDialogState {
@@ -535,12 +536,14 @@ export function useSpecDialog(): SpecDialogState {
 
   // 2026-10-01-283db: a website is stored the way an image is — before any message follows it,
   // opening the conversation when none is open — and the reseeding read puts it in the transcript.
+  // 2026-10-02-075db: what the selection card left out before sending is joined to the server's
+  // answer, so the note names everything the pick went without, on either side.
   const attachSite = useCallback(
-    async (files: File[], project?: string) => {
+    async (files: File[], project?: string, leftOut?: PickLeftOut) => {
       if (!dialogId || files.length === 0) return;
       setUploadNote(null);
       try {
-        setUploadNote(skippedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files)));
+        setUploadNote(storedNote(await uploadSpecDialogReferences(dialogId, project ?? "", files), leftOut));
       } catch (thrown) {
         setUploadNote(refusedNote(thrown));
         return;

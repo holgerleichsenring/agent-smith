@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -12,12 +14,19 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// </summary>
 public sealed class UnfinishedRunSource(IServiceScopeFactory scopeFactory) : IUnfinishedRunSource
 {
-    public async Task<IReadOnlyList<string>> GetUnfinishedRunIdsAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<string>> GetUnfinishedRunIdsAsync(CancellationToken cancellationToken) =>
+        IdsAsync(r => r.FinishedAt == null, cancellationToken);
+
+    public Task<IReadOnlyList<string>> GetUnparkedRunIdsAsync(CancellationToken cancellationToken) =>
+        IdsAsync(r => r.FinishedAt == null && r.Status != RunStatuses.WaitingForInput, cancellationToken);
+
+    private async Task<IReadOnlyList<string>> IdsAsync(
+        Expression<Func<Run, bool>> filter, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<IUnitOfWork>()
             .Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt == null)
+            .Where(filter)
             .Select(r => r.Id)
             .ToListAsync(cancellationToken);
     }

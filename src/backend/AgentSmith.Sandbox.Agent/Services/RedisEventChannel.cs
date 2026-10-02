@@ -91,6 +91,8 @@ internal sealed class RedisEventChannel : IAsyncDisposable
             pending.Add(pipeline.StreamAddAsync(streamKey, "data", json,
                 maxLength: StreamLimits.EventStreamMaxLength, useApproximateMaxLength: true));
         }
+        // 2026-10-02-5ab2f: each batch refreshes the stream's expiry, so a dead job's events go.
+        pending.Add(pipeline.KeyExpireAsync(streamKey, RedisKeys.JobKeyTtl));
         pipeline.Execute();
         await Task.WhenAll(pending);
     }

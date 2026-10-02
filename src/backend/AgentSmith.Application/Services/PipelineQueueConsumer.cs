@@ -1,4 +1,4 @@
-using AgentSmith.Contracts.Events;
+using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,11 +11,13 @@ namespace AgentSmith.Application.Services;
 /// (SemaphoreSlim = backpressure knob). On shutdown, stops pulling and waits up to
 /// shutdownGraceSeconds for in-flight pipelines to finish (so they can transition to Failed
 /// and release their heartbeat once p95c lands).
+/// 2026-10-02-5ab2b: every popped request passes <see cref="RunStartGate"/> — claimed at the pop,
+/// before the semaphore wait, and checked against the persisted cancel flag after it.
 /// </summary>
 public sealed class PipelineQueueConsumer(
     IServiceProvider services,
     IRedisJobQueue queue,
-    IRunCancelStateReader cancelState,
+    RunStartGate gate,
     string configPath,
     int maxParallelJobs,
     int shutdownGraceSeconds,
@@ -33,15 +35,14 @@ public sealed class PipelineQueueConsumer(
         {
             await foreach (var request in queue.ConsumeAsync(cancellationToken))
             {
-                await semaphore.WaitAsync(cancellationToken);
+                var start = await gate.ClaimAsync(request, cancellationToken);
+                if (start is null) continue;
+                await WaitForSlotAsync(semaphore, start, cancellationToken);
                 logger.LogInformation(
                     "Dequeued: {Project}/#{Ticket} pipeline={Pipeline} (in-flight: {InFlight}/{Max})",
                     request.ProjectName, request.TicketId?.Value ?? "—",
                     request.PipelineName, inFlight.Count(t => !t.IsCompleted) + 1, maxParallelJobs);
-                // p0137c: removed Task.Run wrapper — RunOneAsync is async and returns
-                // its task directly; the threadpool offload was defensive against a
-                // hypothetical synchronous prefix that doesn't exist.
-                var task = RunOneAsync(request, semaphore, cancellationToken);
+                var task = RunOneAsync(request, start, semaphore, cancellationToken);
                 inFlight.Add(task);
                 inFlight.RemoveAll(t => t.IsCompleted);
             }
@@ -62,25 +63,26 @@ public sealed class PipelineQueueConsumer(
         logger.LogInformation("PipelineQueueConsumer stopped");
     }
 
-    private async Task RunOneAsync(
-        PipelineRequest request, SemaphoreSlim semaphore, CancellationToken ct)
+    // A claimed start waiting for a slot keeps its row beaten; a shutdown during the wait ends the beat.
+    private static async Task WaitForSlotAsync(SemaphoreSlim semaphore, ClaimedRunStart start, CancellationToken ct)
     {
+        try { await semaphore.WaitAsync(ct); }
+        catch (OperationCanceledException)
+        {
+            await start.DisposeAsync();
+            throw;
+        }
+    }
+
+    private async Task RunOneAsync(
+        PipelineRequest request, ClaimedRunStart start, SemaphoreSlim semaphore, CancellationToken ct)
+    {
+        await using var claimed = start;
         try
         {
-            // AsyncServiceScope: PipelineSandboxCoordinator is IAsyncDisposable,
-            // so the scope must dispose asynchronously — `using var` falls back
-            // to Dispose() and throws on async-only disposables.
+            // Async scope: PipelineSandboxCoordinator is IAsyncDisposable only.
             await using var scope = services.CreateAsyncScope();
-            // p0330: pre-start cancel gate. The operator may have cancelled while
-            // the request sat in the Redis queue or on the semaphore — the
-            // persisted row is the authority — flagged or finished (5f89d) never starts.
-            // RunId travels on a reserved row (p0320c, init); without it there is none.
-            if (request.RunId is { Length: > 0 } reservedRunId
-                && await cancelState.IsStartRefusedAsync(reservedRunId, ct))
-            {
-                await ShortCircuitCancelledAsync(scope.ServiceProvider, request, reservedRunId);
-                return;
-            }
+            if (await gate.RefusesStartAsync(scope.ServiceProvider, request, ct)) return;
             var useCase = scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>();
             var result = await useCase.ExecuteAsync(request, configPath, ct);
             logger.Log(
@@ -99,25 +101,6 @@ public sealed class PipelineQueueConsumer(
         {
             semaphore.Release();
         }
-    }
-
-    // p0330: the run never starts — finish its reserved row 'cancelled' via the terminal event
-    // (CancellationToken.None: it must land even mid-shutdown) and hand the ticket back. p0459:
-    // runId null — this runs before the run attaches, so only the claim's unattached row goes.
-    private async Task ShortCircuitCancelledAsync(
-        IServiceProvider scoped, PipelineRequest request, string runId)
-    {
-        logger.LogInformation(
-            "Run {RunId} ({Project}/#{Ticket}) was cancelled before start — short-circuiting",
-            runId, request.ProjectName, request.TicketId?.Value ?? "—");
-        await scoped.GetRequiredService<IEventPublisher>().PublishAsync(
-            new RunFinishedEvent(
-                runId, "cancelled", null, "cancelled before start (operator)",
-                DateTimeOffset.UtcNow),
-            CancellationToken.None);
-        if (request.TicketId is not null)
-            await scoped.GetRequiredService<IActiveRunLease>()
-                .ReleaseAsync(request.ProjectName, request.TicketId, runId: null, CancellationToken.None);
     }
 
     private async Task AwaitGraceAsync(List<Task> inFlight)

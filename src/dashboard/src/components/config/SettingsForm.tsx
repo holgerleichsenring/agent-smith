@@ -10,7 +10,6 @@ import type {
   PipelineCostCapSetting,
   PipelineDataFlowSetting,
   TraceSetting,
-  PipelineStorageSetting,
   PrimaryProviderSetting,
   QueueSetting,
   RegistriesSetting,
@@ -82,8 +81,6 @@ export function SettingsForm({
       return <DialogueForm value={value as DialogueSetting} onChange={onChange} />;
     case "skills":
       return <SkillsForm value={value as SkillsSetting} onChange={onChange} />;
-    case "pipeline_storage":
-      return <PipelineStorageForm value={value as PipelineStorageSetting} onChange={onChange} />;
     case "pipeline_data_flow":
       return <PipelineDataFlowForm value={value as PipelineDataFlowSetting} onChange={onChange} />;
     case "trace":
@@ -446,21 +443,6 @@ function SkillsForm({ value, onChange }: { value: SkillsSetting; onChange: (v: S
       <TextField label="Cache directory" value={value.cacheDir} onChange={(v) => set({ cacheDir: v })} mono
         testId="setting-skills-cachedir" help="where downloaded catalogs are extracted (empty = default)" />
     </>
-  );
-}
-
-function PipelineStorageForm({
-  value,
-  onChange,
-}: {
-  value: PipelineStorageSetting;
-  onChange: (v: SettingValue) => void;
-}) {
-  const set = patcher(value, onChange);
-  return (
-    <NumberField label="Redis TTL (hours)" value={value.redisTtlHours}
-      onChange={(v) => set({ redisTtlHours: keep(v, value.redisTtlHours) })} testId="setting-storage-ttl"
-      help="safety-net TTL for abandoned in-flight runs" />
   );
 }
 

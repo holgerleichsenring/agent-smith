@@ -395,7 +395,9 @@ public sealed class CapacityQueuePumpTests : IDisposable
                 new AgentSmith.Server.Services.ResumeRunLauncher(
                     BuildServiceProvider(connection),
                     new AgentSmith.Application.Services.Claim.NoOpActiveRunLease(),
-                    Moq.Mock.Of<AgentSmith.Contracts.Services.IRedisJobQueue>(),
+                    TestQueuedRunDispatch.Over(
+                        () => new AgentSmithDbContext(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(connection).Options),
+                        Moq.Mock.Of<AgentSmith.Contracts.Services.IRedisJobQueue>()),
                     _queue,
                     NullLogger<AgentSmith.Server.Services.ResumeRunLauncher>.Instance),
                 loader.Object, "config.yaml",

@@ -43,7 +43,7 @@ public sealed class HousekeepingLeaderHostedService(
         // which already releases the lease. Recovery of a dead run is now entirely the
         // reaper's: cancel + release → the ticket (still natively open) is reclaimed.
         logger.LogInformation(
-            "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog + CancelEnforcer + DialogueResumeSweeper");
+            "RunHousekeepingAsync entered — EnqueuedReconciler + PipelineRunWatchdog + CancelEnforcer + DialogueResumeSweeper + QueuedRunSweeper");
         var queue = services.GetRequiredService<IRedisJobQueue>();
         var activeRunLease = services.GetRequiredService<IActiveRunLease>();
         var timeProvider = services.GetRequiredService<TimeProvider>();
@@ -67,9 +67,15 @@ public sealed class HousekeepingLeaderHostedService(
         var corpseReaper = services.GetRequiredService<ISandboxCorpseReaper>();
         // 2026-10-01-283da: the legacy image rows are copied into the reference files here.
         var legacyCopy = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.LegacyAttachmentCopySweeper>();
+        // 2026-10-02-5ab2b: a stored request Redis lost is pushed again from its run row.
+        var queuedRuns = services.GetRequiredService<AgentSmith.Server.Services.Lifecycle.QueuedRunSweeper>();
+        // 2026-10-02-5ab2c: the Redis active-run set rebuilt from the rows after a flush.
+        var reseeder = services.GetRequiredService<AgentSmith.Server.Services.Events.ActiveRunSetReseeder>();
         return Task.WhenAll(
             reconciler.RunAsync(ct), watchdog.RunAsync(ct), enforcer.RunAsync(ct),
-            resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct), legacyCopy.RunAsync(ct));
+            resumeSweeper.RunAsync(ct), RunCorpseSweepAsync(corpseReaper, ct), legacyCopy.RunAsync(ct),
+            queuedRuns.RunAsync(AgentSmith.Server.Services.Lifecycle.QueuedRunSweeper.ScanInterval, ct),
+            reseeder.RunAsync(ct));
     }
 
     // p0355: leader-elected periodic corpse-pod sweep. A pod whose owning run is not

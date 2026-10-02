@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-5ab2c
+goal: "After a Redis flush the active-run set is rebuilt from the database within a minute, and the event broadcaster finds live runs from the database, so no live run is read as dead."
+
+applies_to: "backend (housekeeping re-seed, event publisher indices, jobs broadcaster discovery)"
+
+requires: ["2026-10-02-75dc"]
+
+facts:
+  - claim: "agentsmith:runs:active is added to only on RunStarted and removed on RunFinished, as two separate commands beside the recent-runs push."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisEventPublisher.cs:52-66; src/backend/AgentSmith.Infrastructure/Services/Events/EventStreamKeys.cs:11-13"
+  - claim: "The sandbox agent, at its idle limit (30 cycles of 60 s), keeps waiting only if its run id is in that set; a Redis error or absence exits."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs:12,26,45-64,84-95; src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs:67-71"
+  - claim: "The broadcaster's periodic discovery reads only that set; the database is read once at cold start and a run whose stream does not exist then is skipped."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:74-87,218-228; src/backend/AgentSmith.Server/Services/Events/RunStreamCursors.cs:73-90"
+  - claim: "The broadcaster is what projects run events into the database: an untracked run's RunFinished never reaches the row."
+    evidence: "JobsBroadcaster.cs:230-262,275; src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:30,43"
+  - claim: "Tracking a run with no stored cursor starts at 0-0; a pause stores a cursor, an ending deletes it; cold start anchors an unfinished run at its tail precisely so history is not replayed."
+    evidence: "RunStreamCursors.cs:34-38,49-58,60-90"
+  - claim: "A broadcaster's cold start removes every set member whose stream it cannot rehydrate."
+    evidence: "JobsBroadcaster.cs:95-106"
+  - claim: "The fast-tier harness replaces the Redis multiplexer with a mock, so it cannot flush Redis."
+    evidence: "tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs:262-277"
+  - claim: "The sandbox reapers already union fresh row heartbeats into their live set."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/LiveRunSetReader.cs:38; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunLivenessRepository.cs:44-51"
+  - claim: "The housekeeping leader renews its lease every 10 s; a lost lease idles 5 s and re-acquires, restarting the housekeeping work."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/LeaderElectedHostedService.cs:18-20,27,53"
+  - claim: "JobsBroadcaster has 296 lines against a ratchet row of 330."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:22"
+
+scope:
+  in: >
+    ActiveRunSetReseeder (housekeeping leader, at start and every 30 s): the ids of unfinished rows that are not parked
+    (status not waiting_for_input) whose later of HeartbeatAt and StartedAt is within ActiveRunReaper.LeaseFreshFor —
+    a queued row included, since a flush can lose RunStarted while the row stays queued — each added by one Lua script
+    that skips an id present in agentsmith:runs:recent. RedisEventPublisher's RunFinished removal and recent-push become one
+    transaction, so the script sees either the member or the recent entry. JobsBroadcaster every 30 s also tracks the
+    unfinished, non-parked database runs it does not track whose stream exists (TrackAsync: stored cursor, else 0-0);
+    waiting_for_input rows are excluded, because a parked run with no cursor would replay from 0-0.
+  out: >
+    The sandbox agent reading the database: it holds no database credentials and must not. Parked
+    (waiting_for_input) runs: their sandboxes are torn down, so they are not re-seeded.
+
+decisions:
+  - key: "ONE SOURCE OF LIVE RUNS. The database decides; the Redis set is a projection the leader rebuilds, as the sandbox agent can only read Redis."
+  - key: "BOUND FOR THE AGENT. A flush empties the set; the leader's renew fails within 10 s, re-acquires within 5 s and re-seeds at once, then every 30 s. An idle agent probes only after 30 idle minutes, so it misjudges only a probe inside that window of under a minute."
+  - key: "NO STALE MEMBER. RunFinished removes before the broadcaster projects it, so the row can still read running; without the recent-list check the re-seed would re-add a finished run and the broadcaster would replay it from 0-0."
+  - key: "SELF-HEALING ACROSS REPLICAS. A cold start on another replica drops re-seeded members whose stream does not exist yet; the next 30 s re-seed adds them back while their beat is fresh."
+  - key: "THE RECENT-LIST GUARD IS PARTIAL. It holds the last 50 finished ids and is lost with a flush. A finished run it misses is re-added only while its beat is fresh (at most 3 minutes); its stream is gone or ended, so the broadcaster drains nothing new, and an idle sandbox waits that much longer."
+  - key: "THE BROADCASTER READS THE DATABASE ITSELF. It is the projector: it untracks a run only after persisting its RunFinished, so a run it does not track and the row calls unfinished never ended here; 0-0 is right for a stream re-created after a flush. It does not wait on the leader."
+
+steps:
+  - id: query
+    action: "RunLivenessRepository gains the fresh running-run ids."
+  - id: reseed
+    action: "ActiveRunSetReseeder with its script; HousekeepingLeaderHostedService starts it; RedisEventPublisher's RunFinished indices in one transaction."
+  - id: broadcaster
+    action: "JobsBroadcaster's discovery adds the database pass every 30 s through RunStreamCursors."
+
+tests:
+  - "ActiveRunSetReseeder_EmptySet_AddsFreshRunningRuns"
+  - "ActiveRunSetReseeder_RunInRecentList_IsNotAdded"
+  - "ActiveRunSetReseeder_QueuedRowWithFreshBeat_IsAdded"
+  - "ActiveRunSetReseeder_StaleOrParkedRun_IsNotAdded"
+  - "JobsBroadcaster_UntrackedUnfinishedRunWithStream_IsDrainedIntoTheDatabase"
+  - "JobsBroadcaster_ParkedRunWithoutCursor_IsNotTracked"
+  - "FlushedSet_InMemoryRedisFake_ReseedAndBroadcasterBringRunFinishedToTheRow (fast tier, in-memory set and stream fake)"
+  - "Flush_LiveRunAfterRealRedisFlush_RunFinishedReachesTheRow (PipelineHarness, Tier=Docker, real Redis container)"
+
+done:
+  - "with Redis flushed mid-run, the run's id is back in the set within a minute and its RunFinished reaches the row"
+  - "build green, full suite green"

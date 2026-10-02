@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,20 @@ public sealed class RunLivenessRepository(IUnitOfWork unitOfWork)
             .Where(r => r.FinishedAt == null)
             .ToListAsync(ct);
         return unfinished.Where(r => now - LastSignOfLife(r) <= freshFor).Select(r => r.Id).ToList();
+    }
+
+    /// <summary>
+    /// 2026-10-02-5ab2c: the fresh unfinished runs that are not parked — what the Redis
+    /// active-run set should list. A queued row counts: a flush can lose the RunStarted that
+    /// promotes it while its driver beats on. A parked (waiting_for_input) run has no sandbox.
+    /// </summary>
+    public async Task<IReadOnlyCollection<string>> GetFreshUnparkedRunIdsAsync(
+        TimeSpan freshFor, DateTimeOffset now, CancellationToken ct)
+    {
+        var unparked = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => r.FinishedAt == null && r.Status != RunStatuses.WaitingForInput)
+            .ToListAsync(ct);
+        return unparked.Where(r => now - LastSignOfLife(r) <= freshFor).Select(r => r.Id).ToList();
     }
 
     private static DateTimeOffset LastSignOfLife(Run run) =>

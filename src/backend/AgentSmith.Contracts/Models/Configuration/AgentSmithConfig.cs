@@ -25,7 +25,6 @@ public sealed class AgentSmithConfig
     public string? PrimaryProvider { get; init; }
     public LoopLimitsConfig Limits { get; init; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; init; } = new();
-    public PipelineStorageConfig PipelineStorage { get; init; } = new();
     public PipelineDataFlowConfig PipelineDataFlow { get; init; } = new();
     public SandboxGlobalConfig Sandbox { get; init; } = new();
     public OrchestratorGlobalConfig Orchestrator { get; init; } = new();

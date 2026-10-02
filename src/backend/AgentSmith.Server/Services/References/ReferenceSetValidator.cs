@@ -4,57 +4,38 @@ namespace AgentSmith.Server.Services.References;
 
 /// <summary>
 /// 2026-10-01-283db: decides whether an uploaded set is stored, and in what shape. Paths are
-/// normalised and the ignore list drops what an operating system left behind FIRST; every
-/// remaining path must stay inside the set, and the site files must pass their size and the set's
-/// count and size — or the whole set is refused, naming the file and the limit.
-/// 2026-10-02-0d72: a file that is not what a website is made of is SKIPPED and named, not a
-/// reason to refuse: a real site folder always carries a LICENSE, a .gitignore or a sitemap.xml,
-/// and the operator cannot edit their folder to please this check. The set is refused only when
-/// no site file remains.
+/// normalised and the ignore list drops what an operating system left behind FIRST.
+/// 2026-10-02-075da: every other file is KEPT unless <see cref="ReferenceKeepRule"/> names a
+/// reason to leave it out — a .py, a .env, a Dockerfile is what tells the model what the upload
+/// is. Every path must stay inside the set; a kept one must also fit the column and be unique; the
+/// kept files must fit the set's bounds, or the whole set is refused naming its largest entries.
 /// </summary>
-public sealed class ReferenceSetValidator(
-    ReferencePathRule paths, ReferenceIgnoreList ignored, ReferenceFileTypes types)
+public sealed class ReferenceSetValidator(ReferencePathRule paths, ReferenceIgnoreList ignored)
 {
     public ReferenceSetCheck Check(IReadOnlyList<ReferenceUploadPart> parts)
     {
         ArgumentNullException.ThrowIfNull(parts);
-        var kept = parts.Select(p => p with { Path = paths.Normalise(p.Path) })
+        var candidates = parts.Select(p => p with { Path = paths.Normalise(p.Path) })
             .Where(p => !ignored.IsIgnored(p.Path)).ToList();
-        if (kept.Count == 0) return ReferenceSetCheck.Refused("The upload holds no file to keep.");
-        if (PathRefusal(kept) is { } path) return ReferenceSetCheck.Refused(path);
+        if (candidates.Count == 0) return ReferenceSetCheck.Refused(NothingToKeep);
+        if (candidates.Select(p => paths.HostileRefusalOf(p.Path)).FirstOrDefault(why => why is not null) is { } hostile)
+            return ReferenceSetCheck.Refused(hostile);
 
-        var site = kept.Where(p => types.MediaTypeOf(p.Path) is not null).ToList();
-        var skipped = kept.Where(p => types.MediaTypeOf(p.Path) is null).Select(p => p.Path).ToList();
-        if (site.Count == 0) return ReferenceSetCheck.Refused(NoSiteFile(skipped));
-        if (site.Count > ReferenceUploadLimits.MaxFiles)
-            return ReferenceSetCheck.Refused(
-                $"The set holds {site.Count} files, over the {ReferenceUploadLimits.MaxFiles}-file limit.");
-        return SizeRefusal(site) is { } size ? ReferenceSetCheck.Refused(size) : new ReferenceSetCheck(site, null, skipped);
-    }
-
-    // Every path, skipped or not, must stay inside the set: one that climbs out is hostile either way.
-    private string? PathRefusal(IEnumerable<ReferenceUploadPart> kept)
-    {
+        var leftOut = candidates.Select(p => (Part: p, Why: ReferenceKeepRule.LeftOut(p.Path, p.Content.LongLength))).ToList();
+        var kept = leftOut.Where(e => e.Why is null).Select(e => e.Part).ToList();
+        var named = ReferenceKeepRule.Collapsed(leftOut.Select(e => e.Why).OfType<ReferenceLeftOut>());
+        if (kept.Count == 0) return ReferenceSetCheck.Refused(NothingKept(named));
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        return kept.Select(p => paths.RefusalOf(p.Path, seen)).FirstOrDefault(why => why is not null);
+        if (kept.Select(p => paths.RefusalOf(p.Path, seen)).FirstOrDefault(why => why is not null) is { } path)
+            return ReferenceSetCheck.Refused(path);
+        return ReferenceSetBounds.RefusalOf(kept) is { } bound
+            ? ReferenceSetCheck.Refused(bound)
+            : new ReferenceSetCheck(kept, null, named);
     }
 
-    private static string? SizeRefusal(IEnumerable<ReferenceUploadPart> site)
-    {
-        var total = 0L;
-        foreach (var part in site)
-        {
-            total += part.Content.LongLength;
-            if (part.Content.LongLength > ReferenceUploadLimits.MaxFileBytes)
-                return $"'{part.Path}' is {ReferenceUploadLimits.Megabytes(part.Content.LongLength)}, over the "
-                    + $"{ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxFileBytes)} per-file limit.";
-            if (total > ReferenceUploadLimits.MaxSetBytes)
-                return $"'{part.Path}' takes the set over the {ReferenceUploadLimits.Megabytes(ReferenceUploadLimits.MaxSetBytes)} set limit.";
-        }
-        return null;
-    }
+    internal const string NothingToKeep = "The upload holds no file to keep.";
 
-    internal static string NoSiteFile(IReadOnlyList<string> skipped) =>
-        $"The upload holds no file a website is made of — {skipped.Count} skipped, such as "
-        + $"{string.Join(", ", skipped.Take(3).Select(p => $"'{p}'"))}; allowed: {ReferenceFileTypes.Allowed}.";
+    internal static string NothingKept(IReadOnlyList<ReferenceLeftOut> leftOut) =>
+        $"The upload holds no file to keep — all {leftOut.Count} entries were left out, such as "
+        + $"{string.Join(", ", leftOut.Take(3).Select(e => $"'{e.Path}' ({e.Reason})"))}.";
 }

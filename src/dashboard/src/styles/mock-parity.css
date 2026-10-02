@@ -1053,6 +1053,18 @@
    without in the body ink, a refusal in the colour the studio gives a broken thing. */
 .mock-dialog .d-upload-note { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); overflow-wrap: anywhere; }
 .mock-dialog .d-upload-note.bad { color: var(--bad); }
+/* 2026-10-02-075db: a picked folder or file set, shown under the composer before it is sent —
+   one row per top-level entry (its tick and name at the left, what it sends or why it starts
+   unticked at the right), the totals in the note's own type, and Cancel/Send as the page's
+   buttons. A block nested in the card, so it takes the card's deeper fill. */
+.mock-dialog .d-pick { margin: 10px 0 0; background: var(--panel-2); border-radius: var(--r-s); padding: 8px 10px; }
+.mock-dialog .d-pick-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; }
+.mock-dialog .d-pick-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 12.5px; }
+.mock-dialog .d-pick-row label { display: flex; align-items: baseline; gap: 7px; min-width: 0; overflow-wrap: anywhere; color: var(--ink); }
+.mock-dialog .d-pick-size { flex: none; font-size: 12px; color: var(--ink-2); }
+.mock-dialog .d-pick-total { margin: 8px 0 0; font-size: 12px; color: var(--ink-2); }
+.mock-dialog .d-pick-total.bad { color: var(--bad); }
+.mock-dialog .d-pick-actions { display: flex; justify-content: flex-end; gap: 8px; margin: 8px 0 0; }
 
 /* a block nested INSIDE a card sits one step deeper than the card's own fill,
    which is what --panel-2 is for; the card is already --panel. */

@@ -21,7 +21,6 @@ public static class ConfigDocTypes
     public const string Skills = "skills";
     public const string PrimaryProvider = "primary_provider";
     public const string Limits = "limits";
-    public const string PipelineStorage = "pipeline_storage";
     public const string PipelineDataFlow = "pipeline_data_flow";
     public const string Deployment = "deployment";
     public const string Sandbox = "sandbox";

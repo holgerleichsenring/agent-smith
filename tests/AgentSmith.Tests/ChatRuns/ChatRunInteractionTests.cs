@@ -54,7 +54,7 @@ public sealed class ChatRunInteractionTests : IDisposable
         var value = JsonNode.Parse("""{"questionId":"q-6","answer":"approve","comment":"ship it"}""")!;
 
         await new TeamsInteractionHandler(
-                _chat.Get<ChatRunAnswerRouter>(), null!, null!, null!, TeamsAdapter(),
+                _chat.Get<ChatRunAnswerRouter>(), null!, null!, TeamsAdapter(),
                 NullLogger<TeamsInteractionHandler>.Instance)
             .HandleAsync("19:conv", "A2", value, default);
 
@@ -73,7 +73,7 @@ public sealed class ChatRunInteractionTests : IDisposable
     }
 
     private SlackInteractionHandler SlackHandler() => new(
-        _chat.Get<ChatRunAnswerRouter>(), null!, null!, null!,
+        _chat.Get<ChatRunAnswerRouter>(), null!, null!,
         new SlackAdapter(
             new SlackApiClient(new HttpClient(_slackApi), new SlackAdapterOptions { BotToken = "t" },
                 NullLogger<SlackApiClient>.Instance),

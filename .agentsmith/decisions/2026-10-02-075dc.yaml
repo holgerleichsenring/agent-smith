@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-075dc
+
+decisions:
+  - category: Architecture
+    chose: "A shell in the upload's own container, run_in_reference, on the design master (operator ruling: freedom for the model, rules where needed)"
+    over: "A 'run it in the browser' feature; an image picker per set"
+    reason: |
+      The model can install, start and inspect what the material needs; the recipe it records
+      (075dd) is what makes it repeatable. Building a launcher per kind of material would
+      encode one guess per framework.
+  - category: Security
+    chose: "Same reach as a coding run's run_command: REDIS_URL and the sandbox network are visible; no project secrets; absent on the in-process backend"
+    over: "Refusing the tool until 23a2d lands; a per-project switch"
+    reason: |
+      Adversarial review: the container is not 'the upload and nothing else' — the shell inherits
+      REDIS_URL and joins the sandbox network, and on Kubernetes the project's sandbox secrets.
+      The secrets are cut (an upload needs none) and the in-process backend excluded (it would run
+      inside the server). REDIS_URL and egress are the exposure every coding run's run_command
+      already has; narrowing them is 2026-09-28-23a2d's, for every sandbox. The input is the
+      operator's own upload in the operator's own conversation.
+  - category: Implementation
+    chose: "ReferenceDesignTools composed into RenderReferenceToolFactory.Tools on a design turn"
+    over: "Renaming the factory to ReferenceToolFactory (the spec's first wording); a second factory in MasterToolComposition"
+    reason: |
+      MasterToolComposition sits at 112 of 120 lines; the rename would have touched five test
+      files for no behaviour. One optional dependency keeps the composition line single.
+  - category: Implementation
+    chose: "The tool description carries the operating facts: venv for pip (/shared is read-only), sh for scripts (no file mode), nohup for servers (a step waits for stdout EOF), a container may be fresh"
+    over: "Leaving them for the model to discover"
+    reason: |
+      Each is a failure the review traced to code (read-only mount, multipart carries no mode,
+      ProcessRunner waits for EOF, the hold register is per process and evicts). Stating what the
+      container is costs four sentences; discovering it costs turns.

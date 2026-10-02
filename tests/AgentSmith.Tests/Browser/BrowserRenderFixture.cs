@@ -44,7 +44,8 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
         new(Services(), new ReferenceComparer(Opener(), Stager(), new BrowserRenderInvocation(Files)),
             new StyleDifferenceComparer(), new VisualComparisonRecorder(Files, NullLogger<VisualComparisonRecorder>.Instance));
 
-    public RenderReferenceToolFactory Factory() => new(Services(), CompareServices());
+    public RenderReferenceToolFactory Factory() =>
+        new(Services(), CompareServices(), new ReferenceDesignTools(new SandboxContainerRuntime(spawnsContainers)));
 
     private static SandboxFileReaderFactory Files { get; } = new();
 

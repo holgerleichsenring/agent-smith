@@ -35,6 +35,17 @@ public sealed class PodSpecBuilderSecretsTests
         env.ValueFrom.SecretKeyRef.Key.Should().Be("client-id");
     }
 
+    // 2026-10-02-35b2: the Redis URL travels in the env only, never on a command line.
+    [Fact]
+    public void PodSpecBuilder_Args_CarryNoRedisUrl()
+    {
+        var pod = Builder.Build("p", "j", "redis:6379", SpecWith(ResolvedSandboxSecrets.Empty), owner: null);
+
+        var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
+        toolchain.Args.Should().NotContain("--redis-url").And.NotContain("redis:6379");
+        toolchain.Env.Should().Contain(e => e.Name == "REDIS_URL" && e.Value == "redis:6379");
+    }
+
     [Fact]
     public void Build_SecretFile_MountsSecretVolumeReadOnlyAtPath()
     {

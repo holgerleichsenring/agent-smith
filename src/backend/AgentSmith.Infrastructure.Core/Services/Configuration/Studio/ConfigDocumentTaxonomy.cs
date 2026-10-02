@@ -31,8 +31,6 @@ internal static class ConfigDocumentTaxonomy
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PrimaryProvider, r => new PrimaryProviderDoc(r.PrimaryProvider),
             (r, v) => r.PrimaryProvider = v.Value),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Limits, r => r.Limits, (r, v) => r.Limits = v),
-        ConfigDocDescriptor.Singleton(ConfigDocTypes.PipelineStorage, r => r.PipelineStorage,
-            (r, v) => r.PipelineStorage = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.PipelineDataFlow, r => r.PipelineDataFlow,
             (r, v) => r.PipelineDataFlow = v),
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Deployment, r => r.Deployment, (r, v) => r.Deployment = v),

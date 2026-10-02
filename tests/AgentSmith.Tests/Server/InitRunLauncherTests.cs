@@ -12,6 +12,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.Init;
 using AgentSmith.Server.Services.Sandbox;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
@@ -80,6 +81,22 @@ public sealed class InitRunLauncherTests : IDisposable
         request.RunId.Should().Be(result.RunId);
         _tickets.VerifyNoOtherCalls();
         _claims.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task InitRunLauncher_Launch_StoresTheRequestOnTheRow()
+    {
+        var result = await NewLauncher().LaunchAsync(Project, autoCompletePullRequests: true, CancellationToken.None);
+
+        using var ctx = new AgentSmithDbContext(Options());
+        var row = ctx.Runs.Single(r => r.Id == result.RunId);
+        row.RequestEnqueuedAt.Should().NotBeNull("2026-10-02-5ab2b: the row keeps what Redis may lose");
+        row.ClaimedAt.Should().BeNull();
+        var stored = System.Text.Json.JsonSerializer.Deserialize<PipelineRequest>(row.QueuedRequestJson!)!;
+        stored.RunId.Should().Be(result.RunId);
+        stored.IsInit.Should().BeTrue();
+        ((System.Text.Json.JsonElement)stored.Context![ContextKeys.AutoCompletePullRequests]).GetBoolean().Should().BeTrue(
+            "the operator's auto-complete choice survives a lost queue entry");
     }
 
     [Fact]
@@ -501,7 +518,8 @@ public sealed class InitRunLauncherTests : IDisposable
     private InitRunLauncher NewLauncher() => new(
         ConfigLoader(), new ServerContext("agentsmith.yml"),
         new InitRunRepository(new AgentSmithDbContext(Options()), TimeProvider.System),
-        NewAdmission(), NewQueue(), _launchLock, TimeProvider.System,
+        NewAdmission(), TestQueuedRunDispatch.Over(() => new AgentSmithDbContext(Options()), NewQueue()),
+        _launchLock, TimeProvider.System,
         NullLogger<InitRunLauncher>.Instance);
 
     private InitRunStateReader NewStateReader() => new(

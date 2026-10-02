@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Extensions;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Hubs;
@@ -14,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using StackExchange.Redis;
 using TrailRow = AgentSmith.Infrastructure.Persistence.Entities.RunEvent;
 
 namespace AgentSmith.Tests.Server;
@@ -37,16 +39,20 @@ public sealed class WaitingRunHarness : IDisposable
     private readonly string _dbPath = Path.Combine(
         Path.GetTempPath(), $"ca23-waiting-{Guid.NewGuid():N}.db");
     private readonly FakeRedisStreams _redis = new();
+    private readonly IConnectionMultiplexer _connection;
     private readonly RedisEventPublisher _publisher;
     private readonly List<ServiceProvider> _providers = new();
 
-    public WaitingRunHarness()
+    /// <param name="connection">2026-10-02-5ab2c: a real Redis for the docker tier; the
+    /// in-memory fake (and <see cref="Redis"/>) otherwise.</param>
+    public WaitingRunHarness(IConnectionMultiplexer? connection = null)
     {
+        _connection = connection ?? _redis.Connection;
         using var ctx = new AgentSmithDbContext(Options());
         ctx.Database.Migrate();
         ctx.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
         _publisher = new RedisEventPublisher(
-            _redis.Connection, new EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
+            _connection, new EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);
     }
 
     public FakeRedisState Redis => _redis.State;
@@ -63,7 +69,7 @@ public sealed class WaitingRunHarness : IDisposable
     /// builds, so a test can watch what the cold start hands it without losing the repair.
     /// </summary>
     public JobsBroadcaster NewServerProcess(
-        Func<IRunTerminalReconciler, IRunTerminalReconciler>? decorate = null)
+        Func<IRunTerminalReconciler, IRunTerminalReconciler>? decorate = null, TimeProvider? clock = null)
     {
         var provider = BuildProvider();
         _providers.Add(provider);
@@ -75,11 +81,28 @@ public sealed class WaitingRunHarness : IDisposable
             new RunDbEventPersistence(provider.GetRequiredService<RunDbProjector>()),
             new FiledWorkNudge(Mock.Of<IHubContext<JobsHub>>(), new FiledWorkWatchRegistry()));
         return new JobsBroadcaster(
-            _redis.Connection, Mock.Of<IRunEventFanout>(), router,
+            _connection, Mock.Of<IRunEventFanout>(), router,
             NullLogger<JobsBroadcaster>.Instance, new EventEnvelopeSerializer(),
             reconciler,
-            provider.GetRequiredService<IUnfinishedRunSource>());
+            provider.GetRequiredService<IUnfinishedRunSource>(),
+            clock);
     }
+
+    /// <summary>2026-10-02-5ab2c: the housekeeping leader's re-seed over this harness's store.</summary>
+    public ActiveRunSetReseeder NewReseeder()
+    {
+        var provider = BuildProvider();
+        _providers.Add(provider);
+        return new ActiveRunSetReseeder(_connection,
+            new DbRunHeartbeat(provider.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System),
+            NullLogger<ActiveRunSetReseeder>.Instance);
+    }
+
+    /// <summary>Redis lost everything: streams, both indices and every stored position.</summary>
+    public void FlushRedis() => Redis.Flush();
+
+    public async Task<bool> IsInActiveSetAsync() =>
+        (await _connection.GetDatabase().SetMembersAsync(EventStreamKeys.ActiveRunsSet)).Any(m => m == RunId);
 
     /// <summary>A project name is what lets a "queued" terminal event mint a queue entry at
     /// all, so a test that denies one must first make one possible.</summary>
@@ -214,6 +237,7 @@ public sealed class WaitingRunHarness : IDisposable
         services.AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddRunProjections();
+        services.AddScoped<RunLivenessRepository>();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<RunDbProjector>();

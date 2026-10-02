@@ -54,6 +54,6 @@ public sealed class RenderSourceParser
             return (RenderSource.OfSet(set.SetId, page, scope.Conversation ?? string.Empty), null);
         if (scope.Carried.FirstOrDefault(c => c.Address == address) is { } carried)
             return (RenderSource.OfSet(carried.SetId, page, carried.Session), null);
-        return (null, $"'{address}' is not an uploaded website of this conversation or this run");
+        return (null, $"'{address}' is not an upload of this conversation or this run");
     }
 }

@@ -50,33 +50,33 @@ public sealed class ReferenceUploadRouteTests : IDisposable
     private readonly RecordingLoggerProvider _log = new();
 
     [Fact]
-    public async Task ReferenceUploadRoute_BrowserFolderWithLicenseAndGitignore_IsStoredListingThemAsSkipped()
+    public async Task ReferenceUploadRoute_BrowserSourceFolder_AnswersCredentialFilesAndLeftOut()
     {
         await using var server = await BootAsync();
 
-        var answer = await server.Client.PostAsync(
-            Route, FolderPick("site/index.html", "site/css/site.css", "site/LICENSE", "site/.gitignore", "site/.DS_Store"));
+        var answer = await server.Client.PostAsync(Route, FolderPick("site/index.html", "site/form/app.py",
+            "site/.env", "site/.gitignore", "site/.venv/lib/x.py", "site/.DS_Store"));
 
         answer.StatusCode.Should().Be(HttpStatusCode.OK, await answer.Content.ReadAsStringAsync());
         var body = await answer.Content.ReadAsStringAsync();
-        body.Should().Contain("\"files\":2").And.Contain("\"skippedCount\":2")
-            .And.Contain("site/LICENSE").And.Contain("site/.gitignore");
+        body.Should().Contain("\"files\":4").And.Contain("\"leftOutCount\":1")
+            .And.Contain("\"path\":\"site/.venv/\"").And.Contain("\"credentialFiles\":[\"site/.env\"]");
         body.Should().NotContain(".DS_Store", "what the ignore list drops stays silent");
     }
 
     [Fact]
-    public async Task ReferenceUploadRoute_BrowserFolderOfNonSiteFilesOnly_Answers400NamingThemAndLogsAWarning()
+    public async Task ReferenceUploadRoute_BrowserFolderOfRebuildableFilesOnly_Answers400NamingThemAndLogsAWarning()
     {
         await using var server = await BootAsync();
 
-        var answer = await server.Client.PostAsync(Route, FolderPick("site/LICENSE", "site/.gitignore"));
+        var answer = await server.Client.PostAsync(Route, FolderPick("site/node_modules/a.js", "site/.git/HEAD"));
 
         answer.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await answer.Content.ReadAsStringAsync()).Should().Contain("'site/LICENSE'");
+        (await answer.Content.ReadAsStringAsync()).Should().Contain("'site/.git/'");
         _log.Entries.Should().ContainSingle(e => e.Level == LogLevel.Warning
                 && e.Category == typeof(ReferenceSetUpload).FullName,
                 "a refusal is the line an operator looks for")
-            .Which.Message.Should().Contain("d-0d72-new").And.Contain("'site/LICENSE'");
+            .Which.Message.Should().Contain("d-0d72-new").And.Contain("'site/.git/'");
     }
 
     [Fact]

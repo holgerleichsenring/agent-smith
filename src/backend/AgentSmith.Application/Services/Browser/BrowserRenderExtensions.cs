@@ -32,6 +32,7 @@ public static class BrowserRenderExtensions
         services.AddTransient<RenderResultText>();
         services.AddTransient<RenderReferenceServices>();
         services.AddTransient<RenderReferenceToolFactory>();
+        services.AddSingleton<ReferenceDesignTools>(); // 2026-10-02-075dc
         return services;
     }
 }
