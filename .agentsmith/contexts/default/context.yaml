@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-140d: "A TRACKER OR CONNECTION FORM SHOWS ITS AUTH SECRET ONCE, AS A PICK FROM THE SECRETS CATALOG (capabilities descriptor, config studio). New field kind secret, declared on authSecret; the fixed picker beside the descriptor's text box is gone. -> .agentsmith/phases/done/2026-10-02-140d-studio-secret-field.yaml"
     2026-09-13-0229: "SUPERSEDED (2026-10-01) by the 7f7a series: a design source per project, design_read with node values and a PNG render, link references and version records. Moved to done/ unimplemented under this id. -> .agentsmith/phases/done/2026-09-13-0229-design-reaches-the-model.yaml"
     2026-10-01-283dj: "THE DESIGN AND CODING MASTERS BUILD AGAINST VISUAL REFERENCES (skills design-partner 1.11.0, coding 1.28.0 on PR #205). Source precedence: a reference's look is the WHAT, its markup is form; reference: addresses, render_reference, compare_reference, DESIGN.md, mocks as requirement data; differences fixed or named. -> .agentsmith/phases/done/2026-10-01-283dj-skills-reference-design.yaml"
     2026-10-01-283di: "compare_reference REPORTS HOW A PAGE DIFFERS FROM ITS REFERENCE (browser image, tool, run record). Both sides in one browser; every computed-style difference of mapped selectors named with both values; pixelmatch ratio over magenta-padded captures with a diff JPEG; result.md Visual comparison, four images; never gates. -> .agentsmith/phases/done/2026-10-01-283di-reference-visual-compare.yaml"

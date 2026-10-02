@@ -26,11 +26,11 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// </summary>
 public sealed class CapabilityWireShapeTests
 {
-    /// <summary>The four shapes the contract declares, as the client switches on them.</summary>
-    private static readonly string[] DeclaredKinds = ["text", "list", "bool", "map"];
+    /// <summary>The five shapes the contract declares, as the client switches on them.</summary>
+    private static readonly string[] DeclaredKinds = ["text", "list", "bool", "map", "secret"];
 
     /// <summary>The .NET member names — what leaked before, and what must never appear.</summary>
-    private static readonly string[] MemberNames = ["Text", "List", "Bool", "Map"];
+    private static readonly string[] MemberNames = ["Text", "List", "Bool", "Map", "Secret"];
 
     [Fact]
     public async Task Capabilities_FieldKinds_CrossTheWireLowercase()

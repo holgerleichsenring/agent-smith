@@ -65,6 +65,10 @@ export function EntityForm({
     />
   );
 
+  // 2026-10-02-140d: a tracker's and a connection's auth secret is a descriptor field of kind
+  // secret, rendered where the descriptor puts it; no fixed picker is added beside it.
+  const secretNames = catalog.secrets.map((s) => s.id);
+
   switch (kind) {
     case "agents": {
       const a = draft as StudioAgent;
@@ -96,15 +100,9 @@ export function EntityForm({
               values={t as unknown as Record<string, unknown>}
               onFieldChange={(key, value) => onChange({ ...t, [key]: value })}
               findings={findings}
+              secrets={secretNames}
             />
           )}
-          <RefSelect
-            label="auth secret"
-            value={t.authSecret}
-            options={catalog.secrets}
-            testId="form-ref-authSecret"
-            onChange={(v) => onChange({ ...t, authSecret: v })}
-          />
           <TrackerPollingBlock tracker={t} onChange={onChange} />
         </div>
       );
@@ -131,15 +129,9 @@ export function EntityForm({
               onFieldChange={(key, value) => onChange({ ...c, [key]: value })}
               orgLabel={descriptor.orgLabel}
               findings={findings}
+              secrets={secretNames}
             />
           )}
-          <RefSelect
-            label="auth secret"
-            value={c.authSecret}
-            options={catalog.secrets}
-            testId="form-ref-authSecret"
-            onChange={(v) => onChange({ ...c, authSecret: v })}
-          />
         </div>
       );
     }

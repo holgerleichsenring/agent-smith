@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-140d
+
+decisions:
+  - category: Architecture
+    chose: "A fifth CapabilityFieldKind, Secret (wire word secret), declared on authSecret for every tracker and connection type"
+    over: "Skipping authSecret by name in the form and keeping the fixed RefSelect"
+    reason: |
+      The descriptor exists so a declared field renders right without a UI change. A by-name
+      exception would fix this pair and leave the next secret field to repeat the defect; a kind
+      says what the value is, and the form renders every secret field from it.
+  - category: Implementation
+    chose: "CapabilityFieldInputs renders a secret field with SelectField over the secrets catalog's names"
+    over: "RefSelect"
+    reason: |
+      SelectField carries the required marker and the finding help like every other descriptor
+      field, and it keeps a stored name the catalog lacks visible as an option instead of
+      blanking it. Requiredness gates Save through the existing requiredFieldsFilled, which
+      already reads a string value.
+  - category: Scope
+    chose: "Design sources and MCP servers keep their single fixed picker"
+    over: "Moving them onto a descriptor"
+    reason: |
+      Neither has a capabilities descriptor and neither showed the field twice; giving them one
+      is a different change.

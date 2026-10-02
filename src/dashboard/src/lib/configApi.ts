@@ -231,8 +231,9 @@ export type ConfigChangeKind = ConfigEntityKind | "settings";
 
 /** p0392: `kind` is the VALUE SHAPE, declared by the backend. It used to be client
  *  knowledge (a hardcoded "these keys are lists" set), so a backend field of any other
- *  shape could not be declared without editing this file too. */
-export type CapabilityFieldKind = "text" | "list" | "bool" | "map";
+ *  shape could not be declared without editing this file too.
+ *  2026-10-02-140d: `secret` holds the NAME of a secrets-catalog entry, never its value. */
+export type CapabilityFieldKind = "text" | "list" | "bool" | "map" | "secret";
 
 export interface CapabilityField {
   key: string;
@@ -287,7 +288,7 @@ export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCap
   return parseCapabilities(await getJson<ConfigCapabilities>(`/api/config/capabilities`, signal));
 }
 
-const FIELD_KINDS: CapabilityFieldKind[] = ["text", "list", "bool", "map"];
+const FIELD_KINDS: CapabilityFieldKind[] = ["text", "list", "bool", "map", "secret"];
 
 /** p0455: the server spells the field shape with its enum's own member names ("List",
  *  "Bool", "Map"); this union is lowercase. Every non-text field therefore fell through
