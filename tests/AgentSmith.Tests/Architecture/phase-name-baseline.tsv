@@ -8,9 +8,72 @@
 #   slug         file-name tail over 50 characters (date-minted namespace)
 #   goal         goal over 200 characters (date-minted namespace)
 #   schema-goal  goal over the embedded schema's own 2000, which the whole-file check reads
+#   facts        a date-minted planned phase stating no facts (2026-10-02-3f06b); value 0.
+#                These ratchet the other way: a row leaves once its phase states facts, or
+#                once the phase is no longer in planned/ or active/.
 #
 # rule	value	phase id
 goal	252	2026-08-24-ca23
 goal	201	2026-08-25-61f1
 schema-goal	2244	p0201
 schema-goal	3631	p0176
+facts	0	2026-08-24-035a
+facts	0	2026-08-24-19d0
+facts	0	2026-08-25-e705
+facts	0	2026-08-25-f7bb
+facts	0	2026-08-26-66e2
+facts	0	2026-08-28-2989
+facts	0	2026-08-30-f590
+facts	0	2026-09-03-5e28
+facts	0	2026-09-03-6e9c
+facts	0	2026-09-03-71da
+facts	0	2026-09-03-b83e
+facts	0	2026-09-03-f052
+facts	0	2026-09-05-16e7
+facts	0	2026-09-05-c4e1
+facts	0	2026-09-06-7b3d
+facts	0	2026-09-07-9f28
+facts	0	2026-09-07-e9a2
+facts	0	2026-09-08-a049
+facts	0	2026-09-08-c56e
+facts	0	2026-09-09-094f
+facts	0	2026-09-09-1a80
+facts	0	2026-09-09-3158
+facts	0	2026-09-09-3d2a
+facts	0	2026-09-09-53e9
+facts	0	2026-09-09-577c
+facts	0	2026-09-09-5cb7
+facts	0	2026-09-09-72fd
+facts	0	2026-09-09-8fce
+facts	0	2026-09-09-943f
+facts	0	2026-09-09-9e54
+facts	0	2026-09-09-b51e
+facts	0	2026-09-09-be83
+facts	0	2026-09-09-ce50
+facts	0	2026-09-09-debf
+facts	0	2026-09-09-fd21
+facts	0	2026-09-13-fcc1
+facts	0	2026-09-15-2d68
+facts	0	2026-09-15-7d3c
+facts	0	2026-09-15-a238
+facts	0	2026-09-18-3ba9
+facts	0	2026-09-18-44c2
+facts	0	2026-09-19-c511c
+facts	0	2026-09-24-a5d9
+facts	0	2026-09-25-c8d5
+facts	0	2026-09-25-f4b7
+facts	0	2026-09-27-481bg
+facts	0	2026-09-28-10ffa
+facts	0	2026-09-28-10ffb
+facts	0	2026-09-28-10ffc
+facts	0	2026-09-28-10ffd
+facts	0	2026-09-28-23a2b
+facts	0	2026-09-28-23a2c
+facts	0	2026-09-28-23a2d
+facts	0	2026-09-28-2ac3
+facts	0	2026-09-28-2f8c
+facts	0	2026-09-28-3ca9
+facts	0	2026-09-28-530b
+facts	0	2026-09-28-7667
+facts	0	2026-09-28-c657
+facts	0	2026-09-28-ef94

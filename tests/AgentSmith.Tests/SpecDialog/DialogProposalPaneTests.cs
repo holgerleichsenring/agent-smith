@@ -57,6 +57,9 @@ public sealed class DialogProposalPaneTests : IDisposable
         push.Phase.Steps.Should().Equal("open the seam");
         push.Phase.Tests.Should().Equal("Flow_Scenario_Expected");
         push.Phase.Done.Should().Equal("the pane shows it");
+        // 2026-10-02-3f06c: and what it rests on.
+        push.Phase.Facts.Should().Equal(new PhaseFact("the seam exists", "repo/src/Seam.cs:3"));
+        push.Phase.Assumptions.Should().Equal("nobody calls it yet");
     }
 
     [Fact]
@@ -269,5 +272,7 @@ public sealed class DialogProposalPaneTests : IDisposable
             Steps = [new PhaseStep("seam", "open the seam", null)],
             Tests = ["Flow_Scenario_Expected"],
             Done = ["the pane shows it"],
+            Facts = [new PhaseFact("the seam exists", "repo/src/Seam.cs:3")],
+            Assumptions = ["nobody calls it yet"],
         };
 }

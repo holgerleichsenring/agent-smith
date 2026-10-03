@@ -68,5 +68,8 @@ public sealed class SpecDialogProposalComposer(
     internal static SpecDialogPhaseView View(PhaseDraft draft) => new(
         draft.PhaseId, draft.Goal,
         [.. draft.Steps.Select(step => step.Action)],
-        draft.Tests, draft.Done, draft.Requires, draft.Yaml);
+        draft.Tests, draft.Done, draft.Requires, draft.Yaml)
+    {
+        Facts = draft.Facts, Assumptions = draft.Assumptions, // 2026-10-02-3f06c
+    };
 }

@@ -18,5 +18,5 @@ responsibilities. User called this out.
 - Composition over inheritance — always. No fat base classes.
 - Static only for Map()/extensions. Builders/parsers/formatters = instance + Transient DI.
 - No *Helper/*Utils/*Manager class names — name the responsibility.
-- Base classes max 30 lines, contain only template method skeleton.
+- Base classes contain only a template-method skeleton.
 - User's coding principles file (.agentsmith/contexts/<name>/principles.md) was rewritten to reflect this.

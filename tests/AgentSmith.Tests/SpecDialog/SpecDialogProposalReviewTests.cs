@@ -179,9 +179,44 @@ public sealed class SpecDialogProposalReviewTests
         Outcome(pipeline).Should().BeOfType<PhaseOutcome>().Which.Findings.Should().BeEmpty();
     }
 
+    // 2026-10-02-3f06c: the evidence check and the model review are two halves of one review; the
+    // write carries both, and a model call that fails keeps what the check already found.
+    [Fact]
+    public async Task SpecDialogProposalReview_ModelFindsToo_BothKindsKept()
+    {
+        var reviewer = new RecordingReviewer(_ => new SpecCutReview(
+            [new CutFinding("p9999", "goal of p9999", "contradiction", "it forbids what it asks for")]));
+        var pipeline = Turn(new PhaseOutcome(CitingAMissingFile("p9999")), MissingTree());
+
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+
+        Outcome(pipeline).Findings.Select(f => f.Problem).Should().Equal(
+            ProposalEvidenceReview.Problem, "contradiction");
+    }
+
+    [Fact]
+    public async Task SpecDialogProposalReview_ModelReviewFails_KeepsTheEvidenceFindings()
+    {
+        var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
+        var pipeline = Turn(new PhaseOutcome(CitingAMissingFile("p9999")), MissingTree());
+
+        await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
+
+        var finding = Outcome(pipeline).Findings.Should().ContainSingle().Subject;
+        finding.Problem.Should().Be(ProposalEvidenceReview.Problem);
+        finding.Quote.Should().Be("the handler exists");
+        finding.Evidence.Should().BeNull("it rests on the check's own read, not on a minted look");
+    }
+
+    private static PhaseDraft CitingAMissingFile(string phaseId) =>
+        Draft(phaseId) with { Facts = [new PhaseFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
+
+    private static ISandbox MissingTree() => new EvidenceTreeSandbox(new Dictionary<string, string>());
+
     private static SpecDialogProposalReview Review(
         ISpecCutReviewer reviewer, ITurnActivityObserverAccessor? activity = null) =>
         new(reviewer, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
+            ProposalEvidenceTestReview.Create(activity),
             activity ?? TurnActivityRecorder.Silent(),
             NullLogger<SpecDialogProposalReview>.Instance);
 
@@ -222,11 +257,11 @@ public sealed class SpecDialogProposalReviewTests
     private static OutcomeProposal Outcome(PipelineContext pipeline) =>
         pipeline.Get<OutcomeProposal>(ContextKeys.SpecDialogOutcome);
 
-    private static PipelineContext Turn(OutcomeProposal proposal)
+    private static PipelineContext Turn(OutcomeProposal proposal, ISandbox? repository = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)
-            new Dictionary<string, ISandbox> { [Repo] = new DerivationTestLooks.CountingSandbox(0) });
+            new Dictionary<string, ISandbox> { [Repo] = repository ?? new DerivationTestLooks.CountingSandbox(0) });
         pipeline.Set(ContextKeys.DialogueJobId, "sess-42");
         pipeline.Set(ContextKeys.SpecDialogOutcome, proposal);
         return pipeline;

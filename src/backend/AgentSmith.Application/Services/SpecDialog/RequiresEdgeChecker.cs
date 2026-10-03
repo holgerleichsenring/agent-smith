@@ -13,8 +13,9 @@ public sealed partial class RequiresEdgeChecker
 {
     // p0507: both namespaces. An id shape this does NOT match is read as a free-text
     // precondition, so a missed shape silently passes sibling, parent and cycle checks.
+    // 2026-10-02-3f06c: public, so the proposal evidence check reads ids by this one regex.
     [GeneratedRegex(@"^(?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(-[a-z][a-z0-9-]*)?$")]
-    private static partial Regex PhaseIdRegex();
+    public static partial Regex PhaseIdRegex();
 
     public string? Check(PhaseDraft parent, IReadOnlyList<PhaseDraft> children) =>
         CheckIdsUnique(parent, children)

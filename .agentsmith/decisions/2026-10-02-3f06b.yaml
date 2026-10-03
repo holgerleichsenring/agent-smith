@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06b
+
+decisions:
+  - category: Architecture
+    chose: "EvidenceReferences and EvidenceCheck are sealed instance classes, not registered in DI; the probe and the policy are parameters of CheckAsync"
+    over: "Static parsers, or registering both now, or injecting IEvidenceProbe through the constructor"
+    reason: |
+      PhaseDraftReader is the precedent for a pure reader: an instance the consumer receives.
+      Nothing resolves either class yet, so a registration would be untested wiring;
+      2026-10-02-3f06c registers them when its review consumes the check. The probe is per call
+      because 3f06c builds it over one turn's sandboxes, which a DI singleton cannot hold.
+  - category: Architecture
+    chose: "IEvidenceProbe.ProbeAsync(qualifier, path, ct) is async and the line-count rule is the public EvidenceLineCount.Of(content)"
+    over: "A synchronous probe with the counting left to each probe"
+    reason: |
+      Pinned by the 3f06c review: the sandbox probe reads over the wire, and a line range must
+      mean the same against a working tree and a sandbox read. One rule: split on '\n', a
+      trailing newline closes the last line, an empty file has none, '\r' is content.
+  - category: Implementation
+    chose: "A host-shaped path is probed before its line text is judged"
+    over: "Reporting unparseable lines before probing, as for every other path"
+    reason: |
+      'mcr.microsoft.com/dotnet/sdk:10.0' in 443a is an image tag; judged first, its ':10.0' read
+      as malformed lines and the spec's host-shaped exemption never applied. The spec lists the
+      host-qualified image name among the forms the record writes and does not list it among the
+      evidence 443a must rewrite, so the exemption has to cover it. A host-shaped path that IS a
+      file still has its lines judged.
+  - category: Implementation
+    chose: "A lone ':lines' token continues the last path across ';' segments, and is ignored when no path came before"
+    over: "Resetting the previous path at each segment, as the prototype did"
+    reason: |
+      Resetting would turn 'a.cs:3; :7' into a silently skipped token, which the decision
+      'a token that looks like a path is never skipped silently' rules out. With no earlier path
+      there is nothing for the lines to belong to.
+  - category: Implementation
+    chose: "An observation needs at least one date-shaped yyyy-MM-dd part, and every such part must parse as a DateOnly"
+    over: "Accepting an observation if any one date in it parses"
+    reason: |
+      '2026-02-30' beside a valid date is still a wrong record of when. Phase ids inside an
+      observation ('2026-10-02-3f06') carry a real date, so they pass.
+  - category: Scope
+    chose: "The rewritten observations in 443a and aeb6d carry the date the original evidence line was written (git blame: 2026-09-20 and 2026-10-01)"
+    over: "Dating them with today's date"
+    reason: |
+      The observation was made when the line was written; today's date would claim a look this
+      phase did not take. The two skills paths in 443a became 'agent-smith-skills:' qualified
+      paths instead, since they name a file in that repository rather than an observation.
+  - category: Implementation
+    chose: "The facts rows live in phase-name-baseline.tsv with value 0 and are excluded from PhaseNameRuleTests' length ratchets"
+    over: "A second baseline file"
+    reason: |
+      PhaseNameBaseline is the one keyed (rule, phase) table the spec names. The length ratchets
+      would have read every facts row as stale (no length measured under that rule), so they
+      take only their own rows; PhaseFactsRuleTests owns the facts rows' staleness, which runs
+      the other way. Measured at commit: 60 date-minted phases in planned/, none in active/.

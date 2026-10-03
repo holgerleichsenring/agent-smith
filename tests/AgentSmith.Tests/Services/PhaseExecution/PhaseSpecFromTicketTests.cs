@@ -95,4 +95,21 @@ public sealed class PhaseSpecFromTicketTests
         extraction.Should().BeOfType<PhaseSpecInvalid>()
             .Which.Error.Should().NotBeNullOrWhiteSpace();
     }
+
+    /// <summary>
+    /// 2026-10-02-3f06a: a fact the schema now gives a shape is checked on the ticket path. A
+    /// malformed fact is a broken phase ticket that stops the run, not an ordinary ticket that
+    /// falls back to derivation.
+    /// </summary>
+    [Fact]
+    public void PhaseSpecFromTicket_FactWithAnExtraKey_IsInvalidNotAbsent()
+    {
+        var body = "```yaml\n" + ValidYaml.Trim()
+            + "\nfacts:\n  - claim: \"c\"\n    evidence: \"a.cs:1\"\n    source: \"x\"\n```";
+
+        var extraction = _sut.Extract(body);
+
+        extraction.Should().BeOfType<PhaseSpecInvalid>()
+            .Which.IsAbsent.Should().BeFalse();
+    }
 }

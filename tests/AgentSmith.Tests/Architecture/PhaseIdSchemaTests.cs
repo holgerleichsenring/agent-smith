@@ -78,9 +78,11 @@ public sealed class PhaseIdSchemaTests
     /// The plugin templates are deliberately NOT read here. They live in a separate
     /// repository on its own release cycle: reading its working tree would go red for
     /// anyone who has not cloned it and be green-but-meaningless in CI. Keeping the two
-    /// repositories byte-identical is therefore a convention enforced by nothing — which
-    /// is exactly how the plugin's copy drifted to <c>^p\d+[a-z]?$</c> unnoticed. The
-    /// literal below is what a plugin release must be diffed against, by hand.
+    /// repositories identical was a convention enforced by nothing — which is how the
+    /// plugin's copy drifted unnoticed. Since 2026-10-02-3f06d the two differ ON PURPOSE in
+    /// one place: the plugin's counter branch is deliberately wide (<c>p\d+[a-z]?</c>),
+    /// because it taught its users to mint p42 and narrowing it would invalidate their specs.
+    /// The date-minted branch must still match the literal below, diffed by hand on release.
     /// </para>
     /// </summary>
     [Fact]

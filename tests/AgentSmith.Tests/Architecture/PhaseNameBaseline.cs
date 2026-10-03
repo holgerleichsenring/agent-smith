@@ -22,6 +22,13 @@ internal static class PhaseNameBaseline
     /// <summary>The embedded schema's own goal limit, which the whole-file check enforces.</summary>
     public const string SchemaGoalLength = "schema-goal";
 
+    /// <summary>
+    /// 2026-10-02-3f06b: a date-minted planned phase states no facts. Its value is always 0, and
+    /// the row is a debt in the other direction — it leaves once the phase states facts, or
+    /// once the phase is no longer planned or active.
+    /// </summary>
+    public const string FactsRequired = "facts";
+
     public static IReadOnlyDictionary<(string Rule, string PhaseId), int> Rows { get; } = Read();
 
     public static bool Exempts(string rule, string phaseId) =>
