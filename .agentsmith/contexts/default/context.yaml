@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-02-3f06g: "THE C# DELTA DROPS THE BASE-CLASS LINE LIMIT (skills catalog). Skills #209 moved the sentence to abstractions without the 30 lines; released in 5.9.0 together with #207, not as 5.8.1; aeb6d pins it. -> .agentsmith/phases/done/2026-10-02-3f06g-csharp-delta-base-class.yaml"
     2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Each fact's cited file is read in the turn's repositories, routed by prefix; an unopened scope or failed read is not checked; the panel shows facts and assumptions. -> .agentsmith/phases/done/2026-10-02-3f06c-proposal-evidence-check.yaml"
     2026-10-02-3f06b: "A PLANNED FACT CITES WHAT RESOLVES (spec evidence, architecture tests). EvidenceReferences + EvidenceCheck with a policy and an async probe; each planned path a file, each line inside it, else a dated observed:; date-minted planned phases state facts, 60 baselined. -> .agentsmith/phases/done/2026-10-02-3f06b-spec-evidence-check.yaml"
     2026-10-02-3f06a: "THE SCHEMA DECLARES THE PREMISE KEYS (phase-spec schema, draft reader). facts, assumptions, applies_to, contexts get a shape; an assumption {claim, check} is read as its claim; the renderer and epic re-serializer quote number-shaped strings. -> .agentsmith/phases/done/2026-10-02-3f06a-spec-premise-keys.yaml"
@@ -1053,12 +1054,9 @@ state:
     2026-10-02-3f06e:
       goal: "Plugin 2.3.0: review-spec, ship-phase, worktree per phase"
       blocked-by: "merge of spec-first PR #11 (stacked on #10)"
-    2026-10-02-3f06g:
-      goal: "C# delta drops the base-class line limit (skills 5.8.1)"
-      blocked-by: "merge of skills PR #209 and the 5.8.1 release"
   planned:
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/phases/planned/2026-10-02-60ca-decision-file-schema.yaml"
-    2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Pins skills 5.8.1 (#205's design-partner 1.11.0 and coding-agent 1.28.0, plus 3f06g); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
+    2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Pins the newest skills release (5.9.0+: #205, 3f06g; later cf20a/b); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-01-283dk: "THE LEGACY ATTACHMENT TABLE GOES (persistence). Operator-timed: once every replica runs 283da, a final copy pass and the removal of SpecDialogAttachments, its entity, the copy job and the union readers. -> .agentsmith/phases/planned/2026-10-01-283dk-reference-legacy-drop.yaml"
     2026-09-08-a049: "A SHORTFALL'S RECORD SAYS SO; AN ENTRY-SATISFIED PHASE NAMES ITS HEAD (backend). Sliced out of p0439: result.md is written before the delivery is decided, so it reads failed for a delivered shortfall; SelectPhase records an already-satisfied phase done with no sandbox in hand, so no verified head is named. -> .agentsmith/phases/planned/2026-09-08-a049-shortfall-record-entry-heads.yaml"
     2026-09-07-e9a2: "THE PRODUCT'S PHASE SLUG OBEYS THE REPOSITORY RULE (spec derivation + phase record writer). Sliced out of 2026-09-07-4e6a: PhaseIdFactory.Slug truncates a goal to 50 chars with no word bound, and WritePhaseRecordHandler.Slug mints a SECOND slug at 60 that ignores SpecPhase.Slug — so a customer repository still gets sentence names. Bound the generator by words, write the record under the derived slug, ask the derivation for a label. -> .agentsmith/phases/planned/2026-09-07-e9a2-phase-slug-product-bound.yaml"

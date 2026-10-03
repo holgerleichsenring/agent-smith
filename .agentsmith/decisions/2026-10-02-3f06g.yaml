@@ -8,3 +8,9 @@ decisions:
     reason: |
       Without a number it is not a limit a check can enforce; it is a rule about what a base class
       may hold, which is where the abstractions section already speaks.
+  - category: Scope
+    chose: "Done on release 5.9.0, which also carried #207's feat:, instead of the planned 5.8.1"
+    over: "Holding skills main until a lone fix: release"
+    reason: |
+      #207 merged before #209's release, so release-please cut a minor. The delta change is the
+      same bytes either way; aeb6d now pins the newest release when it runs rather than a number.
