@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-03-cf20c: "INIT COMPOSES FRAMEWORK OVERLAYS (principles composition, init PR). Each catalog overlay whose manifest signal matches at the component workdir renders after the delta; header and intro name it only then, so no-overlay output is unchanged; the PR body names it for ratification. -> .agentsmith/phases/done/2026-10-03-cf20c-principles-overlay-compose.yaml"
     2026-10-02-35b2: "A SANDBOX COMMAND NO LONGER SEES THE STEP BUS (sandbox agent, sandbox specs). A step's process loses the inherited REDIS_URL and JOB_ID unless it sets them; Docker Cmd and pod Args drop --redis-url. Hidden, not unreachable: /proc environ stays, planned 2026-10-02-f35f. -> .agentsmith/phases/done/2026-10-02-35b2-sandbox-redis-url-hidden.yaml"
     2026-10-02-075dd: "AN UPLOAD KEEPS WHAT THE MODEL WORKED OUT ABOUT IT (reference note, prompts, skills). note_reference writes a set's one note (a row of kind note, no migration); every later turn and every run that carries the set shows it fenced as data; the transcript chip shows it; skills teach note-first. -> .agentsmith/phases/done/2026-10-02-075dd-reference-note.yaml"
     2026-10-02-075dc: "THE DESIGN PARTNER RUNS COMMANDS IN AN UPLOAD'S OWN CONTAINER (reference sandbox, design tools). run_in_reference runs a shell where the set lies; the set's container serves reads and every Run, refuses writes, spawns without project secrets; master only, containers only. -> .agentsmith/phases/done/2026-10-02-075dc-reference-sandbox-command.yaml"
@@ -1050,7 +1051,6 @@ state:
       goal: "Framework overlays and the Spark overlay (skills catalog)"
       blocked-by: "merge of skills PR #210"
   planned:
-    2026-10-03-cf20c: "INIT COMPOSES FRAMEWORK OVERLAYS (principles composition, init PR). Core, delta and every catalog overlay whose manifest signal matches at the component root; the init PR names them for ratification. -> .agentsmith/phases/planned/2026-10-03-cf20c-principles-overlay-compose.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
     2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Waits on the release of skills PR #205 (design-partner 1.11.0, coding-agent 1.28.0); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"

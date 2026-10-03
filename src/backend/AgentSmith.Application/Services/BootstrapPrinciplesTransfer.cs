@@ -17,12 +17,14 @@ namespace AgentSmith.Application.Services;
 /// Principles are authoritative gold — archaeology feeds context.yaml facts
 /// only. An existing file is never overwritten (ratified content survives
 /// re-init); a pre-p0379 catalog without the core template keeps the legacy
-/// skill-writes behavior.
+/// skill-writes behavior. 2026-10-03-cf20c: the framework overlays the component's manifests
+/// declare are composed after the delta, and named only when the file is actually written.
 /// </summary>
 public sealed class BootstrapPrinciplesTransfer(
     IPrinciplesTemplateSource templates,
     ISkillsCatalogPath catalogPath,
     BootstrapArtefactWriter artefactWriter,
+    FrameworkOverlayDetector overlayDetector,
     ILogger<BootstrapPrinciplesTransfer> logger)
 {
     private const int WriteTimeoutSeconds = 30;
@@ -36,11 +38,15 @@ public sealed class BootstrapPrinciplesTransfer(
 
     public async Task<PrinciplesTransferResult> ApplyAsync(
         PipelineContext pipeline, ISandbox sandbox, string repoName,
-        string contextName, ProjectMap projectMap, string principlesPath,
+        string contextName, string workdir, ProjectMap projectMap, string principlesPath,
         string? existingPrinciples, CancellationToken cancellationToken)
     {
         var language = ResolveComponentLanguage(pipeline, repoName, contextName, projectMap);
-        var composed = templates.Compose(language);
+        // A preserved file is never re-composed, so its overlays are not even looked for.
+        var overlays = string.IsNullOrWhiteSpace(existingPrinciples)
+            ? await overlayDetector.DetectAsync(sandbox, workdir, templates.FrameworkOverlays(), cancellationToken)
+            : [];
+        var composed = templates.Compose(language, overlays);
         if (composed is null)
             return new PrinciplesTransferResult(
                 PrinciplesMode.SkillWrites, CatalogOrigin: ResolvedCatalogOrigin());
@@ -80,9 +86,11 @@ public sealed class BootstrapPrinciplesTransfer(
                 Artefacts: artefacts);
 
         logger.LogInformation(
-            "{Repo}/{Context}: transferred composed principles core+{Slug} (delta applied: {DeltaApplied}) to {Path}",
-            repoName, contextName, composed.LanguageSlug, composed.DeltaApplied, principlesPath);
-        return new PrinciplesTransferResult(PrinciplesMode.Transferred, Artefacts: artefacts);
+            "{Repo}/{Context}: transferred composed principles core+{Slug} (delta applied: {DeltaApplied}, overlays: [{Overlays}]) to {Path}",
+            repoName, contextName, composed.LanguageSlug, composed.DeltaApplied,
+            string.Join(", ", composed.Overlays), principlesPath);
+        return new PrinciplesTransferResult(
+            PrinciplesMode.Transferred, Artefacts: artefacts, Overlays: composed.Overlays);
     }
 
     // Per-component language from discovery wins; the repo-level ProjectMap

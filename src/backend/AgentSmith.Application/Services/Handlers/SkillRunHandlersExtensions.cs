@@ -35,6 +35,7 @@ public static class SkillRunHandlersExtensions
         // runs inside the bootstrap round before the skill call.
         services.AddTransient<BootstrapPrinciplesTransfer>();
         services.AddTransient<BootstrapArtefactWriter>(); // 2026-09-15-d66f
+        services.AddTransient<FrameworkOverlayDetector>(); // 2026-10-03-cf20c
         // 2026-09-01-72c5: the round's view of what a context already carries — including
         // the rename of a pre-rename principles file, which happens before it looks.
         services.AddTransient<BootstrapMetaFiles>();

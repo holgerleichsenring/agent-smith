@@ -35,7 +35,7 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
         File.WriteAllText(Path.Combine(dir, "core.md"), "CORE RULES");
         File.WriteAllText(Path.Combine(dir, "deltas", "csharp.md"), "CSHARP DELTA");
 
-        var composed = CreateSut().Compose("csharp");
+        var composed = CreateSut().Compose("csharp", []);
 
         composed.Should().NotBeNull("a catalog shipping the templates must never read as pre-p0379");
         composed!.Content.Should().Contain("CORE RULES").And.Contain("CSHARP DELTA");
@@ -47,7 +47,7 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
     {
         Directory.CreateDirectory(_root);
 
-        CreateSut().Compose("csharp").Should().BeNull(
+        CreateSut().Compose("csharp", []).Should().BeNull(
             "a catalog shipping no principles hands authorship to the bootstrap skill");
     }
 
@@ -60,7 +60,7 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
         Directory.CreateDirectory(legacy);
         File.WriteAllText(Path.Combine(legacy, "core.md"), "CORE RULES");
 
-        CreateSut().Compose("csharp").Should().BeNull();
+        CreateSut().Compose("csharp", []).Should().BeNull();
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class CatalogPrinciplesPathTests : IDisposable
         Directory.CreateDirectory(_root);
         var logger = new CapturingLogger<CatalogPrinciplesTemplateSource>();
 
-        CreateSut(logger).Compose("csharp").Should().BeNull();
+        CreateSut(logger).Compose("csharp", []).Should().BeNull();
 
         logger.Lines.Should().ContainSingle(l => l.Contains(Origin, StringComparison.Ordinal)
             && l.Contains("bootstrap skill authors", StringComparison.Ordinal));

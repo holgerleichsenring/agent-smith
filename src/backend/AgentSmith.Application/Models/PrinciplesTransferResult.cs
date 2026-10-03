@@ -16,8 +16,15 @@ public sealed record PrinciplesTransferResult(
     // round-level mode, not instead of it: Mode still answers what happened to principles.md
     // and still feeds the bootstrap prompt. An artefact set cannot answer that question, and
     // one preserve decision cannot answer the artefacts'.
-    IReadOnlyList<ArtefactWrite>? Artefacts = null)
+    IReadOnlyList<ArtefactWrite>? Artefacts = null,
+    // 2026-10-03-cf20c: the framework overlays composed into principles.md — set only when the
+    // file was WRITTEN. A preserved file carries none of them, so naming one would ask the
+    // operator to ratify rules that are not in the file.
+    IReadOnlyList<string>? Overlays = null)
 {
+    /// <summary>Never null: no overlay is an answer.</summary>
+    public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];
+
     /// <summary>Never null: a delta that declares no artefact yields none, which is an answer.</summary>
     public IReadOnlyList<ArtefactWrite> Artefacts { get; init; } = Artefacts ?? [];
 }
