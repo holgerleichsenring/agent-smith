@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-03-cf20c
+
+decisions:
+  - category: Architecture
+    chose: "Compose(language, overlaySlugs) with the list required; FrameworkOverlays() lists slug and signals"
+    over: "An optional overlay parameter, or the catalog source reading the sandbox itself"
+    reason: |
+      A required list means no caller forgets detection by accident. The catalog source stays a
+      reader of catalog files; reading the target's manifests needs a sandbox, which only the
+      Application layer holds.
+  - category: Architecture
+    chose: "FrameworkOverlaySection (parse, render) plus FrameworkOverlayCatalog (list, render the applied set) beside the composer"
+    over: "Growing CatalogPrinciplesTemplateSource"
+    reason: |
+      The composer sat at 104 lines; listing the frameworks directory and rendering overlays
+      would have pushed it past the 120-line limit. Locating and reading overlay files is a
+      responsibility of its own; the composer now only places the rendered sections.
+  - category: Implementation
+    chose: "The rendered overlay is headed '# Framework Overlay: <slug>' with '## All languages' and '## <language>' below it"
+    over: "Rendering the overlay's own H1, or the ### sections with no heading of their own"
+    reason: |
+      The spec says the overlay's H1 is not rendered; the bare ### sections would hang under the
+      delta's last ## heading (Overrides) and read as overrides. A heading the composer owns
+      names the overlay by slug, the same identifier the header and the PR body use.
+  - category: Implementation
+    chose: "Detection is skipped when principles.md already exists; Compose then receives an empty list"
+    over: "Detecting on every round"
+    reason: |
+      A preserved file is never re-composed, so its overlays are neither rendered nor reported;
+      detecting would spend sandbox reads on an answer nobody uses. The delta's artefacts still
+      come from that composition, and overlays declare none.
+  - category: Security
+    chose: "A rooted or '..' workdir, and a rooted or '..' signal file, read nothing; a malformed overlay file is left out of FrameworkOverlays() and of Compose"
+    over: "Normalising such paths, or applying the overlay's readable parts"
+    reason: |
+      A wrongly applied overlay is a wrong mandate the operator is asked to ratify; a missing one
+      costs rules. Every failure therefore lands on the side of applying nothing, and is logged.
+  - category: Implementation
+    chose: "A read exception skips that one overlay; OperationCanceledException propagates"
+    over: "Failing the whole detection, or failing the round"
+    reason: |
+      One overlay's malformed sandbox reply says nothing about another's signals, and a failed
+      detection must never fail an init that would otherwise transfer the core and delta.
+  - category: Scope
+    chose: "Test fixtures are copies of spark.md and scala.md from skills PR #210 under tests/Skills/Fixtures"
+    over: "Waiting for the catalog release, or inline strings"
+    reason: |
+      The embedded tarball (v5.7.3) carries neither; goldens against a released catalog belong to
+      2026-10-01-aeb6d. Copies of the real files test the real format, not a paraphrase of it.

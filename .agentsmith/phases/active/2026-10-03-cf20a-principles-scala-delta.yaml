@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-03-cf20a
+goal: "The principles catalog gains a Scala delta holding only rules a Scala source states as rules, so a Scala component gets core plus Scala instead of the core alone."
+
+applies_to: "skills catalog (principles/deltas/scala.md, validate-skills.sh)"
+
+requires: []
+
+facts:
+  - claim: "The catalog ships deltas for csharp, rust and typescript; an unknown slug composes the core with a 'no delta yet' line."
+    evidence: "agent-smith-skills:principles/deltas/rust.md; src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:42-44,75-78"
+  - claim: "A delta needs Additions, Overrides and Artefacts; validate-skills checks only that the sections exist; the core names six hooks and says the delta sets size limits."
+    evidence: "agent-smith-skills:principles/DELTA-FORMAT.md; agent-smith-skills:scripts/validate-skills.sh:198-210; agent-smith-skills:principles/core.md:27-28,95-104"
+  - claim: "Apache Spark's own scalastyle config enforces public methods typed, equals overridden with hashCode, no covariant equals, no structural types, no ???, println, throwing an Error and case conversion only behind a named suppression, and disables method length, file length and type counts."
+    evidence: "observed: github.com/apache/spark/blob/master/scalastyle-config.xml, read 2026-10-03"
+  - claim: "The Databricks Scala guide states as rules (return in closures as 'avoid'): NonFatal instead of catching Throwable or Exception, no return in closures, no var in case-class parameters (hash buckets), always override, explicit types on public and implicit methods, nanoTime for durations, intercept a specific exception in tests; its Rule of 30 is stated 'in general'."
+    evidence: "observed: github.com/databricks/scala-style-guide, read 2026-10-03"
+  - claim: "The Scala style guide requires a class and its companion, and a sealed type and its subclasses, in one file; the Scala tour presents traits as the way to declare shared interfaces; Databricks makes an interface implemented from Java with default methods an abstract class."
+    evidence: "observed: docs.scala-lang.org/style/files.html and docs.scala-lang.org/tour/traits.html, read 2026-10-03"
+  - claim: "Scala 3 deprecates non-local return from 3.2 in favour of boundary/break — the ground for the hard no-return-in-lambda rule."
+    evidence: "observed: docs.scala-lang.org/scala3/reference dropped-features pages, read 2026-10-03"
+  - claim: "The pin move that carries a new skills release is 2026-10-01-aeb6d's, which pins the newest release when it runs and adds a golden per new delta."
+    evidence: "observed: planned phase 2026-10-01-aeb6d as edited in agent-smith PR #703 (468562c0e), 2026-10-03"
+
+assumptions: []
+
+scope:
+  in: >
+    principles/deltas/scala.md. Naming: only what the Scala guide and Databricks agree on — UpperCamelCase types,
+    lowerCamelCase methods and values, lowercase packages; the constant style is the project's. Layout:
+    a companion and a sealed hierarchy share their file; line width is the project
+    formatter's; no size number is set (no Scala source states one as a rule; 2026-10-03-24d4 measures and owns the core's
+    size sentence). Abstraction:
+    traits declare contracts, except an interface Java implements with default methods, which is an abstract class;
+    public and implicit methods state their result type; override is always written; overriding equals overrides
+    hashCode and equals takes Any; no var in case-class parameters; no structural types. Errors: catch NonFatal,
+    never Throwable or Exception; no return inside a lambda; no ???; durations from nanoTime. Tests: the build tool's
+    test source set (src/test/scala under sbt, Maven, Gradle) with the framework the project uses; intercept a
+    specific exception type. Lint: the project's formatter and linter. Behind a visible suppression in the project
+    linter's syntax, or a reason comment on the line: println, throwing an Error type, case conversion without
+    Locale.ROOT. Overrides: one type per file; fixed method/class line counts; a separate test project. Artefacts: none. validate-skills checks scala.md's overrides and its NonFatal rule.
+  out: >
+    Size numbers — 2026-10-03-24d4. The pin move and a Scala golden — 2026-10-01-aeb6d.
+
+decisions:
+  - key: "ONLY STATED RULES. Spark's 100 columns and 10 parameters are one project's lint, not the language's; the Databricks Rule of 30 and Palantir's 250/70 are stated 'in general' and are rejected as conditional."
+  - key: "WHERE SOURCES DISAGREE, THE PROJECT DECIDES. Constants are UpperCamelCase in the Scala guide and ALL_CAPS at Databricks; the delta names the split instead of picking a side."
+  - key: "A SUPPRESSION IS THE EXCEPTION. A deliberate println stays possible when it is visible; Option.get, non-ASCII and the global execution context are dropped — their sources are conditional or Spark-internal."
+
+steps:
+  - id: delta
+    action: "Write principles/deltas/scala.md."
+  - id: validate
+    action: "validate-skills.sh requires scala.md, its one-type-per-file override and the NonFatal rule."
+
+tests:
+  - "validate-skills.sh passes; removing scala.md's NonFatal rule fails it"
+
+done:
+  - "a skills release carries principles/deltas/scala.md, checked by validate-skills"

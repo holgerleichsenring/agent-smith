@@ -40,7 +40,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
     [InlineData("typescript")]
     public async Task Compose_EveryStack_MatchesTheCheckedInGolden(string slug)
     {
-        var composed = (await SourceAsync()).Compose(slug);
+        var composed = (await SourceAsync()).Compose(slug, []);
 
         composed.Should().NotBeNull($"the pinned catalog must carry a '{slug}' delta");
         composed!.Content.Should().Be(Golden(slug),
@@ -49,10 +49,25 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
             + "principles file's");
     }
 
+    // 2026-10-03-cf20c: overlays are a third layer, and composing with none — or asking for one
+    // the pinned catalog does not ship — must leave every stack's bytes exactly where they were.
+    [Theory]
+    [InlineData("csharp", false)]
+    [InlineData("rust", false)]
+    [InlineData("typescript", false)]
+    [InlineData("csharp", true)]
+    public async Task CatalogPrinciples_NoOverlay_MatchesTheEmbeddedGoldens(string slug, bool requestAbsentOverlay)
+    {
+        var composed = (await SourceAsync()).Compose(slug, requestAbsentOverlay ? ["spark"] : [])!;
+
+        composed.Content.Should().Be(Golden(slug));
+        composed.Overlays.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task ComposedPrinciples_TheCsharpDelta_StillStripsTheSectionFromTheRenderedFile()
     {
-        var composed = (await SourceAsync()).Compose("csharp");
+        var composed = (await SourceAsync()).Compose("csharp", []);
 
         composed!.Content.Should().NotContain("## Artefacts",
             "an artefact is a file for the repository; restating it in principles.md would be a "
@@ -69,7 +84,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
         // Directory.Build.props, which turned a target repository's existing code into a build
         // failure the moment the init pull request merged. No delta declares a file any more, and
         // a section stated empty is an answer rather than an entry.
-        var composed = (await SourceAsync()).Compose(slug);
+        var composed = (await SourceAsync()).Compose(slug, []);
 
         composed!.Artefacts.Should().BeEmpty(
             $"the pinned '{slug}' delta must write nothing into a repository that changes what "

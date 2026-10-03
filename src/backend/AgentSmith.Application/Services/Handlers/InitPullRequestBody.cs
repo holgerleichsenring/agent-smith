@@ -53,7 +53,7 @@ internal static class InitPullRequestBody
         foreach (var outcome in mine.OrderBy(o => o.ContextName, StringComparer.Ordinal))
         {
             body.Append("- **").Append(outcome.ContextName).Append("** — ")
-                .Append(Principles(outcome.Mode)).Append('\n');
+                .Append(Principles(outcome)).Append('\n');
             foreach (var artefact in outcome.Artefacts)
                 body.Append("  - `").Append(artefact.Path).Append("` — ")
                     .Append(Artefact(artefact)).Append('\n');
@@ -61,10 +61,16 @@ internal static class InitPullRequestBody
         return body.Append('\n').Append(siblingMarker).ToString();
     }
 
-    private static string Principles(PrinciplesMode mode) => mode switch
+    private static string Principles(BootstrapRoundOutcome outcome) => outcome.Mode switch
     {
-        PrinciplesMode.Transferred =>
+        PrinciplesMode.Transferred when outcome.Overlays.Count == 0 =>
             "coding principles transferred from the authored core and language delta; "
+            + "review and merge to ratify them",
+        // 2026-10-03-cf20c: an overlay is a framework's mandate the operator ratifies, so it is
+        // named in the rendered body — the file's header comment is invisible on the PR.
+        PrinciplesMode.Transferred =>
+            "coding principles transferred from the authored core, language delta and framework "
+            + $"overlays {string.Join(", ", outcome.Overlays.Select(o => $"`{o}`"))}; "
             + "review and merge to ratify them",
         // Never claim a transfer that did not happen: a repository whose principles were
         // already ratified is told nothing was touched.

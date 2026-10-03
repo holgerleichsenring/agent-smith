@@ -13,12 +13,19 @@ namespace AgentSmith.Contracts.Models;
 /// parsed OUT of the delta and are deliberately absent from <paramref name="Content"/> — a
 /// principles file that restated them would be a second place for them to disagree, and every
 /// stack's composed bytes would change the moment the section became mandatory.</param>
+/// <param name="Overlays">2026-10-03-cf20c: the framework overlays actually rendered into
+/// <paramref name="Content"/>, ordinal by slug — a requested overlay the catalog could not
+/// render is absent, so this list is what the file says, not what was asked.</param>
 public sealed record ComposedPrinciples(
     string Content,
     string LanguageSlug,
     bool DeltaApplied,
-    IReadOnlyList<PrinciplesArtefact>? Artefacts = null)
+    IReadOnlyList<PrinciplesArtefact>? Artefacts = null,
+    IReadOnlyList<string>? Overlays = null)
 {
+    /// <summary>Never null: no overlay applied is an answer.</summary>
+    public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];
+
     /// <summary>Never null: a delta that declares none says so, and "none" is an answer.</summary>
     public IReadOnlyList<PrinciplesArtefact> Artefacts { get; init; } = Artefacts ?? [];
 }

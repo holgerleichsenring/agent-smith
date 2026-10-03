@@ -98,6 +98,33 @@ public sealed class InitPullRequestBodyTests
             "a pipeline with no bootstrap round has nothing new to report");
     }
 
+    [Fact]
+    public void InitPullRequestBody_OverlayApplied_NamesIt()
+    {
+        // 2026-10-03-cf20c: an overlay is a framework's mandate; the operator approves what the
+        // rendered body names, and the file's header comment does not render.
+        var body = Compose(Outcome("api", "server", PrinciplesMode.Transferred) with { Overlays = ["spark"] });
+
+        body.Should().Contain("framework overlays `spark`").And.Contain("ratify");
+    }
+
+    [Fact]
+    public void InitPullRequestBody_PreservedExisting_NamesNoOverlay()
+    {
+        var body = Compose(Outcome("api", "server", PrinciplesMode.PreservedExisting) with { Overlays = ["spark"] });
+
+        body.Should().NotContain("spark",
+            "a preserved file was not re-composed, so no overlay is in it to ratify");
+        body.Should().Contain("left untouched");
+    }
+
+    [Fact]
+    public void InitPullRequestBody_NoOverlay_KeepsTheCoreAndDeltaSentence()
+    {
+        Compose(Outcome("api", "server", PrinciplesMode.Transferred)).Should().Contain(
+            "transferred from the authored core and language delta; review and merge to ratify them");
+    }
+
     private static string Compose(params BootstrapRoundOutcome[] outcomes) =>
         InitPullRequestBody.Compose(outcomes, "api", Marker);
 

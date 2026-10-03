@@ -20,11 +20,11 @@ internal static class PrinciplesTransferStubs
     public const string CatalogOrigin = "stub-catalog";
 
     public static BootstrapPrinciplesTransfer NoTemplates() =>
-        new(new StubPrinciplesTemplateSource(null), new StubCatalogPath(), Writer(),
+        new(new StubPrinciplesTemplateSource(null), new StubCatalogPath(), Writer(), Detector(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
 
     public static BootstrapPrinciplesTransfer Composing(string composedContent) =>
-        new(new StubPrinciplesTemplateSource(composedContent), new StubCatalogPath(), Writer(),
+        new(new StubPrinciplesTemplateSource(composedContent), new StubCatalogPath(), Writer(), Detector(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
 
     /// <summary>
@@ -36,6 +36,13 @@ internal static class PrinciplesTransferStubs
         new(new Mock<ISandboxFileReaderFactory>().Object,
             NullLogger<BootstrapArtefactWriter>.Instance);
 
+    /// <summary>
+    /// 2026-10-03-cf20c: a real detector. The stub catalogs ship no framework overlay, so it
+    /// returns before it reads anything.
+    /// </summary>
+    public static FrameworkOverlayDetector Detector() =>
+        new(new StubSandboxFileReaderFactory(), NullLogger<FrameworkOverlayDetector>.Instance);
+
     internal sealed class StubCatalogPath : ISkillsCatalogPath
     {
         public string Root => "/stub";
@@ -45,7 +52,9 @@ internal static class PrinciplesTransferStubs
 
     private sealed class StubPrinciplesTemplateSource(string? content) : IPrinciplesTemplateSource
     {
-        public ComposedPrinciples? Compose(string languageSlug) =>
+        public IReadOnlyList<FrameworkOverlay> FrameworkOverlays() => [];
+
+        public ComposedPrinciples? Compose(string languageSlug, IReadOnlyList<string> overlaySlugs) =>
             content is null ? null : new ComposedPrinciples(content, languageSlug, DeltaApplied: true);
     }
 }
