@@ -1042,8 +1042,17 @@ state:
     2026-09-24-3907: "THE ONE RE-PROMPT A FAILED OUTCOME GETS CARRIES ITS CONVERSATION, AND THE REFUSAL NAMES WHAT IS ALLOWED. The retry was a cold call: told not to repeat a draft it no longer held, it invented another key each time. scope is the schema's only closed block. -> .agentsmith/phases/done/2026-09-24-3907-outcome-retry-keeps-the-thread.yaml"
     2026-09-24-81ea: "A RUN THAT FITS THE ROOM KEEPS A CONVERSATION'S HELD SANDBOXES (all three capacity doors ask before they release; hold_seconds declared in schema and example). The probe is taken BEFORE any deletion, so the stale-quota objection to re-probing does not bind. -> .agentsmith/phases/done/2026-09-24-81ea-sandbox-hold-survives-a-run.yaml"
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
-  active: {}
+  active:
+    2026-10-03-cf20a:
+      goal: "Scala principles delta (skills catalog)"
+      blocked-by: "merge of skills PR #210"
+    2026-10-03-cf20b:
+      goal: "Framework overlays and the Spark overlay (skills catalog)"
+      blocked-by: "merge of skills PR #210"
   planned:
+    2026-10-03-cf20c: "INIT COMPOSES FRAMEWORK OVERLAYS (principles composition, init PR). Core, delta and every catalog overlay whose manifest signal matches at the component root; the init PR names them for ratification. -> .agentsmith/phases/planned/2026-10-03-cf20c-principles-overlay-compose.yaml"
+    2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
+    2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
     2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Waits on the release of skills PR #205 (design-partner 1.11.0, coding-agent 1.28.0); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-01-283dk: "THE LEGACY ATTACHMENT TABLE GOES (persistence). Operator-timed: once every replica runs 283da, a final copy pass and the removal of SpecDialogAttachments, its entity, the copy job and the union readers. -> .agentsmith/phases/planned/2026-10-01-283dk-reference-legacy-drop.yaml"
     2026-09-08-a049: "A SHORTFALL'S RECORD SAYS SO; AN ENTRY-SATISFIED PHASE NAMES ITS HEAD (backend). Sliced out of p0439: result.md is written before the delivery is decided, so it reads failed for a delivered shortfall; SelectPhase records an already-satisfied phase done with no sandbox in hand, so no verified head is named. -> .agentsmith/phases/planned/2026-09-08-a049-shortfall-record-entry-heads.yaml"
