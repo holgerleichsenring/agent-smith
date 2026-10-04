@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-04-2bf2: "AN INIT CAN REFRESH PRINCIPLES (transfer, launch, dashboard, CLI). Core, delta and overlays recomposed; the last Project Specifics section copied verbatim; mode Refreshed in sentence, prompt and PR body; InitLaunchRequest to the launcher; an InitOptionChip beside Auto-accept, independent of it; --refresh-principles. -> .agentsmith/phases/done/2026-10-04-2bf2-init-principles-refresh.yaml"
     2026-10-04-8a59: "THE DOCS CATCH UP WITH THE SESSION (docs, plugin 2.4.0). Facts and evidence checks, overlays and the Scala delta, the dialog's evidence findings, the plugin loop create-phase → review-spec → apply-spec → deliver-spec. -> .agentsmith/phases/done/2026-10-04-8a59-docs-session-catchup.yaml"
     2026-10-01-aeb6d: "THE EMBEDDED SKILLS PIN MOVES TO 5.10.0 (embedded skills pin, principles goldens). Tests read documents, subject binding, scenarios, bug criteria, design_read and visual references from the pinned masters; goldens for csharp, scala and scala+spark; overlay fixtures proven equal to the pin. -> .agentsmith/phases/done/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-03-cf20b: "FRAMEWORK OVERLAYS AND A SPARK OVERLAY (skills catalog). OVERLAY-FORMAT.md defines a third layer applied by a declared dependency; spark.md holds only rules Spark documents: closures, accumulators, reduce, broadcast, driver-only context, UDF determinism, window frames, F.lit(None). Skills 5.10.0. -> .agentsmith/phases/done/2026-10-03-cf20b-principles-spark-overlay.yaml"
@@ -1057,6 +1058,7 @@ state:
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
   active: {}
   planned:
+    2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/phases/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/phases/planned/2026-10-02-60ca-decision-file-schema.yaml"

@@ -8,7 +8,8 @@ namespace AgentSmith.Server.Services.Handlers;
 /// Handles the InitProjectIntent through the same launcher the dashboard's init button uses —
 /// admitted, recorded and enqueued in the server — and binds the run to the thread that asked.
 /// Pull requests the run opens stay open: auto-accept is consent given on the click that starts
-/// the run, and a chat command gives none.
+/// the run, and a chat command gives none. Nor does it refresh principles: that, too, is the
+/// launching click's word.
 /// </summary>
 public sealed class InitProjectIntentHandler(
     InitRunLauncher launcher,
@@ -21,7 +22,7 @@ public sealed class InitProjectIntentHandler(
 
     private async Task<ChatLaunchResult> LaunchAsync(InitProjectIntent intent, CancellationToken ct)
     {
-        var launch = await launcher.LaunchAsync(intent.Project, false, ct);
+        var launch = await launcher.LaunchAsync(intent.Project, new InitLaunchRequest(), ct);
         return launch.Outcome == InitLaunchOutcome.Started
             ? ChatLaunchResult.Started(launch.RunId!)
             : ChatLaunchResult.Refused(launch.Reason ?? launch.Outcome.ToString());

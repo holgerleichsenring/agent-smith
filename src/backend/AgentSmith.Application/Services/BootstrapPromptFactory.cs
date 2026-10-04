@@ -126,10 +126,7 @@ internal static class BootstrapPromptFactory
 
         // p0379: the principles file is framework-owned in transfer/preserve
         // mode — the skill writes facts (context.yaml) and requests ratification.
-        var principlesLine = principlesMode == PrinciplesMode.Transferred
-            ? $"`{principlesPath}` is already in place — transferred from the "
-              + "authored universal core plus this component's language delta."
-            : $"`{principlesPath}` already exists and is preserved as ratified.";
+        var principlesLine = BootstrapPrinciplesLine.For(principlesMode, principlesPath);
         return $"""
             {lead}
               - `{contextYamlPath}` — use the `write_context_yaml` tool (NOT write_file;

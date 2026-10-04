@@ -10,5 +10,11 @@ namespace AgentSmith.Server.Services.Init;
 /// to ON and states its choice explicitly; a caller that omits the field never merges
 /// anything by accident.
 /// </para>
+/// <para>
+/// 2026-10-04-2bf2: <c>RefreshPrinciples</c> rides the launch for the same reason — the
+/// operator's word to recompose an existing principles.md on THIS init. The two are
+/// independent; a request that omits it preserves the file.
+/// </para>
 /// </summary>
-public sealed record InitLaunchRequest(bool AutoCompletePullRequests = false);
+public sealed record InitLaunchRequest(
+    bool AutoCompletePullRequests = false, bool RefreshPrinciples = false);

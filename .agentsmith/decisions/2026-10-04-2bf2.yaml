@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-04-2bf2
+
+decisions:
+  - category: Architecture
+    chose: "Refresh is a per-launch bool context key (RefreshPrinciples) read with Flag, riding InitLaunchRequest exactly like auto-accept"
+    over: "A project setting, or coupling refresh to auto-accept (disabling or warning one because of the other)"
+    reason: |
+      A project setting would refresh on every later init nobody meant to refresh. The operator owns the
+      risk and git is the undo, so the two toggles are independent: neither disables, warns or implies
+      the other, in the UI or on the wire.
+  - category: Implementation
+    chose: "The Project Specifics section is the file's LAST '## Project Specifics' heading at a line start through end of file, copied verbatim; it replaces the composition's own placeholder section"
+    over: "Merging rules line by line, or appending the old section after the composed placeholder"
+    reason: |
+      Everything above the heading is catalog text and is regenerated; the section is the operator's.
+      Appending after the placeholder would leave two Project Specifics headings. A file without the
+      heading carries nothing, and the PR body says so.
+  - category: Implementation
+    chose: "Mode Refreshed only when an existing file was recomposed; refresh on a component with no principles.md is an ordinary Transferred"
+    over: "Reporting Refreshed whenever the flag was set"
+    reason: |
+      Refreshed tells the operator a ratified file was REPLACED; claiming that for a first write would be
+      false. ProjectSpecificsKept rides PrinciplesTransferResult and BootstrapRoundOutcome so the round
+      sentence and the PR body can say whether the section survived.
+  - category: Architecture
+    chose: "ResolveComponentLanguage moved to a PipelineContext extension (ComponentLanguage); the refresh write instruction lives in BootstrapPrinciplesLine"
+    over: "Growing BootstrapPrinciplesTransfer (112/120) and the baselined BootstrapPromptFactory"
+    reason: |
+      The ratchet forbids both from growing. The language lookup is a read over pipeline state, the same
+      shape as the extensions beside it; the principles line is a mode-to-sentence switch of its own,
+      and the factory shrank by the three lines it delegated.
+  - category: Implementation
+    chose: "InitRunLauncher.LaunchAsync takes InitLaunchRequest; the chat intent passes an empty request (no auto-accept, no refresh)"
+    over: "A second positional bool"
+    reason: |
+      Two adjacent bools at a call site are a swap waiting to happen. The chat command gives no consent
+      for either option, so it stays at the defaults.
+  - category: Implementation
+    chose: "InitOptionChip extracted with CHIP; both options sit in one role=group labelled 'Initialization options' beside Initialize; refresh defaults OFF"
+    over: "A second inline toggle copied from the first, or an icon-only control"
+    reason: |
+      One component keeps both chips identical in look and behaviour, and keeps every existing
+      auto-accept test id. Refresh replaces a ratified file, so it is off until ticked; auto-accept keeps
+      its p0490 default of on.
+  - category: Scope
+    chose: "The composed header line now says a re-init preserves the file and a refresh keeps the Project Specifics section (three goldens updated)"
+    over: "Leaving 'init-project re-runs preserve this file as-is' in every newly composed file"
+    reason: |
+      With refresh shipped that sentence would be false in every file this phase writes.

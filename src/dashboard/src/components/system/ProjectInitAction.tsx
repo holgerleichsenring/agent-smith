@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { startProjectInit, type LiveInitRun } from "@/lib/projectInitApi";
 import { useProjectInitRun } from "@/hooks/useProjectInitRun";
+import { CHIP, InitOptionChip } from "./InitOptionChip";
 
 // p0489: the operator's Initialize affordance for one project. Two failures,
 // two places, and this must not invent a third: a REFUSED launch answers inline
@@ -29,6 +30,10 @@ import { useProjectInitRun } from "@/hooks/useProjectInitRun";
 // used to live in useState alone, so a navigation away and back showed Initialize beside a
 // running init. The server's live run is read on mount and on every relevant RunsChanged,
 // and it says whether the run waits for a slot, runs, or is being cancelled.
+//
+// 2026-10-04-2bf2: a second option, "Refresh principles", defaults to OFF — it replaces a
+// ratified principles.md (keeping its Project Specifics), and that is the operator's call per
+// launch. The two options are independent: neither disables, warns about or implies the other.
 
 type InitState =
   | { kind: "idle" }
@@ -36,46 +41,30 @@ type InitState =
   | { kind: "started"; runId: string }
   | { kind: "refused"; reason: string };
 
-/** The .pick chip the repo picker established, as inline tokens so the one
- *  definition covers both hosts this renders in — the config card (.mock-config)
- *  and the system project panel (.mock-system). */
-// Longhand throughout, never `border`/`font` shorthand: the checked state overrides
-// borderColor and fontWeight, and React warns that removing a longhand beside a
-// shorthand is how styling bugs start.
-const CHIP: CSSProperties = {
-  fontSize: "12.5px",
-  fontFamily: "var(--mono)",
-  fontWeight: 400,
-  padding: "6px 11px",
-  borderRadius: "9px",
-  borderWidth: "1px",
-  borderStyle: "solid",
-  borderColor: "var(--line)",
-  background: "var(--panel)",
-  color: "var(--ink-2)",
-  cursor: "pointer",
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "7px",
-};
-
 export function ProjectInitAction({ project }: { project: string }) {
   const [state, setState] = useState<InitState>({ kind: "idle" });
   const [autoAccept, setAutoAccept] = useState(true);
+  const [refreshPrinciples, setRefreshPrinciples] = useState(false);
   const { live, refresh } = useProjectInitRun(project);
 
   async function start() {
     setState({ kind: "starting" });
     try {
-      const launch = await startProjectInit(project, { autoCompletePullRequests: autoAccept });
+      const launch = await startProjectInit(project, {
+        autoCompletePullRequests: autoAccept,
+        refreshPrinciples,
+      });
       if (!launch.runId) {
-        setState({ kind: "refused", reason: launch.reason ?? "The initialization could not be started." });
+        setState({
+          kind: "refused",
+          reason: launch.reason ?? "The initialization could not be started.",
+        });
         void refresh();
         return;
       }
       // Once the server has answered, its live run is what shows; without an answer the
       // run this press started is the best knowledge there is.
-      setState(await refresh() ? { kind: "idle" } : { kind: "started", runId: launch.runId });
+      setState((await refresh()) ? { kind: "idle" } : { kind: "started", runId: launch.runId });
     } catch {
       setState({ kind: "refused", reason: "The server could not be reached." });
     }
@@ -88,7 +77,7 @@ export function ProjectInitAction({ project }: { project: string }) {
   const starting = state.kind === "starting";
   return (
     <ActionGroup project={project}>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           data-testid={`project-init-${project}`}
@@ -101,12 +90,32 @@ export function ProjectInitAction({ project }: { project: string }) {
         >
           {starting ? "Initializing…" : "Initialize"}
         </button>
-        <AutoAcceptToggle
-          project={project}
-          checked={autoAccept}
-          disabled={starting}
-          onChange={setAutoAccept}
-        />
+        {/* The options belong to the launch: one labelled group beside the button. */}
+        <div
+          role="group"
+          aria-label="Initialization options"
+          className="flex flex-wrap items-center gap-1.5"
+          data-testid={`project-init-options-${project}`}
+        >
+          <InitOptionChip
+            testId={`project-init-auto-accept-${project}`}
+            boxTestId={`project-init-auto-accept-box-${project}`}
+            title="Merge the pull requests this initialization opens. A branch policy that refuses leaves the pull request open."
+            label="Auto-accept PRs"
+            checked={autoAccept}
+            disabled={starting}
+            onChange={setAutoAccept}
+          />
+          <InitOptionChip
+            testId={`project-init-refresh-principles-${project}`}
+            boxTestId={`project-init-refresh-principles-box-${project}`}
+            title="Regenerate principles.md from the catalog: core, language delta and framework overlays. The Project Specifics section is kept."
+            label="Refresh principles"
+            checked={refreshPrinciples}
+            disabled={starting}
+            onChange={setRefreshPrinciples}
+          />
+        </div>
       </div>
       {state.kind === "refused" && (
         <span
@@ -135,63 +144,6 @@ function ActionGroup({ project, children }: { project: string; children: React.R
   );
 }
 
-function AutoAcceptToggle({
-  project,
-  checked,
-  disabled,
-  onChange,
-}: {
-  project: string;
-  checked: boolean;
-  disabled: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <label
-      title="Merge the pull requests this initialization opens. A branch policy that refuses leaves the pull request open."
-      onClick={(e) => e.stopPropagation()}
-      style={{
-        ...CHIP,
-        ...(checked
-          ? { borderColor: "var(--accent)", background: "var(--accent-wash)", color: "var(--accent)", fontWeight: 600 }
-          : null),
-        ...(disabled ? { opacity: 0.5, cursor: "not-allowed" } : null),
-      }}
-    >
-      <input
-        type="checkbox"
-        className="sr-only"
-        data-testid={`project-init-auto-accept-${project}`}
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      {/* The repo picker's .pk tick box, drawn from the same tokens. */}
-      <span
-        aria-hidden="true"
-        data-testid={`project-init-auto-accept-box-${project}`}
-        style={{
-          width: 15,
-          height: 15,
-          borderRadius: 4,
-          display: "grid",
-          placeItems: "center",
-          fontSize: 10,
-          lineHeight: 1,
-          borderWidth: "1.5px",
-          borderStyle: "solid",
-          borderColor: checked ? "var(--accent)" : "var(--line)",
-          background: checked ? "var(--accent)" : "transparent",
-          color: checked ? "var(--accent-ink)" : "transparent",
-        }}
-      >
-        ✓
-      </span>
-      Auto-accept PRs
-    </label>
-  );
-}
-
 // The server's answer wins. A press whose re-read failed keeps the run it started, shown as
 // running — what the button showed before this read existed.
 function shownRun(state: InitState, live: LiveInitRun | null): LiveInitRun | null {
@@ -212,7 +164,12 @@ function RunningLink({ project, run }: { project: string; run: LiveInitRun }) {
   return (
     <Link
       href={`/jobs/${encodeURIComponent(run.runId)}`}
-      style={{ ...CHIP, borderColor: "var(--accent)", color: "var(--accent)", textDecoration: "none" }}
+      style={{
+        ...CHIP,
+        borderColor: "var(--accent)",
+        color: "var(--accent)",
+        textDecoration: "none",
+      }}
       data-testid={`project-init-running-${project}`}
       data-state={run.state}
       onClick={(e) => e.stopPropagation()}

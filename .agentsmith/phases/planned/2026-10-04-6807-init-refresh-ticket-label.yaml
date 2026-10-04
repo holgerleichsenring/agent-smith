@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-04-6807
+goal: "A ticket that triggers an init can also refresh principles.md: a tracker's configured refresh label on that ticket sets the same flag the dashboard chip sets."
+
+applies_to: "ticket routing (spawn request builder, tracker trigger config), Config Studio, config schema, docs"
+
+requires: [2026-10-04-2bf2]
+
+facts:
+  - claim: "Trigger settings become context keys of a spawned run in one place."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:67-95"
+  - claim: "A tracker's trigger settings are WebhookTriggerConfig, including the label-to-pipeline map."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:12"
+  - claim: "The init preset fetches the ticket before the bootstrap rounds."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.InitProject.cs:22"
+
+assumptions:
+  - claim: "SpawnRequestBuilder can see the envelope's labels where it builds the initial context."
+    check: "Open BuildInitialContext and its callers before writing the steps."
+
+scope:
+  in: >
+    WebhookTriggerConfig.RefreshPrinciplesLabel (optional). When an init-project run is spawned from a ticket carrying
+    that label, the initial context sets ContextKeys.RefreshPrinciples. The field reaches config schema, example,
+    Config Studio's tracker form and the routing-word collision rule; docs name it.
+  out: >
+    A refresh token in the ticket body — routing words are configured, never hard-coded.
+
+decisions:
+  - key: "THE SAME FLAG. A ticket sets what the chip sets; the transfer cannot tell where the choice came from, and need not."
+
+steps:
+  - id: config
+    action: "Config field, schema, example, Studio form, collision rule."
+  - id: spawn
+    action: "SpawnRequestBuilder sets the flag when the label is on the ticket."
+
+tests:
+  - "SpawnRequestBuilder_InitTicketWithRefreshLabel_SetsRefreshPrinciples"
+  - "RoutingWordCollisionRule_RefreshLabelCollidingWithAFrameworkLabel_IsRefused"
+
+done:
+  - "a ticket with the init label and the refresh label refreshes principles.md"

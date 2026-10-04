@@ -13,4 +13,8 @@ public enum PrinciplesMode
 
     /// <summary>A principles file already exists — ratified content is never overwritten on re-init.</summary>
     PreservedExisting,
+
+    /// <summary>2026-10-04-2bf2: the operator asked for a refresh — an existing file was
+    /// recomposed from the catalog and its Project Specifics section carried over verbatim.</summary>
+    Refreshed,
 }

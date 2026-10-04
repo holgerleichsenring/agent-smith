@@ -34,7 +34,8 @@ public static class QueuedRunRecoveryHarness
                 services.AddSingleton(queue);
             });
 
-    /// <summary>What InitRunLauncher does once admitted: the queued row, then the dispatch.</summary>
+    /// <summary>What InitRunLauncher does once admitted: the queued row, then the dispatch —
+    /// with the same two launch flags in the request's context.</summary>
     public static async Task LaunchInitAsync(RealCompositionHarness harness, string runId, bool autoComplete)
     {
         await using (var scope = harness.Services.CreateAsyncScope())
@@ -42,7 +43,11 @@ public static class QueuedRunRecoveryHarness
                 .CreateQueuedRunAsync(runId, Project, "init-project", ["repo"], "starting", CancellationToken.None);
         await harness.Services.GetRequiredService<QueuedRunDispatch>().DispatchAsync(
             new PipelineRequest(Project, "init-project", IsInit: true, Headless: true, RunId: runId,
-                Context: new Dictionary<string, object> { [ContextKeys.AutoCompletePullRequests] = autoComplete }),
+                Context: new Dictionary<string, object>
+                {
+                    [ContextKeys.AutoCompletePullRequests] = autoComplete,
+                    [ContextKeys.RefreshPrinciples] = false,
+                }),
             CancellationToken.None);
     }
 

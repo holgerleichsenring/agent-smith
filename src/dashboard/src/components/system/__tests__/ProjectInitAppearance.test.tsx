@@ -15,6 +15,9 @@ vi.mock("@/lib/projectInitApi", () => ({
 
 const box = () => screen.getByTestId("project-init-auto-accept-box-sample");
 const input = () => screen.getByTestId("project-init-auto-accept-sample") as HTMLInputElement;
+const refreshBox = () => screen.getByTestId("project-init-refresh-principles-box-sample");
+const refreshInput = () =>
+  screen.getByTestId("project-init-refresh-principles-sample") as HTMLInputElement;
 
 describe("ProjectInitAction appearance", () => {
   it("AutoAcceptToggle_Checked_CarriesTheStudioAccentToken", () => {
@@ -62,5 +65,41 @@ describe("ProjectInitAction appearance", () => {
 
     expect(screen.getByTestId("project-init-sample")).toBeInTheDocument();
     expect(screen.getByTestId("project-init-auto-accept-sample")).toBeInTheDocument();
+  });
+
+  // 2026-10-04-2bf2: the refresh chip is the same component, so it wears the same tokens.
+  it("RefreshPrinciplesChip_DefaultsOff_AndWearsTheAccentOnlyWhenTicked", () => {
+    render(<ProjectInitAction project="sample" />);
+
+    expect(refreshInput().checked).toBe(false);
+    expect(refreshBox().getAttribute("style")).not.toContain("var(--accent)");
+
+    fireEvent.click(refreshInput());
+
+    expect(refreshInput().checked).toBe(true);
+    expect(refreshBox().getAttribute("style")).toContain("var(--accent)");
+  });
+
+  it("InitOptions_BothChips_FormOneLabelledGroupInsideTheAction", () => {
+    render(<ProjectInitAction project="sample" />);
+
+    const options = screen.getByRole("group", { name: "Initialization options" });
+    expect(options).toContainElement(input());
+    expect(options).toContainElement(refreshInput());
+    expect(screen.getByTestId("project-init-group-sample")).toContainElement(options);
+    expect(refreshInput().closest("label")?.getAttribute("title")).toMatch(
+      /core, language delta and framework overlays.*Project Specifics section is kept/,
+    );
+  });
+
+  it("InitOptions_TickingOne_NeverDisablesTheOther", () => {
+    render(<ProjectInitAction project="sample" />);
+
+    fireEvent.click(refreshInput());
+    expect(input().disabled).toBe(false);
+    expect(input().checked).toBe(true);
+    fireEvent.click(input());
+    expect(refreshInput().disabled).toBe(false);
+    expect(refreshInput().checked).toBe(true);
   });
 });

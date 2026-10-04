@@ -1,6 +1,8 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Extensions;
 
@@ -58,5 +60,25 @@ public static class PipelineContextExtensions
         all ??= [];
         all.Add(outcome);
         pipeline.Set(ContextKeys.BootstrapOutcomes, all);
+    }
+
+    /// <summary>
+    /// The language whose delta a component's principles compose: the per-component language
+    /// from discovery wins; the repository-level ProjectMap primary language is the fallback
+    /// for pre-discovery fixtures.
+    /// </summary>
+    public static string ComponentLanguage(
+        this PipelineContext pipeline, string repoName, string contextName, ProjectMap projectMap)
+    {
+        if (pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+                ContextKeys.DiscoveredComponents, out var perRepo) && perRepo is not null
+            && perRepo.TryGetValue(repoName, out var components) && components is not null)
+        {
+            var component = components.FirstOrDefault(
+                c => string.Equals(c.Name, contextName, StringComparison.OrdinalIgnoreCase));
+            if (component is not null && !string.IsNullOrWhiteSpace(component.Language))
+                return component.Language;
+        }
+        return projectMap.PrimaryLanguage ?? string.Empty;
     }
 }

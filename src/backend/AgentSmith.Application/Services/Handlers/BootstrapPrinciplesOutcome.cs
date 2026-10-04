@@ -29,6 +29,15 @@ internal static class BootstrapPrinciplesOutcome
             PrinciplesMode.PreservedExisting =>
                 $"{displayName} [Bootstrap]: context.yaml written; coding principles "
                 + "preserved (ratified content is never overwritten)",
+            // 2026-10-04-2bf2: the operator asked for this replacement on the launch.
+            PrinciplesMode.Refreshed =>
+                $"{displayName} [Bootstrap]: context.yaml written; coding principles "
+                + "refreshed from the authored core+delta"
+                + string.Concat(transfer.Overlays.Select(o => $"+{o}"))
+                + (transfer.ProjectSpecificsKept
+                    ? " with the Project Specifics carried over"
+                    : " (no Project Specifics section to carry over)")
+                + " (operator ratifies via the init PR)",
             _ => throw new ArgumentOutOfRangeException(
                 nameof(transfer), transfer.Mode, "SkillWrites is reported by SkillWroteThem"),
         } + RenameNote(retiredRenamed);
