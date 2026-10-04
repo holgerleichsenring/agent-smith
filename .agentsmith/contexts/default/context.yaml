@@ -78,6 +78,11 @@ integrations:
 
 state:
   done:
+    2026-10-03-cf20b: "FRAMEWORK OVERLAYS AND A SPARK OVERLAY (skills catalog). OVERLAY-FORMAT.md defines a third layer applied by a declared dependency; spark.md holds only rules Spark documents: closures, accumulators, reduce, broadcast, driver-only context, UDF determinism, window frames, F.lit(None). Skills 5.10.0. -> .agentsmith/phases/done/2026-10-03-cf20b-principles-spark-overlay.yaml"
+    2026-10-03-cf20a: "A SCALA PRINCIPLES DELTA (skills catalog). Only rules a Scala source states: companion and sealed share a file, typed public methods, override, equals with hashCode, NonFatal, no return in lambdas, no ???; no size number. Skills 5.10.0. -> .agentsmith/phases/done/2026-10-03-cf20a-principles-scala-delta.yaml"
+    2026-10-02-3f06e: "THE PLUGIN RUNS THE LOOP (spec-first 2.3.0, PR #11). review-spec runs an evidence script and a fresh reviewer; create-phase commits the spec in a worktree; ship-phase runs verify:, commits and opens the PR; parse cases shared with EvidenceReferences. -> .agentsmith/phases/done/2026-10-02-3f06e-plugin-review-ship.yaml"
+    2026-10-02-3f06d: "THE PLUGIN SHIPS 2.2.0 (spec-first PR #10). Date-minted ids beside wide counter ids, the spec budget, scope/facts/assumptions in its schema, verification and review in step 5, migration rows; #8 and #9 superseded. -> .agentsmith/phases/done/2026-10-02-3f06d-plugin-pr-landing.yaml"
+    p0494: "A VERBATIM CITATION OF A SHORTENED COMMAND RESOLVES (spec accounting). Shipped in a3616abbf; the spec stayed in active/ unrecorded until 2026-10-04. -> .agentsmith/phases/done/p0494-citation-verbatim-resolves.yaml"
     2026-10-03-cf20c: "INIT COMPOSES FRAMEWORK OVERLAYS (principles composition, init PR). Each catalog overlay whose manifest signal matches at the component workdir renders after the delta; header and intro name it only then, so no-overlay output is unchanged; the PR body names it for ratification. -> .agentsmith/phases/done/2026-10-03-cf20c-principles-overlay-compose.yaml"
     2026-10-02-3f06g: "THE C# DELTA DROPS THE BASE-CLASS LINE LIMIT (skills catalog). Skills #209 moved the sentence to abstractions without the 30 lines; released in 5.9.0 together with #207, not as 5.8.1; aeb6d pins it. -> .agentsmith/phases/done/2026-10-02-3f06g-csharp-delta-base-class.yaml"
     2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Each fact's cited file is read in the turn's repositories, routed by prefix; an unopened scope or failed read is not checked; the panel shows facts and assumptions. -> .agentsmith/phases/done/2026-10-02-3f06c-proposal-evidence-check.yaml"
@@ -1048,24 +1053,10 @@ state:
     2026-09-24-3907: "THE ONE RE-PROMPT A FAILED OUTCOME GETS CARRIES ITS CONVERSATION, AND THE REFUSAL NAMES WHAT IS ALLOWED. The retry was a cold call: told not to repeat a draft it no longer held, it invented another key each time. scope is the schema's only closed block. -> .agentsmith/phases/done/2026-09-24-3907-outcome-retry-keeps-the-thread.yaml"
     2026-09-24-81ea: "A RUN THAT FITS THE ROOM KEEPS A CONVERSATION'S HELD SANDBOXES (all three capacity doors ask before they release; hold_seconds declared in schema and example). The probe is taken BEFORE any deletion, so the stale-quota objection to re-probing does not bind. -> .agentsmith/phases/done/2026-09-24-81ea-sandbox-hold-survives-a-run.yaml"
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
-  active:
-    2026-10-03-cf20a:
-      goal: "Scala principles delta (skills catalog)"
-      blocked-by: "merge of skills PR #210"
-    2026-10-03-cf20b:
-      goal: "Framework overlays and the Spark overlay (skills catalog)"
-      blocked-by: "merge of skills PR #210"
+  active: {}
   planned:
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
-    2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Waits on the release of skills PR #205 (design-partner 1.11.0, coding-agent 1.28.0); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
-    2026-10-02-3f06d:
-      goal: "Plugin 2.2.0: date-minted ids, budget, premise keys"
-      blocked-by: "merge of spec-first PR #10"
-    2026-10-02-3f06e:
-      goal: "Plugin 2.3.0: review-spec, ship-phase, worktree per phase"
-      blocked-by: "merge of spec-first PR #11 (stacked on #10)"
-  planned:
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/phases/planned/2026-10-02-60ca-decision-file-schema.yaml"
     2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Pins the newest skills release (5.9.0+: #205, 3f06g; later cf20a/b); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-01-283dk: "THE LEGACY ATTACHMENT TABLE GOES (persistence). Operator-timed: once every replica runs 283da, a final copy pass and the removal of SpecDialogAttachments, its entity, the copy job and the union readers. -> .agentsmith/phases/planned/2026-10-01-283dk-reference-legacy-drop.yaml"

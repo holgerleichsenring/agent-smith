@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-03-cf20a
+
+decisions:
+  - category: Scope
+    chose: "Only rules a Scala source states as rules; Spark's 100 columns and 10 parameters left to the project's formatter and linter"
+    over: "Adopting Apache Spark's scalastyle configuration wholesale"
+    reason: |
+      Spark's config is one project's lint (license header, SparkFunSuite, Spark-internal bans).
+      scalafmt's default width is 80; a team configured at 120 would rightly reject a delta that
+      fights its formatter.
+  - category: Scope
+    chose: "No method, class or file line limit in the Scala delta"
+    over: "The Databricks Rule of 30 or Palantir's 250/70"
+    reason: |
+      Both are stated 'in general', and Spark ships its own length checks disabled. A number
+      without a source is how the 30-line base-class limit happened; 2026-10-03-24d4 measures.
+  - category: Implementation
+    chose: "println, throwing an Error and locale-free case conversion allowed behind a visible suppression"
+    over: "Forbidding them outright"
+    reason: |
+      Spark's own rules carry an explicit escape (scalastyle:off <id>); a deliberate use stays
+      possible when the reader can see it was deliberate.
