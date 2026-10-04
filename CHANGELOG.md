@@ -1,5 +1,42 @@
 # Changelog
 
+## [0.155.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.154.0...v0.155.0) (2026-10-04)
+
+
+### Features
+
+* a design proposal shows each fact whose cited file or line does not exist (2026-10-02-3f06c) ([d12d31f](https://github.com/holgerleichsenring/agent-smith/commit/d12d31f9eff4148f7988263e5f30c1fb31927428))
+* a pending chat confirmation lives in the database and a stale click answers (2026-10-02-5ab2d) ([e638e4f](https://github.com/holgerleichsenring/agent-smith/commit/e638e4fa164a10ae7d0cfbd9ed88c4de1f28afc1))
+* a picked folder is shown and chosen before it is sent (2026-10-02-075db) ([78f83ff](https://github.com/holgerleichsenring/agent-smith/commit/78f83ff8978983cf6365fab6e79646504565a067))
+* a queued run's request is kept on its row and recovered when Redis loses it (2026-10-02-5ab2b) ([a61226c](https://github.com/holgerleichsenring/agent-smith/commit/a61226c04fdaa696f7fd62c83ed8dcbf8e114f66))
+* an init can refresh principles.md, recomposing core, delta and overlays and keeping Project Specifics (2026-10-04-2bf2) ([50e534a](https://github.com/holgerleichsenring/agent-smith/commit/50e534afc086aa2c3ffcb45b86ed54428d2ac3a2))
+* an upload keeps every authored file (2026-10-02-075da) ([46c56d5](https://github.com/holgerleichsenring/agent-smith/commit/46c56d5451530743773b9be429480eaa3047c8a2))
+* an upload keeps what the model worked out about it (2026-10-02-075dd) ([0bb35f2](https://github.com/holgerleichsenring/agent-smith/commit/0bb35f202beac3caf846d834ed0343c9d0822de7))
+* connection discovery state lives in the database, not Redis (2026-10-02-5ab2a) ([5c840fd](https://github.com/holgerleichsenring/agent-smith/commit/5c840fda5d45e8dab28eba49a3e924744a48d363))
+* every fact of a planned phase cites evidence that resolves (2026-10-02-3f06b) ([ca47eed](https://github.com/holgerleichsenring/agent-smith/commit/ca47eedcd7f24e3470c7577dc4655be203e03543))
+* init can refresh principles.md, keeping Project Specifics (2026-10-04-2bf2) ([b7678be](https://github.com/holgerleichsenring/agent-smith/commit/b7678be8f4629facfe6d29ed40a0354656a0066b))
+* init composes framework overlays; Scala delta and Spark overlay planned in (2026-10-03-cf20) ([f9270cc](https://github.com/holgerleichsenring/agent-smith/commit/f9270ccd26c2f6f23ffb750337c010e23acb7c6c))
+* init composes the framework overlays a component's manifest declares (2026-10-03-cf20c) ([5c39d78](https://github.com/holgerleichsenring/agent-smith/commit/5c39d78889c559573cb3fffab82d2a7bc3835b8c))
+* spec facts are checked mechanically; the plugin carries the loop (2026-10-02-3f06) ([d59d891](https://github.com/holgerleichsenring/agent-smith/commit/d59d891ba54f610626cdeee54808eaad7295416d))
+* the design partner runs commands in an upload's own container (2026-10-02-075dc) ([9311855](https://github.com/holgerleichsenring/agent-smith/commit/93118553d45722449849adf49b9aa1aa19f39774))
+* the embedded skills pin moves to v5.10.0 and tests read the [#205](https://github.com/holgerleichsenring/agent-smith/issues/205) rules from it (2026-10-01-aeb6d) ([56fa9ee](https://github.com/holgerleichsenring/agent-smith/commit/56fa9ee6786986a663c42388188f62a4362482ee))
+* the embedded skills pin moves to v5.10.0 and tests read the [#205](https://github.com/holgerleichsenring/agent-smith/issues/205) rules from it (2026-10-01-aeb6d) ([c3f2ab3](https://github.com/holgerleichsenring/agent-smith/commit/c3f2ab37729905f5c10418bb8b235065723c9978))
+* the last webhook per platform lives in the database, not Redis (2026-10-02-5ab2e) ([490e97f](https://github.com/holgerleichsenring/agent-smith/commit/490e97f60b144c3ab2cb905c4c1439f8e77a2982))
+* the phase-spec schema declares the premise keys specs already write (2026-10-02-3f06a) ([9bc83aa](https://github.com/holgerleichsenring/agent-smith/commit/9bc83aa6d29d1ea9a143953191ea08e782d434aa))
+* the plugin's evidence cases are this reader's too; the plugin phases go active (2026-10-02-3f06d, 2026-10-02-3f06e) ([b03b9ac](https://github.com/holgerleichsenring/agent-smith/commit/b03b9ac7f60f5b00c72ef834fb7d93ea749a9f68))
+* uploads are material the design partner can read, run and note (2026-10-02-075da-d) ([5c7d745](https://github.com/holgerleichsenring/agent-smith/commit/5c7d745126caf61471d03c3cb2cd0bab96cd8025))
+
+
+### Bug Fixes
+
+* a sandbox command no longer sees the step bus (2026-10-02-35b2) ([c65c40a](https://github.com/holgerleichsenring/agent-smith/commit/c65c40a5cfbfc13948daee8e05861cc50dc1ee41))
+* a sandbox command no longer sees the step bus (2026-10-02-35b2) ([4e87a4b](https://github.com/holgerleichsenring/agent-smith/commit/4e87a4bd52e22446909a04aad4a3c84072a3e7b0))
+* a website folder pick works and a refused upload says why (2026-10-02-0d72) ([7d31b60](https://github.com/holgerleichsenring/agent-smith/commit/7d31b609523d3df4c655d10c2bbedeb5c1d60697))
+* a website folder uploads, non-site files are skipped and named, refusals show inline (2026-10-02-0d72) ([7402607](https://github.com/holgerleichsenring/agent-smith/commit/7402607dc456968eed1c2eed6ce1cbbd392c6048))
+* after a Redis flush the active-run set is re-seeded from the database (2026-10-02-5ab2c) ([63fb564](https://github.com/holgerleichsenring/agent-smith/commit/63fb5641352995e0d64d9f9cb1d64cb0f35f3b2c))
+* sandbox job keys expire, run markdown lives in the DB only, pipeline_storage retired (2026-10-02-5ab2f) ([e7ebcfa](https://github.com/holgerleichsenring/agent-smith/commit/e7ebcfa6c873187b8791e269c722c933fce4f994))
+* the base-class line limit nobody chose leaves this repository (2026-10-02-3f06f) ([d0473bf](https://github.com/holgerleichsenring/agent-smith/commit/d0473bf3a7e511ffe5e271e46efceae7da5b9900))
+
 ## [0.154.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.153.0...v0.154.0) (2026-10-02)
 
 
