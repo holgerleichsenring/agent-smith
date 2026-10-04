@@ -87,6 +87,23 @@ done:
 
 Every reader — the run's acceptance contract, the execution prompt, the filed ticket — sees the scenario as the one line `GIVEN a stored widget WHEN the repository reads it back THEN the same widget is returned`.
 
+### Facts and assumptions
+
+A spec states what it rests on. A **fact** is something the author read in the code, and its `evidence` says where; an **assumption** is something the spec depends on that nobody opened a file to confirm, with how to check it:
+
+```yaml
+facts:
+  - claim: "The transfer never overwrites an existing principles.md."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:67-75"
+  - claim: "Spark disables its own method-length check."
+    evidence: "observed: apache/spark scalastyle-config.xml, read 2026-10-03"
+assumptions:
+  - claim: "Dialog drafts cite paths the way this repository's specs do."
+    check: "Read stored proposals before building."
+```
+
+Evidence is checked mechanically, not by a model: every cited path must be a file that exists, every cited line must lie inside it, and evidence that is not a file — a log, a scan, a conversation — starts with `observed:` and carries its date. A citation of a planned or active phase is refused; a plan is not evidence. This repository's test suite holds every phase in `planned/` to that, and a new date-minted phase has to state at least one fact. In the product, a design proposal gets the same check against the turn's repositories (see [Spec dialogue](../../how-it-works/spec-dialogue.md)).
+
 ### Phase Tracking in context.yaml
 
 The `state` section in `context.yaml` tracks all phases:

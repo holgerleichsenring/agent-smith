@@ -25,7 +25,7 @@ With no `skills:` block, Agent Smith unpacks the catalog embedded in the binary.
 │   └── <skill-name>/                 # a non-master skill
 │       └── SKILL.md
 ├── references/                       # shared text a body cites with {{ref:<name>}}
-├── principles/                       # core.md + deltas/<language>.md
+├── principles/                       # core.md, deltas/<language>.md, frameworks/<framework>.md
 └── patterns/                         # static-pattern rules for security-scan
 ```
 
