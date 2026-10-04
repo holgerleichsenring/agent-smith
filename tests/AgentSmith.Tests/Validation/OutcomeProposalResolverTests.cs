@@ -245,6 +245,24 @@ public sealed class OutcomeProposalResolverTests
             .Which.Error.Should().Contain("child #1").And.Contain("p9000a").And.Contain("'done:'");
     }
 
+    /// <summary>
+    /// 2026-10-02-3f06a: an epic child is re-serialized before it is validated, and the schema
+    /// now types a fact's evidence and an assumption as strings. A quoted number must come back
+    /// quoted, or a child the model wrote correctly is refused for a type it never wrote.
+    /// </summary>
+    [Fact]
+    public void EpicOutcomeParser_ChildWithFactsAndQuotedNumber_StaysValid()
+    {
+        var resolution = _resolver.Resolve(EpicReply(child1Requires:
+            "facts: [{claim: \"the port is fixed\", evidence: \"42\"}]\n    "
+            + "assumptions: [\"true\", {claim: \"7\", check: \"3.5\"}]"));
+
+        var epic = resolution.Should().BeOfType<OutcomeResolved>()
+            .Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
+        epic.Children[0].Facts.Should().ContainSingle().Which.Evidence.Should().Be("42");
+        epic.Children[0].Assumptions.Should().Equal("true", "7");
+    }
+
     private static string EpicReply(
         string? child1Requires = null, string? child2Requires = null,
         string child1Done = "done: [\"a widget is stored\"]") =>

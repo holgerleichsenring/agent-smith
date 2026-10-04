@@ -267,6 +267,17 @@ export interface SpecDialogPhaseProposal {
   requires: string[];
   /** The spec as the master wrote it — the raw form the reply no longer carries. */
   yaml: string;
+  /** 2026-10-02-3f06c: what the phase rests on — each fact with the evidence it cites. Optional,
+   *  because a proposal stored before it was carried has none. */
+  facts?: SpecDialogPhaseFact[];
+  /** 2026-10-02-3f06c: what the phase states without having looked. */
+  assumptions?: string[];
+}
+
+/** 2026-10-02-3f06c: one fact a drafted phase states, with the evidence it cites. */
+export interface SpecDialogPhaseFact {
+  claim: string;
+  evidence: string;
 }
 
 /** The bug ticket a bug outcome would file — body exactly as the filer composes it. */

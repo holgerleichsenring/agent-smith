@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-02-3f06d
+goal: "The spec-first plugin ships 2.2.0: the spec budget, date-minted ids beside users' counter ids, a review before commit, and a schema accepting scope, facts and assumptions."
+
+applies_to: "spec-first plugin repository (skills, templates, examples, README, manifests); one comment in agent-smith's PhaseIdSchemaTests"
+
+requires: [2026-10-02-3f06a]
+
+facts:
+  - claim: "create-phase on main mints the next counter id from every context's state sections, e.g. p42 → p43."
+    evidence: "spec-first:skills/create-phase/SKILL.md:13-15"
+  - claim: "The plugin's phase schema allows '^p\\d+[a-z]?$', closes its top level and caps goal at 200; its decision pattern is '^p[0-9a-z]+…'."
+    evidence: "spec-first:templates/phase-spec.schema.json:8,13,19; spec-first:templates/decision.schema.json:17"
+  - claim: "PR #9 (spec budget) is open and mergeable, rewrites create-phase step 1 to date-minted ids — which main's schema rejects — and tells users not to restate the goal in scope:, a key the plugin schema lacks."
+    evidence: "observed: gh pr view 9 and gh pr diff 9, 2026-10-02"
+  - claim: "PR #8 carries ships_code (b34ce6a) and the id change f907c20, which narrows counter ids to p\\d{4,6}, has no series letter, and cherry-picks cleanly onto main, conflicting with #9 only in create-phase."
+    evidence: "observed: gh pr diff 8, git cherry and git merge-tree in the plugin repository, 2026-10-02"
+  - claim: "0d94245 makes step 5 a full verification run and adds a principles review as a new step 6, renumbering to eleven steps."
+    evidence: "observed: git show 0d94245 in the plugin repository, 2026-10-02; spec-first:skills/execute-phase/SKILL.md:3"
+  - claim: "agent-smith's commit gate matches the phase id in parentheses, counter ids p[0-9]+ included."
+    evidence: ".claude/hooks/phase-gate.sh:74-75"
+  - claim: "agent-smith's PhaseIdSchemaTests says a plugin release must be diffed against its 4-6 digit counter literal."
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseIdSchemaTests.cs:75-84"
+  - claim: "update-project tells users to create decisions/p-meta-update.yaml, an id neither decision pattern accepts; its table ends at 2.1.0."
+    evidence: "spec-first:skills/update-project/SKILL.md:21,35-44,183-189"
+  - claim: "Counter-id wording and the version live in README (6 skills, p{NN} layout), examples/agent-smith/prompt.md, prompt.md, bootstrap and the manifests; the bootstrap example states a 30-line base-class limit."
+    evidence: "spec-first:README.md:18,224-232; spec-first:examples/agent-smith/prompt.md:7,21,27; spec-first:skills/bootstrap-project/SKILL.md:81; spec-first:.claude-plugin/marketplace.json:9,19; spec-first:skills/bootstrap-project/example-coding-principles.md:74,105"
+
+assumptions:
+  - claim: "The operator wants #8 and #9 landed through this branch, and the plugin checkout's unpushed ships_code commit and uncommitted pattern change discarded."
+    check: "Asked 2026-10-02; nothing is merged, closed or discarded before the answer."
+
+scope:
+  in: >
+    One branch from main, one commit with its own message: #9's diff, f907c20 applied with 'cherry-pick -n' taking #9's
+    step 1. Both schemas' phase pattern '^(?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$';
+    update-project's meta-decision id becomes a date-minted one; series-letter guidance restored; README, examples and
+    prompts valid. The phase schema stays closed and the plugin's (goal 200, generic text) and gains scope {in, out},
+    facts and assumptions in 3f06a's shapes; create-phase writes facts after opening the cited file, an empty list in a
+    greenfield project. execute-phase step 5 becomes 'full verification, then a principles review' — still ten
+    steps, message form '({id})'. Bootstrap example loses the base-class limit. 2.2.0 in plugin.json, marketplace.json
+    (both), the context template, bootstrap and update-project, whose rows from 0.0.0, 1.x, 2.0.x and 2.1.x end at
+    2.2.0 with both schemas replaced. #8 and #9 closed pointing at the PR. agent-smith's PhaseIdSchemaTests comment
+    says the plugin's counter branch is deliberately wide.
+  out: >
+    review-spec, ship-phase, the worktree and the commit owner — 2026-10-02-3f06e.
+
+decisions:
+  - key: "THE COUNTER BRANCH STAYS WIDE. Users minted p42 because the plugin told them to; agent-smith's 4-6 digits would invalidate every spec they hold."
+  - key: "ONE RELEASE, ONE COMMIT. #9 alone leaves main minting ids its schema rejects; the premise keys alone would need a second migration row users can skip."
+  - key: "THE REVIEW JOINS STEP 5. A new step renumbers the workflow 3f06e rewrites anyway; ten steps stay ten."
+  - key: "DERIVED, NOT COPIED. agent-smith's schema would hand plugin users a 2000-character goal, product prose and no typo detection; they need its premise keys' shapes."
+
+steps:
+  - id: branch
+    action: "Branch, apply #9 and f907c20 unstaged, resolve, set both patterns, meta-decision id, series letters, README, examples, prompts."
+  - id: schema
+    action: "scope, facts, assumptions in the phase schema; create-phase section."
+  - id: verify
+    action: "Step 5 gains 0d94245's verification and review text without renumbering."
+  - id: release
+    action: "Bootstrap example, 2.2.0 everywhere, migration rows; PR; close #8 and #9; reset the checkout to origin/main."
+  - id: agent-smith
+    action: "Reword the PhaseIdSchemaTests comment."
+
+tests:
+  - "uvx check-jsonschema: phase 'p42', 'p0001', 'p0131c-pre', '2026-10-02-3f06d-plugin-pr-landing' valid; a spec with scope, facts and {claim, check} assumptions valid; a fact with an extra key invalid; every template, example and the repository's own phases valid"
+
+done:
+  - "plugin main at 2.2.0: date-minted ids, counter ids still valid, a spec with facts validates, execute-phase verifies and reviews before commit"

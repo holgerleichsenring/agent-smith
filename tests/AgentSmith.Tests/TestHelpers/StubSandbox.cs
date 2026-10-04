@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// Run-commands fire one stdout line via progress so handlers that
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
-internal sealed class StubSandbox : IHoldableSandbox
+internal sealed class StubSandbox(IReadOnlySet<string>? missingPaths = null) : IHoldableSandbox
 {
     public string JobId { get; } = "stub-" + Guid.NewGuid().ToString("N")[..8];
     public List<Step> RanSteps { get; } = new();
@@ -48,6 +48,12 @@ internal sealed class StubSandbox : IHoldableSandbox
                 StepEvent.CurrentSchemaVersion, step.StepId,
                 StepEventKind.Stdout, "stub stdout", DateTimeOffset.UtcNow));
         }
+        // 2026-10-02-3f06c: a path the test declared missing answers as the real reader does.
+        if (step.Kind == StepKind.ReadFile && step.Path is { } missing
+            && missingPaths?.Contains(Normalize(missing)) == true)
+            return Task.FromResult(new StepResult(
+                StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: false,
+                DurationSeconds: 0.01, ErrorMessage: StepErrors.FileNotFound(missing), OutputContent: null));
         var output = step.Kind switch
         {
             StepKind.ListFiles => DefaultListing(step.Path),

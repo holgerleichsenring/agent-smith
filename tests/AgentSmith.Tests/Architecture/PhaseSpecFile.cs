@@ -59,6 +59,14 @@ internal sealed partial class PhaseSpecFile
     /// <summary>Null when the file is not parseable YAML at all.</summary>
     public JsonNode? Document => _document.Value;
 
+    /// <summary>2026-10-02-3f06b: the state directory the file sits in — planned, active or done.</summary>
+    public string State => System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(Path)) ?? string.Empty;
+
+    /// <summary>2026-10-02-3f06b: a non-empty facts list. Null and [] state nothing.</summary>
+    public bool StatesFacts => States(Document);
+
+    internal static bool States(JsonNode? document) => document?["facts"] is JsonArray { Count: > 0 };
+
     public int GoalLength => (Document?["goal"] as JsonValue)?.GetValue<string>()?.Length ?? 0;
 
     public static IReadOnlyList<PhaseSpecFile> All() =>

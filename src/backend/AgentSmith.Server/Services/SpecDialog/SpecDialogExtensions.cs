@@ -45,8 +45,6 @@ internal static class SpecDialogExtensions
         services.AddTransient<SpecDialogOutcomeConfirmer>();
         services.AddTransient<PhaseTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
-        // 2026-09-17-0e79d: the order is the approved SET's — one run works the slices in it.
-        services.AddTransient<EpicChildOrderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
         // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
         services.AddScoped<FiledWorkTagger>();

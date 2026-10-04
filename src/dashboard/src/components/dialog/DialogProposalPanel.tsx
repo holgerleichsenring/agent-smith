@@ -18,9 +18,9 @@ import type {
 // the work ticket carrying the whole approved set, and each slice is a record beside it. So
 // "waits for" names the edge the cut declared, not a ticket held in a queue behind another.
 //
-// There is deliberately no "what it had to assume" section: the design-partner master's
-// phase template emits neither facts nor assumptions, so one would be blank on every draft
-// this conversation can produce.
+// 2026-10-02-3f06c: what a phase rests on is shown under its plan — each fact with the evidence
+// it cites, then what it states without having looked. The partner writes both now, and a
+// finding that a citation does not resolve is only readable beside the fact it is against.
 //
 // 2026-09-17-c7aed: the raw form is one disclosure under the structure, as it will be filed.
 //
@@ -125,7 +125,27 @@ function Sections({ phase, withoutRequires }: { phase: SpecDialogPhaseProposal; 
       <Lines label="Tests" items={phase.tests} mono />
       <Lines label="Done when" items={phase.done} />
       {!withoutRequires && <Lines label="Waits for" items={phase.requires} />}
+      <RestsOn phase={phase} />
+      <Lines label="Assumed, not looked at" items={phase.assumptions ?? []} />
     </>
+  );
+}
+
+function RestsOn({ phase }: { phase: SpecDialogPhaseProposal }) {
+  const facts = phase.facts ?? [];
+  if (facts.length === 0) return null;
+  return (
+    <div className="mt-2" data-testid={`dialog-proposal-facts-${phase.phaseId}`}>
+      <Label>Rests on</Label>
+      <ul className="ml-4 list-disc dsh-body text-ink">
+        {facts.map((fact) => (
+          <li key={`${fact.claim}|${fact.evidence}`}>
+            {fact.claim}
+            {fact.evidence && <div className="font-mono dsh-mono text-body">{fact.evidence}</div>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

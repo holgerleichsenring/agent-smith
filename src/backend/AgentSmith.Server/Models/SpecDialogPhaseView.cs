@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -15,4 +17,12 @@ public sealed record SpecDialogPhaseView(
     IReadOnlyList<string> Tests,
     IReadOnlyList<string> Done,
     IReadOnlyList<string> Requires,
-    string Yaml);
+    string Yaml)
+{
+    /// <summary>2026-10-02-3f06c: what the phase rests on — each fact with the evidence it cites.
+    /// Not a constructor parameter, so the dashboard type gains an optional field.</summary>
+    public IReadOnlyList<PhaseFact> Facts { get; init; } = [];
+
+    /// <summary>2026-10-02-3f06c: what the phase states without having looked.</summary>
+    public IReadOnlyList<string> Assumptions { get; init; } = [];
+}

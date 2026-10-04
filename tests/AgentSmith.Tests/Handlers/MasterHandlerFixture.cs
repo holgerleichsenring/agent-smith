@@ -53,6 +53,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
                 Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
             new NoOpTicketDocumentMaterializer(),

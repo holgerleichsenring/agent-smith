@@ -103,6 +103,50 @@ public sealed partial class SpecDialogOutcomeTests
         other.Findings.Should().BeEmpty("nothing was said about p8888");
     }
 
+    // 2026-10-02-3f06c: the proposal's cited files are read without a model call, through the turn's
+    // own scope — opened here by the master's read, as a real turn opens it. A missing file is a
+    // finding; an existing path cited with the repository prefix and no lines is none.
+    [Fact]
+    public async Task SpecDialogOutcome_ProposalCitingAMissingFile_CarriesTheFinding()
+    {
+        await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
+        // Missing under both readings a single repository's path is tried at — stripped of the
+        // repository name and as written — because the stub answers every other path with a file.
+        harness.StubSandboxFactory!.MissingPaths.UnionWith(["src/Gone.cs", $"{Repo}/src/Gone.cs"]);
+        harness.ChatClient
+            .EnqueueToolCall("read_file", $$"""{"path": "{{Repo}}/src/Router.cs"}""")
+            .EnqueueText($"Here is the phase draft:\n{CitingDraft}");
+
+        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+
+        var finding = result.Outcome.Should().BeOfType<PhaseOutcome>()
+            .Which.Findings.Should().ContainSingle().Subject;
+        finding.Problem.Should().Be(AgentSmith.Application.Services.SpecDialog.ProposalEvidenceReview.Problem);
+        finding.Quote.Should().Be("the widget handler already exists");
+        finding.Why.Should().Be($"not a file (missing, or a directory): {Repo}/src/Gone.cs");
+        finding.Evidence.Should().BeNull();
+    }
+
+    private const string CitingDraft =
+        $$"""
+        ```yaml
+        phase: p9999
+        goal: "Add a widget endpoint to the sample service"
+        facts:
+          - claim: "the router dispatches every request"
+            evidence: "{{Repo}}/src/Router.cs"
+          - claim: "the widget handler already exists"
+            evidence: "{{Repo}}/src/Gone.cs:12"
+        steps:
+          - id: impl
+            action: "Add the widget endpoint + handler"
+        tests:
+          - "Widget_Get_ReturnsWidget"
+        done:
+          - "GET /widget returns the widget"
+        ```
+        """;
+
     private static HarnessSpecCutReviewer Reviewer(RealCompositionHarness harness) =>
         harness.Services.GetRequiredService<HarnessSpecCutReviewer>();
 }

@@ -40,6 +40,93 @@
         }
       ]
     },
+    "applies_to": {
+      "type": "string",
+      "description": "What the phase touches, in a line: the context, area or components it applies to. Written by the phase's author; the dominant context a reader opens first."
+    },
+    "contexts": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "The contexts this phase changes. Written by the derivation from the list the scope call named; a hand-written spec may declare them too.",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string",
+          "description": "A single context"
+        }
+      ]
+    },
+    "facts": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "description": "What the author LOOKED UP before writing, each claim beside the evidence it cites. Written by the derivation (evidence is the minted look line, e.g. '[L3] api: …'), by the design-partner master and by hand (a path with lines, or a dated observation). An empty list says the phase rests on no looked-up fact; null says nothing, as an absent key does.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "claim",
+          "evidence"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The fact, stated as a sentence"
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Where it was seen. A string here: telling a minted line, a path reference and an observation apart needs the repository, which a schema does not have."
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "A single assumption"
+        },
+        {
+          "type": [
+            "array",
+            "null"
+          ],
+          "description": "What the author stated WITHOUT a look behind it. Written as strings by the derivation and the design-partner master; hand-written specs also write {claim, check}, where check says how the premise could be tested. Null says nothing, as an absent key does.",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "claim"
+                ],
+                "properties": {
+                  "claim": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "The premise"
+                  },
+                  "check": {
+                    "type": "string",
+                    "description": "How to test the premise; not itself a claim"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
     "scope": {
       "type": "object",
       "description": "Explicit in/out boundaries for this phase. Use to record what is deliberately deferred or rejected.",

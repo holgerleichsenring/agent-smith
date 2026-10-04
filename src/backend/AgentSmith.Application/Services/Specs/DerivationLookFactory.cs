@@ -94,7 +94,15 @@ public sealed class DerivationLookFactory(
     /// are dropped — and 2026-10-01-283dc an uploaded website under <see cref="ReferenceScopeName.Prefix"/> too. No audit: every entry is a read-only source scope that runs no command.
     /// Null when the turn has no repository, and the review is the text-against-text one.
     /// </summary>
-    public DerivationLook? ForProposalReview(PipelineContext pipeline)
+    public DerivationLook? ForProposalReview(PipelineContext pipeline) =>
+        ProposalRepositories(pipeline) is { } repositories
+            ? new DerivationLook(repositories, files, ecosystems, logger, templates: null,
+                DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity)
+            : null;
+
+    /// <summary>2026-10-02-3f06c: the turn's repositories as the proposal review reads them, one
+    /// filter for the look and the evidence probe alike. Null when the turn holds none.</summary>
+    public static IReadOnlyDictionary<string, ISandbox>? ProposalRepositories(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
@@ -103,9 +111,6 @@ public sealed class DerivationLookFactory(
             .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)
                 && !entry.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal)) // 283dc
             .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
-        return repositories.Count == 0
-            ? null
-            : new DerivationLook(repositories, files, ecosystems, logger, templates: null,
-                DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity);
+        return repositories.Count == 0 ? null : repositories;
     }
 }
