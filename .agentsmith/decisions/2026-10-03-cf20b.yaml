@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-03-cf20b
+
+decisions:
+  - category: Architecture
+    chose: "A third principles layer — framework overlays applied by a declared dependency in the component's manifest"
+    over: "Spark rules inside the Scala and Python deltas, or detection from ProjectMap.Frameworks"
+    reason: |
+      Spark's correctness rules hold in Scala and Python alike; ProjectMap.Frameworks is
+      repository-wide free text and would hand Spark rules to a dashboard sharing the repo.
+  - category: Scope
+    chose: "Only rules Spark's documentation states; data-size advice, taste and version-bound helpers out"
+    over: "Palantir's full style guide"
+    reason: |
+      toPandas on a small frame is fine; a rule that cannot see the data size is not a rule.
+      how= and backslash continuations are taste; assertDataFrameEqual needs Spark 3.5.
+  - category: Implementation
+    chose: "F.lit(None) for an empty column, without a mandated cast"
+    over: "F.lit(None).cast(<type>)"
+    reason: |
+      The cast rested on NullType write failures that differ by Spark version and are accepted
+      on master; a version-dependent behaviour is not a rule.
