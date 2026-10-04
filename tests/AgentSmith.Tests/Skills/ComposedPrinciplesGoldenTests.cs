@@ -38,6 +38,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
     [InlineData("csharp")]
     [InlineData("rust")]
     [InlineData("typescript")]
+    [InlineData("scala")]
     public async Task Compose_EveryStack_MatchesTheCheckedInGolden(string slug)
     {
         var composed = (await SourceAsync()).Compose(slug, []);
@@ -51,17 +52,34 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
 
     // 2026-10-03-cf20c: overlays are a third layer, and composing with none — or asking for one
     // the pinned catalog does not ship — must leave every stack's bytes exactly where they were.
+    // 2026-10-01-aeb6d: the absent overlay is "flink" since the pin moved to v5.10.0, which ships
+    // spark — and spark's all-languages section applies to a C# component too.
     [Theory]
     [InlineData("csharp", false)]
     [InlineData("rust", false)]
     [InlineData("typescript", false)]
+    [InlineData("scala", false)]
     [InlineData("csharp", true)]
     public async Task CatalogPrinciples_NoOverlay_MatchesTheEmbeddedGoldens(string slug, bool requestAbsentOverlay)
     {
-        var composed = (await SourceAsync()).Compose(slug, requestAbsentOverlay ? ["spark"] : [])!;
+        var composed = (await SourceAsync()).Compose(slug, requestAbsentOverlay ? ["flink"] : [])!;
 
         composed.Content.Should().Be(Golden(slug));
         composed.Overlays.Should().BeEmpty();
+    }
+
+    // 2026-10-01-aeb6d: one golden per framework overlay the pin ships, composed onto a stack it
+    // is detected in — the overlay's rendered sections are bytes a component's principles carry.
+    [Theory]
+    [InlineData("scala", "spark")]
+    public async Task Compose_EveryOverlay_MatchesTheCheckedInGolden(string slug, string overlay)
+    {
+        var composed = (await SourceAsync()).Compose(slug, [overlay]);
+
+        composed.Should().NotBeNull($"the pinned catalog must carry a '{slug}' delta");
+        composed!.Overlays.Should().Equal(overlay);
+        composed.Content.Should().Be(Golden($"{slug}-{overlay}"),
+            $"composing '{slug}' with the '{overlay}' overlay must produce the checked-in bytes");
     }
 
     [Fact]
@@ -78,6 +96,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
     [InlineData("csharp")]
     [InlineData("rust")]
     [InlineData("typescript")]
+    [InlineData("scala")]
     public async Task EveryDelta_DeclaresNoArtefacts(string slug)
     {
         // 2026-09-20-b5af: the C# delta used to declare an .editorconfig and a
@@ -115,6 +134,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
     [InlineData("csharp")]
     [InlineData("rust")]
     [InlineData("typescript")]
+    [InlineData("scala")]
     public async Task EmbeddedCatalog_EveryDelta_DeclaresItsArtefactsSection(string slug)
     {
         // 2026-09-13-fcc1 made the section mandatory in the catalog's own validator. This is the

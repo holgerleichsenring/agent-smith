@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Skills;
 using AgentSmith.Tests.Architecture;
+using AgentSmith.Tests.Prompts;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Moq;
@@ -9,8 +10,9 @@ namespace AgentSmith.Tests.Skills;
 
 /// <summary>
 /// 2026-10-03-cf20c: the third layer of the composed principles. The fixtures are copies of the
-/// catalog's spark overlay and scala delta (skills PR #210), because the embedded tarball the
-/// goldens read carries neither.
+/// catalog's spark overlay and scala delta (skills PR #210), composed in a scratch catalog the
+/// malformed-file case can write into; since 2026-10-01-aeb6d the pin ships both, and
+/// <see cref="Fixtures_MatchThePinnedCatalog"/> keeps the copies from drifting off it.
 /// </summary>
 public sealed class FrameworkOverlayCompositionTests : IDisposable
 {
@@ -75,6 +77,16 @@ public sealed class FrameworkOverlayCompositionTests : IDisposable
 
         CreateSut().Compose("scala", ["flink"])!.Content.Should().Be(plain.Content);
         plain.Content.Should().Contain("composed=core+scala status").And.NotContain("Framework Overlay");
+    }
+
+    [Theory]
+    [InlineData("scala.md", "principles/deltas/scala.md")]
+    [InlineData("spark.md", "principles/frameworks/spark.md")]
+    public void Fixtures_MatchThePinnedCatalog(string fixture, string catalogPath)
+    {
+        File.ReadAllText(Fixture(fixture)).Should().Be(PackagedMaster.ReadEntry(catalogPath),
+            $"the fixture stands in for the pinned {PackagedMaster.Pin} file; a pin move that "
+            + "changes it must carry the copy along");
     }
 
     private static string Fixture(string name) =>

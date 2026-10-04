@@ -4,7 +4,7 @@ goal: "The embedded skills pin moves to the release carrying skills PR #205, and
 
 applies_to: "backend (embedded skills pin)"
 
-requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c", "2026-10-01-f5c3b", "2026-10-01-7f7af", "2026-10-01-283dj", "2026-10-02-3f06g"]
+requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c", "2026-10-01-f5c3b", "2026-10-01-7f7af", "2026-10-01-283dj", "2026-10-02-3f06g", "2026-10-03-cf20c"]
 
 facts:
   - claim: "The tarball, SkillsCatalogVersion and SkillsCatalogSha256 move together and the build verifies them."
@@ -13,9 +13,15 @@ facts:
     evidence: "tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs"
   - claim: "Skills PR #205 carries design-partner-master 1.11.0 and coding-agent-master 1.28.0: documents, subject binding, scenario criteria, listed bug criteria, design_read, visual references and source precedence rule 4."
     evidence: "observed: agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd), 2026-10-01"
+  - claim: "Skills 5.8.0 carries #205, 5.9.0 adds #207 and the C# delta without its base-class limit (masters 1.12.0 and 1.29.0), 5.10.0 adds the Scala delta and the Spark overlay; 5.10.0 is the newest release."
+    evidence: "observed: gh release list and the 5.8.0, 5.9.0 and 5.10.0 tarballs of holgerleichsenring/agent-smith-skills, 2026-10-04"
+  - claim: "An overlay golden composes a delta with an overlay through Compose(language, overlays)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:25"
+  - claim: "The overlay test fixtures are copies of the catalog's scala delta and spark overlay."
+    evidence: "tests/AgentSmith.Tests/Skills/FrameworkOverlayCompositionTests.cs"
 
 scope:
-  in: "Skills PR #205 shipped in 5.8.0. The pin moves to the newest skills release when this phase runs (5.9.0 or later: 5.9.0 also carries 2026-10-02-3f06g, the C# delta without its base-class line limit, and a later one the Scala delta and Spark overlay of 2026-10-03-cf20a/b); tests read every rule #205 added from the pinned masters, and the composed principles goldens are regenerated, with one added per new delta or overlay."
+  in: "The pin moves to v5.10.0, the newest skills release (#205 from 5.8.0, 3f06g from 5.9.0, cf20a/b from 5.10.0); tests read every rule #205 added from the pinned masters; the composed principles goldens are regenerated, with one added per new delta (scala) and overlay (scala+spark); the overlay fixtures are proven equal to the pinned files."
   out: "The skill text — written by 2026-10-01-aeb6b, aeb6c, f5c3b, 7f7af and 283dj."
 
 decisions:
@@ -35,6 +41,8 @@ tests:
   - "EmbeddedSkills_DesignPartnerMaster_ListsBugCriteria"
   - "EmbeddedSkills_Masters_DescribeDesignRead"
   - "EmbeddedSkills_Masters_BuildAgainstVisualReferences"
+  - "Compose_EveryOverlay_MatchesTheCheckedInGolden"
+  - "Fixtures_MatchThePinnedCatalog"
 
 done:
   - "the embedded masters carry every rule skills PR #205 added"

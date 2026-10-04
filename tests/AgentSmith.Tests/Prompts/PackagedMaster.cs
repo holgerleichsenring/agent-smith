@@ -28,10 +28,15 @@ internal static class PackagedMaster
 
     internal static string Read(string name) => Read(Catalog, name);
 
-    internal static string Read(EmbeddedSkillsCatalog catalog, string name)
+    internal static string Read(EmbeddedSkillsCatalog catalog, string name) =>
+        ReadEntry(catalog, $"skills/_masters/{name}/SKILL.md");
+
+    /// <summary>Any file of the pinned catalog by its path inside the tarball.</summary>
+    internal static string ReadEntry(string path) => ReadEntry(Catalog, path);
+
+    private static string ReadEntry(EmbeddedSkillsCatalog catalog, string path)
     {
         ArgumentNullException.ThrowIfNull(catalog);
-        var path = $"skills/_masters/{name}/SKILL.md";
 
         using var tarball = catalog.Open();
         using var gz = new GZipStream(tarball, CompressionMode.Decompress);
@@ -47,7 +52,6 @@ internal static class PackagedMaster
         }
 
         throw new InvalidOperationException(
-            $"'{path}' not found in the embedded skills catalog {catalog.Version} — " +
-            "every coding pipeline loads that master at runtime.");
+            $"'{path}' not found in the embedded skills catalog {catalog.Version}.");
     }
 }
