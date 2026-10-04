@@ -65,13 +65,13 @@ public sealed class BootstrapRoundHandler(
         // writes facts (context.yaml) only. Pre-p0379 catalogs keep SkillWrites.
         var (_, principlesPath) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
         var transfer = await principlesTransfer.ApplyAsync(
-            pipeline, sandbox, context.RepoName, context.ContextName, projectMap,
+            pipeline, sandbox, context.RepoName, context.ContextName, context.Workdir, projectMap,
             principlesPath, existing.Principles, cancellationToken);
         if (transfer.Error is not null) return CommandResult.Fail(transfer.Error);
         // 2026-09-15-c6e9: the round's facts reach the init pull request, which is the one
         // artefact a human opens. Appended, not set: one round per component.
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
-            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts));
+            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays));
         var (system, user) = BootstrapPromptFactory.Build(
             role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
             existing.ContextYaml, existing.Principles, transfer.Mode);

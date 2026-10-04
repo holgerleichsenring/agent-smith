@@ -19,8 +19,12 @@ public sealed class CatalogPrinciplesTemplateSource(
 {
     private readonly PrinciplesCatalogLayout _layout = new(catalogPath);
 
-    public ComposedPrinciples? Compose(string languageSlug)
+    public IReadOnlyList<FrameworkOverlay> FrameworkOverlays() =>
+        _layout.Directory() is { } dir ? new FrameworkOverlayCatalog(dir, logger).List() : [];
+
+    public ComposedPrinciples? Compose(string languageSlug, IReadOnlyList<string> overlaySlugs)
     {
+        ArgumentNullException.ThrowIfNull(overlaySlugs);
         var principlesDir = _layout.Directory();
         if (principlesDir is null)
         {
@@ -48,9 +52,12 @@ public sealed class CatalogPrinciplesTemplateSource(
         var (rendered, artefacts) = delta is null
             ? (null, (IReadOnlyList<PrinciplesArtefact>)[])
             : DeltaArtefactSection.Split(delta);
-        var content = Render(File.ReadAllText(corePath), rendered, slug);
+        // 2026-10-03-cf20c: an overlay's language section is the one the delta's own slug names.
+        var overlays = new FrameworkOverlayCatalog(principlesDir, logger).Render(overlaySlugs, slug);
+        var content = Render(File.ReadAllText(corePath), rendered, slug, overlays);
         return new ComposedPrinciples(
-            content, slug, DeltaApplied: delta is not null, Artefacts: artefacts);
+            content, slug, DeltaApplied: delta is not null, Artefacts: artefacts,
+            Overlays: overlays.Applied);
     }
 
     // Free-form discovery slugs that mean the same delta file. Unknown slugs
@@ -69,20 +76,28 @@ public sealed class CatalogPrinciplesTemplateSource(
 
     // Deterministic by construction: pure concatenation of the template
     // files — no timestamps, no run identity. Two repos of the same stack
-    // compose byte-identically and differ only by ratified project-specifics.
-    private static string Render(string core, string? delta, string slug)
+    // compose byte-identically and differ only by ratified project-specifics. 2026-10-03-cf20c:
+    // every overlay part is empty when none applied, so such a composition is unchanged.
+    private static string Render(
+        string core, string? delta, string slug,
+        (IReadOnlyList<string> Applied, IReadOnlyList<string> Sections) overlays)
     {
-        var deltaSection = delta is not null
+        var deltaSection = (delta is not null
             ? delta.TrimEnd()
             : $"_No language delta exists for '{slug}' yet — the universal core applies; "
-              + "mechanisms follow the language's documented conventions._";
+              + "mechanisms follow the language's documented conventions._")
+            + string.Concat(overlays.Sections.Select(o => $"\n\n---\n\n{o}"));
+        var composed = string.Concat(overlays.Applied.Select(o => $"+{o}"));
+        var named = overlays.Applied.Count == 0 ? string.Empty
+            : " It adds the framework overlays " + string.Join(", ", overlays.Applied.Select(o => $"'{o}'"))
+              + ", which the component's manifest declares.";
         return $"""
             # Coding Principles
 
-            <!-- agentsmith:principles composed=core+{slug} status=proposed -->
+            <!-- agentsmith:principles composed=core+{slug}{composed} status=proposed -->
 
             Transferred by init-project from the authored universal core plus the
-            '{slug}' language delta. RATIFY by reviewing this file in the init pull
+            '{slug}' language delta.{named} RATIFY by reviewing this file in the init pull
             request and merging it. Project-specific rules go under "Project
             Specifics" below; init-project re-runs preserve this file as-is.
 

@@ -23,7 +23,9 @@ internal static class BootstrapPrinciplesOutcome
         {
             PrinciplesMode.Transferred =>
                 $"{displayName} [Bootstrap]: context.yaml written; coding principles "
-                + "transferred from the authored core+delta (operator ratifies via the init PR)",
+                + "transferred from the authored core+delta"
+                + string.Concat(transfer.Overlays.Select(o => $"+{o}")) // 2026-10-03-cf20c
+                + " (operator ratifies via the init PR)",
             PrinciplesMode.PreservedExisting =>
                 $"{displayName} [Bootstrap]: context.yaml written; coding principles "
                 + "preserved (ratified content is never overwritten)",

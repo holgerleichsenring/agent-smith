@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-03-cf20c: "INIT COMPOSES FRAMEWORK OVERLAYS (principles composition, init PR). Each catalog overlay whose manifest signal matches at the component workdir renders after the delta; header and intro name it only then, so no-overlay output is unchanged; the PR body names it for ratification. -> .agentsmith/phases/done/2026-10-03-cf20c-principles-overlay-compose.yaml"
     2026-10-02-3f06g: "THE C# DELTA DROPS THE BASE-CLASS LINE LIMIT (skills catalog). Skills #209 moved the sentence to abstractions without the 30 lines; released in 5.9.0 together with #207, not as 5.8.1; aeb6d pins it. -> .agentsmith/phases/done/2026-10-02-3f06g-csharp-delta-base-class.yaml"
     2026-10-02-3f06c: "A DESIGN PROPOSAL SHOWS EVIDENCE THAT DOES NOT RESOLVE (spec dialog, dashboard). Each fact's cited file is read in the turn's repositories, routed by prefix; an unopened scope or failed read is not checked; the panel shows facts and assumptions. -> .agentsmith/phases/done/2026-10-02-3f06c-proposal-evidence-check.yaml"
     2026-10-02-3f06b: "A PLANNED FACT CITES WHAT RESOLVES (spec evidence, architecture tests). EvidenceReferences + EvidenceCheck with a policy and an async probe; each planned path a file, each line inside it, else a dated observed:; date-minted planned phases state facts, 60 baselined. -> .agentsmith/phases/done/2026-10-02-3f06b-spec-evidence-check.yaml"
@@ -1048,6 +1049,16 @@ state:
     2026-09-24-81ea: "A RUN THAT FITS THE ROOM KEEPS A CONVERSATION'S HELD SANDBOXES (all three capacity doors ask before they release; hold_seconds declared in schema and example). The probe is taken BEFORE any deletion, so the stale-quota objection to re-probing does not bind. -> .agentsmith/phases/done/2026-09-24-81ea-sandbox-hold-survives-a-run.yaml"
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
   active:
+    2026-10-03-cf20a:
+      goal: "Scala principles delta (skills catalog)"
+      blocked-by: "merge of skills PR #210"
+    2026-10-03-cf20b:
+      goal: "Framework overlays and the Spark overlay (skills catalog)"
+      blocked-by: "merge of skills PR #210"
+  planned:
+    2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
+    2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
+    2026-10-01-aeb6d: "ONE PIN MOVE CARRIES THE SESSION'S SKILLS (embedded skills pin). Waits on the release of skills PR #205 (design-partner 1.11.0, coding-agent 1.28.0); tests read documents, subject binding, scenarios, design_read and visual references from the pin. -> .agentsmith/phases/planned/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-02-3f06d:
       goal: "Plugin 2.2.0: date-minted ids, budget, premise keys"
       blocked-by: "merge of spec-first PR #10"

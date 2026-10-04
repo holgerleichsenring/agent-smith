@@ -43,7 +43,7 @@ public sealed class PrinciplesTemplateContentTests
         // core + .NET delta were lifted from. Every anchor must characterize
         // today's file AND survive into the composed core+csharp output.
         var today = File.ReadAllText(OwnPrinciplesPath());
-        var composed = NewTemplateSource().Compose("csharp")!.Content.Replace("*", string.Empty);
+        var composed = NewTemplateSource().Compose("csharp", [])!.Content.Replace("*", string.Empty);
 
         var anchors = new[]
         {
@@ -109,8 +109,8 @@ public sealed class PrinciplesTemplateContentTests
         // Two independent source instances model two repos of the same stack:
         // the composition is deterministic — byte-identical — and the only
         // place repos may diverge is the ratified Project Specifics section.
-        var first = NewTemplateSource().Compose("csharp");
-        var second = NewTemplateSource().Compose("csharp");
+        var first = NewTemplateSource().Compose("csharp", []);
+        var second = NewTemplateSource().Compose("csharp", []);
 
         first.Should().NotBeNull();
         first!.Content.Should().Be(second!.Content);
@@ -125,8 +125,8 @@ public sealed class PrinciplesTemplateContentTests
         if (!PrinciplesTemplatesAvailable()) return;
 
         var source = NewTemplateSource();
-        source.Compose("C#")!.Content.Should().Be(source.Compose("csharp")!.Content);
-        source.Compose("dotnet")!.LanguageSlug.Should().Be("csharp");
+        source.Compose("C#", [])!.Content.Should().Be(source.Compose("csharp", [])!.Content);
+        source.Compose("dotnet", [])!.LanguageSlug.Should().Be("csharp");
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class PrinciplesTemplateContentTests
     {
         if (!PrinciplesTemplatesAvailable()) return;
 
-        var composed = NewTemplateSource().Compose("cobol");
+        var composed = NewTemplateSource().Compose("cobol", []);
 
         composed.Should().NotBeNull("the universal core applies to every language");
         composed!.DeltaApplied.Should().BeFalse();

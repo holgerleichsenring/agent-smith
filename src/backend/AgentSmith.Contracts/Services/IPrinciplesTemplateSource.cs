@@ -11,9 +11,17 @@ namespace AgentSmith.Contracts.Services;
 public interface IPrinciplesTemplateSource
 {
     /// <summary>
-    /// Composes core + the delta for <paramref name="languageSlug"/>. Returns
-    /// null when the resolved catalog does not ship the core template (older
-    /// catalog pins) — callers then keep the pre-p0379 behavior.
+    /// 2026-10-03-cf20c: the framework overlays the resolved catalog ships, each with the
+    /// signals that apply it. Empty when the catalog carries none; a malformed overlay file is
+    /// left out, because a wrongly applied overlay is a wrong mandate.
     /// </summary>
-    ComposedPrinciples? Compose(string languageSlug);
+    IReadOnlyList<FrameworkOverlay> FrameworkOverlays();
+
+    /// <summary>
+    /// Composes core + the delta for <paramref name="languageSlug"/> + each overlay in
+    /// <paramref name="overlaySlugs"/> (2026-10-03-cf20c; required, so no caller forgets
+    /// detection by accident). Returns null when the resolved catalog does not ship the core
+    /// template (older catalog pins) — callers then keep the pre-p0379 behavior.
+    /// </summary>
+    ComposedPrinciples? Compose(string languageSlug, IReadOnlyList<string> overlaySlugs);
 }

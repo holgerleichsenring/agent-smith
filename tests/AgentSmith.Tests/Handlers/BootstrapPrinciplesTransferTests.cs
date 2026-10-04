@@ -12,7 +12,9 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Core.Services.Skills;
 using AgentSmith.Sandbox.Wire;
+using AgentSmith.Tests.Architecture;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
@@ -150,7 +152,7 @@ public sealed class BootstrapPrinciplesTransferTests
         var transfer = PrinciplesTransferStubs.NoTemplates();
 
         var result = await transfer.ApplyAsync(
-            NewPipeline(new StubSandbox()), new StubSandbox(), "monorepo", "server",
+            NewPipeline(new StubSandbox()), new StubSandbox(), "monorepo", "server", "server",
             new ProjectMap("csharp", [], [], [], [], new Conventions(null, null, null), new CiConfig(false, null, null, null)),
             PrinciplesPath, existingPrinciples: null, CancellationToken.None);
 
@@ -188,15 +190,16 @@ public sealed class BootstrapPrinciplesTransferTests
     {
         string? seenSlug = null;
         var templates = new Mock<IPrinciplesTemplateSource>();
-        templates.Setup(t => t.Compose(It.IsAny<string>()))
-            .Returns((string slug) =>
+        templates.Setup(t => t.FrameworkOverlays()).Returns([]);
+        templates.Setup(t => t.Compose(It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>()))
+            .Returns((string slug, IReadOnlyList<string> _) =>
             {
                 seenSlug = slug;
                 return new ComposedPrinciples(ComposedContent, slug, DeltaApplied: true);
             });
         var transfer = new BootstrapPrinciplesTransfer(
             templates.Object, new PrinciplesTransferStubs.StubCatalogPath(),
-            PrinciplesTransferStubs.Writer(),
+            PrinciplesTransferStubs.Writer(), PrinciplesTransferStubs.Detector(),
             NullLogger<BootstrapPrinciplesTransfer>.Instance);
         var handler = NewHandler(new CapturedPrompt(), transfer);
         var pipeline = NewPipeline(new StubSandbox());
@@ -213,6 +216,88 @@ public sealed class BootstrapPrinciplesTransferTests
             CancellationToken.None);
 
         seenSlug.Should().Be("rust", "the per-component discovery language wins over the repo-level map");
+    }
+
+    [Fact]
+    public async Task BootstrapPrinciplesTransfer_SparkComponent_WritesCoreDeltaAndOverlay()
+    {
+        // 2026-10-03-cf20c: the whole path — catalog overlays, the round's workdir, the manifest
+        // read, the written file and the pull request that asks for ratification.
+        var catalog = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            var transfer = SparkTransfer(catalog, "jobs/build.sbt", "\"org.apache.spark\" %% \"spark-sql\"");
+            var sandbox = new StubSandbox();
+            var pipeline = NewPipeline(sandbox);
+            pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<DiscoveredComponent>>>(
+                ContextKeys.DiscoveredComponents,
+                new Dictionary<string, IReadOnlyList<DiscoveredComponent>>(StringComparer.Ordinal)
+                {
+                    ["monorepo"] = [new DiscoveredComponent("server", "jobs", "scala", "jobs/build.sbt")],
+                });
+
+            var result = await NewHandler(new CapturedPrompt(), transfer).ExecuteAsync(
+                new BootstrapRoundContext(BootstrapSkill.Name, "monorepo", new AgentConfig(), pipeline,
+                    ContextName: "server", Workdir: "jobs"),
+                CancellationToken.None);
+
+            result.IsSuccess.Should().BeTrue(result.Message);
+            sandbox.RanSteps.Single(s => s.Kind == StepKind.WriteFile && s.Path == PrinciplesPath)
+                .Content.Should().Contain("composed=core+scala+spark")
+                .And.Contain("# Scala Delta").And.Contain("# Framework Overlay: spark");
+            InitPullRequestBody.Compose(pipeline, "monorepo", "<!-- marker -->")
+                .Should().Contain("`spark`", "the operator ratifies the overlay the body names");
+        }
+        finally
+        {
+            if (Directory.Exists(catalog)) Directory.Delete(catalog, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BootstrapPrinciplesTransfer_PreservedExisting_CarriesNoOverlay()
+    {
+        var catalog = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            var result = await SparkTransfer(catalog, "build.sbt", "org.apache.spark").ApplyAsync(
+                NewPipeline(new StubSandbox()), new StubSandbox(), "monorepo", "server", ".",
+                NewMap("scala"), PrinciplesPath, existingPrinciples: "RATIFIED", CancellationToken.None);
+
+            result.Mode.Should().Be(PrinciplesMode.PreservedExisting);
+            result.Overlays.Should().BeEmpty("a preserved file was not re-composed");
+        }
+        finally
+        {
+            if (Directory.Exists(catalog)) Directory.Delete(catalog, recursive: true);
+        }
+    }
+
+    private static BootstrapPrinciplesTransfer SparkTransfer(string catalog, string manifest, string content)
+    {
+        var principles = Path.Combine(catalog, "principles");
+        Directory.CreateDirectory(Path.Combine(principles, "deltas"));
+        Directory.CreateDirectory(Path.Combine(principles, "frameworks"));
+        File.WriteAllText(Path.Combine(principles, "core.md"), "# Core\n\nCORE RULES\n");
+        var fixtures = Path.Combine(ArchitectureSources.TestSourceRoot, "Skills", "Fixtures", "FrameworkOverlays");
+        File.Copy(Path.Combine(fixtures, "scala.md"), Path.Combine(principles, "deltas", "scala.md"));
+        File.Copy(Path.Combine(fixtures, "spark.md"), Path.Combine(principles, "frameworks", "spark.md"));
+        var catalogPath = new Mock<ISkillsCatalogPath>();
+        catalogPath.Setup(p => p.Root).Returns(catalog);
+        catalogPath.Setup(p => p.Origin).Returns("test catalog");
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, CancellationToken _) => path == manifest ? content : null);
+        reader.Setup(r => r.ListAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var readers = new Mock<ISandboxFileReaderFactory>();
+        readers.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
+        return new BootstrapPrinciplesTransfer(
+            new CatalogPrinciplesTemplateSource(
+                catalogPath.Object, NullLogger<CatalogPrinciplesTemplateSource>.Instance),
+            catalogPath.Object, PrinciplesTransferStubs.Writer(),
+            new FrameworkOverlayDetector(readers.Object, NullLogger<FrameworkOverlayDetector>.Instance),
+            NullLogger<BootstrapPrinciplesTransfer>.Instance);
     }
 
     private static BootstrapRoundHandler NewHandler(
