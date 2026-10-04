@@ -63,7 +63,7 @@ gates do the heavy lifting.
 | `.agentsmith/phases/{planned,active,done}/` | the backlog as a state machine, 1,070 schema validated specs |
 | `.agentsmith/decisions/p{NNNN}.yaml` | one file per phase, every entry naming what got chosen, what it beat, and why |
 | `.agentsmith/memory/` | 33 ratified behavioural rules, each traceable to a real correction |
-| spec-first plugin | the workflow as a callable tool, so it gets invoked rather than interpreted |
+| spec-first plugin | the workflow as callable skills — `create-phase`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
 | `.claude/hooks/phase-gate.sh` | the blocking commit gate |
 | `hooks/pre-commit` | a gate that lives outside the agent entirely |
 
@@ -100,6 +100,8 @@ behind it, some concrete thing that had already gone wrong once.
 | `StartupThrowInventory` | every startup path throw is accounted for | p0391a ruled on it, and p0393 found the next one in a file p0391a had already probed |
 | `DependencyPinning` | a guard fires | `--frozen-lockfile \|\| pnpm install` guarantees it never can |
 | `PhaseRecord` | the phase record matches what the repository did | nine shipped phases were still sitting in `active/` |
+| `PhaseEvidence` | every fact of a planned phase cites a file that exists, with lines inside it, or a dated observation | review rounds kept finding citations one line too late, past the end of a file, or of a directory |
+| `PhaseFacts` | a new phase states what it read before it was written | specs written from the plan instead of the code were refused at the root, every time |
 
 ### The ratchet
 

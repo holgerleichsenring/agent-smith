@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-04-8a59: "THE DOCS CATCH UP WITH THE SESSION (docs, plugin 2.4.0). Facts and evidence checks, overlays and the Scala delta, the dialog's evidence findings, the plugin loop create-phase → review-spec → apply-spec → deliver-spec. -> .agentsmith/phases/done/2026-10-04-8a59-docs-session-catchup.yaml"
     2026-10-01-aeb6d: "THE EMBEDDED SKILLS PIN MOVES TO 5.10.0 (embedded skills pin, principles goldens). Tests read documents, subject binding, scenarios, bug criteria, design_read and visual references from the pinned masters; goldens for csharp, scala and scala+spark; overlay fixtures proven equal to the pin. -> .agentsmith/phases/done/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
     2026-10-03-cf20b: "FRAMEWORK OVERLAYS AND A SPARK OVERLAY (skills catalog). OVERLAY-FORMAT.md defines a third layer applied by a declared dependency; spark.md holds only rules Spark documents: closures, accumulators, reduce, broadcast, driver-only context, UDF determinism, window frames, F.lit(None). Skills 5.10.0. -> .agentsmith/phases/done/2026-10-03-cf20b-principles-spark-overlay.yaml"
     2026-10-03-cf20a: "A SCALA PRINCIPLES DELTA (skills catalog). Only rules a Scala source states: companion and sealed share a file, typed public methods, override, equals with hashCode, NonFatal, no return in lambdas, no ???; no size number. Skills 5.10.0. -> .agentsmith/phases/done/2026-10-03-cf20a-principles-scala-delta.yaml"

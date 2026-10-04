@@ -31,6 +31,8 @@ The first reply to a new piece of work is always a discussion: what it found in 
 
 A phase or epic proposal is reviewed inside the turn that made it, by a fresh instance reading the same repositories. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
 
+Before that review, the framework checks every fact the proposal cites, without a model call: a cited file that isn't there, or a line past its end, becomes a finding *cited evidence does not resolve*. Paths are routed the way the agent's file tools route them, with or without the repository prefix. What can't be checked honestly stays unchecked rather than becoming a false finding — a repository the turn never opened, a path that exists in two repositories, a template or reference, a file over 1 MB. Later slices of an epic aren't checked, because they describe a state their predecessors haven't built yet. The proposal panel shows the facts with their evidence and the assumptions, so you see what the proposal rests on before you approve it.
+
 ## Confirming
 
 Before anything is created you're asked, as Slack blocks, a Teams card, or a card on the dashboard. You can:

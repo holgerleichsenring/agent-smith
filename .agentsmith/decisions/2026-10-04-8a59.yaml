@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-04-8a59
+
+decisions:
+  - category: Scope
+    chose: "One catch-up phase for the session's docs, written after the code"
+    over: "Docs inside each feature phase"
+    reason: |
+      The 3f06 and cf20 phases shipped without their docs pages; the operator asked for them
+      afterwards. Recorded here so the record says the docs came late, not that they came with each phase.
+  - category: Implementation
+    chose: "Plugin skills renamed execute-phase → apply-spec and ship-phase → deliver-spec, with forwarding skills for one release"
+    over: "A hard rename, or keeping the names a Claude session invented"
+    reason: |
+      The names were mine, not the operator's; forwarding keeps installed users' muscle memory working
+      while update-project step 3f renames them in each project's documents.
