@@ -26,8 +26,10 @@ interface InitLaunchBody {
 // p0490: what the operator ticked on THIS launch travels with it. Auto-accept is not
 // project configuration — consent belongs to the click that started this run — so it is
 // stated explicitly on every request rather than remembered anywhere.
+// 2026-10-04-2bf2: refresh principles rides the launch the same way, independent of it.
 export interface InitOptions {
   autoCompletePullRequests: boolean;
+  refreshPrinciples: boolean;
 }
 
 export async function startProjectInit(

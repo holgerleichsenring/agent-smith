@@ -18,6 +18,7 @@ The other pipelines have their own verbs:
 
 ```bash
 agent-smith init --project todolist                       # init-project bootstrap
+agent-smith init --project todolist --refresh-principles  # ...recomposing an existing principles.md
 agent-smith security-scan --agent claude-default          # security scan
 agent-smith api-scan --agent claude-parallel \
   --swagger https://api.todolist.dev/swagger.json \
@@ -27,6 +28,8 @@ agent-smith mad --ticket 71 --project todolist            # mad-discussion
 agent-smith compile-wiki --project ~/code/todolist-api     # knowledge-base compile (a project directory)
 agent-smith security-trend --project ~/code/todolist-api   # scan trend analysis (a project directory)
 ```
+
+`init` leaves an existing `principles.md` alone; `--refresh-principles` recomposes it from the catalog (core, language delta and framework overlays such as Spark, matched by a dependency at the component root) and keeps its `## Project Specifics` section verbatim. See [Bootstrap skills](../reference/skills/bootstrap.md#what-survives-a-re-init).
 
 `agent-smith --help` lists everything; every verb accepts `--config <path>` and `--verbose`, and the pipeline verbs accept `--dry-run` (print the pipeline, don't execute).
 

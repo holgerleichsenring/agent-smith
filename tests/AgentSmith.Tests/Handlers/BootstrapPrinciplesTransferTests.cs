@@ -273,6 +273,76 @@ public sealed class BootstrapPrinciplesTransferTests
         }
     }
 
+    [Fact]
+    public async Task BootstrapPrinciplesTransfer_RefreshWithExistingFile_RecomposesAndKeepsProjectSpecifics()
+    {
+        // 2026-10-04-2bf2: everything above Project Specifics is catalog text and is regenerated;
+        // the section is the operator's and is copied verbatim.
+        const string existing = "# Coding Principles\nSTALE CATALOG TEXT\n"
+            + "## Project Specifics (ratified additions)\n- deploy only from the release branch\n";
+        var captured = new CapturedPrompt();
+        var sandbox = new StubSandbox();
+        var pipeline = NewPipeline(sandbox);
+        pipeline.Set(ContextKeys.RefreshPrinciples, true);
+        var handler = NewHandler(
+            captured, PrinciplesTransferStubs.Composing(ComposedContent), existingPrinciples: existing);
+
+        var result = await handler.ExecuteAsync(
+            new BootstrapRoundContext(BootstrapSkill.Name, "monorepo", new AgentConfig(), pipeline,
+                ContextName: "server", Workdir: "server"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        sandbox.RanSteps.Single(s => s.Kind == StepKind.WriteFile && s.Path == PrinciplesPath)
+            .Content.Should().Be("# Coding Principles\nAUTHORED-GOLD core + delta\n"
+                + "## Project Specifics (ratified additions)\n- deploy only from the release branch\n");
+        result.Message.Should().Contain("refreshed").And.Contain("Project Specifics carried over");
+        captured.User.Should().Contain("was refreshed").And.NotContain("STALE CATALOG TEXT");
+        InitPullRequestBody.Compose(pipeline, "monorepo", "<!-- marker -->")
+            .Should().Contain("Project Specifics section was carried over verbatim");
+    }
+
+    [Fact]
+    public async Task BootstrapPrinciplesTransfer_RefreshWithSparkManifest_AppliesTheOverlay()
+    {
+        var catalog = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        try
+        {
+            var sandbox = new StubSandbox();
+            var pipeline = NewPipeline(sandbox);
+            pipeline.Set(ContextKeys.RefreshPrinciples, true);
+
+            var result = await SparkTransfer(catalog, "build.sbt", "org.apache.spark").ApplyAsync(
+                pipeline, sandbox, "monorepo", "server", ".", NewMap("scala"), PrinciplesPath,
+                existingPrinciples: "# Old\n## Project Specifics\n- keep me\n", CancellationToken.None);
+
+            result.Mode.Should().Be(PrinciplesMode.Refreshed);
+            result.Overlays.Should().Contain("spark", "a refresh re-runs overlay detection");
+            result.ProjectSpecificsKept.Should().BeTrue();
+            sandbox.RanSteps.Single(s => s.Kind == StepKind.WriteFile && s.Path == PrinciplesPath).Content
+                .Should().Contain("# Framework Overlay: spark").And.EndWith("## Project Specifics\n- keep me\n");
+        }
+        finally
+        {
+            if (Directory.Exists(catalog)) Directory.Delete(catalog, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task BootstrapPrinciplesTransfer_NoRefresh_StillPreservesTheFile()
+    {
+        var sandbox = new StubSandbox();
+        var pipeline = NewPipeline(sandbox);
+        pipeline.Set(ContextKeys.RefreshPrinciples, false);
+
+        var result = await PrinciplesTransferStubs.Composing(ComposedContent).ApplyAsync(
+            pipeline, sandbox, "monorepo", "server", "server", NewMap(), PrinciplesPath,
+            existingPrinciples: "RATIFIED", CancellationToken.None);
+
+        result.Mode.Should().Be(PrinciplesMode.PreservedExisting);
+        sandbox.RanSteps.Should().NotContain(s => s.Kind == StepKind.WriteFile && s.Path == PrinciplesPath);
+    }
+
     private static BootstrapPrinciplesTransfer SparkTransfer(string catalog, string manifest, string content)
     {
         var principles = Path.Combine(catalog, "principles");

@@ -71,7 +71,8 @@ public sealed class BootstrapRoundHandler(
         // 2026-09-15-c6e9: the round's facts reach the init pull request, which is the one
         // artefact a human opens. Appended, not set: one round per component.
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
-            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays));
+            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
+            transfer.ProjectSpecificsKept));
         var (system, user) = BootstrapPromptFactory.Build(
             role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
             existing.ContextYaml, existing.Principles, transfer.Mode);

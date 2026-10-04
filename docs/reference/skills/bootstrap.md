@@ -30,13 +30,17 @@ The pipeline runs in three moves:
 ## Principles are transferred, not inferred
 
 `principles.md` is not written from what the code happens to look like. The framework
-composes it from two files in the skills catalog and places it before the round runs:
+composes it from the skills catalog and places it before the round runs:
 
 - `principles/core.md`: the universal intent (SOLID, DRY, YAGNI, Tell-Don't-Ask, …),
   the same for every language;
 - `principles/deltas/<language>.md`: the mechanisms that realise that intent in one
   language (naming, layout, tooling). The catalog currently ships deltas for `csharp`,
-  `typescript` and `rust`.
+  `rust`, `typescript` and `scala`;
+- `principles/frameworks/<slug>.md`: a framework overlay, applied after the delta for
+  every framework whose declared dependency is found at the component root. Spark is
+  the first, matched by `org.apache.spark`, `pyspark` or `databricks-connect`. Overlays
+  ship with skills 5.10.0 and later, and the init PR names each one it applied.
 
 Two repositories of the same stack get byte-identical principles and differ only in
 what their operators ratified. A language with no delta gets the core alone, with a
@@ -52,8 +56,16 @@ present, or not written with the reason.
 `principles.md` is named for what it holds. Rules about the **environment** count as
 much as rules about code, and their home is its **Project Specifics** section:
 "field changes go through the estate's own CLI", "hand-written SQL in a model is a
-defect". An existing `principles.md` is never overwritten, so anything the operator
-ratified in the init pull request holds from then on.
+defect". An existing `principles.md` is not overwritten by a plain re-init, so
+anything the operator ratified in the init pull request holds from then on.
+
+An init launched with **Refresh principles** (the dashboard toggle beside Initialize,
+or `agent-smith init --refresh-principles`) recomposes an existing `principles.md`:
+core, language delta and framework overlays are regenerated from the current catalog,
+and the file's last `## Project Specifics` section is copied over verbatim. Everything
+above that heading is catalog text and is replaced. A file without the heading keeps
+nothing, and the init PR says so. Git is the undo: the refresh arrives as a pull
+request like any other init.
 
 A repository initialised under the old file name `coding-principles.md` has it renamed
 to `principles.md` before the round looks, so the ratified content is found and kept.

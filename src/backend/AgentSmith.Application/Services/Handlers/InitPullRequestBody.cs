@@ -72,6 +72,17 @@ internal static class InitPullRequestBody
             "coding principles transferred from the authored core, language delta and framework "
             + $"overlays {string.Join(", ", outcome.Overlays.Select(o => $"`{o}`"))}; "
             + "review and merge to ratify them",
+        // 2026-10-04-2bf2: a refresh REPLACED a file the operator had ratified, so the body says
+        // so — and says whether their own section survived, which is what they check first.
+        PrinciplesMode.Refreshed =>
+            "coding principles refreshed from the authored core, language delta"
+            + (outcome.Overlays.Count == 0
+                ? string.Empty
+                : $" and framework overlays {string.Join(", ", outcome.Overlays.Select(o => $"`{o}`"))}")
+            + (outcome.ProjectSpecificsKept
+                ? "; the Project Specifics section was carried over verbatim"
+                : "; no Project Specifics section — nothing carried over")
+            + "; review and merge to ratify them",
         // Never claim a transfer that did not happen: a repository whose principles were
         // already ratified is told nothing was touched.
         PrinciplesMode.PreservedExisting =>

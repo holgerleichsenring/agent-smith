@@ -55,6 +55,8 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         var request = _enqueued.Should().ContainSingle().Subject;
         request.PipelineName.Should().Be(InitRunLauncher.PipelineName);
         request.IsInit.Should().BeTrue();
+        request.Context.Should().Contain(ContextKeys.RefreshPrinciples, false,
+            "a chat command never refreshes principles — that is the launching click's word");
         RunRow(request.RunId!).Status.Should().Be("queued");
         _said.Should().ContainSingle().Which.Should().Contain(request.RunId!);
     }

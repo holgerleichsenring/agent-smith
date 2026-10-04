@@ -37,11 +37,11 @@ public sealed class InitRunLauncher(
     // the admission's probe; the release is a CAS, so an expired lock is never deleted.
     private static readonly TimeSpan LaunchLockTtl = TimeSpan.FromSeconds(30);
 
-    /// <param name="autoCompletePullRequests">p0490: the operator's auto-accept, as
-    /// ticked on THIS launch. It rides the enqueued request into the pipeline context,
-    /// where the init pipeline's last step reads it.</param>
+    /// <param name="request">What the operator ticked on THIS launch — auto-accept (p0490)
+    /// and refresh principles (2026-10-04-2bf2). Both ride the enqueued request into the
+    /// pipeline context, where the init pipeline's steps read them.</param>
     public async Task<InitLaunchResult> LaunchAsync(
-        string projectName, bool autoCompletePullRequests, CancellationToken ct)
+        string projectName, InitLaunchRequest request, CancellationToken ct)
     {
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         if (!config.Projects.TryGetValue(projectName, out var project))
@@ -50,12 +50,12 @@ public sealed class InitRunLauncher(
         var lockKey = $"agentsmith:init-launch:{project.Name}";
         var token = await launchLock.TryAcquireAsync(lockKey, LaunchLockTtl, ct);
         if (token is null) return InitLaunchResult.BeingStarted();
-        try { return await GuardAndLaunchAsync(project, autoCompletePullRequests, ct); }
+        try { return await GuardAndLaunchAsync(project, request, ct); }
         finally { await launchLock.ReleaseAsync(lockKey, token, CancellationToken.None); }
     }
 
     private async Task<InitLaunchResult> GuardAndLaunchAsync(
-        ResolvedProject project, bool autoCompletePullRequests, CancellationToken ct)
+        ResolvedProject project, InitLaunchRequest request, CancellationToken ct)
     {
         // p0515: the double-start guard reads the row the launch WRITES, and that row
         // carries project.Name — the configured spelling. Guarding on the route's spelling
@@ -64,11 +64,11 @@ public sealed class InitRunLauncher(
         var live = await runs.FindLiveRunAsync(project.Name, PipelineName, ct);
         if (live is not null) return InitLaunchResult.AlreadyRunning(live.Id);
 
-        return await AdmitAndEnqueueAsync(project, autoCompletePullRequests, ct);
+        return await AdmitAndEnqueueAsync(project, request, ct);
     }
 
     private async Task<InitLaunchResult> AdmitAndEnqueueAsync(
-        ResolvedProject project, bool autoCompletePullRequests, CancellationToken ct)
+        ResolvedProject project, InitLaunchRequest request, CancellationToken ct)
     {
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());
         var decision = await admission.TryAdmitAsync(project, PipelineName, runId, ct);
@@ -81,7 +81,7 @@ public sealed class InitRunLauncher(
             runId, project.Name, PipelineName,
             project.Repos.Select(r => r.Name).ToList(), QueuedSummary, ct);
         // 2026-10-02-5ab2b: stored on the row, then pushed — a flush cannot take it.
-        await dispatch.DispatchAsync(ToRequest(project.Name, runId, autoCompletePullRequests), ct);
+        await dispatch.DispatchAsync(ToRequest(project.Name, runId, request), ct);
 
         logger.LogInformation(
             "Init launched for project {Project} (run {RunId}) — ticketless, trigger manual",
@@ -90,10 +90,11 @@ public sealed class InitRunLauncher(
     }
 
     private static PipelineRequest ToRequest(
-        string projectName, string runId, bool autoCompletePullRequests) => new(
+        string projectName, string runId, InitLaunchRequest launch) => new(
         projectName, PipelineName, TicketId: null, IsInit: true, Headless: true, RunId: runId,
         Context: new Dictionary<string, object>
         {
-            [ContextKeys.AutoCompletePullRequests] = autoCompletePullRequests,
+            [ContextKeys.AutoCompletePullRequests] = launch.AutoCompletePullRequests,
+            [ContextKeys.RefreshPrinciples] = launch.RefreshPrinciples,
         });
 }

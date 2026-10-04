@@ -28,13 +28,13 @@ internal static class ProjectInitEndpoints
 
     // Internal so the p0489 endpoint tests drive the real launcher without a host.
     // p0490: the body carries the operator's auto-accept for THIS launch; a request
-    // without one does not auto-accept.
+    // without one does not auto-accept. 2026-10-04-2bf2: likewise refresh principles.
     internal static async Task<IResult> InitAsync(
         string name, InitLaunchRequest? request, InitRunLauncher launcher,
         CancellationToken cancellationToken)
     {
         var result = await launcher.LaunchAsync(
-            name, request?.AutoCompletePullRequests ?? false, cancellationToken);
+            name, request ?? new InitLaunchRequest(), cancellationToken);
         var body = new InitLaunchResponse(result.RunId, result.Reason);
         return result.Outcome switch
         {

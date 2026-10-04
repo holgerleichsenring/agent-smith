@@ -99,7 +99,7 @@ public sealed class CatalogPrinciplesTemplateSource(
             Transferred by init-project from the authored universal core plus the
             '{slug}' language delta.{named} RATIFY by reviewing this file in the init pull
             request and merging it. Project-specific rules go under "Project
-            Specifics" below; init-project re-runs preserve this file as-is.
+            Specifics" below; a re-init preserves this file, and a refresh keeps that section.
 
             ---
 

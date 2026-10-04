@@ -20,7 +20,10 @@ public sealed record PrinciplesTransferResult(
     // 2026-10-03-cf20c: the framework overlays composed into principles.md — set only when the
     // file was WRITTEN. A preserved file carries none of them, so naming one would ask the
     // operator to ratify rules that are not in the file.
-    IReadOnlyList<string>? Overlays = null)
+    IReadOnlyList<string>? Overlays = null,
+    // 2026-10-04-2bf2: a refresh found a Project Specifics section in the file it replaced and
+    // copied it into the new one. False on a refresh says the operator had nothing to keep.
+    bool ProjectSpecificsKept = false)
 {
     /// <summary>Never null: no overlay is an answer.</summary>
     public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];

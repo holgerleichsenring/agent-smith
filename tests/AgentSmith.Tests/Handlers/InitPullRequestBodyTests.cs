@@ -125,6 +125,29 @@ public sealed class InitPullRequestBodyTests
             "transferred from the authored core and language delta; review and merge to ratify them");
     }
 
+    [Fact]
+    public void InitPullRequestBody_RefreshedWithoutSpecifics_SaysNothingWasCarriedOver()
+    {
+        // 2026-10-04-2bf2: a refresh replaced a ratified file, and whether the operator's own
+        // section survived is the first thing they check.
+        var body = Compose(Outcome("api", "server", PrinciplesMode.Refreshed));
+
+        body.Should().Contain("refreshed from the authored core")
+            .And.Contain("no Project Specifics section — nothing carried over")
+            .And.Contain("ratify");
+    }
+
+    [Fact]
+    public void InitPullRequestBody_RefreshedWithSpecificsAndOverlay_SaysBoth()
+    {
+        var body = Compose(Outcome("api", "server", PrinciplesMode.Refreshed)
+            with { Overlays = ["spark"], ProjectSpecificsKept = true });
+
+        body.Should().Contain("framework overlays `spark`")
+            .And.Contain("Project Specifics section was carried over verbatim")
+            .And.NotContain("nothing carried over");
+    }
+
     private static string Compose(params BootstrapRoundOutcome[] outcomes) =>
         InitPullRequestBody.Compose(outcomes, "api", Marker);
 

@@ -85,7 +85,7 @@ Agent Smith runs the `init-project` pipeline:
 1. Checks out a fresh branch on each repository and analyzes it.
 2. Discovers the repository's components. A component is something built and shipped on its own; the internal layer projects of one solution (a `Domain` or `Infrastructure` project, say) belong to the component that ships them and get no context of their own.
 3. Runs one bootstrap round per component, on the agent's `context_generation` model. The round reads that component's subtree through tools and writes its `context.yaml`, including `stack.image` and a `verify` block derived from the CI pipeline the repository already runs.
-4. Transfers the coding principles into each `principles.md`: the universal core plus the delta for the component's language, from the skills catalog. An existing `principles.md` is never overwritten.
+4. Transfers the coding principles into each `principles.md`: the universal core, the delta for the component's language, and every framework overlay whose declared dependency is found at the component root (Spark via `org.apache.spark`, `pyspark` or `databricks-connect`), from the skills catalog. An existing `principles.md` is left untouched unless the init was launched with **Refresh principles**, which recomposes it and keeps its **Project Specifics** section verbatim.
 5. Commits with message `chore: initialize .agentsmith/ directory` and opens a PR per repo (cross-linked when there are several).
 6. With auto-accept on, completes the PRs as described above; on the ticket path it comments on the init issue with the PR link and transitions it to `done_status`.
 
@@ -93,10 +93,10 @@ Typical wall-clock: a few minutes, depending on repository size and the number o
 
 ## Step 4 — Review and merge
 
-The PR body says, per context, what the run did with the principles (transferred from the core and language delta, already present and left untouched, or authored by the skill) and, per file the language delta ships, whether it was written, already present, or not written and why. Review the files like any other PR:
+The PR body says, per context, what the run did with the principles (transferred from the core and language delta plus any overlays it names, refreshed with or without Project Specifics carried over, already present and left untouched, or authored by the skill) and, per file the language delta ships, whether it was written, already present, or not written and why. Review the files like any other PR:
 
 - **`context.yaml`** — confirm the stack, the image and the `verify` stages match your repo.
-- **`principles.md`** — the constraints Agent Smith will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, and merging this PR is where you ratify it.
+- **`principles.md`** — the constraints Agent Smith will follow on subsequent runs. Loosen or tighten as appropriate for your team's conventions. The rules of your **environment** belong in it too, appended under its **Project Specifics** section — "field changes go through the estate's own CLI", "hand-written SQL in a model is a defect". That section survives every re-init, a refresh included, and merging this PR is where you ratify it.
 
 Edit either file in the PR before merging. Agent Smith respects whatever lands on the default branch, not the initially-generated content.
 

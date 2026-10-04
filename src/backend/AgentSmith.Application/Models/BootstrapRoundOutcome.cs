@@ -20,7 +20,9 @@ public sealed record BootstrapRoundOutcome(
     string ContextName,
     PrinciplesMode Mode,
     IReadOnlyList<ArtefactWrite> Artefacts,
-    IReadOnlyList<string>? Overlays = null)
+    IReadOnlyList<string>? Overlays = null,
+    // 2026-10-04-2bf2: whether a refresh carried the file's Project Specifics section over.
+    bool ProjectSpecificsKept = false)
 {
     /// <summary>2026-10-03-cf20c: the framework overlays the written principles.md carries.</summary>
     public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];

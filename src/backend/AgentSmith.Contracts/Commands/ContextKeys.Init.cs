@@ -12,4 +12,12 @@ public static partial class ContextKeys
     /// means every pull request stays open. Arrives as a JsonElement when the request
     /// came through the Redis job queue, so read it with <c>PipelineContext.Flag</c>.</summary>
     public const string AutoCompletePullRequests = "AutoCompletePullRequests";
+
+    /// <summary>2026-10-04-2bf2: bool riding the LAUNCH request — the operator ticked
+    /// "Refresh principles" on this init, so an existing principles.md is recomposed from
+    /// the catalog (core, language delta, framework overlays) and its Project Specifics
+    /// section is carried over verbatim. Per launch, like auto-accept and independent of
+    /// it: a project setting would refresh on every later init nobody meant to refresh.
+    /// Absent (or false) preserves the file. Read it with <c>PipelineContext.Flag</c>.</summary>
+    public const string RefreshPrinciples = "RefreshPrinciples";
 }
