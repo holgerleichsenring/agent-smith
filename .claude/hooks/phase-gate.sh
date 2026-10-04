@@ -2,8 +2,8 @@
 # Blocking phase-commit gate (PreToolUse on Bash).
 #
 # Fires on every Bash call but only gates a `git commit` whose message carries a
-# phase id, e.g. `feat: ... (p0272)` — the format produced by execute-phase
-# Step 10. Any other command passes through instantly.
+# phase id, e.g. `feat: ... (p0272)` — the format the spec-first plugin's
+# deliver-spec writes. Any other command passes through instantly.
 #
 # When it gates, the deterministic phase checks must all be green or the commit
 # is blocked (exit 2, stderr fed back to Claude):
