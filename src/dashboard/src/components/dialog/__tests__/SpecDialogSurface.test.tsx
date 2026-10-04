@@ -192,6 +192,8 @@ function phase(
     done: [`done of ${phaseId}`],
     requires: [],
     yaml: `phase: ${phaseId}`,
+    facts: [],
+    assumptions: [],
     ...overrides,
   };
 }

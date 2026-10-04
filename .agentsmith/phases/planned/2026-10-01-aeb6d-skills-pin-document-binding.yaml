@@ -4,7 +4,7 @@ goal: "The embedded skills pin moves to the release carrying skills PR #205, and
 
 applies_to: "backend (embedded skills pin)"
 
-requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c", "2026-10-01-f5c3b", "2026-10-01-7f7af", "2026-10-01-283dj"]
+requires: ["2026-10-01-aeb6b", "2026-10-01-aeb6c", "2026-10-01-f5c3b", "2026-10-01-7f7af", "2026-10-01-283dj", "2026-10-02-3f06g"]
 
 facts:
   - claim: "The tarball, SkillsCatalogVersion and SkillsCatalogSha256 move together and the build verifies them."
@@ -12,10 +12,10 @@ facts:
   - claim: "Dialog rules are already tested against the pinned master."
     evidence: "tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs"
   - claim: "Skills PR #205 carries design-partner-master 1.11.0 and coding-agent-master 1.28.0: documents, subject binding, scenario criteria, listed bug criteria, design_read, visual references and source precedence rule 4."
-    evidence: "agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd)"
+    evidence: "observed: agent-smith-skills branch phase/2026-10-01-aeb6 (commits 58ec7bc, f2526a7, 6ae2729, 418b2dd), 2026-10-01"
 
 scope:
-  in: "Once skills PR #205 is merged and released, the pin moves to that release and tests read every rule it added from the pinned masters."
+  in: "Skills PR #205 shipped in 5.8.0. The pin moves to the newest skills release when this phase runs (5.9.0 or later: 5.9.0 also carries 2026-10-02-3f06g, the C# delta without its base-class line limit, and a later one the Scala delta and Spark overlay of 2026-10-03-cf20a/b); tests read every rule #205 added from the pinned masters, and the composed principles goldens are regenerated, with one added per new delta or overlay."
   out: "The skill text — written by 2026-10-01-aeb6b, aeb6c, f5c3b, 7f7af and 283dj."
 
 decisions:
@@ -24,7 +24,7 @@ decisions:
 
 steps:
   - id: pin
-    action: "Tarball, version and checksum move to the release carrying design-partner-master 1.11.0 and coding-agent-master 1.28.0."
+    action: "Tarball, version and checksum move to the release carrying design-partner-master 1.11.0 and coding-agent-master 1.28.0 or later; principles goldens regenerated and added for new deltas and overlays."
   - id: tests
     action: "Tests read each added rule from the pinned masters."
 

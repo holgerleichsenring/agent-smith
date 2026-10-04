@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06e
+
+decisions:
+  - category: Implementation
+    chose: "create-phase commits the spec as 'spec: {id} …' without parentheses; only ship-phase writes '({id})'"
+    over: "Both commits naming the id in parentheses"
+    reason: |
+      A commit gate keyed on '({id})' — this repository's phase gate is one — would then run the
+      full gate on a spec-only commit. One commit per phase carries the marker.
+  - category: Tooling
+    chose: "check-evidence.py needs PyYAML and exits 3 with 'evidence check did not run' without it"
+    over: "A hand-written YAML subset parser in stdlib"
+    reason: |
+      Python's stdlib has no YAML parser; a partial one would misread exactly the folded scalars
+      specs use. The skill reports exit 3 as not run, never as a pass.
+  - category: Implementation
+    chose: "The shared case file is read in agent-smith with a camelCase naming convention and a minimum case count"
+    over: "A default deserializer with unmatched properties ignored"
+    reason: |
+      The first version deserialized every case to empty fields and passed against a deliberately
+      wrong case. The count guard makes an unread file fail rather than agree.

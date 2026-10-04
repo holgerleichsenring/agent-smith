@@ -56,7 +56,7 @@ public sealed class PrinciplesTemplateContentTests
             "narrowest", "OperationCanceledException", "Helper", "Utils", "Manager",
             "Arrange-Act-Assert", "{Method}_{Scenario}_{ExpectedResult}", "{Class}Tests",
             "primary constructors", "file-scoped namespaces", "sealed", "record",
-            "guard clauses", "magic values", "Nullable Reference Types", "30 lines",
+            "guard clauses", "magic values", "Nullable Reference Types",
             "business logic", "Console.WriteLine", "commented-out code",
         };
 

@@ -148,7 +148,7 @@ public sealed class PhaseNameRuleTests
     public void PhaseName_ABaselinedPhase_DidNotGrow()
     {
         var now = Measured();
-        var grown = PhaseNameBaseline.Rows
+        var grown = LengthRows()
             .Where(row => now.TryGetValue(row.Key, out var value) && value > row.Value)
             .Select(row => $"{row.Key.Rule} {row.Key.PhaseId}: {row.Value} → {now[row.Key]}")
             .OrderBy(text => text, StringComparer.Ordinal)
@@ -162,7 +162,7 @@ public sealed class PhaseNameRuleTests
     public void PhaseName_APhaseThatNowFits_MustLeaveTheBaseline()
     {
         var now = Measured();
-        var stale = PhaseNameBaseline.Rows
+        var stale = LengthRows()
             .Where(row => !now.TryGetValue(row.Key, out var value) || value <= Cap(row.Key.Rule))
             .Select(row => $"{row.Key.Rule} {row.Key.PhaseId}")
             .OrderBy(text => text, StringComparer.Ordinal)
@@ -172,6 +172,10 @@ public sealed class PhaseNameRuleTests
             "a phase that now fits its bound (or is gone) must leave phase-name-baseline.tsv, "
             + "so the list keeps telling the truth.\n  " + string.Join("\n  ", stale));
     }
+
+    // 2026-10-02-3f06b: the facts rows ratchet the other way and are judged by PhaseFactsRuleTests.
+    private static IEnumerable<KeyValuePair<(string Rule, string PhaseId), int>> LengthRows() =>
+        PhaseNameBaseline.Rows.Where(row => row.Key.Rule != PhaseNameBaseline.FactsRequired);
 
     private static int Cap(string rule) => rule switch
     {

@@ -18,7 +18,7 @@ public sealed class PhaseDraftReader
             ?? throw new InvalidOperationException("Schema-valid phase draft has no 'phase' field.");
         var goal = OutcomeYamlReader.GetString(map, "goal")
             ?? throw new InvalidOperationException("Schema-valid phase draft has no 'goal' field.");
-        return new PhaseDraft(phaseId, goal, yaml.Trim(), ReadRequires(map))
+        return new PhaseDraft(phaseId, goal, yaml.Trim(), PhaseDraftLists.Strings(map, "requires"))
         {
             // p0393a: the done-list is the run's acceptance contract, so it is read
             // here rather than re-parsed by every consumer of the draft.
@@ -28,24 +28,15 @@ public sealed class PhaseDraftReader
             // progress ledger and render as the master's plan section.
             Steps = ReadSteps(map),
             // 2026-09-15-6d9c: the test names, for the pane that shows what would be filed.
-            Tests = ReadStrings(map, "tests"),
+            Tests = PhaseDraftLists.Strings(map, "tests"),
             // 2026-09-07-b7e2: what the derivation looked up and what it assumed —
             // absent on every spec written before the derivation could look.
-            Facts = ReadFacts(map),
-            Assumptions = ReadStrings(map, "assumptions"),
+            Facts = PhaseDraftLists.Facts(map),
+            // 2026-10-02-3f06a: an assumption written as {claim, check} is read as its claim.
+            Assumptions = PhaseDraftLists.Assumptions(map),
             // 2026-09-08-1830: the contexts the phase declares it changes.
-            Contexts = ReadStrings(map, "contexts"),
+            Contexts = PhaseDraftLists.Strings(map, "contexts"),
         };
-    }
-
-    private static IReadOnlyList<PhaseFact> ReadFacts(IReadOnlyDictionary<string, object?> map)
-    {
-        if (!map.TryGetValue("facts", out var value) || value is not List<object?> list) return [];
-        return [.. list
-            .OfType<Dictionary<object, object?>>()
-            .Select(f => new PhaseFact(
-                GetStepString(f, "claim") ?? string.Empty, GetStepString(f, "evidence") ?? string.Empty))
-            .Where(f => f.Claim.Length > 0)];
     }
 
     // The schema requires an id per step and allows action as a single line or an
@@ -70,13 +61,13 @@ public sealed class PhaseDraftReader
             var line = entry?.ToString();
             return string.IsNullOrWhiteSpace(line) ? null : new PhaseStep(fallbackId, line, null);
         }
-        var id = GetStepString(step, "id");
+        var id = PhaseDraftLists.GetString(step, "id");
         var action = ReadAction(step);
         if (string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(action)) return null;
         return new PhaseStep(
             string.IsNullOrWhiteSpace(id) ? fallbackId : id!,
             string.IsNullOrWhiteSpace(action) ? id! : action!,
-            GetStepString(step, "path"));
+            PhaseDraftLists.GetString(step, "path"));
     }
 
     private static string? ReadAction(Dictionary<object, object?> step)
@@ -89,26 +80,6 @@ public sealed class PhaseDraftReader
                 .Select(l => l?.ToString())
                 .Where(l => !string.IsNullOrWhiteSpace(l))),
             _ => value.ToString(),
-        };
-    }
-
-    private static string? GetStepString(Dictionary<object, object?> step, string key) =>
-        step.TryGetValue(key, out var value) && value is string text
-        && !string.IsNullOrWhiteSpace(text) ? text : null;
-
-    // The schema allows requires as a single string or an array of strings.
-    private static IReadOnlyList<string> ReadRequires(IReadOnlyDictionary<string, object?> map) =>
-        ReadStrings(map, "requires");
-
-    private static IReadOnlyList<string> ReadStrings(
-        IReadOnlyDictionary<string, object?> map, string field)
-    {
-        if (!map.TryGetValue(field, out var value) || value is null) return [];
-        return value switch
-        {
-            string single => [single],
-            List<object?> list => [.. list.Select(e => e?.ToString() ?? string.Empty)],
-            _ => [],
         };
     }
 }

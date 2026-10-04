@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-02-3f06a
+
+decisions:
+  - category: Implementation
+    chose: "Both YAML serializers that feed the validator write a number-, boolean- or null-shaped string quoted (WithQuotingNecessaryStrings): DerivedPhaseYamlRenderer and OutcomeYamlReader.ToYaml"
+    over: "Leaving the serializers as they were and accepting the assumption that YamlDotNet keeps quotes"
+    reason: |
+      The assumption was false, as the spec budgeted for: YamlDotNet 16.3's default serializer
+      writes the string "42" plain, and YamlAsJson then types it as a number. With facts,
+      assumptions and contexts now typed, a derived assumption "42" or a context named "true"
+      would be refused (or crash the single-phase fallback), and an epic child carrying a quoted
+      number would be refused for a type the model never wrote. The change only adds quotes
+      where a plain scalar would not read back as a string, so it relaxes rather than narrows:
+      a child step written `id: 1` now validates where it was refused before.
+  - category: Architecture
+    chose: "PhaseDraftLists is a public static class of pure readers over the deserialized map"
+    over: "An injected instance service"
+    reason: |
+      It holds no state and does no I/O, and its neighbours in the same role are static
+      (DoneCriterion.Lines, OutcomeYamlReader). An instance would have changed the constructor of
+      PhaseDraftReader, which a dozen tests and the DI graph build with `new PhaseDraftReader()`,
+      for no seam anyone substitutes.
+  - category: Implementation
+    chose: "An assumption list entry that is neither a string nor a map with a string claim is dropped; a null entry is dropped too"
+    over: "Keeping the old ReadStrings behaviour of turning a null entry into an empty string"
+    reason: |
+      An empty assumption reached the premise checker and the comment as a bare '- ' line. The
+      requires/tests/contexts lists keep ReadStrings' old behaviour unchanged, since their
+      consumers were not part of this phase.
+  - category: Implementation
+    chose: "The ticket-path test asserts IsAbsent is false, not only that the extraction is invalid"
+    over: "Asserting PhaseSpecInvalid alone"
+    reason: |
+      The difference the decision 'a hand-written ticket spec that breaks the shapes now stops'
+      names is exactly absent (falls back to derivation) versus invalid (stops the run).
