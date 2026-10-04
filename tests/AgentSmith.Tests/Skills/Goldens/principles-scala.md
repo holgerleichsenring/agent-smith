@@ -1,9 +1,9 @@
 # Coding Principles
 
-<!-- agentsmith:principles composed=core+csharp status=proposed -->
+<!-- agentsmith:principles composed=core+scala status=proposed -->
 
 Transferred by init-project from the authored universal core plus the
-'csharp' language delta. RATIFY by reviewing this file in the init pull
+'scala' language delta. RATIFY by reviewing this file in the init pull
 request and merging it. Project-specific rules go under "Project
 Specifics" below; init-project re-runs preserve this file as-is.
 
@@ -121,107 +121,92 @@ states what applies instead.
 
 ---
 
-# .NET / C# Delta
+# Scala Delta
 
-<!-- agentsmith:principles-delta csharp v1 -->
+<!-- agentsmith:principles-delta scala v1 -->
 
 ## Additions
 
-### Hard limits (enforced)
-
-- Max 20 lines per method — extract helper methods, no exceptions.
-- Max 120 lines per class — split by responsibility when reached. Most
-  service classes are 20–60 lines; 80 lines is a warning.
-- One type per file: every class, interface, enum, or record gets its own
-  file.
-
 ### Naming
 
-- `PascalCase` for classes, methods, properties, events; `camelCase` for
-  parameters and locals; `_camelCase` for private fields.
-- Interfaces carry the `I` prefix (`ITicketProvider`); async methods the
-  `Async` suffix (`FetchTicketAsync`); booleans an `Is`/`Has`/`Can` prefix.
-- Class names state the single responsibility: `NpmAuditParser`, not
-  `AuditHelper`; `SwaggerSpecCompressor`, not `ApiUtils`.
+- `UpperCamelCase` for classes, traits, objects, and type aliases;
+  `lowerCamelCase` for methods, values, and variables; packages are
+  lowercase.
+- Constants follow the project's established style — the Scala style guide
+  writes them `UpperCamelCase`, Spark and Databricks write `ALL_CAPS`. Use
+  whichever the code base already uses; never mix the two.
+- Test names are sentences stating scenario and expectation, in the form the
+  project's test framework uses.
 
-### Project layout
+### Layout and size
 
-- Consistent top-level folders per project: `Contracts/` (interfaces),
-  `Models/` (records, DTOs, config types), `Services/` (all functional code:
-  handlers, factories, providers, loaders), `Extensions/`, `Exceptions/`,
-  `Entities/` (domain project only).
-- Factories, handlers, and configuration loaders live under `Services/`,
-  never at project root. No loose files at root except `Program.cs` in a
-  host project.
-- Cross-layer interfaces go to the shared contracts project; project-internal
-  interfaces use a local `Contracts/` folder.
+- A class and its companion object live in the same file; a `sealed` type and
+  all of its subtypes live in the same file (the language requires it).
+- Line width and formatting are what the project's formatter configuration
+  says (`.scalafmt.conf`); do not restate a width here.
+- No method, class, or file line limit is set: no Scala source states one as
+  a rule (Spark's own lint ships its method- and file-length checks disabled;
+  the Databricks "Rule of 30" is stated "in general"). Split by
+  responsibility, as the core requires.
 
-### Abstractions, DI, and composition
+### Abstractions and composition
 
-- Base classes hold a template-method skeleton only — never business logic,
-  parsing, or I/O; inject services for anything complex.
-- Every injectable service has an interface in `Contracts/`; depend on the
-  interface, never the implementation.
-- All dependencies arrive via constructor injection (primary constructors).
-  No manual `new` for services, providers, or handlers; factories resolve
-  providers from config.
-- Registration in the DI container is explicit — no assembly-scanning magic.
-  Implementation classes (builders, formatters, validators, parsers) are
-  instance-based and registered `Transient`.
-- Statics only for `Map()`-style pure helpers and extension methods — never
-  static service classes. Public static API needs a compelling reason.
-- Command pattern (MediatR-style): every command defines its own context
-  record; every handler implements the handler contract for exactly one
-  context type; the executor resolves handlers via DI; cross-cutting concerns
-  (logging, error policy) live in the executor.
-- Config injection: inject `*Config`/`*Options` classes directly by concrete
-  type registered as singleton. Do not wrap in `IOptions<T>` unless the value
-  is genuinely reloaded from `IConfiguration` at runtime.
+- Traits declare contracts. An interface that Java code implements and that
+  carries default methods is an `abstract class` instead — Java cannot use a
+  trait's default implementations.
+- Public and implicit methods state their result type explicitly; an inferred
+  type silently changes the API, and an untyped implicit can break
+  incremental compilation.
+- Always write `override` when overriding.
+- Overriding `equals` also overrides `hashCode`, and `equals` takes `Any` —
+  an `equals(other: Foo)` overloads instead of overriding.
+- Case-class constructor parameters are never `var`: a mutated case class
+  lands in the wrong hash bucket.
+- No structural types (`{ def close(): Unit }`) — they dispatch by
+  reflection.
 
-### Class design
+### Error mechanics
 
-- Services: one public method (the operation) with private helpers; stateless
-  unless explicitly managing a resource; 20–60 lines typical.
-- Factories create and return objects — no business logic; one factory method
-  per product type.
-- Parsers take raw input (string, JSON, YAML) and return typed output — pure
-  transformation, no side effects.
-- Builders are instance-based (never static), fluent where appropriate
-  (`.SetX().AddY().Build()`); Build methods return the product, never void.
-- Handlers orchestrate by calling injected services (20–50 lines typical) —
-  they do not contain the logic themselves.
-- No `Console.WriteLine` — route all output through the injected logger.
+- Catch `NonFatal(e)`, never `Throwable`, `Exception`, or a bare `case _` in a
+  `catch` — those swallow fatal errors and control-flow throwables.
+- No `return` inside a lambda or closure: it compiles to a thrown
+  `NonLocalReturnControl` that a catch-all swallows, and Scala 3 deprecates
+  it (use `scala.util.boundary` / `break`).
+- No `???` and no `NotImplementedError` in committed code.
+- Measure durations with `System.nanoTime`, never `currentTimeMillis` — the
+  wall clock jumps.
 
-### Error handling
+### Tests and tooling
 
-- Domain exceptions for business-rule failures; result objects for expected
-  pipeline outcomes; exceptions only for the unexpected.
-- Never an empty `catch` block — not even comment-only. Every catch body logs
-  at least once (debug/trace floor for deliberately-swallowed expected
-  exceptions, warning when unexpected); explanatory comments go ABOVE a log
-  call, not instead of it.
-- Catch the narrowest exception type that fits; classify on the exception
-  type (`is OperationCanceledException`), never on `Exception.Message` text.
-- Log with the exception object (stack trace survives) before re-throwing.
+- Tests live in the build tool's test source set (`src/test/scala` under
+  sbt, Maven, and Gradle) and run with the framework the project already
+  uses (ScalaTest, MUnit, specs2).
+- An expected failure asserts its specific type (`intercept[IllegalArgumentException]`),
+  never `Exception` or `Throwable` — the test would pass on the wrong failure.
+- The project's formatter and linter (scalafmt; Scalafix or scalastyle where
+  configured) run clean.
 
-### Language idiom
+### Allowed only with a visible exception
 
-- Target modern .NET: primary constructors, collection expressions,
-  file-scoped namespaces, global usings in one central file.
-- `record` for immutable value objects with `init` properties; `sealed`
-  unless designed for inheritance; `readonly` where possible.
-- Nullable Reference Types enabled; no public fields — properties only.
+These are wrong by default and right only where the author says why, in the
+project linter's suppression syntax (`// scalastyle:off println` …
+`// scalastyle:on println`, `// scalafix:ok`) or, without a linter, a reason
+comment on the line:
 
-### Testing
-
-- Tests live in a separate test project; test classes are named
-  `{Class}Tests`, test methods `{Method}_{Scenario}_{ExpectedResult}`.
-- Arrange-Act-Assert structure; mock only external dependencies (providers).
+- `println` in production code — logging is the channel.
+- Throwing an `Error` subtype — an `Error` means the JVM is broken; throw an
+  `Exception`.
+- `toUpperCase` / `toLowerCase` without `Locale.ROOT` — locale-dependent
+  case mapping breaks identifiers (the Turkish-i problem).
 
 ## Overrides
 
-No overrides — this is the reference stack the mechanism vocabulary comes
-from; the core's defaults map 1:1.
+- **One type per file** → SUSPENDED. A companion object and a sealed
+  hierarchy must share their file; several small, closely related types may
+  share one.
+- **Fixed method/class line counts** → none apply; see "Layout and size".
+- **Separate test project** → tests live in the build tool's test source set
+  of the same project.
 
 ---
 

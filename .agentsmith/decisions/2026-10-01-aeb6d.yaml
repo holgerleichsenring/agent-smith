@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-01-aeb6d
+
+decisions:
+  - category: Tooling
+    chose: "Pin v5.10.0, the newest skills release, in one move from v5.7.3"
+    over: "Pinning 5.8.0 (the release carrying #205) and moving again for 5.9.0 and 5.10.0"
+    reason: |
+      Every skills change of the session is released; one move means one tarball commit and one
+      golden regeneration. The checksum came from the release asset and was re-verified with
+      shasum over the downloaded tarball.
+  - category: Implementation
+    chose: "The absent-overlay golden case asks for 'flink' instead of 'spark'"
+    over: "Keeping 'spark' and accepting a changed csharp composition"
+    reason: |
+      The case proves that an overlay the catalog lacks leaves the bytes unchanged. 5.10.0 ships
+      spark, and its all-languages section applies to any stack, so 'spark' stopped being absent.
+  - category: Implementation
+    chose: "Overlay golden named principles-scala-spark.md, read through the existing Golden(slug) helper"
+    over: "A '+' in the file name, or a second golden directory for overlays"
+    reason: |
+      The name stays portable across file systems and tooling, and one helper reads every golden.
+  - category: Implementation
+    chose: "Keep the scala/spark fixtures and add Fixtures_MatchThePinnedCatalog; PackagedMaster.ReadEntry reads any tarball file"
+    over: "Deleting the fixtures and extracting the pinned catalog in the overlay tests"
+    reason: |
+      The overlay tests write a malformed overlay beside the real one, so they need a scratch
+      catalog either way. The fixtures were byte-equal to the released files; the drift test makes
+      a later pin move that changes them fail instead of silently testing stale copies.
+  - category: Scope
+    chose: "Rule tests assert exact sentences from the pinned masters and the two shared references (writing-documents, source-precedence)"
+    over: "Asserting only on the master files"
+    reason: |
+      The document fence and source precedence rule 4 live in references the masters pull in
+      with {{ref:...}}; asserting the master's include alone would pass if the reference lost the rule.
