@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-b8dfe
+goal: "An approved conversation becomes a series like any other: code mints its ids, the manifest holds the approval and the epic's goal, the database only routes."
+
+applies_to: "server (spec dialog, approval, filing), skills catalog (design-partner-master)"
+
+requires:
+  - 2026-10-06-b8dfc
+
+facts:
+  - claim: "The dialog's ids are minted by the model, checked only by the schema regex and uniqueness within one epic"
+    evidence: "observed: agent-smith-skills design-partner-master/SKILL.md:164,257,260, 2026-10-06; src/backend/AgentSmith.Application/Services/SpecDialog/RequiresEdgeChecker.cs:7-10"
+  - claim: "An epic's parent is validated but stored only as the ticket's title and body; its children become the set"
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:54-74; src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:103-118"
+  - claim: "The approval is held in RecordJson, its projected columns and set.yaml's approved_* fields"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSpecSet.cs:13-62; src/backend/AgentSmith.Application/Services/Specs/SpecSetIndex.cs:28-56"
+  - claim: "The recorder stores the set with no revisions, empty markdown and no accounting"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:72-88"
+  - claim: "Filing creates the ticket, stores the record, writes the branch under .agentsmith/specs/{key}/ and mints revision 1"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:57-78; src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:44-101"
+  - claim: "Comments disagree on whether the record or the branch wins"
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:105-110; src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:10-12; src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:32-44"
+  - claim: "The skill says an epic files one record per slice and the run re-cuts the work; the code does neither"
+    evidence: "observed: agent-smith-skills design-partner-master/SKILL.md:118-122,289, 2026-10-06; src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:22-29"
+  - claim: "ApprovedSpecSets is unique by (Tracker, SpecKey) while the pointer is keyed by (Project, SpecKey)"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ApprovedSpecSetConfiguration.cs:26-30"
+
+assumptions:
+  - claim: "Renumbering a draft's ids also renumbers its requires edges consistently"
+    check: "RequiresEdgeChecker already resolves sibling ids; reuse its map"
+
+scope:
+  in: "At approval the code mints the series and re-ids every spec in order, rewriting requires; the epic parent's goal becomes the manifest goal; the manifest carries the approval; ApprovedSpecSets reshaped to ApprovedSeries (Tracker, TicketKey, SeriesId, ContentJson until the branch carries it, SatisfiedAt; old rows dropped); filing writes the series layout; the branch wins once written; stale comments and the skill corrected."
+  out: "Run tables and UI words (b8dff)."
+
+decisions:
+  - code_mints: "The model's id is a placeholder; approval replaces it. The skill stops asking the model to mint and says so."
+  - branch_wins: "Before the branch is written the DB row's content is the series; after, the branch is. ApprovedSpecSetResolver's newer-of comparison goes."
+  - one_key: "Every table keys a ticket by TicketKey = <provider>-<ticket> and a series by SeriesId; the raw tracker id stays only where the tracker is queried."
+
+steps:
+  - id: mint
+    action: "SeriesIdFactory at approval; re-id specs and requires in order"
+  - id: manifest
+    action: "Recorder and FiledSpecBranch write series/{base}.yaml with goal, approval and revision 1"
+  - id: db
+    action: "ApprovedSeries entity, configuration and migration for every provider; repository, probe, admission, lifecycle follow"
+  - id: precedence
+    action: "Branch-then-DB precedence in one place; remove the newer-of resolver; correct the stale comments"
+  - id: skill
+    action: "design-partner-master: placeholder ids, one ticket per epic, approved work is not re-cut; release and bump the pin"
+
+tests:
+  - "Approval_EpicOfThree_MintsOneSeriesWithLettersAtoC"
+  - "Approval_RequiresEdges_FollowNewIds"
+  - "Filing_WritesManifestWithGoalAndApproval"
+  - "SpecSource_BranchWritten_DbContentIgnored"
+  - "ApprovedSeries_Satisfied_ByTicketKey"
+
+done:
+  - "An approved epic files one ticket whose branch carries series/{base}.yaml and specs/planned/{base}a..*, ids minted by code"
+  - "No comment or skill sentence contradicts the precedence the code runs"
+  - "Full suite green"

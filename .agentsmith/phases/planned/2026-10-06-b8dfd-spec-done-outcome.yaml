@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-b8dfd
+goal: "Executing a spec moves its file from specs/planned/ to specs/done/ and adds an outcome block — one file, one stem, no separate record."
+
+applies_to: "server (phase execution, record, index line)"
+
+requires:
+  - 2026-10-06-b8dfc
+
+facts:
+  - claim: "The record is a second file at .agentsmith/phases/done/{id}-{goal slug ≤60}, written into every repo of the run"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/WritePhaseRecordHandler.cs:50-53,74-88,102-106"
+  - claim: "The single-sandbox path returns before the executed mark"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/WritePhaseRecordHandler.cs:62-70,89"
+  - claim: "The record body is the draft YAML plus the run's account and review"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhaseRecordBody.cs:28-32"
+  - claim: "The marker rewrites the whole set through the writer and moves the DB pointer"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/ExecutedPhaseMarker.cs:43,55,63"
+  - claim: "The index writer adds a state.done line pointing at the record"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/PhaseIndexWriter.cs:39,48-55"
+  - claim: "The progress table seeds every phase NotStarted, the executed head included"
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:15"
+  - claim: "Parking re-enters through the record step"
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:59"
+
+assumptions:
+  - claim: "SandboxGitOperations can gain a git mv primitive with the same error handling as RemoveAsync"
+    check: "read RemoveAsync and Run before adding MoveAsync"
+
+scope:
+  in: "SeriesWriter places a spec by its state (planned or done); RecordOutcome (was WritePhaseRecord) moves the executed spec, appends outcome, commits with the manifest in ONE series commit and re-records the DB ref at that sha; the single-sandbox and multi-repo paths alike; the index line points at the done file; progress seeds executed specs Done."
+  out: "Dialog and approval (b8dfe); run tables and UI words (b8dff)."
+
+decisions:
+  - one_file: "specs/done/{stem}.yaml is the spec plus outcome: {run, delivered, review}. The goal-slug and WritePhaseRecordHandler.Slug go; 2026-09-07-e9a2's second slug is closed by this."
+  - carrying_repo_only: "The done file lives where the series lives — the carrying repo. Other repos of the run carry no copy; their PR links the carrying PR."
+  - one_commit: "Move, outcome and manifest are staged and committed together, then the ref is re-recorded at that sha, so the next run does not read its own commit as a reviewer edit."
+  - state_aware_paths: "Reader and writer resolve a spec's file by id across specs/{planned,active,done}/; only RecordOutcome writes done/."
+
+steps:
+  - id: git
+    action: "Add SandboxGitOperations.MoveAsync (git mv)"
+  - id: writer
+    action: "SeriesWriter and SeriesReader resolve files by state; stale removal ignores done/"
+  - id: outcome
+    action: "Replace WritePhaseRecordHandler with RecordOutcomeHandler: move, append outcome, commit with manifest, re-record ref; one path for single and multi sandbox"
+  - id: index-and-progress
+    action: "PhaseIndexWriter points at the done file; SpecSequenceProgress seeds executed specs Done"
+
+tests:
+  - "RecordOutcome_ExecutedSpec_MovesToDoneWithOutcome"
+  - "RecordOutcome_SingleSandbox_MarksExecuted"
+  - "RecordOutcome_NextRun_DoesNotReadReviewerEdit"
+  - "SeriesReader_PartlyExecuted_ReadsDoneAndPlanned"
+  - "SequenceProgress_ExecutedHead_SeededDone"
+
+done:
+  - "After a two-spec run the carrying repo has specs/done/{base}a-*.yaml with an outcome block, specs/planned/{base}b-*.yaml, and nothing under .agentsmith/phases"
+  - "A parked run resumed after its first spec reads both files and continues with b"
+  - "Full suite and harness green"

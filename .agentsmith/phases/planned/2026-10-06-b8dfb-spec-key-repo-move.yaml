@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-b8dfb
+goal: "The product writes and reads only spec: and this repository moves to .agentsmith/specs/ in the same commit, because the product embeds this repository's schema."
+
+applies_to: "server (spec and decision YAML), skills catalog (design-partner-master), repository methodology (.agentsmith, architecture tests, tools, docs, CLAUDE.md)"
+
+requires:
+  - 2026-10-06-b8dfa
+
+facts:
+  - claim: "The product embeds this repository's phase-spec.schema.json on purpose: a draft validates against the schema operators author with"
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:61-63; src/backend/AgentSmith.Application/Services/Validation/PhaseSpecSchemaProvider.cs:15-16"
+  - claim: "The derived-spec renderer writes phase, the draft reader requires it, the decision label writes it"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseYamlRenderer.cs:32; src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:17-18; src/backend/AgentSmith.Infrastructure.Core/Services/DecisionFileLabel.cs:17,23"
+  - claim: "Both repository schemas declare and require phase"
+    evidence: ".agentsmith/phase-spec.schema.json:7-12; .agentsmith/decision.schema.json:8-14"
+  - claim: "The design-partner skill writes phase: in four places"
+    evidence: "observed: agent-smith-skills design-partner-master/SKILL.md:164,257,259,270, 2026-10-06"
+  - claim: "The embedded skills pin is a version, a SHA256 and a checked-in tarball"
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+  - claim: "Every spec and decision file here starts with phase:"
+    evidence: "observed: grep -l '^phase:' — 1167 of 1167 specs, 926 of 926 decisions, 2026-10-06"
+  - claim: "Architecture loaders and id readers read the phases directory and the phase: key, the legacy reader included"
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseRecord.cs:18,107,122,135; tests/AgentSmith.Tests/Architecture/PhaseRecordFile.cs:22; tests/AgentSmith.Tests/Architecture/PhaseSpecFile.cs:76,98; tests/AgentSmith.Tests/Architecture/PhaseIdReader.cs:37,47-49"
+  - claim: "Schema tests read the phase property and the schema file name"
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseIdSchemaTests.cs:95-104; tests/AgentSmith.Tests/Architecture/PhaseSeriesIdTests.cs:39-40; tests/AgentSmith.Tests/Architecture/PhaseSpecSchemaFile.cs:19"
+  - claim: "This repository's evidence rule refuses phases/planned and phases/active"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:29"
+  - claim: "One planned spec cites a done spec by its phases/ path; the planned-evidence test re-grounds moved files"
+    evidence: "observed: 2026-10-01-283dk-reference-legacy-drop.yaml line 11, 2026-10-06; tests/AgentSmith.Tests/Architecture/PhaseEvidenceRuleTests.cs:24-34"
+  - claim: "CLAUDE.md, the audit tool, two docs and the session prompt name the old path or key; the gate keys on the commit marker only"
+    evidence: "CLAUDE.md:7,14,54,84,105,123,130; tools/audit-phases.py:10; docs/reference/architecture/phase-workflow.md:45; docs/reference/concepts/self-documentation.md:65; .claude/prompt.md:7,13,27; .claude/hooks/phase-gate.sh:74"
+  - claim: "About 98 test files carry phase: YAML; at least 37 feed the draft reader or validator"
+    evidence: "observed: b8df-predecessor review grep over tests/, 2026-10-06"
+
+assumptions:
+  - claim: "No open branch adds files under .agentsmith/phases when this lands"
+    check: "list open PRs touching .agentsmith/phases; merge or rebase them first"
+
+scope:
+  in: "Run migrate-specs-layout.py here; spec: in renderer, draft reader, decision label, both schemas' properties and required lists, PhaseIdReader (both readers) and every YAML fixture fed to the reader or validator; spec.schema.json renamed and re-embedded; loaders, EvidencePolicy.Repository, tools/audit-phases.py, CLAUDE.md, the two docs, .claude/prompt.md; memory entries naming the path (feedback ones as proposals); design-partner-master and the skills pin triple."
+  out: "The series construct (b8dfc), the dialog's id minting (b8dfd), run tables (b8dfe); class and test names — internal identifiers."
+
+decisions:
+  - no_alias: "The reader knows only spec:. Spec sets in flight are ignored and no ticket carries a hand-written spec."
+  - one_commit: "Move and code in one commit: the schema rename breaks the embed, and a schema requiring spec: fails the product's drafts until the renderer writes it. Review the move with git diff -M -l5000; 1,188 renames exceed the default limit."
+  - skills_and_image_together: "The skills release goes out first; this commit bumps the pin; the server image and the config bind-mount pin move in the same deploy."
+
+steps:
+  - id: skills
+    action: "design-partner-master writes spec: in its four places; release the catalog"
+  - id: move
+    action: "Run migrate-specs-layout.py at the repository root; re-ground 283dk's citation"
+  - id: key
+    action: "spec: in DerivedPhaseYamlRenderer, PhaseDraftReader, DecisionFileLabel, PhaseIdReader and the YAML fixtures; edit both schemas"
+  - id: schema
+    action: "Re-embed spec.schema.json, rename the provider's resource, point the schema tests at it"
+  - id: readers
+    action: "Point the loaders, EvidencePolicy.Repository, audit tool, docs, prompt and CLAUDE.md at specs/; bump the pin triple"
+
+tests:
+  - "DerivedPhaseYamlRenderer_Render_WritesSpecKey"
+  - "PhaseDraftReader_SpecKey_ReadsId"
+  - "PhaseDraftReader_PhaseKey_Refused"
+  - "DecisionFileLabel_SpecLabel_HeaderIsSpec"
+  - "DecisionFiles_EveryOne_StartsWithSpecOrRun"
+  - "EvidencePolicy_Repository_RefusesSpecsPlannedAndActive"
+
+done:
+  - ".agentsmith/phases does not exist; every pointer resolves under .agentsmith/specs"
+  - "No spec or decision file here starts with phase:; a design-partner draft validates with spec:"
+  - "Phase gate passed"

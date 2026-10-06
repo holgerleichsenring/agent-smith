@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-b8dff
+goal: "A run's progress, API and dashboard say spec where they mean one — RunSpecs, /api/runs/{id}/specs, 'Specs' — and keep step, plan and ledger for what is not a spec."
+
+applies_to: "server (run tables, API, events) + dashboard"
+
+requires:
+  - 2026-10-06-b8dfd
+
+facts:
+  - claim: "RunPhases holds one row per spec a run executes, keyed (RunId, PhaseId)"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunPhase.cs:12; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunPhaseConfiguration.cs:21; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPhaseProjection.cs:18-25"
+  - claim: "Run artifacts are kinded phase_record:<id> and phase_review:<id>"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPhaseProjection.cs:21,25"
+  - claim: "The API serves /api/runs/{runId}/phases and /phases/{phaseId}"
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunPhaseQueryEndpoints.cs:18-19"
+  - claim: "The dashboard reads them through runPhasesApi and renders PhasesPanel and PhaseRecord"
+    evidence: "src/dashboard/src/lib/runPhasesApi.ts:18-57; src/dashboard/src/components/jobs/story/PhasesPanel.tsx:35; src/dashboard/src/components/jobs/story/PhaseRecord.tsx:17"
+  - claim: "RunSteps and RunDecisions carry an optional PhaseId"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:4; src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunDecision.cs:4"
+  - claim: "Hub event contracts are mirrored into the dashboard and the gate checks the mirror"
+    evidence: "src/dashboard/package.json:14"
+
+assumptions:
+  - claim: "PhaseStateChangedEvent and PhaseRecordedEvent are the only hub events naming a phase"
+    check: "grep AgentSmith.Contracts/Events for Phase before building"
+
+scope:
+  in: "RunPhases → RunSpecs, PhaseId → SpecId on run tables (migration renames, history kept); artifact kinds spec_outcome:/spec_review: with old kinds still read; /specs endpoints; hub events renamed with the mirror regenerated; dashboard api, panels and words."
+  out: "Run steps, plans, the progress ledger, checkpoints and expectations — not specs, names unchanged."
+
+decisions:
+  - rename_not_copy: "Columns and tables are renamed in place; run history is kept."
+  - old_artifacts_read: "Stored artifacts keep their kind; the reader accepts both prefixes. The run archive is history, not in-flight work."
+
+steps:
+  - id: db
+    action: "Rename table and columns with a migration per provider; projection writes the new kinds"
+  - id: api-events
+    action: "Rename endpoints, readers and hub events; regenerate the dashboard mirror"
+  - id: dashboard
+    action: "runSpecsApi, SpecsPanel, SpecOutcome; UI words 'Specs'"
+
+tests:
+  - "RunSpecProjection_SpecStateChanged_UpsertsRow"
+  - "RunSpecsReader_OldArtifactKind_StillRead"
+  - "SpecsPanel_RendersRows (dashboard)"
+
+done:
+  - "A run's story shows 'Specs' with each executed spec's outcome; no endpoint or UI label says phase for a spec"
+  - "Full suite, dashboard test and build green"
