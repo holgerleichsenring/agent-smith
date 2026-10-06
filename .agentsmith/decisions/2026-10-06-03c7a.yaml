@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-06-03c7a
+
+decisions:
+  - category: Implementation
+    chose: "The script's exit codes are 0 (migrated or nothing to move), 1 (refused, nothing changed), 2 (usage)"
+    over: "Reusing check-evidence.py's 3 and 4"
+    reason: |
+      The script and the evidence check are separate tools; only check-evidence.py needed a code
+      that does not collide with its own 2 (usage) and 3 (did not run), hence its 4.
+  - category: Implementation
+    chose: "Without an argument the script looks only in the current directory and its direct children"
+    over: "Searching the whole tree"
+    reason: |
+      A plugin checkout holds templates/ and examples/ that also look like projects; a tree-wide
+      search would always find several and refuse.
+  - category: Implementation
+    chose: "Content rewrites are left unstaged; only the git mv moves are staged"
+    over: "Staging everything"
+    reason: |
+      update-project's row is commit, run, show the report, commit — the operator reviews the
+      rewrite before it is committed.
+  - category: Scope
+    chose: "Prose across README, skills and templates says spec; one 'phase' trigger synonym kept in create-spec and apply-spec descriptions"
+    over: "Renaming only paths, keys and branches"
+    reason: |
+      The operator's complaint was that the word was inaccurate everywhere. A user who still says
+      'phase' must still reach the skill, so one synonym per description stays.
+  - category: Scope
+    chose: "examples/agent-smith/ left as it is"
+    over: "Refreshing it in this phase"
+    reason: |
+      It still describes the retired decisions.md log; a find-and-replace would leave it half true.
+      Refreshing the example is its own piece of work.
