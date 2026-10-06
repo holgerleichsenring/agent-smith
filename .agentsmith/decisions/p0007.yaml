@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0007: Prompt Caching
-phase: p0007
+spec: p0007
 decisions:
   - category: Architecture
     chose: `PromptCaching = AutomaticToolsAndSystem` for all API calls

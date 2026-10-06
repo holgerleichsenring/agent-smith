@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class SpecDialogDocumentTests
 {
     private const string Document =
-        "````document\n# Hand-off\nThe spec looks like this:\n```yaml\nphase: p9999\ngoal: \"g\"\n```\nDone.\n````";
+        "````document\n# Hand-off\nThe spec looks like this:\n```yaml\nspec: p9999\ngoal: \"g\"\n```\nDone.\n````";
 
     private static OutcomeProposalResolver Resolver()
     {
@@ -41,7 +41,7 @@ public sealed class SpecDialogDocumentTests
     [Fact]
     public void Strip_ADraftBesideADocument_RemovesTheDraftAndKeepsTheDocumentWhole()
     {
-        var reply = "Before.\n\n```yaml\nphase: p1\n```\n\n" + Document + "\n\n\n\nAfter.";
+        var reply = "Before.\n\n```yaml\nspec: p1\n```\n\n" + Document + "\n\n\n\nAfter.";
 
         SpecDialogDraftBlocks.Strip(reply).Should().Be("Before.\n\n" + Document + "\n\nAfter.");
     }

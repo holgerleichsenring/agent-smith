@@ -31,7 +31,7 @@ public sealed class PhaseIndexLineTests : IDisposable
     private const string PhaseId = "2026-08-26-31e5";
     private const string Goal = "A finished phase is recorded in its context";
     private const string Pointer =
-        ".agentsmith/phases/done/2026-08-26-31e5-a-finished-phase-is-recorded-in-its-context.yaml";
+        ".agentsmith/specs/done/2026-08-26-31e5-a-finished-phase-is-recorded-in-its-context.yaml";
 
     private const string Seeded = """
         # yaml-language-server: $schema=../../context.schema.json
@@ -41,7 +41,7 @@ public sealed class PhaseIndexLineTests : IDisposable
           Redis:  { type: bidirectional, does: "Job queue" }
         state:
           done:
-            p0001: "shipped the first thing -> .agentsmith/phases/done/p0001.yaml"
+            p0001: "shipped the first thing -> .agentsmith/specs/done/p0001.yaml"
           active: {}
         """;
 
@@ -61,6 +61,18 @@ public sealed class PhaseIndexLineTests : IDisposable
         await Run([repo]);
 
         Done(repo)[PhaseId].Should().Be($"{Goal} -> {Pointer}");
+    }
+
+    /// <summary>2026-10-06-03c7b: the record lands where the pointer says, and phases/ is not recreated.</summary>
+    [Fact]
+    public async Task WritePhaseRecord_Record_LandsInSpecsDone()
+    {
+        var repo = Repo("app", "default", Seeded);
+
+        await Run([repo]);
+
+        File.Exists(Path.Combine(repo.WorkDir, Pointer)).Should().BeTrue();
+        Directory.Exists(Path.Combine(repo.WorkDir, ".agentsmith", "phases")).Should().BeFalse();
     }
 
     [Fact]
@@ -128,7 +140,7 @@ public sealed class PhaseIndexLineTests : IDisposable
             "the line is composed to fit — the record step runs AFTER the work is committed, "
             + "so refusing it would fail a run nobody could go back and shorten");
         // The pointer's slug comes from the goal, so this goal names a different file.
-        entry.Should().Contain($" -> .agentsmith/phases/done/{PhaseId}-");
+        entry.Should().Contain($" -> .agentsmith/specs/done/{PhaseId}-");
         var head = entry[..entry.IndexOf('…')];
         goal.Should().StartWith(head);
         goal[head.Length].Should().Be(' ', "the goal is cut at a word boundary, not mid-word");
@@ -242,7 +254,7 @@ public sealed class PhaseIndexLineTests : IDisposable
         pipeline.Set(ContextKeys.Sandbox, sandboxes.Values.First());
         if (goal is not null)
             pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(
-                PhaseId, goal, $"phase: {PhaseId}\ngoal: \"a finished phase\"\n", []));
+                PhaseId, goal, $"spec: {PhaseId}\ngoal: \"a finished phase\"\n", []));
 
         var context = new WritePhaseRecordContext(
             new Repository(new BranchName("main"), "https://example.invalid/sample.git"), pipeline);

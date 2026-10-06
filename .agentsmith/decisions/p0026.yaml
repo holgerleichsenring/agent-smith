@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0026: Coding Principles Detection
-phase: p0026
+spec: p0026
 decisions:
   - category: Architecture
     chose: Per-project coding principles loaded at runtime

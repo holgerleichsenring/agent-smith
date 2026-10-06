@@ -17,7 +17,7 @@ public sealed class PhaseIdMintingTests
 
     [Fact]
     public void PhaseRecord_DateMintedPhase_IsCountedForDuplicates() =>
-        SpecId($"phase: {Minted}\ngoal: \"anything\"\n").Should().Be(Minted);
+        SpecId($"spec: {Minted}\ngoal: \"anything\"\n").Should().Be(Minted);
 
     /// <summary>
     /// The id is the fixed-width prefix, so two files whose names differ only by slug are
@@ -25,7 +25,7 @@ public sealed class PhaseIdMintingTests
     /// </summary>
     [Fact]
     public void PhaseRecord_TwoFilesClaimingOneDateMintedId_GoesRed() =>
-        SpecId($"phase: {Minted}-first\n").Should().Be(SpecId($"phase: {Minted}-second\n"));
+        SpecId($"spec: {Minted}-first\n").Should().Be(SpecId($"spec: {Minted}-second\n"));
 
     [Fact]
     public void PhaseRecord_RequiresNamingADateMintedPhase_IsCheckedForExistence()
@@ -50,9 +50,9 @@ public sealed class PhaseIdMintingTests
     [Fact]
     public void PhaseRecord_CounterShapedPhase_ReadsExactlyAsBefore()
     {
-        SpecId("phase: p0507\n").Should().Be("p0507");
-        SpecId("phase: p19106a\n").Should().Be("p19106a");
-        SpecId("phase: p0169j-a-frozen-trail-persistence\n").Should().Be("p0169j");
+        SpecId("spec: p0507\n").Should().Be("p0507");
+        SpecId("spec: p19106a\n").Should().Be("p19106a");
+        SpecId("spec: p0169j-a-frozen-trail-persistence\n").Should().Be("p0169j");
     }
 
     private static string SpecId(string specText) =>

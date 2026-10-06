@@ -167,7 +167,7 @@ public sealed class DeriveSpecHandlerTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var phase = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "phase: p19106a", [])
+            new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = ["Every call site is renamed."],
             },

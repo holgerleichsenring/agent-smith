@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-35b2
+goal: "A command a sandbox runs no longer inherits REDIS_URL or JOB_ID, and the agent's command line no longer carries the Redis URL."
+
+applies_to: "sandbox agent (process start), server (Docker and Kubernetes sandbox specs)"
+
+requires: ["2026-10-02-075dc"]
+
+facts:
+  - claim: "Docker and Kubernetes sandboxes get JOB_ID and REDIS_URL as container env, and the Redis URL again as --redis-url on the agent's command line."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:57-59,78-82; src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:86-88,118-125"
+  - claim: "The agent defaults --redis-url from REDIS_URL; --job-id has no env default."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Program.cs:13-16"
+  - claim: "Every step's process starts from a copy of the agent's environment; only step env and the python PATH are applied, nothing is removed."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:57-77"
+  - claim: "ProcessRunner.cs is in the length baseline at 159 and is 155 lines."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:85"
+
+scope:
+  in: >
+    AgentProcessEnvironment.Scrub(info, stepEnv) removes REDIS_URL and JOB_ID from a step's inherited environment unless
+    the step itself sets them; ProcessRunner calls it once. The Docker Cmd and the Kubernetes Args drop --redis-url
+    (the agent reads REDIS_URL from its env, as its option default already does); --job-id and --run-id stay — not
+    secret. Tests: a step's process does not see the agent's REDIS_URL; a step that sets REDIS_URL keeps its own value;
+    both spec builders carry no --redis-url.
+  out: >
+    /proc/<agent pid>/environ stays readable by a command running as the agent's uid, so the URL is hidden, not
+    unreachable. Making it worthless to a command — a Redis credential scoped to one job, or commands under another
+    uid — is 2026-10-02-f35f.
+
+decisions:
+  - key: "HIDDEN, NOT UNREACHABLE — SAID SO. The scrub closes what env and ps show; the planned f35f closes the rest."
+  - key: "A STEP'S OWN VALUE WINS. A project whose tests read REDIS_URL sets it on the step; only the inherited agent value goes."
+
+steps:
+  - id: agent
+    action: "AgentProcessEnvironment.Scrub; ProcessRunner.BuildStartInfo calls it after step env."
+  - id: specs
+    action: "DockerContainerSpecBuilder.Cmd and PodSpecBuilder Args without --redis-url."
+
+tests:
+  - "AgentProcessEnvironment_Scrub_RemovesTheAgentsRedisUrlAndJobId; KeepsAStepsOwnValue"
+  - "ProcessRunner_Step_DoesNotSeeTheAgentsRedisUrl (real process: env)"
+  - "DockerContainerSpecBuilder_Cmd_CarriesNoRedisUrl; PodSpecBuilder_Args_CarryNoRedisUrl"
+
+done:
+  - "a run_in_reference or run_command `env` shows neither REDIS_URL nor JOB_ID; the agent still connects"
+  - "build green, full suite green"

@@ -38,7 +38,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}")
-            .EnqueueText($"{Answer}\n```yaml\nphase: not-a-valid-phase-id\n```");
+            .EnqueueText($"{Answer}\n```yaml\nspec: not-a-valid-phase-id\n```");
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
@@ -82,7 +82,7 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task Turn_TwiceInvalidProposal_IsRecordedAsANotice()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        const string invalid = "Draft:\n```yaml\nphase: not-a-valid-phase-id\n```";
+        const string invalid = "Draft:\n```yaml\nspec: not-a-valid-phase-id\n```";
         harness.ChatClient.EnqueueText(invalid).EnqueueText(invalid);
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget phase now"));

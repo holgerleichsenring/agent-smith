@@ -22,7 +22,7 @@ public sealed class PhaseSpecFromTicketTests
 {
     private const string ValidYaml =
         """
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         requires:
           - p9998

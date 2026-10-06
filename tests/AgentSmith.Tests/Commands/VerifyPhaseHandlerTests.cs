@@ -286,7 +286,7 @@ public sealed class VerifyPhaseHandlerTests
     {
         var (context, _) = Setup(
             Map("generic", new CiConfig(false, null, null, null)),
-            new PhaseDraft("p1", "goal", "phase: p1", []) { Done = ["the handler is migrated"] });
+            new PhaseDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
         context.Pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
 

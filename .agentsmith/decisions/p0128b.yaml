@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0128b: open_questions round-trip (D4 slice 2/3)
-phase: p0128b
+spec: p0128b
 decisions:
   - category: Architecture
     chose: "**Two markdown variants"

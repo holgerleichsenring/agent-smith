@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0140a: Resolver foundation slice of multi-repo + project pipelines
-phase: p0140a
+spec: p0140a
 decisions:
   - category: Architecture
     chose: "**p0140 sliced into a/b/c/d/e"

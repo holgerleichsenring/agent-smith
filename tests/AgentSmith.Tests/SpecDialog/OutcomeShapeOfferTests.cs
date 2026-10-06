@@ -378,5 +378,5 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     };
 
     private static PhaseDraft Draft(string phaseId) =>
-        new(phaseId, $"goal of {phaseId}", $"phase: {phaseId}", []);
+        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", []);
 }

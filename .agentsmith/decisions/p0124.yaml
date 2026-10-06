@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0124: follow-up: TriageOutputValidator vocab-fallback
-phase: p0124
+spec: p0124
 decisions:
   - category: Architecture
     chose: "**`SkillObservation.Description` capped at 500 chars; new optional `Details` field at ≤4000 chars carries long-form prose.** Empirical sweep of recent runs showed typical Description is 200-300 chars, worst case ~500"

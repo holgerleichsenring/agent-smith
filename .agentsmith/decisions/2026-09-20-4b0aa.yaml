@@ -1,4 +1,4 @@
-phase: 2026-09-20-4b0aa
+spec: 2026-09-20-4b0aa
 decisions:
   - id: the-ordering-lives-on-the-server
     chose: >

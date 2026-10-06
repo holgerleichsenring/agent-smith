@@ -1,4 +1,4 @@
-phase: 2026-09-17-c7aed
+spec: 2026-09-17-c7aed
 decisions:
   - id: the-tokens-the-mock-maps-to
     chose: >

@@ -66,7 +66,7 @@ public sealed class SpecMarkdownTests
 
     private static SpecPhase Phase(IReadOnlyList<string>? done = null, string document = "")
         => new(
-            new PhaseDraft("p19106a", "Rename the call sites", "phase: p19106a", [])
+            new PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = done ?? [],
             },

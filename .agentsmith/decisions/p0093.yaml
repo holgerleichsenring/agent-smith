@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0093: LLM Output Error Handling
-phase: p0093
+spec: p0093
 decisions:
   - category: Architecture
     chose: Silent catch banned for LLM-output parsing

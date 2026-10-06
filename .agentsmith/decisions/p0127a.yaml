@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0127a: SKILL.md frontmatter + loader (parallel format support, D3 slice 1/3)
-phase: p0127a
+spec: p0127a
 decisions:
   - category: Architecture
     chose: "**Format detection by frontmatter key (`roles_supported` vs `role`), not by directory or filename.** Grep workflows operators use today walk the same `.agentsmith/skills/<name>/SKILL.md` layout; forcing two parallel trees during the migration would break those workflows. Both keys present is a hard `SkillFormatException`, so the per-skill format is unambiguous."

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0140b: Webhook migration + spawner (multi-repo fan-out at the enqueue layer)
-phase: p0140b
+spec: p0140b
 decisions:
   - category: Architecture
     chose: "**Pre-implementation spec audit refined every gap before code touched.** The original p0140b spec had at least seven internal contradictions (e.g., \"11 handlers\" while only 8 ticket-event handlers exist; \"Enqueue via IRedisJobQueue\" while ClaimSpawnAsync is needed for dedup; \"ResolveAsync\" on a synchronous resolver; multi-repo end-to-end claim while consumer side still throws on project.Repo). The audit produced a coherent spec, then implementation followed. Without the audit, each gap would have surfaced mid-implementation as a context-thrashing question."

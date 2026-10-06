@@ -245,7 +245,7 @@ public sealed class ApprovedSetRecutOnDemandTests
     }
 
     private static string PhaseYaml(string id) => $"""
-        phase: {id}
+        spec: {id}
         goal: "Goal {id}"
         done:
           - "Done {id}."

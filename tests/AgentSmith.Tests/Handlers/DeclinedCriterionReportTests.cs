@@ -31,7 +31,7 @@ public sealed class DeclinedCriterionReportTests
     private static PipelineContext InPhase(string phaseId)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(phaseId, "goal", "phase: " + phaseId, []) { Done = [Lint] });
+        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(phaseId, "goal", "spec: " + phaseId, []) { Done = [Lint] });
         return pipeline;
     }
 
@@ -79,7 +79,7 @@ public sealed class DeclinedCriterionReportTests
         var pipeline = InPhase("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)));
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft("p2", "goal", "phase: p2", []) { Done = ["callers moved"] });
+        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft("p2", "goal", "spec: p2", []) { Done = ["callers moved"] });
 
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition("callers moved", AcceptanceStatus.Met, "Callers.cs")));

@@ -1,4 +1,4 @@
-phase: p0415
+spec: p0415
 decisions:
   - what: "Ownership is DECLARED in one table (PromptOwnership), not derived from resolution order. SkillCatalogPromptCatalog.Get reads the table first: catalog-owned resolves from the named master or throws the p0205 error, embedded-owned resolves from the embedded catalog and NEVER consults the masters, unlisted names keep the direct-master lookup."
     alternatives:

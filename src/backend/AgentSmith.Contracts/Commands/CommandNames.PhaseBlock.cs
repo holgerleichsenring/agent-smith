@@ -9,7 +9,7 @@ namespace AgentSmith.Contracts.Commands;
 public static partial class CommandNames
 {
     /// <summary>p0315d: dogfoods the methodology — writes the executed phase
-    /// spec to the target repo's .agentsmith/phases/done/ inside the sandbox
+    /// spec to the target repo's .agentsmith/specs/done/ inside the sandbox
     /// working tree so CommitAndPR ships it with the change set.</summary>
     public const string WritePhaseRecord = "WritePhaseRecordCommand";
 

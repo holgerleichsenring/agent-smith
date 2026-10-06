@@ -717,5 +717,5 @@ public class CommitAndPRHandlerTests
     // p0421: the gate judges what was RATIFIED. A run that ratified nothing is not judged
     // at all — which is why these tests state a contract before expecting a verdict.
     private static PhaseDraft PhaseWithOneCriterion() =>
-        new("p0001", "the bug", "phase: p0001\n", []) { Done = ["the bug is fixed"] };
+        new("p0001", "the bug", "spec: p0001\n", []) { Done = ["the bug is fixed"] };
 }

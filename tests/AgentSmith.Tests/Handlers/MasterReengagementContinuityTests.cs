@@ -83,7 +83,7 @@ public sealed class MasterReengagementContinuityTests
         var context = MasterHandlerFixture.BuildContext("coding-agent-master");
         context.Pipeline.Set(ContextKeys.PipelineName, "code");
         const string yaml = """
-            phase: p1
+            spec: p1
             goal: migrate the consumer registration
             done:
               - the consumer registration is migrated

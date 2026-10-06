@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0159c: Docs re-skin + content drift
-phase: p0159c
+spec: p0159c
 decisions:
   - category: Architecture
     chose: "**Material theme stays; palette / fonts overridden via tokens.css + overrides.css, not a custom theme.** Material is well-maintained, search and nav are useful, the override surface is small. Swapping generators would be months of work for no user-visible win."

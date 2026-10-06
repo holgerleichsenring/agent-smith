@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0094b: Security-Scan Skill Reduction (15 → 9)
-phase: p0094b
+spec: p0094b
 decisions:
   - category: Architecture
     chose: Attacker-perspective skills (vuln-analyst, recon-analyst, response-analyst, low-privilege-attacker, input-abuser, idor-prober) deleted from `config/skills/security/`

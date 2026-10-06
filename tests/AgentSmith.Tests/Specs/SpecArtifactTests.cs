@@ -207,7 +207,7 @@ public sealed class SpecArtifactTests
         SpecSource.Derived);
 
     private static SpecPhase Phase(string id, string slug) => new(
-        new PhaseDraft(id, $"Goal {id}", $"phase: {id}\ngoal: \"Goal {id}\"", []),
+        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []),
         slug,
         $"# {id}\n\nverbatim from segment one\n",
         [1]);

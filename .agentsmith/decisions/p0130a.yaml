@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0130a: BootstrapCheck gate + csharp-bootstrap (D6 slice 1/2)
-phase: p0130a
+spec: p0130a
 decisions:
   - category: Architecture
     chose: "**BootstrapGateHandler is a separate handler from BootstrapCheckHandler, not a combined publish-and-decide step.** BootstrapCheckHandler is an `IConceptWriter` (publishes `context_yaml_present` + `coding_principles_present`); BootstrapGateHandler reads those concepts and decides whether to abort. Mirrors the p0125c rule that publishing handlers don't make pipeline-level decisions. Two short handlers beats one tangled one."

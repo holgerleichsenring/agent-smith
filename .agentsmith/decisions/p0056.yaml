@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0056: Security Scan Polish
-phase: p0056
+spec: p0056
 decisions:
   - category: Implementation
     chose: Mandatory false-positive-filter always runs regardless of triage

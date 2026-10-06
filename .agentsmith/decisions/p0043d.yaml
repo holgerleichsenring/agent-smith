@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0043d: Ollama Local Model Support
-phase: p0043d
+spec: p0043d
 decisions:
   - category: Tooling
     chose: OpenAiCompatibleClient shared between OpenAI and Ollama via composition not inheritance

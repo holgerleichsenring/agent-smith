@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0383
+spec: p0383
 decisions:
   - category: Architecture
     chose: "Two targeted guards (in-process liveness check + post-suspend grace window) instead of raising LeaseFreshFor"

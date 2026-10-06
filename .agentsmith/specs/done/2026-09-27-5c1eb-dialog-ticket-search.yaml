@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-27-5c1eb
+goal: "A design conversation can be started from a ticket found by typing part of its name or its number, instead of only by arriving with one in the address."
+
+applies_to: "backend (a search sweep across the configured trackers and one route) and dashboard (the field, its results, and the mark on a bound conversation)"
+
+requires: ["2026-09-27-5c1ea"]
+
+scope:
+  in: "A search field on the dialog page that asks from the third character, a route that sweeps every configured tracker and reports the ones that could not answer, a picked ticket that carries its tracker and resolves its project, the binding riding the first message as it already does, and a conversation bound to a ticket saying so in both lists."
+  out: "What the search costs each tracker and how each builds its query — 2026-09-27-5c1ea. Closed tickets, which no search reaches."
+
+decisions:
+  - key: |
+      THE FIELD LIVES IN THE SURFACE, NOT IN THE PROJECT CHOICE, BECAUSE THE PROJECT CHOICE IS NOT
+      ALWAYS THERE. An installation with exactly one configured project resolves it without a choice
+      and never renders that component — its own header says so and a test asserts the choice is
+      absent — so a field inside it would be invisible to most installations. On a multi-project one
+      the choice unmounts the moment a project is picked, which a second test asserts, taking any
+      typed text, results and in-flight request with it. The field therefore sits above the branch
+      that swaps the choice for the transcript, so it renders in both states, and the picked ticket
+      is surface state beside the picked project for the reason that phase gave for putting it there.
+  - key: |
+      A RESULT CARRIES ITS TRACKER AND PICKING IT RESOLVES THE PROJECT, BECAUSE OTHERWISE THE WRONG
+      TICKET BINDS IN SILENCE. The wire carries a project and a ticket id and no tracker, and the
+      binder re-fetches the ticket on the picked project's tracker from the id alone. Search every
+      tracker, pick number 412 from one, then pick a project routed to another, and the first
+      message binds that other board's 412 — different work, no error; and if it has no 412 the
+      conversation opens unbound with only a log line. So a hit reports which projects are routed
+      to the tracker it came from; picking a hit with exactly one such project picks that project
+      too, and with several it narrows the choice to those. This is the mechanism the address path
+      already uses, which resolves the project FROM the ticket rather than beside it.
+  - key: |
+      A PICKED TICKET WITHOUT A PROJECT CANNOT OPEN A CONVERSATION, SO THE PROJECT IS NOT OPTIONAL.
+      Send is a no-op with no project on the page side, the dispatcher returns early and DROPS the
+      ticket without a word on the server side, and with several projects configured and none picked
+      there is no composer to type into at all. The previous decision is what makes the composer
+      appear: a picked ticket that resolves its project is a picked project.
+  - key: |
+      THE NUMBER LOOKUP RUNS BESIDE THE SEARCH FOR CORRECTNESS, AND IT IS NOT FREE. Typed text is
+      matched against title and body, and a Jira key or a work-item number is in neither, so a
+      number needs the by-id fetch. The first cut called running both cheaper than a shape rule; it
+      is the opposite — the by-id sweep costs one round trip per configured tracker, against a
+      tracker this series already records as rate limited far below the rest of its API. It is
+      chosen anyway, because a shape rule would have to know four trackers' id grammars and a wrong
+      guess means "no such ticket" for a ticket that exists. The debounce is what keeps the cost
+      bounded, and it is a requirement rather than a polish.
+  - key: |
+      THE BY-ID SWEEP ANSWERS FOR ONE TRACKER, AND THAT IS THE LIMIT OF WHAT IT DISAMBIGUATES. The
+      existing sweep returns inside its loop on the first tracker that answers, so a number living
+      on two boards resolves by configuration order. The text search is what shows both with their
+      trackers; the by-id hit is a single one, and it is marked with its tracker like any other so
+      what was resolved is visible rather than assumed.
+  - key: |
+      THE BINDING RIDES THE FIRST MESSAGE, WHICH ALREADY CARRIES A TICKET END TO END — the composer
+      sends it, the request contract has the field, the dispatcher binds and reads the ticket text.
+      So this is one expression and the state behind it, not a new path. Two things now want that
+      field: the address and a pick. The address wins, because it is consumed once and the operator
+      did not type it. Neither is cleared today — the address handover never clears, so every
+      message re-reads the ticket from its tracker — and both are cleared when a new conversation
+      is started, where the picked project already is.
+  - key: |
+      A BOUND CONVERSATION IS MARKED WITH THE TRACKER-NATIVE ID, NOT WITH THE KEY THE SESSION CARRIES.
+      The session row has a tracker and a ticket key for free, but the key is the spec-key spelling —
+      lowercased with every non-alphanumeric collapsed — so a row marked with it reads dpg1239. The
+      native id and the title live in the ticket-text table, whose only reader is per-session; a page
+      holds up to two hundred conversations and that read is already the expensive one. So one bulk
+      read keyed by the page's sessions, rather than two hundred reads or a new column.
+  - key: |
+      THE TWO LISTS ARE TWO COMPONENTS AND THE MIRROR IS HAND-WRITTEN. The dialog page's rows are a
+      button that opens in place; the conversations page's rows are links. They share only their
+      label helpers, so the mark is built twice and asserted in two test files. The summary's
+      TypeScript mirror is kept by hand — the generator that guards the event contracts walks only
+      their namespace — so nothing mechanical will catch a field added on one side and not the
+      other, and the dashboard test is the whole guard.
+
+steps:
+  - id: the-sweep-is-its-own-service
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Add a service beside the project-choice sweep that asks every configured tracker's search for the typed text, caps the whole answer, says what was held back, and lists the trackers that could not answer."
+      - "Run the by-id sweep beside it and mark its hit with the tracker it came from."
+      - "Report per hit which configured projects route to its tracker, so the page can resolve one."
+      - "Keep it out of the endpoints file, which has little room under the line limit."
+
+  - id: one-route-under-the-existing-ones
+    path: "src/backend/AgentSmith.Server/Endpoints"
+    action:
+      - "Add a search route under the ticket routes on a literal segment, so it cannot be read as a ticket id, guarded by the same permission as its neighbours."
+      - "Refuse fewer than three characters without asking any tracker."
+      - "Regenerate the route-permission baseline."
+
+  - id: the-field-and-its-results
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Put the field above the branch that swaps the project choice for the transcript, so it renders whether or not a project is being chosen."
+      - "Ask from the third character, debounced, cancelling the request in flight; show only results, each with its tracker, the cap when it bit, and the trackers that could not answer."
+      - "Picking a result holds the ticket in surface state and picks its project when exactly one routes to its tracker; otherwise narrow the project choice to the candidates."
+      - "Carry the picked ticket on the first message beside the address handover, the address winning, and clear both when a new conversation is started."
+
+  - id: a-bound-conversation-says-so
+    path: "src/backend/AgentSmith.Server, src/dashboard/src"
+    action:
+      - "Carry the bound ticket's tracker-native id on the conversation summary, filled by one bulk read for the whole page, and mirror the field by hand."
+      - "Mark the bound rows in the dialog page's list and in the conversations page's list — two components, two test files."
+
+tests:
+  - "TicketSearch_AcrossTrackers_CapsTheWholeAnswerAndNamesWhoCouldNotAnswer"
+  - "TicketSearch_ANumberOnATracker_IsFoundBesideTheTextMatchesAndCarriesItsTracker"
+  - "TicketSearch_EveryHit_ReportsTheProjectsRoutedToItsTracker"
+  - "TicketSearchRoute_TwoCharacters_AsksNoTracker"
+  - "ConversationSummary_ABoundSession_CarriesTheTrackerNativeIdInOneReadForThePage"
+  - "SpecDialogSurface_SingleConfiguredProject_StillShowsTheTicketField"
+  - "SpecDialogSurface_ThreeCharacters_SearchesOnceAfterTheDebounce"
+  - "SpecDialogSurface_TypingOnwards_CancelsTheSearchInFlight"
+  - "SpecDialogSurface_PickedTicketOnOneRoutedProject_PicksThatProjectAndOpensTheComposer"
+  - "SpecDialogSurface_PickedTicketOnSeveralRoutedProjects_NarrowsTheChoice"
+  - "SpecDialogSurface_PickedTicket_RidesTheFirstMessageAndIsClearedOnStartNew"
+  - "SpecDialogSurface_ABoundConversation_IsMarkedInTheDialogList"
+  - "ConversationsPage_ABoundConversation_IsMarkedInTheRow"
+
+done:
+  - "a ticket is found by typing part of its title or its number, from the third character, on a single-project installation as well as a multi-project one"
+  - "a result says which tracker it came from, and picking it resolves the project so the composer opens"
+  - "the first message binds the ticket that was picked, on the tracker it was found on"
+  - "a capped answer says so, and a tracker that could not search is named rather than read as an empty board"
+  - "a conversation bound to a ticket shows its tracker-native id in both lists"
+  - "route-permission baseline regenerated, build green, full suite green, dashboard tests green"

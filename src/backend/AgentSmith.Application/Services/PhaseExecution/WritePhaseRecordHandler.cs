@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 
 /// <summary>
 /// p0315d: dogfoods the methodology — writes the executed phase spec to
-/// <c>.agentsmith/phases/done/{phaseId}-{slug}.yaml</c> in every repo's
+/// <c>.agentsmith/specs/done/{phaseId}-{slug}.yaml</c> in every repo's
 /// sandbox working tree (mirroring WriteRunResultHandler's per-repo record
 /// fan-out), so CommitAndPR force-stages it with the change set and the
 /// target repo carries the same planned→done record this project lives.
@@ -48,7 +48,7 @@ public sealed partial class WritePhaseRecordHandler(
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
             return CommandResult.Ok("No phase spec on this run; nothing to record");
         var relativePath = Path.Combine(
-            ".agentsmith", "phases", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
+            ".agentsmith", "specs", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
 
         var line = indexLine.Compose(draft.Goal, relativePath.Replace('\\', '/'));
         if (line is null)

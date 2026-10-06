@@ -257,7 +257,7 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     private static OutcomeProposal Proposal(string goal) =>
-        new PhaseOutcome(new PhaseDraft("p9001", goal, $"phase: p9001\ngoal: {goal}", []));
+        new PhaseOutcome(new PhaseDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
 
     /// <summary>The conversation as 8e51c leaves it: bound, with the ticket's text recorded.</summary>
     private async Task<FakeTracker> BoundAsync()

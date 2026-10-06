@@ -1,4 +1,4 @@
-phase: p0459
+spec: p0459
 decisions:
   - id: release-names-its-holder
     chosen: >-

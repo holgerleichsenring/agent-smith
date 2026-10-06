@@ -297,7 +297,7 @@ public sealed class ApprovedSetDeriveSpecTests
         var harness = Harness();
 
         var result = await harness.Handler().ExecuteAsync(
-            harness.Context(Ticket("```yaml\nphase: nope\ngoal: 3\n```")), default);
+            harness.Context(Ticket("```yaml\nspec: nope\ngoal: 3\n```")), default);
 
         result.IsSuccess.Should().BeFalse("shipping a spec and getting it wrong is not 'derive one'");
         harness.Deriver.Calls.Should().Be(0);
@@ -330,7 +330,7 @@ public sealed class ApprovedSetDeriveSpecTests
         harness.PointerSha = "branch-sha";
         harness.Branch.SeedSet(BranchSetYaml, new Dictionary<string, string>
         {
-            ["p19106a-onthebranch"] = "phase: p19106a\ngoal: \"As it stands on the branch\"\ndone:\n  - \"Done.\"",
+            ["p19106a-onthebranch"] = "spec: p19106a\ngoal: \"As it stands on the branch\"\ndone:\n  - \"Done.\"",
         });
         await harness.Approvals.SaveAsync(
             ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(1), ["p19106z"]), default);
@@ -359,7 +359,7 @@ public sealed class ApprovedSetDeriveSpecTests
         Please add the widget endpoint.
 
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl

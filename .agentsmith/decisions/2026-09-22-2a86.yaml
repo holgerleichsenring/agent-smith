@@ -1,4 +1,4 @@
-phase: 2026-09-22-2a86
+spec: 2026-09-22-2a86
 decisions:
   - id: the-resume-route-checks-the-target-dialog-itself
     chose: >

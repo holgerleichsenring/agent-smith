@@ -32,7 +32,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     private const string Platform = "dashboard";
     private const string Dialog = "d-c7aea";
     private const string Owner = "person-a";
-    private const string DraftYaml = "phase: p9999\ngoal: \"widget goal\"";
+    private const string DraftYaml = "spec: p9999\ngoal: \"widget goal\"";
     private const string Draft = "```yaml\n" + DraftYaml + "\n```";
 
     private readonly SqliteConnection _connection;
@@ -245,7 +245,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         var session = await _repository.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         session!.LatestProposalJson =
             "{\"kind\":\"phase\",\"phase\":{\"phaseId\":\"p9999\",\"goal\":\"widget goal\","
-            + "\"yaml\":\"phase: p9999\",\"requires\":[]}}";
+            + "\"yaml\":\"spec: p9999\",\"requires\":[]}}";
         await _repository.SaveAsync(CancellationToken.None);
 
         (await ReadAsync()).Proposal!.Findings.Should().BeEmpty(

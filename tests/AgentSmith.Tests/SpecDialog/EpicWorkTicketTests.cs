@@ -445,12 +445,12 @@ public sealed class EpicWorkTicketTests
 
     private static EpicOutcome Epic(params PhaseDraft[] slices) =>
         new(new PhaseDraft("p9000", "Widget platform",
-            "phase: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"the whole platform is reachable\"",
+            "spec: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"the whole platform is reachable\"",
             []) { Done = ["the whole platform is reachable"] }, slices);
 
     private static PhaseDraft Slice(string id, IReadOnlyList<string>? requires = null) =>
         new(id, $"slice {id}",
-            $"phase: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"slice {id} is finished\"",
+            $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"slice {id} is finished\"",
             requires ?? []) { Done = [$"slice {id} is finished"] };
 
     private static ConversationState State() => new()

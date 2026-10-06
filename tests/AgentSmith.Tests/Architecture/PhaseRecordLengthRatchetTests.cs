@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Architecture;
 /// </para>
 /// <para>
 /// 400 is read off the record rather than invented — half the entries already fit it. It
-/// is about four sentences: what shipped, in what area, and the <c>-> phases/done/…</c>
+/// is about four sentences: what shipped, in what area, and the <c>-> specs/done/…</c>
 /// pointer that every entry already carries. The detail is not lost by shortening, it is
 /// one file away in the spec and its decisions, and an entry repeating its spec is a
 /// second copy that will eventually disagree with the first.
@@ -44,7 +44,7 @@ public sealed class PhaseRecordLengthRatchetTests
 
         offenders.Should().BeEmpty(
             $"a phase record entry is an index line, max {MaxChars} characters: what "
-            + "shipped, in what area, and the pointer into phases/done/. The reasoning "
+            + "shipped, in what area, and the pointer into specs/done/. The reasoning "
             + "belongs in the spec the pointer names — do not add a baseline entry.\n  "
             + string.Join("\n  ", offenders));
     }

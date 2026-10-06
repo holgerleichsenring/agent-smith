@@ -57,7 +57,7 @@ public sealed class ReferenceApprovalCiteTests
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],
-        }, "19106", [new PhaseDraft("p1", "Do it", "phase: p1", []) { Done = ["done"] }], CancellationToken.None);
+        }, "19106", [new PhaseDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }], CancellationToken.None);
 
         record.CitedSets.Should().Equal(ReferenceSandboxFixture.SetId);
     }

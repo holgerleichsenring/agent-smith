@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0356
+spec: p0356
 decisions:
   - key: "The overlay ships as skill text + thin backend affordances, NOT choreography. The compiler-scout, decide-once-fan-out and batch-verify steps needed ZERO new C# orchestration: spawn_agents (p0177), run_command, write_file, the ledger tool and MasterVerification already carry the flow, and the ProgressLedgerToolHost reconcile ALREADY allows done->pending status flips (protected ids only forbid DROPPING — pinned by a new test). The flow lives in coding-agent-master 1.14.0 (skills PR #135) as capability wording; AgenticLoopRunner's message-list ownership is untouched."
   - key: "Mid-run ledger durability reuses the EXISTING RunStoryRecordedEvent verbatim — no new event type, no RunEventApplier change (that applier is p0355's surface; its null-coalescing apply already preserves a previously persisted AcceptanceJson when the mid-run flush sends null). ProgressLedgerFlusher chains publishes in replace order and is fire-and-forget per tool call: a lost flush is repaired by the next one / the run-end snapshot. The seeded ledger is flushed once at master start, so the viewer sees the checklist live from iteration 0."

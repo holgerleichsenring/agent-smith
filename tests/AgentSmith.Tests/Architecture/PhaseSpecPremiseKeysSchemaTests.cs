@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Architecture;
 /// </summary>
 public sealed class PhaseSpecPremiseKeysSchemaTests
 {
-    private const string Head = "phase: 2026-10-02-0000\ngoal: \"g\"\n";
+    private const string Head = "spec: 2026-10-02-0000\ngoal: \"g\"\n";
 
     [Fact]
     public void PhaseSpecSchema_FactWithoutEvidence_IsInvalid() =>

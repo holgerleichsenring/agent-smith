@@ -37,7 +37,7 @@ The findings pipelines (`security-scan`, `api-security-scan`, `legal-analysis`) 
 
 ## Spec-first
 
-The methodology works on two levels. The runs follow it: every change starts as a phase spec with a "done when" list, and ends as a phase record committed to the target repository under `.agentsmith/phases/done/`, with a one-line entry in that repository's context. The skills follow it too. Every skill in the `agent-smith-skills` catalog is YAML frontmatter plus a Markdown body, pinned by version, so the judgement a master exercises can be tuned without a release. See the [Skills catalog](skills-catalog.md).
+The methodology works on two levels. The runs follow it: every change starts as a phase spec with a "done when" list, and ends as a phase record committed to the target repository under `.agentsmith/specs/done/`, with a one-line entry in that repository's context. The skills follow it too. Every skill in the `agent-smith-skills` catalog is YAML frontmatter plus a Markdown body, pinned by version, so the judgement a master exercises can be tuned without a release. See the [Skills catalog](skills-catalog.md).
 
 ## What lands in the run directory
 

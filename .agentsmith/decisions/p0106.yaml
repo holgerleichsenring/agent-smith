@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0106: Multi-Pipeline Projects
-phase: p0106
+spec: p0106
 decisions:
   - category: Architecture
     chose: "`ProjectConfig.Pipelines: List<PipelineDefinition>` + `ProjectConfig.DefaultPipeline: string?` joined the existing `Pipeline` / `SkillsPath` fields (which stay as legacy shims, not a breaking change). Each `PipelineDefinition` carries a name plus optional overrides for `Agent`, `SkillsPath`, `CodingPrinciplesPath`. Eliminates duplicated project blocks"

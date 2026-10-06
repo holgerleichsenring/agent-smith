@@ -131,7 +131,7 @@ public sealed class RunPhasesServedTests : IDisposable
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
-            new PhaseRecordedEvent(RunId, "p19213a", "phase: p19213a\ngoal: \"Make it exist\"\n", T));
+            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\ngoal: \"Make it exist\"\n", T));
 
         var detail = await ReadPhaseAsync("p19213a");
 
@@ -172,7 +172,7 @@ public sealed class RunPhasesServedTests : IDisposable
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
-            new PhaseRecordedEvent(RunId, "p19213a", "phase: p19213a\n", T),
+            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\n", T),
             new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
 
         await using var ctx = new AgentSmithDbContext(Options());

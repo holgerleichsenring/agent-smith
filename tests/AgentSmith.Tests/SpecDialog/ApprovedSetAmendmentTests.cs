@@ -67,7 +67,7 @@ public sealed class ApprovedSetAmendmentTests
         new(store, new NoReferenceSetReader(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"Do {id}", $"phase: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
+        new(id, $"Do {id}", $"spec: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
 
     private static ConversationState State() => new()
     {

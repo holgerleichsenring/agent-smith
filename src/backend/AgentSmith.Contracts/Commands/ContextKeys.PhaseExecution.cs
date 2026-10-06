@@ -4,7 +4,7 @@ public static partial class ContextKeys
 {
     /// <summary>p0315d: the validated phase spec (PhaseDraft) extracted from the
     /// phase ticket by PhaseSpecGate — the requirement record the master
-    /// executes and the artifact WritePhaseRecord commits to phases/done/.</summary>
+    /// executes and the artifact WritePhaseRecord commits to specs/done/.</summary>
     public const string PhaseSpec = "PhaseSpec";
 
     /// <summary>p0315d: questions the master raised mid-run via ask_human on a

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0064: Typed Skill Orchestration
-phase: p0064
+spec: p0064
 decisions:
   - category: Architecture
     chose: Pipeline type declared (discussion | structured | hierarchical) → determines orchestration model

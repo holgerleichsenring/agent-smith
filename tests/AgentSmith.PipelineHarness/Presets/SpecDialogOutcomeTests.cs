@@ -43,7 +43,7 @@ public sealed partial class SpecDialogOutcomeTests
 
     private const string ValidDraftYaml =
         """
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -77,17 +77,17 @@ public sealed partial class SpecDialogOutcomeTests
         ```outcome
         kind: epic
         parent:
-          phase: p9000
+          spec: p9000
           goal: "Widget platform end to end"
         children:
-          - phase: p9000a
+          - spec: p9000a
             goal: "Widget storage layer"
             steps:
               - id: store
                 action: "Add the widget store"
             done:
               - "a widget is stored and read back"
-          - phase: p9000b
+          - spec: p9000b
             goal: "Widget API on top of the storage layer"
             requires: [p9000a]
             steps:
@@ -303,13 +303,13 @@ public sealed partial class SpecDialogOutcomeTests
         var state = await bed.OpenSessionAsync("th-epic");
         var epic = new EpicOutcome(
             new PhaseDraft("p9000", "Widget platform end to end",
-                "phase: p9000\ngoal: \"Widget platform end to end\"", []),
+                "spec: p9000\ngoal: \"Widget platform end to end\"", []),
             [
                 new PhaseDraft("p9000a", "Widget storage layer",
-                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
+                    "spec: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
                     []),
                 new PhaseDraft("p9000b", "Widget API on top of the storage layer",
-                    "phase: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
+                    "spec: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
                     ["p9000a"]),
             ]);
 

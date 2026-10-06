@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0128a: Schemas + Validators + Persistence (D4 slice 1/3)
-phase: p0128a
+spec: p0128a
 decisions:
   - category: Architecture
     chose: "**Schemas live under `.agentsmith/schemas/` AND ship as embedded resources via csproj `Link`.** The done criterion required schemas under `.agentsmith/schemas/`; runtime loading needs them in the binary. A single source of truth (`.agentsmith/schemas/*.schema.json`) is referenced via `<EmbeddedResource Include=\"..\\..\\.agentsmith\\schemas\\*.json\" Link=\"Services\\Validation\\Schemas\\...\" />` so operators see the schemas in the repo, JsonSchemaLoader reads them from manifest resources, no duplication."

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0019a: Docker Spawner
-phase: p0019a
+spec: p0019a
 decisions:
   - category: Architecture
     chose: Extract `IJobSpawner` interface with Docker and K8s implementations

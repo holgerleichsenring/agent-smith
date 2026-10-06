@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0159b: Eleventy landing re-skin
-phase: p0159b
+spec: p0159b
 decisions:
   - category: Architecture
     chose: "**Lifecycle SVG embedded as `<img src=lifecycle.svg>` even on the landing, not inlined.** Inlining was the original plan to allow CSS chip controls to drive the SVG DOM; in practice the self-contained SVG with internal `<style>` keyframes auto-cycles through the five stages without any external control, which is enough for the hero impression. `<img>` keeps the same source file usable from MkDocs (where Material sanitises inline `<style>`/`<script>`) without forking two copies."

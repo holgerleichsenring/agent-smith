@@ -76,7 +76,7 @@ public sealed class ProposalEvidenceReviewTests
     }
 
     private static PhaseDraft Draft(string phaseId, params (string Claim, string Evidence)[] facts) =>
-        new(phaseId, $"goal of {phaseId}", $"phase: {phaseId}", [])
+        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", [])
         {
             Facts = [.. facts.Select(f => new PhaseFact(f.Claim, f.Evidence))],
         };

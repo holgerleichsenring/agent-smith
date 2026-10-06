@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0037: Strategy Pattern Pipeline Abstraction
-phase: p0037
+spec: p0037
 decisions:
   - category: Architecture
     chose: Chose strategy pattern with tell-don't-ask principle

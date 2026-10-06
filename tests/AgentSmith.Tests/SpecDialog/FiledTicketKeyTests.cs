@@ -108,7 +108,7 @@ public sealed class FiledTicketKeyTests
 
     private static ComposedReply Notice(FiledTicket ticket) =>
         new SpecDialogOutcomeComposer().ComposeFiled(
-            new PhaseOutcome(new PhaseDraft("p9001", "the phase", "phase: p9001", [])),
+            new PhaseOutcome(new PhaseDraft("p9001", "the phase", "spec: p9001", [])),
             new FilingReport([ticket], Error: null));
 
     private static FiledTicket Filed(string key, string reference) =>

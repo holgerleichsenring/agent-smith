@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0017: GitLab Provider
-phase: p0017
+spec: p0017
 decisions:
   - category: Architecture
     chose: Extract `ISourceProvider` and `ITicketProvider` implementations

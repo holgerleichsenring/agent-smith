@@ -1,4 +1,4 @@
-phase: p0400b
+spec: p0400b
 decisions:
   - what: "SpecJsonReader.TryGet normalises the LOOKUP NAME as well as the model's property name (underscores and hyphens folded on both sides)."
     alternatives:

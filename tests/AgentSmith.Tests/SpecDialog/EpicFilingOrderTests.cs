@@ -173,10 +173,10 @@ public sealed class EpicFilingOrderTests
     }
 
     private static EpicOutcome Epic(params PhaseDraft[] children) =>
-        new(new PhaseDraft("p9000", "Widget platform", "phase: p9000", []), children);
+        new(new PhaseDraft("p9000", "Widget platform", "spec: p9000", []), children);
 
     private static PhaseDraft Child(string id, IReadOnlyList<string>? requires = null) =>
-        new(id, $"slice {id}", $"phase: {id}", requires ?? []);
+        new(id, $"slice {id}", $"spec: {id}", requires ?? []);
 
     private static ConversationState State() => new()
     {

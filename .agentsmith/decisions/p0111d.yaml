@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0111d: Per-Provider SKILL.md Overrides
-phase: p0111d
+spec: p0111d
 decisions:
   - category: Architecture
     chose: "**`SKILL.<provider>.md` overrides resolved at parse time, not at body-render time.** ProviderOverrideResolver returns a {EffectivePath, BasePath?} pair: when an override exists in the skill directory, EffectivePath = override path and BasePath = base path; otherwise EffectivePath = base path and BasePath = null. SkillMdParser branches on whether BasePath is set"

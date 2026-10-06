@@ -58,7 +58,7 @@ public sealed class SpecCutReviewEvidenceTests
     }
 
     private static IReadOnlyList<PhaseDraft> Cut() =>
-        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", [])
+        [new PhaseDraft("p1a", "migrate the senders", "spec: p1a", [])
         {
             Done = ["every sender uses the new bus"],
         }];

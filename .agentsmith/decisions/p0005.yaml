@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0005: CLI & Docker
-phase: p0005
+spec: p0005
 decisions:
   - category: Tooling
     chose: System.CommandLine instead of manual argument parsing

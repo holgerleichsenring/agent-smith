@@ -189,7 +189,7 @@ public sealed class DeriveSpecQuestionTests
         var segments = TicketSegmenter.Segment(Ticket);
         var carries = segments.Select(s => s.Id).ToList();
         var phase = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", goal, "phase: p19106a", []) { Done = ["The packages are bumped."] },
+            new Contracts.Models.PhaseDraft("p19106a", goal, "spec: p19106a", []) { Done = ["The packages are bumped."] },
             "bump-the-packages",
             SegmentExtractor.BuildMarkdown("p19106a", goal, carries, segments),
             carries);

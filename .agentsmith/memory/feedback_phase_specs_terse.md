@@ -15,4 +15,4 @@ Phase specs are not prose; keep them tight.
 
 **Why:** the user explicitly called out a previous spec (p0155 first draft) as too verbose — "phases sind keine prosa gerede. kurz und knapp." Long specs hide intent behind ceremony, slow review, and drift from the verifiable shape the methodology expects.
 
-**How to apply:** when writing or editing any `phases/planned/*.yaml`, default to short. If a decision needs three paragraphs of reasoning, that reasoning belongs in `decisions.md` (with [[reference]] from the phase) or in a [[notes]] file, not the phase spec. Mirror the tone of recent good specs in the same repo, but cut prose further wherever possible. The reference style in this repo is p0154-ish but tighter.
+**How to apply:** when writing or editing any `specs/planned/*.yaml`, default to short. If a decision needs three paragraphs of reasoning, that reasoning belongs in `decisions.md` (with [[reference]] from the phase) or in a [[notes]] file, not the phase spec. Mirror the tone of recent good specs in the same repo, but cut prose further wherever possible. The reference style in this repo is p0154-ish but tighter.

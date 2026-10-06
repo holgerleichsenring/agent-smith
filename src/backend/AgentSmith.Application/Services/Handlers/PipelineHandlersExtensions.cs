@@ -169,7 +169,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
         // p0315d: phase-execution — spec extraction gate (inverse of the p0315c
         // renderer), spec-first master prompt, mid-run clarification park and the
-        // phases/done/ dogfood record.
+        // specs/done/ dogfood record.
         services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();

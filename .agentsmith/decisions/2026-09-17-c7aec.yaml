@@ -1,4 +1,4 @@
-phase: 2026-09-17-c7aec
+spec: 2026-09-17-c7aec
 decisions:
   - id: the-observer-is-ambient
     chose: >

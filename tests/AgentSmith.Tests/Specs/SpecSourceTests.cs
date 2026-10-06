@@ -29,7 +29,7 @@ public sealed class SpecSourceTests
         Please add the widget endpoint.
 
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -145,7 +145,7 @@ public sealed class SpecSourceTests
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing,
-            Ticket("```yaml\nphase: nope\ngoal: 3\n```"),
+            Ticket("```yaml\nspec: nope\ngoal: 3\n```"),
             null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
         decision.Error.Should().NotBeNull(
@@ -158,7 +158,7 @@ public sealed class SpecSourceTests
     private static SpecSet SetOnBranch() => new(
         "azdo-1",
         [new SpecPhase(
-            new Contracts.Models.PhaseDraft("p0001a", "On the branch", "phase: p0001a", []),
+            new Contracts.Models.PhaseDraft("p0001a", "On the branch", "spec: p0001a", []),
             "on-the-branch", string.Empty, [])],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],

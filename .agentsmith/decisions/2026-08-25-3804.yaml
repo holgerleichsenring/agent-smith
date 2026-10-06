@@ -1,4 +1,4 @@
-phase: 2026-08-25-3804
+spec: 2026-08-25-3804
 decisions:
   - what: "Make the currency claim CHECKED rather than removing it."
     alternatives:

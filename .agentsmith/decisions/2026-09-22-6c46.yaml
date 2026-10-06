@@ -1,4 +1,4 @@
-phase: 2026-09-22-6c46
+spec: 2026-09-22-6c46
 decisions:
   - id: the-layer-travels-with-the-value-out-of-one-walk
     chose: >

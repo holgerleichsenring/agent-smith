@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0086: Typed Skill Observations
-phase: p0086
+spec: p0086
 decisions:
   - category: Architecture
     chose: SkillObservation as universal output contract

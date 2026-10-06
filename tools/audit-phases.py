@@ -7,7 +7,7 @@ import os, re, glob, sys
 from collections import defaultdict
 
 ROOT = './agent-smith/agent-smith'
-PHASES = sorted(glob.glob(os.path.join(ROOT, '.agentsmith/phases/done/*.yaml')))
+PHASES = sorted(glob.glob(os.path.join(ROOT, '.agentsmith/specs/done/*.yaml')))
 
 # Walk repo once, build file index
 SRC_INDEX = set()

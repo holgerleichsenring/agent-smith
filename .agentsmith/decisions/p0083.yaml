@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0083: Jira Webhook Status Lifecycle
-phase: p0083
+spec: p0083
 decisions:
   - category: Architecture
     chose: "Trigger requires all three: assignee match + label match + status in whitelist"

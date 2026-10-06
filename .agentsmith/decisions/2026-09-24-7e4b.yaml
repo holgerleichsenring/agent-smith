@@ -1,4 +1,4 @@
-phase: 2026-09-24-7e4b
+spec: 2026-09-24-7e4b
 decisions:
   - what: "Announce the link that decided, at Information, for every link — not only the fallback."
     alternatives:

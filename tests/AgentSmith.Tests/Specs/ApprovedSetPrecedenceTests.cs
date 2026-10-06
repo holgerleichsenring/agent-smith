@@ -138,7 +138,7 @@ public sealed class ApprovedSetPrecedenceTests
         Please add the widget endpoint.
 
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl

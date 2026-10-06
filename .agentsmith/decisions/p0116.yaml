@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0116: Sandbox Creator (Wire Extraction + ISandbox + K8s Backend)
-phase: p0116
+spec: p0116
 decisions:
   - category: Architecture
     chose: "**Wire records extracted to a new `AgentSmith.Sandbox.Wire` project. Step gains optional file-op fields + `Validate()`; StepKind extended with `ReadFile / WriteFile / ListFiles`; StepResult gains `OutputContent`.** p0115 shipped these inside `AgentSmith.Sandbox.Agent/Models/`. p0116 retroactively extracts them so the Server can reference Wire without referencing the Agent. Honest framing: p0115 was the first runnable Agent; p0116 = wire refactor + ISandbox + handler migration. Together they deliver the working sandbox architecture; neither alone does."

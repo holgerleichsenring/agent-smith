@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0127b: Triage filter via activates_when + specificity tie-break (D3 slice 2/3)
-phase: p0127b
+spec: p0127b
 decisions:
   - category: Architecture
     chose: "**`PhaseSpecificityTrimmer` extracted as a separate service.** TriageOutputProducer was already 196 lines pre-phase; folding the trim logic (BuildScoreIndex / TrimPhase / TrimList / TotalSkillCount / EnumerateNames) inline would have pushed it past 250. The trimmer is a single-responsibility orchestrator (cap any phase whose total exceeds the per-phase cap, drop lowest-specificity first), independently testable, and lets the producer stay focused on the LLM-call pipeline. -- alternatives: keep all the helpers private inside the producer (rejected: pushed the producer over 250 lines and entangled trim logic with the validate/retry path it doesn't share); make TrimToCap an internal static method tested via InternalsVisibleTo (rejected: trimming has its own dependencies"

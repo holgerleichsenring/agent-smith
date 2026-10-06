@@ -19,14 +19,14 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// production PhaseTicketRenderer); the LLM is scripted; the sandbox is the
 /// staging-aware stub. Proves the spec-first path end-to-end — extraction
 /// gate, spec-as-approved-plan prompt, done-criteria contract, the
-/// phases/done/ dogfood record — and the mid-run clarification park.
+/// specs/done/ dogfood record — and the mid-run clarification park.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PhaseExecutionTests
 {
     private const string ValidYaml =
         """
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -74,7 +74,7 @@ public sealed class PhaseExecutionTests
         // (AgenticMasterPlanSectionTests over the production BuildPlanSection).
         var promptText = string.Join(
             "\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text ?? string.Empty));
-        promptText.Should().Contain("phase: p9999",
+        promptText.Should().Contain("spec: p9999",
             "the validated spec must reach the master verbatim");
         promptText.Should().Contain("Add the widget endpoint + handler",
             "the spec's steps are the work the master executes");
@@ -86,16 +86,16 @@ public sealed class PhaseExecutionTests
         promptText.Should().Contain("use bearer-token auth for the widget endpoint",
             "an answer commented while the ticket was parked must reach the re-triggered run");
 
-        // Dogfood record: the executed spec lands in phases/done/ inside the
+        // Dogfood record: the executed spec lands in specs/done/ inside the
         // sandbox working tree, riding the same commit CommitAndPR ships.
         var wroteRecord = harness.StubSandboxFactory!.Spawned
             .SelectMany(s => s.Sandbox.RanSteps)
             .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
                 && s.Path is { } p
-                && p.Contains(".agentsmith/phases/done/", StringComparison.Ordinal)
+                && p.Contains(".agentsmith/specs/done/", StringComparison.Ordinal)
                 && p.EndsWith("p9999-add-a-widget-endpoint-to-the-sample-service.yaml", StringComparison.Ordinal));
         wroteRecord.Should().BeTrue(
-            "the phase yaml must be written to .agentsmith/phases/done/ in the sandbox tree");
+            "the phase yaml must be written to .agentsmith/specs/done/ in the sandbox tree");
 
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
 
@@ -132,11 +132,11 @@ public sealed class PhaseExecutionTests
         park.Comment.Should().Contain("agent-smith",
             "the comment must carry the open-questions marker the answer parser keys on");
 
-        // A parked run ships nothing: no phases/done record, no PR path.
+        // A parked run ships nothing: no specs/done record, no PR path.
         harness.StubSandboxFactory!.Spawned
             .SelectMany(s => s.Sandbox.RanSteps)
             .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
-                && s.Path != null && s.Path.Contains(".agentsmith/phases/done/", StringComparison.Ordinal),
+                && s.Path != null && s.Path.Contains(".agentsmith/specs/done/", StringComparison.Ordinal),
                 "a run parked for clarification must not record the phase as done");
     }
 

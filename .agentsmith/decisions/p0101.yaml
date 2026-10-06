@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0101: CLI server graceful degradation + per-subsystem health
-phase: p0101
+spec: p0101
 decisions:
   - category: Architecture
     chose: "Resilience strategy split: webhook listener always up, Redis-dependent subsystems (queue_consumer, housekeeping, poller) degrade. Server boots with REDIS_URL unset OR Redis temporarily down. Webhook POSTs that hit ITicketClaimService while Redis is down respond 503 with body `redis_unavailable` instead of throwing. Operators see /health/ready=503 immediately"

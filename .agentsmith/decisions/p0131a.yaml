@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0131a: Skill loader + frontmatter cleanup (D7 slice 1/4)
-phase: p0131a
+spec: p0131a
 decisions:
   - category: Architecture
     chose: "**SkillRoleMapping as a static helper in Contracts.Models.Skills, not a method on RoleSkillDefinition.** The mapping is the bridge between SKILL.md frontmatter (producer/investigator/judge/filter) and pipeline-side SkillRole enum (Lead/Analyst/Reviewer/Filter). Static helper keeps it callable from validator + filter handler + future runtime callers without forcing a non-null Role on every entity instance."

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0146b: Retire RegexIntentParser
-phase: p0146b
+spec: p0146b
 decisions:
   - category: Architecture
     chose: "**DI registration uses an explicit factory, not the two-generic form.** `AddTransient<IIntentParser, LlmIntentParser>()` would let MS.DI try to resolve every ctor parameter"

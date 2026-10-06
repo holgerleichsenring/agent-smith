@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0088: Configurable Defaults
-phase: p0088
+spec: p0088
 decisions:
   - category: Architecture
     chose: Config wins over hardcoded

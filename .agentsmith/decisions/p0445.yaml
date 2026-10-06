@@ -1,4 +1,4 @@
-phase: p0445
+spec: p0445
 decisions:
 - category: Implementation
   chose: Extract the stat columns into one RunStats component both rows render

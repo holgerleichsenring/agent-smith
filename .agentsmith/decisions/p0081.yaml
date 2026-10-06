@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0081: Integration Setup Docs
-phase: p0081
+spec: p0081
 decisions:
   - category: Scope
     chose: All guides in English, under docs/setup/ as dedicated section.

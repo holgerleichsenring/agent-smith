@@ -56,7 +56,7 @@ public sealed class ProposalReviewLookTests
     [Fact]
     public void ReviewLook_Prompt_OffersTheToolsItCarries()
     {
-        var drafts = new[] { new AgentSmith.Contracts.Models.PhaseDraft("p9999", "widget goal", "phase: p9999", []) };
+        var drafts = new[] { new AgentSmith.Contracts.Models.PhaseDraft("p9999", "widget goal", "spec: p9999", []) };
 
         var review = SpecCutReviewPrompt.For(drafts, ticketText: null,
             Factory().ForProposalReview(Turn(new RecordingScope(), template: null)));

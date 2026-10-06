@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0004: Pipeline Execution
-phase: p0004
+spec: p0004
 decisions:
   - category: Architecture
     chose: Regex-based intent parser instead of LLM call

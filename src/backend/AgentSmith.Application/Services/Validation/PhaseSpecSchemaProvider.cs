@@ -4,8 +4,8 @@ using Json.Schema;
 namespace AgentSmith.Application.Services.Validation;
 
 /// <summary>
-/// p0315b: loads the phase-spec JSON schema (the same
-/// <c>.agentsmith/phase-spec.schema.json</c> operators author phases against)
+/// p0315b: loads the spec JSON schema (the same
+/// <c>.agentsmith/spec.schema.json</c> operators author specs against)
 /// from the embedded resource at process start and validates it against its
 /// declared Draft-07 meta-schema. Singleton — the schema lives for the
 /// process lifetime; SpecDraftValidator evaluates drafted specs against it.
@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Validation;
 public sealed class PhaseSpecSchemaProvider
 {
     private const string ResourceName =
-        "AgentSmith.Application.Services.Validation.Schemas.phase-spec.schema.json";
+        "AgentSmith.Application.Services.Validation.Schemas.spec.schema.json";
 
     public JsonSchema Schema { get; }
 

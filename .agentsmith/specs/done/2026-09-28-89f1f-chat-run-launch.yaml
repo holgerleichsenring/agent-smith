@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-89f1f
+goal: "A run started from Slack or Teams is admitted, queued and executed by the server like every other run, with or without a ticket, instead of in a spawned CLI job."
+
+applies_to: "backend (chat intents, a chat run launcher, the spawn funnel)"
+
+requires: ["2026-09-28-89f1c", "2026-09-28-89f1e"]
+
+scope:
+  in: "Chat fix and init intents into the spawn funnel mapped to the project's tracker trigger, a ticketless launcher for chat security-review and mad-discussion, the chat run id minted up front, PR context for a chat security-review, the Slack legal modal removed."
+  out: "Following the run back into the chat thread, which is 2026-09-28-89f1g. Deleting the spawner, which is 2026-09-28-89f1h."
+
+decisions:
+  - key: |
+      ADMISSION LIVES IN THE SPAWN FUNNEL, NOT IN THE CLAIM. Capacity admission, the FIFO queue and the
+      approved-set carrier are in SpawnPipelineRunsUseCase; calling the claim directly would skip them.
+      A chat ticket run goes through the funnel with the project's tracker platform and trigger, so its
+      statuses resolve like a webhook run's, and skips only the was-it-label-routed check, as the
+      dashboard launcher does.
+  - key: |
+      A CHAT RUN MAY HAVE NO TICKET. security-review and mad-discussion from chat carry none and cannot be
+      claimed. They go through a launcher shaped like InitRunLauncher: admit, write the queued row, enqueue,
+      return the run id.
+  - key: |
+      CHAT MINTS THE RUN ID AND PASSES IT IN, like the funnel does, because the claim returns none and the
+      next slice binds the thread to that id.
+  - key: |
+      A CHAT FIX NAMES NO PIPELINE; it runs `code`. The legal modal starts a run with no document and can
+      never succeed, so it goes; legal-analysis stays a CLI pipeline.
+
+steps:
+  - id: launcher
+    action: "ChatRunLauncher: ticket runs into the spawn funnel with the project's trigger and a minted run id; ticketless runs admitted, recorded and enqueued like InitRunLauncher."
+  - id: intents
+    action: "FixTicketIntentHandler and InitProjectIntentHandler call the launcher instead of IJobSpawner; the chat security-review carries its PR through PrRunContextFactory."
+  - id: legal-modal
+    action: "Remove the Slack legal modal (ModalCommandType, SlackModalBuilder, SlackModalBlockFactory, website pipelines data, chat-gateway docs)."
+
+tests:
+  - "FixTicketIntent_GoesThroughTheSpawnFunnel_SpawnsNothing"
+  - "InitProjectIntent_LaunchesThroughInitRunLauncher"
+  - "ChatSecurityReview_WithoutTicket_IsAdmittedQueuedAndRecorded"
+  - "ChatSecurityReview_WithPr_SeedsPrContext"
+  - "ChatFixTicket_ResolvesStatusesFromTheProjectsTrigger"
+
+done:
+  - "no chat intent calls IJobSpawner"
+  - "a chat run appears in the queue and on the runs board under the run id chat minted"
+  - "build and all tests green"

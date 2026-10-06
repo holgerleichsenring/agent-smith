@@ -1,0 +1,197 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-7667
+goal: "One transport contract suite, measured on today's Redis transport by a Linux CI job that tests the agent built from the tree, fixes what any sandbox transport must do before it changes."
+
+applies_to: "tests (a transport-neutral contract suite and its seam), two product changes (an idle-limit field, a per-sandbox step gate), CI, and the baseline the transport is judged against"
+
+requires: []
+
+scope:
+  in: >
+    Product changes:
+    - An idle limit in seconds on SandboxSpec, converted to the agent's idle cycles by both builders,
+      so a test can shorten it.
+    - A per-sandbox step gate, so that concurrent steps on one sandbox never take each other's
+      results or events (see decisions).
+    A fixture seam with these operations: create a sandbox, kill its agent, drop and restore its
+    network on the same address, mark its run live or not live, hold it for a design conversation,
+    give it a private owner, and name its liveness store.
+    Contract tests against ISandbox and the liveness, cancel and reaping services, each with its
+    wall time (table in decisions):
+    - the result carries its last lines;
+    - events arrive in order within a step;
+    - a stale result is discarded;
+    - the protocol version is observed from results;
+    - payloads at the existing size limits for ReadFile, WriteFile, ListFiles, Grep and DirectoryTree;
+    - the step cap is reported;
+    - two concurrent steps are served in submission order;
+    - an idle sandbox stays while its run is live and exits when it is not;
+    - Shutdown makes the agent exit cleanly (with no watcher attached);
+    - a killed agent ends as sandbox-vanished;
+    - cancel happens within bounds;
+    - a network drop inside the client's retry window;
+    - an orphan is reaped, while held and foreign-owner sandboxes are spared.
+    CI:
+    - A Linux job builds the agent image from the checked-out tree and tags it under the registry
+      name the harness resolves.
+    - A harness override pins every Docker fixture's agent version and registry to that image.
+    - The job creates the harness topology.
+    - Its pass rate is measured before it may gate anything.
+    A baseline of reference runs, whose tolerance is taken from the baseline's own spread.
+  out: >
+    Kubernetes in CI: no workflow runs a cluster, so the Kubernetes path is covered by
+    2026-09-28-3ca9's composition tests and the operator's manual acceptance in 2f8c. A drop longer
+    than the Redis client's window: Redis loses events there, and a failed result push ends the agent
+    loop (RedisEventChannel.cs:60-81; RedisJobBus.cs:61-65; JobLoop.cs:111-114). That is recorded as
+    today's gap, not asserted.
+
+decisions:
+  - key: |
+      SAFETY FIRST, AS THE OPERATOR RULED. "Works as well afterwards as now" needs a "now" a test can
+      hold: a suite written against ISandbox and measured on the transport being replaced.
+  - key: |
+      THE CONTRACT, READ OFF TODAY'S CODE:
+      - the result is drained twice (SandboxRedisChannel.cs:49-61);
+      - a stale result is discarded (:96-99) and the protocol observed (:95);
+      - the cap is enforced (KubernetesSandbox.cs:36-43; SandboxStepCap.cs:22-27);
+      - idle continues while the run is active (JobLoop.cs:44-68);
+      - Shutdown exits with ExitOk (:71-75);
+      - liveness cancels as sandbox-vanished (SandboxLivenessWatcher.cs:23-25, 79-110);
+      - disposal sends Shutdown, waits 10 s, then removes (DockerSandbox.cs:24, 45-57);
+      - held conversations are spared (HeldConversationReader.cs:61-65; SandboxOrphanReaper.cs:55-62);
+      - foreign owners are spared (the owned query, SandboxOrphanReaper.cs:70-82).
+  - key: |
+      CONCURRENT STEPS ARE BROKEN ON REDIS TODAY, SO THIS PHASE FIXES THEM FIRST. The agent takes steps
+      in order (RedisJobBus.cs:48), but each waiter pops the shared results list and discards another
+      step's result as stale (SandboxRedisChannel.cs:87, 96-100). The rightful waiter then times out
+      (SandboxStepCap.cs:26-27). The event drain shares one cursor across waiters (SandboxEventDrain.cs:31,
+      44, 62), so another step's lines are skipped. Nothing serialises RunStepAsync
+      (DockerSandbox.cs:33-43), and sub-agents run in parallel (SubAgentRunner.cs:38-44) over shared
+      sandboxes (SubAgentContext.cs:21). A per-sandbox gate around RunStepAsync is the smallest fix
+      that makes the contract case measurable; it serialises what the agent already serialises.
+  - key: |
+      THE IDLE FIELD IS A DURATION. The agent reads its cycle count once per process
+      (JobLoop.cs:24, 28-32) over a fixed 60 s poll (:12), and no factory passes it
+      (DockerContainerSpecBuilder.cs:57-59, 78-85). A duration in seconds survives the HTTP transport,
+      which has no poll; the Redis builders convert it to cycles. Mark-live adds the run id to
+      agentsmith:runs:active, and the fixture sets SandboxSpec.RunId so that --run-id is passed
+      (JobLoop.cs:86).
+  - key: |
+      THE DROP IS REPEATABLE, AND ITS WINDOW IS THE CLIENT'S. The fixture creates deploy_default with
+      a fixed subnet and reconnects the agent container with --ip set to its original address, so the
+      address and the server's dial target survive. The server reaches Redis through the host port,
+      which is untouched (DockerHarnessRegistrations.cs:92-94). The window is the retry delays of
+      0.2, 1 and 5 s (RedisEventChannel.cs:13) plus the client's 5 s async timeout per attempt — about
+      26 s — and ConnectRetry only covers the first connect (RedisJobBus.cs:10, 33). The drop lasts
+      3 s. The test command prints a sequence number on each line. The invariant: the step completes,
+      the result arrives, every sequence number arrives at least once, and first occurrences are in
+      order — a retried batch can replay a prefix (RedisEventChannel.cs:83-96). If Redis is measured
+      red, the case is recorded as a known gap, and 2f8c is held to at least the measured behaviour.
+  - key: |
+      THE CI PIN IS A NAMED MECHANISM. Every Docker fixture pins a published agent today —
+      agent_version 0.74.1 in four fixtures, 0.134.1 in the polyglot one
+      (Fixtures/agentsmith-docker*.yml) — and an unpinned run needs AGENTSMITH_RELEASE_VERSION
+      (AgentVersionResolver.cs:30-35). A harness override of sandbox.agent_version and
+      agent_registry, applied to every fixture, pins them to the image built from the tree. That
+      image is tagged under the registry name, so DockerImagePresence finds it locally
+      (DockerImagePresence.cs:24-30). A sentinel test compares the agent's protocol with
+      WireProtocol.Current. Moving the fixtures off 0.74.1 can change result shapes (the polyglot
+      fixture says so); each resulting failure is fixed or recorded by name in this phase.
+  - key: |
+      THE CI TOPOLOGY IS SPELLED OUT, AND NOTHING IS GATED BLIND:
+      - the job creates deploy_default with a fixed subnet and starts Redis on it with alias `redis`,
+        published on host port 6379 (DockerHarnessRegistrations.cs:85-99; DockerPresetRunner.cs:128-155);
+      - it pre-pulls only the toolchain images the fixtures use;
+      - timeout-minutes is 60;
+      - the Azure DevOps-token test still self-skips (FixBugDockerTests.cs:109-117).
+      The Docker tier failed about 18 of 51 on macOS and has never been measured on Linux, and a flake
+      on the version commit would leave that release's agent tag unpublished (docker-publish.yml:144-162).
+      So the job first runs non-gating until ten consecutive green runs are recorded. Only then does it
+      gate, and only the sandbox-agent publish leg. PolyglotReferenceDockerTests' "NOT a CI gate" note
+      is updated when that happens.
+  - key: |
+      REAPER CASES ARE ISOLATED. Every Docker-tier class shares one owner (DockerHarnessRegistrations.cs:57),
+      and the reaper takes any owned container older than 60 s whose run is not live
+      (SandboxOrphanReaper.cs:30, 50-62). The reaper cases therefore use a private owner, as the
+      existing reaper test does (SandboxOrphanReaperTests.cs:36-37). A held sandbox needs an open
+      conversation row and a positive hold window (HeldConversationReader.cs:32-34), which the hold
+      operation provides.
+  - key: |
+      WALL TIMES:
+      - idle not-live: about 70 s;
+      - idle live: about 130 s plus a follow-up step;
+      - kill to vanished: up to 18 s (10 s TTL + 3 × 2 s; HeartbeatLoop.cs:18-19;
+        SandboxLivenessWatcher.cs:24-25);
+      - cancel and dispose: up to 15 s;
+      - reaper: at least 60 s of age plus one scan;
+      - the drop: 3 s plus the step;
+      - the other cases: seconds.
+      The suite's total is stated in CI after the first measured run.
+  - key: |
+      CANCEL HAS BOUNDS. Task.Delay(250 ms, token) throws immediately on cancel
+      (SandboxRedisChannel.cs:15, 62), so the waiter stops within a second. Disposal is a flat 10 s grace
+      and then removal, so removal happens within 15 s. Nothing on the wire stops an in-flight command;
+      only removal does.
+  - key: |
+      THE BASELINE TOLERANCE COMES FROM THE BASELINE. The transport does not change model cost, and
+      three live runs mostly measure model variance. For each reference estate (one Azure DevOps
+      board with Azure repositories, one Jira board with GitLab repositories), the operator records
+      three runs before 2f8c and three after. The after-values must fall within the before-range
+      widened by 10% on cost and duration. The terminal status must match the before-runs' majority.
+      Run ids and the four fields (status, step count, cost, duration) go into the release checklist
+      kept with the deployment, outside this repository, so archiving the run rows cannot erase them.
+  - key: |
+      SERIES: first slice of the sandbox transport change; own number. Suggested order: after 10ffa,
+      before 3ca9 and 2f8c.
+
+steps:
+  - id: product
+    path: "src/backend/AgentSmith.Contracts/Sandbox/SandboxSpec.cs, src/backend/AgentSmith.Server/Services/Sandbox"
+    action:
+      - "An optional idle limit in seconds on SandboxSpec, converted to AGENTSMITH_SANDBOX_MAX_IDLE_CYCLES by both builders; unset in production."
+      - "A per-sandbox step gate around RunStepAsync in both container sandboxes."
+    new:
+      - "SandboxStepGate: serialises steps on one sandbox"
+  - id: the-seam
+    path: "tests/AgentSmith.PipelineHarness"
+    action: "ISandboxTransportFixture with the operations in scope; the Redis implementation over the Docker harness; the agent-version override for every fixture."
+    new:
+      - "ISandboxTransportFixture: the transport-neutral test seam"
+      - "RedisSandboxTransportFixture: today's transport behind it"
+      - "HarnessAgentPin: overrides sandbox.agent_version and agent_registry for every Docker fixture"
+  - id: the-contract
+    path: "tests/AgentSmith.PipelineHarness/Contract"
+    action: "The contract cases in scope."
+  - id: ci
+    path: ".github/workflows/docker-publish.yml"
+    action: "A docker-tier job as described, non-gating until ten consecutive green runs; then gating the sandbox-agent publish leg."
+  - id: baseline
+    action: "The operator records the baseline as described, outside the repository."
+
+tests:
+  - "PodSpecBuilder_IdleLimitSeconds_ForwardedAsCycles"
+  - "DockerContainerSpecBuilder_IdleLimitSeconds_ForwardedAsCycles"
+  - "SandboxStepGate_TwoConcurrentSteps_EachGetsItsOwnResultAndEvents"
+  - "HarnessAgentPin_EveryDockerFixture_UsesTheLocalAgent"
+  - "SandboxTransportContract_Step_ReturnsResultWithTheLastLines"
+  - "SandboxTransportContract_Events_ArriveInOrderAndStayWithTheirStep"
+  - "SandboxTransportContract_StaleResult_IsDiscarded"
+  - "SandboxTransportContract_Result_ProtocolVersionIsObserved"
+  - "SandboxTransportContract_FileStepsAtTheSizeLimits_RoundTrip"
+  - "SandboxTransportContract_StepOverCap_AgentReportsTheCap"
+  - "SandboxTransportContract_TwoConcurrentSteps_ServedInSubmissionOrder"
+  - "SandboxTransportContract_IdleWhileRunLive_AgentStays"
+  - "SandboxTransportContract_IdleRunNotLive_AgentExits"
+  - "SandboxTransportContract_ShutdownWithoutWatcher_AgentExitsCleanly"
+  - "SandboxTransportContract_AgentKilled_RunCancelledAsSandboxVanished"
+  - "SandboxTransportContract_Cancel_WaiterStopsWithinASecondAndSandboxIsRemovedWithinFifteen"
+  - "SandboxTransportContract_NetworkDroppedThreeSeconds_EverySequenceAtLeastOnceFirstOccurrencesInOrder"
+  - "SandboxTransportContract_Orphan_IsReaped_HeldAndForeignAreSpared"
+  - "HarnessAgent_Protocol_MatchesWireProtocolCurrent"
+
+done:
+  - "concurrent steps on one sandbox no longer lose results or events"
+  - "the contract suite is measured on the Redis transport in the Linux CI job, against the agent built from the tree; every red case is fixed or recorded as a known gap by name"
+  - "the Docker tier runs in CI (the Azure DevOps-token test excepted, by name), with its pass rate recorded before it gates"
+  - "the baseline is recorded outside the repository, with the tolerance above"
+  - "build green, full suite green"

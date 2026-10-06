@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-27-481bb
+goal: "A picked ticket names its project from its own labels, a number lookup that could not run says so, and the exact hit is marked as the number that was typed."
+
+applies_to: "backend (the cross-tracker sweep, the by-id lookup and one route) and dashboard (the ticket field)"
+
+requires: ["2026-09-27-5c1eb", "2026-09-27-1bd9"]
+
+scope:
+  in: "Resolving a picked ticket's project by its labels on the tracker it was found on; reporting a by-id lookup that failed separately from a text search that failed; marking the exact hit; refusing only where the ticket's tracker has no configured project at all; and forgetting the typed text when a new conversation starts."
+  out: "Which fields each tracker matches, and the cap — 2026-09-27-5c1ea. Narrowing the address path by tracker, which is 2026-09-27-1bd9 and lands first."
+
+decisions:
+  - key: |
+      A TEXT HIT NEVER HAS ITS LABELS LOOKED AT, SO ONE TICKET GIVES TWO ANSWERS. A search hit
+      carries an id and a title and nothing else — that is what the capability port is allowed to
+      reveal, and widening it is the expensive direction because the four provider classes may only
+      shrink. So the sweep offers the projects ROUTED TO THE TRACKER, while the by-id lookup, which
+      reads a whole ticket, intersects those with the projects the ticket's LABELS name. The
+      consequence on a live board: the same ticket, found by typing part of its title, offers every
+      project on its tracker; found by its number, resolves one. What was typed decides.
+  - key: |
+      THE PRECISE RESOLUTION HAPPENS ON THE PICK, AND IS ITS OWN ROUTE. Reading a whole ticket per
+      hit would multiply the per-keystroke cost by the size of the result set; reading one when a
+      person has committed to one is a single round trip. It cannot reuse the existing by-id route,
+      which sweeps every tracker and returns on the first that answers — the tracker is exactly what
+      this must not guess. It cannot take the shape tickets/{tracker}/{ticketId} either: that is two
+      single-segment parameters in the same position as tickets/{project}/{ticketId} and would match
+      ambiguously at request time. So: a literal segment with the tracker and the ticket as query
+      parameters, the same dialog.write its neighbours carry, and the route-permission baseline
+      regenerated with it.
+  - key: |
+      TWO DIFFERENT ZEROS, AND ONLY ONE IS A REFUSAL. "No configured project routes to this
+      tracker" means no project can ever bind this ticket correctly — a refusal. "No project's
+      labels match this ticket" means the person picks, which the surface already draws with its own
+      sentence and which 2026-09-27-1bd9 settled in writing: a narrowing is not the same as a
+      refusal. The existing expression already prefers labels and falls back to the routed set; that
+      fallback stays. What changes is only the case where the routed set is itself empty, where the
+      surface today offers EVERY project — so an operator may pick one on another tracker and the
+      first message binds that other board's ticket of the same number, silently.
+  - key: |
+      A BY-ID LOOKUP THAT FAILED IS REPORTED SEPARATELY FROM A TEXT SEARCH THAT FAILED. The lookup
+      catches every exception and logs at debug, so a 404, a timeout, an expired credential and a
+      work item in another team project all read as "there is no such ticket" — the one reading the
+      port was built to prevent, left in half the path. It cannot join the existing list of trackers
+      that could not be searched: that sentence says nothing here says whether the ticket is on
+      them, which would be wrong for a tracker whose text search worked and whose number read did
+      not. So it is a second list, with a sentence of its own.
+  - key: |
+      THE EXACT HIT IS ALREADY FIRST; WHAT IT LACKS IS A MARK. The by-id hit is added before the
+      tracker loop, text matches are deduped against it, and the cap keeps it — so the live symptom,
+      five tickets that MENTION a number with the ticket itself nowhere, was never an ordering
+      fault. It was the swallowed lookup above. So this phase adds a flag on the hit and a mark on
+      the row, and changes no ordering.
+  - key: |
+      THE FIELD IS REMOUNTED RATHER THAN REACHED INTO. The typed text is the field's own state and
+      starting a new conversation does not unmount it — the surface clears the picked project, the
+      picked ticket and the address, and the number stays on screen offering results for the
+      conversation before last. Remounting it on a key that changes with the conversation clears
+      everything it holds, including the results and any request in flight, rather than clearing one
+      remembered thing and leaving the next one to be found later.
+  - key: |
+      THE PICK'S ROUND TRIP IS CANCELLED LIKE THE SEARCH'S. The field already aborts the search in
+      flight on the next keystroke; a resolution left running would land on a later pick and rewrite
+      its project.
+
+steps:
+  - id: a-ticket-names-its-project-on-one-tracker
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog, src/backend/AgentSmith.Server/Extensions"
+    action:
+      - "Answer, for one ticket on one NAMED tracker, the projects its labels name intersected with the projects routed to that tracker."
+      - "Serve it on a literal segment with the tracker and ticket as query parameters, under dialog.write, and regenerate the route-permission baseline."
+      - "Keep the intersection in ONE place: 2026-09-27-1bd9 narrows it inside the project choice, so the sweep's own copy goes and this route is that choice scoped to one named tracker."
+      - "Widen what the project choice answers so a failed lookup can be carried, and move its other caller's projection with it."
+
+  - id: the-number-lookup-can-refuse
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Carry the trackers whose by-id lookup could not run as a list of their own, beside the trackers whose text search could not run."
+      - "State the bound: the lookup returns on the FIRST tracker that answers, so the list holds only the trackers asked before it."
+
+  - id: the-exact-hit-is-marked
+    path: "src/backend/AgentSmith.Server/Services/SpecDialog, src/dashboard/src"
+    action: "Flag the hit that came from the number lookup, mirror the field by hand, and mark that row as the number that was typed."
+
+  - id: no-project-on-this-tracker-is-said
+    path: "src/dashboard/src/components/dialog"
+    action: "Where the picked ticket's tracker has no configured project, say so and offer no binding; where it has projects but none the labels name, keep the choice the page already draws."
+
+  - id: the-field-forgets
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Remount the ticket field on the dialog id, which is minted afresh when a new conversation starts."
+      - "Cancel a resolution in flight when another ticket is picked, from the surface that holds the picked ticket rather than the field that unmounts once a project resolves."
+
+tests:
+  - "TicketResolve_ATicketOnANamedTracker_NamesTheProjectsItsLabelsNameThere"
+  - "TicketResolve_ATicketWhoseLabelsMatchNothing_StillNamesTheTrackersProjects"
+  - "TicketSearch_ALabelledTicketFoundByTitle_ResolvesTheSameProjectAsByNumber"
+  - "TicketSearch_ANumberLookupThatFailed_IsListedApartFromAnUnsearchableTracker"
+  - "TicketSearch_TheHitFromTheNumberLookup_IsFlaggedAsExact"
+  - "SpecDialogSurface_AnExactHit_IsMarkedAsTheNumberThatWasTyped"
+  - "SpecDialogSurface_ATicketOnATrackerWithNoProject_SaysSoAndOffersNoBinding"
+  - "SpecDialogSurface_ATicketWhoseLabelsNameNoProject_StillOffersTheChoice"
+  - "SpecDialogSurface_StartingANewConversation_ClearsTheTypedTicketText"
+
+done:
+  - "a ticket found by its title resolves the same project as the same ticket found by its number"
+  - "a by-id lookup that could not run is reported, and never reads as a board without the ticket"
+  - "the hit from the number lookup is marked as the exact one"
+  - "a ticket whose tracker has no configured project is refused with the reason; one whose labels match nothing is still a choice"
+  - "starting a new conversation leaves an empty field"
+  - "route-permission baseline regenerated, build green, full suite green, dashboard tests green"

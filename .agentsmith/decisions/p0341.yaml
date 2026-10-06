@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0341
+spec: p0341
 
 decisions:
   - category: Scope

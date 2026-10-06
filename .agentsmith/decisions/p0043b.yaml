@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0043b: Security Pipeline
-phase: p0043b
+spec: p0043b
 decisions:
   - category: Architecture
     chose: Chosen IPrDiffProvider interface over PR-specific methods

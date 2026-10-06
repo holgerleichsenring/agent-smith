@@ -31,7 +31,7 @@ public sealed class SpecPhaseMockTests
     {
         var branch = new SpecBranchFiles { Key = Key };
         branch.SeedSet($"key: {Key}\nsource: Approved\nphases:\n- p19106a-the-new-goal\n",
-            new Dictionary<string, string> { ["p19106a-the-new-goal"] = "phase: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
+            new Dictionary<string, string> { ["p19106a-the-new-goal"] = "spec: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
         branch.Seed($"{Dir}/p19106a-the-old-goal-mock.html", "<h1>mock</h1>");
         branch.Seed($"{Dir}/p19106a.html", "<h1>bare</h1>");
         branch.Seed($"{Dir}/p19106ab-other.html", "<h1>another phase</h1>");
@@ -68,7 +68,7 @@ public sealed class SpecPhaseMockTests
     }
 
     private static SpecPhase Phase(string id, IReadOnlyList<string>? mocks, string slug = "slug") =>
-        new(new PhaseDraft(id, "Goal", $"phase: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
+        new(new PhaseDraft(id, "Goal", $"spec: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
 
     private static SpecSet Set(SpecPhase phase) =>
         new(Key, [phase], SpecAccounting.Empty, [], SpecSource.BranchArtifact);

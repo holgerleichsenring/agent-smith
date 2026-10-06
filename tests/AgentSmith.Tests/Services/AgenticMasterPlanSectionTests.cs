@@ -13,7 +13,7 @@ public sealed class AgenticMasterPlanSectionTests
     [Fact]
     public void MasterPrompt_PlanSection_RendersSpecGoalStepsDone()
     {
-        var draft = new PhaseDraft("p0001", "The endpoint returns 400 on empty payloads", "phase: p0001", [])
+        var draft = new PhaseDraft("p0001", "The endpoint returns 400 on empty payloads", "spec: p0001", [])
         {
             Steps =
             [
@@ -45,7 +45,7 @@ public sealed class AgenticMasterPlanSectionTests
     [Fact]
     public void BuildPlanSection_SpecWithoutSteps_StillCarriesGoalAndDone()
     {
-        var draft = new PhaseDraft("p0002", "Goal only", "phase: p0002", [])
+        var draft = new PhaseDraft("p0002", "Goal only", "spec: p0002", [])
         {
             Done = ["It is done."],
         };

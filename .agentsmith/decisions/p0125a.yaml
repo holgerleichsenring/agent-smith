@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0125a: Concept Vocabulary Typed Schema (D1 slice 1/4)
-phase: p0125a
+spec: p0125a
 decisions:
   - category: Architecture
     chose: "**Concept vocabulary becomes typed at the schema level: ConceptType ∈ {Bool, Int, Enum}.** `ProjectConcept` carries `Type`, optional `EnumValues`, optional `IntRange`, and `Writers`. Legacy `Section` field removed"

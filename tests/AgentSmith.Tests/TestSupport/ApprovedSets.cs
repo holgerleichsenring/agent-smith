@@ -16,7 +16,7 @@ internal static class ApprovedSets
     internal const string Tracker = "sample-tracker";
 
     internal static SpecPhase Phase(string id, string goal = "Do the thing") => new(
-        new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
         id, string.Empty, []);
 
     internal static SpecSet Set(

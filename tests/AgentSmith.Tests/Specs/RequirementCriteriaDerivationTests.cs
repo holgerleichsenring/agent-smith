@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class RequirementCriteriaDerivationTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         done:
           - "the table exists"

@@ -1,4 +1,4 @@
-phase: 2026-09-17-042eh
+spec: 2026-09-17-042eh
 decisions:
   - id: a-code-review-step-because-nothing-reviewed-the-code
     chose: >

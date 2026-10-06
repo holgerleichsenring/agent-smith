@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0107: Server Consolidation
-phase: p0107
+spec: p0107
 decisions:
   - category: Architecture
     chose: "Webhook handling, polling, queue consumer, lifecycle reconcilers all relocated from `AgentSmith.Cli` (`server` subcommand) into `AgentSmith.Server`. Server is now the single long-running deployment; CLI is a pure console-tool for one-shot pipeline runs and ad-hoc commands. Pre-phase: dual-container K8s pattern (Dispatcher + CLI-with-`server`) was historical drift from p0014 (webhook listener added to CLI when Dispatcher rename came later in p0069)"

@@ -98,7 +98,7 @@ public sealed class TicketEditRecutTests
         TicketFingerprint: fingerprint);
 
     private static SpecPhase Phase(string id, string goal) => new(
-        new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
+        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
         {
             Done = ["criterion 1"],
         },

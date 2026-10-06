@@ -60,7 +60,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var sink = BuildSink(provider);
         var state = await OpenSessionAsync("th-1");
         var phase = new PhaseOutcome(new PhaseDraft(
-            "p9999", "Widget endpoint", "phase: p9999\ngoal: \"Widget endpoint\"", []));
+            "p9999", "Widget endpoint", "spec: p9999\ngoal: \"Widget endpoint\"", []));
 
         await sink.AcceptAsync(state, phase, false, CancellationToken.None);
 
@@ -112,8 +112,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var sink = BuildSink(provider);
         var state = await OpenSessionAsync("th-3");
         var epic = new EpicOutcome(
-            new PhaseDraft("p9000", "Widget platform", "phase: p9000", []),
-            [new PhaseDraft("p9000a", "storage", "phase: p9000a", [])])
+            new PhaseDraft("p9000", "Widget platform", "spec: p9000", []),
+            [new PhaseDraft("p9000a", "storage", "spec: p9000a", [])])
         {
             Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
         };
@@ -131,7 +131,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
     {
         var store = new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance);
         var act = () => store.SetConfirmedAsync(
-            Platform, "th-none", new PhaseOutcome(new PhaseDraft("p1", "g", "phase: p1", [])),
+            Platform, "th-none", new PhaseOutcome(new PhaseDraft("p1", "g", "spec: p1", [])),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()

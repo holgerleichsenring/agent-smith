@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0092: K8s Config Cleanup
-phase: p0092
+spec: p0092
 decisions:
   - category: Architecture
     chose: Flat numbered YAMLs over Kustomize

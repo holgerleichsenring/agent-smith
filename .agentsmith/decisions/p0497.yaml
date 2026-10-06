@@ -1,4 +1,4 @@
-phase: p0497
+spec: p0497
 decisions:
   - id: the-toggle-stops-borrowing-the-operating-systems-colour
     chosen: "A tick box drawn from --accent/--accent-wash/--line, with the native input kept and visually hidden."

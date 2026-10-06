@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0053: Documentation Site
-phase: p0053
+spec: p0053
 decisions:
   - category: Architecture
     chose: MkDocs + Material theme over custom solution

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0047: API Contract & Schema Analysis
-phase: p0047
+spec: p0047
 decisions:
   - category: Architecture
     chose: Spectral runs as second static analyzer alongside Nuclei

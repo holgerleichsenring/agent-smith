@@ -55,7 +55,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient
-            .EnqueueText($"Draft:\n```yaml\nphase: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
+            .EnqueueText($"Draft:\n```yaml\nspec: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
             .EnqueueText(Answer);
         var state = State("draft it") with
         {
@@ -85,7 +85,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient
-            .EnqueueText($"Draft:\n```yaml\nphase: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
+            .EnqueueText($"Draft:\n```yaml\nspec: 2026-09-24-aaaa\ngoal: \"g\"\nscope:\n  invented: \"x\"\n```")
             .EnqueueText(Answer);
         var state = State("draft it") with
         {

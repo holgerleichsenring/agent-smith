@@ -26,8 +26,14 @@ public sealed class PhaseIdRuntimeReaderTests
 
         label.Should().NotBeNull();
         label!.FileName.Should().Be($"{Minted}.yaml");
-        label.HeaderKey.Should().Be("phase", "it is a phase's decision file, not a run's");
+        label.HeaderKey.Should().Be("spec", "it is a spec's decision file, not a run's");
     }
+
+    /// <summary>2026-10-06-03c7b: a spec's decision file opens with the key the schema requires.</summary>
+    [Fact]
+    public void DecisionFileLabel_SpecLabel_HeaderIsSpec() =>
+        DecisionFileLabel.Resolve(Minted, runId: null)!.Header
+            .Should().StartWith($"spec: {Minted}\n");
 
     [Fact]
     public void DecisionFileLabel_CounterPhase_StillWritesToItsOwnFile() =>

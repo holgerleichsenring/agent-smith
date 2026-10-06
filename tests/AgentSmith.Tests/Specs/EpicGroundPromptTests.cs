@@ -99,7 +99,7 @@ public sealed class EpicGroundPromptTests
             TicketSegmenter.Segment(TicketBody), previous: null, cause: string.Empty, pipeline);
 
     private const string Yaml = """
-        phase: p9000
+        spec: p9000
         goal: One vocabulary for the widget service
         scope:
           in: >

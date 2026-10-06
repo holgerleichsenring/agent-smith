@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0022: CCS Auto-Bootstrap
-phase: p0022
+spec: p0022
 decisions:
   - category: Architecture
     chose: `ProjectDetector` is deterministic (no LLM, pure file system)

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0129c: architecture-verifier + verify-notes dedup (D5 slice 3/3)
-phase: p0129c
+spec: p0129c
 decisions:
   - category: Architecture
     chose: "**architecture-verifier extracts checkable rules from coding-principles.md at LLM-call time; no separate parser.** coding-principles.md is free-form Markdown by design (operator-extensible per p0026). A parser would force a schema. The skill body teaches the LLM to distinguish checkable rules (hard limits, naming conventions, forbidden patterns, required patterns"

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-aeb6c
+goal: "The design partner works on its project and, when bound, its ticket; a question about neither gets one sentence back to the project and no tool call."
+
+applies_to: "skills (design-partner master)"
+
+requires: []
+
+facts:
+  - claim: "The master's role names discussing design and answering questions about the codebase, and nothing bounds what a question may be about."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:14-22"
+  - claim: "A design turn has http_request and web_fetch, so an unrelated question is answered from any URL the model knows."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:78-89; src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:42"
+  - claim: "The grounding section tells the model to say plainly when neither tier supports an answer, which invites a tool call first."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:51-52"
+  - claim: "A conversation bound to a ticket carries it in the prompt as its subject."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeededTicketSection.cs:25-38"
+
+scope:
+  in: >
+    The role states the subject: the project whose context, code map and repositories are in the prompt, and the
+    ticket when the conversation is bound to one. What the ticket raises belongs to the subject even when it lies
+    outside the code (an external API the ticket integrates is on topic). A question about neither is answered in
+    one sentence that points back to the project, without a tool call, ahead of the grounding tiers. A document
+    request is bound the same way. Tools — http_request and web_fetch included — stay; they serve the subject.
+  out: "A code-side topic filter. Deciding relevance in code would be a heuristic around a judgement the model makes anyway."
+
+decisions:
+  - key: "STATED AS WHAT THE PARTNER WORKS ON, NOT AS A PROHIBITION. The bound ticket widens the subject, so the rule has to read the ticket, which only the model can."
+
+steps:
+  - id: role
+    action: "agent-smith-skills: the Role section names the subject and the one-sentence redirect; shipped in the same master 1.8.0 as 2026-10-01-aeb6b."
+
+tests:
+  - "covered by 2026-10-01-aeb6d against the pinned master"
+
+done:
+  - "the skills pull request carries the subject rule"

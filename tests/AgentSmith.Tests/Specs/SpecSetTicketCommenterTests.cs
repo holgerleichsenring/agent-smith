@@ -77,7 +77,7 @@ public sealed class SpecSetTicketCommenterTests
     {
         var set = Set();
         var read = new PhaseDraftReader().Read(
-            "phase: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
+            "spec: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
         var phase = set.Phases[0] with { Draft = set.Phases[0].Draft with { Assumptions = read.Assumptions } };
 
         var body = SpecSetComment.Render(set with { Phases = [phase] }, null);

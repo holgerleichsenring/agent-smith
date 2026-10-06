@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision-log.schema.json
-phase: 2026-09-21-f237a
+spec: 2026-09-21-f237a
 
 decisions:
   - category: Shape

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-03c7b
+
+decisions:
+  - category: Scope
+    chose: "The embedded skills pin (SkillsCatalogVersion, Sha256, tarball) stays where it is in this commit"
+    over: "Bumping the pin triple as the spec's paths step says"
+    reason: |
+      The design-partner-master change (spec:, spec.schema) is in a skills PR that is not released
+      yet, so there is no tarball to pin. Until the follow-up bump, the deployed master still drafts
+      phase:, which the schema now refuses — the drafts are re-prompted, not mis-read.
+  - category: Implementation
+    chose: "Test fixtures fed to the reader or validator say spec:, including PhaseDraft yaml fields and epic children"
+    over: "Changing only the fixtures that a failing test points at"
+    reason: |
+      A PhaseDraft's yaml is the document the run reads back; a fixture still saying phase: describes
+      a shape the product no longer accepts. Recorded prompts under RecordedRuns, C# named arguments
+      (phase: null), a config pipeline_from_label map and dashboard display fixtures are untouched.
+  - category: Implementation
+    chose: "PhaseDraftReader_PhaseKey_Refused asserts both the schema refusal and the reader's throw"
+    over: "Asserting only the reader"
+    reason: |
+      The validator is what stands between a draft and the reader; the schema refusing phase: is the
+      behaviour an in-flight phase: draft meets, the reader's throw is the backstop.
+  - category: Scope
+    chose: "History stays as written: CHANGELOG, notes/, done specs, the p0315e index line and the narrative in feedback_check_gitstatus_before_write"
+    over: "Rewriting every mention of phases/ in the repository"
+    reason: |
+      Those lines describe what was true when they were written. Only text that tells a reader where
+      to look NOW (CLAUDE.md, principles, prompt, docs, code-map, memory guidance, planned citations)
+      follows the move.
+  - category: Implementation
+    chose: "spec.schema.json takes the plugin template's $id and title (Specification); decision.schema.json keeps its title"
+    over: "Renaming the decision schema's title as well"
+    reason: |
+      The spec names the spec schema's $id and title; the decision schema's property and required
+      entries were renamed by the script, and its title is not read by anything.

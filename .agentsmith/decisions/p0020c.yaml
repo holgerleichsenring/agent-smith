@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0020c: Error UX
-phase: p0020c
+spec: p0020c
 decisions:
   - category: Architecture
     chose: `ErrorFormatter` with regex pattern table

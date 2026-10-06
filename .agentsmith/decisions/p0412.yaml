@@ -1,4 +1,4 @@
-phase: p0412
+spec: p0412
 decisions:
   - what: "The coding master is told to reach for the ecosystem's own tooling before editing by hand, with the tool establishing the facts and doing the bulk while the master judges the exceptions and owns the verification."
     alternatives:

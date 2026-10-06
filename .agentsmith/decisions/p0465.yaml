@@ -1,4 +1,4 @@
-phase: p0465
+spec: p0465
 decisions:
   - id: ownership-is-the-liveness-store
     chosen: >-

@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-23a2d
+goal: "A Kubernetes sandbox pod accepts connections only from server pods on the agent port, reaches only DNS, public web ports and operator-allowed ranges, and carries no service-account token."
+
+applies_to: "deploy (k8s NetworkPolicy manifest and rollout notes) and backend (sandbox pod labels and token mount)"
+
+requires: ["2026-09-28-2f8c"]
+
+scope:
+  in: >
+    Static NetworkPolicies in deploy/k8s on pods labelled app=agentsmith-sandbox:
+    - ingress only from app=agentsmith-server pods, on the agent's HTTP port;
+    - egress to cluster DNS, and to public IPv4 on 80 and 443 except the private, link-local,
+      shared-address and Azure WireServer ranges;
+    - an allowance section at the TOP of the manifest, headed as mandatory for any deployment whose
+      git host, package feed or http_request/scan target lives in a private range or on another port;
+    - automountServiceAccountToken false on the sandbox pod.
+    Rollout notes state before the apply command: a deployment with a private git host MUST fill the
+    allowance first, or every clone fails; an air-gapped deployment
+    (deploy/k8s/examples/airgap-deployment.yaml) is the case where the default blocks everything.
+    The allowance section also shows how to except the server's own public ingress address.
+  out: >
+    - Repository code outside sandbox pods: spawned chat job pods (app=agentsmith,
+      KubernetesJobSpawner.cs:113-131) until 2026-09-28-10ffb deletes them, and the in-process
+      backend inside the server pod (SANDBOX_TYPE=inprocess), which this policy cannot reach —
+      in-process has no isolation (InProcessSandbox.cs:10-13); ef94 only strips its secrets.
+    - IPv6: IPv4 only; a dual-stack cluster needs ::/0 rules with v6 private and link-local excepts,
+      named in the manifest.
+    - The Docker backend: it needs a proxy or host firewall, which is p0304's docker step.
+    - Container hardening (p0377).
+    - Per-run egress modes: p0304's setup-only is refuted by the code (decisions) and is not re-specced.
+    - A runtimeClass: node configuration, not this repository's.
+
+decisions:
+  - key: |
+      RE-CUT FOR THE HTTP TRANSPORT. The first cut allowed egress to Redis because the agent dialled
+      it. After 2026-09-28-2f8c the server dials the agent and the sandbox holds no Redis address, so
+      the policy inverts: ingress from server pods only, and no egress to anything in-cluster except
+      DNS.
+  - key: |
+      THERE IS NO NETWORKPOLICY TODAY. deploy/k8s holds namespace, RBAC, configmap, secret, Redis,
+      server, dashboard, ingress and a PVC. Sandbox pods run in the server's namespace
+      (KubernetesSandboxRegistrations.cs:21; 8-deployment-server.yaml:177). The server pods are
+      labelled app=agentsmith-server (8-deployment-server.yaml:18).
+  - key: |
+      THE TOKEN GOES BECAUSE NOTHING USES IT. The pod names no service account (PodSpecBuilder.cs:24-32)
+      and runs as the namespace default, which has no RoleBinding in these manifests
+      (2-rbac.yaml:49-52). The agent talks to nothing but its own HTTP host. A token that
+      authenticates to the API server is still one more credential a script can present.
+  - key: |
+      A PRIVATE GIT HOST BREAKS FIRST, SO THE ALLOWANCE LEADS THE FILE. Clone runs inside the sandbox
+      (CheckoutStepFactory.cs:30-38). So does http_request (FilesystemToolHost.cs:427-446), whose api-scan
+      targets are whatever the operator points it at (AgenticToolSurface.cs:48-51). A reference
+      deployment clones from a self-managed git server on a private intranet network; under the
+      default policy its first checkout fails. The case is made impossible to miss.
+  - key: |
+      168.63.129.16 IS EXCEPTED. The Azure WireServer is public-range and reachable from AKS pods;
+      169.254.0.0/16 covers the IMDS address but not it.
+  - key: |
+      DNS VARIES. The rule selects namespace kube-system AND pods k8s-app=kube-dns on 53 UDP/TCP.
+      NodeLocal DNSCache (169.254.20.10, inside an excepted range) and OpenShift (openshift-dns on
+      port 5353) are documented variants to edit.
+  - key: |
+      p0304'S SETUP-ONLY IS REFUTED; DO NOT RE-SPEC IT. A switch that narrows egress after
+      EnsurePrerequisites cuts off work the code does later:
+      - phase commits push from the sandbox after the master (PipelinePresets.Parking.cs:42-60 into
+        GitBranchPusher.cs:47), and so do CommitAndPR, PrCrossLink and the failure path's
+        PersistWorkBranch;
+      - ProbeTarget calls the target right after the setup steps;
+      - dotnet test restores packages implicitly in the agent phase (CommandNames.Pipeline.cs:43-45);
+      - sandboxes are created after the switch point: ensure_repo_sandbox mid-run, resumed runs,
+        source-scope conversations.
+      p0304 stays as written; this record is why nobody should revive the idea.
+  - key: |
+      PUBLIC 443 INCLUDES THE SERVER'S OWN INGRESS. A script can reach the public webhook endpoints,
+      and a webhook whose secret is unset accepts unverified payloads (8-deployment-server.yaml:95-99),
+      so a forged webhook could start runs. The allowance section shows how to except the ingress
+      address, and the done criterion claims only the in-cluster path.
+  - key: |
+      A KUBELET PROBE IS NOT A SERVER POD. 2026-09-28-2f8c waits on /health from the server, not
+      through a kubelet readiness probe. If one is ever added, some CNIs apply the ingress rule to
+      node traffic and would block it; the manifest says so beside the DNS variants.
+  - key: |
+      ENFORCEMENT CANNOT BE PROVEN BY THE SUITE. A CNI that does not enforce NetworkPolicy accepts the
+      manifest and enforces nothing. The automated proof is that the manifest's selectors match what
+      the builder stamps and what the server deployment carries — the first test to read deploy/k8s.
+      Reachability is a manual acceptance step on the operator's CNI.
+  - key: |
+      SERIES: a member of 2026-09-28-23a2 (the OpenHands comparison), re-cut after the operator's
+      transport decision. Suggested order: last, after the transport slices.
+
+steps:
+  - id: the-pod
+    path: "src/backend/AgentSmith.Server/Services/Sandbox"
+    action: "automountServiceAccountToken false on the sandbox pod; the agent port read from the constant 2026-09-28-2f8c declares in Sandbox.Wire."
+  - id: the-policies-ship
+    path: "deploy/k8s"
+    action:
+      - "13-networkpolicy-sandbox.yaml: the allowance section first, with example rules for a private git host, feeds, scan targets, other ports, DNS variants and IPv6; then the ingress rule from app=agentsmith-server on the agent port; then the egress rules."
+      - "Rollout notes beside the manifests: fill the allowance before applying if any git host, feed or target is private."
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests/Sandbox"
+    action: "Read the manifest: selectors match SandboxPodLabels and the server deployment's label, the ingress port matches the agent port constant, the excepts are the listed ranges."
+    new:
+      - "SandboxNetworkPolicyManifestTests: the first test that reads deploy/k8s"
+
+tests:
+  - "PodSpecBuilder_AnyPod_DoesNotMountTheServiceAccountToken"
+  - "SandboxNetworkPolicyManifest_Selectors_MatchSandboxAndServerLabels"
+  - "SandboxNetworkPolicyManifest_Ingress_OnlyFromServerOnTheAgentPort"
+  - "SandboxNetworkPolicyManifest_Egress_ExceptsPrivateLinkLocalSharedAndWireServer"
+  - "SandboxNetworkPolicyManifest_Egress_HasNoInClusterRuleButDns"
+
+done:
+  - "a sandbox pod has no service-account token mounted"
+  - "a renamed label, a changed agent port or a dropped except fails a test"
+  - "manual acceptance (operator, on a CNI that enforces NetworkPolicy): a run clones, restores, builds and pushes; a sandbox cannot reach Redis, the server's cluster service, another pod, 169.254.169.254 or 168.63.129.16 (its public ingress only if the operator excepted it)"
+  - "rollout: the notes say a deployment with a private git host, feed or target MUST fill the allowance before applying, or clone fails"
+  - "build green, full suite green"

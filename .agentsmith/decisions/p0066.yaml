@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0066: Docs Enhancement — Self-Documentation & Multi-Agent Orchestration
-phase: p0066
+spec: p0066
 decisions:
   - category: Architecture
     chose: DESIGN.md placed in docs/ not project root

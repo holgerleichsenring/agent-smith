@@ -1,4 +1,4 @@
-phase: 2026-09-20-c206
+spec: 2026-09-20-c206
 decisions:
   - id: the-rule-was-already-written-one-component-above
     chose: >

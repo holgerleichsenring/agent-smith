@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0065: Website Redesign
-phase: p0065
+spec: p0065
 decisions:
   - category: Architecture
     chose: CSS-only redesign, no template changes

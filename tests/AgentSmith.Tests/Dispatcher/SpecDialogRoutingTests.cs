@@ -137,7 +137,7 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_EditNote_RerunsTurnAndFilesNothing()
     {
-        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)))
@@ -182,7 +182,7 @@ new DashboardOutcomeChannel(
     public async Task Router_EditNoteAnswer_ReRunsOverATranscriptEndingInTheNote()
     {
         const string note = "cut it into two slices";
-        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         var reRun = new TaskCompletionSource<ConversationState>(TaskCreationOptions.RunContinuationsAsynchronously);
         var noteRouted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
@@ -235,7 +235,7 @@ new DashboardOutcomeChannel(
     public async Task Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape()
     {
         const string shape = "Cut into several phases";
-        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         ConversationState? reRun = null;
         var turns = 0;
         _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
@@ -273,7 +273,7 @@ new DashboardOutcomeChannel(
     public async Task Router_AShapeTypedAsAMessage_DoesNotAppendItTwice()
     {
         const string shape = "Make it a bug ticket";
-        var draft = new PhaseDraft("p9999", "widget goal", "phase: p9999\ngoal: \"widget goal\"", []);
+        var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var turns = 0;

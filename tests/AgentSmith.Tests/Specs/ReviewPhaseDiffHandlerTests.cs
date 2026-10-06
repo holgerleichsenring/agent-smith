@@ -193,7 +193,7 @@ public sealed class ReviewPhaseDiffHandlerTests
     private static PipelineContext Verified()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(PhaseId, "goal", "phase: x\n", []));
+        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(PhaseId, "goal", "spec: x\n", []));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [Key] = new DiffingSandbox() });

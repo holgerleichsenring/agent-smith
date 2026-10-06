@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0140e: Metrics + empty-plan gate + docs (umbrella close-out)
-phase: p0140e
+spec: p0140e
 decisions:
   - category: Architecture
     chose: "**`AgentSmithMeter` is a static class"

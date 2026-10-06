@@ -1,4 +1,4 @@
-phase: 2026-09-17-042em
+spec: 2026-09-17-042em
 decisions:
   - id: the-key-is-formatted-from-the-id-042eg-put-on-the-report
     chose: >

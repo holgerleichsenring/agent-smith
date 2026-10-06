@@ -41,7 +41,7 @@ public sealed class SpecDialogProposalRuleTests
     [Fact]
     public void ProposalRule_AnswerQuotingYaml_CountsAsDiscussion() =>
         SpecDialogProposalRule.MayPropose(
-            [User(), Assistant(SpecDialogTurnKind.Answer, "The file reads:\n```yaml\nphase: p1\n```"), User()])
+            [User(), Assistant(SpecDialogTurnKind.Answer, "The file reads:\n```yaml\nspec: p1\n```"), User()])
             .Should().BeTrue();
 
     [Fact]

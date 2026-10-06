@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0085: Webhook Structured Dispatch
-phase: p0085
+spec: p0085
 decisions:
   - category: Architecture
     chose: Webhook handlers return ProjectName + TicketId instead of free-text TriggerInput

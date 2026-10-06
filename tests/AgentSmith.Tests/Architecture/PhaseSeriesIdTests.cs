@@ -36,7 +36,7 @@ public sealed class PhaseSeriesIdTests
     /// </summary>
     private static readonly string[] Readers =
     [
-        ".agentsmith/phase-spec.schema.json",
+        ".agentsmith/spec.schema.json",
         ".agentsmith/decision.schema.json",
         ".claude/hooks/phase-gate.sh",
         "src/backend/AgentSmith.Application/Services/SpecDialog/RequiresEdgeChecker.cs",

@@ -96,12 +96,12 @@ public sealed class PhaseIdSchemaTests
             "a spec id and the decision file that records it are the same id");
     }
 
-    internal static Regex SpecPattern() => new(PatternIn(RepoSchema("phase-spec.schema.json")));
+    internal static Regex SpecPattern() => new(PatternIn(RepoSchema("spec.schema.json")));
 
     private static string PatternIn(string schemaPath)
     {
         using var doc = JsonDocument.Parse(File.ReadAllText(schemaPath));
-        return doc.RootElement.GetProperty("properties").GetProperty("phase")
+        return doc.RootElement.GetProperty("properties").GetProperty("spec")
             .GetProperty("pattern").GetString()!;
     }
 

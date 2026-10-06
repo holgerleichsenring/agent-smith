@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0060: Security Pipeline Enhancements
-phase: p0060
+spec: p0060
 decisions:
   - category: Architecture
     chose: DAST via ZAP after static tools, not integrated into static

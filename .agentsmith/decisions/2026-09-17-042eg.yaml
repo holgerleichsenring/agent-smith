@@ -1,4 +1,4 @@
-phase: 2026-09-17-042eg
+spec: 2026-09-17-042eg
 decisions:
   - id: the-start-is-a-collaborator-with-one-public-method
     chose: >

@@ -79,7 +79,7 @@ public sealed class RepositoryDecisionLoggerTests
             sourceLabel: "p0380");
 
         _repository.Files[RunFile].Should().StartWith($"run: {SampleRunId}");
-        _repository.Files[$"{DecisionsDir}/p0380.yaml"].Should().StartWith("phase: p0380");
+        _repository.Files[$"{DecisionsDir}/p0380.yaml"].Should().StartWith("spec: p0380");
     }
 
     [Fact]

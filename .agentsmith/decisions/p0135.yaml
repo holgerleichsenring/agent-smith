@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0135: follow-up: GitHub + Azure DevOps client-factory injection
-phase: p0135
+spec: p0135
 decisions:
   - category: Architecture
     chose: "**Resolution order: override → host-cache → remote-context-yaml → in-memory ProjectMap → generic.** The override is deterministic operator intent and wins outright. Host-cache (`project-map.json` under `IAgentSmithPaths.ProjectCacheDir(source.Url)`) is fast + local + present after the first `AnalyzeProjectHandler` run on a repo, so it precedes the REST roundtrip. Remote `.agentsmith/context.yaml` precedes in-memory `ProjectMap` because in-memory is structurally null at sandbox-create time (the pipeline loop hasn't run yet)"

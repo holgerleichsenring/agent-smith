@@ -1,4 +1,4 @@
-phase: 2026-09-22-2d11b
+spec: 2026-09-22-2d11b
 decisions:
   - id: the-register-holds-the-inner-sandbox-and-the-scope-is-rebuilt-every-turn
     chose: >

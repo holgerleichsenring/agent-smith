@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158a: Spawn-side collapse of the per-repo fan-out
-phase: p0158a
+spec: p0158a
 decisions:
   - category: Architecture
     chose: "**Sliced from p0158 retroactively into p0158a (enqueue side) + p0158b (consumer side).** The original p0158 spec was implementable end-to-end, but the consumer-side change (handler iteration + workdir layout `/work/{repo-key}/` + PR cross-link two-pass across three platform APIs + CLI `--repo` on eight commands + ~20 new tests + fixture updates at every handler boundary) realistically does not fit in one conversation. p0158a delivers the smallest standalone slice that dissolves the originating multi-repo reconciler bug (multi-repo project orphan tickets looped on ResolveCurrentRepo's multi-repo throw every reconcile interval), keeps the codebase clean+green, and unblocks p0158b. The umbrella file stays in done/ as the design-intent record, mirroring the p0140-umbrella convention."

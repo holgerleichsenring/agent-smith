@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0202c: PersistWorkBranch recognizes AgenticMaster
-phase: p0202c
+spec: p0202c
 decisions:
   - category: Implementation
     chose: Add AgenticMaster to ContainsCodeModifyingHandler (the predicate)

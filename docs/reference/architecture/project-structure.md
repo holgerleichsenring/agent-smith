@@ -8,7 +8,7 @@ agent-smith/
 │   ├── contexts/<name>/            # One directory per context (this repo has `default`)
 │   │   ├── context.yaml            #   architecture, stack, phase status
 │   │   └── principles.md           #   code quality rules
-│   ├── phases/
+│   ├── specs/
 │   │   ├── planned/                # Upcoming phase specs
 │   │   ├── active/                 # The phase being implemented
 │   │   └── done/                   # Completed phases

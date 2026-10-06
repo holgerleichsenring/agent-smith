@@ -1,4 +1,4 @@
-phase: 2026-09-22-3f7c
+spec: 2026-09-22-3f7c
 decisions:
   - id: a-test-says-what-it-waits-for-never-how-long
     chose: >

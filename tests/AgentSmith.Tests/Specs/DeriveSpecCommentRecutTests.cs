@@ -165,14 +165,14 @@ public sealed class DeriveSpecCommentRecutTests
           at: 2026-09-08T10:00:00.0000000+00:00
         carried:
         - segment: 1
-          phase: p19106a
+          spec: p19106a
         - segment: 2
-          phase: p19106b
+          spec: p19106b
         ticket_fingerprint: {fingerprint}
         """;
 
     private static string PhaseYaml(string id) => $"""
-        phase: {id}
+        spec: {id}
         goal: "Goal {id}"
         done:
           - "Done {id}."
@@ -184,7 +184,7 @@ public sealed class DeriveSpecCommentRecutTests
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
         SpecPhase Phase(string id, string goal) => new(
-            new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+            new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
         var phases = new[] { Phase("p19106a", "Goal p19106a"), Phase("p19106b", "Cut again with the comment in view") };
         return new SpecDerivation(

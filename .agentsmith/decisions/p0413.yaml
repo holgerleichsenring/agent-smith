@@ -1,4 +1,4 @@
-phase: p0413
+spec: p0413
 decisions:
   - what: "The SHAPE rides on the EXISTING scope-classification reply (\"shape\" + \"shape_reason\"), parsed into WorkShapeVerdict beside the complexity tier. No second LLM call, no classifier of our own."
     alternatives:

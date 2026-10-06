@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-89f1h
+goal: "Nothing spawns a CLI job any more: the job spawner, the orchestrator image and pod, their settings and their deploy knobs are gone, and every run's footprint is what it really runs."
+
+applies_to: "backend (job spawner family, orchestrator config surfaces, footprint, preflight, CLI hidden mode), dashboard (settings) and deploy (manifests, RBAC)"
+
+requires: ["2026-09-28-89f1f", "2026-09-28-89f1g", "2026-09-28-89f1d"]
+
+scope:
+  in: "The spawner family and every consumer, the orchestrator image and resource resolvers and their config surfaces, the phantom orchestrator pod, the CLI's spawned-job mode, SPAWNER_TYPE/AGENTSMITH_IMAGE/JobSpawner__*, the batch/jobs RBAC grant, the Kubernetes client fallback moved to the sandbox."
+  out: "deployment.version, which still feeds the sandbox agent version and stays."
+
+decisions:
+  - key: |
+      THE CHAT PATH WAS THE SPAWNER'S LAST USER. With chat runs launched and bound in the server, the
+      spawner, the orchestrator image name that was never published and the orchestrator pod every
+      footprint reserved have no reason to exist.
+  - key: |
+      THE SPAWNER'S KUBERNETES CLIENT WON OVER THE SANDBOX'S. It registered a kubeconfig fallback after the
+      sandbox's in-cluster-only one; deleting it would break an out-of-cluster Kubernetes sandbox, so the
+      fallback moves into the sandbox registrations.
+  - key: |
+      ONLY THE ORCHESTRATOR KEYS RETIRE: orchestrator.registry/version and projects.*.orchestrator. They
+      become RetiredConfigKeys rows. deployment.version and max_run_wall_time_seconds stay.
+  - key: |
+      THE PREFLIGHT PROBES WHAT CREATES SANDBOXES. The spawner probe and the dashboard's sandbox diagnostic
+      tested a component no run uses; they probe the composed sandbox backend.
+
+steps:
+  - id: delete
+    action: "IJobSpawner and Kubernetes/Docker/Unavailable spawners, JobSpawnerSetup/Options/Extensions, JobRequest, OrphanJobDetector, OrchestratorImageResolver/Name, OrchestratorResourceResolver, the CLI --job-id/--redis-url mode, the DialogueJobIdentity job-id branch."
+  - id: surfaces
+    action: "Orchestrator settings out of the config pass, snapshot, mapper, RawProjectEntry, DeploymentDefaultsApplier and the dashboard settings; RetiredConfigKeys rows; schema and example via the rows 89f1d applies."
+  - id: footprint
+    action: "RunFootprintCalculator without the orchestrator pod; SpawnerProbe and the sandbox diagnostic probe the composed backend."
+  - id: k8s-client
+    action: "The kubeconfig fallback moves into KubernetesSandboxRegistrations."
+  - id: deploy
+    action: "Manifests and compose drop SPAWNER_TYPE, AGENTSMITH_IMAGE, JobSpawner__*; 2-rbac.yaml drops batch/jobs."
+  - id: docs
+    action: "kubernetes, capacity, docker-compose, chat-gateway, DOCKERHUB_DESCRIPTION."
+
+tests:
+  - "ServerComposition_RegistersNoIJobSpawner"
+  - "RunFootprint_ContainsNoOrchestratorPod"
+  - "PreflightSandboxProbe_ProbesComposedSandboxBackend"
+  - "KubernetesSandbox_OutOfCluster_UsesKubeconfig"
+  - "RetiredConfigKeys_OrchestratorBlock_ReportsAdvisory"
+
+done:
+  - "no composition registers IJobSpawner"
+  - "a run's footprint has no orchestrator pod"
+  - "an out-of-cluster Kubernetes sandbox still starts"
+  - "build, dashboard and all tests green"

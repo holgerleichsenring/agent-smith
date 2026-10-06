@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0028: .agentsmith/ Directory
-phase: p0028
+spec: p0028
 decisions:
   - category: Architecture
     chose: Unified `.agentsmith/` replaces scattered config files

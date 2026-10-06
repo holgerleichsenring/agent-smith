@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0156: Timestamp run identifiers
-phase: p0156
+spec: p0156
 decisions:
   - category: Architecture
     chose: "**Unified RunId at pipeline start, not at WriteRunResultHandler.** The phase spec proposed generating the timestamp+suffix identifier inside `WriteRunResultHandler`, but `ContextKeys.RunId` already existed since p0112 as an 8-hex log-correlation tag set by `ExecutePipelineUseCase`. Two ids for one run would drift (WIP commit trailer != directory name != log scope). Promoted the new canonical format into the existing `ContextKeys.RunId` slot, generated once by `ExecutePipelineUseCase` and consumed everywhere"

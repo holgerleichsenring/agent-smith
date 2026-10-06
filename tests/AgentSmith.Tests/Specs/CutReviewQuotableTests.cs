@@ -45,7 +45,7 @@ public sealed class CutReviewQuotableTests
     [Fact]
     public async Task Finding_AgainstAPhaseWithABlankDoneEntry_IsDiscarded()
     {
-        var draft = new PhaseDraft("p1a", "goal", "phase: p1a", []) { Done = ["every sender uses the new bus", ""] };
+        var draft = new PhaseDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus", ""] };
 
         var review = await Review([draft], Uncheckable("p1a", "the moon is a balloon"));
 
@@ -63,7 +63,7 @@ public sealed class CutReviewQuotableTests
     [Fact]
     public async Task Finding_QuotingACriterion_IsKeptAsBefore()
     {
-        var draft = new PhaseDraft("p1a", "goal", "phase: p1a", []) { Done = ["every sender uses the new bus"] };
+        var draft = new PhaseDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus"] };
 
         var review = await Review([draft], Uncheckable("p1a", "every sender uses the new bus"));
 
@@ -140,7 +140,7 @@ public sealed class CutReviewQuotableTests
         $$"""[{"phase_id":"{{phase}}","criterion":"{{quote}}","problem":"uncheckable","why":"no command shows it"}]""";
 
     private static PhaseDraft Criterion(string done) =>
-        new("p1a", "goal", "phase: p1a", []) { Done = [done] };
+        new("p1a", "goal", "spec: p1a", []) { Done = [done] };
 
     private static PhaseDraft DoneLess() => CutReviewWithoutTicketTests.DoneLess();
 }

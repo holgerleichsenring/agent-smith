@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0109: Jira Lock Decorator
-phase: p0109
+spec: p0109
 decisions:
   - category: Architecture
     chose: `IRedisClaimLock` is a multi-writer-coordination concern, not a Jira-platform concern. Cross-process serialization is needed only in the Server cluster (multiple pods, poller + webhook racing on the same ticket). A single CLI process cannot race with itself, and parallel CLI invocations have no shared Redis to coordinate through anyway. The lock attaches at composition time via a decorator (`LockedTicketStatusTransitioner`) that the Server registers and the CLI does not

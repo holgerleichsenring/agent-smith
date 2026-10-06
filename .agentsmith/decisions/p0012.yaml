@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0012: Cost Tracking
-phase: p0012
+spec: p0012
 decisions:
   - category: Architecture
     chose: Prices in config, not hardcoded

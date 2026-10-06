@@ -90,7 +90,7 @@ public sealed class RenamedApprovedSetStampTests
     public void AmendedSpecification_RenamedStamp_NoteNamesTheRenamedLabel()
     {
         var amended = AmendedSpecification.Of(
-            new PhaseOutcome(new PhaseDraft("p9001", "goal", "phase: p9001", [])), "job-1",
+            new PhaseOutcome(new PhaseDraft("p9001", "goal", "spec: p9001", [])), "job-1",
             new PhaseTicketRenderer(), new EpicChildOrderer(), Vocabulary);
 
         amended.Error.Should().BeNull();

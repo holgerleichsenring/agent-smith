@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0079: /p0080: Attacker-Perspective Security Skills
-phase: p0079
+spec: p0079
 decisions:
   - category: Architecture
     chose: Commodity tools (StaticPatternScan, GitHistoryScan, DependencyAudit) are passive layer

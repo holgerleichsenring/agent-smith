@@ -1,4 +1,4 @@
-phase: 2026-09-22-46ef
+spec: 2026-09-22-46ef
 decisions:
   - id: the-allowance-is-the-rule-not-a-refusal-list
     chose: >

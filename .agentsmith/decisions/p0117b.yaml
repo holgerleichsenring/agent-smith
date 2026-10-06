@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0117b: Sandbox consumer migration (LibGit2Sharp out, Repository.LocalPath const, deeper services sandbox-routed)
-phase: p0117b
+spec: p0117b
 decisions:
   - category: Architecture
     chose: "**`Repository.LocalPath` is a `const \"/work\"` (no ctor parameter).** Eliminates the dual-truth between server-side path and sandbox path. ~25 source edits at call sites read fluently because `Path.Combine(repo.LocalPath, \".agentsmith\", …)` resolves to the canonical sandbox path. The 2-arg ctor `(BranchName, string)` deliberately compile-breaks every consumer the build catches; that's the migration tracker."

@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-27-481bd
+goal: "The empty conversation greets instead of explaining, a project picked by hand ends the ticket question, and the pane names the project the next conversation will be grounded in."
+
+applies_to: "dashboard (the dialog surface's empty state, the ticket field and the scope pane) and backend (whether the name a caller is known by is opaque)"
+
+requires: ["2026-09-27-481bb"]
+
+scope:
+  in: "Replacing 154 words of instruction with a greeting, making the two choices one-way so they cannot contradict each other, and showing the settled project where every project is listed today."
+  out: "A greeting with any character to it — the time of day is enough, and inventing a voice is a decision of its own. A ticket's kind, which is 2026-09-27-481bf."
+
+decisions:
+  - key: |
+      THE EMPTY STATE IS 154 WORDS OF INSTRUCTION FOR SOMEBODY WHO CAME HERE ON PURPOSE. A heading
+      asking what should be true, a paragraph on how to phrase it, a paragraph on the first reply,
+      and a paragraph describing the proposal card — shown before any card exists. The composer
+      already says that work can begin; what it does NOT say is what an empty conversation is for,
+      because its placeholder asks the reader to keep talking whether or not anything has been said.
+  - key: |
+      THE NAME ALREADY TRAVELS AND IS ALREADY ON SCREEN — NO NEW FIELD. The identity the server
+      answers with carries the NAME-CLAIM value as its subject and falls back to the opaque one only
+      when there is none, the claim to read is configurable per authority, and the header renders
+      that value on every page of this dashboard. A second name field would be the second shape that
+      eventually disagrees with the first. What is genuinely missing is one bit: whether the claim
+      the installation named is the opaque one, which the access view already computes for its own
+      page and the identity does not carry. A greeting must not address anybody by a directory
+      identifier, so it greets the time of day alone when the name is opaque or absent.
+  - key: |
+      ONE BIT DETECTS THE DEFAULT AND NOT OPACITY ITSELF, AND THE DONE SAYS SO. An installation
+      pointing the name claim at an object id, or at a username that happens to be a directory
+      identifier, passes this test and is greeted by it. The bit is worth having because the
+      DEFAULT is the opaque one and most installations never change it; claiming more than that
+      would be a promise about other people's directories.
+  - key: |
+      A GREETING BESIDE A HEADER THAT ALREADY NAMES YOU IS NOT A DUPLICATE. The header says who is
+      signed in — it is chrome, the same on every page, and it is where a person checks an account.
+      The empty conversation is the one place that has nothing to say yet, and a greeting is what a
+      page says when it is waiting for you rather than instructing you. They read the same value, so
+      they can never disagree about who you are.
+  - key: |
+      "CHOSEN" MEANS THE OPERATOR PICKED ONE, NOT THAT ONE WAS RESOLVED. An installation with
+      exactly one configured project has a project from the first render, and a picked ticket that
+      names one resolves it — so hiding the field whenever a project exists would hide it always on
+      most installations, and the two tests pinning the single-project case must pass unchanged.
+  - key: |
+      AND A PICKED PROJECT ONLY ENDS THE TICKET QUESTION WHEN NO TICKET WAS PICKED. The field is
+      ONE component holding four things: the search input, the sentence saying why a ticket named no
+      project, the picked-ticket row, and the control that unbinds it. Removing it whenever a
+      project is picked by hand would therefore delete the sentence the operator was answering, the
+      row showing what they chose, and the only way to undo it — WHILE THE COMPOSER STILL SENDS THE
+      TICKET, because the send reads the picked ticket and not the field. An invisible ticket would
+      ride the first message with no way to clear it, which is the defect 2026-09-27-5c1eb closed,
+      in a new shape. The operator only ever picks a project by hand while none is resolved, which
+      happens in two ways that must be told apart: with a ticket picked, the pick COMPLETES it —
+      the ticket named several projects, or none of its tracker's — and everything stays; with no
+      ticket picked, the pick is the operator saying they are not starting from one, and the search
+      input goes.
+  - key: |
+      THE ORDER IS ONE-WAY BECAUSE THE TWO CHOICES CAN CONTRADICT EACH OTHER. A project can be
+      picked and a ticket picked after it, the picked project wins, and the ticket still rides the
+      first message — so a ticket is bound through a project on another tracker, which is a
+      different board's ticket of the same number. Making the project's pick end the question
+      removes the contradiction rather than resolving it after the fact. Going back is one click:
+      starting a new conversation, which already clears everything else.
+  - key: |
+      THE PANE LISTS EVERY PROJECT AFTER ONE IS SETTLED. It branches on whether a SESSION is open
+      and on nothing else, so between picking a ticket and sending the first message it offers all
+      of them as candidates while the composer, which appears only once a project is resolved, says
+      the opposite. The pane is where a person checks what an answer will be grounded in, and it is
+      the one place that does not know. It is also passed the full project list rather than the
+      narrowed one, so narrowing alone would not reach it.
+
+steps:
+  - id: the-identity-says-whether-the-name-is-opaque
+    path: "src/backend/AgentSmith.Server, src/dashboard/src/lib"
+    action:
+      - "Extract the predicate the access view computes inline for its own page — the name claim against the opaque default — so one rule answers for both, and carry its answer on the identity."
+      - "Mirror the field by hand in the dashboard's identity client, which has no drift check, and carry it in the two test fixtures that are typed as the whole shape."
+
+  - id: the-empty-state-greets
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Replace the transcript's empty state with a greeting for the reader's time of day, naming them only where the name is neither absent nor opaque."
+      - "Read the identity behind the same STRUCTURAL guard the header uses — the hook that acquires a token fetches runtime settings unconditionally, so mounting it without the guard fires an unmocked request in every existing surface test."
+      - "Compute the time of day after mount rather than during render, so the first paint does not disagree with the second."
+      - "Make the composer's placeholder say what an empty conversation is for, and keep what it says today once something has been said."
+
+  - id: one-order-of-choosing
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "Remove the ticket SEARCH INPUT once the operator has picked a project by hand AND no ticket is in play — neither picked nor asking a question on screen."
+      - "Where a ticket is in play, a hand-picked project completes it: the picked row, the reason and the unbind control all stay."
+      - "A ticket whose tracker has no configured project offers NO project choice: falling back to every project is the cross-board binding 2026-09-27-481bb refuses on the row above."
+
+  - id: the-pane-follows-the-choice
+    path: "src/dashboard/src/components/dialog"
+    action:
+      - "In the pane's NO-SESSION branch, show the project a new conversation will be grounded in once it is settled, and the picked ticket with it, instead of every configured project."
+      - "Leave the branch that draws an open conversation's scope alone: 2026-09-27-481bc owns it."
+
+tests:
+  - "Identity_AnInstallationNamingAReadableClaim_SaysTheNameIsNotOpaque"
+  - "Identity_AnInstallationOnTheDefaultClaim_SaysTheNameIsOpaque"
+  - "SpecDialogSurface_AnEmptyConversation_GreetsAndSaysNothingElse"
+  - "SpecDialogSurface_AnOpaqueOrAbsentName_GreetsTheTimeOfDayAlone"
+  - "SpecDialogSurface_AProjectPickedByHandWithNoTicket_RemovesTheSearchInput"
+  - "SpecDialogSurface_AProjectPickedByHandWhileATicketAsksWhich_KeepsTheField"
+  - "SpecDialogSurface_AProjectPickedByHandForAPickedTicket_KeepsTheRowAndTheUnbind"
+  - "SpecDialogSurface_AProjectMerelyResolved_KeepsTheField"
+  - "SpecDialogScopePanel_AProjectSettledWithoutASession_ShowsThatOneNotAllOfThem"
+  - "SpecDialogScopePanel_APickedTicket_IsShownWithTheProject"
+
+done:
+  - "an empty conversation shows a greeting and no instructions, and never greets the default opaque claim"
+  - "the empty-state test that pinned the filing sentence is replaced rather than left asserting deleted words"
+  - "picking a project by hand with no ticket removes the search input; picking one FOR a ticket keeps the row, the reason and the unbind"
+  - "no ticket ever rides a message while being invisible"
+  - "the pane names the project a new conversation will be grounded in, and the ticket it starts from"
+  - "the two single-project tests 5c1eb shipped pass unchanged"
+  - "build green, full suite green, dashboard tests green"

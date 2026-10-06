@@ -201,16 +201,16 @@ configs. The architectural test exempts them by ignoring types that are
 
 Every feature phase MUST follow this order:
 
-1. **Read phase prompt** — `.agentsmith/phases/active/p{NN}-*.md` contains requirements and scope.
+1. **Read the spec** — `.agentsmith/specs/active/{id}-*.yaml` contains requirements and scope.
 2. **Plan before coding** — Explore codebase, design approach, get approval.
 3. **Implement step by step** — Contracts first, then implementation, then DI, then tests.
 4. **Build after each step** — `dotnet build`, fix errors immediately.
 5. **Run ALL tests** — `dotnet test`, 0 failures before commit.
 6. **Update `.agentsmith/context.yaml`** — Move phase from `planned`/`active` to `done`.
-7. **Move phase file to `done/`** — Move from `active/` to `done/`.
+7. **Move the spec file to `done/`** — Move from `active/` to `done/`.
 8. **Commit** — One commit per phase, descriptive message.
 
-Phase directory structure: `phases/planned/` → `phases/active/` → `phases/done/`.
+Spec directory structure: `specs/planned/` → `specs/active/` → `specs/done/`.
 The `.agentsmith/context.yaml` is the single source of truth for what has been built.
 
 ## Testing

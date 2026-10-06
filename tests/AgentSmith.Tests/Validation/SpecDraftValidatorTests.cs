@@ -24,7 +24,7 @@ public sealed class SpecDraftValidatorTests
         var reply = """
             Draft below.
             ```yaml
-            phase: p9999
+            spec: p9999
             goal: "Add a widget"
             steps:
               - id: impl
@@ -37,13 +37,13 @@ public sealed class SpecDraftValidatorTests
         var outcome = _sut.Validate(reply);
 
         outcome.Should().BeOfType<SpecDraftValid>()
-            .Which.Yaml.Should().Contain("phase: p9999");
+            .Which.Yaml.Should().Contain("spec: p9999");
     }
 
     [Fact]
     public void Validate_MissingGoal_IsInvalid_NamingTheField()
     {
-        var outcome = _sut.Validate("```yaml\nphase: p9999\n```");
+        var outcome = _sut.Validate("```yaml\nspec: p9999\n```");
 
         outcome.Should().BeOfType<SpecDraftInvalid>()
             .Which.Error.Should().Contain("goal");
@@ -51,18 +51,18 @@ public sealed class SpecDraftValidatorTests
 
     [Fact]
     public void Validate_BadPhaseIdPattern_IsInvalid() =>
-        _sut.Validate("```yaml\nphase: not-a-phase\ngoal: \"g\"\n```")
+        _sut.Validate("```yaml\nspec: not-a-phase\ngoal: \"g\"\n```")
             .Should().BeOfType<SpecDraftInvalid>();
 
     [Fact]
     public void Validate_TwoYamlBlocks_IsInvalid() =>
-        _sut.Validate("```yaml\nphase: p1\ngoal: \"g\"\n```\n```yaml\nphase: p2\ngoal: \"g\"\n```")
+        _sut.Validate("```yaml\nspec: p1\ngoal: \"g\"\n```\n```yaml\nspec: p2\ngoal: \"g\"\n```")
             .Should().BeOfType<SpecDraftInvalid>()
             .Which.Error.Should().Contain("exactly one");
 
     [Fact]
     public void Validate_MalformedYaml_IsInvalid() =>
-        _sut.Validate("```yaml\nphase: [unclosed\n```")
+        _sut.Validate("```yaml\nspec: [unclosed\n```")
             .Should().BeOfType<SpecDraftInvalid>()
             .Which.Error.Should().Contain("YAML");
 }

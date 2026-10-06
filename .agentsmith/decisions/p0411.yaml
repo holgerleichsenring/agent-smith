@@ -1,4 +1,4 @@
-phase: p0411
+spec: p0411
 decisions:
   - what: "The measurement was re-attributed before anything was built: run 1b4b's 52 `git config user.*` calls are the FRAMEWORK's, not the master's. RunWorkCheckpointer runs ConfigureUser twice per checkpoint per repo (StageAllAsync, then CommitAndPushStagedAsync), and the window's `git status --porcelain` / `git diff --cached` calls are the same checkpoint path's probes. Our waste, spent on our own behalf — not a model habit to correct."
     alternatives:

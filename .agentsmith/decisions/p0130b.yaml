@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0130b: language bootstrap skills (D6 slice 2/2)
-phase: p0130b
+spec: p0130b
 decisions:
   - category: Architecture
     chose: "**Three skills together in one slice, not three separate slices.** Same SKILL.md template + activates_when shape across all three; only the body specializes. Splitting per language would multiply scaffolding work for content that's structurally identical. Cross-repo PR pairs synchronously; no agent-smith code change in this slice"

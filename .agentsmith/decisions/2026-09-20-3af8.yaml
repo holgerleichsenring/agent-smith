@@ -1,4 +1,4 @@
-phase: 2026-09-20-3af8
+spec: 2026-09-20-3af8
 decisions:
   - id: a-dialog-image-is-its-own-model
     chose: >

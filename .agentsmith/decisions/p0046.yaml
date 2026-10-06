@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0046: CLI Refactor & LLM Intent Parsing
-phase: p0046
+spec: p0046
 decisions:
   - category: Architecture
     chose: CLI changed to explicit flags (agent-smith fix --ticket 42) instead of free-text parsing

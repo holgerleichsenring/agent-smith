@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0024: Code Map
-phase: p0024
+spec: p0024
 decisions:
   - category: Architecture
     chose: LLM-assisted extraction instead of custom parsers

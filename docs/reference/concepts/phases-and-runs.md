@@ -14,8 +14,7 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 ├── decisions/            # One decision YAML per phase or run
 ├── memory/               # Experiential memory: MEMORY.md index + one fact per file
 ├── specs/
-│   └── github-54/        # One ticket's phase specs, written by a code run
-├── phases/
+│   ├── github-54/        # One ticket's phase specs, written by a code run
 │   ├── done/             # Completed phase documents
 │   ├── active/           # Currently executing (max 1)
 │   └── planned/          # Upcoming phases
@@ -117,15 +116,15 @@ state:
     p0052: "Single executable release: binaries for 5 platforms, GitHub Releases"
   active: {}
   planned:
-    p0023: "Multi-repo support → .agentsmith/phases/planned/p0023-multi-repo.md"
-    p0025: "PR review iteration → .agentsmith/phases/planned/p0025-pr-review.md"
+    p0023: "Multi-repo support → .agentsmith/specs/planned/p0023-multi-repo.md"
+    p0025: "PR review iteration → .agentsmith/specs/planned/p0025-pr-review.md"
 ```
 
 The key is the phase id; the text after it is a one-line summary, and planned phases point at their full document.
 
 ### Phases in a code run
 
-A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into phase specs under `.agentsmith/specs/<provider>-<ticket-id>/` — one YAML spec and one Markdown companion per phase, plus `accounting.md` — with ids derived from the ticket: ticket 54 becomes `p54a`, `p54b`, and so on. When a phase is verified, the run writes its record to `.agentsmith/phases/done/<id>-<slug>.yaml` and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
+A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into phase specs under `.agentsmith/specs/<provider>-<ticket-id>/` — one YAML spec and one Markdown companion per phase, plus `accounting.md` — with ids derived from the ticket: ticket 54 becomes `p54a`, `p54b`, and so on. When a phase is verified, the run writes its record to `.agentsmith/specs/done/<id>-<slug>.yaml` and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
 
 ## Runs
 
@@ -226,7 +225,7 @@ timeline
         p0064  : Typed Skill Orchestration
 ```
 
-Every one of these phases has a document in `.agentsmith/phases/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.
+Every one of these phases has a document in `.agentsmith/specs/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.
 
 ## Pipeline Cost Reference
 

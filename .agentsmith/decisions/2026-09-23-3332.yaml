@@ -1,4 +1,4 @@
-phase: 2026-09-23-3332
+spec: 2026-09-23-3332
 decisions:
   - id: 1
     what: "Align the task's criterion to the skill body's wording, not the other way round."

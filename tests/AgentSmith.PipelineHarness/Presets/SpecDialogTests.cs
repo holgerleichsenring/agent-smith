@@ -30,7 +30,7 @@ public sealed class SpecDialogTests
     private const string ValidDraft =
         """
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -88,7 +88,7 @@ public sealed class SpecDialogTests
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
 
-        reply.Should().Contain("phase: p9999", "a schema-valid draft is shown as-is");
+        reply.Should().Contain("spec: p9999", "a schema-valid draft is shown as-is");
         harness.ChatClient.InvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
     }
 
@@ -97,14 +97,14 @@ public sealed class SpecDialogTests
     {
         await using var harness = BuildHarness();
         harness.ChatClient
-            .EnqueueText("Draft:\n```yaml\nphase: not-a-valid-phase-id\n```")
+            .EnqueueText("Draft:\n```yaml\nspec: not-a-valid-phase-id\n```")
             .EnqueueText($"Corrected:\n{ValidDraft}");
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
 
         harness.ChatClient.InvocationCount.Should().Be(2,
             "the invalid draft re-prompts the master exactly once with the schema error");
-        reply.Should().Contain("phase: p9999", "the corrected draft is what surfaces");
+        reply.Should().Contain("spec: p9999", "the corrected draft is what surfaces");
         reply.Should().NotContain("not-a-valid-phase-id", "the invalid draft is never surfaced raw");
         FlattenPrompt(harness).Should().Contain("failed schema validation",
             "the re-prompt names the validation failure to the master");

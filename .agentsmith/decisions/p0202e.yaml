@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0202e: analyzer derives prerequisites; EnsurePrerequisites rename
-phase: p0202e
+spec: p0202e
 decisions:
   - category: Architecture
     chose: Analyzer-derived `prerequisites` is the default for code projects; context.yaml is an optional override

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158b: Workdir layout + per-repo handler iteration
-phase: p0158b
+spec: p0158b
 decisions:
   - category: Architecture
     chose: "**p0158b re-narrowed at execution time to workdir + handlers only; PR cross-link and CLI deferred to p0158c / p0158d.** The original p0158b spec bundled PR cross-link two-pass (three platform PATCH implementations) and CLI on eight commands with the handler-iteration core. Implementing all of this end-to-end proved to be a multi-conversation marathon that risked half-baked intermediate states. The re-narrowed slice ships a clean unified-run handler core with ~10 fixture updates and 6 new tests; p0158c and p0158d are purely additive (no handler edits) on top."

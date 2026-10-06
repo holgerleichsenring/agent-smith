@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class RequirementTicketTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         scope:
           in: >
@@ -86,7 +86,7 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement()
     {
-        var parent = new PhaseDraft("p9000", "Widget platform", "phase: p9000\ngoal: Widget platform", ["p8000"]);
+        var parent = new PhaseDraft("p9000", "Widget platform", "spec: p9000\ngoal: Widget platform", ["p8000"]);
 
         var body = new PhaseTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
 
@@ -97,7 +97,7 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion()
     {
-        const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
+        const string yaml = "spec: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
 
         var body = new PhaseTicketRenderer()
             .RenderPhase(new PhaseDraftReader().Read(yaml)).Body;

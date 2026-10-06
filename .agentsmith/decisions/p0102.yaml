@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0102: API Scan Code-Aware + Prefix Caching
-phase: p0102
+spec: p0102
 decisions:
   - category: Architecture
     chose: "`ILlmClient.CompleteWithCachedPrefixAsync(systemPrompt, userPrefix, userSuffix, taskType, ct)` added as an optional default-method overload. Providers without prompt caching (OpenAI, Azure OpenAI, Gemini, Ollama) inherit the default that joins the two halves and falls through to `CompleteAsync`. `AnthropicLlmClient` overrides to send the user message as two `TextContent` blocks with `cache_control = ephemeral` on the prefix only. Alternative considered: a separate `ICachedLlmClient` interface"

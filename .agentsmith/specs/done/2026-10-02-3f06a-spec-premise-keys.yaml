@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-3f06a
+goal: "The phase-spec schema declares the premise keys specs already write — facts, assumptions, applies_to, contexts — and an assumption written as {claim, check} is read as its claim, not stringified."
+
+applies_to: "phase-spec schema (embedded product contract), PhaseDraftReader, schema tests"
+
+requires: []
+
+facts:
+  - claim: "The schema's properties are phase, goal, requires, scope, decisions, steps, packages, dep-graph, pipeline-presets, tests, done; it sets no top-level additionalProperties, so every other key passes unchecked."
+    evidence: ".agentsmith/phase-spec.schema.json:11-215"
+  - claim: "The schema is embedded and validates derived phases, dialog drafts, epic children and hand-written phase specs in ticket descriptions."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:63; src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:67-68; src/backend/AgentSmith.Application/Services/PhaseExecution/PhaseSpecFromTicket.cs:38-48"
+  - claim: "An invalid derived phase is refused with its cut; the single-phase fallback throws; a malformed spec in a ticket description stops the run without falling back to derivation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:44-45; src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:37-39; src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:89-93"
+  - claim: "The renderer writes facts as {claim, evidence}, assumptions as strings and contexts as a list, relying on the open top level."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseYamlRenderer.cs:54-68"
+  - claim: "A derived fact always carries a minted, non-empty evidence line; a claim whose citation does not resolve becomes an assumption."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FactResolver.cs:29-36"
+  - claim: "The pinned design-partner master writes facts as [{claim, evidence}] and assumptions as strings, and asks for an empty list rather than an omitted key."
+    evidence: "observed: design-partner-master SKILL.md inside src/backend/AgentSmith.Infrastructure.Core/Resources/agentsmith-skills-v5.7.3.tar.gz, sections 'Drafting a phase spec' and 'Proposing an epic', 2026-10-02"
+  - claim: "Assumptions are read through ReadStrings, which turns a map entry into its ToString() — a .NET type name that reaches the premise checker and the ticket comment."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:35,103-113; src/backend/AgentSmith.Application/Services/Specs/PhasePremises.cs:43-45; src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:107-111"
+  - claim: "Measured over .agentsmith/phases/** on 2026-10-02: 1195 facts, every one exactly {claim, evidence} with string evidence; applies_to a string in 778 files; assumptions as {claim, check} maps in 22 files (76 entries) and as strings in 2; no file carries contexts."
+    evidence: "observed: a YAML scan of every phase file, 2026-10-02"
+  - claim: "PhaseDraftReader is 114 lines against the 120-line ratchet; GetStepString serves facts and steps alike."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:47,73,95-97"
+
+assumptions:
+  - claim: "YamlDotNet's default serializer keeps a quoted numeric-looking string quoted when an epic child is re-serialized."
+    check: "The epic round-trip test below; YamlDotNet's default serializer is known to emit 42 and true plain, so budget for the child serializer quoting strings."
+
+scope:
+  in: >
+    facts: array or null of {claim, evidence}, both minLength 1, no other keys. assumptions: a string, or array or null whose
+    item is a non-empty string or {claim (minLength 1), check (string, optional)}, no other keys. applies_to: string.
+    contexts: string or array of strings, as requires. No minItems anywhere — an empty list is a statement. The reader
+    takes an assumption map's claim and drops a map without a string claim, for branch specs that are never
+    validated. GetStepString and the list readers move to PhaseDraftLists.
+  out: >
+    Closing the top level. The evidence grammar and resolution — 2026-10-02-3f06b. The plugin's schema copy —
+    2026-10-02-3f06d. Showing facts and assumptions on the dialog proposal panel — 2026-10-02-3f06c.
+
+decisions:
+  - key: "THE TOP LEVEL STAYS OPEN. 40-odd legacy keys (notes in 74 files) and any key a model adds would become a refused cut or a fallback crash; declaring the keys in use is what gives them a shape."
+  - key: "EVIDENCE IS A STRING HERE. A derived line ('[L3] …'), a path reference and an observation are all evidence; telling them apart needs the repository, which a schema does not have."
+  - key: "AN ASSUMPTION MAP IS READ AS ITS CLAIM. The claim is the premise; check says how to test it and is not itself a claim the checker could quote."
+  - key: "A HAND-WRITTEN TICKET SPEC THAT BREAKS THE SHAPES NOW STOPS. Every producer measured writes them already; a fact that is a bare string was never read as one (ReadFacts takes maps only), so stopping names an error that was silently dropped."
+  - key: "NULL IS ALLOWED. A bare 'facts:' says nothing, as an absent key does; refusing it would turn a model's formatting slip into a hard stop on the ticket path."
+
+steps:
+  - id: schema
+    action: "Add the four properties to .agentsmith/phase-spec.schema.json with descriptions naming who writes each."
+  - id: reader
+    action: "PhaseDraftLists (strings, assumptions, facts, GetStepString); PhaseDraftReader calls it."
+  - id: tests
+    action: "PhaseSpecPremiseKeysSchemaTests (Architecture), PhaseDraftListsTests, and cases in the existing test classes of SpecSetComment, EpicOutcomeParser and DerivedPhaseYamlRenderer (new where none exists); the every-file schema test stays green unchanged."
+
+tests:
+  - "PhaseSpecSchema_FactWithoutEvidence_IsInvalid"
+  - "PhaseSpecSchema_FactWithAnExtraKey_IsInvalid"
+  - "PhaseSpecSchema_AssumptionAsClaimAndCheck_IsValid"
+  - "PhaseSpecSchema_EmptyAndNullFactsAndAssumptions_AreValid"
+  - "PhaseSpecFromTicket_FactWithAnExtraKey_IsInvalidNotAbsent"
+  - "PhaseDraftReader_AssumptionMap_ReadsItsClaim"
+  - "PhaseDraftReader_AssumptionMapWithoutClaim_IsDropped"
+  - "SpecSetComment_AssumptionMap_RendersItsClaim"
+  - "EpicOutcomeParser_ChildWithFactsAndQuotedNumber_StaysValid"
+  - "DerivedPhaseYamlRenderer_FactsAssumptionsAndContexts_ValidateAgainstTheSchema"
+
+done:
+  - "every committed phase file validates against the extended schema"
+  - "no assumption reaches PhasePremises or SpecSetComment as a type name"
+  - "build green, full suite green"

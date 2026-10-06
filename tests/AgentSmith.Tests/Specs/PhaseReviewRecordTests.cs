@@ -100,7 +100,7 @@ public sealed class PhaseReviewRecordTests
     {
         var pipeline = WithPhase();
         PhaseReviewLedger.Record(pipeline, PhaseReviewReport.Taken([Finding()]));
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft("phase-b", "goal", "phase: b\n", []));
+        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft("phase-b", "goal", "spec: b\n", []));
         PhaseReviewLedger.Record(
             pipeline, PhaseReviewReport.Taken([Finding() with { Path = "src/Api/Other.cs" }]));
 
@@ -154,7 +154,7 @@ public sealed class PhaseReviewRecordTests
         new("api", [new CriterionAccount(
             "the guard is in place", AccountDisposition.Satisfied, "src/Api/Handler.cs")]);
 
-    private static PhaseDraft Draft() => new(PhaseId, "goal", "phase: " + PhaseId + "\n", []);
+    private static PhaseDraft Draft() => new(PhaseId, "goal", "spec: " + PhaseId + "\n", []);
 
     private static PipelineContext WithPhase()
     {

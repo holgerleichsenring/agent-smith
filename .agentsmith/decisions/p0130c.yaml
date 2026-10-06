@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0130c: InitProject Bootstrap-step migration to SkillRound dispatch (D6 follow-up)
-phase: p0130c
+spec: p0130c
 decisions:
   - category: Architecture
     chose: "**Deterministic BootstrapDispatch instead of full Triage for InitProject.** The catalog is supposed to ship exactly one bootstrap skill per `project_language` enum value (csharp / node / python / generic). An LLM-driven Triage would add cost and latency for a decision with no judgment component. BootstrapDispatch reuses the same `ActivationSkillFilter` that StructuredTriage uses, so routing semantics stay consistent. Fail-loud on 0 / >1 matches surfaces catalog misconfiguration immediately."

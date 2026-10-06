@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0045: API Security Scan Pipeline
-phase: p0045
+spec: p0045
 decisions:
   - category: Architecture
     chose: Reused TriageHandlerBase and SkillRoundHandlerBase from p0043b instead of duplicating

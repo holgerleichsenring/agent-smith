@@ -81,6 +81,6 @@ public sealed class TicketEditNoticeTests
         ExecutedPhaseIds: ["p1a"]);
 
     private static SpecPhase Phase(string id, string goal) => new(
-        new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
+        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
         id, string.Empty, []);
 }

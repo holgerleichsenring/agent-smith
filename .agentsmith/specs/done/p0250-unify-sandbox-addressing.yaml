@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: p0250
+goal: |
+  Bring agent-write routing and commit resolution onto one denominator, the repo name, so a multi-group repo's write lands in the same sandbox CommitAndPR commits from.
+
+applies_to: backend
+
+requires:
+  - p0249   # the authoritative key→repo map this builds on
+
+steps:
+  - id: name-addressing
+    action: "AgenticMasterHandler exposes DISTINCT repo names (from ContextKeys.SandboxRepos) to the master prompt instead of composite sandbox keys, and passes the key→repo map to FilesystemToolHost."
+  - id: name-aliasing
+    action: "FilesystemToolHost aliases each repo name to its representative sandbox via the key→repo map (additive — composite-key prefixes still resolve), so a repo-name path prefix dispatches to the repo's sandbox."
+  - id: tests
+    action: "Harness: a multi-group repo addressed by name (key `<repo>-<langSlug>`) dispatches to its sandbox; composite-key prefix still resolves; existing single-group routing unchanged."
+
+done:
+  - "The master addresses repos by name; a multi-group repo's write lands in the same sandbox CommitAndPR commits from (pinned by a harness test)."
+  - "Composite-key addressing still resolves (alias is additive); single-group routing unchanged."
+  - "Full backend suite green."

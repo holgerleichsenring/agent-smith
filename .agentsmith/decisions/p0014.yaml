@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0014: GitHub Action & Webhook
-phase: p0014
+spec: p0014
 decisions:
   - category: Architecture
     chose: Both GitHub Action (zero infrastructure) and webhook listener (self-hosted) variants

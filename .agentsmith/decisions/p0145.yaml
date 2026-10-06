@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0145: Pipeline-scoped ToolKit + SandboxToolHost decomposition
-phase: p0145
+spec: p0145
 decisions:
   - category: Architecture
     chose: "**Three hosts, not seven (one per tool).** Decomposition by responsibility, not by granularity. `FilesystemToolHost` bundles everything that operates on the sandbox FS (shared guards, shared sandbox dependency). `LogDecisionToolHost` is a single tool but semantically separate (audit sink, no sandbox dep). `HumanToolHost` likewise semantically separate (operator interaction). Seven hosts would inflate constructor wiring without semantic gain. -- alternatives: one host per tool (rejected: boilerplate explosion); two hosts (sandbox + non-sandbox) (rejected: LogDecision is always-on, AskHuman is optional/conditional"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0008: Context Compaction
-phase: p0008
+spec: p0008
 decisions:
   - category: Architecture
     chose: Haiku for summarization, not custom rule-based compression

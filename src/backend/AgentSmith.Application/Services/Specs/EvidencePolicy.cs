@@ -26,7 +26,7 @@ public sealed record EvidencePolicy(
         NoReferenceIsProblem: true,
         UnknownQualifierIsProblem: true,
         UncheckedQualifiers: ["agent-smith-skills", "spec-first"],
-        RefusedPathPrefixes: [".agentsmith/phases/planned/", ".agentsmith/phases/active/"],
+        RefusedPathPrefixes: [".agentsmith/specs/planned/", ".agentsmith/specs/active/"],
         ObservedNeedsDate: true);
 
     /// <summary>

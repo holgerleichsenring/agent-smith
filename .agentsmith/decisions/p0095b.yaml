@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0095b: Multi-Platform Status Transitioners
-phase: p0095b
+spec: p0095b
 decisions:
   - category: Architecture
     chose: GitLab uses PUT /issues/{iid} with add_labels/remove_labels rather than full-labels replacement. Targets only the lifecycle label, leaves unrelated labels untouched. No ETag on GitLab issues

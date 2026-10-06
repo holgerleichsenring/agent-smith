@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0114: OpenAI / Azure-OpenAI Context Compactor
-phase: p0114
+spec: p0114
 decisions:
   - category: Architecture
     chose: "**Same conceptual algorithm as p0008's ClaudeContextCompactor, different SDK + caching semantics.** Anthropic exposes `cache_control: ephemeral` for verifiable prefix-caching; OpenAI/Azure use opaque automatic prompt caching above the 4096-token threshold without operator control. Compactor I/O shape is identical (message list in, summarized message list out); SDK glue + summarization-prompt tuning differ. New OpenAiContextCompactor handles `type=openai` + `type=azure-openai` (Azure delegates via the same composition pattern AzureOpenAiAgenticAnalyzer uses); `type=gemini` + `type=ollama` get NoOpContextCompactor as an EXPLICIT placeholder, NOT a denial that they need it"

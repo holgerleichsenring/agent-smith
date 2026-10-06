@@ -36,7 +36,7 @@ public sealed class PhaseRecordPublishedTests
         var announced = publisher.Events.OfType<PhaseRecordedEvent>().Single();
         announced.RunId.Should().Be(RunId);
         announced.PhaseId.Should().Be("p19213a");
-        announced.Body.Should().Contain("phase: p19213a");
+        announced.Body.Should().Contain("spec: p19213a");
     }
 
     /// <summary>
@@ -81,7 +81,7 @@ public sealed class PhaseRecordPublishedTests
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, RunId);
         pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(
-            "p19213a", "Make the thing exist", "phase: p19213a\ngoal: \"Make the thing exist\"\n", []));
+            "p19213a", "Make the thing exist", "spec: p19213a\ngoal: \"Make the thing exist\"\n", []));
         pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
         return pipeline;
     }

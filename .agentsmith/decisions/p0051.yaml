@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0051: ToolRunner Clean Architecture
-phase: p0051
+spec: p0051
 decisions:
   - category: Architecture
     chose: ToolRunRequest uses {input}/{output} placeholders resolved per-runner

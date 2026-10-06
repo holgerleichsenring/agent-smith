@@ -79,7 +79,7 @@ public sealed class ExecutedPhaseMarkerTests
     }
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"Goal {id}", $"phase: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] };
+        new(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] };
 
     private static SpecPhase Phase(string id) => new(Draft(id), id, string.Empty, []);
 

@@ -257,7 +257,7 @@ public sealed class ProgressLedgerTests
         // p0394a: the ratified phase spec is the single planning artifact — the seed
         // mirrors its parsed steps (spec-assigned ids, action, target) as pending.
         var draft = new Application.Services.SpecDialog.PhaseDraftReader().Read("""
-            phase: p0001
+            spec: p0001
             goal: "Widgets exist"
             steps:
               - id: domain
@@ -352,7 +352,7 @@ public sealed class ProgressLedgerTests
             Times.Once);
 
     private static PhaseDraft DraftWith(params (string Action, string? Target)[] steps) =>
-        new("p0001", "goal", "phase: p0001", Array.Empty<string>())
+        new("p0001", "goal", "spec: p0001", Array.Empty<string>())
         {
             Steps = steps
                 .Select((s, i) => new PhaseStep((i + 1).ToString(), s.Action, s.Target))

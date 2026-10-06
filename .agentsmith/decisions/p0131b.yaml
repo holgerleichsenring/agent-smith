@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0131b: BootstrapProjectHandler + CodeMapGenerator removal (D7 slice 2/4)
-phase: p0131b
+spec: p0131b
 decisions:
   - category: Architecture
     chose: "**Cascading deletion: BootstrapProjectHandler took ~10 supporting services with it.** The entire chain was load-time-only"

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-1da5c
+goal: "A design conversation can ask what the tracker shows against its ticket, through a port that holds the credentials instead of a web call that has none."
+
+applies_to: "backend (a capability port for what a tracker links to a ticket, and the tool a design turn reaches it through)"
+
+scope:
+  in: "What the TRACKER shows against the bound ticket — the pull requests it links, and the branches where a tracker links those too — and the tool a design turn calls to ask."
+  out: "What THIS FRAMEWORK recorded about runs against the ticket, which is a second port and a second seed — 2026-09-28-1da5d. Writing anything. Reading a repository's history, which the turn's own source sandboxes already do. Composing a branch name from this framework's own convention where a tracker links none, which is a different idea and needs its own decision."
+
+decisions:
+  - key: |
+      THE CONVERSATION CANNOT ANSWER THE FIRST QUESTION AN OPERATOR ASKS OF A TICKET. Asked "look at
+      the ticket's branches, is it finished", it answered that it could not verify: every Azure
+      DevOps link demanded authentication and returned a redirect to sign-in. That answer was
+      correct and correctly reasoned. The defect is that it is the only answer available.
+  - key: |
+      ITS ONLY REACH OUTWARD IS AN HTTP TOOL HOLDING NOTHING. The design surface carries a request
+      tool that validates a method, requires an absolute address and refuses a header beginning with
+      an at-sign — and injects no credential and consults no host list. It is unauthenticated
+      because the MODEL holds no token, not because the tool forbids one. Meanwhile the same turn
+      reads the ticket perfectly well, through a port whose factory resolved a token. The capability
+      exists; it stops at the ticket's own text.
+  - key: |
+      A PORT, NOT A SECRET IN THE MODEL'S HANDS, AND THE DIFFERENCE IS NOT ACADEMIC. This framework
+      has never given a model a credential: it gives it tools that already hold one — withdrawing a
+      filed ticket, reading the bound ticket — each built where the credentials are resolved and
+      addressed by intent rather than by URL. A request tool carrying a personal access token could
+      reach everything that token reaches, including writes, on a surface whose own comment says it
+      performs no run and no write. A port answers named questions and cannot be talked into a PUT.
+  - key: |
+      THE FACTORY HAS FIVE LINES AND THE MEMBER COSTS SEVENTEEN, SO THE SWITCHES MOVE FIRST. The
+      precedent member — the search capability — is seventeen lines of documented switch, and the
+      factory now sits five under the hard limit while not being in the baseline, where an entry may
+      not be added. A partial of the factory is the wrong answer and this repository says so in
+      writing: splitting a type across files to get under a per-file limit is the one thing that
+      limit exists to prevent. So the per-capability switches move into a collaborator of their own,
+      and the factory keeps the construction that is genuinely its.
+  - key: |
+      "BRANCHES AND PULL REQUESTS" IS ONE ANSWER ON ONE TRACKER, AND THE PHASE SAYS SO PER TRACKER
+      RATHER THAN PROMISING FOUR. Azure DevOps links both, as work-item relations that the single
+      fetch does not currently ask for and whose addresses need one well-defined parse — a cost this
+      repository is on record as disliking, accepted here for one known shape. GitLab links merge
+      requests to an issue and does not link branches. GitHub reaches cross-referenced pull requests
+      through the issue timeline; its linked BRANCHES are reachable only through an API this tree
+      does not speak. Jira keeps both behind a development-tools integration this framework does not
+      configure, so Jira refuses with that reason — the same shape its rewrite refusal already has.
+  - key: |
+      A REFUSAL IS NOT AN EMPTY BOARD, AND THAT IS THE WHOLE POINT AGAIN. A tracker that cannot be
+      asked, a connection not permitted to read, and a ticket with genuinely no work against it are
+      three different answers. Collapsing them would tell an operator their work does not exist —
+      the reading this series has now removed twice.
+
+steps:
+  - id: the-capability-switches-move-out
+    path: "src/backend/AgentSmith.Infrastructure/Services/Factories"
+    action: "Move the per-capability construction switches out of the ticket provider factory into a collaborator, so a fourth capability fits without a baseline entry and without making a type partial."
+
+  - id: a-ticket-has-linked-work
+    path: "src/backend/AgentSmith.Contracts/Providers, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Add a capability port answering what the tracker links to one ticket — pull requests with their state, and branches where the tracker links them — refusing with a reason where it cannot."
+      - "Implement it per tracker beside the existing siblings: work-item relations on Azure DevOps, related merge requests on GitLab, timeline cross-references on GitHub, and a refusal naming the integration on Jira."
+      - "Ask Azure DevOps for the relations its single fetch does not request today, without growing the provider class, which is at its baseline."
+
+  - id: the-conversation-can-ask
+    path: "src/backend/AgentSmith.Contracts/Dialogue, src/backend/AgentSmith.Contracts/Commands, src/backend/AgentSmith.Application/Services/Tools, src/backend/AgentSmith.Application/Services/Handlers, src/backend/AgentSmith.Server/Services/SpecDialog"
+    action:
+      - "Seed the port on a BOUND conversation's turn and build a tool from it where the withdrawal's and the ticket read's are built, so an unbound conversation carries neither."
+      - "Pack the two files that are at the per-file limit exactly, as the phase that added the ticket read already did: the constructor list and the registration chain."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert what each tracker is asked, that Jira's refusal carries its reason, that a refusal is distinguishable from a ticket with no linked work, and that an unbound conversation carries no tool."
+
+tests:
+  - "TicketWork_AzureDevOps_AsksForTheWorkItemsRelations"
+  - "TicketWork_GitLab_AsksForTheIssuesMergeRequests"
+  - "TicketWork_GitHub_AsksTheIssueTimelineForCrossReferences"
+  - "TicketWork_Jira_RefusesAndNamesTheIntegrationItWouldNeed"
+  - "TicketWork_ATicketWithNoLinkedWork_IsNotARefusal"
+  - "TicketWorkTool_AConversationBoundToNoTicket_CarriesNoTool"
+
+done:
+  - "a bound conversation can be asked what the tracker shows against its ticket, and answers from the tracker rather than from a sign-in page"
+  - "each tracker answers what it can and refuses with a reason where it cannot"
+  - "no credential reaches the model, and the design surface still performs no write"
+  - "no provider class grew and no baseline entry was added"
+  - "build green, full suite green"

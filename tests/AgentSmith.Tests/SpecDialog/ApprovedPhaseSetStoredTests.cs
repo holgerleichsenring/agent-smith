@@ -115,7 +115,7 @@ public sealed class ApprovedPhaseSetStoredTests
     private static string EpicYaml(int children)
     {
         var slices = string.Join("\n", Enumerable.Range(0, children).Select(i => $"""
-          - phase: p910{i}
+          - spec: p910{i}
             goal: "Slice {i} of the sample migration"
             steps:
               - id: s{i}
@@ -126,7 +126,7 @@ public sealed class ApprovedPhaseSetStoredTests
         return $"""
         kind: epic
         parent:
-          phase: p9000
+          spec: p9000
           goal: "The sample migration"
           steps:
             - id: all
@@ -139,7 +139,7 @@ public sealed class ApprovedPhaseSetStoredTests
     }
 
     private static PhaseDraft Draft(string id) =>
-        new(id, "Do the thing", $"phase: {id}\ngoal: \"Do the thing\"", []) { Done = ["It is done."] };
+        new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", []) { Done = ["It is done."] };
 
     private static ConversationState State() => new()
     {

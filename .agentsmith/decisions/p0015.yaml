@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0015: Azure Repos
-phase: p0015
+spec: p0015
 decisions:
   - category: Architecture
     chose: Reuses LibGit2Sharp pattern from GitHub provider

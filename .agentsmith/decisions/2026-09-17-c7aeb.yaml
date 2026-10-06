@@ -1,4 +1,4 @@
-phase: 2026-09-17-c7aeb
+spec: 2026-09-17-c7aeb
 decisions:
   - id: the-resume-is-its-own-type
     chose: >

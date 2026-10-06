@@ -25,7 +25,7 @@ internal static class CutReviewTestDoubles
     public const string Key = "azuredevops-1";
 
     public static IReadOnlyList<PhaseDraft> Drafts(params string[] done) =>
-        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", []) { Done = done }];
+        [new PhaseDraft("p1a", "migrate the senders", "spec: p1a", []) { Done = done }];
 
     /// <summary>Takes the scripted searches one per turn, then answers.</summary>
     public sealed class LookingProvider(string answer, params string[] searches) : IChatClient

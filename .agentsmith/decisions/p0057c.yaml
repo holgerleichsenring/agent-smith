@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0057c: Autonomous Pipeline
-phase: p0057c
+spec: p0057c
 decisions:
   - category: Architecture
     chose: Agent writes tickets, human decides whether to act

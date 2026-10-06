@@ -4,17 +4,17 @@
 
 1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — architecture, stack, integrations, phase status PER stack
 2. **Every** `.agentsmith/contexts/<name>/principles.md` — code quality rules per stack (ALWAYS follow)
-3. `.agentsmith/phases/active/*.yaml` — spec for the phase being implemented (its `applies_to:` names the dominant context)
+3. `.agentsmith/specs/active/*.yaml` — the spec being implemented (its `applies_to:` names the dominant context)
 4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per phase or run (read the active phase's file and its `requires:` chain)
 5. `.agentsmith/memory/MEMORY.md` — the experiential-memory index, one line per recorded fact; recall detail from `.agentsmith/memory/<name>.md` on demand when a line touches your task
 
-## Phase Directory Structure
+## Spec Directory Structure
 
 ```
-.agentsmith/phases/
-  done/       # completed phases (historical reference)
-  active/     # phase currently being worked on
-  planned/    # upcoming phases with requirements
+.agentsmith/specs/
+  done/       # completed specs (historical reference)
+  active/     # spec currently being worked on
+  planned/    # upcoming specs with requirements
 ```
 
 ## Experiential Memory (remember / recall)
@@ -51,7 +51,7 @@ safely — the four hex digits give a 16-bit keyspace against a same-day collisi
 answering it wrongly is how two phases end up sharing one id.
 
 The suffix's **fixed width** marks where the id ends and the label begins:
-`.agentsmith/phases/planned/2026-08-24-8a3f-phase-id-offline-minting.yaml`.
+`.agentsmith/specs/planned/2026-08-24-8a3f-phase-id-offline-minting.yaml`.
 
 **Phases cut from one piece of work form a series.** They share ONE minted number and
 differ only by a trailing lowercase letter — `2026-08-24-8a3fa`, `2026-08-24-8a3fb`,
@@ -81,7 +81,7 @@ only. Counter ids run four to six digits, six because ids minted from a ticket n
 
 **An id is frozen; a file name is a pointer.** Every `requires:` edge, every record line
 and every commit message cites the ID, which is why moving a phase file breaks nothing but
-the `-> .agentsmith/phases/…` pointer in `context.yaml` — and that pointer moves with the
+the `-> .agentsmith/specs/…` pointer in `context.yaml` — and that pointer moves with the
 file (`PhaseRecord_EveryPointer_ResolvesToAFile` proves every one resolves). Phases from
 p0400 upward and every date-minted phase were relabelled once, in 2026-09-07-4e6a; the
 cut is where the measurement turned (mean slug words 4.0 over p0350–p0399, 5.8 over
@@ -102,7 +102,7 @@ fifty-character slug has none of. The reasoning goes in `decisions:`.
 The label is **area-first**: the leading word names the subject area, the rest narrows it —
 `checkpoint-partial-restore`, `account-base-ref-search`, `scope-refusal`,
 `handback-question-case`, `derivation-read-only-tools`. Kin share the leading word, so a
-directory listing groups them and `ls phases/done/account-*` finds them without a shared id
+directory listing groups them and `ls specs/done/account-*` finds them without a shared id
 prefix. A label for a counter id must not begin with `pre`, which the id regex would swallow
 as a `-pre` tail.
 
@@ -120,14 +120,14 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
 
 ## Implementation Workflow (follow this order for every phase)
 
-1. **Write phase spec first** — create `.agentsmith/phases/planned/{id}-label.yaml` with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
+1. **Write phase spec first** — create `.agentsmith/specs/planned/{id}-label.yaml` (top-level key `spec: {id}`) with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
 2. **Move to active** — move the phase file from `planned/` to `active/` when starting work.
 3. **Plan first** — explore codebase, design approach, get user approval before coding.
 4. **Implement step by step** — contracts/models first, then implementation, then wiring, then tests.
 5. **Build after each step** — fix errors immediately, don't accumulate them.
 6. **Run ALL tests** — ensure zero failures before moving on.
 7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
-8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/phases/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
+8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/specs/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
 9. **Move to done** — move the phase file from `active/` to `done/`.
 10. **Commit** — one commit per phase, descriptive message.
 

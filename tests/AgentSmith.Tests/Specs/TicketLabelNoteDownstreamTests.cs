@@ -137,6 +137,6 @@ public sealed class TicketLabelNoteDownstreamTests
 
     private static PhaseDraft Draft() =>
         new("p9000a", "Widget storage",
-            "phase: p9000a\ngoal: \"Widget storage\"\ndone:\n  - \"the widget is stored\"",
+            "spec: p9000a\ngoal: \"Widget storage\"\ndone:\n  - \"the widget is stored\"",
             []) { Done = ["the widget is stored"] };
 }

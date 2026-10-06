@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0109a: Server-Lifecycle Decoupling
-phase: p0109a
+spec: p0109a
 decisions:
   - category: Architecture
     chose: "Coordinator (not decorator) for the lifecycle wrap. Lifecycle wrapping in `PipelineExecutor` is more involved than the Jira lock that p0109 handled with a decorator: it transitions a status, holds a heartbeat handle across the whole run, and disposes with a deferred close-transition. Hiding all of that behind `IPipelineLifecycleCoordinator.BeginAsync(...) → IAsyncPipelineLifecycle` separates it cleanly from the executor's main loop, lets the CLI compose with `NoOpPipelineLifecycleCoordinator` (no Redis deps), and keeps the executor's ctor stable as new lifecycle concerns get added. Decorator pattern would have meant a wrapping `PipelineExecutor`"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0074: CLI Source Overrides
-phase: p0074
+spec: p0074
 decisions:
   - category: Architecture
     chose: Three generic options (--source-type, --source-path, --source-url, --source-auth) replace --repo

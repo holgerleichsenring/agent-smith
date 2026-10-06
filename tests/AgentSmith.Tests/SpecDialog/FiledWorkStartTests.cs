@@ -714,12 +714,12 @@ public sealed class FiledWorkStartTests
 
     private static EpicOutcome Epic() =>
         new(new PhaseDraft("p9000", "Widget platform",
-                "phase: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"reachable\"", [])
+                "spec: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"reachable\"", [])
             { Done = ["reachable"] },
             [Draft("p9000a"), Draft("p9000b")]);
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"slice {id}", $"phase: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"{id} done\"", [])
+        new(id, $"slice {id}", $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"{id} done\"", [])
         { Done = [$"{id} done"] };
 
     private static ConversationState State() => new()

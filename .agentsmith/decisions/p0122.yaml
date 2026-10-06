@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0122: Skill output hardening (parser tolerance + schema ban list + skills cleanup)
-phase: p0122
+spec: p0122
 decisions:
   - category: Architecture
     chose: "**ObservationParser switches from `Deserialize<List<RawObservation>>` to per-element JsonDocument enumeration with try/catch.** Reason: a single bad enum value (LLM emits `\"critical\"` for severity) used to throw at the list-level deserialize and drop the entire round to FallbackSingle, losing every other valid observation. Element-wise parsing skips the bad item with a warning, keeps the valid ones. Same shape protects against future drift in `Concern` / `Effort` / `Confidence` field types"

@@ -109,7 +109,7 @@ public sealed class TicketLabelNoteFilingTests
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"phase {id}",
-            $"phase: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
+            $"spec: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
             []) { Done = [$"{id} is finished"] };
 
     private static AgentSmithConfig Config() => new()

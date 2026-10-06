@@ -64,7 +64,7 @@ public sealed class FiledSpecBranchTests
             $"{Directory}/p9000b-do-the-thing.yaml",
         ]);
         sources.Writes[0].ContentOf($"{Directory}/p9000a-do-the-thing.yaml").Should()
-            .Contain("phase: p9000a", "the schema-valid yaml is what the run reads back");
+            .Contain("spec: p9000a", "the schema-valid yaml is what the run reads back");
     }
 
     /// <summary>
@@ -449,7 +449,7 @@ public sealed class FiledSpecBranchTests
             repositories ?? ["sample-api", "sample-web"], "sample-tracker", carrier);
 
     private static PhaseDraft Draft(string id) =>
-        new(id, "Do the thing", $"phase: {id}\ngoal: \"Do the thing\"", [])
+        new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", [])
         { Done = ["It is done."] };
 
     private static AgentSmithConfig Config() => new()

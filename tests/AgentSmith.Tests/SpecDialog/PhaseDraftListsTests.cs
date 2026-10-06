@@ -16,7 +16,7 @@ public sealed class PhaseDraftListsTests
     public void PhaseDraftReader_AssumptionMap_ReadsItsClaim()
     {
         var draft = _reader.Read(
-            "phase: p9999\ngoal: g\nassumptions:\n"
+            "spec: p9999\ngoal: g\nassumptions:\n"
             + "  - claim: \"the cache is warm\"\n    check: \"read the hit rate\"\n  - \"a bare one\"\n");
 
         draft.Assumptions.Should().Equal("the cache is warm", "a bare one");
@@ -26,7 +26,7 @@ public sealed class PhaseDraftListsTests
     public void PhaseDraftReader_AssumptionMapWithoutClaim_IsDropped()
     {
         var draft = _reader.Read(
-            "phase: p9999\ngoal: g\nassumptions:\n  - check: \"orphaned\"\n  - claim: [\"not\", \"a string\"]\n");
+            "spec: p9999\ngoal: g\nassumptions:\n  - check: \"orphaned\"\n  - claim: [\"not\", \"a string\"]\n");
 
         draft.Assumptions.Should().BeEmpty();
     }

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0179h-master-knows-repo-prefix
+spec: p0179h-master-knows-repo-prefix
 
 decisions:
   - category: Architecture

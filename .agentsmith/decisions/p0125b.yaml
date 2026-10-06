@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0125b: Boolean Expression Evaluator + Run-State (D1 slice 2/4)
-phase: p0125b
+spec: p0125b
 decisions:
   - category: Architecture
     chose: "**AST records are pure data; evaluation lives in a separate ActivationEvaluator service.** Putting `Evaluate(state)` on each AST record means a virtual base method and behavior on data"

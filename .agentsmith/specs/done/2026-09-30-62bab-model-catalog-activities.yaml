@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-30-62bab
+goal: "An agent declares its models once in a named catalog with a tier, each activity picks an entry in the drawer, and a fast model on an activity that needs a strong one is reported."
+
+applies_to: "backend (agent config shape, the role chain and its raw-field readers, the studio agent entity, capabilities, schema, findings) and dashboard (the agent drawer)"
+
+requires: ["2026-09-30-62baa"]
+
+facts:
+  - claim: "Roles are resolved in one place, but three readers bypass it and read raw role fields."
+    evidence: "ModelRoleChain.cs:24-38; ContextWindowThresholdCheck.cs:76-85; ModelRoleFindings.cs:47-58; ModelRoleChain.cs:42-45,58-59"
+  - claim: "A role repeats model, deployment, max_tokens, window, provider_type and endpoint inline, so two roles on one deployment are two copies."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelAssignment.cs:11-26"
+  - claim: "The studio exposes a reserved 'coding' role mapped to agent.model/deployment beside an optional 'primary'."
+    evidence: "ConfigStudioCapabilities.cs:46-50; ConfigCatalogMapper.cs:32-38; RawAgentModelPatch.cs:22-27"
+  - claim: "The drawer edits role models and prices as free text; a tabbed drawer pattern exists; its types are hand-written."
+    evidence: "src/dashboard/src/components/config/AgentForm.tsx:83-172; ProjectForm.tsx:33-94; src/dashboard/src/lib/configApi.ts:380-431"
+  - claim: "A live init with the context-generation role on a fast model listed two client libraries as components; on a strong model it did not."
+    evidence: "operator run 2026-09-30 (session screenshots); .agentsmith/phases/done/2026-09-23-3332-component-criterion-excludes-layers.yaml"
+
+scope:
+  in: "agents.<name>.catalog.<entry> {model, deployment, max_tokens, context_window_tokens, provider_type, endpoint, tier}; models.<role>.use; the chain and its three raw readers resolving use; capabilities roles with needs_strong and 'coding' folded into primary; a finding for a fast entry on a strong role; the studio entity carrying catalog + role→entry; the studio save writing catalog form; display sites reading primary through the chain; the drawer tabs Models / Activities / Provider / Tuning per the mock."
+  out: "Refusing a tier mismatch at runtime — it is advice. Rating models — the product never says which model is strong."
+
+decisions:
+  - key: "BACKEND AND DRAWER SHIP AS ONE PHASE. The studio wire shape changes (role→entry name); split, the commit between would leave the dashboard posting a shape the server no longer takes."
+  - key: "AN INLINE ROLE STAYS VALID FOR FILE CONFIGS. The CLI's YAML keeps working: an inline role resolves as before. With use set, use wins and inline fields beside it are ignored; the studio refuses a role carrying both."
+  - key: "THE STUDIO SAVE WRITES CATALOG FORM. A stored agent is read by projecting agent.model and each inline role into entries; identity = (model, deployment, max_tokens, window, provider_type, endpoint); name = the model id, suffixed -2, -3 in role order on collision. Which model and settings a role calls does not change. agent.model/deployment are cleared; the chain supplies primary to every fallback that read them (builders, rate-limit key, probe)."
+  - key: "'coding' GOES; primary IS REQUIRED. Two names for one task."
+  - key: "TIER IS THE OPERATOR'S WORD, NEED IS THE PRODUCT'S. Roles deciding structure — primary, planning, reasoning, contextGeneration, codeMapGeneration — need strong. Tier is nullable; an untiered entry is never reported. Stored as a string."
+  - key: "AN UNKNOWN use IS REFUSED AT SAVE AND IMPORT, REPORTED AT LOAD. Failing the whole server config over one row is worse than an advisory; the run that reaches the role fails naming agent and role."
+  - key: "THE WINDOW IS STILL STATED. WindowDerivedCompaction refuses a name→window table. The drawer offers the list's window as a one-click value labelled 'from price list'; nothing is saved without it."
+  - key: "THE MOCK IS THE REFERENCE: https://claude.ai/artifact/AAvDSkukdQ6Bt9iApkqGX2, built from mock-parity classes. A card shows the price the resolver would charge: override, else list, else 'not in list'."
+
+steps:
+  - id: contracts
+    action: "CatalogModel, ModelTier {Strong, Fast} (string-serialised), AgentConfig.Catalog, ModelAssignment.Use; config/agentsmith.schema.json $defs; ConfigSchemaCoverageTests."
+  - id: chain
+    action: "ModelRoleChain resolves use through the catalog; Named treats use as set; ContextWindowThresholdCheck and ModelRoleFindings read through the chain; ExecutePipelineUseCase:583, LlmReachableCheck:36,38, ConfigSnapshotMapper:50,135, ChatClientFactory:85 read primary through the chain."
+  - id: studio
+    action: "AgentEntity: Catalog, Models role→entry name; ConfigCatalogMapper projects legacy; RawConfigPatch/RawAgentModelPatch write catalog + use, clear inline and agent.model; ValidateAgent checks role keys, entry names, use/inline exclusivity and prices each entry model (62baa's strict check); import planner validates use names."
+  - id: capabilities
+    action: "ModelRoleCapability(Key, Optional, NeedsStrong); 'coding' removed; primary required."
+  - id: findings
+    action: "ModelRoleFindings: a strong-need role resolved to a fast entry; an unknown use."
+  - id: drawer
+    action: "configApi.ts types + fetchModelPrices; AgentForm as tabs (ProjectForm pattern); Models cards + add/edit sub-view with searchable model id, price prefill, override toggle, window one-click; Activities rows with catalog-only select, follows-line, mismatch line, tab mark; EntityCard lists roles by entry; entities.ts blank agent."
+  - id: fixtures
+    action: "Backend tests naming 'coding' (ConfigCapabilitiesTests, ContextGenerationRoleOptionalTests, FileConfigStoreTests, DbConfigStoreTests) and dashboard fixtures with models:{coding:…} (CapabilitiesForms, MissingRequiredFields, ConnectionsStudio, ProjectSandboxTab, integrity, ProjectForm, ConfigStudio, ProjectSandboxStructured tests) move to the new shape."
+  - id: docs
+    action: "agentsmith.example.yml and agentsmith-yml.md show the catalog form; the inline form stays documented as accepted."
+
+tests:
+  - "ModelRoleChainTests: use resolves; use wins over inline; codeMap→scout→primary via use; InheritingFormerDefaults counts a use role as set"
+  - "ContextWindowThresholdCheckTests: a use role's window is read from its entry"
+  - "Studio round-trip: legacy agent.model + inline roles → catalog form with identical resolved assignments per role"
+  - "ModelRoleFindingsTests: fast on contextGeneration reported, untiered not, unknown use reported"
+  - "AgentForm tests: add model prefills price from the list; activity select offers only entries; mismatch marks the tab; saved payload is catalog + role names"
+
+done:
+  - "a stored legacy agent opens as a catalog and saves in catalog form without changing any role's resolved assignment"
+  - "an operator adds gpt-5.6 in the drawer, assigns it to Project init, and saves without typing a price"
+  - "build, all backend tests, pnpm test and pnpm build green"

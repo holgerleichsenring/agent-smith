@@ -26,7 +26,7 @@ public sealed class DesignReferencePromptTests
         context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject
             { Name = "p", DesignSources = [new DesignSource("brand", DesignSourceVendor.Figma, "figma-token")] });
         context.Pipeline.Set(ContextKeys.PhaseSpec,
-            new PhaseDraft("p1", "build the checkout", "phase: p1\ngoal: build the checkout\n", [])
+            new PhaseDraft("p1", "build the checkout", "spec: p1\ngoal: build the checkout\n", [])
             {
                 Done = ["the checkout is built"],
             });

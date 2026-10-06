@@ -1,4 +1,4 @@
-phase: p0400a
+spec: p0400a
 decisions:
   - what: "Declared verify commands execute at the repo root; discovered entry points keep the context workdir — the stage tuple carries its cwd."
     alternatives:

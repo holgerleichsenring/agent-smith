@@ -134,7 +134,7 @@ public sealed class StepBudgetTests
         "azdo-1",
         [.. new[] { "a", "b", "c", "d", "e", "f", "g", "h" }.Select(letter =>
             new SpecPhase(
-                new PhaseDraft($"p0001{letter}", $"Goal of {letter}", $"phase: p0001{letter}", [])
+                new PhaseDraft($"p0001{letter}", $"Goal of {letter}", $"spec: p0001{letter}", [])
                 {
                     Done = [$"p0001{letter} is done."],
                 },

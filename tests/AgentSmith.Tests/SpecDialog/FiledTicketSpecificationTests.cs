@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class FiledTicketSpecificationTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         scope:
           in: >

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0049: Tool Runner Abstraction
-phase: p0049
+spec: p0049
 decisions:
   - category: Architecture
     chose: IToolRunner abstraction with multiple implementations (Docker/Podman/K8s/Process)

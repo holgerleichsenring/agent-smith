@@ -44,7 +44,7 @@ public sealed class ContextWritePreservationTests : IDisposable
                                         engine: "postgres"
                                     state:
                                       done:
-                                        p0001: "shipped the first thing -> .agentsmith/phases/done/p0001.yaml"
+                                        p0001: "shipped the first thing -> .agentsmith/specs/done/p0001.yaml"
                                       active: {}
                                     decisions:
                                       - id: "ADR-1"
@@ -75,7 +75,7 @@ public sealed class ContextWritePreservationTests : IDisposable
         (await Write()).Should().StartWith("context.yaml written:");
 
         Section("state", "done").Should().ContainKey("p0001")
-            .WhoseValue.Should().Be("shipped the first thing -> .agentsmith/phases/done/p0001.yaml");
+            .WhoseValue.Should().Be("shipped the first thing -> .agentsmith/specs/done/p0001.yaml");
     }
 
     [Fact]

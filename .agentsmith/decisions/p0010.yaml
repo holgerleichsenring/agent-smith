@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0010: Container Production-Ready
-phase: p0010
+spec: p0010
 decisions:
   - category: Architecture
     chose: `--headless` flag auto-approves plans

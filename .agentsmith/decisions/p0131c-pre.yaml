@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0131c-pre: Discussion-triage migration prerequisite
-phase: p0131c-pre
+spec: p0131c-pre
 decisions:
   - category: Architecture
     chose: "**Output-side phase collapse via SinglePhaseCollapser instead of prompt-side adaptation.** mad-discussion + legal-analysis presets have no RunReviewPhase / RunFinalPhase steps, but the structured-triage prompt asks the LLM to assign skills to all three phases. Output-side collapse is one small helper invoked conditionally; prompt-side adaptation would require cross-repo prompt-template changes and a producer flag for prompt variants."

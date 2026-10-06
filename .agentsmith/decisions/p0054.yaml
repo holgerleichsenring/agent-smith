@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0054: Security Scan Expansion
-phase: p0054
+spec: p0054
 decisions:
   - category: Architecture
     chose: Deterministic tools (regex, git history, dependency auditing) precede LLM skills

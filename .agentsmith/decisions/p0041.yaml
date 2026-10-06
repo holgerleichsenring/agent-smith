@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0041: Decision Log
-phase: p0041
+spec: p0041
 decisions:
   - category: Architecture
     chose: IDecisionLogger with nullable repoPath and tell-don't-ask pattern

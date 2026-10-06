@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0146d: Observation Explicit Location Fields
-phase: p0146d
+spec: p0146d
 decisions:
   - category: Architecture
     chose: Skills emit typed location fields (`file`, `start_line`, `end_line`, `api_path`, `schema_name`) directly as separate JSON properties

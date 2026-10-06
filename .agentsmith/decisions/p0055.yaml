@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0055: Security Findings Compression
-phase: p0055
+spec: p0055
 decisions:
   - category: Implementation
     chose: Top-N detail + remainder summary per category

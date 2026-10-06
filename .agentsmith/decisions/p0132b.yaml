@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0132b: FilterRound + VerifyRound cost attribution (slice 2/3 of p0132)
-phase: p0132b
+spec: p0132b
 decisions:
   - category: Implementation
     chose: "**Filter batches each get their own scope, not a single rolled-up filter-skill scope.** When a filter skill receives N observations exceeding the token-budget, TokenBudgetBatcher splits them and FilterBatchAsync is invoked per batch. Per-batch attribution surfaces the actual cost distribution (sometimes one batch dominates because its observations are verbose) instead of hiding it behind a rolled-up entry."

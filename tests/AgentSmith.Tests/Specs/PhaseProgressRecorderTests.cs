@@ -90,7 +90,7 @@ public sealed class PhaseProgressRecorderTests
     private static SpecSet TwoPhaseSet() => new(
         "azdo-1",
         [.. new[] { "p0001a", "p0001b" }.Select(id => new SpecPhase(
-            new PhaseDraft(id, $"Goal of {id}", $"phase: {id}", []) { Done = [$"{id} is done."] },
+            new PhaseDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
             id, string.Empty, []))],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

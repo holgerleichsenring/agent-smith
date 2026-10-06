@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-3ca9
+goal: "Every container sandbox of a live run, source scopes included, is watched by its owner through a liveness contract of its own, on Kubernetes as on Docker, and cancelled only on confirmed loss."
+
+applies_to: "backend (sandbox contracts, liveness supervisor and watcher, pipeline coordinator, source scopes, held-sandbox register, both container backends)"
+
+requires: ["2026-09-28-7667"]
+
+scope:
+  in: >
+    - A separate ISandboxLiveness contract. IsAliveAsync asks the transport; on Redis today that is
+      the heartbeat key. ConfirmGoneAsync asks the backend and returns a verdict: gone or not, state,
+      exit code, OOM, whether exit facts exist.
+      - Docker: a container that is not found, Exited or Dead counts as gone.
+      - Kubernetes: a pod that is not found, in phase Succeeded or Failed, or whose toolchain
+        container has terminated counts as gone.
+      - A probe error, Pending, Running or unknown never counts as gone.
+    - DockerSandbox and KubernetesSandbox implement the contract. The Docker inspect code moves out
+      of the watcher into DockerContainerProbe.
+    - SandboxEventProjector forwards the contract through a nullable inner reference, and the
+      supervisor skips a sandbox with none (the in-process one).
+    - The supervisor is registered for both container backends.
+    - SourceScopeOpener starts a watch for every scope it spawns with a run id, and the scope's
+      disposal stops it.
+    - ISandboxLivenessProbeTarget and ISandboxHeartbeatProbe, with its Redis and no-op
+      implementations, are deleted. The held register and held-sandbox removal ask the sandbox.
+  out: >
+    The HTTP transport (2026-09-28-2f8c), which answers IsAliveAsync differently. The in-process
+    sandbox, which has no agent to lose.
+
+decisions:
+  - key: |
+      KUBERNETES HAS NO LIVENESS WATCHER TODAY. Only DockerSandboxRegistrations registers the real
+      supervisor (DockerSandboxRegistrations.cs:74-80); every other backend gets a no-op
+      (PipelineExecutionExtensions.cs:47). The supervisor skips non-targets (SandboxLivenessSupervisor.cs:28),
+      and the watcher needs IDockerClient (SandboxLivenessWatcher.cs:28).
+  - key: |
+      THIS IS WHAT MAKES HTTP SAFE ON KUBERNETES. Today an idle sandbox of a live run survives by the
+      agent asking Redis whether its run is active (JobLoop.cs:55-62; RedisJobBus.cs:67-71) — the
+      p0360b fix (JobLoop.cs:49-54). Over HTTP only contact counts, and the watcher's calls become that
+      contact. That holds only if every such sandbox is watched, including source scopes:
+      SourceScopeOpener spawns straight from the factory (SourceScopeOpener.cs:51-53), and Watch has
+      one call site (PipelineSandboxCoordinator.cs:188).
+  - key: |
+      A CONTRACT OF ITS OWN, NOT IHoldableSandbox. The supervisor receives the projector, not the
+      backend sandbox (PipelineSandboxCoordinator.cs:188, 267), and the projector is not holdable
+      (SandboxEventProjector.cs:22). Making it holdable would make it claim force-removal around an
+      in-process sandbox and change what "holdable" means (IHoldableSandbox.cs:3-15). The test goes
+      through the coordinator and the projector, because a test against a raw KubernetesSandbox
+      would pass while production skipped it.
+  - key: |
+      CONFIRMED MEANS CONFIRMED — A BEHAVIOUR CHANGE ON DOCKER, STATED. Today the Docker watcher
+      cancels on any verdict other than Running, "Unknown" and "ProbeError" included
+      (SandboxLivenessWatcher.cs:96-108, 152, 167-171). Carried over to Kubernetes, an API-server blip
+      would cancel healthy runs. Both backends therefore cancel only on the gone states above. A
+      Docker probe error is now retried rather than treated as a vanish.
+  - key: |
+      THE EXIT EVIDENCE SURVIVES. The watcher publishes the container state and the p0396 exit and OOM
+      detail (SandboxLivenessWatcher.cs:112-143, 157-161). The verdict record carries them, and
+      Kubernetes fills them from containerStatuses[].state.terminated. The RBAC grants pods get, list
+      and watch plus pods/status (2-rbac.yaml:25-33).
+  - key: |
+      NO FALSE CANCEL WHILE STARTING. The Kubernetes factory waits for the toolchain to be Ready before
+      a sandbox exists (KubernetesSandboxFactory.cs:45-47), so Pending never reaches a watcher. A node
+      eviction ends in phase Failed, which is a real loss.
+  - key: |
+      FILE-LENGTH. SandboxLivenessWatcher is 193 of 193 and SandboxEventProjector 123 of 123
+      (file-length-baseline.tsv:54, 79); DockerSandbox is 97 of the 120 limit. The inspect code (about
+      45 lines, SandboxLivenessWatcher.cs:145-192) becomes DockerContainerProbe, which shrinks the
+      watcher and keeps DockerSandbox under its limit.
+  - key: |
+      SERIES: a transport slice of the 2026-09-28 operator decision; own number. Suggested order:
+      after 7667, before 2f8c.
+
+steps:
+  - id: contract
+    path: "src/backend/AgentSmith.Contracts/Sandbox"
+    action: "ISandboxLiveness and its verdict record; ISandboxLivenessProbeTarget and ISandboxHeartbeatProbe go (including the ISandboxLivenessSupervisor doc reference)."
+    new:
+      - "ISandboxLiveness: IsAliveAsync and ConfirmGoneAsync"
+      - "SandboxGoneVerdict: gone, state, exit code, OOM, has exit facts"
+  - id: backends
+    path: "src/backend/AgentSmith.Server/Services/Sandbox"
+    action:
+      - "DockerSandbox and KubernetesSandbox implement it; DockerContainerProbe holds the inspect; KubernetesSandbox reads the pod."
+      - "The supervisor and watcher use only ISandboxLiveness; one registration for both backends; the projector forwards a nullable inner liveness."
+    new:
+      - "DockerContainerProbe: the Docker inspect and its verdict"
+  - id: scopes-and-holds
+    path: "src/backend/AgentSmith.Application/Services/Sandbox, the source-scope opener"
+    action: "SourceScopeOpener watches run-scoped scopes, and their disposal stops the watch; HeldSandboxRegister and HeldSandboxRemoval (:47) ask the sandbox; the no-op probe registration in SourceScopeExtensions goes."
+  - id: tests
+    path: "tests"
+    action: "Migrate CapacityTestDoubles, SandboxHeartbeatProbeTests, StubHeartbeat, the harness AliveSandboxHeartbeat, SpecDialogHoldTests (:95-96), SpecDialogTemplateTests (:127-128), StubSandbox and FakeHoldableSandbox."
+
+tests:
+  - "PipelineSandboxCoordinator_KubernetesSandbox_IsWatchedThroughTheProjector"
+  - "SandboxEventProjector_InProcessInner_ForwardsNoLiveness"
+  - "SourceScopeOpener_RunScopedScope_IsWatchedUntilDisposed"
+  - "SandboxLivenessWatcher_MissedAndBackendProbeFails_DoesNotCancel"
+  - "SandboxLivenessWatcher_MissedAndBackendConfirmsGone_CancelsWithTheExitFacts"
+  - "KubernetesSandbox_ConfirmGone_PodFailedOrTerminated_IsGone_PendingIsNot"
+  - "DockerContainerProbe_ExitedWithOom_VerdictCarriesTheFacts"
+  - "HeldSandboxRegister_DeadSandbox_IsNotTaken"
+  - "ServerComposition_KubernetesBackend_RegistersTheRealSupervisor"
+
+done:
+  - "a Kubernetes sandbox, pipeline or source scope, whose agent dies mid-run cancels the run as sandbox-vanished with its exit facts"
+  - "a transient probe error on either backend never cancels a run"
+  - "the 7667 contract suite stays green"
+  - "build green, full suite green"

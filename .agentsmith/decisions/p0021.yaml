@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0021: Code Quality
-phase: p0021
+spec: p0021
 decisions:
   - category: Architecture
     chose: Consistent folder structure (Contracts/, Models/, Services/) across all projects

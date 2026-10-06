@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: p0249
+goal: |
+  Resolve a multi-repo sandbox by an authoritative coordinator-published key->repo map instead of key-string parsing, so a write staged in a multi-group repo's sandbox is the one CommitAndPR commits.
+
+applies_to: backend
+
+requires:
+  - p0242   # the live watcher that localised this
+
+steps:
+  - id: keyrepo-map
+    action: "PipelineSandboxCoordinator publishes ContextKeys.SandboxRepos (sandbox-key -> repo name), populated where it composes each key. SandboxTargets.SandboxesForRepo resolves via that map (authoritative), falling back to the full key-decode (incl. the missing `<repo>-<langSlug>` form) when the map is absent."
+  - id: commit-instrumentation
+    action: "CommitAndPRHandler logs, per repo: the resolved sandbox key + the raw `git status --porcelain` and staged-name list — so a write-landed-but-commit-empty case names the exact sandbox instead of a silent 'no staged changes'."
+  - id: tests
+    action: "Harness: SandboxesForRepo resolves a multi-group `<repo>-<langSlug>` key to its repo (currently returns empty); the key->repo map round-trips; single-repo + monorepo forms still resolve."
+
+done:
+  - "SandboxesForRepo returns the right sandbox for a multi-group `<repo>-<langSlug>` key (pinned by a harness test that fails on the old key-parse)."
+  - "Repo->sandbox is resolved from an authoritative key->repo map, not key-string decoding."
+  - "CommitAndPR logs the resolved sandbox key + raw git state per repo."
+  - "Full backend suite green."

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0078: Gate Category Routing
-phase: p0078
+spec: p0078
 decisions:
   - category: Architecture
     chose: Filter before gate, merge after

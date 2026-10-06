@@ -1,4 +1,4 @@
-phase: p0430
+spec: p0430
 decisions:
   - what: "The phase record is enforced by a test (PhaseRecordRuleTests), not by workflow discipline."
     alternatives:

@@ -74,7 +74,7 @@ public sealed class PhaseAccountingResilienceTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.PhaseSpec,
-            new PhaseDraft("p1", "goal", "phase: p1", []) { Done = ["the handler is migrated"] });
+            new PhaseDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
         pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
         return pipeline;

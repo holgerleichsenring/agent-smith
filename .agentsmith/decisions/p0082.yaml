@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0082: Webhook & Trigger Docs
-phase: p0082
+spec: p0082
 decisions:
   - category: Scope
     chose: Per-platform setup guides under docs/setup/webhooks/

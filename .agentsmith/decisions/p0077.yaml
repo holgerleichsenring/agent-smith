@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0077: Pipeline Fixes
-phase: p0077
+spec: p0077
 decisions:
   - category: Architecture
     chose: skills_path resolved relative to config file directory

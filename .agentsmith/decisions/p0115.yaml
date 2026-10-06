@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0115: AgentSmith.Sandbox.Agent + Carrier Image (Init-Container Pattern)
-phase: p0115
+spec: p0115
 decisions:
   - category: Architecture
     chose: "**Init-container pattern with ONE carrier image, NOT pre-baked toolchain images.** The original spec draft listed `sandbox-dotnet`, `sandbox-angular` etc. as pre-baked images we'd publish. Corrected before implementation: we ship exactly one image (`agent-smith-sandbox-agent`) whose only job is to deliver the agent binary into the sandbox pod. The Server pod (p0116) constructs each sandbox pod with two containers sharing an `emptyDir` volume: an initContainer using our carrier image (its ENTRYPOINT copies `/agent` to `/shared/agent` and exits 0), and a main container using the unmodified upstream toolchain image of choice (`mcr.microsoft.com/dotnet/sdk:8.0`, `node:20`, `mcr.microsoft.com/openjdk/jdk:21-ubuntu`, …) with `command: ['/shared/agent']`. We maintain ONE image; toolchain updates flow automatically from upstream; operator-custom toolchains work without our involvement; new languages need zero changes from us."
