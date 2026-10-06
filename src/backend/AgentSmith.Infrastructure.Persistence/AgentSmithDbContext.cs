@@ -29,7 +29,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
     public DbSet<QueuedTicket> QueuedTickets => Set<QueuedTicket>();
     // p0393a: pointer at the spec set that lives in git on the ticket branch.
-    public DbSet<TicketSpecSet> TicketSpecSets => Set<TicketSpecSet>();
+    public DbSet<TicketSeries> TicketSeries => Set<TicketSeries>();
     // 2026-09-17-0e79a: the set a person approved in the design conversation, before any branch.
     public DbSet<ApprovedSpecSet> ApprovedSpecSets => Set<ApprovedSpecSet>();
     // p0327: durable dialogue — parked runs + the answer inbox.

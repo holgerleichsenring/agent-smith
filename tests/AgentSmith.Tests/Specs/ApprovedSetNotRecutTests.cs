@@ -323,7 +323,7 @@ public sealed class ApprovedSetNotRecutTests
     {
         var lines = new List<string>
         {
-            $"key: {Key}",
+            $"key: {Key}", "series: 2026-10-06-0a0a",
             "source: Approved",
             "phases:",
             "- p19106a-first",

@@ -140,6 +140,7 @@ public sealed class DeriveSpecTicketEditTests
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -172,6 +173,7 @@ public sealed class DeriveSpecTicketEditTests
 
     private static string SetYaml(string? fingerprint) => $"""
         key: {Key}
+        series: 2026-10-06-0a0a
         source: Derived
         phases:
         - p19106a-first
@@ -221,8 +223,8 @@ public sealed class DeriveSpecTicketEditTests
         public string? CauseSeen { get; private set; }
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-            AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             Calls++;
             PreviousSeen = previous;

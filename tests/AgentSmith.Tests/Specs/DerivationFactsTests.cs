@@ -80,8 +80,8 @@ public sealed class DerivationFactsTests
         var segments = TicketSegmenter.Segment(Ticket);
         var reply = Reply(facts: null);
 
-        var before = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
-        var after = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived, null, [Minted]);
+        var before = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
+        var after = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, [Minted]);
 
         after.Error.Should().BeNull();
         after.Derivation!.Set.Phases[0].Draft.Yaml.Should().Be(before.Derivation!.Set.Phases[0].Draft.Yaml,
@@ -108,7 +108,7 @@ public sealed class DerivationFactsTests
     private SpecSet Parse(string reply, IReadOnlyList<string> evidence)
     {
         var parsed = _parser.Parse(
-            reply, "azdo-19106", "19106", TicketSegmenter.Segment(Ticket), SpecSource.Derived, null, evidence);
+            reply, "azdo-19106", "2026-10-06-9106", "19106", TicketSegmenter.Segment(Ticket), SpecSource.Derived, null, evidence);
         parsed.Error.Should().BeNull();
         return parsed.Derivation!.Set;
     }

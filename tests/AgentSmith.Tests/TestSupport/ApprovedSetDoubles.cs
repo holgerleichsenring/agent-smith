@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Scope;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Tickets;
+using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Services.SpecDialog;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,18 @@ namespace AgentSmith.Tests.TestSupport;
 internal static class ApprovedSetDoubles
 {
     internal static ISpecApprovalStore Store() => new InMemorySpecApprovalStore();
+
+    /// <summary>2026-10-06-03c7c: the series minting a filing and an amendment use.</summary>
+    internal static SeriesIdFactory SeriesIds() => new(TimeProvider.System);
+
+    /// <summary>2026-10-06-03c7c: the re-id of approved drafts onto their series.</summary>
+    internal static SeriesDraftIds DraftIds() => new(new PhaseDraftIdRewriter());
+
+    /// <summary>2026-10-06-03c7c: what a filing and an amendment make their series with.</summary>
+    internal static FiledSeriesFactory SeriesFiling() => new(SeriesIds(), DraftIds());
+
+    /// <summary>2026-10-06-03c7c: a filed series of the given drafts under a fixed base.</summary>
+    internal static FiledSeries Series(params PhaseDraft[] drafts) => new("2026-10-06-0a0a", drafts);
 
     internal static ApprovedSpecSetCarrier Carrier(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), NullLogger<ApprovedSpecSetCarrier>.Instance);

@@ -67,7 +67,7 @@ public sealed class NotImplementableRetryService(
         ResolvedProject project, string ticketId, CancellationToken ct)
     {
         var platform = project.Tracker.Type.ToString().ToLowerInvariant();
-        var key = SpecSetKey.For(platform, ticketId);
+        var key = TicketKey.For(platform, ticketId);
         var pointer = await pointers.GetAsync(project.Name, key.Value, ct);
         if (pointer is null) return;
         await pointers.SaveAsync(project.Name, pointer with

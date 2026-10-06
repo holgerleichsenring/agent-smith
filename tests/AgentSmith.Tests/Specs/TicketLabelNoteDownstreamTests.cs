@@ -76,7 +76,7 @@ public sealed class TicketLabelNoteDownstreamTests
             new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
 
         var set = fallback.Build(
-            "key", ticket, TicketSegmenter.Segment(ticket.Description), [], SpecSource.Derived);
+            "key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(ticket.Description), [], SpecSource.Derived);
 
         var markdown = set.Phases.Single().Markdown;
         markdown.Should().Contain("Make the widget storable")

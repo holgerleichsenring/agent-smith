@@ -14,6 +14,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// The hand-back state rides along unchanged: the hand-back step owns the counters,
 /// because it is the step that knows a park happened.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7c: the row also caches the series' base id the set carries.
+/// </para>
 /// </summary>
 public sealed class SpecSetPointerRecorder(
     ISpecSetPointerStore pointers,
@@ -29,7 +32,8 @@ public sealed class SpecSetPointerRecorder(
         await pointers.SaveAsync(project, new SpecSetPointer(
             set.Key, carryingRepo.Name ?? string.Empty, sha, set.Current.Number,
             existing?.LastHandbackCase ?? SpecHandbackCase.None,
-            existing?.RepeatedHandbackCount ?? 0), cancellationToken);
+            existing?.RepeatedHandbackCount ?? 0,
+            set.Series ?? existing?.SeriesId), cancellationToken);
         logger.LogDebug(
             "Spec set {Key} pointer names {Sha} (revision {Revision})", set.Key, sha, set.Current.Number);
     }

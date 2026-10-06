@@ -14,7 +14,7 @@ public sealed class TicketRecordConfigurations
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
         modelBuilder.ApplyConfiguration(new QueuedTicketConfiguration());
-        modelBuilder.ApplyConfiguration(new TicketSpecSetConfiguration()); // p0390
+        modelBuilder.ApplyConfiguration(new TicketSeriesConfiguration()); // p0390
         modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7
         modelBuilder.ApplyConfiguration(new TakenTicketConfiguration()); // 2026-09-25-b4d9
     }

@@ -79,7 +79,7 @@ public sealed class SpecHandbackRepeatTests
     }
 
     private static SpecSet Contradiction() => new(
-        SpecSetKey.For("azdo", "1").Value, [], SpecAccounting.Empty, [], SpecSource.Derived,
+        TicketKey.For("azdo", "1").Value, [], SpecAccounting.Empty, [], SpecSource.Derived,
         new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such client here"));
 
     private static Mock<ITicketProvider> ParkingProvider(List<TicketComment> thread)

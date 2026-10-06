@@ -98,7 +98,8 @@ public sealed class TicketLabelNoteFilingTests
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);
 

@@ -49,20 +49,18 @@ public sealed class PhaseIdSchemaTests
     }
 
     /// <summary>
-    /// The bound is six digits, not four. An id minted from a ticket number lives in the
-    /// counter namespace, and a four-digit bound would make the DEPLOYED server reject
-    /// every spec derived from a five- or six-digit ticket — the same truncation p0509
-    /// was written to stop.
+    /// The bound is six digits, not four: ids once minted from a ticket number live in the
+    /// closed counter namespace and stay valid. 2026-10-06-03c7c: what the product mints NOW is
+    /// a series member, and SpecDraftValidator checks it against this schema.
     /// </summary>
     [Fact]
     public void Schema_TicketMintedCounterId_StillValidates()
     {
-        foreach (var ticket in new[] { "19106", "482913", "57" })
-        {
-            var id = PhaseIdFactory.For(ticket, 0);
-            SpecPattern().IsMatch(id).Should().BeTrue(
-                $"PhaseIdFactory mints '{id}' and SpecDraftValidator checks it against this schema");
-        }
+        foreach (var id in new[] { "p19106a", "p482913a", "p0057a" })
+            SpecPattern().IsMatch(id).Should().BeTrue("a shipped ticket-minted id stays valid");
+        var minted = SeriesIdFactory.Member(new SeriesIdFactory(TimeProvider.System).Mint(), 0);
+        SpecPattern().IsMatch(minted).Should().BeTrue(
+            $"SeriesIdFactory mints '{minted}' and SpecDraftValidator checks it against this schema");
     }
 
     [Fact]

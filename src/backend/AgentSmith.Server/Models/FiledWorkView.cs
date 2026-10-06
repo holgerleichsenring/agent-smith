@@ -109,7 +109,7 @@ public sealed record FiledWorkReviewView(
 }
 
 /// <summary>
-/// The last hand-back the ticket's spec set recorded (TicketSpecSet). The QUESTION itself is
+/// The last hand-back the ticket's spec set recorded (TicketSeries). The QUESTION itself is
 /// a ticket comment and lives on the ticket; this names the case and how often it repeated.
 /// </summary>
 public sealed record FiledWorkHandbackView(string Case, int Repeated);

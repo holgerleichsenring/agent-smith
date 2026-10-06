@@ -64,7 +64,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
 
         await sink.AcceptAsync(state, phase, false, CancellationToken.None);
 
-        provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9999: Widget endpoint");
+        provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}a: Widget endpoint$");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
         session!.ConfirmedOutcomeJson.Should().BeNull(
             "a fully filed outcome is no longer pending on the session");
@@ -153,7 +153,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),

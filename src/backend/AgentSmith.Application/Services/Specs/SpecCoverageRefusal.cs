@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
 {
     public async Task<SpecSet> ApplyAsync(
-        PipelineContext pipeline, Ticket ticket, string key,
+        PipelineContext pipeline, Ticket ticket, string key, string series,
         IReadOnlyList<TicketSegment> segments, SpecSet refused, SpecSource source,
         CancellationToken cancellationToken)
     {
@@ -28,7 +28,7 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
             "segment(s) " + string.Join(", ", refused.Accounting.Unaccounted)
             + " were neither carried by a phase nor discarded with a reason", cancellationToken);
         return fallback.Build(
-            key, ticket, segments,
+            key, series, ticket, segments,
             [.. refused.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
             source);
     }

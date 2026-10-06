@@ -40,7 +40,7 @@ public sealed class EpicFilingOrderTests
             Child("p9000b")));
 
         report.Error.Should().BeNull();
-        provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9000: Widget platform");
+        provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}: Widget platform$");
         var body = provider.Created[0].Body;
         body.IndexOf("p9000b", StringComparison.Ordinal).Should()
             .BeLessThan(body.IndexOf("p9000a", StringComparison.Ordinal),
@@ -167,7 +167,8 @@ public sealed class EpicFilingOrderTests
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }

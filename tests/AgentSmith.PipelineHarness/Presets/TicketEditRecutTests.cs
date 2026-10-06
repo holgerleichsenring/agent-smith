@@ -31,10 +31,11 @@ public sealed class TicketEditRecutTests
     private const string MarkerSha = "marker-sha-2";
     private const string TailAsCut = "Move the callers, as cut before the edit";
 
-    // The ids the derivation mints for the fixture ticket — the executed head is carried
-    // by position, so the seeded set must use the same scheme the parser does.
-    private static readonly string HeadId = PhaseIdFactory.For("1", 0);
-    private static readonly string TailId = PhaseIdFactory.For("1", 1);
+    // 2026-10-06-03c7c: the series the branch's set carries. The derivation reads the base off the
+    // branch and mints the same members, so the executed head keeps its ids by position.
+    private const string Series = "2026-10-06-1e1e";
+    private static readonly string HeadId = SeriesIdFactory.Member(Series, 0);
+    private static readonly string TailId = SeriesIdFactory.Member(Series, 1);
 
     private const string GreenVerdict =
         """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"}]}""";
@@ -89,13 +90,14 @@ public sealed class TicketEditRecutTests
     }
 
     private static SpecSet Previous(string? fingerprint) => new(
-        SpecSetKey.For("recording", "1").Value,
+        TicketKey.For("recording", "1").Value,
         [Phase(HeadId, "Introduce the guard"), Phase(TailId, TailAsCut)],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-2))],
         SpecSource.BranchArtifact,
         ExecutedPhaseIds: [HeadId],
-        TicketFingerprint: fingerprint);
+        TicketFingerprint: fingerprint,
+        Series: Series);
 
     private static SpecPhase Phase(string id, string goal) => new(
         new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
@@ -109,7 +111,7 @@ public sealed class TicketEditRecutTests
     private static Task SeedPointerAsync(RealCompositionHarness harness) =>
         harness.Services.GetRequiredService<ISpecSetPointerStore>().SaveAsync(
             string.Empty,
-            new SpecSetPointer(SpecSetKey.For("recording", "1").Value, "primary", SpecSha, 1),
+            new SpecSetPointer(TicketKey.For("recording", "1").Value, "primary", SpecSha, 1),
             CancellationToken.None);
 
     private static RealCompositionHarness BuildHarness(RecordingTicketProvider tickets, SpecSet previous) =>

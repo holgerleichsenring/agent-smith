@@ -99,7 +99,7 @@ public sealed class ContradictionHandbackTests
         Application.Services.Specs.SpecHandbackComment.Build(Handback(), null, string.Empty));
 
     private static SpecSet PreviousContradiction() => new(
-        SpecSetKey.For("recording", "1").Value, [], SpecAccounting.Empty,
+        TicketKey.For("recording", "1").Value, [], SpecAccounting.Empty,
         [new SpecRevision(1, Application.Services.Specs.SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-2))],
         SpecSource.BranchArtifact, Handback());
 
@@ -108,7 +108,7 @@ public sealed class ContradictionHandbackTests
         harness.Services.GetRequiredService<ISpecSetPointerStore>().SaveAsync(
             string.Empty,
             new SpecSetPointer(
-                SpecSetKey.For("recording", "1").Value, "primary", SpecSha, 1,
+                TicketKey.For("recording", "1").Value, "primary", SpecSha, 1,
                 SpecHandbackCase.RequirementsContradictRepository, 1),
             CancellationToken.None);
 

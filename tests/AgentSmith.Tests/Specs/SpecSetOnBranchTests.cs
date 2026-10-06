@@ -51,13 +51,31 @@ public sealed class SpecSetOnBranchTests
     {
         var branch = new SpecBranchFiles { Key = Key };
         branch.SeedSet(
-            $"key: {Key}\nsource: Approved\nphases:\n- p19106a-onthebranch\n",
+            $"key: {Key}\nseries: 2026-10-06-0a0a\nsource: Approved\nphases:\n- p19106a-onthebranch\n",
             new Dictionary<string, string>());
 
         var result = await ReadAsync(branch);
 
         result.State.Should().Be(SpecSetBranchState.Unreadable);
         result.Why.Should().Contain("p19106a-onthebranch");
+    }
+
+    /// <summary>
+    /// 2026-10-06-03c7c: a set written before series existed carries ids derived from a ticket
+    /// number. It is read as ABSENT, so the run derives the ticket whole under a minted base.
+    /// </summary>
+    [Fact]
+    public async Task SpecSetReader_ASetWithoutSeries_IsReadAsAbsent()
+    {
+        var branch = new SpecBranchFiles { Key = Key };
+        branch.SeedSet(
+            $"key: {Key}\nsource: Derived\nphases:\n- p19106a-first\n",
+            new Dictionary<string, string> { ["p19106a-first"] = "spec: p19106a\ngoal: g\ndone:\n  - d\n" });
+
+        var result = await ReadAsync(branch);
+
+        result.State.Should().Be(SpecSetBranchState.NothingAtThePath);
+        result.Read.Should().BeNull();
     }
 
     /// <summary>

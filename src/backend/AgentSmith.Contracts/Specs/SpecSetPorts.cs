@@ -11,6 +11,10 @@ namespace AgentSmith.Contracts.Specs;
 /// so it sits in the pinned skill and can be tuned without a release. Cutting the
 /// chosen spans and writing the markdown is base functionality and lives in code:
 /// the model returns ANCHORS, never content.
+/// <para>
+/// 2026-10-06-03c7c: the caller hands in the series' base id — read off the branch or minted —
+/// and every phase id is that base plus a letter.
+/// </para>
 /// </summary>
 public interface ISpecSetDeriver
 {
@@ -18,6 +22,7 @@ public interface ISpecSetDeriver
         Ticket ticket,
         IReadOnlyList<TicketSegment> segments,
         SpecSet? previous,
+        string series,
         string cause,
         AgentConfig agentConfig,
         PipelineContext pipeline,

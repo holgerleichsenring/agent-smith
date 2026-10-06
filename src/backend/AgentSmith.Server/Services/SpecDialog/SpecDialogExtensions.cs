@@ -58,6 +58,7 @@ internal static class SpecDialogExtensions
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
         services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>(); // 8e51e
+        services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
         // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in

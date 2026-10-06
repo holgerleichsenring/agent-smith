@@ -152,6 +152,7 @@ public sealed class DeriveSpecQuestionTests
             new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(factory.Object, NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -207,8 +208,8 @@ public sealed class DeriveSpecQuestionTests
         public string? PinSeen { get; private set; }
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-            AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             PinSeen = pipeline.TryGet<string>(ContextKeys.SpecQuestionPin, out var pin) ? pin : null;
             return Task.FromResult<(SpecDerivation?, string?)>((derivation, null));

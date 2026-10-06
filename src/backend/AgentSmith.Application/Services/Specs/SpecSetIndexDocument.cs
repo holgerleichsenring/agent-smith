@@ -21,6 +21,9 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecSetIndexDocument
 {
     public string Key { get; set; } = string.Empty;
+
+    /// <summary>2026-10-06-03c7c: the series' base id. An index without one is read as absent.</summary>
+    public string? Series { get; set; }
     public string Source { get; set; } = SpecSource.Derived.ToString();
     public bool TicketPinnedWhole { get; set; }
     public List<string> Phases { get; set; } = [];

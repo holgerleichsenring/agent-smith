@@ -50,6 +50,10 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ScopedContextCoverage>(); // 2026-09-08-1830: the cut covers what the scope call named
     services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();
     services.AddTransient<SpecSourceResolver>();
+    // 2026-10-06-03c7c: a series' base id is minted in code, once, and read back thereafter.
+    services.TryAddSingleton(TimeProvider.System);
+    services.AddTransient<SeriesIdFactory>();
+    services.AddTransient<SeriesResolver>();
     services.AddTransient<SpecFallback>();
     services.AddTransient<SpecCutGate>();
     services.AddTransient<SpecRefusalReporter>();

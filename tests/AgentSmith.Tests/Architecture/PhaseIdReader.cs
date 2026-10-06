@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Architecture;
 /// p0509: reads a phase id out of the three places the record states one — a spec's
 /// <c>spec:</c> field, a context key, a <c>requires:</c> entry.
 /// <para>
-/// The framework mints its own ids: <c>PhaseIdFactory.For</c> turns ticket 19106 into
+/// The framework once minted ids from the ticket: ticket 19106 became
 /// p19106a. A four-digit reading truncates that to p1910, so two phases of one ticket
 /// collapse onto one id, the context key matches nothing at all, and a <c>requires:</c>
 /// naming it resolves to a phase nobody wrote.

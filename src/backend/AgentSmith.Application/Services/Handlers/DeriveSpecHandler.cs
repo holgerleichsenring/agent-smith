@@ -43,7 +43,7 @@ public sealed class DeriveSpecHandler(
     ApprovedSetKeptNotice keptNotice,
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
-    UnansweredQuestionNotice questionNotice,
+    UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf,
     ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
@@ -54,7 +54,7 @@ public sealed class DeriveSpecHandler(
         if (context.Ticket is null)
             return CommandResult.Ok("Spec derivation skipped: the run has no ticket");
 
-        var key = SpecSetKeyFactory.For(context.Ticket, context.Pipeline);
+        var key = TicketKeyFactory.For(context.Ticket, context.Pipeline);
         var project = ProjectOf(context.Pipeline);
         var pointer = await pointers.GetAsync(project, key.Value, cancellationToken);
         // 2026-09-22-b6ad: the approval is resolved BEFORE the carrying repo, because filing may
@@ -67,7 +67,7 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
+        var onBranch = await reader.ReadAsync(context.Pipeline, repo, SpecSetKey.For(key), cancellationToken);
         var previous = onBranch.Read;
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
             Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
@@ -77,9 +77,10 @@ public sealed class DeriveSpecHandler(
                 context.Pipeline, context.Ticket.Id.Value, decision.Error, cancellationToken);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
+        var series = seriesOf.Resolve(decision.Set, approval, pointer); // 2026-10-06-03c7c
         var (set, ignored) = decision.NeedsModel
-            ? await DeriveAsync(context, decision, key.Value, segments, cancellationToken)
-            : (decision.Set!, (IReadOnlyList<IgnoredInstruction>)[]);
+            ? await DeriveAsync(context, decision, key.Value, series, segments, cancellationToken)
+            : (decision.Set! with { Series = series }, (IReadOnlyList<IgnoredInstruction>)[]);
 
         // Reported BEFORE the publish, because the publish is what clears the input: a hand-back
         // must not suppress it, and an unreported input must not be marked as dealt with.
@@ -95,11 +96,11 @@ public sealed class DeriveSpecHandler(
     }
 
     private async Task<(SpecSet Set, IReadOnlyList<IgnoredInstruction> Ignored)> DeriveAsync(
-        DeriveSpecContext context, SpecSourceResolver.Decision decision, string key,
+        DeriveSpecContext context, SpecSourceResolver.Decision decision, string key, string series,
         IReadOnlyList<TicketSegment> segments, CancellationToken ct)
     {
-        var (derivation, error) = await deriver.DeriveAsync(
-            context.Ticket!, segments, decision.Set, decision.Cause!, context.AgentConfig, context.Pipeline, ct);
+        var (derivation, error) = await deriver.DeriveAsync(context.Ticket!, segments, decision.Set,
+            series, decision.Cause!, context.AgentConfig, context.Pipeline, ct);
 
         if (derivation is null)
         {
@@ -107,7 +108,7 @@ public sealed class DeriveSpecHandler(
                 context.Pipeline, context.Ticket!.Id.Value,
                 $"the derivation produced nothing usable ({error})", ct);
             return (
-                fallback.Build(key, context.Ticket!, segments, [], decision.Source),
+                fallback.Build(key, series, context.Ticket!, segments, [], decision.Source),
                 []);
         }
 
@@ -122,7 +123,7 @@ public sealed class DeriveSpecHandler(
 
         return (
             await coverageRefusal.ApplyAsync(
-                context.Pipeline, context.Ticket!, key, segments, derivation.Set, decision.Source, ct),
+                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, ct),
             derivation.IgnoredInstructions);
     }
 

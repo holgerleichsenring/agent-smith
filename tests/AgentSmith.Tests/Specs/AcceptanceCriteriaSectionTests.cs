@@ -47,7 +47,7 @@ public sealed class AcceptanceCriteriaSectionTests
         var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
         var fallback = new SpecFallback(validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
 
-        var set = fallback.Build("key", ticket, TicketSegmenter.Segment("body"), [], SpecSource.Derived);
+        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment("body"), [], SpecSource.Derived);
 
         set.Phases.Single().Draft.Done.Should().Equal("--dry-run exits 0", "**the table** exists");
     }

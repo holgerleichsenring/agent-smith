@@ -54,17 +54,19 @@ public sealed class FiledSpecBranchTests
     public async Task Filing_TheBranchItWrites_CarriesTheIndexAndOneYamlPerPhase()
     {
         var sources = new RecordingBranchSources();
+        var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(sources: sources, phases: [Draft("p9000a"), Draft("p9000b")]);
+        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
 
+        var (first, second) = await MembersAsync(store);
         sources.Writes[0].Paths.Should().Contain(
         [
             $"{Directory}/set.yaml",
-            $"{Directory}/p9000a-do-the-thing.yaml",
-            $"{Directory}/p9000b-do-the-thing.yaml",
+            $"{Directory}/{first}-do-the-thing.yaml",
+            $"{Directory}/{second}-do-the-thing.yaml",
         ]);
-        sources.Writes[0].ContentOf($"{Directory}/p9000a-do-the-thing.yaml").Should()
-            .Contain("spec: p9000a", "the schema-valid yaml is what the run reads back");
+        sources.Writes[0].ContentOf($"{Directory}/{first}-do-the-thing.yaml").Should()
+            .Contain($"spec: {first}", "the schema-valid yaml is what the run reads back");
     }
 
     /// <summary>
@@ -88,7 +90,7 @@ public sealed class FiledSpecBranchTests
         written.Paths.Should().BeEquivalentTo(expected.Select(f => f.Path));
         written.ContentOf($"{Directory}/accounting.md").Should().NotBeNull(
             "the accounting is part of every cut and the stale sweep expects it");
-        written.ContentOf($"{Directory}/p9000a-do-the-thing.md").Should().NotBeNull(
+        written.ContentOf($"{Directory}/{(await MembersAsync(store)).First}-do-the-thing.md").Should().NotBeNull(
             "the markdown companion is part of every cut too");
     }
 
@@ -361,7 +363,10 @@ public sealed class FiledSpecBranchTests
         var read = await ReadAsync(branch);
 
         read.Should().NotBeNull("filing wrote a directory the run's own reader can open");
-        read!.Set.Phases.Select(p => p.PhaseId).Should().Equal("p9000a", "p9000b");
+        var (first, second) = await MembersAsync(store);
+        read!.Set.Phases.Select(p => p.PhaseId).Should().Equal(first, second);
+        read.Set.Series.Should().Be((await store.GetAsync("sample-tracker", Key, default))!.Set.Series,
+            "the branch carries the series the filing minted");
         read.Set.Current.Number.Should().Be(1);
         read.Set.Current.Cause.Should().Contain(SpecRevisionCause.Approval);
         read.Set.Approval!.At.Should().Be(
@@ -394,6 +399,13 @@ public sealed class FiledSpecBranchTests
         return onBranch.Read;
     }
 
+    // 2026-10-06-03c7c: the ids filing minted for a two-slice cut — its series' base plus a letter.
+    private static async Task<(string First, string Second)> MembersAsync(ISpecApprovalStore store)
+    {
+        var series = (await store.GetAsync("sample-tracker", Key, default))!.Set.Series!;
+        return (SeriesIdFactory.Member(series, 0), SeriesIdFactory.Member(series, 1));
+    }
+
     private static SpecSetIndexDocument Index(RecordingBranchSources sources) =>
         new SpecSetIndex().Parse(sources.Writes[0].ContentOf($"{Directory}/set.yaml"))!;
 
@@ -421,7 +433,7 @@ public sealed class FiledSpecBranchTests
             .Returns(provider ?? new JournallingProvider());
         var filer = new OutcomeTicketFiler(
             config ?? Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store, starter, sources ?? new RecordingBranchSources(), pointers),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);

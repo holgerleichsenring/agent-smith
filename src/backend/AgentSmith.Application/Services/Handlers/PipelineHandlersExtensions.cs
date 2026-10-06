@@ -159,6 +159,7 @@ public static class PipelineHandlersExtensions
         // p0315e: typed terminal outcome (answer | bug | phase | epic) —
         // resolver + per-kind parsers + epic requires-edge consistency.
         services.AddTransient<PhaseDraftReader>();
+        services.AddTransient<PhaseDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
         services.AddTransient<BugOutcomeParser>();
         services.AddTransient<EpicOutcomeParser>();
         services.AddTransient<RequiresEdgeChecker>();

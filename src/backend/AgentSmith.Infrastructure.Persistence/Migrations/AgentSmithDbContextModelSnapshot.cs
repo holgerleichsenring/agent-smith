@@ -1560,7 +1560,7 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("TakenTickets");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSeries", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1572,10 +1572,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("HandbackSourceSha")
-                        .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("LastHandbackCase")
@@ -1597,7 +1593,12 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SpecKey")
+                    b.Property<string>("SeriesId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
@@ -1607,10 +1608,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Project", "SpecKey")
+                    b.HasIndex("Project", "TicketKey")
                         .IsUnique();
 
-                    b.ToTable("TicketSpecSets");
+                    b.ToTable("TicketSeries");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.UnmovedTicket", b =>

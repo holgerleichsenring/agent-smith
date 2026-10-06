@@ -146,7 +146,7 @@ public sealed class SpecArtifactTests
     [Fact]
     public void SpecSetKey_IsProviderAndTicketId_SoMergedSpecsCoexistInTheTrunk()
     {
-        var key = SpecSetKey.For("AzureDevOps", "AB#19106");
+        var key = SpecSetKey.For(TicketKey.For("AzureDevOps", "AB#19106"));
 
         key.Value.Should().Be("azuredevops-ab-19106");
         key.Directory.Should().Be(".agentsmith/specs/azuredevops-ab-19106");

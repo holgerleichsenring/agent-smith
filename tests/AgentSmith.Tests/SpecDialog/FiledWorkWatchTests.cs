@@ -312,7 +312,7 @@ public sealed class FiledWorkWatchTests : IDisposable
         {
             SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
             UserId = owner, Project = "alpha", IsOpen = true, LastActivityAt = T,
-            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", ticketId).Value,
+            Tracker = "atlas", TicketKey = TicketKey.For("jira", ticketId).Value,
         });
         _context.Add(new SpecDialogTicketText
         {

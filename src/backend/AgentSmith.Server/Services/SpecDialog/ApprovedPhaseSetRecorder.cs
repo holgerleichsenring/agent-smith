@@ -14,8 +14,12 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// deriving its own.
 /// <para>
 /// The key is the spec key alone — the tracker type of the filing project plus the created
-/// ticket id, exactly what <c>SpecSetKeyFactory</c> computes for the run. One ticket matching
+/// ticket id, exactly what <c>TicketKeyFactory</c> computes for the run. One ticket matching
 /// two projects of one tracker is spawned twice and is the same work, so one record serves both.
+/// </para>
+/// <para>
+/// 2026-10-06-03c7c: the set carries its series' base id, so the record an amendment loads
+/// names the base the amendment keeps.
 /// </para>
 /// <para>
 /// The set is stored with NO revisions: numbering and cause are the RUN's bookkeeping. Since
@@ -36,14 +40,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// a second approval cannot land under a key no run resolves. The record is the editable
 /// artifact; the dialog has no clone of the branch and never reads one.
 /// <para>
-/// NOTHING IN THE DIALOG CALLS <see cref="LoadAsync"/> YET, and this is said out loud rather than
-/// implied by a caller list. <c>RecordAsync</c>'s only caller files a NEW ticket and records under
-/// it, so "approve the same ticket again" has no route in from a conversation: resolving which
-/// ticket a session filed needs the filed work to carry its ticket id, which is 2026-09-17-042eg's.
-/// A successor phase does the conversation half — a design conversation re-opens the approved
-/// record of a ticket it already filed and approves a new set over it. Until then the operator's
-/// route is the one the ticket comment names: edit the specs on the branch, which the next run
-/// reads back and works as they stand.
+/// 2026-10-06-03c7c: <see cref="TicketAmendment"/> calls <see cref="LoadAsync"/> before it renders,
+/// so an amended ticket keeps the series base its first filing minted and its executed head keeps
+/// its ids by position.
 /// </para>
 /// <para>
 /// WHICH PHASES ALREADY RAN LIVES ON THE BRANCH, so the constraint is written down instead: a
@@ -63,20 +62,21 @@ public sealed class ApprovedPhaseSetRecorder(
     /// <summary>The record that was stored — what filing then writes to the ticket branch.</summary>
     public async Task<SpecApprovalRecord> RecordAsync(
         ConversationState state, ResolvedProject project, string ticketId,
-        IReadOnlyList<PhaseDraft> phases, CancellationToken cancellationToken)
+        FiledSeries series, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(project);
-        ArgumentNullException.ThrowIfNull(phases);
+        ArgumentNullException.ThrowIfNull(series);
         var key = KeyFor(project, ticketId);
         var approval = new SpecApproval(time.GetUtcNow(), state.JobId, state.UserId);
         var set = new SpecSet(
             key.Value,
-            [.. phases.Select(d => new SpecPhase(d, PhaseIdFactory.Slug(d.Goal), string.Empty, []))],
+            [.. series.Drafts.Select(d => new SpecPhase(d, PhaseIdFactory.Slug(d.Goal), string.Empty, []))],
             SpecAccounting.Empty,
             [],
             SpecSource.Approved,
-            Approval: approval);
+            Approval: approval,
+            Series: series.Id);
         var repositories = Repositories(state, project);
         // 2026-09-25-c1f7: the ticket id is stored as it was GIVEN, because discovery has to name
         // it in a tracker query and the spec key above has already lowered and re-spelled it.
@@ -110,8 +110,8 @@ public sealed class ApprovedPhaseSetRecorder(
         return store.GetAsync(project.Tracker.Name, KeyFor(project, ticketId).Value, cancellationToken);
     }
 
-    private static SpecSetKey KeyFor(ResolvedProject project, string ticketId) =>
-        SpecSetKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
+    private static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
+        TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
 
     // The scope's repositories when the session named some, the project's own otherwise — a
     // scope of "all of them" and no scope at all are the same set of repositories.

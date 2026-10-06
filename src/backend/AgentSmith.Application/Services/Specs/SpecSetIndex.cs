@@ -31,6 +31,7 @@ public sealed class SpecSetIndex
         return _serializer.Serialize(new SpecSetIndexDocument
         {
             Key = set.Key,
+            Series = set.Series,
             Source = set.Source.ToString(),
             TicketPinnedWhole = set.TicketPinnedWhole,
             Phases = [.. set.Phases.Select(p => p.FileStem)],
@@ -70,6 +71,10 @@ public sealed class SpecSetIndex
             ? new SpecApproval(at, doc.ApprovedInConversation ?? string.Empty, doc.ApprovedBy ?? string.Empty)
             : null;
     }
+
+    /// <summary>2026-10-06-03c7c: the series' base id the index carries, or null when it has none.</summary>
+    public string? SeriesOf(SpecSetIndexDocument doc) =>
+        string.IsNullOrWhiteSpace(doc.Series) ? null : doc.Series.Trim();
 
     /// <summary>The fingerprint the index carries, or null when it predates one.</summary>
     public string? FingerprintOf(SpecSetIndexDocument doc) =>

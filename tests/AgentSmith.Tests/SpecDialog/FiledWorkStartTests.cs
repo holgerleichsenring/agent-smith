@@ -627,7 +627,8 @@ public sealed class FiledWorkStartTests
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store, starter),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ApprovedSetDoubles.SetFiler(store, starter),
             starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, mayStartRuns, CancellationToken.None);
     }

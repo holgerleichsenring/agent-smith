@@ -4,7 +4,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// 2026-09-17-0e79a: one row per spec-set key — the set a person APPROVED in the design
 /// conversation, stored whole.
 /// <para>
-/// It is deliberately not the <see cref="TicketSpecSet"/> pointer and does not replace it. A
+/// It is deliberately not the <see cref="TicketSeries"/> pointer and does not replace it. A
 /// pointer points at git, and git is where a set lives ONCE a run has published it; what a
 /// person ratified before any branch exists has no commit to point at, so it is content and
 /// gets its own table.
@@ -43,7 +43,7 @@ public sealed class ApprovedSpecSet : EntityBase
 
     /// <summary>
     /// 2026-09-25-c1f7: the TRACKER'S OWN ticket id — <c>DPG-1239</c>, not the spec key's
-    /// <c>jira-dpg-1239</c>. A column rather than a derivation: <c>SpecSetKey.For</c> lowercases
+    /// <c>jira-dpg-1239</c>. A column rather than a derivation: <c>TicketKey.For</c> lowercases
     /// the id and replaces every non-alphanumeric character, so the tracker's spelling cannot be
     /// read back out of <see cref="SpecKey"/>, and a per-provider parser that guessed it is
     /// exactly what this repository refused to write for the ticket's label stamp. Empty on a row

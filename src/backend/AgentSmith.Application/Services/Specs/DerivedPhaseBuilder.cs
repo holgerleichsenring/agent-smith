@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-09-07-b7e2: turns ONE phase element of the derivation reply into a phase — its
 /// id by position, its slug, the schema-valid yaml, the byte-exact companion and, now,
-/// its resolved facts. Split from <see cref="SpecDerivationParser"/>, which reads the
+/// its resolved facts. 2026-10-06-03c7c: the id is the series' base plus the position's letter. Split from <see cref="SpecDerivationParser"/>, which reads the
 /// reply's envelope and the ordered set; one element's shape is its own question.
 /// </summary>
 public sealed class DerivedPhaseBuilder(
@@ -27,7 +27,7 @@ public sealed class DerivedPhaseBuilder(
         + "in terms someone can check against the repository — a phase that cannot end is not a phase.";
 
     public (SpecPhase? Phase, string? Error) Build(
-        JsonElement element, int index, string ticketId,
+        JsonElement element, int index, string series, string ticketId,
         IReadOnlyList<TicketSegment> segments, IReadOnlyList<SpecPhase> previous,
         IReadOnlyList<string>? evidence)
     {
@@ -36,7 +36,7 @@ public sealed class DerivedPhaseBuilder(
         var done = SpecJsonReader.ReadStrings(element, "done");
         if (done.Count == 0) return (null, $"phase {index + 1} {NoCriteria}");
 
-        var phaseId = PhaseIdFactory.For(ticketId, index);
+        var phaseId = SeriesIdFactory.Member(series, index);
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
             ? PhaseIdFactory.Slug(s) : PhaseIdFactory.Slug(goal);
         var carried = CarriedBy(element, segments);

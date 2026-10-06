@@ -23,11 +23,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// <para>
 /// THE ORDER IS THE TICKET, THEN THE RECORD, THEN THE BRANCH. A rewrite that does not land leaves
-/// all three exactly as they were, which is the only state a refusal may leave behind.
-/// </para>
-/// <para>
-/// Not part of <see cref="OutcomeTicketFiler"/>: this answers what one existing ticket may be
-/// made to say, not what to create.
+/// all three exactly as they were, which is the only state a refusal may leave behind. Not part of
+/// <see cref="OutcomeTicketFiler"/>: this answers what one existing ticket may say, not what to create.
 /// </para>
 /// </summary>
 public sealed class TicketAmendment(
@@ -37,8 +34,7 @@ public sealed class TicketAmendment(
     Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository ticketText,
     ApprovedPhaseSetRecorder approvals,
     ITicketProviderFactory trackers,
-    PhaseTicketRenderer renderer,
-    EpicChildOrderer orderer,
+    PhaseTicketRenderer renderer, EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
     FiledSpecBranch branches,
     ILogger<TicketAmendment> logger)
 {
@@ -54,8 +50,11 @@ public sealed class TicketAmendment(
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })
             return "This conversation never recorded which ticket it belongs to, so there is "
                 + "nothing to amend. Nothing was changed.";
+        // 2026-10-06-03c7c: the ticket keeps the series base its filing minted.
+        var series = seriesFiling.KeptOrMinted(await approvals.LoadAsync(project, ticketId, ct));
         var amended = AmendedSpecification.Of(
-            proposal, state.JobId, renderer, orderer, TicketLabelVocabulary.For(project.Tracker));
+            proposal, series, state.JobId, new AmendmentRendering(renderer, orderer, seriesFiling),
+            TicketLabelVocabulary.For(project.Tracker));
         if (amended.Error is { } refused) return $"{refused} Nothing was changed.";
 
         using var scope = scopeFactory.CreateScope();
@@ -98,10 +97,10 @@ public sealed class TicketAmendment(
             project, record, id, await ReadBackAsync(project, id, ct), carrier: null, ct);
         logger.LogInformation(
             "Ticket {Ticket} was amended from conversation {Session}: {Phases} phase(s), branch {State}",
-            ticketId, state.JobId, amended.Set.Count, branch.Written ? "written" : branch.Error);
+            ticketId, state.JobId, amended.Set.Drafts.Count, branch.Written ? "written" : branch.Error);
         return branch.Written
             ? $"Ticket {ticketId} now says what this specification says, and the approved set "
-                + $"under it is the one you just approved ({amended.Set.Count} phase(s))."
+                + $"under it is the one you just approved ({amended.Set.Drafts.Count} phase(s))."
             : $"Ticket {ticketId} now says what this specification says and the approved set "
                 + $"under it is the one you just approved, but the set is NOT on the ticket "
                 + $"branch ({branch.Error}). A run that claims this ticket works the set the "

@@ -10,7 +10,7 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// guarantee — per tracker INSTANCE, because the spec key carries only the tracker's type. A second approval of the same ticket UPSERTS in place — the record is a
 /// versioned source whose approval instant is what the precedence compares, not a log, and
 /// two rows would make "which approval is current" unanswerable.
-/// Indexed strings capped for MySQL utf8mb4, like TicketSpecSet.
+/// Indexed strings capped for MySQL utf8mb4, like TicketSeries.
 /// </summary>
 public sealed class ApprovedSpecSetConfiguration : IEntityTypeConfiguration<ApprovedSpecSet>
 {

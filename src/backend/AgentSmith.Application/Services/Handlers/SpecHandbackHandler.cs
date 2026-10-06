@@ -51,7 +51,7 @@ public sealed class SpecHandbackHandler(
             return NoTracker(handback);
 
         var project = context.Pipeline.TryGet<string>(ContextKeys.ProjectName, out var p) ? p! : string.Empty;
-        var key = SpecSetKeyFactory.For(context.Ticket, context.Pipeline).Value;
+        var key = TicketKeyFactory.For(context.Ticket, context.Pipeline).Value;
         var pointer = await pointers.GetAsync(project, key, cancellationToken);
         if (repeat.IsRepeat(pointer, handback.Case, context.Pipeline))
         {

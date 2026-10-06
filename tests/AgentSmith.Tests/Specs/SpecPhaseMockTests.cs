@@ -30,7 +30,7 @@ public sealed class SpecPhaseMockTests
     public async Task SpecSetPhaseFileReader_MockNamedByPhaseIdWithOldSlug_IsStillMatched()
     {
         var branch = new SpecBranchFiles { Key = Key };
-        branch.SeedSet($"key: {Key}\nsource: Approved\nphases:\n- p19106a-the-new-goal\n",
+        branch.SeedSet($"key: {Key}\nseries: 2026-10-06-0a0a\nsource: Approved\nphases:\n- p19106a-the-new-goal\n",
             new Dictionary<string, string> { ["p19106a-the-new-goal"] = "spec: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
         branch.Seed($"{Dir}/p19106a-the-old-goal-mock.html", "<h1>mock</h1>");
         branch.Seed($"{Dir}/p19106a.html", "<h1>bare</h1>");

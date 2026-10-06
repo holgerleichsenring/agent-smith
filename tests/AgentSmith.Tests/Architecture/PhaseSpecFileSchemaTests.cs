@@ -65,7 +65,7 @@ public sealed class PhaseSpecFileSchemaTests
             validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
 
         var build = () => fallback.Build(
-            "run-1",
+            "run-1", "2026-10-06-0a0a",
             new Ticket(new TicketId("19106"), title, "Body.", null, "open", "azdo", []),
             [new TicketSegment(0, "Body.", 0, 0)],
             [],

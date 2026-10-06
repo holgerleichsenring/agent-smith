@@ -25,6 +25,7 @@ internal static class Amendments
             ApprovedSetDoubles.Recorder(),
             new Mock<ITicketProviderFactory>().Object,
             new PhaseTicketRenderer(), new EpicChildOrderer(),
+            ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(),
             NullLogger<TicketAmendment>.Instance);
 }

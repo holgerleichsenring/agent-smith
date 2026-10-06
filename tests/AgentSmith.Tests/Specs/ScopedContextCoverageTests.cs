@@ -85,7 +85,7 @@ public sealed class ScopedContextCoverageTests
              "discarded_contexts": {{{discardedContexts}}},
              "handback": {"case": "none", "reason": ""}}
             """;
-        var parsed = DerivationTestParsers.Real().Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+        var parsed = DerivationTestParsers.Real().Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
         parsed.Error.Should().BeNull();
         return parsed.Derivation!.Set;
     }

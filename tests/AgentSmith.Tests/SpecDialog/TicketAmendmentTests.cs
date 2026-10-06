@@ -98,6 +98,28 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-10-06-03c7c: an amended ticket keeps the series base its first approval minted, read
+    /// back through the record before anything renders — a second base would rename every phase,
+    /// and an executed head is kept by its ids.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_ExistingTicket_KeepsSeries()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Series;
+
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
+
+        var record = (await store.GetAsync(Tracker, Key, default))!;
+        first.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
+        record.Set.Series.Should().Be(first, "the amendment reuses the base the ticket already carries");
+        record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(SeriesIdFactory.Member(first!, 0));
+        tracker.Description.Should().Contain("the widget never drops");
+    }
+
+    /// <summary>
     /// The branch set carries a fingerprint of the ticket AS THE TRACKER STORED IT. A stale one
     /// reads as a ticket EDIT on the next run, which posts a comment telling the operator their
     /// edit was ignored — after every amendment, for ever. So the read-back happens AFTER the
@@ -279,6 +301,7 @@ public sealed class TicketAmendmentTests : IDisposable
         new(Config(), Scopes(), new FiledWorkTrackerProjects(Config()),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
             tracker, new PhaseTicketRenderer(), new EpicChildOrderer(),
+            ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources()),
             NullLogger<TicketAmendment>.Instance);
 

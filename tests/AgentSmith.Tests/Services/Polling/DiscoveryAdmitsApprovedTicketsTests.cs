@@ -103,7 +103,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
     [Fact]
     public async Task SpecKey_TheStoredTicketId_IsTheTrackersOwnAndNotDerivedFromTheKey()
     {
-        var key = SpecSetKey.For("jira", "DPG-1239");
+        var key = TicketKey.For("jira", "DPG-1239");
         var store = await StoreWithAsync((key.Value, "DPG-1239"));
 
         var outstanding = await store.ListOutstandingAsync(TrackerName, 10, CancellationToken.None);

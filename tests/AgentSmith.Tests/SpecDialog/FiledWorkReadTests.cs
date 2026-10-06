@@ -336,7 +336,7 @@ public sealed class FiledWorkReadTests : IDisposable
     private async Task TouchAsync(string project, int repeated)
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        var row = ctx.Set<TicketSpecSet>().Single(r => r.Project == project);
+        var row = ctx.Set<TicketSeries>().Single(r => r.Project == project);
         row.RepeatedHandbackCount = repeated;
         await ctx.SaveChangesAsync();
     }
@@ -498,18 +498,18 @@ public sealed class FiledWorkReadTests : IDisposable
         {
             SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
             UserId = Owner, Project = "alpha", IsOpen = true, LastActivityAt = T,
-            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", Work).Value,
+            Tracker = "atlas", TicketKey = TicketKey.For("jira", Work).Value,
         });
         await RunsAsync(Run("r-1", "alpha", Work, T));
 
         (await ReadAsync()).Tickets.Should().BeEmpty();
     }
 
-    private static TicketSpecSet SpecSet(string project, SpecHandbackCase handback, int repeated) =>
+    private static TicketSeries SpecSet(string project, SpecHandbackCase handback, int repeated) =>
         new()
         {
             Project = project,
-            SpecKey = SpecSetKey.For("jira", Work).Value,
+            TicketKey = TicketKey.For("jira", Work).Value,
             CarryingRepo = "api",
             RevisionSha = "abc",
             LastHandbackCase = (int)handback,
@@ -626,7 +626,7 @@ public sealed class FiledWorkReadTests : IDisposable
         {
             SessionId = "s-1", Platform = Platform, ChannelId = Dialog, ThreadId = Dialog,
             UserId = Owner, Project = project, IsOpen = true, LastActivityAt = T,
-            Tracker = "atlas", TicketKey = SpecSetKey.For("jira", ticketId).Value,
+            Tracker = "atlas", TicketKey = TicketKey.For("jira", ticketId).Value,
         });
         await AddAsync(new SpecDialogTicketText
         {

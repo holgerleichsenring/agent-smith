@@ -19,6 +19,9 @@ namespace AgentSmith.Contracts.Specs;
 /// conversation, or null for a set nobody approved. On a set read back from the branch it is the
 /// approval the published revision came from, which is what the precedence compares a fresh
 /// record against.</param>
+/// <param name="Series">2026-10-06-03c7c: the series' code-minted base id
+/// (<c>{yyyy-MM-dd}-{xxxx}</c>); its phases are the base plus a letter. Null only on a set not yet
+/// stamped — a set read off a branch without one is treated as absent.</param>
 public sealed record SpecSet(
     string Key,
     IReadOnlyList<SpecPhase> Phases,
@@ -29,7 +32,8 @@ public sealed record SpecSet(
     bool TicketPinnedWhole = false,
     IReadOnlyList<string>? ExecutedPhaseIds = null,
     string? TicketFingerprint = null,
-    SpecApproval? Approval = null)
+    SpecApproval? Approval = null,
+    string? Series = null)
 {
     /// <summary>
     /// Phase ids that already ran — on this branch, in this run or an earlier one.

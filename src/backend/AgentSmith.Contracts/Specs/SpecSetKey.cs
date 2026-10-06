@@ -1,19 +1,19 @@
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
-/// p0393a: identity of one ticket's spec set — <c>&lt;provider&gt;-&lt;ticketId&gt;</c>. The
-/// same value is the path segment under <see cref="Root"/> and the database key.
-/// The ticket id stays in the path even though the ticket branch already carries
-/// it: after a merge the specs of many tickets coexist in the trunk and a fixed
-/// path would overwrite.
+/// p0393a: where one ticket's spec set lies — the path segment under <see cref="Root"/>.
+/// 2026-10-06-03c7c: the ticket's IDENTITY is <see cref="TicketKey"/>; this type only derives a
+/// path from it. The ticket key stays in the path even though the ticket branch already carries
+/// it: after a merge the specs of many tickets coexist in the trunk and a fixed path would
+/// overwrite.
 /// </summary>
 public readonly record struct SpecSetKey(string Value)
 {
     /// <summary>Repo-relative root under which every ticket's spec directory lives.</summary>
     public const string Root = ".agentsmith/specs";
 
-    public static SpecSetKey For(string provider, string ticketId) =>
-        new($"{Slug(provider)}-{Slug(ticketId)}");
+    /// <summary>The path a ticket's set lies under.</summary>
+    public static SpecSetKey For(TicketKey ticket) => new(ticket.Value);
 
     /// <summary>Repo-relative directory holding the phase specs and the run record.</summary>
     public string Directory => $"{Root}/{Value}";
@@ -32,13 +32,4 @@ public readonly record struct SpecSetKey(string Value)
     public string AccountingPath => $"{Directory}/accounting.md";
 
     public override string ToString() => Value;
-
-    private static string Slug(string raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return "unknown";
-        var chars = raw.Trim().ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : '-')
-            .ToArray();
-        return new string(chars).Trim('-') is { Length: > 0 } s ? s : "unknown";
-    }
 }

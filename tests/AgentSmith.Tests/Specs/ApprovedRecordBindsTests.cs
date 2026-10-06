@@ -30,7 +30,7 @@ public sealed class ApprovedRecordBindsTests
     public async Task Probe_APlatformWithTwoConnections_FindsTheRecordOnEither()
     {
         var store = new AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore();
-        var key = SpecSetKey.For("jira", "DPG-1239");
+        var key = TicketKey.For("jira", "DPG-1239");
         await store.SaveAsync(ApprovedSets.Record(key.Value, ApprovedSets.Noon, tracker: "second-jira"), default);
         var probe = new ApprovedRecordProbe(store, NullLogger<ApprovedRecordProbe>.Instance);
 

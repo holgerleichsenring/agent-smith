@@ -52,12 +52,12 @@ public sealed class ApprovedSetTicketFiler(
     ILogger<ApprovedSetTicketFiler> logger)
 {
     /// <param name="render">The body, given the note that explains the labels it is filed with.</param>
-    /// <param name="set">The approved phases, in the order the one run will work them.</param>
+    /// <param name="series">The series' base id and its approved phases, re-id'd, in run order.</param>
     /// <param name="notes">What a step that failed AFTER the ticket existed left behind.</param>
     public async Task FileAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         TicketFilingRole role, Func<string, PhaseTicketContent> render,
-        IReadOnlyList<PhaseDraft> set, List<FiledTicket> filed, List<string> notes,
+        FiledSeries series, List<FiledTicket> filed, List<string> notes,
         bool mayStartRuns, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(provider);
@@ -72,7 +72,7 @@ public sealed class ApprovedSetTicketFiler(
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));
-        var record = await StoreAsync(state, project, created, set, ct);
+        var record = await StoreAsync(state, project, created, series, ct);
         await branches.WriteAsync(provider, project, created, record, notes, ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
@@ -87,11 +87,11 @@ public sealed class ApprovedSetTicketFiler(
     /// </summary>
     private async Task<SpecApprovalRecord> StoreAsync(
         ConversationState state, ResolvedProject project, CreatedTicket created,
-        IReadOnlyList<PhaseDraft> set, CancellationToken ct)
+        FiledSeries series, CancellationToken ct)
     {
         try
         {
-            return await approvals.RecordAsync(state, project, created.Id.Value, set, ct);
+            return await approvals.RecordAsync(state, project, created.Id.Value, series, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

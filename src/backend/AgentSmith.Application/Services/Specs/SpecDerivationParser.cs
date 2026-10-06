@@ -18,6 +18,7 @@ public sealed class SpecDerivationParser(
 {
     public sealed record Parsed(SpecDerivation? Derivation, string? Error);
 
+    /// <param name="series">2026-10-06-03c7c: the series' base id; phase ids are it plus a letter.</param>
     /// <param name="executedHead">
     /// Phases that already ran, in order. They are re-used VERBATIM at the head of the
     /// set and the model's entries for those positions are discarded: an executed phase
@@ -32,7 +33,7 @@ public sealed class SpecDerivationParser(
     /// every fact line to an assumption and nothing else changes.
     /// </param>
     public Parsed Parse(
-        string? reply, string key, string ticketId, IReadOnlyList<TicketSegment> segments,
+        string? reply, string key, string series, string ticketId, IReadOnlyList<TicketSegment> segments,
         SpecSource source, IReadOnlyList<SpecPhase>? executedHead = null,
         IReadOnlyList<string>? evidence = null)
     {
@@ -51,14 +52,14 @@ public sealed class SpecDerivationParser(
                 if (!SpecJsonReader.TryGet(root, "phases", out _)
                     && !SpecJsonReader.TryGet(root, "handback", out _))
                     continue;
-                return Build(root, key, ticketId, segments, source, executedHead ?? [], evidence);
+                return Build(root, new SeriesOf(key, series), ticketId, segments, source, executedHead ?? [], evidence);
             }
         }
         return new Parsed(null, "the reply contained no JSON object with a 'phases' array");
     }
 
     private Parsed Build(
-        JsonElement root, string key, string ticketId,
+        JsonElement root, SeriesOf owner, string ticketId,
         IReadOnlyList<TicketSegment> segments, SpecSource source,
         IReadOnlyList<SpecPhase> executedHead, IReadOnlyList<string>? evidence)
     {
@@ -66,7 +67,8 @@ public sealed class SpecDerivationParser(
         if (handback is not null)
             return new Parsed(
                 new SpecDerivation(
-                    new SpecSet(key, [], SpecAccounting.Empty, [Initial()], source, handback),
+                    new SpecSet(owner.Key, [], SpecAccounting.Empty, [Initial()], source, handback,
+                        Series: owner.Series),
                     envelope.IgnoredInstructions(root)),
                 null);
 
@@ -83,7 +85,7 @@ public sealed class SpecDerivationParser(
         for (var i = executedHead.Count; i < phaseElements.Count; i++)
         {
             var (phase, error) = phaseBuilder.Build(
-                phaseElements[i], i, ticketId, segments, built, evidence);
+                phaseElements[i], i, owner.Series, ticketId, segments, built, evidence);
             if (phase is null) return new Parsed(null, error);
             built.Add(phase);
         }
@@ -93,11 +95,15 @@ public sealed class SpecDerivationParser(
         return new Parsed(
             new SpecDerivation(
                 new SpecSet(
-                    key, built, accounting, [Initial()], source,
-                    ExecutedPhaseIds: [.. executedHead.Select(p => p.PhaseId)]),
+                    owner.Key, built, accounting, [Initial()], source,
+                    ExecutedPhaseIds: [.. executedHead.Select(p => p.PhaseId)],
+                    Series: owner.Series),
                 envelope.IgnoredInstructions(root)),
             null);
     }
+
+    /// <summary>The ticket key and the series' base id the parsed set belongs to.</summary>
+    private sealed record SeriesOf(string Key, string Series);
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

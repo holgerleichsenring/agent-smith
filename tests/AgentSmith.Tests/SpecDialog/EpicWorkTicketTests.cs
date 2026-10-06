@@ -88,37 +88,56 @@ public sealed class EpicWorkTicketTests
             c => c.Labels.Count == 1 && c.Labels[0] == FiledTicketLabels.ApprovedSetStamp);
     }
 
+    /// <summary>
+    /// 2026-10-06-03c7c: the ticket names its SERIES — a base minted in code before anything was
+    /// rendered — and every slice it lists is that base plus a letter. Nothing the model called
+    /// its drafts reaches the ticket.
+    /// </summary>
     [Fact]
-    public async Task EpicApproval_WorkTicketTitleAndBody_ComeFromTheParentDraft()
+    public async Task Filing_Epic_TitleCarriesMintedIds()
     {
         var provider = new RecordingProvider();
+        var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
+        await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")), store);
 
-        provider.Created[0].Title.Should().Be("p9000: Widget platform");
-        provider.Created[0].Body.Should().Contain("Widget platform")
+        var series = (await StoredAsync(store)).Set.Series!;
+        series.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
+        provider.Created[0].Title.Should().Be($"{series}: Widget platform");
+        provider.Created[0].Body.Should().Contain($"`{SeriesIdFactory.Member(series, 0)}` slice p9000a")
+            .And.Contain($"`{SeriesIdFactory.Member(series, 1)}` slice p9000b")
             .And.Contain("the whole platform is reachable", "the parent's own done list travels")
+            .And.NotContain("`p9000", "no model-minted id reaches the ticket")
             .And.NotContain("```", "a requirement body opens no fence");
     }
 
     /// <summary>
     /// 2026-09-22-b3d7: this section is what the slice records duplicated, so it is now the ONLY
     /// place a person reads a slice on its own — every id, every goal and every requires: edge.
+    /// <para>
+    /// 2026-10-06-03c7c: the slices are re-id'd in run order, and a requires: edge follows the id
+    /// it named — in the listing, in the stored draft and in the draft's own YAML text.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task Filing_AnApprovedCut_ListsEverySliceAndItsRequiresEdgesInTheTicketBody()
+    public async Task Filing_Epic_RequiresFollowNewIds()
     {
         var provider = new RecordingProvider();
+        var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(provider, Epic(Slice("p9000a", requires: ["p9000b"]), Slice("p9000b")));
+        await FileAsync(provider, Epic(Slice("p9000a", requires: ["p9000b"]), Slice("p9000b")), store);
 
+        var set = (await StoredAsync(store)).Set;
+        var (first, second) = (SeriesIdFactory.Member(set.Series!, 0), SeriesIdFactory.Member(set.Series!, 1));
         var body = provider.Created[0].Body;
-        body.Should().Contain("## Slices");
-        body.Should().Contain("`p9000a` slice p9000a (requires: p9000b)")
-            .And.Contain("`p9000b` slice p9000b");
-        body.IndexOf("p9000b", StringComparison.Ordinal).Should()
-            .BeLessThan(body.IndexOf("p9000a", StringComparison.Ordinal),
-                "the listing is the order the one run works them in");
+        body.Should().Contain("## Slices")
+            .And.Contain($"`{first}` slice p9000b")
+            .And.Contain($"`{second}` slice p9000a (requires: {first})");
+        body.IndexOf(first, StringComparison.Ordinal).Should().BeLessThan(
+            body.IndexOf(second, StringComparison.Ordinal), "the listing is the order the one run works them in");
+        set.Phases[1].Draft.Requires.Should().Equal(first);
+        set.Phases[1].Draft.Yaml.Should().Contain($"spec: {second}").And.Contain($"- {first}")
+            .And.NotContain("p9000b", "the stored text says what the stored fields say");
     }
 
     [Fact]
@@ -129,11 +148,13 @@ public sealed class EpicWorkTicketTests
 
         await FileAsync(provider, Epic(Slice("p9000a", requires: ["p9000b"]), Slice("p9000b")), store);
 
-        var record = await store.GetAsync("sample-tracker", SpecSetKey.For("azuredevops", "1").Value, default);
+        var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default);
         record.Should().NotBeNull("the run computes this key from the WORK ticket it was spawned on");
         record!.Set.Source.Should().Be(SpecSource.Approved);
-        record.Set.Phases.Select(p => p.PhaseId).Should().Equal(["p9000b", "p9000a"],
+        record.Set.Phases.Select(p => p.Draft.Goal).Should().Equal(["slice p9000b", "slice p9000a"],
             "the set is stored in the order the sequence will splice it");
+        record.Set.Phases.Select(p => p.PhaseId).Should().Equal(
+            SeriesIdFactory.Member(record.Set.Series!, 0), SeriesIdFactory.Member(record.Set.Series!, 1));
         record.Approval!.Conversation.Should().Be("job-1");
     }
 
@@ -399,8 +420,9 @@ public sealed class EpicWorkTicketTests
                 [FiledTicketLabels.ApprovedSetStamp],
                 "a single approved phase is stamped exactly as an epic's work ticket is");
         provider.Comments.Should().BeEmpty("a filing posts no comment of its own");
-        var record = await store.GetAsync("sample-tracker", SpecSetKey.For("azuredevops", "1").Value, default);
-        record!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9000a");
+        var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default);
+        record!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(
+            SeriesIdFactory.Member(record.Set.Series!, 0), "a lone phase is the first member of its own series");
     }
 
     private static async Task<FilingReport> FileAsync(
@@ -420,7 +442,8 @@ public sealed class EpicWorkTicketTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var filer = new OutcomeTicketFiler(
             Config(kinds), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, false, CancellationToken.None);
     }
@@ -450,8 +473,12 @@ public sealed class EpicWorkTicketTests
 
     private static PhaseDraft Slice(string id, IReadOnlyList<string>? requires = null) =>
         new(id, $"slice {id}",
-            $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"slice {id} is finished\"",
+            $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"slice {id} is finished\""
+            + string.Concat((requires ?? []).Select((r, i) => (i == 0 ? "\nrequires:" : string.Empty) + $"\n- {r}")),
             requires ?? []) { Done = [$"slice {id} is finished"] };
+
+    private static async Task<SpecApprovalRecord> StoredAsync(ISpecApprovalStore store) =>
+        (await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default))!;
 
     private static ConversationState State() => new()
     {

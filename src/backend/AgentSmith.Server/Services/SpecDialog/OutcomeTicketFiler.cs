@@ -23,9 +23,8 @@ public sealed class OutcomeTicketFiler(
     AgentSmithConfig config,
     ITicketProviderFactory ticketFactory,
     PhaseTicketRenderer renderer, BugTicketRenderer bugRenderer,
-    EpicChildOrderer orderer,
-    ApprovedSetTicketFiler sets,
-    FiledWorkStarter starter, TicketKindResolver kinds,
+    EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
+    ApprovedSetTicketFiler sets, FiledWorkStarter starter, TicketKindResolver kinds,
     ILogger<OutcomeTicketFiler> logger)
 {
     public async Task<FilingReport> FileAsync(
@@ -42,8 +41,9 @@ public sealed class OutcomeTicketFiler(
             {
                 BugOutcome bug => FileBugAsync(
                     provider, project, bug.Ticket, filed, mayStartRuns, cancellationToken),
-                PhaseOutcome phase => FilePhaseAsync(
-                    provider, state, project, phase.Draft, filed, notes, mayStartRuns, cancellationToken),
+                // 2026-10-06-03c7c: the series is minted and re-id'd BEFORE anything renders.
+                PhaseOutcome phase => FilePhaseAsync(provider, state, project,
+                    seriesFiling.Mint([phase.Draft]), filed, notes, mayStartRuns, cancellationToken),
                 EpicOutcome epic => FileEpicAsync(
                     provider, state, project, epic, filed, notes, mayStartRuns, cancellationToken),
                 _ => throw new InvalidOperationException(
@@ -87,18 +87,17 @@ public sealed class OutcomeTicketFiler(
 
     private Task FilePhaseAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
-        PhaseDraft draft, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
+        FiledSeries series, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
         CancellationToken ct) =>
         sets.FileAsync(
             provider, state, project, TicketFilingRole.Phase,
-            note => renderer.RenderPhase(draft, state.JobId, note), [draft], filed, notes,
+            note => renderer.RenderPhase(series.Drafts[0], state.JobId, note), series, filed, notes,
             mayStartRuns, ct);
 
     /// <summary>
     /// 2026-09-17-0e79d: an approved cut is ONE piece of work — one work ticket from the parent
-    /// draft, carrying the whole ordered set under its own spec key. What forced N tickets was
-    /// never the executor: PhaseSequence splices one master-verify-record block per unexecuted
-    /// phase, so the order inside one run beats a status gate.
+    /// draft, carrying the whole ordered set: PhaseSequence splices one master-verify-record block
+    /// per unexecuted phase, so the order inside one run beats a status gate.
     /// </summary>
     private Task FileEpicAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
@@ -110,11 +109,12 @@ public sealed class OutcomeTicketFiler(
         var order = orderer.Order(epic.Children);
         if (order.Error is not null)
             throw new InvalidOperationException($"The epic cannot be filed: {order.Error}.");
+        var series = seriesFiling.Mint(order.Children);
         return sets.FileAsync(
             provider, state, project, TicketFilingRole.Work,
             // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.
             note => renderer.RenderEpicParent(
-                epic.Parent, order.Children, epic.Templates, state.JobId, note),
-            order.Children, filed, notes, mayStartRuns, ct);
+                epic.Parent, series.Drafts, epic.Templates, state.JobId, note, series.Id),
+            series, filed, notes, mayStartRuns, ct);
     }
 }

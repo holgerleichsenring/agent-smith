@@ -120,12 +120,12 @@ public sealed class NotImplementableRetryOrderTests
 
     private Task SeedHandbackAsync() => _pointers.SaveAsync(
         Project,
-        new SpecSetPointer(SpecSetKey.For("github", Ticket).Value, "repo-a", "sha", 1,
+        new SpecSetPointer(TicketKey.For("github", Ticket).Value, "repo-a", "sha", 1,
             SpecHandbackCase.NotImplementable, 3),
         CancellationToken.None);
 
     private Task<SpecSetPointer?> Pointer() => _pointers.GetAsync(
-        Project, SpecSetKey.For("github", Ticket).Value, CancellationToken.None);
+        Project, TicketKey.For("github", Ticket).Value, CancellationToken.None);
 
     private static ResolvedProject Config(string? triggerStatus) => new()
     {

@@ -16,6 +16,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// back, and a carrying repository this run never checked out are all "something is there and
 /// this run cannot read it" — the caller hands those back rather than replacing them from a copy.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7c: the branch is where a series' base id is read first; the pointer row only
+/// caches it, so a run without a database finds the same base on its next run.
+/// </para>
 /// </summary>
 public sealed class SpecSetReader(
     ISandboxFileReaderFactory readerFactory,
@@ -47,6 +51,13 @@ public sealed class SpecSetReader(
         var doc = index.Parse(
             await files.TryReadAsync(indexPath, cancellationToken));
         if (doc is null) return await AbsentOrBrokenAsync(files, indexPath, cancellationToken);
+        // 2026-10-06-03c7c: a set written before series existed is treated as absent — its ids
+        // came from a ticket number, and it is derived whole rather than carried forward.
+        if (index.SeriesOf(doc) is not { } series)
+        {
+            logger.LogInformation("{Path} carries no series — read as absent", indexPath);
+            return SpecSetOnBranch.Nothing;
+        }
 
         var read = new List<SpecPhase>(doc.Phases.Count);
         // 2026-10-01-283dh: listed once per set, for the design mocks beside the phase files.
@@ -77,7 +88,8 @@ public sealed class SpecSetReader(
             doc.TicketPinnedWhole,
             doc.ExecutedPhases,
             index.FingerprintOf(doc),
-            index.ApprovalOf(doc));
+            index.ApprovalOf(doc),
+            series);
         logger.LogInformation(
             "Spec set {Key} read from the ticket branch: {Phases} phase(s), revision {Revision}",
             set.Key, set.Phases.Count, set.Current.Number);
