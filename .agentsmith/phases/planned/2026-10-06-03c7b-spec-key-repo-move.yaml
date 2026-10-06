@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-03c7b
+goal: "The product writes and reads only spec: and records into specs/done/, and this repository moves to .agentsmith/specs/ in the same commit — the product embeds its schema."
+
+applies_to: "server (spec and decision YAML, record path), skills catalog (design-partner-master), repository methodology (.agentsmith, architecture tests, tools, docs, CLAUDE.md)"
+
+requires:
+  - 2026-10-06-03c7a
+
+facts:
+  - claim: "The product embeds this repository's phase-spec.schema.json on purpose"
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:61-63; src/backend/AgentSmith.Application/Services/Validation/PhaseSpecSchemaProvider.cs:15-16"
+  - claim: "Three product sites write or read the key: renderer, draft reader, decision label; every validator path goes through the reader"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseYamlRenderer.cs:32; src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:17-18; src/backend/AgentSmith.Infrastructure.Core/Services/DecisionFileLabel.cs:17,23"
+  - claim: "The record is written to .agentsmith/phases/done/ and its pointer names that path"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/WritePhaseRecordHandler.cs:50-53; tests/AgentSmith.PipelineHarness/Presets/PhaseExecutionTests.cs:95-98,139"
+  - claim: "Both repository schemas declare and require phase; the spec schema names itself phase-spec"
+    evidence: ".agentsmith/phase-spec.schema.json:3-12; .agentsmith/decision.schema.json:8-14"
+  - claim: "The design-partner skill names phase: and the phase-spec schema"
+    evidence: "observed: agent-smith-skills design-partner-master/SKILL.md:164,220,257,260,270, 2026-10-06"
+  - claim: "The embedded skills pin is a version, a SHA256 and a checked-in tarball"
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54-55"
+  - claim: "Architecture loaders and both id readers read the phases directory and the phase: key"
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseRecord.cs:18,107,122,135; tests/AgentSmith.Tests/Architecture/PhaseRecordFile.cs:22; tests/AgentSmith.Tests/Architecture/PhaseSpecFile.cs:76,98; tests/AgentSmith.Tests/Architecture/PhaseIdReader.cs:37,47-49"
+  - claim: "Schema tests read the phase property and the schema file name"
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseIdSchemaTests.cs:95-104; tests/AgentSmith.Tests/Architecture/PhaseSeriesIdTests.cs:39-40; tests/AgentSmith.Tests/Architecture/PhaseSpecSchemaFile.cs:19"
+  - claim: "This repository's evidence rule refuses phases/planned and phases/active"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:29"
+  - claim: "One planned spec cites a done spec by its phases/ path; the planned-evidence test re-grounds moved files"
+    evidence: "observed: 2026-10-01-283dk-reference-legacy-drop.yaml line 11, 2026-10-06; tests/AgentSmith.Tests/Architecture/PhaseEvidenceRuleTests.cs:24-34"
+  - claim: "CLAUDE.md, a context principle, the code map, the audit tool, the session prompt and nine docs name the old path or key"
+    evidence: "CLAUDE.md:7,14,54,84,105,123,130; .agentsmith/contexts/default/principles.md:204; tools/audit-phases.py:10; .claude/prompt.md:7,13,27; observed: grep -rl '.agentsmith/phases' docs/ — nine files, 2026-10-06"
+  - claim: "About 107 test files carry phase: YAML; recorded prompts under PipelineHarness/Fixtures/RecordedRuns are not validator input"
+    evidence: "observed: 03c7 predecessor review grep over tests/, 2026-10-06"
+
+assumptions:
+  - claim: "No open branch adds files under .agentsmith/phases when this lands"
+    check: "list open PRs touching .agentsmith/phases; merge or rebase them first"
+
+scope:
+  in: "Run migrate-specs-layout.py here; spec: in renderer, draft reader, decision label, both id readers and every YAML fixture fed to the reader or validator (recorded prompts untouched); schema $id, title, property and required; spec.schema.json re-embedded; the record path and its pointer to specs/done/; loaders, EvidencePolicy.Repository, audit tool, principles.md:204, code-map, CLAUDE.md, the session prompt and the docs; memory entries naming the path (feedback ones as proposals); design-partner-master and the pin triple."
+  out: "Series and their manifests (03c7c-e), the done file with its outcome (03c7e), approvals (03c7f), run tables (03c7g); class and test names."
+
+decisions:
+  - no_alias: "The reader knows only spec:. An in-flight set still saying phase: reads as Unreadable and is refused — accepted; no ticket carries a hand-written spec."
+  - one_commit: "Move, key and record path in one commit: the schema rename breaks the embed, and a schema requiring spec: fails the product's drafts until the renderer writes it. Review with git diff -M -l5000."
+  - skills_and_image_together: "The skills release goes out first; this commit bumps the pin; the server image and the config bind-mount pin move in one deploy."
+
+steps:
+  - id: skills
+    action: "design-partner-master writes spec: and names spec.schema; release the catalog"
+  - id: move
+    action: "Run migrate-specs-layout.py at the repository root; re-ground 283dk's citation"
+  - id: key
+    action: "spec: in DerivedPhaseYamlRenderer, PhaseDraftReader, DecisionFileLabel, PhaseIdReader and the fixtures; edit both schemas"
+  - id: paths
+    action: "Re-embed spec.schema.json; WritePhaseRecordHandler writes specs/done/; loaders, evidence rule, tools, docs, prompt, principles and CLAUDE.md follow; bump the pin triple"
+
+tests:
+  - "DerivedPhaseYamlRenderer_Render_WritesSpecKey"
+  - "PhaseDraftReader_PhaseKey_Refused"
+  - "DecisionFileLabel_SpecLabel_HeaderIsSpec"
+  - "DecisionFiles_EveryOne_StartsWithSpecOrRun"
+  - "WritePhaseRecord_Record_LandsInSpecsDone"
+  - "EvidencePolicy_Repository_RefusesSpecsPlannedAndActive"
+
+done:
+  - ".agentsmith/phases does not exist and a run cannot recreate it; every pointer resolves under .agentsmith/specs"
+  - "No spec or decision file here starts with phase:; a design-partner draft validates with spec:"
+  - "Phase gate passed"

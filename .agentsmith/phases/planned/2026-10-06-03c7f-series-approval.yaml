@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-03c7f
+goal: "An approval is stored as the series it approved — keyed by ticket key and series id, the epic's goal kept — and every comment and skill sentence says what the code does."
+
+applies_to: "server (approval storage, dialog views), skills catalog (design-partner-master)"
+
+requires:
+  - 2026-10-06-03c7d
+
+facts:
+  - claim: "ApprovedSpecSets is unique by (Tracker, SpecKey) and stores RecordJson plus projected columns, the raw TicketId and SatisfiedAt"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSpecSet.cs:13-62; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ApprovedSpecSetConfiguration.cs:26-30"
+  - claim: "Runs and the dialog read approval content from the database before or without a branch: repos at ScopeRepos, carrier, cited sets, the dialog pane, divergence"
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:56-70; src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:63; src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetForConversation.cs:27-38; src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetDivergence.cs:31-35"
+  - claim: "The resolver's newer-of compares the queue-carried record with the stored one, guarding a frozen capacity-queue entry"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:14-18,101-110"
+  - claim: "An epic's parent YAML is validated but kept only as the ticket's title and body"
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:54-74; src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:103-118"
+  - claim: "Comments disagree with the code on precedence, on LoadAsync callers and on the filed label"
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:105-110; src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:39-42; src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:17,101-102"
+  - claim: "The skill says an epic files one record per slice and the run re-cuts the work; the code files one ticket and re-cuts an approved set only on a person's demand"
+    evidence: "observed: agent-smith-skills design-partner-master/SKILL.md:118-122,289, 2026-10-06; src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:9-10,26-33"
+  - claim: "Retry clears the pointer's handback but not SatisfiedAt"
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:29-78"
+
+assumptions:
+  - claim: "Every reader of ApprovedSpecSets goes through ApprovedSpecSetRepository"
+    check: "grep for the DbSet before building"
+
+scope:
+  in: "ApprovedSpecSets → ApprovedSeries: (Tracker, TicketKey) unique, SeriesId, the raw TicketId, repositories, carrying repo, content JSON with the epic goal, approval projections, SatisfiedAt; old rows dropped; both migration assemblies; the manifest's approval block written from it at filing; stale comments corrected; design-partner-master corrected and the pin bumped."
+  out: "The run's precedence — branch first, then this row while the branch is empty — stays as it is, and so does the carried-vs-stored comparison."
+
+decisions:
+  - db_is_dialog_truth: "The row is the approval's content of record for everything without a clone — the dialog, ScopeRepos, the carrier. The branch is the run's truth once written. Two readers, two places, one writer each."
+  - epic_goal_kept: "The parent's goal is stored in the row and in the manifest's goal; its YAML is not."
+  - retry_reopens: "Retry also clears SatisfiedAt, so a retried ticket is admitted again."
+
+steps:
+  - id: db
+    action: "ApprovedSeries entity, configuration, migrations; repository, probe, admission, lifecycle, retry and views follow"
+  - id: filing
+    action: "Recorder stores the epic goal and the series id; FiledSpecBranch writes the manifest's goal and approval from it"
+  - id: words
+    action: "Correct the stale comments; the skill: ids are placeholders, one ticket per epic, approved work is re-cut only on demand; release and bump the pin"
+
+tests:
+  - "ApprovedSeries_ByTicketKey_RoundTrips"
+  - "Filing_Epic_ManifestCarriesGoalAndApproval"
+  - "Retry_NotImplementable_ClearsSatisfied"
+  - "ApprovedSetPane_AfterFiling_StillShowsContent"
+
+done:
+  - "Every approval row names its ticket key and series id; the dialog pane shows a filed set"
+  - "No comment or skill sentence contradicts the precedence or filing the code runs"
+  - "Full suite green on all providers"

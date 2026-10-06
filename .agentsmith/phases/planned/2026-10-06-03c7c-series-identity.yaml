@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-06-03c7c
+goal: "Every series gets a code-minted base id once — at derivation or before a filed ticket is rendered — and the ticket's own key is a type apart from where its files lie."
+
+applies_to: "server (spec identity, dialog filing, persistence)"
+
+requires:
+  - 2026-10-06-03c7b
+
+facts:
+  - claim: "Derived ids are p{ticket digits}{letter}; equal numbers from two trackers collide; the fallback and coverage refusal mint the same way"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhaseIdFactory.cs:28-29; src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:39-41; src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-26; src/backend/AgentSmith.Application/Services/Specs/SpecCoverageRefusal.cs:30"
+  - claim: "Dialog ids are minted by the model and land in the ticket title and slices before the record is stored"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:57-78; src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:107-115"
+  - claim: "An amendment re-records an existing ticket through the same recorder, and executed heads are kept by position"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:92; src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:49-55"
+  - claim: "SpecSetKey is both the ticket identity and the path segment"
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSetKey.cs:5-19; src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:72; src/backend/AgentSmith.Server/Services/SpecDialog/TicketBinding.cs:27; src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkHandbacks.cs:34-55"
+  - claim: "The pointer table is unique by (Project, SpecKey) and has a dead column; the CLI keeps pointers in memory only"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSpecSet.cs:9-35; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketSpecSetConfiguration.cs:25; src/backend/AgentSmith.Application/Services/Persistence/InMemorySpecSetPointerStore.cs:7-10"
+  - claim: "SQLite, Postgres and MySQL share one migrations assembly; SQL Server has its own"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23-33"
+  - claim: "Re-cut harness tests build pointers without a series and expect PhaseIdFactory.For to be stable"
+    evidence: "tests/AgentSmith.Tests/Specs/DeriveSpecCommentRecutTests.cs:37-38; tests/AgentSmith.Tests/Specs/DeriveSpecTicketEditTests.cs:36-37"
+
+assumptions:
+  - claim: "A draft's id and requires are top-level YAML scalars and list items a text rewrite can address"
+    check: "read PhaseDraft.Yaml for an epic child before building"
+
+scope:
+  in: "TicketKey (identity) split from SpecSetKey (paths); SeriesIdFactory; the base minted at first derivation and in OutcomeTicketFiler before rendering, specs re-id'd in order with requires and YAML text rewritten; an amendment reuses its base; set.yaml carries series and every reader takes the base from it before the DB; TicketSpecSets → TicketSeries (Project, TicketKey, SeriesId, …; dead column gone; old rows dropped) in both migration assemblies; fallback and coverage refusal take the base."
+  out: "Where files lie (03c7d), the done state (03c7e), approval storage and the skill (03c7f)."
+
+decisions:
+  - branch_first: "The base is read from the set on the branch; the DB row is a cache. A CLI run without a database finds the same base on its next run."
+  - mint_before_render: "OutcomeTicketFiler mints and re-ids before PhaseTicketRenderer runs, so the ticket never shows a placeholder."
+  - amendment_reuses: "TicketAmendment passes the stored base; positional head-keeping still holds because letters follow order."
+  - ships_alone: "Layout is unchanged here — specs/<ticket key>/ still holds the set — so this phase ships without 03c7d."
+
+steps:
+  - id: types
+    action: "Add TicketKey and SeriesIdFactory; SpecSetKey derives its path from a TicketKey"
+  - id: mint
+    action: "Derivation, fallback and coverage refusal take the base from the read set or mint it; OutcomeTicketFiler and TicketAmendment mint or reuse before rendering"
+  - id: index
+    action: "set.yaml gains series; reader returns it"
+  - id: db
+    action: "TicketSeries entity, configuration and a migration in each assembly; pointer store, recorder and FiledWorkHandbacks follow"
+
+tests:
+  - "SeriesIdFactory_Mint_IsDateHex"
+  - "DeriveSpec_Rederivation_ReusesSeriesFromBranch"
+  - "DeriveSpec_NoDatabase_ReusesSeriesFromBranch"
+  - "Filing_Epic_TitleCarriesMintedIds"
+  - "Filing_Epic_RequiresFollowNewIds"
+  - "Amendment_ExistingTicket_KeepsSeries"
+  - "Series_TwoTrackersSameTicketNumber_DifferentIds"
+
+done:
+  - "No id in a filed ticket, a set or a pointer was minted by a model or derived from a ticket number"
+  - "Full suite and harness green on all providers"
