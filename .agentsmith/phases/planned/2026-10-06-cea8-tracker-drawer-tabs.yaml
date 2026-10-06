@@ -11,7 +11,7 @@ facts:
     evidence: "src/dashboard/src/components/config/EntityForm.tsx:85-111"
   - claim: "The project and agent forms are tab strips over .dtabs/.dtab with a ▲ mark per tab that needs attention"
     evidence: "src/dashboard/src/components/config/ProjectForm.tsx:73-91; src/dashboard/src/components/config/AgentForm.tsx:57-75"
-  - claim: "A Jira tracker declares 18 descriptor fields; 13 workflow fields are shared by every tracker type and workItemKinds only by Jira and Azure DevOps"
+  - claim: "A Jira tracker declares 19 descriptor fields: 4 identity, 13 workflow fields shared by every type, workItemKinds (Jira, ADO) and endpoints (Jira)"
     evidence: "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:20-90"
   - claim: "CapabilityField carries key, label, required, kind and choices, and nothing that says where it belongs"
     evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ConfigCapabilities.cs:45-47; src/dashboard/src/lib/configApi.ts:238-248"
@@ -27,6 +27,10 @@ facts:
     evidence: "src/dashboard/src/components/config/capabilityFields.tsx:152-160"
   - claim: "The existing draft-rule test expects ONE blocking finding naming url and authSecret together"
     evidence: "tests/AgentSmith.Tests/ConfigStudio/ConfigDraftRulesTests.cs:58-69"
+  - claim: "Three test classes pin ValidateTracker's message: required keys, unknown type, email"
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/CapabilityCoverageTests.cs:75-79; tests/AgentSmith.Tests/ConfigStudio/ConfigCapabilitiesTests.cs:167-173; tests/AgentSmith.Tests/ConfigStudio/CapabilityJiraEmailTests.cs:25-31"
+  - claim: "A dashboard test finds an outcome field by its form-field test id"
+    evidence: "src/dashboard/src/components/config/__tests__/MissingRequiredFields.test.tsx:203-210"
 
 assumptions:
   - claim: "Existing studio test fixtures declare tracker fields without a group and keep passing when ungrouped fields land on the first tab"
@@ -38,8 +42,9 @@ scope:
 
 decisions:
   - group_on_descriptor: "The backend declares the group, the client maps group to tab. A client-side key→tab table would be the hardcoded type knowledge capabilityFields.tsx was built to remove."
-  - outcome_vs_transition: "Two groups land on Outcomes: 'outcome' (done/failed/needs-clarification/not-implementable status) renders as the table, 'transition' (closeTransitionName, lifecycleStatusNames) as plain fields. The duplicate warning compares only 'outcome' fields."
-  - ungrouped_first_tab: "A field with no or an unknown group renders on Connection, so a newly declared field is never hidden."
+  - outcome_vs_transition: "Outcomes holds two groups: 'outcome' renders as the table, 'transition' as plain fields. The warning compares only 'outcome' values, non-empty and case-insensitive, so an all-unset tracker never warns."
+  - ungrouped_first_tab: "A field with no or an unknown group renders on Connection, so a newly declared field is never hidden. Id, type and a finding on 'type' belong to Connection."
+  - field_contract: "Table rows keep the form-field-{key} test id and the field's finding display."
   - empty_tab_hidden: "A tab with no fields for the type is not drawn — Filing disappears for GitHub and GitLab."
   - footer_shows_reason: "The footer prints the finding's own reason. 'is required here' was wrong for every blocking finding that is not about requiredness (host-only routing)."
 
@@ -48,15 +53,16 @@ steps:
     action: "Add an optional Group to CapabilityField and set it on every tracker field"
     modify:
       - "CapabilityField: Group string? = null"
-      - "TrackerCapabilityFields: group per field (connection, intake, outcome, transition, routing, filing)"
+      - "TrackerCapabilityFields groups — connection: organization, project, url, authSecret, email, endpoints; intake: triggerStatuses, openStates, extraFields, zeroMatchComment; outcome: doneStatus, failedStatus, needsClarificationStatus, notImplementableStatus; transition: closeTransitionName, lifecycleStatusNames; routing: pipelineFromLabel, defaultPipeline, labelNames; filing: workItemKinds"
       - "configApi.ts CapabilityField: group?: string"
   - id: per-field-finding
     action: "Report each missing required field as its own blocking finding"
     new:
       - "ConfigStudioCapabilities.MissingTrackerFields(TrackerEntity): keys of empty required fields; throws on unknown type"
     modify:
-      - "ConfigStudioCapabilities.ValidateTracker: uses MissingTrackerFields"
+      - "ConfigStudioCapabilities.ValidateTracker: uses MissingTrackerFields, message unchanged"
       - "ConfigDraftRules.ForTracker: unknown type → Field 'type'; each missing key → Field = key, reason '{Label} is required.'"
+      - "ConfigDraftRulesTests: Studio_RequiredFieldEmpty_BlocksSaveAndNamesTheField replaced by ForTracker_TwoRequiredFieldsEmpty_OneBlockingFindingEach"
   - id: tracker-form
     action: "Move the tracker case of EntityForm into a tabbed TrackerForm"
     new:
@@ -79,9 +85,10 @@ tests:
   - "TrackerForm_GithubDescriptor_NoFilingTab"
   - "TrackerForm_MissingEmail_MarksConnectionTab"
   - "TrackerOutcomes_TwoOutcomesShareAStatus_ShowsWarning"
+  - "TrackerOutcomes_AllUnset_NoWarning"
   - "EntityDrawer_MissingEmail_FooterNamesReasonAndTab"
 
 done:
-  - "Editing a Jira tracker shows five tabs; every descriptor field appears on exactly one"
+  - "Editing a Jira tracker shows five tabs; each of its 19 descriptor fields appears on exactly one"
   - "A Jira tracker with an empty email marks Connection with ▲ and the footer reads the email reason, not 'type'"
   - "Backend build, full .NET suite and dashboard test + build green"
