@@ -20,8 +20,8 @@ facts:
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSpecSet.cs:9-35; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketSpecSetConfiguration.cs:25; src/backend/AgentSmith.Application/Services/Persistence/InMemorySpecSetPointerStore.cs:7-10"
   - claim: "SQLite, Postgres and MySQL share one migrations assembly; SQL Server has its own"
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23-33"
-  - claim: "Re-cut harness tests build pointers without a series and expect PhaseIdFactory.For to be stable"
-    evidence: "tests/AgentSmith.Tests/Specs/DeriveSpecCommentRecutTests.cs:37-38; tests/AgentSmith.Tests/Specs/DeriveSpecTicketEditTests.cs:36-37"
+  - claim: "Re-cut harness tests build sets with PhaseIdFactory.For and expect stable ids"
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/CommentRecutTests.cs:37-38; tests/AgentSmith.PipelineHarness/Presets/TicketEditRecutTests.cs:36-37"
 
 assumptions:
   - claim: "A draft's id and requires are top-level YAML scalars and list items a text rewrite can address"
@@ -34,7 +34,11 @@ scope:
 decisions:
   - branch_first: "The base is read from the set on the branch; the DB row is a cache. A CLI run without a database finds the same base on its next run."
   - mint_before_render: "OutcomeTicketFiler mints and re-ids before PhaseTicketRenderer runs, so the ticket never shows a placeholder."
-  - amendment_reuses: "TicketAmendment passes the stored base; positional head-keeping still holds because letters follow order."
+  - amendment_reuses: "SpecSet gains Series, set from the re-id'd drafts before RecordAsync, so the approval record holds it; TicketAmendment reads it through approvals.LoadAsync before rendering. The body region is rewritten, the title keeps the same base."
+  - epic_title: "An epic's ticket title is '{base}: {goal}' — the ticket names its series, not a spec; children are {base}a…"
+  - reid_text: "Re-id runs after the orderer; requires entries match by id prefix (the id-label form included) and the YAML text is rewritten with them."
+  - seriesless_absent: "A set on a branch without series is treated as absent and derived whole — in-flight work is ignored. Dropping old pointer rows also resets handback counters and the cause sha."
+  - factory_gone: "PhaseIdFactory.For is deleted; PhaseIdFactoryTests, PhaseIdSchemaTests:62, DeriveSpecCommentRecutTests:55-57 and the harness CommentRecutTests and TicketEditRecutTests move to minted ids."
   - ships_alone: "Layout is unchanged here — specs/<ticket key>/ still holds the set — so this phase ships without 03c7d."
 
 steps:

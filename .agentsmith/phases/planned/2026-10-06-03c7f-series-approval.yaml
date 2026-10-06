@@ -40,7 +40,7 @@ steps:
   - id: db
     action: "ApprovedSeries entity, configuration, migrations; repository, probe, admission, lifecycle, retry and views follow"
   - id: filing
-    action: "Recorder stores the epic goal and the series id; FiledSpecBranch writes the manifest's goal and approval from it"
+    action: "ApprovedSetTicketFiler.FileAsync and RecordAsync take the goal (an epic's parent goal, a single spec's own); AmendedSpecification carries it into the re-record; FiledSpecBranch writes the manifest's goal and approval from the row"
   - id: words
     action: "Correct the stale comments; the skill: ids are placeholders, one ticket per epic, approved work is re-cut only on demand; release and bump the pin"
 
@@ -48,9 +48,10 @@ tests:
   - "ApprovedSeries_ByTicketKey_RoundTrips"
   - "Filing_Epic_ManifestCarriesGoalAndApproval"
   - "Retry_NotImplementable_ClearsSatisfied"
-  - "ApprovedSetPane_AfterFiling_StillShowsContent"
+  - "ApprovedSetPane_BoundConversationAfterFiling_ShowsContent"
+  - "Amendment_Epic_KeepsGoal"
 
 done:
-  - "Every approval row names its ticket key and series id; the dialog pane shows a filed set"
+  - "Every approval row names its ticket key and series id; a conversation bound to a filed ticket shows its set"
   - "No comment or skill sentence contradicts the precedence or filing the code runs"
   - "Full suite green on all providers"

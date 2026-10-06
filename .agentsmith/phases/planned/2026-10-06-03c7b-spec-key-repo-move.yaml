@@ -28,14 +28,14 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:29"
   - claim: "One planned spec cites a done spec by its phases/ path; the planned-evidence test re-grounds moved files"
     evidence: "observed: 2026-10-01-283dk-reference-legacy-drop.yaml line 11, 2026-10-06; tests/AgentSmith.Tests/Architecture/PhaseEvidenceRuleTests.cs:24-34"
-  - claim: "CLAUDE.md, a context principle, the code map, the audit tool, the session prompt and nine docs name the old path or key"
-    evidence: "CLAUDE.md:7,14,54,84,105,123,130; .agentsmith/contexts/default/principles.md:204; tools/audit-phases.py:10; .claude/prompt.md:7,13,27; observed: grep -rl '.agentsmith/phases' docs/ — nine files, 2026-10-06"
+  - claim: "CLAUDE.md, a context principle, the code map, the audit tool, the session prompt and eight docs name the old path or key"
+    evidence: "CLAUDE.md:7,14,54,84,105,123,130; .agentsmith/contexts/default/principles.md:204; tools/audit-phases.py:10; .claude/prompt.md:7,13,27; observed: grep -rl '.agentsmith/phases' docs/ — built-by-the-method, methodology, phase-workflow, context-file, phases-and-runs, self-documentation, fix-and-feature, trigger-it/cli, 2026-10-06"
   - claim: "About 107 test files carry phase: YAML; recorded prompts under PipelineHarness/Fixtures/RecordedRuns are not validator input"
     evidence: "observed: 03c7 predecessor review grep over tests/, 2026-10-06"
 
 assumptions:
-  - claim: "No open branch adds files under .agentsmith/phases when this lands"
-    check: "list open PRs touching .agentsmith/phases; merge or rebase them first"
+  - claim: "No open branch, and no checkout, holds uncommitted or untracked files under .agentsmith/phases when this lands"
+    check: "list open PRs touching it; commit or move the untracked 2026-09-23-2446 spec in the operator's checkout first"
 
 scope:
   in: "Run migrate-specs-layout.py here; spec: in renderer, draft reader, decision label, both id readers and every YAML fixture fed to the reader or validator (recorded prompts untouched); schema $id, title, property and required; spec.schema.json re-embedded; the record path and its pointer to specs/done/; loaders, EvidencePolicy.Repository, audit tool, principles.md:204, code-map, CLAUDE.md, the session prompt and the docs; memory entries naming the path (feedback ones as proposals); design-partner-master and the pin triple."
@@ -50,7 +50,7 @@ steps:
   - id: skills
     action: "design-partner-master writes spec: and names spec.schema; release the catalog"
   - id: move
-    action: "Run migrate-specs-layout.py at the repository root; re-ground 283dk's citation"
+    action: "Run migrate-specs-layout.py at the repository root; re-ground every planned citation of a moved file (283dk line 11, 03c7a line 21)"
   - id: key
     action: "spec: in DerivedPhaseYamlRenderer, PhaseDraftReader, DecisionFileLabel, PhaseIdReader and the fixtures; edit both schemas"
   - id: paths

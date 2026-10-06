@@ -37,6 +37,7 @@ decisions:
   - carrier: "The carrying repo is the manifest's, resolved from ContextKeys.SpecRepo against the project's repos when Repos is absent. Other repos get neither file nor index line; their PR links the carrying one."
   - writer_scope: "Only the record step writes done/; a re-cut renders planned specs and never touches done/."
   - command_name: "WritePhaseRecordCommand keeps its name — it is persisted in run history; only the handler's body changes."
+  - filing_knows_head: "TicketSeries gains ExecutedThrough, set by the record step; FiledSpecBranch renders only positions after it, so an amendment never writes an executed spec back into planned/."
   - active_unused: "The product writes no spec to active/; readers count active/ as not executed."
 
 steps:
@@ -52,10 +53,11 @@ tests:
   - "RecordOutcome_SingleSandbox_MarksExecuted"
   - "RecordOutcome_NextRun_DoesNotReadReviewerEdit"
   - "Recut_AfterExecutedSpec_LeavesDoneUntouched"
+  - "Amendment_AfterExecutedSpec_WritesNoPlannedFileForIt"
   - "SeriesReader_PartlyExecuted_ReadsDoneAndPlanned"
   - "SequenceProgress_ExecutedHead_SeededDone"
 
 done:
-  - "After a two-spec run the carrier has specs/done/{base}a-*.yaml with outcome:, specs/planned/{base}b-*.yaml, and one index line"
-  - "A re-trigger after a's execution continues with b and does not re-run a"
+  - "After a two-spec run in which b fails verification the carrier has specs/done/{base}a-*.yaml with outcome:, specs/planned/{base}b-*.yaml, and one index line"
+  - "Re-triggered after that, the run continues with b and does not re-run a"
   - "Full suite and harness green"

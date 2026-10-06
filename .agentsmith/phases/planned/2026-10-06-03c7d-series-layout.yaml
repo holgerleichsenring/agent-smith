@@ -36,7 +36,7 @@ scope:
 decisions:
   - manifest_ids_only: "The manifest lists ids, never stems; a spec's label is read off its file name."
   - find_by_ticket: "The reader lists series/ and takes the manifest naming the run's ticket key; the DB row only caches the base."
-  - stale_by_manifest: "specs/planned/ is shared; stale = ids of the previous manifest missing from the new one, removed with git rm. No directory sweep."
+  - stale_by_id_prefix: "specs/planned/ is shared; stale = every planned file whose name starts with an id of the previous or current manifest and that is not in the current render — a relabelled id and an amendment's leftovers included. The reader refuses a series with two files for one id."
   - stage_what_exists: "Force-stage only paths written in this commit; removals via git rm."
   - ships_with_e: "03c7d and 03c7e go out in one pull request — executed state moves from the manifest to the directory between them."
 
@@ -48,12 +48,14 @@ steps:
   - id: git
     action: "Multi-path last-commit; stale removal by previous manifest; stage only what exists"
   - id: sources
-    action: "Remove the ticket-description source and set.yaml's source; exclude series/ from scans"
+    action: "Remove the ticket-description source and set.yaml's source; move the PhaseExecutionTests harness preset onto a spec seeded on the branch; exclude series/ from scans"
 
 tests:
   - "SeriesManifest_RoundTrip_KeepsFingerprintPinnedAndDiscarded"
   - "SeriesReader_FindsManifestByTicketKey"
   - "SeriesWriter_DroppedSpec_RemovesOnlyItsFiles"
+  - "SeriesWriter_RelabelledSpec_RemovesOldFile"
+  - "SeriesWriter_AfterAmendment_RemovesLeftovers"
   - "SeriesReader_ReviewerEditsSpecFile_ShaChanges"
   - "Filing_WritesManifestAndPlannedSpecs"
   - "SourceFileEnumerator_SeriesDir_Excluded"
