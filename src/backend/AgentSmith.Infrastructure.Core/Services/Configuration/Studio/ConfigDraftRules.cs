@@ -2,7 +2,6 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 
@@ -56,21 +55,29 @@ public sealed class ConfigDraftRules(
     /// </summary>
     public IReadOnlyList<StartupFinding> ForTracker(TrackerEntity draft)
     {
-        List<StartupFinding> findings = [];
-        try
-        {
-            ConfigStudioCapabilities.ValidateTracker(draft);
-        }
-        catch (ConfigurationException ex)
-        {
-            findings.Add(new StartupFinding(
-                StartupSubsystems.Configuration, StartupFindingSeverity.Blocking,
-                ex.Message, Field: "type"));
-        }
+        List<StartupFinding> findings = [.. RequiredFields(draft)];
         if (UndeclaredRouting(draft) is { } advisory) findings.Add(advisory);
         findings.AddRange(HostOnlyRouting(draft));
         return findings;
     }
+
+    /// <summary>
+    /// 2026-10-06-cea8: one blocking finding per empty required field, named by its own key.
+    /// Every gap used to collapse into one finding on "type", so a tracker whose type was set
+    /// told the operator its type was required. Only an unknown type is about the type.
+    /// </summary>
+    private static IEnumerable<StartupFinding> RequiredFields(TrackerEntity draft)
+    {
+        if (!ConfigStudioCapabilities.TrackerTypeNames.Contains(draft.Type, StringComparer.OrdinalIgnoreCase))
+            return [Blocking(
+                $"Tracker '{draft.Id}': unknown type '{draft.Type}' " +
+                $"(known: {string.Join(", ", ConfigStudioCapabilities.TrackerTypeNames)}).", "type")];
+        return ConfigStudioCapabilities.MissingTrackerFields(draft)
+            .Select(f => Blocking($"{f.Label} is required.", f.Key));
+    }
+
+    private static StartupFinding Blocking(string reason, string field) =>
+        new(StartupSubsystems.Configuration, StartupFindingSeverity.Blocking, reason, Field: field);
 
     /// <summary>What the save refuses, named on the field that carries it before the save.</summary>
     private static IEnumerable<StartupFinding> HostOnlyRouting(TrackerEntity draft) =>
@@ -83,7 +90,7 @@ public sealed class ConfigDraftRules(
     /// 2026-09-16-a4d7: a tracker declaring neither a label map nor a default routes every
     /// ticket to the hardcoded fallback, and nothing said so. ADVISORY, not blocking — every
     /// tracker configured before that phase is in this state and must keep saving — and it
-    /// names its own field, because the tracker findings above all say "type".
+    /// names its own field.
     /// </summary>
     private static StartupFinding? UndeclaredRouting(TrackerEntity draft)
     {

@@ -62,21 +62,28 @@ public static class ConfigStudioCapabilities
     /// </summary>
     public static void ValidateTracker(TrackerEntity tracker)
     {
+        var missing = MissingTrackerFields(tracker).Select(f => f.Key).ToList();
+        if (missing.Count > 0)
+            throw new ConfigurationException(
+                $"Tracker '{tracker.Id}' (type {tracker.Type}): missing required field(s) " +
+                $"{string.Join(", ", missing)}.");
+    }
+
+    /// <summary>
+    /// 2026-10-06-cea8: the required fields this tracker leaves empty, each on its own, so a
+    /// draft check can name every one where it lives. Throws for an unknown type.
+    /// </summary>
+    public static IReadOnlyList<CapabilityField> MissingTrackerFields(TrackerEntity tracker)
+    {
         var type = Enum.GetValues<TrackerType>()
             .Where(t => WireName(t).Equals(tracker.Type, StringComparison.OrdinalIgnoreCase))
             .Cast<TrackerType?>().FirstOrDefault()
             ?? throw new ConfigurationException(
                 $"Tracker '{tracker.Id}': unknown type '{tracker.Type}' " +
                 $"(known: {string.Join(", ", TrackerTypeNames)}).");
-
-        var missing = TrackerCapabilityFields.For(type)
+        return TrackerCapabilityFields.For(type)
             .Where(f => f.Required && string.IsNullOrWhiteSpace(FieldValue(tracker, f.Key)))
-            .Select(f => f.Key)
             .ToList();
-        if (missing.Count > 0)
-            throw new ConfigurationException(
-                $"Tracker '{tracker.Id}' (type {tracker.Type}): missing required field(s) " +
-                $"{string.Join(", ", missing)}.");
     }
 
     /// <summary>
