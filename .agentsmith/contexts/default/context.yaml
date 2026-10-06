@@ -1058,6 +1058,7 @@ state:
     2026-09-24-f962: "THE WORK-ITEM TYPE IS STATED WHEN CHOSEN AND NAMED WHEN IT BITES (resolver reports both branches, unmoved refusal names the type, work_item_kinds in the example). An unconfigured tracker files the provider default, whose status a run can never reach. -> .agentsmith/phases/done/2026-09-24-f962-work-item-type-is-visible.yaml"
   active: {}
   planned:
+    2026-10-06-cea8: "THE TRACKER DRAWER IS FIVE TABS (config studio). Fields grouped by what they decide; a missing required field is named on itself, not as type. -> .agentsmith/phases/planned/2026-10-06-cea8-tracker-drawer-tabs.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/phases/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/phases/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/phases/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
