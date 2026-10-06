@@ -21,11 +21,12 @@ public sealed class SeriesIdentityTests
     [Fact]
     public void Series_TwoTrackersSameTicketNumber_DifferentIds()
     {
-        var resolver = new SeriesResolver(new SeriesIdFactory(TimeProvider.System));
+        // Two fixed bases stand in for two mints: the claim is that the id follows the series,
+        // never the ticket number, and two random mints would collide once in 65,536 runs.
         var segments = TicketSegmenter.Segment("Rename the clients.");
 
-        var jira = Parse(TicketKey.For("jira", "1"), resolver.Resolve(null, null, null), segments);
-        var github = Parse(TicketKey.For("github", "1"), resolver.Resolve(null, null, null), segments);
+        var jira = Parse(TicketKey.For("jira", "1"), "2026-10-06-0a0a", segments);
+        var github = Parse(TicketKey.For("github", "1"), "2026-10-06-0b0b", segments);
 
         jira.Key.Should().NotBe(github.Key, "the ticket key names the tracker");
         jira.Phases[0].PhaseId.Should().NotBe(github.Phases[0].PhaseId,
