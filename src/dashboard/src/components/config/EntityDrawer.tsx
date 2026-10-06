@@ -4,6 +4,7 @@ import { useState } from "react";
 import type {
   ConfigCapabilities,
   ConfigEntityKind,
+  ConfigFinding,
   InheritedSandboxProjection,
   StudioConnection,
   StudioDesignSource,
@@ -15,6 +16,7 @@ import { ENTITY_CLIENT, ENTITY_ICON, ENTITY_SINGULAR } from "./entities";
 import { EntityForm } from "./EntityForm";
 import { requiredFieldsFilled } from "./capabilityFields";
 import { blockingFindings, useDraftFindings } from "./useDraftFindings";
+import { trackerTabFor, trackerTabTitle } from "./trackerTabs";
 import { projectIntegrity } from "./integrity";
 import { unfinishedTemplates } from "./integrity";
 import { cn } from "@/lib/utils";
@@ -160,9 +162,7 @@ export function EntityDrawer({
                 ? "Ready to create"
                 : "Ready to save"
               : blocking.length > 0
-              ? blocking[0].field
-                ? `${blocking[0].field} is required here — see the field below`
-                : blocking[0].reason
+              ? blockedMessage(kind, blocking[0], capabilities, draft)
               : kind === "projects" && !projectOk
               ? "resolve all references to save"
               : unfinished.length > 0
@@ -227,4 +227,20 @@ function typedEntityOk(
     return !!d.vendor && !!d.authSecret;
   }
   return true;
+}
+
+// 2026-10-06-cea8: the footer prints what the server said. It used to print
+// "{field} is required here" for every blocking finding — wrong for one that is not about
+// requiredness, and it read "type is required" on a tracker whose type was set. On the
+// tabbed tracker form it also names the tab the field is on.
+function blockedMessage(
+  kind: ConfigEntityKind,
+  finding: ConfigFinding,
+  capabilities: ConfigCapabilities | null,
+  draft: StudioEntity,
+): string {
+  if (kind !== "trackers" || !finding.field) return finding.reason;
+  const t = draft as StudioTracker;
+  const fields = capabilities?.trackerTypes.find((d) => d.type === t.type)?.fields ?? [];
+  return `${finding.reason} (${trackerTabTitle(trackerTabFor(finding.field, fields))} tab)`;
 }

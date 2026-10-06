@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-06-cea8
+
+decisions:
+  - category: Architecture
+    chose: "The server declares a Group per tracker field; one client table (trackerTabs.ts) maps group to tab and serves the form, the tab marks and the footer"
+    over: "A client-side key-to-tab table"
+    reason: |
+      A key table would bring back the hardcoded type knowledge capabilityFields.tsx was built to
+      remove: a newly declared field would need a TypeScript edit to be placed. A group is what the
+      field decides; which tab draws it is a layout choice, and one table keeps the three readers level.
+  - category: Implementation
+    chose: "The outcome block reuses CapabilityFieldInputs inside a bordered group with a heading, not a hand-built table of inputs"
+    over: "A table of bespoke row inputs"
+    reason: |
+      Rows built by hand would have to restate the form-field-{key} test ids and the per-field finding
+      display that FieldSlot already gives every field; reusing the inputs keeps that contract by construction.
+  - category: Implementation
+    chose: "MissingTrackerFields returns the CapabilityField records, not just keys"
+    over: "Returning keys and looking labels up again in ConfigDraftRules"
+    reason: |
+      The draft finding's reason names the field by its label ("Account email is required."), which the
+      record already carries. ValidateTracker projects to keys and keeps its message byte-for-byte.
+  - category: Implementation
+    chose: "TrackerPollingBlock moved to its own file"
+    over: "Exporting it from EntityForm"
+    reason: |
+      EntityForm imports TrackerForm; TrackerForm importing back from EntityForm would be a cycle.
+  - category: Scope
+    chose: "The footer names the tab in text and does not switch to it"
+    over: "Lifting the tab state into EntityDrawer so the footer can link"
+    reason: |
+      The spec's scope left the link out; the ▲ on the tab already shows where to go.
