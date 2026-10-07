@@ -21,57 +21,74 @@ facts:
     evidence: "src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:59; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:223-228"
   - claim: "A model once read absence from a list that said it was cut (485e)."
     evidence: ".agentsmith/phases/done/2026-09-24-485e-premise-search-proves-presence.yaml:3,24"
+  - claim: "The Anthropic SDK sends a string tool result as-is and JSON-serializes anything else, escaping quotes, newlines and tabs — so a JsonElement-wrapped 512 KB lockfile with line numbers reaches the wire near 1 MB."
+    evidence: "observed: 2026-10-07, decompiled Anthropic.SDK 5.10.0 tool-result mapping and Microsoft.Extensions.AI 10.3.0 AIFunctionFactory return marshalling"
+  - claim: "The skill loop wraps every tool in BoundedResultAIFunction at the same 100,000, and tests pin its marker."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:150-156; tests/AgentSmith.Tests/Loop/BoundedResultAIFunctionTests.cs:19,27,40"
+  - claim: "Replay and eval factories build a plain function-invoking client, not the factory's."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ReplayChatClientFactory.cs:30"
   - claim: "Infrastructure does not reference Application."
     evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:4-6"
-  - claim: "observed 2026-10-06: a design turn on a TypeScript repo grew by ~1.04M characters in one tool step, 0.5 s after the call, and was refused; its repo holds lockfiles of 450 KB and 512 KB."
-    evidence: "observed: run 2026-10-06T09-59-19-2892 trail (LLM calls 3→4); node-service-template checkout"
+  - claim: "observed 2026-10-06: a design turn's estimated prompt rose to ~276k tokens (~1.1M characters at 4 per token) in one tool step 0.5 s long, and was refused; its repo holds lockfiles of 450 KB and 512 KB."
+    evidence: "observed: 2026-10-06, run 2026-10-06T09-59-19-2892 trail (LLM calls 3 to 4) and the repository checkout"
 
 assumptions:
-  - claim: "Because of the JsonElement marshalling, the skill-loop bound cuts nothing today."
-    check: "A test invoking BoundedResultAIFunction over an AIFunctionFactory tool returning 200k characters; the step that moves the bound fixes it either way."
-  - claim: "FunctionInvokingChatClient.InvokeFunctionAsync is overridable in the pinned Microsoft.Extensions.AI 10.3.0."
-    check: "Build after the override step."
+  - claim: "Handing a plain string instead of a JSON string changes no consumer that reads FunctionResultContent.Result (events, image relay, compaction estimator)."
+    check: "Factory_JsonStringResult_ReachesInnerClientAsString plus the full suite."
 
 scope:
   in: >
-    The head-and-tail bound moves to Contracts as ToolResultBound (string or JSON-string result in,
-    bounded result out), and the function-invoking client applies it to every result before the
-    result enters the history. BoundedResultAIFunction calls it, so the skill loop is bounded for
-    JSON-string results too. The cut text adds a read_file paging hint.
+    The head-and-tail bound moves to Contracts as ToolResultBound: a string or JSON-string result
+    comes out as a plain string; over budget it is cut so the WHOLE output, marker included, fits.
+    Text within budget comes back unchanged; a caller that holds only part of a longer output may
+    pass its known total. Recut shrinks to a smaller budget, keeping the total a marker states —
+    its own or BoundedResultTool's head-only "of Y characters omitted" — or acting as Apply on
+    unmarked text (6b9dc uses it). The function-invoking client
+    applies it to every result before it enters the history; BoundedResultAIFunction calls it.
+    The marker names dropped and total characters, says what is not shown may exist, and how to
+    page (read_file start_line/line_count, narrower pattern or path).
   out: >
-    run_command's own section budgets (2026-10-07-6b9db). The finaliser and the refusal text
-    (2026-10-07-6b9dc). Tool results in the trace — a phase of its own. Per-surface bounds stay
-    (scout 40,000, spec reads 16,000, audit 12,000); this bound is the ceiling above them.
+    run_command's section budgets (6b9db). The finaliser and refusal text (6b9dc). Tool results in
+    the trace — its own phase. Replay and eval factories (ReplayChatClientFactory.cs:30,
+    ToolLoopChatFactory, AccountEvalChatFactory) keep their plain loop: they replay or score, they
+    do not serve a run. Per-surface bounds stay as the tighter ceilings below this one.
 
 decisions:
-  - key: "ONE BOUND IN THE LOOP, NOT PER SURFACE. p0422 asked for one decorator over all tools; a per-surface wrap missed the design dialog. The loop is the one place every surface passes."
-  - key: "100,000 CHARACTERS, HEAD AND TAIL (p0422). A source file of 2,500 lines passes whole; a lockfile keeps its head, its tail and the means to read any range. Head-only cuts lost a build's verdict (p0419)."
-  - key: "THE CUT SAYS IT IS NOT AN INVENTORY. 485e: a model read absence from a cut list; the marker states the middle was dropped and that what is not shown may exist."
-  - key: "NO SIZE BY WINDOW. A per-result bound from the window would vary by deployment; folding the whole conversation stays compaction's job."
+  - key: "ONE BOUND IN THE LOOP, NOT PER SURFACE. p0422 asked for one decorator over all tools; a per-surface wrap missed the design dialog."
+  - key: "100,000 CHARACTERS, HEAD AND TAIL (p0422). A 2,500-line source file passes whole; a lockfile keeps head, tail and a way to read any range. Head-only cuts lost a build verdict (p0419)."
+  - key: "PLAIN STRING ON THE WIRE. JSON escaping inflated the observed result to about twice its text; passing the text as a string removes that for every result, cut or not, and is what the estimator already measures."
+  - key: "IDEMPOTENT. Skill loop and tool loop both bound at 100,000; a second cut of a cut result would replace the true total and the paging hint with a wrong one."
+  - key: "THE CUT SAYS IT IS NOT AN INVENTORY (485e)."
+  - key: "MEASURES SHIFT. Skill-loop result lengths (ToolArgumentFacts, ToolResultEvent) now count plain text, not escaped JSON, and the bound reporter fires for factory tools it never saw."
 
 steps:
   - id: bound
-    action: "Create ToolResultBound in Contracts with Bound(string, int) and Apply(object?, int) handling string and JSON-string results; marker names dropped/total, says what is not shown may exist, and how to page."
+    action: "Create ToolResultBound in Contracts: Apply(object?, int) returns a plain string, cut head+tail with the marker inside the budget; Recut(string, int) keeps the stated total."
     new:
-      - "ToolResultBound: head+tail bound, default 100,000"
+      - "ToolResultBound: idempotent head+tail bound, default 100,000"
   - id: skill-loop
-    action: "Make BoundedResultAIFunction call ToolResultBound.Apply and delete its own Bound."
+    action: "Make BoundedResultAIFunction call ToolResultBound.Apply, delete its Bound, migrate BoundedResultAIFunctionTests to the new marker."
     modify:
       - "BoundedResultAIFunction: JSON-string results bounded"
   - id: loop
-    action: "Override InvokeFunctionAsync in ToolImageFunctionInvokingChatClient to bound the result; log tool name, total and kept when it cuts."
+    action: "Override InvokeFunctionAsync in ToolImageFunctionInvokingChatClient to apply ToolResultBound; log tool name, total and kept when it cuts."
     modify:
       - "ToolImageFunctionInvokingChatClient: every result bounded"
 
 tests:
-  - "Bound_UnderBudget_ReturnsUnchanged"
-  - "Bound_OverBudget_KeepsHeadAndTailAndNamesDropped"
-  - "Apply_JsonStringResult_IsBounded"
+  - "Apply_UnderBudget_ReturnsSameText"
+  - "Apply_OverBudget_OutputWithinBudgetKeepsHeadTailNamesTotal"
+  - "Apply_WithinBudget_IsUnchanged"
+  - "Recut_BoundedText_KeepsOriginalTotalAndOneMarker"
+  - "Recut_UnmarkedText_BehavesAsApply"
+  - "Recut_HeadOnlyCutText_KeepsItsStatedTotal"
+  - "Apply_KnownTotal_MarkerStatesIt"
+  - "Apply_JsonStringResult_ReturnsPlainString"
   - "BoundedResultAIFunction_FactoryToolReturning200k_IsBounded"
-  - "ToolLoop_ReadFileReturning1MB_ModelReceivesBoundedResult"
-  - "ToolLoop_SmallResult_ReachesModelUnchanged"
+  - "Factory_JsonStringResult_ReachesInnerClientAsString"
+  - "ToolLoop_ReadFileReturning1MB_ModelReceivesBoundedPlainString"
 
 done:
-  - "A 1 MB tool result reaches the provider as ≤ 100,000 characters plus the marker, in master, scout and spec-dialog loops (harness test through the real factory)."
-  - "A result under the bound is byte-identical to today."
+  - "Through the real ChatClientFactory with a capturing builder, a 1 MB tool result reaches the inner client as a string of ≤ 100,000 characters naming the true total (an image-relay note after it excepted)."
+  - "A result under the bound reaches it as a string with the same text."
   - "Full suite green."

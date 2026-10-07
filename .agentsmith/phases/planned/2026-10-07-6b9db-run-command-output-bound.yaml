@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../../phase-spec.schema.json
 phase: 2026-10-07-6b9db
-goal: "run_command hands the model stdout and stderr each within its own budget, head and tail kept and the cut named, and the trail counts both as delivered."
+goal: "The model's run_command returns stdout and stderr each within its own budget, head and tail kept and the cut named, and stderr is still collected when stdout overflows."
 
-applies_to: "backend (run_command rendering, streamed output, sandbox result event)"
+applies_to: "backend (run_command rendering, streamed output)"
 
 requires: [2026-10-07-6b9da]
 
@@ -15,25 +15,42 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Events/SandboxEventProjector.cs:93"
   - claim: "observed 2026-10-06: two service runs on a TypeScript monorepo ran `npm test` (OutputChars ~984,800, DeliveredChars ~15,700); the next model call grew by 470,816 and 481,602 tokens — jest writes to stderr."
     evidence: "observed: archive 2026-10-06, runs 2026-09-05T19-22-17-a81d (events 702-707) and 2026-09-08T11-28-15-989e (events 773-778)"
+  - claim: "RunCommandOutput.Render also serves RunProgramAsync, behind find_files and http_request, whose stdout find_files parses line by line."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:80-109; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:315-318,444-447"
+  - claim: "The sandbox agent captures at most 1,000,000 stdout characters into the body, with no flag."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:62-63,90"
+  - claim: "RunAsync's text is parsed by the toolchain probe and the phase command log (section labels, a leading exit_code), and tool descriptions promise a truncated header."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxToolchainProbe.cs:58; src/backend/AgentSmith.Application/Services/Sandbox/ToolchainCapabilityLine.cs:35-36; src/backend/AgentSmith.Application/Services/Specs/PhaseCommandLog.cs:92-95; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:503; src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs:32,42"
+  - claim: "Tests pin today's header and marker."
+    evidence: "tests/AgentSmith.Tests/Tools/RunCommandOutputTests.cs:69-70; tests/AgentSmith.Tests/Tools/FilesystemToolHostRunCommandTests.cs:28"
+  - claim: "The projector sits at its file-length baseline and does not know a line's stream."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:74; src/backend/AgentSmith.Application/Services/Events/ProjectingProgress.cs:27"
   - claim: "A build's reason is at the END of its output, often on stdout; a head-only cut lost it (p0419)."
     evidence: ".agentsmith/phases/done/p0419-step-failure-cause.yaml:24,30,52"
 
 scope:
   in: >
-    RunCommandOutput bounds stdout and stderr separately, head and tail, with ToolResultBound
-    (2026-10-07-6b9da): stdout 60,000, stderr 20,000 — together under the loop bound, so the loop
-    never cuts across the two sections. The header names each section's total and whether it was
-    cut. StreamedStepOutput keeps a head and a rolling tail per stream with its own flag, so a
-    stderr past 1 MB still yields its last lines. DeliveredChars counts the bounded stdout plus
-    the bounded stderr.
+    For SandboxStepRunner.RunAsync (run_command, the reference command, the toolchain probe), RunCommandOutput bounds stdout
+    and stderr separately with ToolResultBound (2026-10-07-6b9da): stdout 60,000, stderr 20,000 —
+    together under the loop bound, so the loop never cuts across the two sections. The header
+    keeps exit_code first, both section labels and an aggregate truncated line, and adds each
+    section's total; no marker contains "\nstderr:". Each section passes its counted total to
+    ToolResultBound. A body at the agent's 1,000,000-character capture cap takes its tail and
+    total from the stream when the stream counted more; otherwise it keeps the body's head and
+    says the tail was not captured and the total is at least the cap. The error line is bounded at
+    8,000 (the agent's OutputTail keeps a last line whole, Sandbox.Agent/Services/OutputTail.cs:31). RunProgramAsync (find_files, http_request) keeps
+    today's render with stdout-or-stderr as its one flag. StreamedStepOutput keeps a head and a
+    rolling tail per stream with its own flag, so a stderr past 1 MB still yields its last lines.
   out: >
-    VerifyCommandRunner and OutputTail cut tail-only with no marker; they do not reach the model
-    loop and are named for a later phase. Per-tool bounds beyond run_command (6b9da).
+    DeliveredChars counting stderr: the projector is at its length baseline, cannot tell the
+    model's run_command from find_files (both StepKind.Run) nor a line's stream — a counter phase
+    of its own. VerifyCommandRunner and OutputTail cut tail-only without a marker; they do not
+    reach the model loop — a later phase.
 
 decisions:
-  - key: "STDERR IS AN EXCERPT, STDOUT THE CONTENT. Stderr carries progress, warnings and a failure's cause; 20,000 head and tail keeps the first error and the summary. Stdout is what a command was asked for and gets the larger share."
-  - key: "SECTION BUDGETS SUM BELOW THE LOOP BOUND. Left to the loop bound alone, a cut through the middle of the rendered text would drop stdout's tail and stderr's head together."
-  - key: "COUNTERS FROM THE SAME BUDGETS. DeliveredChars is computed from the constants RunCommandOutput applies, so the trail cannot claim less than the model received (the 15,700 vs ~480k gap)."
+  - key: "STDERR IS AN EXCERPT, STDOUT THE CONTENT. 20,000 head and tail keeps stderr's first error and its summary."
+  - key: "SECTION BUDGETS SUM BELOW THE LOOP BOUND. Left to the loop bound, a middle cut of the rendered text would drop stdout's tail and stderr's head together."
+  - key: "NOT FOR find_files. A head+tail cut of a path list leaves half-cut paths and a marker parsed as a path — the 485e shape."
 
 steps:
   - id: budgets
@@ -41,28 +58,29 @@ steps:
     modify:
       - "SizeLimits: two section budgets"
   - id: stream
-    action: "Make StreamedStepOutput keep head and rolling tail per stream with a per-stream flag and total."
+    action: "Make StreamedStepOutput keep head and rolling tail per stream with a per-stream flag and counted total."
     modify:
       - "StreamedStepOutput: head+tail per stream"
   - id: render
-    action: "Bound stdout and stderr in RunCommandOutput with ToolResultBound; header carries stdout_chars/stderr_chars and per-section truncated."
+    action: "Add a bounded render used by RunAsync only: stdout and stderr through ToolResultBound, header with stdout_chars/stderr_chars and per-section truncated; migrate the pinned tests."
     modify:
-      - "RunCommandOutput: two bounded sections"
-  - id: counter
-    action: "Count stderr characters in the projector and set DeliveredChars to bounded stdout + bounded stderr."
-    modify:
-      - "SandboxEventProjector: delivered counts stderr"
+      - "RunCommandOutput: bounded sections for run_command"
+      - "SandboxStepRunner.RunAsync: uses the bounded render"
 
 tests:
   - "Render_StderrOf1MB_KeepsHeadAndTailWithin20000"
   - "Render_StdoutOver60000_KeepsTailWithBuildVerdict"
-  - "Render_SmallOutput_IsUnchangedButForCountHeaders"
+  - "Render_SmallOutput_SameTextAndCountHeaders"
+  - "Render_StdoutPastBodyCap_TailAndTotalFromStream"
+  - "Render_BodyAtCapStreamShort_SaysTailNotCaptured"
+  - "Render_ErrorLineOf200k_BoundedAt8000"
+  - "Render_Bounded_ToolchainProbeAndPhaseLogStillParse"
+  - "RunProgram_FindFilesOutput_IsNotSectionBounded"
   - "StreamedStepOutput_StdoutFull_StderrStillCollected"
   - "StreamedStepOutput_StderrPast1MB_KeepsLastLines"
-  - "Projector_StderrHeavyCommand_DeliveredCountsStderr"
 
 done:
-  - "A command printing 1 MB to stderr reaches the model as ≤ 20,000 stderr characters with head, tail and the dropped count."
+  - "A run_command printing 1 MB to stderr reaches the model as ≤ 20,000 stderr characters with head, tail and the dropped count."
   - "A failing build whose verdict is the last stdout line still shows it."
-  - "DeliveredChars ≥ the characters of both sections the model received."
+  - "find_files and http_request output unchanged."
   - "Full suite green."
