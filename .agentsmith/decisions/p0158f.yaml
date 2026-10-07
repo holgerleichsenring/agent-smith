@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158f: Per-repo bootstrap + context loading
-phase: p0158f
+spec: p0158f
 decisions:
   - category: Architecture
     chose: "**Path mechanics correction from spec: per-repo bootstrap reads `/work/.agentsmith/...` IN EACH repo's per-repo sandbox (post-p0158e), not `/work/{name}/.agentsmith/...` in one shared sandbox.** The original p0158f spec was written pre-p0158e assuming the single-sandbox `/work/{name}/` layout. After p0158e each repo has its OWN sandbox where `/work` is the repo root; per-repo distinction is via `Sandboxes[name]` dispatch, not path-prefixing inside the sandbox. BootstrapCheck / LoadContext / LoadCodingPrinciples / AnalyzeProject / TestHandler all iterate `ContextKeys.Repos` and for each repo grab `Sandboxes[repo.Name]`, then read/write at the legacy single-sandbox-relative path."

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0039: Legal Analysis Pipeline
-phase: p0039
+spec: p0039
 decisions:
   - category: TradeOff
     chose: MarkItDown preprocessing over direct PDF to Claude

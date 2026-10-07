@@ -26,7 +26,7 @@ public sealed class ApprovedSpecSetResolverTests
         var record = ApprovedSets.Record(Key, ApprovedSets.Noon);
         var pipeline = Carrying(SpecApprovalJson.Write(record));
 
-        var resolved = await Resolver(ApprovedSetDoubles.Store()).ResolveAsync(pipeline, new SpecSetKey(Key), default);
+        var resolved = await Resolver(ApprovedSetDoubles.Store()).ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved.Should().NotBeNull();
         resolved!.Key.Should().Be(Key);
@@ -41,7 +41,7 @@ public sealed class ApprovedSpecSetResolverTests
         await store.SaveAsync(ApprovedSets.Record(Key, ApprovedSets.Noon), default);
 
         var resolved = await Resolver(store).ResolveAsync(
-            Run("sample", ApprovedSets.Tracker), new SpecSetKey(Key), default);
+            Run("sample", ApprovedSets.Tracker), new TicketKey(Key), default);
 
         resolved.Should().NotBeNull("a process that has a store repairs a request nobody built a context for");
         resolved!.Approval!.At.Should().Be(ApprovedSets.Noon);
@@ -55,7 +55,7 @@ public sealed class ApprovedSpecSetResolverTests
             ApprovedSets.Record(Key, ApprovedSets.Noon.AddHours(2), conversation: "session-2"), default);
         var pipeline = Carrying(SpecApprovalJson.Write(ApprovedSets.Record(Key, ApprovedSets.Noon)));
 
-        var resolved = await Resolver(store).ResolveAsync(pipeline, new SpecSetKey(Key), default);
+        var resolved = await Resolver(store).ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved!.Approval!.Conversation.Should().Be("session-2",
             "a queue entry freezes its context when the candidate is built, so the carried copy can be stale");
@@ -71,7 +71,7 @@ public sealed class ApprovedSpecSetResolverTests
         var pipeline = Carrying(SpecApprovalJson.Write(ApprovedSets.Record("azdo-999", ApprovedSets.Noon)));
 
         var resolved = await Resolver(ApprovedSetDoubles.Store())
-            .ResolveAsync(pipeline, new SpecSetKey(Key), default);
+            .ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved.Should().BeNull(
             "a re-used queue row must not make this run work to another ticket's specification");
@@ -88,7 +88,7 @@ public sealed class ApprovedSpecSetResolverTests
         var pipeline = Carrying(SpecApprovalJson.Write(elsewhere));
 
         var resolved = await Resolver(ApprovedSetDoubles.Store())
-            .ResolveAsync(pipeline, new SpecSetKey(Key), default);
+            .ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved.Should().BeNull(
             "two tracker instances numbering a ticket alike are different work");
@@ -107,7 +107,7 @@ public sealed class ApprovedSpecSetResolverTests
         pipeline.Set(ContextKeys.ApprovedSpecSet, JsonSerializer.SerializeToElement(json));
 
         var resolved = await Resolver(ApprovedSetDoubles.Store())
-            .ResolveAsync(pipeline, new SpecSetKey(Key), default);
+            .ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved.Should().NotBeNull("the queue round-trip is the normal shape, not an edge case");
         resolved!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p0001a");
@@ -137,8 +137,8 @@ public sealed class ApprovedSpecSetResolverTests
         pipeline.Set(ContextKeys.TrackerPlatform, "AzureDevOps".ToLowerInvariant());
         var ticket = new Ticket(new TicketId("19106"), "t", "d", null, "open", "azdo", []);
 
-        SpecSetKeyFactory.For(ticket, pipeline).Value
-            .Should().Be(SpecSetKey.For("azuredevops", "19106").Value);
+        TicketKeyFactory.For(ticket, pipeline).Value
+            .Should().Be(TicketKey.For("azuredevops", "19106").Value);
     }
 
     /// <summary>
@@ -155,9 +155,9 @@ public sealed class ApprovedSpecSetResolverTests
             ApprovedSets.Record(Key, ApprovedSets.Noon, ["p0009z"], tracker: "a-second-azdo"), default);
         var resolver = Resolver(store);
 
-        var first = await resolver.ResolveAsync(Run("project-a", ApprovedSets.Tracker), new SpecSetKey(Key), default);
-        var second = await resolver.ResolveAsync(Run("project-b", ApprovedSets.Tracker), new SpecSetKey(Key), default);
-        var elsewhere = await resolver.ResolveAsync(Run("project-c", "a-second-azdo"), new SpecSetKey(Key), default);
+        var first = await resolver.ResolveAsync(Run("project-a", ApprovedSets.Tracker), new TicketKey(Key), default);
+        var second = await resolver.ResolveAsync(Run("project-b", ApprovedSets.Tracker), new TicketKey(Key), default);
+        var elsewhere = await resolver.ResolveAsync(Run("project-c", "a-second-azdo"), new TicketKey(Key), default);
 
         first!.Set.Phases[0].PhaseId.Should().Be("p0001a");
         second!.Set.Phases[0].PhaseId.Should().Be("p0001a",

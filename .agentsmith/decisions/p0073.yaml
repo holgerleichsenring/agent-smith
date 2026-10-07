@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0073: Class Size Enforcement
-phase: p0073
+spec: p0073
 decisions:
   - category: Implementation
     chose: CI gate starts non-blocking, flip to blocking after Tier 1+2

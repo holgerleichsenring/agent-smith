@@ -53,7 +53,7 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
     /// <param name="vocabulary">The ticket's own tracker's label names: a renamed stamp holds the
     /// ticket exactly as the default one does.</param>
     public SpecHandback? MissingSet(
-        Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state,
+        Ticket ticket, TicketKey key, SpecApprovalRecord? record, SpecSetBranchState state,
         TicketLabelVocabulary vocabulary)
     {
         ArgumentNullException.ThrowIfNull(ticket);

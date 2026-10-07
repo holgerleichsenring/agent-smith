@@ -8,7 +8,7 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// 2026-09-18-c1a7: UNIQUE(Project, TicketId) — the record answers "will the next claim fail
 /// the same way", so a second failure overwrites the first rather than stacking. Indexed
-/// strings capped for MySQL utf8mb4, like TicketSpecSet.
+/// strings capped for MySQL utf8mb4, like TicketSeries.
 /// </summary>
 public sealed class UnmovedTicketConfiguration : IEntityTypeConfiguration<UnmovedTicket>
 {

@@ -73,7 +73,7 @@ internal sealed partial class PhaseSpecFile
     [
         .. Directory
             .EnumerateFiles(
-                System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "phases"),
+                System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "specs"),
                 "*.yaml", SearchOption.AllDirectories)
             .Select(FromPath)
             .OrderBy(file => file.Path, StringComparer.Ordinal),
@@ -90,12 +90,12 @@ internal sealed partial class PhaseSpecFile
 
     /// <summary>
     /// 2026-09-03-2f81: the same stem reading, over a NAME rather than a file on disk, so a
-    /// rule about how a name is read can be proven without writing one into the phases
+    /// rule about how a name is read can be proven without writing one into the specs
     /// directory. Reuses FromPath deliberately — a second copy of the reading would be the
     /// thing that agrees with the rule while the reader does not.
     /// </summary>
     internal static PhaseSpecFile ForStem(string stem) =>
-        FromPath(System.IO.Path.Combine("phases", stem + ".yaml"));
+        FromPath(System.IO.Path.Combine("specs", stem + ".yaml"));
 
     private static JsonNode? Parse(string path)
     {

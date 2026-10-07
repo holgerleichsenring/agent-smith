@@ -1,16 +1,11 @@
-using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
-using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Tests.Architecture;
-using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -21,7 +16,7 @@ namespace AgentSmith.Tests.Specs;
 /// context it changed. The pointer has shipped since p0315d and the index never did, so the
 /// chronicle existed as loose files nobody assembled.
 /// <para>
-/// Every case runs the real handler against a REAL sandbox on a real temp directory: "left
+/// Every case runs the real index writer against a REAL sandbox on a real temp directory: "left
 /// byte-identical" and "no pointer without its line" are only checkable on a disk.
 /// </para>
 /// </summary>
@@ -31,7 +26,7 @@ public sealed class PhaseIndexLineTests : IDisposable
     private const string PhaseId = "2026-08-26-31e5";
     private const string Goal = "A finished phase is recorded in its context";
     private const string Pointer =
-        ".agentsmith/phases/done/2026-08-26-31e5-a-finished-phase-is-recorded-in-its-context.yaml";
+        ".agentsmith/specs/done/2026-08-26-31e5-a-finished-phase-is-recorded-in-its-context.yaml";
 
     private const string Seeded = """
         # yaml-language-server: $schema=../../context.schema.json
@@ -41,7 +36,7 @@ public sealed class PhaseIndexLineTests : IDisposable
           Redis:  { type: bidirectional, does: "Job queue" }
         state:
           done:
-            p0001: "shipped the first thing -> .agentsmith/phases/done/p0001.yaml"
+            p0001: "shipped the first thing -> .agentsmith/specs/done/p0001.yaml"
           active: {}
         """;
 
@@ -127,8 +122,7 @@ public sealed class PhaseIndexLineTests : IDisposable
         entry.Length.Should().BeLessThanOrEqualTo(PhaseRecordIndexLine.MaxChars,
             "the line is composed to fit — the record step runs AFTER the work is committed, "
             + "so refusing it would fail a run nobody could go back and shorten");
-        // The pointer's slug comes from the goal, so this goal names a different file.
-        entry.Should().Contain($" -> .agentsmith/phases/done/{PhaseId}-");
+        entry.Should().EndWith($" -> {Pointer}");
         var head = entry[..entry.IndexOf('…')];
         goal.Should().StartWith(head);
         goal[head.Length].Should().Be(' ', "the goal is cut at a word boundary, not mid-word");
@@ -143,31 +137,6 @@ public sealed class PhaseIndexLineTests : IDisposable
 
         ContextSchemaFile.Validate(Text(repo)).Should().BeEmpty(
             "a section this step creates in a customer's repository has to be a valid one");
-    }
-
-    [Fact]
-    public async Task Record_ARunWithNoPhaseSpec_WritesNoLine()
-    {
-        var repo = Repo("app", "default", Seeded);
-
-        await Run([repo], goal: null);
-
-        Text(repo).Should().Be(Seeded, "no spec, no record file, no line — the existing rule");
-    }
-
-    [Fact]
-    public async Task Record_AMultiRepoRun_LeavesNoPointerWithoutItsLine()
-    {
-        var first = Repo("app", "default", Seeded);
-        var second = Repo("worker", "default", Seeded);
-
-        await Run([first, second]);
-
-        foreach (var repo in new[] { first, second })
-        {
-            File.Exists(Path.Combine(repo.WorkDir, Pointer)).Should().BeTrue($"{repo.Name} got the pointer");
-            Done(repo).Should().ContainKey(PhaseId, $"{repo.Name} got the line that names it");
-        }
     }
 
     [Fact]
@@ -218,54 +187,36 @@ public sealed class PhaseIndexLineTests : IDisposable
 
     private static Dictionary<object, object?> Done(Target repo) => Section(repo, "state", "done");
 
-    private static async Task Run(IReadOnlyList<Target> targets, string? goal = Goal)
+    // 2026-10-06-03c7e: the record step writes the line into the carrying repository only, so
+    // the line's shape is pinned at the writer the step calls.
+    private static async Task Run(IReadOnlyList<Target> targets, string goal = Goal)
     {
         var sandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal);
         var discoveries = new Dictionary<string, RemoteContextDiscovery>(StringComparer.Ordinal);
-        var owners = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var target in targets)
         {
             sandboxes[target.Name] = new InProcessSandbox(
                 target.Name, target.WorkDir, ownsWorkDir: false, NullLogger.Instance);
             discoveries[target.Name] = new RemoteContextDiscovery(target.ContextName, ".", "C#");
-            owners[target.Name] = target.Name;
         }
 
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, "2026-08-26T09-00-00-31e5");
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, sandboxes);
         pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
             ContextKeys.SandboxDiscoveries, discoveries);
-        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, owners);
-        pipeline.Set<IReadOnlyList<RepoConnection>>(
-            ContextKeys.Repos, [.. targets.Select(t => new RepoConnection { Name = t.Name })]);
-        pipeline.Set(ContextKeys.Sandbox, sandboxes.Values.First());
-        if (goal is not null)
-            pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(
-                PhaseId, goal, $"phase: {PhaseId}\ngoal: \"a finished phase\"\n", []));
-
-        var context = new WritePhaseRecordContext(
-            new Repository(new BranchName("main"), "https://example.invalid/sample.git"), pipeline);
-        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
-        result.IsSuccess.Should().BeTrue(result.Message);
-        foreach (var sandbox in sandboxes.Values) await sandbox.DisposeAsync();
+        var line = new PhaseRecordIndexLine().Compose(goal, Pointer)!;
+        foreach (var (key, sandbox) in sandboxes)
+        {
+            var written = await Writer().WriteAsync(
+                pipeline, sandbox, key, Repository.SandboxWorkPath, PhaseId, line, CancellationToken.None);
+            written.Should().NotBeNull();
+            await sandbox.DisposeAsync();
+        }
     }
 
-    private static WritePhaseRecordHandler Handler()
-    {
-        var factory = new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory();
-        var targets = new SandboxTargets();
-        return new WritePhaseRecordHandler(
-            factory,
-            new ExecutedPhaseMarker(null!, null!, NullLogger<ExecutedPhaseMarker>.Instance),
-            new PhaseRecordPublisher(EventTestStubs.Recording()),
-            new PhaseRecordIndexLine(),
-            new PhaseIndexWriter(
-                factory,
-                new ContextYamlStateDoneCodec(new ContextYamlBuilders()),
-                targets,
-                NullLogger<PhaseIndexWriter>.Instance),
-            targets,
-            NullLogger<WritePhaseRecordHandler>.Instance);
-    }
+    private static PhaseIndexWriter Writer() => new(
+        new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory(),
+        new ContextYamlStateDoneCodec(new ContextYamlBuilders()),
+        new SandboxTargets(),
+        NullLogger<PhaseIndexWriter>.Instance);
 }

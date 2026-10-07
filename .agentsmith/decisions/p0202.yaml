@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0202: install-dependencies step + aggregation fixes
-phase: p0202
+spec: p0202
 decisions:
   - category: Implementation
     chose: InstallCommand lives on CiConfig, sourced from project-map.json via ProjectMapJsonReader

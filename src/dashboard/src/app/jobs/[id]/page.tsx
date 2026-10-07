@@ -500,9 +500,9 @@ function StepDetail({
       {railNode?.label === ANALYZE_STEP_LABEL && <AnalyzeMarkdownSection runId={runId} />}
     </>
   );
-  // p0395: a spliced phase step names its phase ONCE, in the breadcrumb — the
+  // p0395: a spliced spec step names its spec ONCE, in the breadcrumb — the
   // title carries the clean step name (the rail already stripped the prefix).
-  const parentLabel = railNode?.phaseId ? `Phase ${railNode.phaseId}` : null;
+  const parentLabel = railNode?.phaseId ? `Spec ${railNode.phaseId}` : null;
   return <DetailPane node={node} parentLabel={parentLabel} footer={footer} lead={lead} />;
 }
 

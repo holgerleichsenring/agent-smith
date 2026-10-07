@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-03-cf20b
+goal: "The principles catalog gains framework overlays — files that declare the manifest signals proving a framework — and a Spark overlay holding only rules Spark's docs state as rules."
+
+applies_to: "skills catalog (principles/OVERLAY-FORMAT.md, DELTA-FORMAT.md, principles/frameworks/spark.md, validate-skills.sh)"
+
+requires: []
+
+facts:
+  - claim: "The catalog composes a core and one language delta, and DELTA-FORMAT says so; nothing describes a framework."
+    evidence: "agent-smith-skills:principles/DELTA-FORMAT.md; src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:42-55"
+  - claim: "Discovery records one language per component and no framework; ProjectMap.Frameworks is repository-wide free text."
+    evidence: "src/backend/AgentSmith.Contracts/Models/DiscoveredComponent.cs:20-24; src/backend/AgentSmith.Domain/Models/ProjectMap.cs:11"
+  - claim: "A component's Workdir is its governing manifest's directory, or where there is none the directory its evidence sits in."
+    evidence: "src/backend/AgentSmith.Contracts/Models/DiscoveredComponent.cs:17"
+  - claim: "The planned Python delta defers dbt, warehouse and notebook conventions as principles a domain carries of its own."
+    evidence: "observed: planned phase 2026-08-28-2989 (scope out), 2026-10-03"
+  - claim: "The Spark RDD guide states: mutating driver-side variables in closures is undefined; reduce functions must be commutative and associative; a broadcast value should not be modified; accumulator updates are exactly-once only inside actions."
+    evidence: "observed: spark.apache.org/docs/latest/rdd-programming-guide.html, read 2026-10-03"
+  - claim: "SparkContext should only be created and accessed on the driver, one active per JVM; Spark treats a UDF as deterministic unless it is marked asNondeterministic."
+    evidence: "observed: apache/spark core SparkContext.scala (assertOnDriver, scaladoc) and the pyspark.sql.functions.udf docs, read 2026-10-03"
+  - claim: "The Palantir PySpark guide requires an explicit window frame, because Spark derives the default frame from whether the window is ordered, and F.lit(None) rather than '' or 'NA' for an empty column."
+    evidence: "observed: github.com/palantir/pyspark-style-guide, read 2026-10-03"
+
+assumptions:
+  - claim: "Databricks projects commonly declare databricks-connect instead of pyspark, and Gradle version catalogs keep Spark's coordinates in gradle/libs.versions.toml."
+    check: "Open the Databricks Asset Bundle default-python template and a Gradle catalog example before writing the signals."
+
+scope:
+  in: >
+    OVERLAY-FORMAT.md: principles/frameworks/<slug>.md with a marker line; '## Detection' holding one fenced yaml
+    list of {file: a name or glob, or a path relative to the component root without a rooted path or '..',
+    contains: text the file must hold}; marker '<!-- agentsmith:principles-overlay <slug> v1 -->', slug = file name; '## Rules' with
+    '### All languages' and subsections named by delta slug; '## Artefacts' stating none. Any signal applies the
+    overlay. The C# reader (2026-10-03-cf20c) is authoritative; validate-skills checks the shape with grep.
+    DELTA-FORMAT names overlays as the third layer. spark.md signals: org.apache.spark in build.sbt, pom.xml,
+    build.gradle, build.gradle.kts, gradle/libs.versions.toml; pyspark or databricks-connect in requirements*.txt,
+    pyproject.toml, setup.py, setup.cfg. Substring matching may apply the overlay to a manifest that
+    only excludes Spark — accepted and stated. Rules, all languages: no driver-side variable mutated inside a
+    distributed function except through an accumulator; a value that must be exact is accumulated only inside an action; reduce functions commutative and
+    associative; a broadcast value is never modified; SparkContext and SparkSession are used only on the driver, one
+    SparkContext per JVM; every window aggregate states its frame — row_number, rank, dense_rank, ntile, percent_rank,
+    cume_dist, lag and lead take none;
+    a non-deterministic UDF is marked asNondeterministic. Python: an empty column is F.lit(None), never '' or 'NA'.
+  out: >
+    Composing overlays — 2026-10-03-cf20c. sbt multi-project, parent POMs, notebook-only repositories —
+    2026-10-03-0fca. Rules depending on data size (collect, toPandas, cache, UDF cost, broadcast thresholds).
+
+decisions:
+  - key: "THE MANIFEST DECIDES. A framework is a declared dependency; matching it at the component root reads the field instead of guessing from names."
+  - key: "NOTHING THAT ONLY MIGHT. toPandas on a small frame is fine; a rule that cannot see the data size is not a rule. Taste (how=, backslashes) and version-bound test helpers stay out."
+  - key: "NO OVERRIDES SECTION. Spark replaces no core or delta rule; a section with no defined meaning would be read as one."
+  - key: "THE DOMAIN LAYER 2989 DEFERRED. An overlay is the 'principles a domain carries of its own' the Python delta set aside."
+
+steps:
+  - id: format
+    action: "OVERLAY-FORMAT.md; DELTA-FORMAT.md names the third layer."
+  - id: spark
+    action: "principles/frameworks/spark.md."
+  - id: validate
+    action: "validate-skills.sh: every overlay has its marker, Detection with one yaml fence, Rules, Artefacts."
+
+tests:
+  - "validate-skills.sh passes; removing spark.md's Detection fence fails it"
+
+done:
+  - "a skills release carries the overlay format and the Spark overlay, checked by validate-skills"

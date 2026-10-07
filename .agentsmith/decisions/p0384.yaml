@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0384
+spec: p0384
 decisions:
   - category: Architecture
     chose: "Invert to per-repo dictionaries (RepoProjectMaps + new RepoCodeMaps) as the ONLY analysis surface; singular ProjectMap/CodeMap context keys deleted and every consumer migrated directly"

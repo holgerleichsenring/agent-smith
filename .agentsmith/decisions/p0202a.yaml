@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0202a: install_command operator-override layer
-phase: p0202a
+spec: p0202a
 decisions:
   - category: Architecture
     chose: Read ci.install_command from context.yaml at discovery time (SandboxLanguageResolver), carried on RemoteContextDiscovery

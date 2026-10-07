@@ -1,4 +1,4 @@
-phase: 2026-09-17-042ee
+spec: 2026-09-17-042ee
 decisions:
   - id: an-ambient-observer-not-the-run-event-stream
     chose: >

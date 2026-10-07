@@ -93,7 +93,7 @@ The agent does its work in the local checkout. Useful for offline iteration and 
 
 ## What lands on disk
 
-The specification under `.agentsmith/specs/<provider>-<ticket-id>/`, the phase records under `.agentsmith/phases/done/`, and a run directory under `.agentsmith/runs/{run-id}/` with `result.md`, plus the master's `plan.md` where it wrote one. Same shape as a webhook-triggered run. See [First run](../get-it-running/first-run.md) for the walk-through.
+The specification under `.agentsmith/specs/<provider>-<ticket-id>/`, the phase records under `.agentsmith/specs/done/`, and a run directory under `.agentsmith/runs/{run-id}/` with `result.md`, plus the master's `plan.md` where it wrote one. Same shape as a webhook-triggered run. See [First run](../get-it-running/first-run.md) for the walk-through.
 
 ## What the CLI doesn't do
 

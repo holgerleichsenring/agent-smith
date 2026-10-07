@@ -1,4 +1,4 @@
-phase: 2026-09-15-a5a5
+spec: 2026-09-15-a5a5
 decisions:
   - id: three-ticket-states
     chose: >

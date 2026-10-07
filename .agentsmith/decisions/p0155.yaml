@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0155: LLM-owned project-language vocabulary
-phase: p0155
+spec: p0155
 decisions:
   - category: Architecture
     chose: "**`ConceptType.String` added as a first-class type, alongside Bool/Int/Enum.** The spec asked for `project_language` to relax from a closed enum to a free-form string. Two routes existed: (a) sentinel-encode it (\"Enum with empty enum_values means wildcard\"), or (b) introduce the type explicitly. (b) chosen"

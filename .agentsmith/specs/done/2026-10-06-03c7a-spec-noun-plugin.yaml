@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-03c7a
+goal: "spec-first 2.5.0 says spec where a user meets it — create-spec, specs/, spec/{id}, the spec: key, series/ manifests — and a tested script moves a 2.4 project."
+
+applies_to: "spec-first plugin repository (skills, templates, README, manifests, update-project script, its own dogfood files)"
+
+requires: []
+
+facts:
+  - claim: "create-phase writes .{project}/phases/planned/ and cuts branch phase/{id}; eleven other places name create-phase"
+    evidence: "observed: spec-first@53f2a18 skills/create-phase/SKILL.md:34,110-112 and git grep create-phase, 2026-10-06"
+  - claim: "apply-spec and deliver-spec name phases/active, phases/done and phase/{id}; deliver-spec refuses another branch"
+    evidence: "observed: spec-first@53f2a18 skills/apply-spec/SKILL.md:9,16,107 and skills/deliver-spec/SKILL.md:9,14,31,44-45, 2026-10-06"
+  - claim: "execute-phase and ship-phase are stubs promising removal in the next release"
+    evidence: "observed: spec-first@53f2a18 skills/execute-phase/SKILL.md:9-10 and skills/update-project/SKILL.md:189, 2026-10-06"
+  - claim: "check-evidence.py finds the project by a parent named phases, refuses phases/planned and phases/active, uses exit 2 for usage and 3 for 'did not run'"
+    evidence: "observed: spec-first@53f2a18 skills/review-spec/scripts/check-evidence.py:13,29,216-220,256,332,347, 2026-10-06"
+  - claim: "update-project's migrations are prose the model executes, applied at step 5 after approval; no script exists"
+    evidence: "observed: spec-first@53f2a18 skills/update-project/SKILL.md:11,51-64,191-197, 2026-10-06"
+  - claim: "Both schema templates declare and require phase; projects carry their own, possibly customised, copies"
+    evidence: "observed: spec-first@53f2a18 templates/phase-spec.schema.json:7-10 and templates/decision.schema.json:8-14 and skills/update-project/SKILL.md:112,181, 2026-10-06; .agentsmith/phase-spec.schema.json:26"
+  - claim: "2.4.0 is written in the manifests, the bootstrap skill, the context template and update-project's table"
+    evidence: "observed: spec-first@53f2a18 .claude-plugin/plugin.json:3 and .claude-plugin/marketplace.json:9,19 and skills/bootstrap-project/SKILL.md:82 and templates/contexts/default/context.yaml:11 and skills/update-project/SKILL.md:21,39-45, 2026-10-06"
+  - claim: "The plugin keeps its own phases/planned and decisions at the repository root"
+    evidence: "observed: spec-first@53f2a18 phases/planned/p0001-contexts-and-yaml-decisions.yaml and decisions/p0001.yaml, 2026-10-06"
+
+assumptions:
+  - claim: "A renamed skill directory needs a forwarding stub, as execute-phase was for apply-spec"
+    check: "invoke /spec-first:execute-phase on 2.4.0"
+
+scope:
+  in: "skills/update-project/scripts/migrate-specs-layout.py with unittests; every path, branch, key and schema name in skills, templates (directories renamed), examples, README and manifests; series/ documented in spec-first-workflow; check-evidence.py on specs/; create-phase → create-spec stub; execute-phase/ship-phase deleted; 2.5.0 at every site; the script run on the plugin's own phases/ and decisions/."
+  out: "agent-smith's product and this repository — 2026-10-06-03c7b onward. Repositories only agent-smith writes into: the operator deletes their old layout."
+
+decisions:
+  - layout: ".{p}/specs/{planned,active,done}/{id}-{label}.yaml with same-stem companions; .{p}/series/{base}.yaml written by tools for a ticket or conversation series; spec: in specs and decisions; spec.schema.json."
+  - script_not_prose: "Every update-project row ends with: commit, run the script, show its report, commit. The script goes in the plugin's next minor release."
+  - what_it_does: "git mv phases/<state> → specs/<state>; a line-anchored text edit turns the top-level phase: into spec: in specs and decisions/*.yaml (no YAML round-trip); rewrites '.{p}/phases/' pointers in contexts/*/context.yaml and schema headers; git mv phase-spec.schema.json → spec.schema.json and edits only the phase property and required entries of both schemas, keeping every customisation. Other tracked files naming the old path are LISTED (specs/, series/, decisions/ excluded), CLAUDE.md included."
+  - guards: "The script takes the project directory as an argument; without one it finds the directory holding contexts/*/context.yaml beside phases/, none or several → refuse. Uncommitted or untracked files under it → refuse. No phases/ → exit 0, 'nothing to move'."
+  - branches: "deliver-spec accepts phase/{id} beside spec/{id} in 2.5 and asks for the script on such a branch first; removed with the script."
+  - evidence_check: "check-evidence.py knows only specs/; a phases/ parent exits 4 with 'run migrate-specs-layout.py'. agent-smith's 03c7b-g are reviewed on 2.4.x until 03c7b moves that repository."
+
+steps:
+  - id: script
+    action: "Write migrate-specs-layout.py and test_migrate_specs_layout.py"
+  - id: rename
+    action: "create-phase → create-spec plus a stub; delete execute-phase and ship-phase"
+  - id: words
+    action: "Replace phases/, phase/{id}, phase-spec.schema.json, templates/phase-spec.yaml (→ templates/spec.yaml), phase:, create-phase and 'create phases' across skills, templates, examples, README and manifests; document series/"
+  - id: evidence-script
+    action: "Point check-evidence.py, its docstring, its tests and review-spec's exit list at specs/ and exit 4"
+  - id: dogfood-and-release
+    action: "Run the script with the repository root as project directory (its phases/ and decisions/); examples/ and templates/ are renamed by the words step; 2.5.0 at every version site"
+
+tests:
+  - "test_migrate_moves_states_and_edits_top_level_key_only"
+  - "test_migrate_rewrites_decision_key"
+  - "test_migrate_customised_schema_keeps_all_but_the_key"
+  - "test_migrate_rewrites_pointers_and_headers"
+  - "test_migrate_lists_files_naming_old_path"
+  - "test_migrate_no_phases_dir_is_noop"
+  - "test_migrate_untracked_or_ambiguous_refuses"
+  - "test_check_evidence_phases_parent_exits_4"
+
+done:
+  - "git ls-files and git grep -E 'phases/|phase/\\{id\\}|phase-spec|^phase:|\"phase\"|create-phase' over the plugin repository hit only the create-phase stub, deliver-spec's legacy branch line, update-project's per-version sections, the script and its tests, the check-evidence legacy test, and the bodies of moved specs and decisions (history)"
+  - "python3 -m unittest green in both scripts directories"
+  - "Plugin released as 2.5.0"

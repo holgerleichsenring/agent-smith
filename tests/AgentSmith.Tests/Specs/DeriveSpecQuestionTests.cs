@@ -127,7 +127,7 @@ public sealed class DeriveSpecQuestionTests
         var draftReader = new PhaseDraftReader();
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Answered(new SpecSetReadResult(PreviousQuestion(), "sha-1")));
         var pointers = new InMemorySpecSetPointerStore();
@@ -139,7 +139,6 @@ public sealed class DeriveSpecQuestionTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -152,6 +151,7 @@ public sealed class DeriveSpecQuestionTests
             new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(factory.Object, NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -189,7 +189,7 @@ public sealed class DeriveSpecQuestionTests
         var segments = TicketSegmenter.Segment(Ticket);
         var carries = segments.Select(s => s.Id).ToList();
         var phase = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", goal, "phase: p19106a", []) { Done = ["The packages are bumped."] },
+            new Contracts.Models.PhaseDraft("p19106a", goal, "spec: p19106a", []) { Done = ["The packages are bumped."] },
             "bump-the-packages",
             SegmentExtractor.BuildMarkdown("p19106a", goal, carries, segments),
             carries);
@@ -207,8 +207,8 @@ public sealed class DeriveSpecQuestionTests
         public string? PinSeen { get; private set; }
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-            AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             PinSeen = pipeline.TryGet<string>(ContextKeys.SpecQuestionPin, out var pin) ? pin : null;
             return Task.FromResult<(SpecDerivation?, string?)>((derivation, null));

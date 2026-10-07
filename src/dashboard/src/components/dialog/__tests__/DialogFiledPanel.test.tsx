@@ -39,7 +39,7 @@ describe("DialogFiledPanel, for a ticket this conversation did not file", () => 
                 openedAt: "2026-09-25T10:00:00Z",
               },
             ],
-            phases: [],
+            specs: [],
             pendingQuestion: null,
           },
         ],

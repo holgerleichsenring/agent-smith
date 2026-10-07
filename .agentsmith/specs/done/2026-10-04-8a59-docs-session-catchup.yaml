@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-04-8a59
+goal: "The docs say what the 3f06 and cf20 series shipped — fact checks, overlays, the Scala delta, dialog evidence findings — and the plugin loop ends in apply-spec and deliver-spec."
+
+applies_to: "docs, config example, phase gate comment; spec-first plugin release 2.4.0 (PR #12)"
+
+requires: [2026-10-01-aeb6d]
+
+facts:
+  - claim: "The plugin's execute-phase and ship-phase were named by a Claude session in 3f06e; the operator chose apply-spec and deliver-spec."
+    evidence: "observed: the operator's message of 2026-10-04"
+  - claim: "No docs page described spec facts and assumptions, overlays, the Scala delta or the dialog's evidence findings; the catalog docs still showed v5.7.3."
+    evidence: "observed: git grep over docs/ on origin/main, 2026-10-04"
+
+assumptions: []
+
+scope:
+  in: >
+    skills-catalog.md and configuration/skills.md name deltas, frameworks/ and the two format files, versions v5.10.0;
+    phases-and-runs.md explains facts, assumptions and the mechanical evidence check; spec-dialogue.md the proposal's
+    evidence findings and panel; built-by-the-method.md the plugin's four skills and the PhaseEvidence and PhaseFacts
+    rules; phase-gate.sh names deliver-spec. Plugin 2.4.0 renames the skills with forwarding aliases for one release.
+  out: >
+    The four pages 2026-10-04-2bf2 owns (bootstrap, onboarding, config-studio, cli) — that phase documents refresh and
+    overlays there.
+
+decisions:
+  - key: "OPERATOR'S NAMES. apply-spec and deliver-spec read with review-spec as one loop; the old names forward for one release."
+
+steps:
+  - id: plugin
+    action: "spec-first PR #12."
+  - id: docs
+    action: "The five pages, config example and gate comment."
+
+tests:
+  - "mkdocs build --strict in CI (docs.yml)"
+
+done:
+  - "no docs page names execute-phase or ship-phase, and each shipped mechanism of the session has a page that describes it"

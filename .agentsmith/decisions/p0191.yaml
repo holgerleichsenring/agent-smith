@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0191-artifact-credentials-tool
+spec: p0191-artifact-credentials-tool
 
 decisions:
   - category: Architecture

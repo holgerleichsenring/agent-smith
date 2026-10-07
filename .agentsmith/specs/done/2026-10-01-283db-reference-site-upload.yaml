@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-283db
+goal: "The operator drops a website into a design conversation — several files, a folder or a ZIP — and it is stored as one set of files with their paths, inside stated limits."
+
+applies_to: "backend (an upload route and its guards), deploy (ingress body size), dashboard (the composer's attach menu, the transcript)"
+
+requires: ["2026-10-01-283da"]
+
+facts:
+  - claim: "The image upload bounds its body before reading it, by declared length and while reading, and lowers the server's ceiling for the route; the archive route raises it the same way."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogImageBody.cs:24-50,67-79; src/backend/AgentSmith.Server/Services/Archive/ArchiveUploadCeiling.cs:27-36"
+  - claim: "The upload resolves-or-opens the conversation and answers 409 for someone else's and 400 for none."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:74-77"
+  - claim: "A dialog image's kind is read from its leading bytes and only png, jpeg, gif and webp pass."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ImageKindFromBytes.cs:23-29"
+  - claim: "/api goes from the ingress straight to the server; the ingress sets timeouts and no proxy-body-size, so nginx's 1 MB default applies to every upload."
+    evidence: "deploy/k8s/9-ingress.yaml:10-12,35-36"
+  - claim: "The dashboard reaches /api through a Next.js rewrite, with no middleware."
+    evidence: "src/dashboard/next.config.ts:17-21"
+  - claim: "Every route's permission is pinned in a baseline; the image routes are dialog.write."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:58,85"
+  - claim: "The composer's plus opens a menu so a second attachable kind needs no redesign; today it holds Image, behind a single-file picker."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:16-21,76-87,101-116"
+  - claim: "SpecDialogExtensions, where the image services are registered, is at 120 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:92-95"
+
+scope:
+  in: >
+    POST /api/spec-dialog/references?dialogId=&project= and GET /api/spec-dialog/references?dialogId=
+    (both dialog.write, two baseline rows). Multipart: many files, each part's filename the relative path,
+    or exactly one .zip unpacked on the server. ReferenceUploadLimits, stated once: 500 files, 5 MB per
+    file, 25 MB per set, 3 site sets per conversation, 240 characters per path, and a ROUTE body ceiling of
+    26 MB (set bound plus multipart overhead) applied on the request like the archive's. Ingress: /api
+    gets nginx.ingress.kubernetes.io/proxy-body-size "30m", which also lets the existing 5 MB image upload
+    through. Order: an ignore list (.DS_Store, __MACOSX/, ._*, Thumbs.db, desktop.ini) drops entries
+    first; then every remaining file must pass, or the set is refused whole. Guards: a path is normalised
+    to forward slashes and refused when absolute, carrying '..', a drive, a NUL or a duplicate; a ZIP's
+    entry count is checked from its directory before inflating and inflated bytes are COUNTED while read,
+    so a lying entry size stops at the set bound; validation is the extension allow-list (html, htm, css,
+    js, mjs, json, svg, png, jpg, jpeg, gif, webp, avif, ico, woff, woff2, ttf, otf, txt, md) and size only
+    — the magic-byte check stays on dialog images, so favicon.ico, avif and svg are accepted here; the
+    media type comes from the extension. A refusal names the file and the limit. Stored in one
+    transaction, Kind site. Dashboard: the attach menu gains Website (multi-select files or one .zip) and
+    Folder (directory picker); the client appends each file as FormData.append('file', file,
+    file.webkitRelativePath || file.name). The transcript shows a set as one chip: name, file count, size.
+  out: >
+    Reading the set in the dialog — 2026-10-01-283dc. Unpacking in the browser: the ZIP is a delivery form,
+    and one server-side unpack is one guard.
+
+decisions:
+  - key: "LIMITS ARE CONSTANTS WITH NAMES. A refusal says which one was crossed; nothing is truncated or partially stored."
+  - key: "IGNORED BEFORE ALL-OR-NOTHING. A folder copied off a Mac carries .DS_Store and __MACOSX; refusing the set for them would refuse every such upload."
+  - key: "THE ZIP IS COUNTED, NOT TRUSTED. An entry's declared length is attacker-supplied, so the bound is applied to the bytes actually inflated."
+
+steps:
+  - id: limits
+    action: "ReferenceUploadLimits, ReferenceIgnoreList, ReferencePathRule, ReferenceZipReader (counted inflate), ReferenceUploadBody (route ceiling)."
+  - id: route
+    action: "SpecDialogReferenceEndpoints mapped beside the image endpoints; services in a new ReferenceUploadExtensions; two route-permission baseline rows."
+  - id: ingress
+    action: "9-ingress.yaml proxy-body-size annotation."
+  - id: dashboard
+    action: "uploadSpecDialogReferences; Website and Folder menu entries; ReferenceSetChip in the transcript."
+
+tests:
+  - "ReferenceUpload_PathWithDotDot_IsRefusedNamingTheFile"
+  - "ReferenceUpload_ZipEntryLyingAboutItsSize_StopsAtTheSetBound"
+  - "ReferenceUpload_MacFolderWithDsStoreAndMacosx_IsStoredWithoutThem"
+  - "ReferenceUpload_FaviconIcoAvifSvg_AreAccepted"
+  - "ReferenceUpload_DisallowedExtension_RefusesTheWholeSet"
+  - "ReferenceUpload_DeclaredBodyOver26Megabytes_IsRefusedUnread"
+  - "ReferenceUpload_SomeoneElsesConversation_Is409"
+  - "DialogComposer: Folder appends each file with its webkitRelativePath as the filename"
+  - "transcript renders a site set as a chip with file count"
+
+done:
+  - "a 20 MB folder uploaded through the dashboard and the ingress is stored as one set"
+  - "build green, full suite green, dashboard tests and build green"

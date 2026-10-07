@@ -1,4 +1,4 @@
-phase: 2026-09-17-6a29
+spec: 2026-09-17-6a29
 decisions:
   - id: the-pin-moves-as-one-unit-and-the-build-proves-it
     chose: >

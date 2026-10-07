@@ -8,7 +8,7 @@ This is not documentation written after the fact. It is documentation produced a
 
 ### Layer 1: Phases (the "what" and "why")
 
-Every capability in Agent Smith originated in a phase spec. Phases are YAML files in `.agentsmith/phases/` and move through `planned/` → `active/` → `done/`. Each spec states:
+Every capability in Agent Smith originated in a phase spec. Phases are YAML files in `.agentsmith/specs/` and move through `planned/` → `active/` → `done/`. Each spec states:
 
 - The goal, in one sentence
 - Which part of the system it applies to, and which earlier phases it requires
@@ -16,7 +16,7 @@ Every capability in Agent Smith originated in a phase spec. Phases are YAML file
 - The definition of done
 
 ```
-.agentsmith/phases/
+.agentsmith/specs/
 ├── done/
 │   ├── p0001-core-infrastructure.yaml
 │   ├── p0064-typed-skill-orchestration.yaml
@@ -30,7 +30,7 @@ Every capability in Agent Smith originated in a phase spec. Phases are YAML file
 
 The older phases carry counter ids like `p0064`; newer ones carry an id minted from the date, like `2026-09-27-481bf`. See [Phase workflow](../architecture/phase-workflow.md) for how ids are minted and how a phase moves through the directories.
 
-The `code` pipeline keeps the same record in the repositories it works on: every phase a run executes is written to that repository's `.agentsmith/phases/done/` and indexed in its `context.yaml`, and ships with the pull request.
+The `code` pipeline keeps the same record in the repositories it works on: every phase a run executes is written to that repository's `.agentsmith/specs/done/` and indexed in its `context.yaml`, and ships with the pull request.
 
 ### Layer 2: Runs (the "how much" and "what happened")
 
@@ -62,7 +62,7 @@ Below the frontmatter it lists the changed files, the decisions, and the executi
 Decisions are YAML files in `.agentsmith/decisions/`, one per phase (`decisions/<phase-id>.yaml`) or per run (`decisions/<run-id>.yaml`). Each entry records what was chosen and, in the phase files, what it was chosen over and why:
 
 ```yaml
-phase: 2026-09-27-481bf
+spec: 2026-09-27-481bf
 
 decisions:
   - category: Implementation
@@ -88,7 +88,7 @@ Agent Smith is an audit trail. Six months after a pipeline ran, you can answer:
 
 ```bash
 # See all phases
-ls .agentsmith/phases/done/
+ls .agentsmith/specs/done/
 
 # See all runs
 ls .agentsmith/runs/

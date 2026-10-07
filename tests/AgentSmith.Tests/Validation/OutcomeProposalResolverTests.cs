@@ -39,7 +39,7 @@ public sealed class OutcomeProposalResolverTests
             """
             Draft:
             ```yaml
-            phase: p9999
+            spec: p9999
             goal: "Add the widget endpoint"
             requires: [p0100]
             ```
@@ -111,7 +111,7 @@ public sealed class OutcomeProposalResolverTests
             description: "d"
             ```
             ```yaml
-            phase: p9999
+            spec: p9999
             goal: "g"
             ```
             """);
@@ -170,10 +170,10 @@ public sealed class OutcomeProposalResolverTests
             ```outcome
             kind: epic
             parent:
-              phase: p9000
+              spec: p9000
               goal: "g"
             children:
-              - phase: p9000a
+              - spec: p9000a
                 goal: "only slice"
             ```
             """);
@@ -218,12 +218,12 @@ public sealed class OutcomeProposalResolverTests
             ```outcome
             kind: epic
             parent:
-              phase: p9000
+              spec: p9000
               goal: "g"
             children:
-              - phase: p9000a
+              - spec: p9000a
                 goal: "ok slice"
-              - phase: not-a-phase-id
+              - spec: not-a-phase-id
                 goal: "broken slice"
             ```
             """);
@@ -270,14 +270,14 @@ public sealed class OutcomeProposalResolverTests
         ```outcome
         kind: epic
         parent:
-          phase: p9000
+          spec: p9000
           goal: "Widget platform end to end"
         children:
-          - phase: p9000a
+          - spec: p9000a
             goal: "Widget storage layer"
             {child1Requires}
             {child1Done}
-          - phase: p9000b
+          - spec: p9000b
             goal: "Widget API"
             {child2Requires}
             done: ["the API returns a stored widget"]

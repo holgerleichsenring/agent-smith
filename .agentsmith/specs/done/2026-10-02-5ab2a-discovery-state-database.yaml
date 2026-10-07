@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-5ab2a
+goal: "Each connection's discovery state lives in one database row, so a Redis flush or restart loses no repos and no last error; every replica reads it through a 30-second cache."
+
+applies_to: "backend (discovery snapshot store, persistence migration, server composition, archive bookkeeping)"
+
+requires: ["2026-10-02-5f89c"]
+
+facts:
+  - claim: "Since 5f89c the server keeps discovery in one Redis hash per connection with no TTL; the glob expander's synchronous TryGet reads Redis on every call."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisConnectionRepoSnapshot.cs:25-41,90; src/backend/AgentSmith.Server/Services/RedisExtensions.cs:60-65"
+  - claim: "Success and failure write disjoint fields; Set writes nothing because the store is also the hot snapshot."
+    evidence: "RedisConnectionRepoSnapshot.cs:43-46,66-88; .agentsmith/decisions/2026-10-02-5f89c.yaml"
+  - claim: "The refresher records the outcome in the store, then sets the snapshot; a failure falls back to the store's last-good and sets that."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/RepoDiscoveryRefresher.cs:55-56,73,79-82"
+  - claim: "A snapshot miss makes the expander block once on a refresh."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RepoGlobExpander.cs:45-51"
+  - claim: "The core's in-memory and disk stores are TryAdd and stay the CLI's; AddRelationalPersistence runs after the core chain, so a later registration wins."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs:32-33; src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:38-45"
+  - claim: "AgentSmithDbContext is exactly 120 lines (the limit, no ratchet row); entities are configured in OnModelCreating, some without a DbSet. RelationalPersistenceExtensions sits at its ratchet row (225)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:54-80; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+  - claim: "A schema change ships as one migration in the shared assembly and one in the SQL Server assembly."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261002105839_AddRunHeartbeat.cs; src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261002105846_AddRunHeartbeat.cs"
+  - claim: "Redis served a hash with no repos field as a miss, so a failure-only connection still triggered the expander's blocking refresh."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Persistence/RedisConnectionRepoSnapshot.cs:38-40"
+  - claim: "The data archive exports every mapped table; a restore first clears only the server's own bookkeeping, and the table count is pinned at 29."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableOrder.cs:22-25; src/backend/AgentSmith.Server/Services/Archive/ServerBookkeepingReset.cs:23-27; tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33,54,81; tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+
+scope:
+  in: >
+    ConnectionDiscovery entity (table ConnectionDiscoveries): ConnectionName (lower-cased, key, max 200), ReposJson,
+    DiscoveredAt, LastAttemptAt, LastError. A success is one ExecuteUpdate of ReposJson, DiscoveredAt, LastAttemptAt
+    and LastError = null; a failure is one ExecuteUpdate of LastAttemptAt and LastError; zero rows updated inserts,
+    and a unique violation from a concurrent insert retries the update. Neither half is read before it is written.
+    DbConnectionRepoSnapshot implements IConnectionRepoSnapshot and IConnectionRepoSnapshotStore: TryGet serves a
+    process cache entry younger than 30 s, else reads the row synchronously and caches it; a missing row, and a
+    failure-only row whose ReposJson is null, read as a miss and are not cached, so the expander's blocking refresh
+    stays; Set updates this process's cache. Registered server-only by
+    AddServerState(), chained in ServerCompositionBuilder after AddRelationalPersistence. RedisConnectionRepoSnapshot,
+    its registration and its tests go. Migrations in both assemblies. ConnectionDiscoveries is server-derived
+    bookkeeping: ServerBookkeepingReset clears it before a restore, and the pinned table counts rise to 30.
+  out: >
+    Copying existing Redis hashes into the table: a missing row refreshes on first read, as 5f89c already does.
+    The CLI keeps its in-memory and disk stores. Endpoints, single-flight refresh and the studio view are unchanged.
+
+decisions:
+  - key: "STATE, NOT TRANSPORT. The last success and the last error are what the operator reads after an outage; a flush erased both. The row survives it; Redis keeps nothing here."
+  - key: "30-SECOND STALENESS, STATED. Replica A sees its own refresh at once (Set); replica B within 30 s. The synchronous config path cannot afford a DB round trip per glob expansion."
+  - key: "COLUMN-DISJOINT UPDATES, NO READ. A single-statement update of one half cannot erase the other half on any replica, as the Redis hash fields did."
+  - key: "BOOKKEEPING, NOT HISTORY. The rows are rebuilt by the next discovery; a restore over a server that already discovered must not collide with them, so the reset clears them like ObservedCallers."
+  - key: "CONTEXT STAYS AT 120. ServerStateConfigurations groups this configuration with ObservedCallerConfiguration and replaces that line in OnModelCreating; later state tables join the group."
+
+steps:
+  - id: schema
+    action: "ConnectionDiscovery entity and configuration in ServerStateConfigurations; migrations in both assemblies."
+  - id: store
+    action: "ConnectionDiscoveryRepository (scoped) and DbConnectionRepoSnapshot (singleton, scope per operation, 30 s cache)."
+  - id: wiring
+    action: "ServerStateExtensions.AddServerState() with RemoveAll for both ports; RedisExtensions loses the discovery lines; Redis store and FakeRedisHashes tests removed or repointed."
+  - id: archive
+    action: "ServerBookkeepingReset clears ConnectionDiscoveries; DataArchiveRoundTripTests and DataArchiveSchemaTests counts to 30."
+
+tests:
+  - "DbConnectionRepoSnapshot_SuccessAndFailureFromTwoInstances_KeepBothHalves"
+  - "DbConnectionRepoSnapshot_WrittenByOneInstance_IsReadByAnotherWithin30Seconds"
+  - "DbConnectionRepoSnapshot_MissingRow_IsNotCached"
+  - "DbConnectionRepoSnapshot_FailureOnlyRow_ReadsAsMissAndIsNotCached"
+  - "ServerBookkeepingReset_Restore_ClearsConnectionDiscoveries"
+  - "DbConnectionRepoSnapshot_ConcurrentFirstInserts_BothLand"
+  - "ConnectionDiscoveryComposition_Server_ResolvesTheDatabaseStore"
+
+done:
+  - "with Redis flushed, the studio still shows each connection's last success, repo count and last error"
+  - "build green, full suite green"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0138: Triage prompt rewrite + coding-catalog gap fix
-phase: p0138
+spec: p0138
 decisions:
   - category: Architecture
     chose: "**Root cause is a stale prompt, not a missing validator branch.** `triage-structured-system.md` referenced `activation.positive`, `role_assignment[role].positive/negative`, and `roles_supported`"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0133: Init-project label-trigger onboarding
-phase: p0133
+spec: p0133
 decisions:
   - category: Architecture
     chose: "**Init-project triggered via existing pipeline_from_label across all four platforms"

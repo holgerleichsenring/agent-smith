@@ -30,7 +30,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class FiledSpecBranch(
     ISourceProviderFactory sources,
-    SpecSetFiles files,
+    SeriesFiles files,
     SpecSetPointerRecorder pointers,
     ILogger<FiledSpecBranch> logger)
 {
@@ -61,12 +61,12 @@ public sealed class FiledSpecBranch(
             return BranchWriteResult.Failed(
                 $"the approval named no configured repository of project '{project.Name}' to carry the set");
 
-        var set = Published(record, ticket);
-        var key = new SpecSetKey(set.Key);
+        var executed = await pointers.ExecutedThroughAsync(project.Name, record.Set.Key, cancellationToken);
+        var set = Published(record, ticket, executed);
         try
         {
             var result = await sources.Create(chosen).WriteFilesToBranchAsync(
-                TicketBranchNamer.Compose(ticketId), Rendered(key, set), MessageFor(set),
+                TicketBranchNamer.Compose(ticketId), Rendered(set), SeriesWriter.MessageFor(set),
                 cancellationToken);
             if (!result.Written)
             {
@@ -88,16 +88,20 @@ public sealed class FiledSpecBranch(
         }
     }
 
-    private IReadOnlyList<RepoFile> Rendered(SpecSetKey key, SpecSet set) =>
-        [.. files.Render(key, set, []).Select(f => new RepoFile(f.Path, f.Content))];
+    // 2026-10-06-03c7d: through the run's own renderer — the manifest and the planned specs.
+    private IReadOnlyList<RepoFile> Rendered(SpecSet set) =>
+        [.. files.Render(set).Select(f => new RepoFile(f.Path, f.Content))];
 
-    // The approval instant travels in the index exactly as the record carries it, so the
-    // precedence compares equal instants and the branch — which wins a tie — stands.
-    private static SpecSet Published(SpecApprovalRecord record, Ticket ticket) =>
+    // 2026-10-06-03c7f: the manifest's goal and approval are the stored row's, carried on its set
+    // unchanged — the approval instant exactly as the record holds it.
+    // 2026-10-06-03c7e: the positions the record step already moved to done/ are executed, so an
+    // amendment renders only the specs after them into planned/.
+    private static SpecSet Published(SpecApprovalRecord record, Ticket ticket, int executedThrough) =>
         record.Set with
         {
             Revisions = [new SpecRevision(1, ApprovedSetHandoff.CauseOf(record), DateTimeOffset.UtcNow)],
             TicketFingerprint = TicketTextFingerprint.Of(ticket),
+            Executed = [.. record.Set.Phases.Take(executedThrough).Select(p => p.PhaseId)],
         };
 
     private static RepoConnection? Chosen(
@@ -109,8 +113,4 @@ public sealed class FiledSpecBranch(
     private static RepoConnection? Named(ResolvedProject project, string? name) =>
         string.IsNullOrWhiteSpace(name) ? null : project.Repos.FirstOrDefault(
             r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
-
-    private static string MessageFor(SpecSet set) =>
-        $"spec: {set.Key} revision {set.Current.Number} ({set.Current.Cause}), "
-        + $"{set.Phases.Count} phase(s)";
 }

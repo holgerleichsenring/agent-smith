@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0084: Unified Webhook Lifecycle
-phase: p0084
+spec: p0084
 decisions:
   - category: Architecture
     chose: WebhookTriggerConfig as shared base for all platforms

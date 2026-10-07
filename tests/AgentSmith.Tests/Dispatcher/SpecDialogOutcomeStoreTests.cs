@@ -60,11 +60,11 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var sink = BuildSink(provider);
         var state = await OpenSessionAsync("th-1");
         var phase = new PhaseOutcome(new PhaseDraft(
-            "p9999", "Widget endpoint", "phase: p9999\ngoal: \"Widget endpoint\"", []));
+            "p9999", "Widget endpoint", "spec: p9999\ngoal: \"Widget endpoint\"", []));
 
         await sink.AcceptAsync(state, phase, false, CancellationToken.None);
 
-        provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9999: Widget endpoint");
+        provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}a: Widget endpoint$");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
         session!.ConfirmedOutcomeJson.Should().BeNull(
             "a fully filed outcome is no longer pending on the session");
@@ -112,8 +112,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var sink = BuildSink(provider);
         var state = await OpenSessionAsync("th-3");
         var epic = new EpicOutcome(
-            new PhaseDraft("p9000", "Widget platform", "phase: p9000", []),
-            [new PhaseDraft("p9000a", "storage", "phase: p9000a", [])])
+            new PhaseDraft("p9000", "Widget platform", "spec: p9000", []),
+            [new PhaseDraft("p9000a", "storage", "spec: p9000a", [])])
         {
             Templates = [new TemplateProvenance("template:default", "reference-server", "a1b2c3d", true)],
         };
@@ -131,7 +131,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
     {
         var store = new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance);
         var act = () => store.SetConfirmedAsync(
-            Platform, "th-none", new PhaseOutcome(new PhaseDraft("p1", "g", "phase: p1", [])),
+            Platform, "th-none", new PhaseOutcome(new PhaseDraft("p1", "g", "spec: p1", [])),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -153,7 +153,8 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),

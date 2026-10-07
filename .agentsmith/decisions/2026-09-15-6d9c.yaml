@@ -1,4 +1,4 @@
-phase: 2026-09-15-6d9c
+spec: 2026-09-15-6d9c
 decisions:
   - id: the-column-changes-state
     chose: >

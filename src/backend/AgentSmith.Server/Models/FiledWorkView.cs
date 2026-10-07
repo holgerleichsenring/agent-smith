@@ -52,14 +52,15 @@ public sealed record FiledWorkRunView(
     DateTimeOffset StartedAt,
     DateTimeOffset? FinishedAt,
     IReadOnlyList<RunPullRequestView> PullRequests,
-    IReadOnlyList<FiledWorkPhaseView> Phases,
+    IReadOnlyList<FiledWorkSpecView> Specs,
     PendingQuestionInfo? PendingQuestion);
 
 /// <summary>
-/// One phase of that run, as its own row says it stands.
+/// One spec that run executed, as its own row says it stands (2026-10-06-03c7g: was
+/// FiledWorkPhaseView, served as phases/phaseId).
 /// <para>
 /// There is deliberately NO "awaiting an amendment" flag here. A hand-back has a status of its
-/// own — <c>handed_back</c>, written by RunPhaseProjection.StatusOf for
+/// own — <c>handed_back</c>, written by RunSpecProjection.StatusOf for
 /// PhaseRunState.HandedBack (2026-09-17-0e79c) — so <paramref name="Status"/> IS the
 /// discriminator and the page maps it, once, where the affordance lives. Inferring it from
 /// "failed with a verdict" would tell an operator whose build went red to approve the set
@@ -73,8 +74,8 @@ public sealed record FiledWorkRunView(
 /// projection KEEPS the last verdict it saw, so a phase running again after a repair would
 /// otherwise still show what stopped the previous attempt.</param>
 /// <param name="Review">Null when the phase never reached its review step.</param>
-public sealed record FiledWorkPhaseView(
-    string PhaseId,
+public sealed record FiledWorkSpecView(
+    string SpecId,
     int Ordinal,
     string Title,
     string Status,
@@ -109,7 +110,7 @@ public sealed record FiledWorkReviewView(
 }
 
 /// <summary>
-/// The last hand-back the ticket's spec set recorded (TicketSpecSet). The QUESTION itself is
+/// The last hand-back the ticket's spec set recorded (TicketSeries). The QUESTION itself is
 /// a ticket comment and lives on the ticket; this names the case and how often it repeated.
 /// </summary>
 public sealed record FiledWorkHandbackView(string Case, int Repeated);

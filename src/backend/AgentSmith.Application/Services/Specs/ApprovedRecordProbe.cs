@@ -26,7 +26,7 @@ public sealed class ApprovedRecordProbe(ISpecApprovalStore store, ILogger<Approv
         string tracker, string? platform, string? ticketId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(platform) || string.IsNullOrWhiteSpace(ticketId)) return false;
-        var key = SpecSetKey.For(platform!, ticketId!);
+        var key = TicketKey.For(platform!, ticketId!);
         try
         {
             return await store.GetAsync(tracker ?? string.Empty, key.Value, cancellationToken) is not null;

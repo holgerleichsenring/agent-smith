@@ -1,4 +1,4 @@
-phase: p0404
+spec: p0404
 decisions:
   - what: "The time is attributed to the STEP row (RunStep.LlmMs / ThrottleWaitMs / SandboxMs) and the run total is the sum of its steps."
     alternatives:

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0132c: Verifier tool access (slice 3/3 of p0132)
-phase: p0132c
+spec: p0132c
 decisions:
   - category: Architecture
     chose: "**ResolveVerifyTools degrades to empty list when no sandbox is in context.** VerifyRoundHandler is consumed by RunVerifyPhase which runs only in FixBug + AddFeature today"

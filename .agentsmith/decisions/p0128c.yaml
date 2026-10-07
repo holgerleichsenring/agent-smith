@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0128c: opt-in data-flow gating (D4 slice 3/3)
-phase: p0128c
+spec: p0128c
 decisions:
   - category: Architecture
     chose: "**`PipelineContext` got an opt-in `IPipelineContextReadGate` hook instead of being subclassed.** PipelineContext is `sealed` and consumed by every handler. A wrapper subclass would force a per-handler choice (which class to take); a separate `GatedPipelineContext` with its own surface would mean every handler checks both types. The hook stays minimal: PipelineExecutor `using (context.AttachReadGate(gate)) { ... }` scopes the gate around `SafeExecuteAsync`. Internal executor reads (e.g. ResolvedPipeline lookup before the gate attaches) bypass the gate naturally. -- alternatives: unseal PipelineContext (rejected: breaks cleanliness"

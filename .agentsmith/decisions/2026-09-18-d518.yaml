@@ -1,4 +1,4 @@
-phase: 2026-09-18-d518
+spec: 2026-09-18-d518
 decisions:
   - id: the-note-is-composed-from-the-labels-the-filer-files-with
     chose: >

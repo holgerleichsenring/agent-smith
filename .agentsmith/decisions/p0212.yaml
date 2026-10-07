@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0212: derive command working directory from module paths
-phase: p0212
+spec: p0212
 decisions:
   - category: Architecture
     chose: Command working directory = longest common DIRECTORY prefix of ProjectMap.Modules[].Path

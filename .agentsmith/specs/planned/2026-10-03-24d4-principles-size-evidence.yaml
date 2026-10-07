@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-03-24d4
+goal: "Every size limit a principles delta states has a cited source or an operator-ratified measurement; the unsourced numbers in csharp, rust and typescript are replaced or removed."
+
+applies_to: "skills catalog (principles/core.md, principles/deltas/*.md)"
+
+requires: [2026-10-03-cf20a]
+
+facts:
+  - claim: "The core says concrete size limits are set by the language delta and are enforced, not aspirational."
+    evidence: "agent-smith-skills:principles/core.md:27-28"
+  - claim: "Unsourced numbers: csharp states 20 lines per method and 120 per class (80 a warning); rust 'roughly 30' per function; typescript 'roughly 200' per module and 30 per function."
+    evidence: "agent-smith-skills:principles/deltas/csharp.md:9-11; agent-smith-skills:principles/deltas/rust.md:19-20; agent-smith-skills:principles/deltas/typescript.md:18-19"
+  - claim: "Spark ships method length, file length and type-count checks disabled; the Databricks Rule of 30 and Palantir's 250/70 are stated 'in general'."
+    evidence: "observed: apache/spark scalastyle-config.xml, databricks/scala-style-guide, palantir/pyspark-style-guide, read 2026-10-03"
+  - claim: "The 30-line base-class limit was a number nobody chose and had to be removed."
+    evidence: "observed: phase 2026-10-02-3f06f in agent-smith PR #703, 2026-10-03"
+
+assumptions:
+  - claim: "Measured distributions in well-regarded repositories give defensible limits where no guide states a rule."
+    check: "The operator agrees per language before a measured number becomes a rule."
+
+scope:
+  in: >
+    Per shipped delta (csharp, rust, typescript, scala; later deltas carry their own): the limits the language's
+    tooling or guides state as rules, with source; where none does, the distribution of type and function sizes in
+    named reference repositories with the counting rule (code lines; tests and generated code apart). The core's size
+    sentence and hook 2, and DELTA-FORMAT's Additions text, become 'where the stack documents one'. A measured number
+    becomes a rule only when the operator ratifies it in decisions/2026-10-03-24d4.yaml, which its source line cites;
+    otherwise the delta says no number is set.
+  out: >
+    Enforcing the limits — the structure-rules engine, specced after this evaluation.
+
+decisions:
+  - key: "A NUMBER NEEDS A SOURCE. The base-class limit showed what an unsourced number costs; the same test applies to the ones already shipped."
+
+steps:
+  - id: research
+    action: "Collect stated limits and measure reference repositories per language."
+  - id: catalog
+    action: "Core sentence and every delta's size section rewritten to the evidence."
+
+tests:
+  - "validate-skills: every number in a delta's size section carries a source line"
+
+done:
+  - "no delta states a size limit without a cited source"

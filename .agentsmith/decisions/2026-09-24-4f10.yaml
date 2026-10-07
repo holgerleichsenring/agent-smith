@@ -1,4 +1,4 @@
-phase: 2026-09-24-4f10
+spec: 2026-09-24-4f10
 decisions:
   - what: "Split the proof rule: a premise that GIVES a path is settled by reading it; one that merely names a file is not."
     alternatives:

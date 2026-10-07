@@ -77,16 +77,11 @@ internal sealed class ApprovedSetHarness
         var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
             Deriver,
-            new SpecSetReader(
-                factory.Object, gitOps,
-                new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
-                new SpecSetIndex(), new SandboxTargets(),
-                NullLogger<SpecSetReader>.Instance),
+            SeriesDoubles.Reader(factory.Object, gitOps),
             Publisher(),
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -100,6 +95,7 @@ internal sealed class ApprovedSetHarness
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(cuts, NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -174,8 +170,8 @@ internal sealed class ApprovedSetHarness
         internal string? CauseSeen { get; private set; }
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-            AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             Calls++;
             PreviousSeen = previous;

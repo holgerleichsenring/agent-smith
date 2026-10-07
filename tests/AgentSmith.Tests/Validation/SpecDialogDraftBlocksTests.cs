@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Validation;
 /// </summary>
 public sealed class SpecDialogDraftBlocksTests
 {
-    private const string PhaseDraft = "```yaml\nphase: p9999\ngoal: \"g\"\n```";
+    private const string PhaseDraft = "```yaml\nspec: p9999\ngoal: \"g\"\n```";
     private const string OutcomeDraft = "```outcome\nkind: bug\ntitle: \"t\"\n```";
 
     [Theory]

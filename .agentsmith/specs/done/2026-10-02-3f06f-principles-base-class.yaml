@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-3f06f
+goal: "This repository's principles and memory stop stating a 30-line base-class limit; base classes holding a template-method skeleton only stays, and the content test stops requiring the number."
+
+applies_to: "principles (default context), repository memory, PrinciplesTemplateContentTests"
+
+requires: []
+
+facts:
+  - claim: "This repository's principles state the limit at four lines."
+    evidence: ".agentsmith/contexts/default/principles.md:43,125,128,236"
+  - claim: "The repository's feedback memory states it."
+    evidence: ".agentsmith/memory/feedback_code_style.md:21"
+  - claim: "The content test requires every anchor, '30 lines' among them, in both principles.md and the composed C# output, and never checks an anchor is absent; it reads a skills checkout, not the pin, and skips without one."
+    evidence: "tests/AgentSmith.Tests/Skills/PrinciplesTemplateContentTests.cs:55-60; tests/AgentSmith.Tests/TestSupport/TestSkillsRoot.cs:21-40"
+  - claim: "The limit entered with p73, co-authored by Claude Opus 4.6; the operator does not recognise it."
+    evidence: "observed: git show 7af464fd7 and the operator's statement, 2026-10-02"
+
+assumptions: []
+
+scope:
+  in: >
+    The number leaves principles.md and .agentsmith/memory/feedback_code_style.md; the sentences keep 'template-method
+    skeleton only, never business logic'. The '30 lines' anchor leaves PrinciplesTemplateContentTests.
+  out: >
+    The C# delta, its release and the golden — 2026-10-02-3f06g. Every other number — re-derived by the
+    structure-rules series from a sourced evaluation.
+
+decisions:
+  - key: "THE NUMBER GOES, THE RULE STAYS. 'No business logic in a base class' is the operator's; '30 lines' was an author's guess presented as a rule."
+  - key: "SHIPS NOW. Removing the anchor in the same commit keeps the test green whatever the pin says, so the repository side waits for no release."
+
+steps:
+  - id: repo
+    action: "principles.md, memory file, content-test anchor."
+
+tests:
+  - "PrinciplesTemplateContentTests green with AGENTSMITH_TEST_SKILLS_DIR pointing at a skills checkout"
+
+done:
+  - "neither principles.md nor the repository memory states a base-class line limit; build green, full suite green"

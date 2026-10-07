@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0098: Docs Catch-Up for p0084 + p0095a/b/c + p0096
-phase: p0098
+spec: p0098
 decisions:
   - category: Architecture
     chose: `concepts/ticket-lifecycle.md` is the single canonical state-machine page. Setup and configuration pages link to it rather than restating the diagram, so future changes land in one place. Recovery semantics (StaleJobDetector, EnqueuedReconciler, what-survives-what) live there too

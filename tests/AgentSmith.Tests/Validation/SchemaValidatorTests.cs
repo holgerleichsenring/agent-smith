@@ -23,7 +23,7 @@ public sealed class SchemaValidatorTests
     /// <summary>A draft exercising all three phase-spec oneOf sites, plus one real error.</summary>
     private static string DraftWith(int sites, bool arrayActions = false)
     {
-        var yaml = new StringBuilder("phase: p9999\ngoal: \"g\"\ntests: \"not-an-array\"\nrequires:\n");
+        var yaml = new StringBuilder("spec: p9999\ngoal: \"g\"\ntests: \"not-an-array\"\nrequires:\n");
         for (var i = 0; i < sites; i++) yaml.Append($"  - \"p{i:0000}\"\n");
         yaml.Append("decisions:\n");
         for (var i = 0; i < sites; i++) yaml.Append($"  - key: \"d{i} - why\"\n");
@@ -47,7 +47,7 @@ public sealed class SchemaValidatorTests
 
     [Fact]
     public void SchemaValidator_AOneOfMatchingNeitherBranch_StillReports() =>
-        Refusal("phase: p9999\ngoal: \"g\"\nrequires: 42\n").Should()
+        Refusal("spec: p9999\ngoal: \"g\"\nrequires: 42\n").Should()
             .Contain("phase-spec/requires: Value is \"integer\" but should be \"array\"")
             .And.Contain("phase-spec/requires: Value is \"integer\" but should be \"string\"");
 
@@ -57,12 +57,12 @@ public sealed class SchemaValidatorTests
     // names the way out.
     [Fact]
     public void SchemaValidator_AnUnknownKey_IsReportedByNameAndAsNotAllowed() =>
-        Refusal("phase: p9999\ngoal: \"g\"\nscope:\n  in: \"x\"\n  invented_key: \"y\"\n").Should()
+        Refusal("spec: p9999\ngoal: \"g\"\nscope:\n  in: \"x\"\n  invented_key: \"y\"\n").Should()
             .Be("phase-spec/scope/invented_key: this property is not allowed here — it allows in, out");
 
     [Fact]
     public void SchemaValidator_ASchemaValuedAdditionalProperties_StillReportsItsTypeError() =>
-        Refusal("phase: p9999\ngoal: \"g\"\ndep-graph:\n  a: \"not-an-array\"\n").Should()
+        Refusal("spec: p9999\ngoal: \"g\"\ndep-graph:\n  a: \"not-an-array\"\n").Should()
             .Be("phase-spec/dep-graph/a: Value is \"string\" but should be \"array\"");
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class SchemaValidatorTests
     [Fact]
     public void SchemaValidator_AReportCutAtTheBound_SaysItWasCut()
     {
-        var yaml = new StringBuilder("phase: p9999\ngoal: \"g\"\nscope:\n");
+        var yaml = new StringBuilder("spec: p9999\ngoal: \"g\"\nscope:\n");
         for (var i = 0; i < 14; i++) yaml.Append($"  k{i}: \"v\"\n");
 
         Refusal(yaml.ToString()).Should().EndWith("(report cut at 10 problems, 4 more not shown)");
@@ -123,7 +123,7 @@ public sealed class SchemaValidatorTests
     {
         var refusal = Refusal(
             """
-            phase: 2026-09-24-a7c3
+            spec: 2026-09-24-a7c3
             goal: "Update all direct dependencies to their newest compatible minor or patch releases"
             scope:
               repositories:

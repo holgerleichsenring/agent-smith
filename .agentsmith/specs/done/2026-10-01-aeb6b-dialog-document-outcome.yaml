@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-aeb6b
+goal: "Asked for a text to take elsewhere — a prompt, a summary, a brief — the design partner writes it at once as a document the dashboard shows with a copy button."
+
+applies_to: "backend (the design turn's prompt), dashboard (the transcript), skills (design-partner master)"
+
+requires: []
+
+facts:
+  - claim: "Every turn that may not propose is told to answer a request for work with found / edge cases / open questions."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:28-31,91-93"
+  - claim: "The draft patterns match a ```yaml or ```outcome block wherever it stands, inside any outer fence; the refusal, the resolver, the validator, the shown reply and the reloaded transcript all read through them."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogDraftBlocks.cs:18-25; SpecDialogProposalRefusal.cs:38,64; SpecDraftValidator.cs:26; OutcomeProposalResolver.cs:21; src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:32; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:16,29"
+  - claim: "A reply with no draft block resolves to AnswerOutcome, which the outcome flow ends without confirmation or filing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:39; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:33"
+  - claim: "An agent turn is rendered through the shared Markdown component, whose fenced code goes to ResultCodeBlock with no copy action."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:63-75; src/dashboard/src/components/jobs/ResultCodeBlock.tsx:35-47"
+  - claim: "The master caps every reply at chat length and puts every request for work through a discussion first."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:66-67,127-140"
+  - claim: "SpecDialogPromptFactory.cs has 116 lines against the 120-line limit; the refusal nudge reuses FirstAnswer and the may-propose line says to reply with no artifact otherwise."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:88-93,106"
+  - claim: "A design reply is capped at the model's MaxTokens, 8192 by default, so a long document can arrive with its fence unclosed."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelAssignment.cs:18"
+
+scope:
+  in: >
+    A document is a fence of FOUR backticks with the info string document, so the text inside may carry its own
+    ``` code blocks. The master learns a fifth outcome, document, with its own reference on how to write one; the
+    discussion-first rule and the chat-length rule stop applying to it. The turn prompt's first-answer clause says a
+    request for a document is answered with the document, and the may-propose line no longer reads a document as an
+    artifact to withhold. Everything inside a document is blanked before any draft rule reads the reply, so a ```yaml
+    example in a hand-off prompt is never refused, validated, proposed or stripped. The dashboard transcript splits an agent turn into prose
+    and documents and renders each document as a card: its markdown, and a Copy button that copies the raw text.
+  out: >
+    A typed DocumentOutcome or a new turn kind. A document proposes nothing, needs no confirmation and files nothing,
+    so it is an answer; a type would add a case to six proposal switches that never reach it.
+    A "document" label on the conversation list — it needs the list to read turns, and the transcript already shows it.
+    Slack and Teams — they show the fence as a code block, which is copyable there.
+
+decisions:
+  - key: "AN ANSWER THAT CARRIES A DOCUMENT, NOT A PROPOSAL. Nothing about it is routed; its only consumer is the reader."
+  - key: "FOUR BACKTICKS. A hand-off prompt routinely contains code; a three-backtick fence would end at its first example."
+  - key: "THE WRITER KNOWS ITS READER. The reference makes the master write for someone who did not see the conversation: grounded in the project context, self-contained, and for an agent reader in a fixed shape — goal, current state with paths, conventions, open work, how to verify."
+
+steps:
+  - id: skill
+    action: "agent-smith-skills: design-partner-master gains the document outcome and exempts it from discussion-first and chat length; references/writing-documents.md, cited as {{ref:writing-documents}}, says how to write one; the sentence 'The first reply to a request for work is always an **answer**' stays verbatim; master version 1.8.0."
+  - id: drafts
+    action: "SpecDialogDraftBlocks reads every draft rule outside ````document fences and strips around them; validator and resolver read through it."
+  - id: prompt
+    action: "FirstAnswer adds that a request for a document is answered with the document; the may-propose line names the draft blocks instead of 'no artifact'."
+  - id: card
+    action: "dashboard: documentBlocks splits a turn's text; DialogDocumentCard renders one with Copy; DialogTranscript uses both for agent turns."
+
+tests:
+  - "Resolve_ADocumentCarryingAYamlExample_IsAnAnswer"
+  - "Contains_ADraftInsideADocument_IsNoDraft"
+  - "Strip_ADraftBesideADocument_RemovesTheDraftAndKeepsTheDocumentWhole"
+  - "SpecDialogDiscussionPrompt_FirstAnswer_AnswersADocumentRequestWithTheDocument"
+  - "documentBlocks splits prose and four-backtick document fences, keeping inner code fences, and treats an unclosed fence as a document to the end"
+  - "DialogTranscript renders a document as a card whose Copy writes the raw text"
+
+done:
+  - "a reply carrying a ````document fence shows a card with Copy in the dashboard transcript"
+  - "the skills pull request is open; the pin moves in 2026-10-01-aeb6d"
+  - "build green, full suite green, dashboard tests and build green"

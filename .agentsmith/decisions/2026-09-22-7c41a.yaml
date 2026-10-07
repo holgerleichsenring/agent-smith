@@ -1,4 +1,4 @@
-phase: 2026-09-22-7c41a
+spec: 2026-09-22-7c41a
 decisions:
   - id: the-tier-crosses-the-park-not-the-computed-cap
     chose: >

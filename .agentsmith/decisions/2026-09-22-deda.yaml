@@ -1,4 +1,4 @@
-phase: 2026-09-22-deda
+spec: 2026-09-22-deda
 decisions:
   - id: the-clause-rides-the-turn-contract
     chose: >

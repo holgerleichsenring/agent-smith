@@ -1,4 +1,4 @@
-phase: 2026-09-22-6968
+spec: 2026-09-22-6968
 decisions:
   - id: the-counterfactual-is-the-same-pass-with-an-emptied-block
     chose: >

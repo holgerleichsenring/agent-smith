@@ -52,12 +52,13 @@ public sealed class ApprovedSetTicketFiler(
     ILogger<ApprovedSetTicketFiler> logger)
 {
     /// <param name="render">The body, given the note that explains the labels it is filed with.</param>
-    /// <param name="set">The approved phases, in the order the one run will work them.</param>
+    /// <param name="series">The series' base id and its approved phases, re-id'd, in run order.</param>
+    /// <param name="goal">2026-10-06-03c7f: the series' goal — an epic's parent goal, a lone spec's own.</param>
     /// <param name="notes">What a step that failed AFTER the ticket existed left behind.</param>
     public async Task FileAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         TicketFilingRole role, Func<string, PhaseTicketContent> render,
-        IReadOnlyList<PhaseDraft> set, List<FiledTicket> filed, List<string> notes,
+        FiledSeries series, string goal, List<FiledTicket> filed, List<string> notes,
         bool mayStartRuns, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(provider);
@@ -72,34 +73,34 @@ public sealed class ApprovedSetTicketFiler(
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));
-        var record = await StoreAsync(state, project, created, set, ct);
+        var record = await StoreAsync(state, project, created, series, goal, ct);
         await branches.WriteAsync(provider, project, created, record, notes, ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
 
     /// <summary>
     /// The store failure names the ticket, for a phase as well as for a cut. Until the set is
-    /// stored the created ticket is a phase-labelled ticket with no specification, which is the
-    /// broken hand-off FiledTicketSpecGate fails loudly on — the same hazard either way, and only
+    /// stored the created ticket carries the approved-set stamp and no stored specification, which
+    /// is the broken hand-off FiledTicketSpecGate fails loudly on — the same hazard either way, and only
     /// the cut's path used to say so. Asking again files a SECOND ticket with a second stored set,
     /// which is a second run and a second pull request per repository, so the operator is told
     /// which ticket must not be triggered rather than handed a complete-looking filing.
     /// </summary>
     private async Task<SpecApprovalRecord> StoreAsync(
         ConversationState state, ResolvedProject project, CreatedTicket created,
-        IReadOnlyList<PhaseDraft> set, CancellationToken ct)
+        FiledSeries series, string goal, CancellationToken ct)
     {
         try
         {
-            return await approvals.RecordAsync(state, project, created.Id.Value, set, ct);
+            return await approvals.RecordAsync(state, project, created.Id.Value, series, goal, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogError(ex, "The approved set of ticket {Ticket} could not be stored", created.Reference);
             throw new InvalidOperationException(
                 $"The ticket {created.Reference} was created, but the approved set could not be "
-                + $"stored under it: {ex.Message}. Do not trigger that ticket — it carries the phase "
-                + "label and no specification, so its run would stop at the spec gate. Close it "
+                + $"stored under it: {ex.Message}. Do not trigger that ticket — it carries the approved-set "
+                + "stamp and no stored specification, so its run would stop at the spec gate. Close it "
                 + "first: asking again files a second ticket.", ex);
         }
     }

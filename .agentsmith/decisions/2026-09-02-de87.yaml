@@ -1,4 +1,4 @@
-phase: 2026-09-02-de87
+spec: 2026-09-02-de87
 decisions:
   - what: "Decide the work-branch persist from two positive marks — DeliverFindings excludes, CommitAndPR includes — with the legacy handler list kept behind them."
     alternatives:

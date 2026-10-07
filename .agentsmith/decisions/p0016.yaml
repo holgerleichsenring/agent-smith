@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0016: Jira Provider
-phase: p0016
+spec: p0016
 decisions:
   - category: Tooling
     chose: No Jira SDK

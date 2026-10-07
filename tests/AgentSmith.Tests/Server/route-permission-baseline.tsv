@@ -49,8 +49,8 @@ GET	/api/runs/expectations/metrics	runs.read
 GET	/api/runs/{runId}	runs.read
 GET	/api/runs/{runId}/acceptance	runs.read
 GET	/api/runs/{runId}/decisions	runs.read
-GET	/api/runs/{runId}/phases	runs.read
-GET	/api/runs/{runId}/phases/{phaseId}	runs.read
+GET	/api/runs/{runId}/specs	runs.read
+GET	/api/runs/{runId}/specs/{specId}	runs.read
 GET	/api/runs/{runId}/statistics	runs.read
 GET	/api/runs/{runId}/steps	runs.read
 GET	/api/runs/{runId}/steps/{stepIndex:int}/events	runs.read

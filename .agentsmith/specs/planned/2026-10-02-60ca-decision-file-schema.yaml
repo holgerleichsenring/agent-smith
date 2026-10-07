@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-60ca
+goal: "Every decision file is measured against the schema it names: unparseable files are repaired, the category list says what the record uses, and a ratchet keeps the debt from growing."
+
+applies_to: "decision schema, architecture tests, .agentsmith/decisions"
+
+requires: []
+
+facts:
+  - claim: "Of 905 decision files, 296 fail decision.schema.json and 25 are not parseable YAML; the largest causes are a missing required key (200), an unknown key (101) and categories outside the enum — Design 98, Testing 73, Correctness 71, Process 41."
+    evidence: "observed: a jsonschema scan of .agentsmith/decisions at ca47eedcd, 2026-10-02"
+  - claim: "The schema requires category and chose, closes each entry, and enumerates six categories."
+    evidence: ".agentsmith/decision.schema.json:28-37"
+  - claim: "The product writes four categories, all inside the enum."
+    evidence: "src/backend/AgentSmith.Contracts/Decisions/IDecisionLogger.cs:24-30; src/backend/AgentSmith.Infrastructure.Core/Services/DecisionYamlFormatter.cs:12-13"
+  - claim: "No test reads decision files; phase files are measured by PhaseSpecFileSchemaTests."
+    evidence: "tests/AgentSmith.Tests/Architecture/PhaseSpecFileSchemaTests.cs:30-40"
+
+assumptions:
+  - claim: "The record's categories are a vocabulary worth keeping rather than drift to normalise away."
+    check: "Ask the operator before widening the enum."
+
+scope:
+  in: >
+    The 25 unparseable files repaired without changing what they say. The enum widened to the categories the record
+    uses, or the record normalised — the operator's call. DecisionFileSchemaTests measures every file; what still fails
+    sits in a ratchet baseline that may only shrink.
+  out: >
+    The plugin's decision schema — follows in its next release.
+
+decisions:
+  - key: "FOUND, NOT BUILT, IN 2026-10-02-3f06. The 3f06b review noticed 3f06f's own decision file used a category outside the enum and that nothing checks decision files; it is its own piece of work."
+
+steps:
+  - id: repair
+    action: "Repair the unparseable files."
+  - id: vocabulary
+    action: "Settle the category list with the operator; apply it."
+  - id: ratchet
+    action: "DecisionFileSchemaTests with a baseline of what still fails."
+
+tests:
+  - "DecisionFile_EveryFile_ParsesAndValidatesOrIsBaselined"
+  - "DecisionFile_FixedFile_LeavesTheBaseline"
+
+done:
+  - "no decision file is unparseable; a new decision file outside the schema fails the suite"

@@ -59,7 +59,7 @@ public sealed class PhaseTicketRenderer
     /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
     public PhaseTicketContent RenderPhase(
         PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
-        new(Title(draft), PhaseTicketBody.Requirement(
+        new(Title(draft.PhaseId, draft.Goal), PhaseTicketBody.Requirement(
             draft, sb => AppendSpecification(sb, conversation), labelNote));
 
     /// <summary>The heading the specification pointer is filed under.</summary>
@@ -74,7 +74,7 @@ public sealed class PhaseTicketRenderer
         sb.AppendLine(SpecificationHeading);
         sb.AppendLine(
             "The approved phase specification is what the run works from; it is published to "
-            + "the ticket branch under `" + Contracts.Specs.SpecSetKey.Root + "/`."
+            + "the ticket branch under `" + Contracts.Specs.SeriesPaths.Planned + "/`."
             + (string.IsNullOrWhiteSpace(conversation)
                 ? string.Empty
                 : $" Approved in design conversation `{conversation}`."));
@@ -97,11 +97,12 @@ public sealed class PhaseTicketRenderer
     /// </param>
     /// <param name="conversation">The design conversation the set was approved in.</param>
     /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
+    /// <param name="series">2026-10-06-03c7c: the series' base id the title names; absent in a preview.</param>
     public PhaseTicketContent RenderEpicParent(
         PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
         IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
-        string? labelNote = null) =>
-        new(Title(parent), PhaseTicketBody.Requirement(parent, sb =>
+        string? labelNote = null, string? series = null) =>
+        new(Title(series ?? parent.PhaseId, parent.Goal), PhaseTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)
@@ -112,7 +113,7 @@ public sealed class PhaseTicketRenderer
         }, labelNote));
 
     // 2026-09-17-042eb: the goal is whole in the body; the title only has to be accepted.
-    private static string Title(PhaseDraft draft) => TicketTitle.Fit($"{draft.PhaseId}: {draft.Goal}");
+    private static string Title(string id, string goal) => TicketTitle.Fit($"{id}: {goal}");
 
     private static string FormatRequires(PhaseDraft draft) =>
         draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";

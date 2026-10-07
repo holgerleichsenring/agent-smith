@@ -105,7 +105,7 @@ public sealed class DeriveSpecHandlerTests
     {
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Nothing);
         return reader.Object;
@@ -117,7 +117,7 @@ public sealed class DeriveSpecHandlerTests
         var deriver = new Mock<ISpecSetDeriver>();
         deriver.Setup(d => d.DeriveAsync(
                 It.IsAny<Ticket>(), It.IsAny<IReadOnlyList<TicketSegment>>(), It.IsAny<SpecSet?>(),
-                It.IsAny<string>(), It.IsAny<AgentConfig>(), It.IsAny<PipelineContext>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentConfig>(), It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((derivation, derivation is null ? "no parseable cut" : null));
 
@@ -131,7 +131,6 @@ public sealed class DeriveSpecHandlerTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -146,6 +145,7 @@ public sealed class DeriveSpecHandlerTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -167,7 +167,7 @@ public sealed class DeriveSpecHandlerTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var phase = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "phase: p19106a", [])
+            new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = ["Every call site is renamed."],
             },

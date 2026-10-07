@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-10ffb
+goal: "The server spawns no job containers: the spawners and every server-side dependant are deleted or migrated, and capacity, health probes and the Kubernetes client keep working without them."
+
+applies_to: "backend (server composition, lifecycle, capacity, preflight and diagnostics)"
+
+requires: ["2026-09-28-10ffa"]
+
+scope:
+  in: >
+    - Deleted, with each caller migrated and no shim: IJobSpawner, KubernetesJobSpawner,
+      DockerJobSpawner, UnavailableJobSpawner, JobSpawnerSetup, JobRequest, the unused PrJobRequest,
+      DockerNetworkResolver and its DOCKER_NETWORK binding, and OrphanJobDetector.
+    - The spawner branches of RunTerminator and RunDeleter are removed; RunTerminator collapses into
+      CancelEnforcer.
+    - The orchestrator pod leaves the run footprint. That covers RunFootprint's orchestrator slot and
+      OrchestratorPodName (ISandboxCapacityProbe.cs:35-57), KubernetesCapacityProbe (:111),
+      IOrchestratorResourceResolver and its null default (PipelineExecutionExtensions.cs:77),
+      JobSpawnerOptions and JobSpawnerOptionsExtensions, and every reader of orchestrator resources.
+    - The sandbox health probe, the startup probe and the connection diagnostic target the
+      ISandboxFactory backend. StartupSubsystems.Spawner is retired, and DockerSocketUriResolver's
+      findings move to a sandbox subsystem (DockerSocketUriResolver.cs:20-21).
+    - The kubeconfig-aware Kubernetes client, with its local-host rewrite, moves into the sandbox
+      registrations and is resolved lazily, so no file I/O happens before the host binds.
+    - The dead JobId writers stop.
+    - The tests that covered the deleted types are migrated or deleted by name.
+  out: >
+    The CLI's job mode (2026-09-28-10ffc). The configuration block, deploy files and docs
+    (2026-09-28-10ffd). Historical JobId values stay readable on old rows.
+
+decisions:
+  - key: |
+      THE ORCHESTRATOR POD IS ALREADY A PHANTOM, SO IT GOES. RunFootprintCalculator adds an
+      "orchestrator" pod sized from JobSpawnerOptions.Resources to every run (RunFootprintCalculator.cs:19,
+      33-36; OrchestratorResourceResolver.cs:17). A server run executes inside the server replica and
+      spawns no such pod, so admission has over-reserved it for every webhook run. p0336c's own rule is
+      that the reserved footprint equals the pods that actually run (RunFootprintCalculator.cs:11-13).
+      The share is dropped from the footprint, the quota probe (SpawnPipelineRunsUseCase.cs:121-123),
+      ReservedCapacityCalculator (:41), the runs list (RunQueryEndpoints.cs:61, 76, 82, 88) and
+      RunListComposer / RunSnapshotMapper. This is a visible admission change — more runs fit in the
+      same quota — and it is stated in the release notes. ReservedCapacityCalculator already skips the
+      orchestrator for runs without a job id (ReservedCapacityCalculator.cs:37-44). The bound on
+      in-process runs is QueueConfig.MaxParallelJobs (QueueConfig.cs:10).
+  - key: |
+      THE SERVER KEEPS A SANDBOX HEALTH SIGNAL. SpawnerProbe (SpawnerProbe.cs:21-43), the only
+      IPreflightSandboxProbe (JobSpawnerSandboxProbe, registered at ServerPreflightExtensions.cs:21)
+      and the sandbox diagnostic (ConnectionDiagnosticsService.cs:69-70) all probe through the
+      spawner. They are replaced by one probe of the configured sandbox backend: a Kubernetes API and
+      quota read, a Docker ping, or in-process. SandboxSpawnCheck keeps a registration.
+  - key: |
+      THE KUBERNETES CLIENT MOVES, OR OUT-OF-CLUSTER SANDBOXES BREAK. JobSpawnerSetup registers a
+      kubeconfig-aware IKubernetes (JobSpawnerSetup.cs:73, 88-101) after KubernetesSandboxRegistrations
+      registers an in-cluster one (KubernetesSandboxRegistrations.cs:24; ServerHostFactory.cs:33-34),
+      so the kubeconfig client wins today for the sandbox factory, capacity probe and corpse reaper.
+      Its resolution moves into KubernetesSandboxRegistrations, behind a lazy factory, because it reads
+      files asynchronously and rewrites a local host name (JobSpawnerSetup.cs:88-101). Doing that
+      eagerly would recreate the pre-bind I/O that 2026-08-24-035a removes.
+  - key: |
+      DockerNetworkResolver HAS ONE USER, AND IT IS DELETED. DockerSandboxFactory only mirrors it
+      with its own option (DockerSandboxFactory.cs:49-53); DockerJobSpawner is the user
+      (DockerJobSpawner.cs:52).
+  - key: |
+      AgentSecretNames LOSES ITS KUBERNETES HALF. For() validates api_key_secret names through
+      K8sSecretKeyFor (AgentSecretNames.cs:38), and its only callers today are the two spawners
+      (KubernetesJobSpawner.cs:176; DockerJobSpawner.cs:28). ef94 becomes its caller as the strip
+      list. The Kubernetes key derivation and AgentSecretBinding.K8sSecretKey have no reader after this
+      phase and go; apply-k8s-secret.sh uses literal keys (:64-66). For() keeps returning names, and
+      AgentSecretNamesTests loses its key-derivation cases.
+  - key: |
+      DEAD JobId WRITERS, NAMED: RunStartedEvent.JobId (L1RunEvents.cs:34, written at
+      ExecutePipelineUseCase.cs:605, mirrored in the dashboard's hub events that the gate compares),
+      ActiveRun.JobId (ActiveRunRepository.cs:112, 125, 138), IProgressReporter.JobId with
+      DialogueJobIdentity.cs:20 and SpawnFixHandler.cs:141. Where a job id serves as the run's bus key
+      (10ffa), it is the run id; spawned-job ids are no longer written. Readers of RunStartedEvent.JobId
+      (RunEventApplier.cs:124; QueuedRunProjection.cs:30) are updated.
+  - key: |
+      PLANNED PHASES THIS CONTRADICTS, NAMED, NOT EDITED. 2026-08-24-035a (server-startup-no-io) assumes
+      a spawner that always exists; it needs a successor. p0342 and p0382 reason from the
+      spawned-orchestrator model; their authors re-read them when taken up.
+  - key: |
+      SERIES: second of 2026-09-28-10ff. Suggested order: after 10ffa.
+
+steps:
+  - id: capacity
+    path: "src/backend/AgentSmith.Application/Services, src/backend/AgentSmith.Server"
+    action: "Remove the orchestrator pod and its resolver from the footprint, admission, reservation and the runs list; update the tests."
+  - id: health
+    path: "src/backend/AgentSmith.Server/Services/Startup, src/backend/AgentSmith.Server/Services/Preflight, src/backend/AgentSmith.Server/Services/Diagnostics"
+    action: "One sandbox-backend probe replaces the three spawner probes."
+    new:
+      - "SandboxBackendProbe: reachability of the configured sandbox backend"
+  - id: kube-client
+    path: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxRegistrations.cs"
+    action: "Resolve kubeconfig or in-cluster configuration there."
+  - id: delete
+    action: "Delete the types listed in scope and migrate every caller; collapse RunTerminator into CancelEnforcer."
+  - id: tests
+    path: "tests/AgentSmith.Tests"
+    action: "Migrate or delete: CapacityProbeTests, OrphanJobDetectorTests, JobSpawnerOptionsBindingTests, OrchestratorResourceResolverTests, CancelEnforcementTests, RunDeleteTests, ServerDiLifetimeTests, ConnectionDiagnosticsServiceTests, DialogueAskGateTests, CapacityTestDoubles, RunFootprintCalculatorTests, AgentSecretNamesTests, SlackModalSubmissionHandlerTests, StartupThrowInventoryTests, NonDiCtorRuleTests, file-length-baseline.tsv."
+
+tests:
+  - "Architecture_ServerAssembly_HasNoTypeNamedJobSpawner"
+  - "RunFootprintCalculator_AnyProject_HasNoOrchestratorPod"
+  - "SandboxBackendProbe_Kubernetes_ReadsTheApiAndQuota"
+  - "SandboxBackendProbe_Docker_PingsTheDaemon"
+  - "KubernetesSandboxRegistrations_OutOfCluster_UsesKubeconfig"
+  - "CancelEnforcer_RunningRun_CancelsThroughTheRegistry"
+
+done:
+  - "no spawner type, registration or probe remains; cancel, delete and admission work for every run"
+  - "the runs list and admission no longer count an orchestrator pod, and the release notes say more runs fit the same quota"
+  - "an out-of-cluster Kubernetes sandbox backend still connects"
+  - "build green, full suite green, dashboard tests green"

@@ -27,7 +27,7 @@ public sealed class AcceptanceContractSectionTests
         var pipeline = new PipelineContext();
         pipeline.Set(
             ContextKeys.PhaseSpec,
-            new PhaseDraft("p1", "Upgrade the flagged packages", "phase: p1", [])
+            new PhaseDraft("p1", "Upgrade the flagged packages", "spec: p1", [])
             {
                 Done = [First, Second],
             });

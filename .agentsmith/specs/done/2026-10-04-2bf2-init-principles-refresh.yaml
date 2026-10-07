@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-04-2bf2
+goal: "An init can refresh principles.md: core, delta and overlays are recomposed from the catalog and the file's Project Specifics are kept, chosen per launch from the dashboard or the CLI."
+
+applies_to: "init launch (dashboard, server endpoint, CLI), principles transfer, bootstrap outcome and prompt, docs"
+
+requires: []
+
+facts:
+  - claim: "The transfer skips overlay detection when principles.md exists and never overwrites it: it logs 'preserved as ratified' and returns PreservedExisting."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:46-48,67-75"
+  - claim: "The composed file ends with a '## Project Specifics (ratified additions)' section meant to survive re-init."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:112-118"
+  - claim: "PrinciplesMode is switched on by BootstrapPrinciplesOutcome.Sentence (throws on an unknown mode), BootstrapPromptFactory.WriteInstruction (anything else reads as preserved) and InitPullRequestBody.Principles (anything else reads as skill-authored)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapPrinciplesOutcome.cs:22-33; src/backend/AgentSmith.Application/Services/BootstrapPromptFactory.cs:129-132; src/backend/AgentSmith.Application/Services/Handlers/InitPullRequestBody.cs:64-80"
+  - claim: "BootstrapPrinciplesTransfer is 112 lines and unbaselined; BootstrapPromptFactory is baselined."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:1-112; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "Auto-accept rides the launch request as a bool, travels as a context key and is read with PipelineContext.Flag; a request that omits it is false; the launcher passes it positionally."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitLaunchRequest.cs:14; src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:91-98; src/backend/AgentSmith.Contracts/Commands/ContextKeys.Init.cs:8-14; src/backend/AgentSmith.Application/Services/Builders/InitCompleteContextBuilder.cs:21"
+  - claim: "The dashboard init action is a button and an Auto-accept toggle drawn from the CHIP tokens; both hosts render the same component; a test pins the exact launch body."
+    evidence: "src/dashboard/src/components/system/ProjectInitAction.tsx:45-60,62-122,138-193; src/dashboard/src/lib/projectInitApi.ts:29-43; src/dashboard/src/components/config/__tests__/ProjectCardInit.test.tsx:94,107"
+  - claim: "The CLI init command has --project, --dry-run and source options and builds its context dictionary itself."
+    evidence: "src/backend/AgentSmith.Cli/Commands/InitCommand.cs:7-36"
+  - claim: "Four docs state that an existing principles.md is never overwritten."
+    evidence: "docs/reference/skills/bootstrap.md:55-56; docs/reference/setup/onboarding.md:88; docs/configure-it/config-studio.md:47; docs/trigger-it/cli.md:20"
+
+assumptions: []
+
+scope:
+  in: >
+    ContextKeys.RefreshPrinciples (bool, read with Flag). With it set, the transfer runs overlay detection and writes the
+    composed content even when principles.md exists, carrying over the existing file's last '## Project Specifics'
+    section verbatim (ProjectSpecificsSection: extract, append); a file without that heading carries nothing. Mode
+    Refreshed, handled by BootstrapPrinciplesOutcome.Sentence, a new write instruction beside BootstrapPromptFactory
+    (it is baselined) and InitPullRequestBody — whose line says refreshed, and 'no Project Specifics section — nothing
+    carried over' when that is so. Launch: InitRunLauncher takes InitLaunchRequest instead of a positional bool;
+    InitLaunchRequest.RefreshPrinciples (default false); the CLI's --refresh-principles. Dashboard: InitOptionChip
+    extracted (CHIP and the toggle, props testId, title, label; the auto-accept test ids unchanged), a 'Refresh
+    principles' chip beside 'Auto-accept PRs', its title saying what is regenerated and what is kept; the two are
+    independent. The four docs say what refresh does.
+  out: >
+    A ticket-triggered refresh — 2026-10-04-6807. Refreshing artefacts (they keep their existing preserve rule). The
+    chat intent's init launch stays without refresh.
+
+decisions:
+  - key: "THE OPERATOR OWNS THE RISK. Refresh and auto-accept are independent; git is the undo."
+  - key: "REFRESH, NOT OVERWRITE. Everything above Project Specifics is catalog text and is regenerated; the section is the operator's and is copied."
+  - key: "PER LAUNCH, LIKE AUTO-ACCEPT. A project setting would refresh on every later init nobody meant to refresh."
+
+steps:
+  - id: room
+    action: "Move ResolveComponentLanguage (or the write step) out of BootstrapPrinciplesTransfer before adding to it."
+  - id: transfer
+    action: "ProjectSpecificsSection; refresh path through detection and write; PrinciplesMode.Refreshed in Sentence, the write instruction and the PR body."
+  - id: launch
+    action: "ContextKeys.RefreshPrinciples; InitRunLauncher takes InitLaunchRequest (endpoint, chat intent, harness and tests updated); CLI option."
+  - id: dashboard
+    action: "InitOptionChip; Refresh principles chip; projectInitApi sends refreshPrinciples; ProjectCardInit, appearance and restore tests."
+  - id: docs
+    action: "bootstrap.md, onboarding.md, config-studio.md, cli.md."
+
+tests:
+  - "BootstrapPrinciplesTransfer_RefreshWithExistingFile_RecomposesAndKeepsProjectSpecifics"
+  - "BootstrapPrinciplesTransfer_RefreshWithSparkManifest_AppliesTheOverlay"
+  - "BootstrapPrinciplesTransfer_NoRefresh_StillPreservesTheFile"
+  - "ProjectSpecificsSection_FileWithoutTheHeading_KeepsNothing"
+  - "BootstrapPrinciplesOutcome_Refreshed_HasASentence"
+  - "InitPullRequestBody_RefreshedWithoutSpecifics_SaysNothingWasCarriedOver"
+  - "InitRunLauncher_RefreshRequested_CarriesTheFlag"
+  - "InitCommand_RefreshPrinciplesOption_Parses"
+  - "ProjectInitAction sends refreshPrinciples when its chip is ticked, independent of auto-accept"
+
+done:
+  - "an init started with 'Refresh principles' ticked replaces principles.md with the current composition and keeps its Project Specifics"
+  - "build green, full suite green, dashboard tests and build green"

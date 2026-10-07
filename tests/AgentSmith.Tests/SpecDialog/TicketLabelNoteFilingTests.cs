@@ -98,7 +98,8 @@ public sealed class TicketLabelNoteFilingTests
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);
 
@@ -109,7 +110,7 @@ public sealed class TicketLabelNoteFilingTests
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"phase {id}",
-            $"phase: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
+            $"spec: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
             []) { Done = [$"{id} is finished"] };
 
     private static AgentSmithConfig Config() => new()

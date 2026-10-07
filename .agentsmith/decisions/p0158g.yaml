@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158g: Per-repo BootstrapDispatch + BootstrapRound
-phase: p0158g
+spec: p0158g
 decisions:
   - category: Architecture
     chose: "**Per-iteration concept mutation with try/finally restore"

@@ -225,7 +225,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Title_SkipsALeadingCodeFence()
     {
         await OpenAsync("d-1");
-        await SayAsync("d-1", "```yaml\nphase: p1\n```\n\nStart from this draft");
+        await SayAsync("d-1", "```yaml\nspec: p1\n```\n\nStart from this draft");
 
         (await ListAsync()).Single().Title.Should().Be("Start from this draft");
     }
@@ -395,11 +395,11 @@ public sealed class DialogConversationListTests : IDisposable
             store, NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
-    private static PhaseOutcome Phase() => new(new PhaseDraft("p1", "the phase", "phase: p1", []));
+    private static PhaseOutcome Phase() => new(new PhaseDraft("p1", "the phase", "spec: p1", []));
 
     private static EpicOutcome Epic() => new(
-        new PhaseDraft("p1", "parent", "phase: p1", []),
-        [new PhaseDraft("p1a", "first", "phase: p1a", []), new PhaseDraft("p1b", "second", "phase: p1b", [])]);
+        new PhaseDraft("p1", "parent", "spec: p1", []),
+        [new PhaseDraft("p1a", "first", "spec: p1a", []), new PhaseDraft("p1b", "second", "spec: p1b", [])]);
 
     private async Task<string> OpenAsync(string dialogId, string owner = Owner) =>
         (await StateAsync(dialogId, owner)).JobId;

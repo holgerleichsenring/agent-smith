@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0050: Multi-Output Strategy
-phase: p0050
+spec: p0050
 decisions:
   - category: Architecture
     chose: --output accepts comma-separated values, multiple IOutputStrategy implementations run once

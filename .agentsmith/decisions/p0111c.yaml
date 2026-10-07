@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0111c: Triage Rewrite & Phase-Based Pipeline
-phase: p0111c
+spec: p0111c
 decisions:
   - category: Architecture
     chose: "**Strategy pattern for triage, not in-place rewrite.** `ITriageStrategy` with `LegacyTriageStrategy` (Discussion pipelines: legal/mad/init-project/skill-manager/autonomous) and `StructuredTriageStrategy` (fix-bug/add-feature/security-scan/api-scan). `TriageHandler` becomes a thin adapter that picks the strategy via `ITriageStrategySelector` based on `PipelineType`. Reason: the spec said \"rewrite TriageHandler internals\" but the legacy LLM-based discussion path is a load-bearing fallback for discussion pipelines that don't have skills migrated to the new frontmatter, so a clean strategy split is more honest than a single body with `if (pipelineType == Discussion) ...` branching. Selector is the single dispatch point so the existing `TriageCommand` wiring stayed untouched."

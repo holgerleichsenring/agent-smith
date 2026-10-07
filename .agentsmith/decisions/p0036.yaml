@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0036: GenerateTests & GenerateDocs + Pipeline Resilience
-phase: p0036
+spec: p0036
 decisions:
   - category: Architecture
     chose: Per-command exception handling in PipelineExecutor prevents single command crash from failing entire pipeline

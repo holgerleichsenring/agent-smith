@@ -134,7 +134,7 @@ public sealed class TicketConversationIdentityTests : IDisposable
     public void TicketDialog_TheKey_IsTheApprovalRecordsOwnSpelling()
     {
         TicketBinding.For(Tracker, "jira", "DPG-1239", "t").Key
-            .Should().Be(SpecSetKey.For("jira", "DPG-1239").Value);
+            .Should().Be(TicketKey.For("jira", "DPG-1239").Value);
     }
 
     private Task AddAsync(

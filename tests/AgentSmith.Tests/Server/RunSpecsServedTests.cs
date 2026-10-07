@@ -1,0 +1,297 @@
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Specs;
+using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Infrastructure.Persistence.Services;
+using AgentSmith.Server.Extensions;
+using AgentSmith.Server.Services.Events;
+using AgentSmith.Tests.TestSupport;
+using FluentAssertions;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace AgentSmith.Tests.Server;
+
+/// <summary>
+/// p0466: a finished phase is a record you can open. The phase is a ROW the producer
+/// wrote, its steps and decisions name it in a column, and the spec it executed is held
+/// by the server rather than only by the sandbox that is gone. Proven on a real SQLite
+/// engine through the endpoint handlers.
+/// </summary>
+[Collection(RelationalStoreCollection.Name)]
+public sealed class RunSpecsServedTests : IDisposable
+{
+    private const string RunId = "2026-08-19T09-00-00-0001";
+    private static readonly DateTimeOffset T = DateTimeOffset.Parse("2026-08-19T09:00:00Z");
+
+    private readonly SqliteConnection _connection;
+    private readonly IServiceScopeFactory _scopes;
+
+    public RunSpecsServedTests()
+    {
+        _connection = new SqliteConnection("Data Source=:memory:");
+        _connection.Open();
+        using (var ctx = new AgentSmithDbContext(Options())) ctx.Database.Migrate();
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddScoped<RunArtifactRepository>();
+        _scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+    }
+
+    public void Dispose() => _connection.Dispose();
+
+    [Fact]
+    public async Task RunSpecProjection_StateChanged_UpsertsRunSpecsRow()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            Done("p19213a", "Make the thing exist"),
+            Selected("p19213b", 2, "Make the thing readable"),
+            Failed("p19213b", "Make the thing readable", "dotnet test exited 1"));
+
+        var phases = await ReadPhasesAsync();
+
+        phases.Select(p => p.SpecId).Should().Equal("p19213a", "p19213b");
+        phases.Select(p => p.Ordinal).Should().Equal(1, 2);
+        phases[0].Status.Should().Be("done");
+        phases[0].Title.Should().Be("Make the thing exist");
+        phases[0].EndedAt.Should().NotBeNull();
+        phases[1].Status.Should().Be("failed");
+        phases[1].Verdict.Should().Be("dotnet test exited 1");
+    }
+
+    [Fact]
+    public async Task RunSpec_SelectedTwice_StaysOneRow()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            Selected("p19213a", 1, "Make the thing exist"));
+
+        (await ReadPhasesAsync()).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task RunStep_WrittenDuringAPhase_CarriesPhaseIdWithoutParsing()
+    {
+        await ApplyAsync(
+            new StepStartedEvent(
+                RunId, 4, "p19213a: Implement", 6, T, "p19213a: Implement",
+                CommandNames.AgenticMaster, "p19213a"));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunSteps.Single().PhaseId.Should().Be("p19213a");
+    }
+
+    [Fact]
+    public async Task RunDecision_LoggedDuringAPhase_CarriesPhaseId()
+    {
+        await ApplyAsync(new DecisionLoggedEvent(
+            RunId, "tooling", "sqlite", "postgres", "smallest footprint", T, "p19213a"));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        ctx.RunDecisions.Single().PhaseId.Should().Be("p19213a");
+    }
+
+    /// <summary>
+    /// The pre-migration row is what the regex exists for, and nothing backfills it: it
+    /// must read exactly as it did before this phase.
+    /// </summary>
+    [Fact]
+    public async Task RunStepsReader_PreMigrationRow_StillSplitsThePrefix()
+    {
+        await ApplyAsync(new StepStartedEvent(
+            RunId, 0, "p19213a: Implement", 1, T, "p19213a: Implement", CommandNames.AgenticMaster));
+
+        var rail = await ReadRailAsync();
+
+        rail.Single().PhaseId.Should().Be("p19213a");
+        rail.Single().StepName.Should().Be("Implement");
+    }
+
+    /// <summary>
+    /// The COLUMN is the phase. A row whose label says one thing and whose column says
+    /// another is served the column's answer — otherwise the parser is still deciding.
+    /// </summary>
+    [Fact]
+    public async Task RunStepsReader_RowWithPhaseId_DoesNotConsultTheRegex()
+    {
+        await ApplyAsync(new StepStartedEvent(
+            RunId, 0, "p00000z: Implement", 1, T, "p00000z: Implement",
+            CommandNames.AgenticMaster, "p19213a"));
+
+        (await ReadRailAsync()).Single().PhaseId.Should().Be("p19213a");
+    }
+
+    [Fact]
+    public async Task PhaseRecord_AfterWrite_IsServedFromTheArtifactStore()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\ngoal: \"Make it exist\"\n", T));
+
+        var detail = await ReadPhaseAsync("p19213a");
+
+        detail!.Record.Should().Contain("goal: \"Make it exist\"");
+        detail.Spec.SpecId.Should().Be("p19213a");
+    }
+
+    /// <summary>
+    /// 2026-09-17-042eh: the phase review's own artifact row, on the real engine and through
+    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per phase,
+    /// replaced when a second review of the same phase reports.
+    /// </summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_IsUpsertedAsJsonUnderItsOwnKind()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseReviewedEvent(
+                RunId, "p19213a",
+                """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4}]}""", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":true,"findings":[]}""", T.AddMinutes(3)));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        var rows = ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId && a.Kind.StartsWith("phase_review:"))
+            .ToList();
+
+        rows.Should().ContainSingle("a phase has one review row, replaced and never appended")
+            .Which.Kind.Should().Be("phase_review:p19213a");
+        rows[0].Content.Should().Be("""{"reviewed":true,"findings":[]}""",
+            "the second review of a phase replaces the first, as the record artifact does");
+    }
+
+    /// <summary>The review row is its own kind, beside the record's — one phase, two artifacts,
+    /// neither overwriting the other.</summary>
+    [Fact]
+    public async Task PhaseReviewArtifact_StandsBesideTheRecordArtifact()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\n", T),
+            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
+
+        await using var ctx = new AgentSmithDbContext(Options());
+        ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
+            .Where(a => a.RunId == RunId).Select(a => a.Kind).ToList()
+            .Should().BeEquivalentTo(["phase_record:p19213a", "phase_review:p19213a"]);
+    }
+
+    [Fact]
+    public async Task RunSpecEndpoint_UnknownSpec_IsNotFound() =>
+        (await RunSpecQueryEndpoints.GetRunSpecAsync(
+            RunId, "p00000a", Phases(), CancellationToken.None))
+            .Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.NotFound>();
+
+    [Fact]
+    public async Task RunSpecsEndpoint_ReturnsRows()
+    {
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            new StepStartedEvent(
+                RunId, 0, "p19213a: Implement", 2, T, "p19213a: Implement",
+                CommandNames.AgenticMaster, "p19213a"),
+            new DecisionLoggedEvent(
+                RunId, "tooling", "sqlite", "postgres", "smallest footprint", T, "p19213a"),
+            Done("p19213a", "Make the thing exist"),
+            Selected("p19213b", 2, "Make the thing readable"),
+            new DecisionLoggedEvent(
+                RunId, "ui", "one panel", "two", "fewer places to look", T, "p19213b"),
+            // A decision taken outside any phase belongs to none of them.
+            new DecisionLoggedEvent(RunId, "run", "retry", null, "transient", T));
+
+        var phases = await ReadPhasesAsync();
+
+        phases.Should().HaveCount(2);
+        phases[0].Decisions.Select(d => d.Name).Should().Equal("sqlite");
+        phases[0].Steps.Select(s => s.StepName).Should().Equal("Implement");
+        phases[1].Decisions.Select(d => d.Name).Should().Equal("one panel");
+    }
+
+    [Fact]
+    public async Task RunSpecsEndpoint_RunWithoutSpecs_ReturnsEmpty() =>
+        (await ReadPhasesAsync()).Should().BeEmpty();
+
+    [Fact]
+    public async Task RunSpec_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild()
+    {
+        // 2026-09-17-0e79c: the two ask opposite things of the operator — a red build is fixed
+        // by working the code, a false premise by amending the specification. A reader telling
+        // them apart by the shape of the verdict string would be deriving what the producer
+        // already knows, so the distinction is the STATUS itself.
+        await ApplyAsync(
+            Selected("p19213a", 1, "Make the thing exist"),
+            Failed("p19213a", "Make the thing exist", "dotnet test exited 1"),
+            Selected("p19213b", 2, "Make the thing readable"),
+            HandedBack("p19213b", "Make the thing readable",
+                "False premise in p19213b: \"the bus client is a singleton\" — [M1] …"));
+
+        var phases = await ReadPhasesAsync();
+
+        phases[1].Status.Should().Be("handed_back")
+            .And.NotBe(phases[0].Status, "a phase never built does not read like one built red");
+        new[] { "done", "in_progress", "not_started", "failed" }
+            .Should().NotContain(phases[1].Status, "no existing status value may absorb it");
+        phases[1].EndedAt.Should().NotBeNull("the phase is over — terminal, not still running");
+        phases[1].Verdict.Should().Contain("False premise");
+    }
+
+    private static PhaseStateChangedEvent Selected(string phaseId, int ordinal, string title) =>
+        new(RunId, phaseId, ordinal, title, PhaseRunState.InProgress, null, T);
+
+    private static PhaseStateChangedEvent Done(string phaseId, string title) =>
+        new(RunId, phaseId, 1, title, PhaseRunState.Done, null, T.AddMinutes(5));
+
+    private static PhaseStateChangedEvent Failed(string phaseId, string title, string verdict) =>
+        new(RunId, phaseId, 2, title, PhaseRunState.Failed, verdict, T.AddMinutes(9));
+
+    private static PhaseStateChangedEvent HandedBack(string phaseId, string title, string verdict) =>
+        new(RunId, phaseId, 2, title, PhaseRunState.HandedBack, verdict, T.AddMinutes(9));
+
+    private DbContextOptions<AgentSmithDbContext> Options() =>
+        new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
+
+    private RunStepsReader Steps() => new(_scopes, new RunStepAggregatesReader(), new RunRailComposer());
+    private RunSpecsReader Phases() => new(_scopes, Steps());
+
+    private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
+    {
+        var applier = RunEventAppliers.Default();
+        foreach (var ev in events)
+        {
+            await using var ctx = new AgentSmithDbContext(Options());
+            await applier.ApplyAsync(ctx, ev, CancellationToken.None);
+        }
+    }
+
+    // The endpoint handlers ARE the surface under test — the same code path the
+    // dashboard hits, minus the HTTP pipeline.
+    private async Task<IReadOnlyList<RunSpecView>> ReadPhasesAsync() =>
+        ValueOf<IReadOnlyList<RunSpecView>>(
+            await RunSpecQueryEndpoints.GetRunSpecsAsync(RunId, Phases(), CancellationToken.None),
+            "specs");
+
+    private async Task<RunSpecDetailView?> ReadPhaseAsync(string phaseId)
+    {
+        var result = await RunSpecQueryEndpoints.GetRunSpecAsync(
+            RunId, phaseId, Phases(), CancellationToken.None);
+        return (result as IValueHttpResult)?.Value as RunSpecDetailView;
+    }
+
+    private async Task<IReadOnlyList<RunStepView>> ReadRailAsync() =>
+        ValueOf<IReadOnlyList<RunStepView>>(
+            await RunStepQueryEndpoints.GetRunStepsAsync(RunId, Steps(), CancellationToken.None),
+            "steps");
+
+    private static T ValueOf<T>(IResult result, string property)
+    {
+        var payload = result.Should().BeAssignableTo<IValueHttpResult>().Subject.Value;
+        payload.Should().NotBeNull();
+        var value = payload!.GetType().GetProperty(property)!.GetValue(payload);
+        return value.Should().BeAssignableTo<T>().Subject;
+    }
+}

@@ -44,7 +44,7 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | CommitPhaseWork | Puts the phase's work on the branch before it is judged |
 | VerifyPhase | Runs the declared verify stages, then takes the delivery account |
 | ReviewPhaseDiff | A fresh reviewer reads the phase diff; findings get one fix pass |
-| WritePhaseRecord | Commits the phase record under `.agentsmith/phases/done/` |
+| WritePhaseRecord | Commits the phase record under `.agentsmith/specs/done/` |
 
 ```mermaid
 graph TD

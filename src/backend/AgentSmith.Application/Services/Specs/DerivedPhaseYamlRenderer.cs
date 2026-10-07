@@ -29,7 +29,7 @@ public sealed class DerivedPhaseYamlRenderer
     {
         var document = new Dictionary<string, object?>
         {
-            ["phase"] = phaseId,
+            ["spec"] = phaseId,
             ["goal"] = goal,
         };
         if (requires.Count > 0) document["requires"] = requires;

@@ -42,7 +42,6 @@ public sealed class TicketAmendmentTests : IDisposable
     private const string Tracker = "sample-tracker";
     private const string Ticket4711 = "4711";
     private const string Key = "github-4711";
-    private const string Directory = $".agentsmith/specs/{Key}";
     private const string Prose = "A person wrote this, and it must survive.";
 
     private readonly SqliteConnection _connection;
@@ -98,6 +97,71 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-10-06-03c7c: an amended ticket keeps the series base its first approval minted, read
+    /// back through the record before anything renders — a second base would rename every phase,
+    /// and an executed head is kept by its ids.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_ExistingTicket_KeepsSeries()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Series;
+
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
+
+        var record = (await store.GetAsync(Tracker, Key, default))!;
+        first.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
+        record.Set.Series.Should().Be(first, "the amendment reuses the base the ticket already carries");
+        record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(SeriesIdFactory.Member(first!, 0));
+        tracker.Description.Should().Contain("the widget never drops");
+    }
+
+    /// <summary>
+    /// 2026-10-06-03c7f: an amended epic re-records its parent's goal as the series' goal, so the
+    /// row and the manifest written from it keep saying what the whole series is for.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_Epic_KeepsGoal()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        var sources = new RecordingBranchSources();
+        var epic = new EpicOutcome(
+            new PhaseDraft("p9001", "the widget is reliable", "spec: p9001", []),
+            [Child("p9001a", "the widget stops dropping"), Child("p9001b", "the widget reports drops")]);
+
+        await Amendment(tracker, sources, store).ApplyAsync(State(), epic, default);
+
+        var record = (await store.GetAsync(Tracker, Key, default))!;
+        record.Set.Goal.Should().Be("the widget is reliable", "the parent's goal is the series' goal");
+        record.Set.Phases.Should().HaveCount(2);
+        new SeriesManifest().Parse(sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!
+            .Goal.Should().Be("the widget is reliable");
+    }
+
+    private static PhaseDraft Child(string id, string goal) =>
+        new(id, goal, $"spec: {id}\ngoal: {goal}", []) { Done = ["It is done."] };
+
+    /// <summary>
+    /// 2026-10-06-03c7d: an amendment that changes a filed spec's goal keeps its label, so the
+    /// checkout-free write, which cannot delete, never leaves a second file for one id.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_ChangedGoal_KeepsTheFiledLabel()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem;
+
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
+
+        (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem.Should().Be(first);
+    }
+
+    /// <summary>
     /// The branch set carries a fingerprint of the ticket AS THE TRACKER STORED IT. A stale one
     /// reads as a ticket EDIT on the next run, which posts a comment telling the operator their
     /// edit was ignored — after every amendment, for ever. So the read-back happens AFTER the
@@ -113,8 +177,9 @@ public sealed class TicketAmendmentTests : IDisposable
         await Amendment(tracker, sources).ApplyAsync(
             State(), Proposal("the widget stops dropping"), default);
 
-        var written = new SpecSetIndex().FingerprintOf(
-            new SpecSetIndex().Parse(sources.Writes[0].ContentOf($"{Directory}/set.yaml"))!);
+        var manifest = sources.Writes[0].Paths.Single(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal));
+        var written = new SeriesManifest().FingerprintOf(
+            new SeriesManifest().Parse(sources.Writes[0].ContentOf(manifest))!);
         written.Should().Be(TicketTextFingerprint.Of(tracker.Ticket()),
             "the next run compares against the ticket as it stands after the amendment")
             .And.NotBe(before, "a fingerprint of the ticket before the rewrite reports an edit nobody made");
@@ -257,7 +322,7 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     private static OutcomeProposal Proposal(string goal) =>
-        new PhaseOutcome(new PhaseDraft("p9001", goal, $"phase: p9001\ngoal: {goal}", []));
+        new PhaseOutcome(new PhaseDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
 
     /// <summary>The conversation as 8e51c leaves it: bound, with the ticket's text recorded.</summary>
     private async Task<FakeTracker> BoundAsync()
@@ -279,6 +344,7 @@ public sealed class TicketAmendmentTests : IDisposable
         new(Config(), Scopes(), new FiledWorkTrackerProjects(Config()),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
             tracker, new PhaseTicketRenderer(), new EpicChildOrderer(),
+            ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources()),
             NullLogger<TicketAmendment>.Instance);
 

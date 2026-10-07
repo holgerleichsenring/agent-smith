@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0147b: Incomplete Skill Outcomes as Observations
-phase: p0147b
+spec: p0147b
 decisions:
   - category: Architecture
     chose: "SkillCallRuntime emits typed SkillObservations for Incomplete and FailedRuntime outcomes via a new stateless `RuntimeObservationFactory`. Reason: SkillObservation is the universal pipeline carrier (p0123); rendering limit-hits as observations lets triage and downstream skill rounds reason about them, not just logs."

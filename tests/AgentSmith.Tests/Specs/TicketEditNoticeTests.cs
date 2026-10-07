@@ -60,9 +60,9 @@ public sealed class TicketEditNoticeTests
     }
 
     [Fact]
-    public void SpecSetIndex_RoundTripsTheTicketFingerprint()
+    public void SeriesManifest_RoundTripsTheTicketFingerprint()
     {
-        var index = new SpecSetIndex();
+        var index = new SeriesManifest();
         var stamped = Set(SpecRevisionCause.Initial) with { TicketFingerprint = "abc123" };
         var unstamped = Set(SpecRevisionCause.Initial);
 
@@ -81,6 +81,6 @@ public sealed class TicketEditNoticeTests
         ExecutedPhaseIds: ["p1a"]);
 
     private static SpecPhase Phase(string id, string goal) => new(
-        new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
+        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
         id, string.Empty, []);
 }

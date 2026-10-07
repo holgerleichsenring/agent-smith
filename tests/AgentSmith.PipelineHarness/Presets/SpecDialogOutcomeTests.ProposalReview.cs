@@ -93,10 +93,10 @@ public sealed partial class SpecDialogOutcomeTests
             new AgentSmith.Contracts.Commands.PipelineContext());
 
         var asked = await reviewer.ReviewAsync(
-            [new PhaseDraft("p9999", "the widget phase", "phase: p9999", [])], "k", null, null,
+            [new PhaseDraft("p9999", "the widget phase", "spec: p9999", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
         var other = await reviewer.ReviewAsync(
-            [new PhaseDraft("p8888", "another phase", "phase: p8888", [])], "k", null, null,
+            [new PhaseDraft("p8888", "another phase", "spec: p8888", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
 
         asked.Findings.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
@@ -130,7 +130,7 @@ public sealed partial class SpecDialogOutcomeTests
     private const string CitingDraft =
         $$"""
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         facts:
           - claim: "the router dispatches every request"

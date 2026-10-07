@@ -1,4 +1,4 @@
-phase: 2026-09-25-9c4d
+spec: 2026-09-25-9c4d
 decisions:
   - what: "Fix the shipped example, not the operator's own compose file."
     alternatives:

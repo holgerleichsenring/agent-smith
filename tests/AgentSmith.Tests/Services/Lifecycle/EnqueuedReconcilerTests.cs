@@ -72,7 +72,7 @@ public sealed class EnqueuedReconcilerTests
     {
         var harness = new Harness();
         await harness.TakeTicketAsync("42");
-        var key = AgentSmith.Contracts.Specs.SpecSetKey.For("github", "42").Value;
+        var key = AgentSmith.Contracts.Specs.TicketKey.For("github", "42").Value;
         // The reconciler resolves by the project's tracker CONNECTION, which this bed leaves unnamed.
         await harness.Approvals.SaveAsync(
             TestSupport.ApprovedSets.Record(key, TestSupport.ApprovedSets.Noon, tracker: string.Empty),

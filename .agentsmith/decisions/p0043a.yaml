@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0043a: CI/CD Docker Publish
-phase: p0043a
+spec: p0043a
 decisions:
   - category: Tooling
     chose: Chosen multi-arch build (amd64 + arm64) with QEMU emulation

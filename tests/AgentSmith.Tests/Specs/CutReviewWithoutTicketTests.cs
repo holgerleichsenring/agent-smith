@@ -110,7 +110,7 @@ public sealed class CutReviewWithoutTicketTests
     }
 
     internal static PhaseDraft DoneLess() =>
-        new("e1", "Move every sender onto the new bus", "phase: e1", [])
+        new("e1", "Move every sender onto the new bus", "spec: e1", [])
         {
             Steps =
             [
@@ -120,5 +120,5 @@ public sealed class CutReviewWithoutTicketTests
         };
 
     private static IReadOnlyList<PhaseDraft> Criteria() =>
-        [new PhaseDraft("p1a", "migrate the senders", "phase: p1a", []) { Done = ["every sender uses the new bus"] }];
+        [new PhaseDraft("p1a", "migrate the senders", "spec: p1a", []) { Done = ["every sender uses the new bus"] }];
 }

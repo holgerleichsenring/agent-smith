@@ -17,15 +17,15 @@ public sealed class PhaseIdExtractionTests
     [Fact]
     public void PhaseId_TicketDerivedId_IsExtractedWhole()
     {
-        SpecId("phase: p19106a\ngoal: \"anything\"\n").Should().Be("p19106a");
+        SpecId("spec: p19106a\ngoal: \"anything\"\n").Should().Be("p19106a");
 
         // The same widening is what makes the house's own `-pre` convention usable again.
-        SpecId("phase: p0503a-pre\ngoal: \"anything\"\n").Should().Be("p0503a-pre");
+        SpecId("spec: p0503a-pre\ngoal: \"anything\"\n").Should().Be("p0503a-pre");
     }
 
     [Fact]
     public void PhaseId_TwoPhasesFromOneTicket_AreTwoIds() =>
-        SpecId("phase: p19106a\n").Should().NotBe(SpecId("phase: p19106b\n"));
+        SpecId("spec: p19106a\n").Should().NotBe(SpecId("spec: p19106b\n"));
 
     [Fact]
     public void PhaseId_ContextKeyForATicketDerivedId_IsMatched()
@@ -78,7 +78,7 @@ public sealed class PhaseIdExtractionTests
     [Fact]
     public void LegacyReading_ADateMintedSpec_IsSkippedRatherThanCalledUndeclared()
     {
-        const string minted = "phase: 2026-08-24-035a\n";
+        const string minted = "spec: 2026-08-24-035a\n";
 
         PhaseIdReader.Legacy.ReadsEveryNamespace.Should().BeFalse(
             "a spec the four-digit reading cannot name did not exist while it was the rule");

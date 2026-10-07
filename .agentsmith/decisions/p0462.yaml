@@ -1,4 +1,4 @@
-phase: p0462
+spec: p0462
 decisions:
   - chose: "A new top-level 'Configure it' nav group, rather than folding the model into the existing Configuration reference"
     alternatives:

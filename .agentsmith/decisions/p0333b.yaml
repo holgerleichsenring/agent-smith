@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0333b
+spec: p0333b
 
 decisions:
   - category: Implementation

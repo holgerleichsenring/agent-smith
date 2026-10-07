@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0096: Event Pollers
-phase: p0096
+spec: p0096
 decisions:
   - category: Architecture
     chose: "Two independent Redis leases: `agentsmith:leader:poller` and `agentsmith:leader:housekeeping`. A single replica can hold both; having them separate means polling can go leader-elected without disturbing housekeeping timing, and vice versa. Same `LeaderElectedHostedService` runs both with different keys."

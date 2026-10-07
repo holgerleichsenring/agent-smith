@@ -32,11 +32,10 @@ public static class SpecMarkdown
 
     private static void AppendHeader(StringBuilder sb, SpecSet set)
     {
-        var key = new SpecSetKey(set.Key);
         sb.AppendLine($"# Spec set {set.Key}");
         sb.AppendLine();
         sb.AppendLine(
-            $"`{key.Directory}/` — revision {set.Current.Number} ({set.Current.Cause}), "
+            $"`{ManifestOf(set)}` — revision {set.Current.Number} ({set.Current.Cause}), "
             + $"source: {Describe(set)}");
 
         if (set.Handback is { } handback)
@@ -71,7 +70,6 @@ public static class SpecMarkdown
     // silently blank section (the spec commit may have failed — see p0394).
     private static void AppendPhaseDocuments(StringBuilder sb, SpecSet set)
     {
-        var key = new SpecSetKey(set.Key);
         sb.AppendLine();
         sb.AppendLine("## Phase documents");
         foreach (var phase in set.Phases)
@@ -80,7 +78,7 @@ public static class SpecMarkdown
             sb.AppendLine($"### {phase.PhaseId} — `{phase.FileStem}.md`");
             sb.AppendLine(string.IsNullOrWhiteSpace(phase.Markdown)
                 ? $"_No phase document found — nothing was readable at "
-                  + $"`{key.MarkdownPath(phase.FileStem)}` on the ticket branch._"
+                  + $"`{SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem)}` on the ticket branch._"
                 : phase.Markdown.TrimEnd());
         }
     }
@@ -103,10 +101,13 @@ public static class SpecMarkdown
                 $"- **{revision.Number}** — {revision.Cause} ({revision.At:yyyy-MM-dd HH:mm} UTC)");
     }
 
+    // 2026-10-06-03c7d: the series' manifest, or the directory manifests lie in before it has one.
+    private static string ManifestOf(SpecSet set) =>
+        set.Series is { Length: > 0 } seriesBase ? SeriesPaths.Manifest(seriesBase) : SeriesPaths.SeriesRoot + "/";
+
     private static string Describe(SpecSet set) => set.Source switch
     {
         SpecSource.BranchArtifact => "read back from the ticket branch",
-        SpecSource.TicketDescription => "embedded in the ticket description",
         // 2026-09-17-0e79a: an approved set is not "derived from the ticket" — it names the
         // conversation a person approved it in. 2026-09-22-4d17: that is provenance, not a
         // destination — a change to an approved set is not made in the conversation.

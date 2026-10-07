@@ -165,7 +165,7 @@ public sealed class PhaseSequenceTests
     private static SpecSet Set(IReadOnlyList<string> phaseIds) => new(
         "azdo-1",
         [.. phaseIds.Select(id => new SpecPhase(
-            new PhaseDraft(id, $"Goal of {id}", $"phase: {id}", []) { Done = [$"{id} is done."] },
+            new PhaseDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
             id, string.Empty, []))],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

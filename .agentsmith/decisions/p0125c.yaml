@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0125c: Handler Concept Publication (D1 slice 3/4)
-phase: p0125c
+spec: p0125c
 decisions:
   - category: Architecture
     chose: "**PipelineNameInitializer is a dedicated command-handler at the head of every preset, not a routing-side concern.** Pipeline identity is a property of the pipeline run, not the CLI surface (Slack/CLI/webhook all converge on the same pipeline). Five-plus call sites (one per surface) would drift; one Initializer command keeps publication in one place. The Initializer reads `PipelineContext.ResolvedPipeline` (set by PipelineConfigResolver from p0106), so it doesn't need parameters"

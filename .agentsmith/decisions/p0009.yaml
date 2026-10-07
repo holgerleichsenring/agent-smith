@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0009: Model Registry & Scout
-phase: p0009
+spec: p0009
 decisions:
   - category: Architecture
     chose: TaskType enum maps task to appropriate model

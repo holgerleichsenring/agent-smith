@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-283dk
+goal: "Once every replica runs 283da, the legacy SpecDialogAttachments table, its entity, the copy job and the union readers are removed after a final copy pass."
+
+applies_to: "backend (persistence: one migration per set, the repository, the housekeeping loop)"
+
+requires: ["2026-10-01-283da", "a release carrying 283da deployed to every replica"]
+
+facts:
+  - claim: "283da keeps the legacy table and reads it beside the new one so old pods stay correct during a rolling update."
+    evidence: ".agentsmith/specs/done/2026-10-01-283da-reference-file-store.yaml (scope in: READERS, COPY)"
+  - claim: "Every migrate runs through RunStoreMigrator, which already runs code before MigrateAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:19-25"
+
+scope:
+  in: >
+    RunStoreMigrator runs LegacyAttachmentCopy once to completion BEFORE migrating — the same repair-first
+    order it already keeps — so a row an old pod wrote after the last leader tick is not lost; then
+    DropSpecDialogAttachments (shared set and SQL Server set) removes the table. SpecDialogAttachment, its
+    configuration, the copy job and the legacy branches of ReferenceFileRepository are deleted;
+    DialogAttachmentColumnTests is retired in favour of 283da's column tests.
+  out: "Anything about site sets."
+
+decisions:
+  - key: "A RELEASE OF ITS OWN. Dropping the table in the release that starts the copy would break the old pods a rolling update keeps serving."
+
+steps:
+  - id: final-copy
+    action: "RunStoreMigrator: copy to completion, then migrate."
+  - id: drop
+    action: "DropSpecDialogAttachments in both sets; legacy entity, configuration, copier and union reads removed."
+
+tests:
+  - "RunStoreMigrator_LegacyRowWrittenAfterLastTick_IsCopiedBeforeTheDrop"
+  - "ReferenceFileRepository_AfterDrop_ReadsOneTable"
+
+done:
+  - "`agentsmith database migrate` on a 283da database leaves no legacy table and no lost image"
+  - "build green, full suite green"

@@ -114,14 +114,14 @@ public sealed class LocalSourceProviderBranchWriteTests : IDisposable
         var result = await Write(
         [
             new RepoFile(SpecPath, "key: azuredevops-19106\n"),
-            new RepoFile(".agentsmith/specs/azuredevops-19106/p1-first.yaml", "phase: p1\n"),
+            new RepoFile(".agentsmith/specs/azuredevops-19106/p1-first.yaml", "spec: p1\n"),
             new RepoFile(".agentsmith/specs/azuredevops-19106/accounting.md", "# nothing\n"),
         ]);
 
         result.Written.Should().BeTrue(result.Error);
         Git("rev-list", "--count", $"main..{Ticket}").Trim().Should().Be("1",
             "three files are one revision, not three");
-        Show($"{Ticket}:.agentsmith/specs/azuredevops-19106/p1-first.yaml").Should().Be("phase: p1\n");
+        Show($"{Ticket}:.agentsmith/specs/azuredevops-19106/p1-first.yaml").Should().Be("spec: p1\n");
         Show($"{Ticket}:.agentsmith/specs/azuredevops-19106/accounting.md").Should().Be("# nothing\n");
     }
 

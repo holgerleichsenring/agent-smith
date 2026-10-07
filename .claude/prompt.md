@@ -4,13 +4,13 @@
 
 1. `.agentsmith/context.yaml` — architecture, stack, integrations, phase status
 2. `.agentsmith/coding-principles.md` — code quality rules (ALWAYS follow)
-3. `.agentsmith/phases/active/p{NN}-*.md` — prompt for the phase being implemented
+3. `.agentsmith/specs/active/p{NN}-*.md` — prompt for the phase being implemented
 4. `.agentsmith/runs/r{NN}-*.md` — prompt for the runs already implemented
 
-## Phase Directory Structure
+## Spec Directory Structure
 
 ```
-.agentsmith/phases/
+.agentsmith/specs/
 ├── done/       # completed phases (historical reference)
 ├── active/     # phase currently being worked on (max 1)
 └── planned/    # upcoming phases with requirements
@@ -24,7 +24,7 @@
 
 ## Implementation Workflow (follow this order for every phase)
 
-1. **Write phase prompt first** — create `.agentsmith/phases/planned/p{NN}-slug.md` with requirements, scope, and file summary BEFORE writing any code. This is mandatory, no exceptions.
+1. **Write phase prompt first** — create `.agentsmith/specs/planned/p{NN}-slug.md` with requirements, scope, and file summary BEFORE writing any code. This is mandatory, no exceptions.
 2. **Move to active** — move the phase file from `planned/` to `active/` when starting work
 3. **Enter plan mode** — explore codebase, design approach, get user approval before coding
 4. **Implement step by step** — contracts/models first, then implementation, then DI wiring, then tests

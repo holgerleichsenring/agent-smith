@@ -22,16 +22,16 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunStep> RunSteps => Set<RunStep>();
     public DbSet<RunEvent> RunEvents => Set<RunEvent>();
     public DbSet<RunDecision> RunDecisions => Set<RunDecision>();
-    public DbSet<RunPhase> RunPhases => Set<RunPhase>(); // p0466: a phase as an addressable thing
+    public DbSet<RunSpec> RunSpecs => Set<RunSpec>(); // p0466: a phase as an addressable thing
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
     public DbSet<SpecDialogSession> SpecDialogSessions => Set<SpecDialogSession>();
     public DbSet<QueuedTicket> QueuedTickets => Set<QueuedTicket>();
     // p0393a: pointer at the spec set that lives in git on the ticket branch.
-    public DbSet<TicketSpecSet> TicketSpecSets => Set<TicketSpecSet>();
+    public DbSet<TicketSeries> TicketSeries => Set<TicketSeries>();
     // 2026-09-17-0e79a: the set a person approved in the design conversation, before any branch.
-    public DbSet<ApprovedSpecSet> ApprovedSpecSets => Set<ApprovedSpecSet>();
+    public DbSet<ApprovedSeries> ApprovedSeries => Set<ApprovedSeries>();
     // p0327: durable dialogue — parked runs + the answer inbox.
     public DbSet<RunCheckpoint> RunCheckpoints => Set<RunCheckpoint>();
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
@@ -59,7 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         new DialogFileConfigurations(Database.ProviderName).Apply(modelBuilder); // 3af8 + 283da
         modelBuilder.ApplyConfiguration(new SpecDialogTicketTextConfiguration()); // 8e51c
         new TicketRecordConfigurations().Apply(modelBuilder); // 2026-09-25-b4d9
-        modelBuilder.ApplyConfiguration(new ApprovedSpecSetConfiguration()); // 2026-09-17-0e79a
+        modelBuilder.ApplyConfiguration(new ApprovedSeriesConfiguration()); // 2026-09-17-0e79a, 2026-10-06-03c7f
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
@@ -68,7 +68,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
-        modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
+        modelBuilder.ApplyConfiguration(new RunSpecConfiguration()); // p0466
         new ServerStateConfigurations().Apply(modelBuilder); // 2026-08-26-7a51 + 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new ChatRunBindingConfiguration());
         new RunChildConfiguration().Apply(modelBuilder);

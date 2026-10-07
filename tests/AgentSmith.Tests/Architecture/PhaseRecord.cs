@@ -5,7 +5,7 @@ namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
 /// p0430/p0509: the phase record this repository states — the specs under
-/// <c>.agentsmith/phases</c>, the context that says what shipped, and the three ways the
+/// <c>.agentsmith/specs</c>, the context that says what shipped, and the three ways the
 /// two can disagree. How an id is read is a parameter, so a change to the reading can be
 /// held against the reading it replaced.
 /// </summary>
@@ -15,7 +15,7 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
         new(@"^  (?<section>done|active|planned):", RegexOptions.Multiline | RegexOptions.Compiled);
 
     private static readonly Regex PointerPattern =
-        new(@"-> (?<path>\.agentsmith/phases/[^\s""']+)", RegexOptions.Compiled);
+        new(@"-> (?<path>\.agentsmith/specs/[^\s""']+)", RegexOptions.Compiled);
 
     public static PhaseRecord Current { get; } = new(PhaseIdReader.Current);
 
@@ -59,7 +59,7 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
     }
 
     /// <summary>
-    /// 2026-09-07-4e6a: a <c>-> .agentsmith/phases/…</c> pointer in any context that names
+    /// 2026-09-07-4e6a: a <c>-> .agentsmith/specs/…</c> pointer in any context that names
     /// no file. The id is a phase's identity and never changes; the FILE NAME is a label
     /// and may — which is exactly why the pointer, the one thing that carries the file
     /// name, has to be checked rather than trusted.
@@ -104,7 +104,7 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
                     var text = File.ReadAllText(path);
                     var match = reader.SpecId.Match(text);
                     if (!match.Success && !reader.ReadsEveryNamespace) return null;
-                    match.Success.Should().BeTrue($"{path} must declare a `phase:` id");
+                    match.Success.Should().BeTrue($"{path} must declare a `spec:` id");
                     return new Spec(match.Groups["id"].Value, stage, text);
                 })
                 .OfType<Spec>())
@@ -119,7 +119,7 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
     /// </summary>
     private static IEnumerable<string> SpecFiles(string stage)
     {
-        var dir = Path.Combine(RepoRoot(), ".agentsmith", "phases", stage);
+        var dir = Path.Combine(RepoRoot(), ".agentsmith", "specs", stage);
         return Directory.Exists(dir) ? Directory.EnumerateFiles(dir, "*.yaml") : [];
     }
 
@@ -132,7 +132,7 @@ internal sealed class PhaseRecord(PhaseIdReader reader)
         var dir = AppContext.BaseDirectory;
         for (var i = 0; i < 10; i++)
         {
-            if (Directory.Exists(Path.Combine(dir, ".agentsmith", "phases"))) return dir;
+            if (Directory.Exists(Path.Combine(dir, ".agentsmith", "specs"))) return dir;
             dir = Directory.GetParent(dir)?.FullName ?? dir;
         }
 

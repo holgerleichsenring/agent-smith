@@ -1,4 +1,4 @@
-phase: 2026-09-17-042el
+spec: 2026-09-17-042el
 decisions:
   - id: the-admission-stores-every-thread-message
     chose: >

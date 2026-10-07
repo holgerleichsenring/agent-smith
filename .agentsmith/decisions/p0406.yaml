@@ -1,4 +1,4 @@
-phase: p0406
+spec: p0406
 decisions:
   - what: "The open loop's acceptance gate takes the phase kind: a ships_code:false phase is judged by its acceptance dispositions alone, a ships_code:true phase keeps the Green/NoTests build requirement byte-for-byte."
     alternatives:

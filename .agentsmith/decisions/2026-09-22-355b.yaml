@@ -1,4 +1,4 @@
-phase: 2026-09-22-355b
+spec: 2026-09-22-355b
 
 decisions:
   - id: shapes-derived-from-the-kind

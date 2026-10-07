@@ -1,4 +1,4 @@
-phase: 2026-09-20-9c74
+spec: 2026-09-20-9c74
 decisions:
   - id: the-collaborator-is-a-type-not-two-parameters
     chose: >

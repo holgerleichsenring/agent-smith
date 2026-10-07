@@ -30,7 +30,7 @@ public sealed class TicketTitleTests
     public void TicketTitle_LongGoal_IsCutAtAWordBoundaryAndTheBodyKeepsTheGoal()
     {
         var content = new PhaseTicketRenderer().RenderPhase(
-            new PhaseDraft("p9000a", LongGoal, $"phase: p9000a\ngoal: {LongGoal}", []));
+            new PhaseDraft("p9000a", LongGoal, $"spec: p9000a\ngoal: {LongGoal}", []));
 
         content.Title.Length.Should().BeLessThanOrEqualTo(TicketTitle.MaxLength);
         content.Title.Should().StartWith("p9000a: widget").And.EndWith("widget…",
@@ -135,7 +135,8 @@ public sealed class TicketTitleTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         return new OutcomeTicketFiler(
             Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
     }
 

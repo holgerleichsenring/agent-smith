@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0063: Structured Finding Assessment
-phase: p0063
+spec: p0063
 decisions:
   - category: Implementation
     chose: All findings reach skills (remove Top-N cap), compression changes formatting not visibility

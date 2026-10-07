@@ -94,7 +94,7 @@ public sealed class SpecRevisionCauseCommentTests
         MarkerSha);
 
     private static SpecPhase Phase(string id) => new(
-        new PhaseDraft(id, $"Goal {id}", $"phase: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
+        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
         id, string.Empty, []);
 
     private static SpecSetPointer Pointer(string sha) => new("azdo-1", "primary", sha, 1);

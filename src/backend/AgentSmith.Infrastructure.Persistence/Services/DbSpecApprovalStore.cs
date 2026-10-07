@@ -16,14 +16,14 @@ public sealed class DbSpecApprovalStore(IServiceScopeFactory scopeFactory) : ISp
         string tracker, string key, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+        return await scope.ServiceProvider.GetRequiredService<ApprovedSeriesRepository>()
             .GetAsync(tracker, key, cancellationToken);
     }
 
     public async Task SaveAsync(SpecApprovalRecord record, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+        await scope.ServiceProvider.GetRequiredService<ApprovedSeriesRepository>()
             .SaveAsync(record, cancellationToken);
     }
 
@@ -31,7 +31,7 @@ public sealed class DbSpecApprovalStore(IServiceScopeFactory scopeFactory) : ISp
         string tracker, int limit, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+        return await scope.ServiceProvider.GetRequiredService<ApprovedSeriesRepository>()
             .ListOutstandingAsync(tracker, limit, cancellationToken);
     }
 
@@ -39,7 +39,14 @@ public sealed class DbSpecApprovalStore(IServiceScopeFactory scopeFactory) : ISp
         string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<ApprovedSpecSetRepository>()
+        await scope.ServiceProvider.GetRequiredService<ApprovedSeriesRepository>()
             .MarkSatisfiedAsync(tracker, key, at, cancellationToken);
+    }
+
+    public async Task ReopenAsync(string tracker, string key, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ApprovedSeriesRepository>()
+            .ReopenAsync(tracker, key, cancellationToken);
     }
 }

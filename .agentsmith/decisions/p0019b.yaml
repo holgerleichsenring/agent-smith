@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0019b: K8s Helm
-phase: p0019b
+spec: p0019b
 decisions:
   - category: Architecture
     chose: Helm Chart replaces manual `apply-k8s-secret.sh`

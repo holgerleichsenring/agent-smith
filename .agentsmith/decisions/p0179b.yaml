@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0179b-coding-master-step
+spec: p0179b-coding-master-step
 
 decisions:
   - category: Scope

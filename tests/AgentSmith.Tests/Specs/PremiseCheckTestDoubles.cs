@@ -32,7 +32,7 @@ internal static class PremiseCheckTestDoubles
         params string[] done) =>
         new(PhaseId, "move the dispatch out of the handler",
             $"""
-             phase: {PhaseId}
+             spec: {PhaseId}
              goal: "move the dispatch out of the handler"
              decisions:
                - key: |
@@ -47,7 +47,7 @@ internal static class PremiseCheckTestDoubles
     /// <summary>A draft with no facts, no assumptions and no decisions — every spec the
     /// conversation drafted before the pinned master stated them.</summary>
     public static PhaseDraft DraftWithoutPremises() =>
-        new(PhaseId, "move the dispatch out of the handler", $"phase: {PhaseId}", [])
+        new(PhaseId, "move the dispatch out of the handler", $"spec: {PhaseId}", [])
         {
             Done = ["the dispatch no longer runs inside the handler"],
         };
@@ -58,7 +58,7 @@ internal static class PremiseCheckTestDoubles
     public static PhaseDraft DerivedDraft() =>
         new(PhaseId, "move the dispatch out of the handler",
             $"""
-             phase: {PhaseId}
+             spec: {PhaseId}
              goal: "move the dispatch out of the handler"
              decisions:
                - key: |

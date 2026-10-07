@@ -95,7 +95,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
     }
 
     /// <summary>
-    /// The stored id is the TRACKER'S OWN. <c>SpecSetKey.For</c> lowercases it and replaces every
+    /// The stored id is the TRACKER'S OWN. <c>TicketKey.For</c> lowercases it and replaces every
     /// non-alphanumeric character, so a query built from the key would ask Jira for
     /// <c>jira-dpg-1239</c> and match nothing — and recovering the id with a per-provider parser is
     /// what this repository refused to write for the ticket's label stamp.
@@ -103,7 +103,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
     [Fact]
     public async Task SpecKey_TheStoredTicketId_IsTheTrackersOwnAndNotDerivedFromTheKey()
     {
-        var key = SpecSetKey.For("jira", "DPG-1239");
+        var key = TicketKey.For("jira", "DPG-1239");
         var store = await StoreWithAsync((key.Value, "DPG-1239"));
 
         var outstanding = await store.ListOutstandingAsync(TrackerName, 10, CancellationToken.None);

@@ -36,7 +36,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     private const string Slack = "slack";
     private const string Thread = "d-c7aea";
 
-    private const string Draft = "```yaml\nphase: p9999\ngoal: \"widget goal\"\n```";
+    private const string Draft = "```yaml\nspec: p9999\ngoal: \"widget goal\"\n```";
     private const string ReplyWithDraft =
         "Here is the phase.\n\n" + Draft + "\n\nApprove it when it reads right.";
 

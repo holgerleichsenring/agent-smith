@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0113: Spawn Pipeline Jobs From Queue (SUPERSEDED — DO NOT IMPLEMENT)
-phase: p0113
+spec: p0113
 decisions:
   - category: Architecture
     chose: "**Conceptually wrong, abandoned before completion.** Original spec wanted to spawn `agentsmith-cli:latest` containers per queue ticket. Two fundamental errors: (1) the CLI is a developer-only console tool, never deployed to K8s; (2) running the entire pipeline inside the spawned container is the wrong granularity"

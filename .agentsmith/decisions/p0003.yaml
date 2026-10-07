@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0003: Providers
-phase: p0003
+spec: p0003
 decisions:
   - category: Architecture
     chose: Separate provider for each source control system (GitHub, Local, GitLab later)

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0043e: Webhook Expansion
-phase: p0043e
+spec: p0043e
 decisions:
   - category: Architecture
     chose: Replaced monolithic WebhookListener with IWebhookHandler dispatch pattern

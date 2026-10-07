@@ -38,7 +38,7 @@ public sealed class CutReviewPerAttemptTests
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
-            TicketSegmenter.Segment(Ticket), previous: null, cause: "initial derivation",
+            TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
             new AgentConfig(), Pipeline(), CancellationToken.None);
 
         reviewer.Taken.Should().HaveCount(3).And.OnlyContain(n => n == DerivationLookTerms.CutReviewAllowance,
@@ -58,7 +58,7 @@ public sealed class CutReviewPerAttemptTests
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
-            TicketSegmenter.Segment(Ticket), previous: null, cause: "initial derivation",
+            TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
             new AgentConfig(), Pipeline(), CancellationToken.None);
 
         provider.Prompts.Should().HaveCountGreaterThan(1);
@@ -79,7 +79,7 @@ public sealed class CutReviewPerAttemptTests
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "Raise the package floors", Ticket, "The audit is clean", "open", "test"),
-            TicketSegmenter.Segment(Ticket), previous: null, cause: "initial derivation",
+            TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
             new AgentConfig(), Pipeline(), CancellationToken.None);
 
         reviewer.Tickets[0].Should().Be($"Raise the package floors\n\n{Ticket}\n\nThe audit is clean");

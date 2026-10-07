@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0266
+spec: p0266
 
 decisions:
   - category: Security

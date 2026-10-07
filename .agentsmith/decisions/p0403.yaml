@@ -1,4 +1,4 @@
-phase: p0403
+spec: p0403
 decisions:
   - what: "The static rule has two clauses: no non-constant static field, and no static method takes a collaborator (interface or ILogger) — composition-root parameters excepted."
     alternatives:

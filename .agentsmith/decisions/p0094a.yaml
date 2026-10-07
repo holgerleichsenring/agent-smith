@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0094a: Gitignore-Aware Source Enumeration
-phase: p0094a
+spec: p0094a
 decisions:
   - category: Architecture
     chose: LibGit2Sharp's `Repository.Ignore.IsPathIgnored` is the ignore source of truth when scanning a git repo

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-7f7ac
+goal: "design_read also exports the node as PNG through Figma's image API and hands it to the shared tool-image path of 2026-10-01-283dd, so a vision model sees the frame it read."
+
+applies_to: "backend (the Figma client, the design_read host)"
+
+requires: ["2026-10-01-7f7ab", "2026-10-01-283dd"]
+
+facts:
+  - claim: "2026-10-01-283dd builds the one mechanism by which a tool's image joins the loop history — keyed on what a tool deposits, not on a tool name — with the per-loop ceiling, the vision note, the provider exclusion and size-and-hash tracing."
+    evidence: ".agentsmith/phases/planned/2026-10-01-283dd-reference-browser-render.yaml (scope RELAY, decision ONE RELAY)"
+  - claim: "The vision path accepts png, jpeg, gif and webp."
+    evidence: "src/backend/AgentSmith.Contracts/Models/TicketImageAttachment.cs:24"
+  - claim: "Vision is a per-agent flag that defaults to true, so it cannot express that a provider drops images."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:50"
+  - claim: "Providers are Anthropic via Anthropic.SDK 5.10.0, OpenAI via Microsoft.Extensions.AI.OpenAI 10.3.0, Gemini via Google_GenerativeAI.Microsoft, Ollama via OllamaSharp, Copilot via GitHub.Copilot.SDK."
+    evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:16-35"
+  - claim: "A Copilot continuation must consist of tool messages only, so no user message can follow a tool result there."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/Copilot/CopilotPendingCalls.cs:32-36"
+  - claim: "PROVEN ONLY AGAINST THE DOCUMENTED CONTRACT: GET /v1/images/:key?ids=&format=png&scale= returns {err, images: {id: url|null}}; the url is a time-limited download on a storage host, not api.figma.com; scale ranges 0.01-4."
+    evidence: "Figma REST API documentation (developers.figma.com); no live token exists in this repository"
+
+scope:
+  in: >
+    IFigmaClient.ExportPngAsync calls the images endpoint at a scale that bounds the node's longest side
+    (absoluteBoundingBox) to 1568 px, downloads the returned url through a second typed client that never
+    carries the Figma token, checks the PNG signature and a byte cap. design_read deposits the PNG through
+    283dd's deposit point and its text says a rendered image follows. A null image entry, a failed download,
+    a non-PNG body or an over-cap image is a stated render failure; the node summary still returns.
+    Everything after the deposit — history placement, ceiling, vision and provider notes, tracing — is
+    283dd's and is not repeated here.
+  out: >
+    A second relay or decorator. Pre-rendering linked designs into the first prompt — a design turn re-sends
+    its prompt every turn, so that would re-export per turn. Comparing a built screen to the design.
+
+decisions:
+  - key: "ONE IMAGE PATH. The browser render and the Figma export are two producers of one kind of result; 283dd owns how such a result reaches the model."
+  - key: "THE TOKEN NEVER LEAVES api.figma.com. The export url is a storage host; sending X-Figma-Token there would hand the token to a third party — hence a separate client for the download."
+  - key: "FIGMA RENDERS, NOT THE BROWSER. The export API is the vendor's own renderer, so design_read needs no browser sandbox."
+
+steps:
+  - id: export
+    action: "ExportPngAsync: images call, scale from bounds, token-less download client, signature and byte checks."
+  - id: deposit
+    action: "DesignReadToolHost deposits the PNG and names it in its text."
+
+tests:
+  - "FigmaExport_DownloadRequest_CarriesNoTokenHeader (fake handler)"
+  - "FigmaExport_ScaleBoundsLongestSideTo1568"
+  - "FigmaExport_NullImageEntry_IsAStatedRenderFailure"
+  - "FigmaExport_NotPng_IsRefused"
+  - "DesignRead_RenderedNode_DepositsOnePngThroughTheSharedPath"
+
+done:
+  - "a scripted loop calling design_read sees the PNG reach the next request the way 283dd's renders do"
+  - "the export download never carries the Figma token"
+  - "build green, full suite green"

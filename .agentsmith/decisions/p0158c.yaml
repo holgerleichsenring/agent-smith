@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158c: PR cross-link pass-2
-phase: p0158c
+spec: p0158c
 decisions:
   - category: Architecture
     chose: "**UpdatePullRequestBodyAsync added to ISourceProvider (deviates from the spec's separate IPullRequestBodyPatcher contract).** Each source provider already carries platform-specific credentials, client factory, and URL parsing for its CreatePullRequestAsync. Building a parallel IPullRequestBodyPatcher hierarchy (+ factory + 4 impls + DI wiring) would duplicate every one of those concerns for a one-method capability. The provider extension keeps the open + patch logic colocated where the platform knowledge already lives, fits the existing \"ISourceProvider as the platform's git surface\" pattern, and lands the same observable behaviour with ~4x fewer new types. -- alternatives: ship the IPullRequestBodyPatcher contract per spec (rejected: premature abstraction"

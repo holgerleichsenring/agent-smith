@@ -65,7 +65,7 @@ describe("The story view", () => {
 
     const account = screen.getByTestId("phase-account");
     expect(account).toHaveAttribute("data-phase", "p1");
-    expect(account).toHaveTextContent("Phase p1");
+    expect(account).toHaveTextContent("Spec p1");
 
     // The phase's own accounting — steps, wall clock, calls, the sizes that matter.
     const numbers = within(account).getByTestId("phase-numbers");
@@ -108,7 +108,7 @@ describe("The story view", () => {
 
     const panel = screen.getByTestId("ticket-statistics");
     expect(panel).toHaveTextContent("derived from the trail");
-    expect(panel).toHaveTextContent("Phases");
+    expect(panel).toHaveTextContent("Specs");
     expect(panel).toHaveTextContent("1/2");
     expect(panel).toHaveTextContent("357k");
     // What a bound cut is a first-class number, not a footnote.

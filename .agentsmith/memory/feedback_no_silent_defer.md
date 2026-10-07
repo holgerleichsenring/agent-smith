@@ -29,7 +29,7 @@ slicing is the failure mode.
   invoke. If I find a NEW thing I want to defer beyond what the spec already
   defers, that's a new follow-up I must name.
 - When I write "p0169f lands later" or similar, the phase has to actually
-  exist as a planned spec in `phases/planned/` — otherwise it's a phantom.
+  exist as a planned spec in `specs/planned/` — otherwise it's a phantom.
 - At end-of-phase: explicitly list what's still open + which phase owns it.
   "Done" must mean done OR a named successor exists.
 - Cross-check: every time I write the word "deferred" / "follow-up" / "later"

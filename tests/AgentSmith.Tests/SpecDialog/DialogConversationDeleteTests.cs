@@ -223,7 +223,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
     public async Task Delete_ConversationThatFiled_LeavesTheTicketsAndTheApprovedSetStored()
     {
         var session = await OpenAsync("d-1");
-        var approved = new ApprovedSpecSetRepository(_context);
+        var approved = new ApprovedSeriesRepository(_context);
         await approved.SaveAsync(
             ApprovedSets.Record("jira-19106", ApprovedSets.Noon, conversation: session),
             CancellationToken.None);
@@ -250,7 +250,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             .AddScoped<SpecDialogSessionRepository>()
             .AddScoped<DialogueAnswerRepository>()
             .AddScoped<ReferenceFileRepository>()
-            .AddScoped<ApprovedSpecSetRepository>()
+            .AddScoped<ApprovedSeriesRepository>()
             .AddSingleton(tracker.Object)
             .AddSingleton(trackers.Object)
             .AddScoped<ISpecDialogConversationDeleter, SpecDialogConversationDeleter>()
@@ -263,7 +263,7 @@ public sealed class DialogConversationDeleteTests : IDisposable
             sessionId, Principal(caller), _ownership, _gate,
             deleter ?? new SpecDialogConversationDeleter(
                 _context, _repository, _answers, new ReferenceFileRepository(_context),
-                new ApprovedSpecSetRepository(_context)),
+                new ApprovedSeriesRepository(_context)),
             AgentSmith.Tests.Sandbox.Holds.None(), CancellationToken.None);
 
     private static int StatusOf(IResult result) =>

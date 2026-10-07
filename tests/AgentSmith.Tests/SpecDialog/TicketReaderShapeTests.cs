@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class TicketReaderShapeTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widgets are stored and read back
         requires: [p8999]
         scope:

@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0388b
+spec: p0388b
 decisions:
   - category: Architecture
     chose: "The rail is one query returning one row per step (GET /api/runs/{id}/steps), with per-step aggregates joined server-side"

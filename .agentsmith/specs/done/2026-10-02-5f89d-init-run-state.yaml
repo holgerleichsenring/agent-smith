@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-5f89d
+goal: "The Initialize button reads the project's live init run, so it survives navigation; one live init per project is enforced atomically, and a queued run once cancelled never starts."
+
+applies_to: "backend (init launcher, init run repository, queued cancel, pre-start gate), dashboard (init action)"
+
+requires: []
+
+facts:
+  - claim: "The init action holds its state in useState only and starts idle; it is rendered on the config project card and the system project panel."
+    evidence: "src/dashboard/src/components/system/ProjectInitAction.tsx:27-31,57-58; src/dashboard/src/components/config/EntityCard.tsx:101; src/dashboard/src/components/system/ProjectDetailPanel.tsx:65"
+  - claim: "The only init route is the POST; there is no read of a project's init run."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ProjectInitEndpoints.cs:16-19; tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:83"
+  - claim: "The double-start guard skips cancel-requested rows, so a relaunch during the cancel grace is admitted while the old run's sandboxes live."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/InitRunRepository.cs:23-33"
+  - claim: "The guard read and the row insert are two separate awaits with admission between them; two launches can both pass the read."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:47-65"
+  - claim: "A cross-process Redis mutex with TTL and CAS release exists."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Queue/RedisClaimLock.cs:7-50"
+  - claim: "Cancelling a queued run finishes its row 'cancelled' without CancelRequested and removes only a capacity-queue entry; an init request sits in the job queue instead."
+    evidence: "src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:23-31; src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:66-67"
+  - claim: "The consumer's pre-start gate asks only for a flagged, UNFINISHED row, so a run finished 'cancelled' while queued passes and executes; its RunStarted is then dropped as a replay and the row stays 'cancelled' over a live run."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineQueueConsumer.cs:78-85; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:111-114; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:106-111"
+  - claim: "A terminal transition is set-once, so the gate's short-circuit RunFinished on an already-finished row is a no-op."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:33-37"
+  - claim: "The dashboard refetches runs on the jobs hub's RunsChanged nudge."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:15-20"
+  - claim: "The capacity pump drops a head entry whose reserved run is flagged with the fixed reason 'cancelled by operator', whatever ended it."
+    evidence: "src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:59-66"
+  - claim: "The launcher resolves the route's name to the configured project and guards on project.Name (p0515); the card passes entity.id and the panel project.name."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunLauncher.cs:39-47; src/dashboard/src/components/config/EntityCard.tsx:101; src/dashboard/src/components/system/ProjectDetailPanel.tsx:65"
+  - claim: "PipelineQueueConsumer (137) and RunRepository (143) sit at their ratchet rows; InitRunRepository has 52 lines, InitRunLauncher 82."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:108,115"
+
+scope:
+  in: >
+    GET /api/projects/{name}/init (runs.read) resolves the name to the configured project as the launcher does (404
+    when unknown) and answers its live init run — FinishedAt null, cancel-requested included — as {runId, state:
+    queued | running | cancelling}, or 204. InitRunRepository.FindLiveRunAsync returns
+    that row; the launcher's guard uses it, so a cancelling run blocks a relaunch until it finished. The launcher holds
+    an IRedisClaimLock on init-launch:{project} (30 s TTL) across read, admission and insert; a held lock answers 409
+    'an initialization is being started'. IRunCancelStateReader.IsCancelRequestedAsync is renamed IsStartRefusedAsync
+    and answers true for a cancel-requested OR finished row; RunRepository's query changes in place (no line added to
+    a ratchet row; 2026-10-02-5f89e adds its own repository instead). Both
+    pre-start gates read it; the capacity pump's drop reason becomes 'reserved run already cancelled or finished'.
+    QueuedRunCancel stamps CancelRequested with reason operator before finalizing. ProjectInitAction reads the GET on mount and on RunsChanged and shows running,
+    waiting for a slot (queued) and cancelling, each linking the run.
+  out: >
+    Ending a run no process drives after a restart — 2026-10-02-5f89e. Deleting the Redis job-queue entry of a
+    cancelled init: the gate refuses it at dequeue, which is the authority already.
+
+decisions:
+  - key: "THE GATE READS THE ROW'S TRUTH. A finished reserved row must never start, whoever finished it; fixing only QueuedRunCancel would leave every other way a queued row ends with the same hole."
+  - key: "A REDIS LOCK, NOT A FILTERED UNIQUE INDEX. The launch already needs Redis to enqueue; a partial index needs a provider-specific filter in two migration sets for a guard four lines of locking give."
+  - key: "CANCELLING COUNTS AS LIVE. Its sandboxes are alive until the enforcer ends it; a second init beside them is exactly the double run the guard exists to stop."
+  - key: "ONE COMPONENT, BOTH PLACES. The card and the panel render ProjectInitAction, so restoring it there restores both."
+
+steps:
+  - id: repository
+    action: "InitRunRepository.FindLiveRunAsync (id, status, cancel flag); FindLiveRunIdAsync removed."
+  - id: launcher
+    action: "InitRunLauncher wraps guard, admission and insert in the claim lock; InitLaunchResult gains BeingStarted."
+  - id: gate
+    action: "IsStartRefusedAsync (reader interface, NoOp, DB reader, RunRepository in place) includes finished rows; PipelineQueueConsumer and CapacityQueuePump call it, the pump with the corrected reason; QueuedRunCancel marks the cancel before finalizing."
+  - id: endpoint
+    action: "GET /api/projects/{name}/init in ProjectInitEndpoints with InitRunStateResponse; route-permission row."
+  - id: dashboard
+    action: "projectInitApi.fetchProjectInit; ProjectInitAction restores from it and re-reads on RunsChanged; queued and cancelling states."
+
+tests:
+  - "InitRunLauncher_CancellingRunOfTheProject_RefusesARelaunch"
+  - "InitRunLauncher_TwoConcurrentLaunches_StartOneRun"
+  - "QueuedRunCancel_InitRun_IsNeverStartedByTheConsumer"
+  - "RunRepository_IsStartRefused_FinishedReservedRow_IsTrue"
+  - "ProjectInitEndpoints_Get_OtherCaseSpelling_FindsTheConfiguredProjectsRun"
+  - "CapacityQueuePump_FinishedReservedRun_IsDroppedWithTheNeutralReason"
+  - "ProjectInitEndpoints_Get_ReturnsCancellingForAFlaggedUnfinishedRun"
+  - "Routes_ProjectInitState_NeedsRunsRead"
+  - "ProjectInitAction restores 'Initializing — view run' after a remount and shows cancelling for a flagged run"
+
+done:
+  - "start an init, navigate away and back: both buttons show the running run"
+  - "build green, full suite green, dashboard tests and build green"

@@ -46,8 +46,36 @@ internal sealed class ContextPressureFinalizingChatClient(
             "Context pressure on {Role}: ~{Estimated} of {Window} window tokens — finalising "
             + "the tool loop instead of overflowing it", role, estimated, windowTokens);
         var forced = new List<ChatMessage>(list) { new(ChatRole.User, FinalizeInstruction) };
-        return await base.GetResponseAsync(forced, FinalizeOptions(options!), cancellationToken);
+        return await base.GetResponseAsync(Fitted(forced), FinalizeOptions(options!), cancellationToken);
     }
+
+    // 2026-10-07-6b9dc: the instruction alone shrinks nothing, so a recent tail that outgrew
+    // the window was refused anyway. The forwarded copy's tool results are re-cut to the same
+    // bound. What still sits between the bound and the window is forwarded as before — it may
+    // well be answered; only a request at or above the window, which the provider would
+    // refuse, is not sent.
+    private IList<ChatMessage> Fitted(IList<ChatMessage> forced)
+    {
+        var target = (int)(windowTokens * HardBoundRatio);
+        var fitted = ForwardedViewFit.Fit(forced, target);
+        var estimated = CompactingChatClient.EstimateTokens(fitted);
+        if (estimated >= windowTokens)
+            throw new InvalidOperationException(Unfittable(estimated, ForwardedViewFit.ToolResultTokens(fitted)));
+        if (!ReferenceEquals(fitted, forced))
+            logger?.LogInformation(
+                "Re-cut tool results for {Role}: forwarding ~{Estimated} of {Window} window tokens",
+                role, estimated, windowTokens);
+        return fitted;
+    }
+
+    // Thrown above ContextLengthRefusalChatClient, which never sees it — so it names the
+    // role and the window itself.
+    private string Unfittable(int estimated, int toolTokens) =>
+        $"The '{role}' model role cannot finish within its stated window of {windowTokens} tokens: "
+        + $"with every tool result cut to {ForwardedViewFit.FloorChars} characters the request still "
+        + $"estimates ~{estimated} tokens, {estimated - toolTokens} of them not tool output (instructions, "
+        + "ticket and conversation). Cutting tool output cannot make it fit; the role needs a larger "
+        + "window (models.<role>.context_window_tokens, if the deployment allows it) or a smaller prompt.";
 
     // Tools stay declared — a provider rejects a request whose history carries tool
     // blocks without the tools parameter — but ToolMode=None forbids further calls.

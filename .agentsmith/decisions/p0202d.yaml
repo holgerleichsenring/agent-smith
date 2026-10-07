@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0202d: re-init merges context.yaml instead of clobbering
-phase: p0202d
+spec: p0202d
 decisions:
   - category: Architecture
     chose: The handler reads the existing context.yaml / coding-principles.md and injects them into the producer prompt with preserve-and-merge instructions

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0087: Ticket Image Attachments
-phase: p0087
+spec: p0087
 decisions:
   - category: Architecture
     chose: IAttachmentLoader per platform

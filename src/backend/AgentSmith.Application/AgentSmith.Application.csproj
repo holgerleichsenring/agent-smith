@@ -58,9 +58,9 @@
     <EmbeddedResource Include="..\..\..\.agentsmith\schemas\observation.schema.json" Link="Services\Validation\Schemas\observation.schema.json" />
     <!-- p0161d: discovery output schema for the BootstrapDiscover read-only round. -->
     <EmbeddedResource Include="..\..\..\.agentsmith\schemas\discovery.schema.json" Link="Services\Validation\Schemas\discovery.schema.json" />
-    <!-- p0315b: the methodology's phase-spec schema — a design-partner draft must
-         validate against the SAME schema operators author phases with. -->
-    <EmbeddedResource Include="..\..\..\.agentsmith\phase-spec.schema.json" Link="Services\Validation\Schemas\phase-spec.schema.json" />
+    <!-- p0315b: the methodology's spec schema — a design-partner draft must
+         validate against the SAME schema operators author specs with. -->
+    <EmbeddedResource Include="..\..\..\.agentsmith\spec.schema.json" Link="Services\Validation\Schemas\spec.schema.json" />
     <!-- 2026-08-25-c9c7: the context schema now gates the write path, so the binary
          carries the same file this repository validates its own contexts against. -->
     <EmbeddedResource Include="..\..\..\.agentsmith\context.schema.json" Link="Services\Validation\Schemas\context.schema.json" />

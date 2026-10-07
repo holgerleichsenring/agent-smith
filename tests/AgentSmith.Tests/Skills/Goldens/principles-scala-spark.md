@@ -36,7 +36,8 @@ belongs in the language delta that is composed below this core, never here.
   one its own unit with its own contract.
 - Keep units small. A growing unit is accumulating responsibilities; split it
   by responsibility before it becomes load-bearing. Concrete size limits are
-  set by the language delta and are enforced, not aspirational.
+  set by the language delta where the stack documents one, and are
+  enforced, not aspirational.
 
 ## SOLID
 
@@ -108,7 +109,8 @@ belongs in the language delta that is composed below this core, never here.
 The language delta composed with this core MUST define the mechanisms for:
 
 1. Naming style (casing, prefixes/suffixes, test naming).
-2. Code layout (where units live, what shares a source unit, size limits).
+2. Code layout (where units live, what shares a source unit, size limits
+   where the stack documents one).
 3. Abstraction and composition idiom (how contracts are declared and how
    collaborators are supplied).
 4. Error mechanics (how failures are signaled, propagated, and logged).
@@ -207,6 +209,11 @@ comment on the line:
 - **Fixed method/class line counts** → none apply; see "Layout and size".
 - **Separate test project** → tests live in the build tool's test source set
   of the same project.
+
+## Limits
+
+No limits — no Scala source states a size limit as a rule; see "Layout and
+size".
 
 ---
 

@@ -1,0 +1,89 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-1da5a
+goal: "Typing the first digits of a ticket number finds the tickets whose number begins with them, on every tracker whose query language can name a set of ids."
+
+applies_to: "backend (the ticket search adapters and the sweep behind the dialog's ticket field)"
+
+requires: ["2026-09-27-481bb"]
+
+scope:
+  in: "A partly-typed NUMBER matched against ticket ids, as a query of its own beside the text match, merged into one answer; and a plain statement of which tracker can do it and which cannot."
+  out: "Reproducing a tracker's own relevance index. Azure DevOps' search box ranks by relevance over an index we do not have, and a WIQL query cannot — it can only order. One of the five rows an operator saw came from that index and will not come from here."
+
+decisions:
+  - key: |
+      THE LIVE COMPLAINT, MEASURED. An operator typed "194"; Azure DevOps' own box answered five
+      work items — 19400, 17653, 1941, 1942, 1940 — and this framework answered one: work item 194
+      itself. Not one of those five titles contains "194", so none was a text match. Four are ID
+      PREFIXES. The fifth came from a relevance index, and is out of scope above.
+  - key: |
+      IT IS A SECOND QUERY, NOT A DISJUNCT — THE FIRST CUT OF THIS SPEC WOULD HAVE MADE SEARCH
+      WORSE. Or-ing the prefix into the existing clause puts everything into one query ordered by
+      last change and capped at twenty. Prefix rows would then compete with genuine title matches
+      for the same twenty slots, selected by RECENCY rather than by closeness — so the wanted row
+      can be missing while the query "worked", and a real title hit can be evicted by prefix noise.
+      A separate query ordered by ID, merged with the text result, gives each its own ranking. The
+      runner already takes a whole WHERE and a cap; only its hardcoded ordering has to become the
+      caller's.
+  - key: |
+      THREE OF THE FOUR TRACKERS CAN NAME A SET OF IDS, AND IT IS ONE MECHANISM IN THREE SPELLINGS.
+      Azure DevOps takes numeric RANGES. Jira takes an enumerated key list — this tree already
+      sends "key IN (…)" in production, so it is proven here rather than assumed. GitLab takes an
+      enumerated iid list. Accepting ranges for one and calling enumeration "exact only" for the
+      others would have been the same trick refused twice. GitHub is the one that genuinely cannot:
+      its issue search has no qualifier for a number, and an id is not a searchable text field.
+  - key: |
+      RANGES SCALE AND ENUMERATION DOES NOT, WHICH IS WHY THE WIDTH IS CONFIGURED AND SMALL.
+      A three-digit prefix over five-digit ids is three disjuncts on Azure DevOps and a hundred and
+      eleven enumerated values on the other two; over six digits it is four against one thousand
+      one hundred and eleven. So the widest id this asks about is a configured number with a
+      conservative default, and the phase says which boards that default gives up on rather than
+      pretending a guess is a rule — the same shape the open-state list already uses.
+  - key: |
+      ONLY A RUN OF DIGITS ASKS, AND THAT IS NOT THE SHAPE RULE 5c1ea REFUSED. That phase refused a
+      rule deciding WHICH TRACKER could own a typed id, because it would have had to know four id
+      grammars. This asks something weaker and tracker-agnostic: is the typed text entirely digits?
+      A Jira key is not, so Jira loses nothing by the question being asked — its own prefix search
+      is over the numeric part of its keys.
+  - key: |
+      NOTHING IS NEEDED TO KEEP A PREFIX HIT APART FROM THE EXACT ONE. The flag exists, is set only
+      on the by-id path, defaults false for every sweep hit, and the duplicate a range returns for
+      the typed number itself is already dropped by the sweep's dedupe. The first cut of this spec
+      listed a step for a property that already holds; what stays is a test guarding it.
+
+steps:
+  - id: a-number-prefix-is-a-set-of-ids
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Turn a digit prefix into the ids it stands for — ranges where a language has them, an enumeration where it does not — in a file of its own, bounded by a configured width with a conservative default."
+      - "Let the Azure DevOps runner take its ordering from the caller, so a prefix query can be ordered by id while discovery keeps ordering by last change."
+
+  - id: three-trackers-answer-it
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action:
+      - "Run the prefix as a query of its own in the Azure DevOps, Jira and GitLab searches, and merge it with the text result under the same cap."
+      - "Leave GitHub answering exactly as it does, because its search cannot name a number at all."
+
+  - id: only-digits-ask
+    path: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets"
+    action: "Decide inside each adapter whether the typed text is a number — the search port takes one string and widening it would touch the interface, four adapters and their doubles for a question each adapter can answer itself."
+
+  - id: it-is-pinned
+    path: "tests/AgentSmith.Tests"
+    action: "Assert the ids a prefix stands for per tracker, that the Azure DevOps prefix query is ordered by id, that non-digit text asks for no prefix, that a prefix hit is not marked as the number that was typed, and that GitHub is unchanged."
+
+tests:
+  - "TicketNumberPrefix_ThreeDigits_BecomesTheIdsItStandsFor"
+  - "TicketNumberPrefix_AzureDevOps_AsksARangeQueryOrderedById"
+  - "TicketNumberPrefix_Jira_EnumeratesTheKeysItStandsFor"
+  - "TicketNumberPrefix_GitLab_EnumeratesTheIidsItStandsFor"
+  - "TicketNumberPrefix_APrefixHit_IsNotMarkedAsTheNumberThatWasTyped"
+  - "TicketSearch_TextThatIsNotAllDigits_AsksForNoPrefix"
+  - "TicketSearch_GitHub_AnswersExactlyAsBefore"
+
+done:
+  - "typing the first digits of a ticket number finds the tickets whose number begins with them, on Azure DevOps, Jira and GitLab"
+  - "the prefix query is ranked by id and cannot evict a title match from the text query"
+  - "GitHub answers as it did, and the reason it cannot is recorded rather than left as an absence"
+  - "typed text that is not a number asks no tracker for a prefix"
+  - "build green, full suite green"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0027: Structured Command UI
-phase: p0027
+spec: p0027
 decisions:
   - category: Architecture
     chose: Slack modals with dropdowns replace free-text parsing

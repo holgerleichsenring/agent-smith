@@ -43,7 +43,7 @@ public sealed partial class SpecDialogOutcomeTests
 
     private const string ValidDraftYaml =
         """
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -77,17 +77,17 @@ public sealed partial class SpecDialogOutcomeTests
         ```outcome
         kind: epic
         parent:
-          phase: p9000
+          spec: p9000
           goal: "Widget platform end to end"
         children:
-          - phase: p9000a
+          - spec: p9000a
             goal: "Widget storage layer"
             steps:
               - id: store
                 action: "Add the widget store"
             done:
               - "a widget is stored and read back"
-          - phase: p9000b
+          - spec: p9000b
             goal: "Widget API on top of the storage layer"
             requires: [p9000a]
             steps:
@@ -271,21 +271,24 @@ public sealed partial class SpecDialogOutcomeTests
         await RunFlowAsync(bed.Harness, state, new PhaseOutcome(draft));
 
         var created = bed.Tickets.Created.Should().ContainSingle().Subject;
-        created.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
         created.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         // 2026-09-17-0e79a: the spec is the approved RECORD, stored under the created ticket's
         // spec key; the body carries no fence for anyone with tracker access to edit.
         created.Body.Should().NotContain("```");
         // The record is identified by the tracker CONNECTION and the spec key — the same pair
-        // SpecSetKeyFactory and ExecutePipelineUseCase hand the run.
+        // TicketKeyFactory and ExecutePipelineUseCase hand the run.
         var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
             .Projects[Project].Tracker;
         var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
-            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+            .GetAsync(tracker.Name, TicketKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
                 CancellationToken.None);
         record.Should().NotBeNull("the run that works this ticket resolves the set by exactly this key");
-        record!.Set.Phases.Should().ContainSingle().Which.Draft.Yaml.Should().Be(ValidDraftYaml.Trim(),
-            "the stored set carries the schema-valid spec verbatim");
+        // 2026-10-06-03c7c: the id is the code-minted series' first member, in the title and the text.
+        var id = SeriesIdFactory.Member(record!.Set.Series!, 0);
+        created.Title.Should().Be($"{id}: Add a widget endpoint to the sample service");
+        record.Set.Phases.Should().ContainSingle().Which.Draft.Yaml.Should().Be(
+            ValidDraftYaml.Trim().Replace("spec: p9999", $"spec: {id}", StringComparison.Ordinal),
+            "the stored set carries the schema-valid spec verbatim, under the minted id");
         record.Approval.Should().NotBeNull();
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
     }
@@ -303,13 +306,13 @@ public sealed partial class SpecDialogOutcomeTests
         var state = await bed.OpenSessionAsync("th-epic");
         var epic = new EpicOutcome(
             new PhaseDraft("p9000", "Widget platform end to end",
-                "phase: p9000\ngoal: \"Widget platform end to end\"", []),
+                "spec: p9000\ngoal: \"Widget platform end to end\"", []),
             [
                 new PhaseDraft("p9000a", "Widget storage layer",
-                    "phase: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
+                    "spec: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
                     []),
                 new PhaseDraft("p9000b", "Widget API on top of the storage layer",
-                    "phase: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
+                    "spec: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
                     ["p9000a"]),
             ]);
 
@@ -317,7 +320,6 @@ public sealed partial class SpecDialogOutcomeTests
 
         var work = bed.Tickets.Created.Should().ContainSingle(
             "2026-09-22-b3d7: a cut is one piece of work and files one ticket").Subject;
-        work.Title.Should().Be("p9000: Widget platform end to end");
         // 2026-09-17-0e79d: it is what a run picks up, and the set it works is stored under its
         // own spec key. 2026-09-22-b3d7: no ticket the framework files carries the record label.
         work.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
@@ -326,9 +328,6 @@ public sealed partial class SpecDialogOutcomeTests
         bed.Tickets.Comments.Should().BeEmpty("there are no records to list on it");
         // 2026-09-22-b3d7: the slice list is the ONLY place a person reads a slice on its own, so
         // every id, every goal and every requires: edge has to be in it.
-        work.Body.Should().Contain("## Slices")
-            .And.Contain("`p9000a` Widget storage layer")
-            .And.Contain("`p9000b` Widget API on top of the storage layer (requires: p9000a)");
         work.Body.Should().NotContain("```", "a requirement body opens no fence");
         // 2026-09-17-0e79d: no position stamp — a parent stamp would cut the run's branch from
         // another ticket's rung instead of from its own base.
@@ -336,10 +335,18 @@ public sealed partial class SpecDialogOutcomeTests
         var tracker = bed.Harness.Services.GetRequiredService<AgentSmithConfig>()
             .Projects[Project].Tracker;
         var record = await bed.Harness.Services.GetRequiredService<ISpecApprovalStore>()
-            .GetAsync(tracker.Name, SpecSetKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
+            .GetAsync(tracker.Name, TicketKey.For(tracker.Type.ToString().ToLowerInvariant(), "1").Value,
                 CancellationToken.None);
         record.Should().NotBeNull("the whole approved set is stored under the WORK ticket's key");
-        record!.Set.Phases.Select(p => p.PhaseId).Should().Equal("p9000a", "p9000b");
+        // 2026-10-06-03c7c: the ticket names its code-minted series; the slices are its members.
+        var series = record!.Set.Series!;
+        var (first, second) = (SeriesIdFactory.Member(series, 0), SeriesIdFactory.Member(series, 1));
+        work.Title.Should().Be($"{series}: Widget platform end to end");
+        work.Body.Should().Contain("## Slices")
+            .And.Contain($"`{first}` Widget storage layer")
+            .And.Contain($"`{second}` Widget API on top of the storage layer (requires: {first})");
+        record.Set.Phases.Select(p => p.PhaseId).Should().Equal(first, second);
+        record.Set.Phases[1].Draft.Yaml.Should().Contain($"requires: [{first}]");
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
         bed.Adapter.SentTexts.Should().NotContain(t => t.Contains("https://tracker.test/2"),
             "there is no second ticket to name in the thread");

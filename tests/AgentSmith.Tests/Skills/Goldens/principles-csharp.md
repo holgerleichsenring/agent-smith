@@ -36,7 +36,8 @@ belongs in the language delta that is composed below this core, never here.
   one its own unit with its own contract.
 - Keep units small. A growing unit is accumulating responsibilities; split it
   by responsibility before it becomes load-bearing. Concrete size limits are
-  set by the language delta and are enforced, not aspirational.
+  set by the language delta where the stack documents one, and are
+  enforced, not aspirational.
 
 ## SOLID
 
@@ -108,7 +109,8 @@ belongs in the language delta that is composed below this core, never here.
 The language delta composed with this core MUST define the mechanisms for:
 
 1. Naming style (casing, prefixes/suffixes, test naming).
-2. Code layout (where units live, what shares a source unit, size limits).
+2. Code layout (where units live, what shares a source unit, size limits
+   where the stack documents one).
 3. Abstraction and composition idiom (how contracts are declared and how
    collaborators are supplied).
 4. Error mechanics (how failures are signaled, propagated, and logged).
@@ -127,11 +129,16 @@ states what applies instead.
 
 ## Additions
 
-### Hard limits (enforced)
+### Layout and size
 
-- Max 20 lines per method — extract helper methods, no exceptions.
-- Max 120 lines per class — split by responsibility when reached. Most
-  service classes are 20–60 lines; 80 lines is a warning.
+- Max 55 lines per method, counted as physical lines of the declaration —
+  extract helper methods when reached. The Limits section states it as data.
+  Source: measured — the p95 of CleanArchitecture (39), efcore (56) and
+  aspire (70), tests and generated code excluded, ratified 2026-10-06
+  (agent-smith decisions/2026-10-03-24d4.yaml). No C# tool enables a method-length rule by default.
+- No class line limit is set: no C# source states one as a rule, and the
+  same reference repositories' p95 ranges from 78 to 697 lines. Split by
+  responsibility, as the core requires.
 - One type per file: every class, interface, enum, or record gets its own
   file.
 
@@ -222,6 +229,12 @@ states what applies instead.
 
 No overrides — this is the reference stack the mechanism vocabulary comes
 from; the core's defaults map 1:1.
+
+## Limits
+
+```yaml
+function_lines: 55
+```
 
 ---
 

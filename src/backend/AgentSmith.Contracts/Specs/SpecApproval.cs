@@ -4,10 +4,11 @@ namespace AgentSmith.Contracts.Specs;
 /// 2026-09-17-0e79a: the moment a person approved a spec set in the design conversation,
 /// with where that approval came from.
 /// <para>
-/// <see cref="At"/> is the APPROVAL INSTANT — the one field the precedence compares. A set
-/// can be approved again (2026-09-17-0e79b's amendment), so an approval is a version marker
-/// and not a one-shot hand-off: the run prefers the branch artifact UNLESS a record carries
-/// a newer instant than the one <c>set.yaml</c> was published from.
+/// <see cref="At"/> is the APPROVAL INSTANT. A set can be approved again (2026-09-17-0e79b's
+/// amendment), so an approval is a version marker and not a one-shot hand-off. 2026-10-06-03c7f:
+/// the instant decides between a CARRIED record and the STORED one (a frozen capacity-queue entry
+/// can carry the stale one); it never puts a record before the branch — a branch that answered is
+/// the set, and the record is used only while the branch holds nothing.
 /// </para>
 /// <para>
 /// The instant and the time are ONE field on purpose. Two timestamps written together are

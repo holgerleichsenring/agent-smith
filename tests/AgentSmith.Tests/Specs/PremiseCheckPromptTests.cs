@@ -207,7 +207,7 @@ public sealed class PremiseCheckPromptTests
         Contracts.Commands.PipelineContext pipeline, Contracts.Models.PhaseDraft current)
     {
         var first = new Contracts.Models.PhaseDraft(
-            "2026-09-17-0000", "split the sender out", "phase: 2026-09-17-0000", []);
+            "2026-09-17-0000", "split the sender out", "spec: 2026-09-17-0000", []);
         pipeline.Set(Contracts.Commands.ContextKeys.SpecSet, new Contracts.Specs.SpecSet(
             "azdo-1",
             [

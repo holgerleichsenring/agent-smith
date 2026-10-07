@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0144: Autonomous + skill-manager preset unfencing (cross-repo)
-phase: p0144
+spec: p0144
 decisions:
   - category: Architecture
     chose: "**Both presets unfenced in one cross-repo phase, not two.** Same shape across both (pipeline_name enum extension + 4 SKILL.md files + preset cleanup); shipping together amortises cross-repo coordination cost (one agent-smith-skills release, one pin bump on agent-smith side). -- alternatives: per-preset slices p0144a + p0144b (rejected: doubles the cross-repo merge dance; skill-manager preset has been broken since p0125c"

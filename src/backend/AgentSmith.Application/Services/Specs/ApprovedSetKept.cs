@@ -60,7 +60,7 @@ public static class ApprovedSetKept
         + "run cuts the unstarted phases again from the ticket. Any other first line is an "
         + "ordinary comment and changes nothing.";
 
-    private const string OnTheBranch = "The specs are on the ticket branch under `.agentsmith/specs/`";
+    private const string OnTheBranch = "The specs are on the ticket branch under `" + SeriesPaths.Planned + "/`";
 
     private const string TheEditRule =
         "Edit a phase that has NOT started there and the next run works your edit; a phase that "

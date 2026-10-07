@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0057b: Skill Manager Pipeline
-phase: p0057b
+spec: p0057b
 decisions:
   - category: Implementation
     chose: Human approval mandatory before skill installation

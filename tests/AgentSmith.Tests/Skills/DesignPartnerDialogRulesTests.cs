@@ -63,7 +63,7 @@ public sealed class DesignPartnerDialogRulesTests
             + "a child filed without one is a ticket with no finish line");
 
         master.Should().Contain(
-            "done list is the part of the ticket that says when it is finished.",
+            "done list is the part of the ticket that says when the",
             "the rule has to say WHY a child needs its own list, or a master that sees the "
             + "parent's list reads the requirement as already met");
 

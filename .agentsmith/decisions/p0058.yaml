@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0058: Interactive Dialogue
-phase: p0058
+spec: p0058
 decisions:
   - category: Architecture
     chose: Typed DialogQuestion (Confirmation, Choice, FreeText, Approval, Info) over binary Yes/No

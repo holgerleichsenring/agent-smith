@@ -54,7 +54,7 @@ public sealed class ApprovedRepoScope(
         var configured = pipeline.Get<IReadOnlyList<RepoConnection>>(ContextKeys.Repos);
         if (ticket is null) return new Scope(configured, false);
 
-        var key = SpecSetKeyFactory.For(ticket, pipeline);
+        var key = TicketKeyFactory.For(ticket, pipeline);
         var record = await approvals.ResolveAsync(pipeline, key, cancellationToken);
         if (record is null || record.Repositories.Count == 0) return new Scope(configured, false);
 

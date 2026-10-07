@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0121: Pipeline output, cost, and source-context regressions
-phase: p0121
+spec: p0121
 decisions:
   - category: Architecture
     chose: "**Pricing lookup is provider-agnostic longest-prefix matching, not per-provider normalization.** `PipelineCostTracker.ResolvePricing` tries exact lookup first; on miss, walks `_pricing.Keys` ordered by length descending and accepts the first key the model id starts with (case-insensitive). Reason: every major provider dates their model ids"

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158e: Multi-sandbox-per-repo
-phase: p0158e
+spec: p0158e
 decisions:
   - category: Architecture
     chose: "**N sandboxes, one per configured repo"

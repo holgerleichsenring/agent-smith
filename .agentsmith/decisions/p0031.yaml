@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0031: Orphan Detector Redis Scan
-phase: p0031
+spec: p0031
 decisions:
   - category: Architecture
     chose: "`ConversationStateManager.GetAllAsync()` scans `conversation:*:*` Redis keys"

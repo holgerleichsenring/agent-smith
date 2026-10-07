@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0143: Triage determinism + DataFlow wildcard tightening
-phase: p0143
+spec: p0143
 decisions:
   - category: Architecture
     chose: "**Triage becomes deterministic: zero LLM calls in the triage path.** New `DeterministicTriageSelector` (Application/Services/Triage) is a pure function `(filteredSkills) → TriageOutput`. Per-phase role-slot fill: Plan = producer→Lead + investigator→Analysts; Review = producer→Lead (same producer re-runs) + judge→Reviewers; Final = filter→Filter. Single-slot picks (Lead, Filter) use highest-specificity-wins with alphabetical-by-name as the deterministic tiebreak. Multi-slot picks (Analysts, Reviewers) include all matching candidates sorted by specificity desc then name. Replaces the LLM-driven `TriageOutputProducer` chat call. `Confidence` is always 100"

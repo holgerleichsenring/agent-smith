@@ -5,7 +5,7 @@ import { runStatusWord } from "@/components/jobs/runStatus";
 import type {
   FiledWorkFinding,
   FiledWorkHandback,
-  FiledWorkPhase,
+  FiledWorkSpec,
   FiledWorkPullRequest,
   FiledWorkReview,
   FiledWorkRun,
@@ -42,7 +42,7 @@ import {
 // findings and a reverted fix pass arrived as one unbroken block and it is the densest and most
 // consequential text on this page. A PULL REQUEST says that it is one.
 
-/** RunPhaseProjection.StatusOf's word for a phase handed back on a false premise. */
+/** RunSpecProjection.StatusOf's word for a phase handed back on a false premise. */
 const HANDED_BACK = "handed_back";
 
 export function DialogFiledRuns({
@@ -115,10 +115,10 @@ function Run({ run }: { run: FiledWorkRun }) {
           </ul>
         </div>
       )}
-      {run.phases.length > 0 && (
+      {run.specs.length > 0 && (
         <ol className="mt-1.5 flex flex-col gap-1.5">
-          {run.phases.map((phase) => (
-            <Phase key={phase.phaseId} phase={phase} />
+          {run.specs.map((spec) => (
+            <SpecRow key={spec.specId} spec={spec} />
           ))}
         </ol>
       )}
@@ -148,40 +148,40 @@ function PullRequest({ pr }: { pr: FiledWorkPullRequest }) {
   );
 }
 
-function Phase({ phase }: { phase: FiledWorkPhase }) {
-  const status = phaseStatusWords(phase.status);
+function SpecRow({ spec }: { spec: FiledWorkSpec }) {
+  const status = phaseStatusWords(spec.status);
   return (
-    <li data-testid={`dialog-filed-phase-${phase.phaseId}`} className="dsh-label">
+    <li data-testid={`dialog-filed-spec-${spec.specId}`} className="dsh-label">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <span className="fv">{phase.phaseId}</span>
-        <span className="text-body">{phase.title}</span>
+        <span className="fv">{spec.specId}</span>
+        <span className="text-body">{spec.title}</span>
         <span className={markClass(status.tone)}>{status.word}</span>
       </div>
-      {phase.verdict && (
-        <div data-testid={`dialog-filed-verdict-${phase.phaseId}`} className="ec-sub">
-          {phase.verdict}
+      {spec.verdict && (
+        <div data-testid={`dialog-filed-verdict-${spec.specId}`} className="ec-sub">
+          {spec.verdict}
         </div>
       )}
-      {phase.status === HANDED_BACK && (
-        <div data-testid={`dialog-filed-amend-${phase.phaseId}`} className="text-ink">
+      {spec.status === HANDED_BACK && (
+        <div data-testid={`dialog-filed-amend-${spec.specId}`} className="text-ink">
           the specification is what has to change — approve the set again in this conversation.
         </div>
       )}
       <Review
-        phaseId={phase.phaseId}
-        review={phase.review}
-        stopped={isPhaseTerminal(phase.status)}
+        specId={spec.specId}
+        review={spec.review}
+        stopped={isPhaseTerminal(spec.status)}
       />
     </li>
   );
 }
 
 function Review({
-  phaseId,
+  specId,
   review,
   stopped,
 }: {
-  phaseId: string;
+  specId: string;
   review: FiledWorkReview | null;
   /** Whether the phase has stopped: no review row on a stopped phase is a gap, not a not-yet. */
   stopped: boolean;
@@ -194,7 +194,7 @@ function Review({
   // the three gaps this page marks.
   if (review === null) {
     return (
-      <div data-testid={`dialog-filed-noreview-${phaseId}`} className="ec-marks">
+      <div data-testid={`dialog-filed-noreview-${specId}`} className="ec-marks">
         <span className={stopped ? "ec-mark warn" : "ec-mark"}>
           {stopped ? "no review was recorded" : "not reviewed yet"}
         </span>
@@ -208,7 +208,7 @@ function Review({
           was never taken must not be mistaken for. The sentence is unchanged; what it sits
           beside is not. */}
       {review.unreadable && (
-        <div data-testid={`dialog-filed-unreadable-${phaseId}`} className="ec-marks items-baseline">
+        <div data-testid={`dialog-filed-unreadable-${specId}`} className="ec-marks items-baseline">
           <span className="ec-mark bad">unreadable</span>
           <span className="ec-sub">{review.why}</span>
         </div>
@@ -216,20 +216,20 @@ function Review({
       {/* A report can say "not taken" AND still carry findings, so the note and the list are
           not alternatives; only a review that was taken and kept nothing is the quiet case. */}
       {!review.reviewed && !review.unreadable && (
-        <div data-testid={`dialog-filed-unreviewed-${phaseId}`} className="ec-marks items-baseline">
+        <div data-testid={`dialog-filed-unreviewed-${specId}`} className="ec-marks items-baseline">
           <span className="ec-mark warn">nobody looked</span>
           <span className="ec-sub">not reviewed: {review.why ?? "no reason was recorded"}</span>
         </div>
       )}
       {review.reviewed && review.findings.length === 0 && (
-        <div data-testid={`dialog-filed-reviewed-${phaseId}`} className="ec-marks">
+        <div data-testid={`dialog-filed-reviewed-${specId}`} className="ec-marks">
           <span className="ec-mark">reviewed, nothing found</span>
         </div>
       )}
       {review.findings.length > 0 && (
-        <ul data-testid={`dialog-filed-findings-${phaseId}`} className="mt-1 flex flex-col">
+        <ul data-testid={`dialog-filed-findings-${specId}`} className="mt-1 flex flex-col">
           {review.findings.map((finding) => (
-            <Finding key={address(finding)} finding={finding} phaseId={phaseId} />
+            <Finding key={address(finding)} finding={finding} specId={specId} />
           ))}
         </ul>
       )}
@@ -244,14 +244,14 @@ function address(finding: FiledWorkFinding): string {
 }
 
 /** One finding on a row of its own: the address it rests on, then what it says about the code. */
-function Finding({ finding, phaseId }: { finding: FiledWorkFinding; phaseId: string }) {
+function Finding({ finding, specId }: { finding: FiledWorkFinding; specId: string }) {
   return (
     <li className="d-finding">
       <div className="fv">{address(finding)}</div>
       <div className="ec-sub">{finding.why}</div>
       {finding.reverted && (
         <div
-          data-testid={`dialog-filed-reverted-${phaseId}-${address(finding)}`}
+          data-testid={`dialog-filed-reverted-${specId}-${address(finding)}`}
           className="ec-marks items-baseline"
         >
           <span className="ec-mark warn">reverted</span>

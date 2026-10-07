@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0034: Multi-Skill Architecture
-phase: p0034
+spec: p0034
 decisions:
   - category: Architecture
     chose: Commands insert follow-up commands into flat LinkedList pipeline

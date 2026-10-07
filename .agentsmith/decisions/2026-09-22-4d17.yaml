@@ -1,4 +1,4 @@
-phase: 2026-09-22-4d17
+spec: 2026-09-22-4d17
 decisions:
   - id: delete-the-false-half-keep-the-provenance
     chose: >

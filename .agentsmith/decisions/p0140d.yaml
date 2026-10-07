@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0140d: ResolvedProject.Repo shim removal + ContextKeys.CurrentRepo
-phase: p0140d
+spec: p0140d
 decisions:
   - category: Architecture
     chose: "**CurrentRepo resolution lives in `ExecutePipelineUseCase`, not `PipelineExecutor.ExecuteAsync`.** The spec placed it in PipelineExecutor.ExecuteAsync but PipelineExecutor takes `ResolvedProject + PipelineContext` not `PipelineRequest`, so it can't see RepoName. ExecutePipelineUseCase is the single entry point that has the request, and it already does pre-execute setup (project lookup, pipeline resolution, context priming). Adding ResolveCurrentRepo right after the project lookup and before `pipeline.Set(...)` calls is the natural place"

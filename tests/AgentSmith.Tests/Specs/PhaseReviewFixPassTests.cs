@@ -272,7 +272,7 @@ public sealed class PhaseReviewFixPassTests
     private static PipelineContext Verified()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(PhaseId, "goal", "phase: x\n", []));
+        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(PhaseId, "goal", "spec: x\n", []));
         pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.VerifiedHeads,
             new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "verified-sha" });

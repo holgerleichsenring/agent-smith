@@ -24,7 +24,7 @@ public sealed class SpecDialogConversationDeleter(
     SpecDialogSessionRepository sessions,
     DialogueAnswerRepository answers,
     ReferenceFileRepository files,
-    ApprovedSpecSetRepository approvals) : ISpecDialogConversationDeleter
+    ApprovedSeriesRepository approvals) : ISpecDialogConversationDeleter
 {
     public async Task DeleteAsync(string sessionId, CancellationToken cancellationToken)
     {

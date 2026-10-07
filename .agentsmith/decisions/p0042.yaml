@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0042: Legal Analysis Pipeline Handlers
-phase: p0042
+spec: p0042
 decisions:
   - category: TradeOff
     chose: InboxPollingService uses copy-then-delete not move

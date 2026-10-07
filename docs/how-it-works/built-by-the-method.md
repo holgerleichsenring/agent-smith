@@ -39,7 +39,7 @@ is where it pays off.
 
 Work here arrives as a **phase**. It is a YAML file with a goal, some steps and a
 definition of done, and I write it before any code exists. It gets validated
-against `phase-spec.schema.json`, and once it is complete I leave it alone. If
+against `spec.schema.json`, and once it is complete I leave it alone. If
 the scope moves, a successor shows up (`p0169b`, then `p0169c`) and the original
 stays exactly as it was.
 
@@ -60,7 +60,7 @@ gates do the heavy lifting.
 |---|---|
 | `CLAUDE.md` | the read order for context files, the ten step workflow, the rules that always hold |
 | `.agentsmith/contexts/*/principles.md` | 245 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
-| `.agentsmith/phases/{planned,active,done}/` | the backlog as a state machine, 1,070 schema validated specs |
+| `.agentsmith/specs/{planned,active,done}/` | the backlog as a state machine, 1,070 schema validated specs |
 | `.agentsmith/decisions/p{NNNN}.yaml` | one file per phase, every entry naming what got chosen, what it beat, and why |
 | `.agentsmith/memory/` | 33 ratified behavioural rules, each traceable to a real correction |
 | spec-first plugin | the workflow as callable skills — `create-phase`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
@@ -286,7 +286,7 @@ You should be able to reproduce all of this from a clone.
 - **Tests.** The count of `[Fact]` and `[Theory]` attributes, 6,860 plus 178. The
   number of executed cases runs higher, because Theory data rows expand.
 - **Decisions.** Entries across the 836 YAML files in `.agentsmith/decisions/`.
-- **Phases.** Files in `.agentsmith/phases/done/` (968) and `planned/` (102).
+- **Phases.** Files in `.agentsmith/specs/done/` (968) and `planned/` (102).
 - **Releases.** Version headings in `CHANGELOG.md`.
 - **Skills.** The number of `SKILL.md` files per commit in the
   `agent-smith-skills` catalog repository.

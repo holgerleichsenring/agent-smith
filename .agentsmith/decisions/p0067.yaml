@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0067: API Scan Compression & ZAP Fix
-phase: p0067
+spec: p0067
 decisions:
   - category: Architecture
     chose: Category slicing (auth/design/runtime) instead of finding compression

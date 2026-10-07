@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0095a: Ticket-Claim Spine (GitHub only)
-phase: p0095a
+spec: p0095a
 decisions:
   - category: Architecture
     chose: "Split the original p0095 \"ticket-claim-lifecycle\" phase into p0095a (this), p0095b (all-platform transitioners), and p0095c (heartbeat + reconciler + full config). Reason: the original p0095 bundled ~27 new prod files + 4 heterogeneous platform API integrations + hosted services + config schema into one phase"

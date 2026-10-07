@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0146c: Drop convergence/objection prose-regex fallback
-phase: p0146c
+spec: p0146c
 decisions:
   - category: Architecture
     chose: "**Empty/missing `SkillObservations` is now a hard fail, not a silent fallback.** `ConvergenceCheckHandler` previously regex-fished `OBJECTION` / `AGREE` out of `DiscussionLog` content when observations were absent; that path silently absorbed contract violations (skill produced prose where the framework expected observations) behind a regex guess. After p0123 every discussion-pipeline skill emits `SkillObservation`s, so a missing-or-empty list now signals a real bug in the upstream skill"

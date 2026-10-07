@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0380
+spec: p0380
 decisions:
   - category: Scope
     chose: "Green-run narrative gate = early-keystone verdict green AND a ticket is present"

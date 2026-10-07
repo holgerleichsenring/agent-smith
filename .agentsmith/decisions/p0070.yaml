@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0070: Decision Log — Phase/Run Context
-phase: p0070
+spec: p0070
 decisions:
   - category: Architecture
     chose: sourceLabel as section header instead of category

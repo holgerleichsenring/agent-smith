@@ -190,7 +190,7 @@ public sealed class PhaseEntryAccountTests
     private static SpecSet Set(IReadOnlyList<string> done) => new(
         "azdo-1",
         [new SpecPhase(
-            new PhaseDraft("p1", "Migrate the handler", "phase: p1", []) { Done = done },
+            new PhaseDraft("p1", "Migrate the handler", "spec: p1", []) { Done = done },
             "p1", string.Empty, [])],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

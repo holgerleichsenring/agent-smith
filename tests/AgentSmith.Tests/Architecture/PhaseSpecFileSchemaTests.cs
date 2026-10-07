@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Architecture;
 /// schema's limits stay what the deployed product reads.
 /// <para>
 /// The schema was enforced on DRAFTS and never on the record: nothing validated
-/// <c>.agentsmith/phases/**</c>, so 76 committed files failed the schema they carry and
+/// <c>.agentsmith/specs/**</c>, so 76 committed files failed the schema they carry and
 /// no test noticed — 73 writing decisions in a shape the schema forbids, two over the
 /// goal limit, and one that is not parseable YAML at all.
 /// </para>
@@ -65,7 +65,7 @@ public sealed class PhaseSpecFileSchemaTests
             validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
 
         var build = () => fallback.Build(
-            "run-1",
+            "run-1", "2026-10-06-0a0a",
             new Ticket(new TicketId("19106"), title, "Body.", null, "open", "azdo", []),
             [new TicketSegment(0, "Body.", 0, 0)],
             [],

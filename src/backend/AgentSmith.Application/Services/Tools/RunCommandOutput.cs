@@ -18,42 +18,37 @@ namespace AgentSmith.Application.Services.Tools;
 /// <para>stderr has no body to switch to — the agent captures stdout only — so it is still
 /// taken from the stream. A failure's cause rides out on the exit code and the result's own
 /// error message, both of which arrive with the result.</para>
+///
+/// <para>2026-10-07-6b9db: this is the PROGRAM render (find_files, http_request), whose stdout
+/// find_files parses line by line — a head+tail cut would hand it half paths and a marker read
+/// as a path. A model-authored command renders through <see cref="BoundedRunCommandOutput"/>.</para>
 /// </summary>
 internal static class RunCommandOutput
 {
     private const string TruncationNotice = "\n... (output truncated at 1 MB)";
+
+    /// <summary>The program render of a step's result and its streamed output; either stream
+    /// filling its buffer sets the one <c>truncated:</c> flag this text has always had.</summary>
+    public static string Render(StepResult result, long elapsedMs, StreamedStepOutput streamed) =>
+        Render(result, elapsedMs, streamed.Stdout.Text, streamed.Stderr.Text,
+            streamed.Stdout.Truncated || streamed.Stderr.Truncated);
 
     /// <summary>
     /// The labeled-section text: header lines, then stdout, then stderr.
     /// <paramref name="streamedStdout"/> is the fallback for a sandbox agent image
     /// predating p0258, which leaves the body null on run steps.
     /// </summary>
-    public static string Render(
+    private static string Render(
         StepResult result, long elapsedMs,
         string streamedStdout, string streamedStderr, bool streamTruncated)
     {
         var (stdout, stdoutTruncated) = Bound(result.OutputContent ?? streamedStdout);
         var sb = new StringBuilder();
-        AppendHeader(sb, result, elapsedMs, stdoutTruncated || streamTruncated);
+        RunCommandHeader.Append(sb, result, elapsedMs, stdoutTruncated || streamTruncated, [], errorMaxChars: null);
         sb.Append("stdout:\n").Append(stdout.TrimEnd('\r', '\n')).Append('\n');
         sb.Append('\n');
         sb.Append("stderr:\n").Append(streamedStderr.TrimEnd('\r', '\n'));
         return sb.ToString();
-    }
-
-    private static void AppendHeader(
-        StringBuilder sb, StepResult result, long elapsedMs, bool truncated)
-    {
-        sb.Append("exit_code: ").Append(result.ExitCode).Append('\n');
-        sb.Append("elapsed_ms: ").Append(elapsedMs).Append('\n');
-        sb.Append("truncated: ").Append(truncated ? "true" : "false").Append('\n');
-        if (result.TimedOut) sb.Append("timed_out: true\n");
-        // p0407: a command the sandbox killed carries the reason ("timed out after 900s")
-        // and a failing one carries its stderr summary. Without this line the model — and
-        // the operator reading the trace — saw a bare non-zero exit and no cause.
-        if (result.ExitCode != 0 && !string.IsNullOrWhiteSpace(result.ErrorMessage))
-            sb.Append("error: ").Append(result.ErrorMessage.Trim()).Append('\n');
-        sb.Append('\n');
     }
 
     /// <summary>

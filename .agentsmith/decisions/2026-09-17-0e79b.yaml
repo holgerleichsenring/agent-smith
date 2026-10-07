@@ -1,4 +1,4 @@
-phase: 2026-09-17-0e79b
+spec: 2026-09-17-0e79b
 decisions:
   - id: the-rule-is-one-guard-in-one-place
     chose: >

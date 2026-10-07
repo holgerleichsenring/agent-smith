@@ -1,4 +1,4 @@
-phase: 2026-09-17-0e79a
+spec: 2026-09-17-0e79a
 decisions:
   - id: the-approval-instant-and-the-time-are-one-field
     chose: >

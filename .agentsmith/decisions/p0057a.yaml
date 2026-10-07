@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0057a: Skill Standard
-phase: p0057a
+spec: p0057a
 decisions:
   - category: Architecture
     chose: Three-file skill structure (SKILL.md + agentsmith.md + source.md) over single YAML

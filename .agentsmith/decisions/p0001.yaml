@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0001: Core Infrastructure
-phase: p0001
+spec: p0001
 decisions:
   - category: Architecture
     chose: Command Pattern (MediatR-style) as central pattern

@@ -290,9 +290,9 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                 openedAt: "2026-09-17T10:02:00Z",
               },
             ],
-            phases: [
+            specs: [
               {
-                phaseId: "p9001a",
+                specId: "p9001a",
                 ordinal: 1,
                 title: "Make the thing exist",
                 status: "done",
@@ -328,7 +328,7 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                 },
               },
               {
-                phaseId: "p9001b",
+                specId: "p9001b",
                 ordinal: 2,
                 title: "Make the thing readable",
                 status: "in_progress",
@@ -341,7 +341,7 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                 },
               },
               {
-                phaseId: "p9001c",
+                specId: "p9001c",
                 ordinal: 3,
                 title: "Make the thing fast",
                 status: "not_started",
@@ -369,7 +369,7 @@ function stoppedPhase(status: string, verdict: string): FiledWork {
         runs: [
           {
             ...run,
-            phases: [{ ...run.phases[0], status, verdict }],
+            specs: [{ ...run.specs[0], status, verdict }],
           },
         ],
       },
@@ -385,7 +385,7 @@ function reviewedBy(review: FiledWorkReview | null): FiledWork {
     ...work,
     tickets: [{
       ...work.tickets[0],
-      runs: [{ ...run, phases: [{ ...run.phases[0], review }] }],
+      runs: [{ ...run, specs: [{ ...run.specs[0], review }] }],
     }],
   };
 }
@@ -3100,7 +3100,7 @@ describe("SpecDialogSurface", () => {
       expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument());
     expect(pane.querySelector("a[href='/jobs/2026-09-17T09-00-00-0001']")).toBeInTheDocument();
     expect(pane.querySelector("a[href='https://git/pr/3']")).toBeInTheDocument();
-    expect(screen.getByTestId("dialog-filed-phase-p9001a")).toHaveTextContent("Make the thing exist");
+    expect(screen.getByTestId("dialog-filed-spec-p9001a")).toHaveTextContent("Make the thing exist");
     expect(screen.getByTestId("dialog-filed-findings-p9001a")).toHaveTextContent("src/A.cs:4");
     // The whole point of the report being an object: a review nobody took is not a clean one.
     expect(screen.getByTestId("dialog-filed-unreviewed-p9001b"))
@@ -3130,7 +3130,7 @@ describe("SpecDialogSurface", () => {
       expect(repository.className.split(/\s+/), repository.textContent ?? "").toContain("given");
     }
 
-    const phaseId = screen.getByTestId("dialog-filed-phase-p9001a").querySelector(".fv") as HTMLElement;
+    const phaseId = screen.getByTestId("dialog-filed-spec-p9001a").querySelector(".fv") as HTMLElement;
     expect(phaseId.className.split(/\s+/)).not.toContain("given");
   });
 
@@ -3191,10 +3191,10 @@ describe("SpecDialogSurface", () => {
 
     act(() => filings.emit(filing()));
 
-    const running = await screen.findByTestId("dialog-filed-phase-p9001b");
+    const running = await screen.findByTestId("dialog-filed-spec-p9001b");
     expect(running.querySelector(".ec-mark")).toHaveTextContent("running");
     expect(running.textContent).not.toContain("in_progress");
-    const waiting = screen.getByTestId("dialog-filed-phase-p9001c");
+    const waiting = screen.getByTestId("dialog-filed-spec-p9001c");
     expect(waiting.querySelector(".ec-mark")).toHaveTextContent("not started");
     expect(waiting.textContent).not.toContain("not_started");
     const run = screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001");
@@ -3208,7 +3208,7 @@ describe("SpecDialogSurface", () => {
       await renderSurface();
       fetchFiledWork.mockResolvedValue(stoppedPhase(status, "why it stopped"));
       act(() => filings.emit(filing()));
-      const row = await screen.findByTestId("dialog-filed-phase-p9001a");
+      const row = await screen.findByTestId("dialog-filed-spec-p9001a");
       return row.querySelector(".ec-mark") as HTMLElement;
     };
 
@@ -3515,7 +3515,7 @@ describe("SpecDialogSurface", () => {
 
     render(<SpecDialogSurface />);
 
-    expect(await screen.findByTestId("dialog-filed-phase-p9001a"))
+    expect(await screen.findByTestId("dialog-filed-spec-p9001a"))
       .toHaveTextContent("Make the thing exist");
     expect(screen.getByTestId("dialog-filed-run-2026-09-17T09-00-00-0001")).toBeInTheDocument();
   });

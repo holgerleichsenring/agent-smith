@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0154: web_fetch + skills rename + alias removal
-phase: p0154
+spec: p0154
 decisions:
   - category: Implementation
     chose: "**WebToolHost takes `HttpClient` directly rather than `IHttpClientFactory`.** Construction sites manually instantiate the tool hosts (FilesystemToolHost / HumanToolHost / LogDecisionToolHost via `new` at use sites like VerifyRoundCoordinator + BootstrapToolHostFactory), so threading IHttpClientFactory would require new ctor params on those existing sites without changing the construction shape. HttpClient-direct keeps the per-host construction pattern symmetric; sites can resolve an HttpClient from IHttpClientFactory at their level without WebToolHost knowing about the factory."

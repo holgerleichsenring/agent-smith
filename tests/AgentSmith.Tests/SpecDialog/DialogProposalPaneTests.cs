@@ -171,7 +171,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         await Channel().FiledAsync(State(), report, CancellationToken.None);
 
         Filings().Single().Notes.Should().Equal(report.Notes);
-        new SpecDialogOutcomeComposer().ComposeFiled(new PhaseOutcome(new PhaseDraft("p9000a", "slice", "phase: p9000a", [])), report)
+        new SpecDialogOutcomeComposer().ComposeFiled(new PhaseOutcome(new PhaseDraft("p9000a", "slice", "spec: p9000a", [])), report)
             .In(SpecDialogMarkup.For("slack")).Should().Contain("is not linked to its parent");
     }
 
@@ -267,7 +267,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     };
 
     private static PhaseDraft Draft(string phaseId, IReadOnlyList<string>? requires = null) =>
-        new(phaseId, $"goal of {phaseId}", $"phase: {phaseId}", requires ?? [])
+        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", requires ?? [])
         {
             Steps = [new PhaseStep("seam", "open the seam", null)],
             Tests = ["Flow_Scenario_Expected"],

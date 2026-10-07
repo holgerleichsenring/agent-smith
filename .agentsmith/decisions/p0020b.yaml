@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0020b: Help Command
-phase: p0020b
+spec: p0020b
 decisions:
   - category: Architecture
     chose: Greeting detection in Regex stage

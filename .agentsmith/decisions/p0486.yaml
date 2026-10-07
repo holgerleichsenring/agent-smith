@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0486
+spec: p0486
 
 decisions:
   - category: Design

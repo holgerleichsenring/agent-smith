@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0119a: Microsoft.Extensions.AI migration (IChatClient + FunctionInvokingChatClient + SandboxToolHost)
-phase: p0119a
+spec: p0119a
 decisions:
   - category: Architecture
     chose: "**5 provider classes + 4 AgenticLoops + 4 AgenticAnalyzer adapters + the entire ILlmClient surface deleted in one cutover, not staged.** Reasoning: half-migrated state would force every caller to know whether to use IAgentProvider or IChatClient. One commit-batch (waves 3-5), all provider classes gone, single new IChatClientFactory in DI. ~2500 lines of provider-specific code eliminated."

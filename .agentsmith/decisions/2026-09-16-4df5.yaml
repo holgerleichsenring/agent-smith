@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: 2026-09-16-4df5
+spec: 2026-09-16-4df5
 
 decisions:
   - category: Correctness

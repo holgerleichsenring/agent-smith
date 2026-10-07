@@ -7,11 +7,11 @@
   "required": ["decisions"],
   "additionalProperties": false,
   "oneOf": [
-    { "required": ["phase"] },
+    { "required": ["spec"] },
     { "required": ["run"] }
   ],
   "properties": {
-    "phase": {
+    "spec": {
       "type": "string",
       "description": "Phase identifier this file's decisions attach to \u2014 a counter id (e.g. p0042) or a date-minted id (e.g. 2026-08-24-8a3f), either of which may carry a series letter (p0057a, 2026-08-24-8a3fa). Must match the filename.",
       "pattern": "^(?:p\\d{4,6}[a-z]?|\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$"

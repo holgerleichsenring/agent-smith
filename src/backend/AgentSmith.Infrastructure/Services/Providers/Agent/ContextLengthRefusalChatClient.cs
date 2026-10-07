@@ -36,7 +36,8 @@ internal sealed class ContextLengthRefusalChatClient(
         }
         catch (Exception ex) when (IsContextLengthRefusal(ex))
         {
-            var message = Explain(role, model, windowTokens, CompactingChatClient.EstimateTokens(list));
+            var message = Explain(
+                role, model, windowTokens, CompactingChatClient.EstimateTokens(list), LargestToolResult.In(list));
             logger?.LogError(ex, "{Message}", message);
             throw new InvalidOperationException(message, ex);
         }
@@ -52,15 +53,25 @@ internal sealed class ContextLengthRefusalChatClient(
         return false;
     }
 
-    /// <summary>The operator-facing explanation: which role, which window, which setting.</summary>
-    internal static string Explain(string role, string model, int? windowTokens, int estimatedTokens) =>
+    /// <summary>
+    /// The operator-facing explanation: which role, which window, the largest tool result in the
+    /// request (2026-10-07-6b9dc) and which setting. The compaction setting is advised only when
+    /// no single tool result dominates — one that does survives a fold and must be narrowed.
+    /// </summary>
+    internal static string Explain(
+        string role, string model, int? windowTokens, int estimatedTokens, LargestToolResult? largest = null) =>
         $"The '{role}' model role ({model}) was refused for context length at roughly "
         + $"{estimatedTokens} estimated input tokens. "
-        + (windowTokens is { } window
-            ? $"Its stated window is {window} tokens, so the conversation outgrew it: lower "
-              + $"agents.<name>.compaction.max_context_tokens (and keep max_context_tokens_trigger_ratio "
-              + $"below 1) so the fold happens before the provider refuses."
-            : "No window is stated for this role, so nothing could fold before the provider "
+        + (largest?.Describe() ?? string.Empty)
+        + (windowTokens is not { } window
+            ? "No window is stated for this role, so nothing could fold before the provider "
               + "refused: set models.<role>.context_window_tokens to the deployment's input "
-              + "limit — the model NAME does not imply it.");
+              + "limit — the model NAME does not imply it."
+            : largest is not null && largest.Dominates(estimatedTokens)
+                ? $"Its stated window is {window} tokens, and that one result is most of the request: "
+                  + "compaction keeps the latest iterations verbatim, so narrow the call instead — a "
+                  + "smaller line range, path or pattern."
+                : $"Its stated window is {window} tokens, so the conversation outgrew it: lower "
+                  + $"agents.<name>.compaction.max_context_tokens (and keep max_context_tokens_trigger_ratio "
+                  + $"below 1) so the fold happens before the provider refuses.");
 }

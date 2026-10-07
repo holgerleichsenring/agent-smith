@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class RequirementCriteriaDerivationTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         done:
           - "the table exists"
@@ -48,7 +48,7 @@ public sealed class RequirementCriteriaDerivationTests
         var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
         var fallback = new SpecFallback(validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
 
-        var set = fallback.Build("key", ticket, TicketSegmenter.Segment(Body), [], SpecSource.Derived);
+        var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(Body), [], SpecSource.Derived);
 
         set.Phases.Single().Draft.Done.Should().Equal("the table exists", "the repository reads it back");
     }

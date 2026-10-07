@@ -1,4 +1,4 @@
-phase: 2026-09-18-e63d
+spec: 2026-09-18-e63d
 decisions:
   - id: a-trailing-modifier-because-both-obvious-placements-are-forbidden
     chose: >

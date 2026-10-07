@@ -40,15 +40,15 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived);
+            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
         set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one phase");
-        set.Phases[0].PhaseId.Should().Be("p19106a");
-        set.Phases[1].PhaseId.Should().Be("p19106b");
+        set.Phases[0].PhaseId.Should().Be("2026-10-06-9106a");
+        set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
         set.Phases[1].Draft.Requires.Should().Contain(
-            "p19106a", "the sequence IS the requires-chain");
+            "2026-10-06-9106a", "the sequence IS the requires-chain");
         set.Phases.Should().OnlyContain(
             p => p.Draft.Done.Count > 0, "a phase that cannot end is not a phase");
     }
@@ -65,7 +65,7 @@ public sealed class SpecDerivationTests
                          "steps": ["replace the calls"], "segments": [1]}]}
             """;
 
-        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+        var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation.Should().BeNull("a phase that cannot state its completion is not ratifiable");
         parsed.Error.Should().Contain("done-criteria",
@@ -80,7 +80,7 @@ public sealed class SpecDerivationTests
         var template = segments.Single(s => s.Text.Contains("OrderServiceClient", StringComparison.Ordinal));
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived);
+            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         var markdown = parsed.Derivation!.Set.Phases[0].Markdown;
         markdown.Should().Contain(template.Text,
@@ -96,7 +96,7 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived);
+            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         var accounting = parsed.Derivation!.Set.Accounting;
         var signOff = segments[^1].Id;
@@ -121,7 +121,7 @@ public sealed class SpecDerivationTests
                            "carries": [1, 2]}],
                "discarded": []}
               """,
-            "azdo-19106", "19106", segments, SpecSource.Derived);
+            "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation!.Set.Accounting.IsComplete.Should().BeFalse();
         parsed.Derivation.Set.Accounting.Unaccounted.Should().Contain(segments[^1].Id);
@@ -138,7 +138,7 @@ public sealed class SpecDerivationTests
             .Replace("\"slug\": \"rename-the-clients\",", "\"slug\": \"rename-the-clients\", \"contexts\": [\"backend\", \"frontend\"],")
             .Replace("\"discarded\": [", "\"discarded_contexts\": [{\"context\": \"worker\", \"reason\": \"no client there\"}], \"discarded\": [");
 
-        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+        var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
@@ -163,7 +163,7 @@ public sealed class SpecDerivationTests
              "handback": {"case": "not_implementable",
                           "reason": "The legacy client is the only transport this platform has."}}
             """,
-            "azdo-19106", "19106", segments, SpecSource.Derived);
+            "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         var set = parsed.Derivation!.Set;
         set.IsHandedBack.Should().BeTrue();
@@ -183,7 +183,7 @@ public sealed class SpecDerivationTests
              "handback": {"case": "requirements_contradict_repository",
                           "reason": "There is no LegacyHttpHelper in any repository in scope."}}
             """,
-            "azdo-19106", "19106", segments, SpecSource.Derived);
+            "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation!.Set.Handback!.Case
             .Should().Be(SpecHandbackCase.RequirementsContradictRepository);
@@ -200,7 +200,7 @@ public sealed class SpecDerivationTests
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
-        var parsed = _parser.Parse(QuestionReply(taken: 1), "azdo-19106", "19106", segments, SpecSource.Derived);
+        var parsed = _parser.Parse(QuestionReply(taken: 1), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Error.Should().BeNull();
         var handback = parsed.Derivation!.Set.Handback!;
@@ -227,7 +227,7 @@ public sealed class SpecDerivationTests
                           "readings": [{{{listed}}}], "taken": {{{taken}}}}}
             """;
 
-        var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+        var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation.Should().BeNull();
         parsed.Error.Should().Contain(expectedError);
@@ -243,7 +243,7 @@ public sealed class SpecDerivationTests
                 ? QuestionReply(taken: 0)
                 : $$$"""{"phases": [], "handback": {"case": "{{{name}}}", "reason": "r"}}""";
 
-            var parsed = _parser.Parse(reply, "azdo-19106", "19106", segments, SpecSource.Derived);
+            var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
             parsed.Derivation!.Set.IsHandedBack.Should().BeTrue(name);
             parsed.Derivation.Set.Phases.Should().BeEmpty(name);
@@ -256,7 +256,7 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived);
+            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation!.Set.IsHandedBack.Should().BeFalse();
         parsed.Derivation.Set.Handback.Should().BeNull();
@@ -279,7 +279,7 @@ public sealed class SpecDerivationTests
 
         var parsed = _parser.Parse(
             """{"phases": [{"slug": "rename", "goal": "Rename the clients", "carries": [1]}]}""",
-            "azdo-19106", "19106", segments, SpecSource.Derived);
+            "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation.Should().BeNull();
         parsed.Error.Should().Contain("done-criteria");
@@ -290,7 +290,7 @@ public sealed class SpecDerivationTests
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
         var original = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "19106", segments, SpecSource.Derived)
+            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived)
             .Derivation!.Set;
         var executedHead = new[] { original.Phases[0] };
 
@@ -309,15 +309,15 @@ public sealed class SpecDerivationTests
                            {"segment": 3, "reason": "prose"},
                            {"segment": 6, "reason": "sign-off"}]}
             """,
-            "azdo-19106", "19106", segments, SpecSource.Derived, executedHead);
+            "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, executedHead);
 
         var set = recut.Derivation!.Set;
         set.Phases[0].Should().BeSameAs(original.Phases[0],
             "an executed phase is APPEND-ONLY — a correction to it is a new phase, never an edit");
         set.Phases.Should().HaveCount(3, "the unexecuted tail was re-partitioned into two");
-        set.Phases[1].PhaseId.Should().Be("p19106b");
-        set.Phases[2].PhaseId.Should().Be("p19106c");
-        set.Executed.Should().ContainSingle().Which.Should().Be("p19106a");
+        set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
+        set.Phases[2].PhaseId.Should().Be("2026-10-06-9106c");
+        set.Executed.Should().ContainSingle().Which.Should().Be("2026-10-06-9106a");
     }
 
     // The judgement half, scripted: two phases, everything carried except the sign-off.

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0002: Pipeline Handlers
-phase: p0002
+spec: p0002
 decisions:
   - category: Architecture
     chose: CommandExecutor uses `GetService<T>()` instead of `GetRequiredService<T>()`

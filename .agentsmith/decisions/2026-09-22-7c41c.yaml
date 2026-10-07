@@ -1,4 +1,4 @@
-phase: 2026-09-22-7c41c
+spec: 2026-09-22-7c41c
 decisions:
   - id: the-position-already-on-the-wire-carries-the-fact
     chose: >

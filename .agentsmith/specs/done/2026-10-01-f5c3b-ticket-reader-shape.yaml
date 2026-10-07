@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-f5c3b
+goal: "A filed phase or epic ticket reads goal, Why, What changes, Acceptance criteria, Out of scope; bugs list their criteria; product owners get the same template in the docs."
+
+applies_to: "backend (PhaseTicketBody, bug outcome and renderer), docs (tracker ticket template), skills (design-partner master)"
+
+requires: ["2026-10-01-f5c3a"]
+
+facts:
+  - claim: "The filed body today is ## Goal, ## Why (decisions), ## Scope (In:/Out: lines), ## Acceptance criteria, ## Preconditions, then the extra sections and the label note, all inside the framed region."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs:44-50,61-69,101-109"
+  - claim: "Both the single phase and the epic parent render through PhaseTicketBody.Requirement; the epic adds ## Slices in its extra sections."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:60-63,100-112"
+  - claim: "The body deliberately omits steps so the deriver cannot anchor on the cut."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketBody.cs:20-22; tests/AgentSmith.Tests/SpecDialog/RequirementTicketTests.cs:58-61"
+  - claim: "The ## Acceptance criteria section is read back as the ticket's criteria where no tracker field is set — list items only, an indented line joining the item above."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:52-64; Specs/SpecPromptComposer.cs:76-80; Specs/AcceptanceCriteriaSection.cs:20-25,49-58,60-68"
+  - claim: "The three encodings a body comes back in differ on markup: Azure DevOps HTML is converted to text with tags stripped, Jira writes each line as a literal text paragraph, markdown is read as written."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketHtmlConverter.cs:19-37; src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraAdfRenderer.cs:66-79; Specs/AcceptanceCriteriaSection.cs:28-30"
+  - claim: "Divergence between a ticket and its approved set is the goal sentence found verbatim (whitespace and case normalised) in the ticket text."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketSetDivergence.cs:11-13,30-33"
+  - claim: "An amendment re-renders the region with the same renderer, so tickets filed in the old shape take the new one on their next amendment."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:11,31"
+  - claim: "A bug's acceptance_criteria is read with GetString, which yields null for anything not a string — a yaml list vanishes silently."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/BugOutcomeParser.cs:22-24; SpecDialog/OutcomeYamlReader.cs:21-22"
+  - claim: "A bug body appends that string under ## Acceptance criteria as written; a line with no list marker is not an item, so the section reader returns nothing for it."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/BugTicketRenderer.cs:18-20; Specs/CriterionLine.cs:14-18; tests/AgentSmith.Tests/SpecDialog/DialogProposalPaneTests.cs:190-193"
+  - claim: "TicketTextComposer passes a ticket's description through as text; it has no view of the body's sections."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/TicketTextComposer.cs:76-84"
+  - claim: "Tests assert the current headings of renderer output."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/RequirementTicketTests.cs:53,76-77; tests/AgentSmith.Tests/Providers/Tickets/TicketRegionRewriteTests.cs:144; tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.cs:358"
+  - claim: "PhaseTicketBody.cs has 111 lines and PhaseTicketRenderer.cs 119; neither is on the file-length baseline."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "The master's draft template shows done as one-line strings and its bug template acceptance_criteria as one optional line; the open skills PR #205 sets the master to version 1.8.0."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:5,203-204,254-255,268-273 (branch phase/2026-10-01-aeb6)"
+  - claim: "The docs site's Trigger it section lists webhooks, polling, labels and CLI; DocsPathReferenceTests fails on any docs/…md path the product names that does not exist."
+    evidence: "docs/mkdocs.yml:102-106; tests/AgentSmith.Tests/Architecture/DocsPathReferenceTests.cs:13-18"
+
+scope:
+  in: >
+    PhaseTicketBody renders, for a phase and an epic parent alike: the goal as the lead paragraph, ## Why (decisions),
+    ## What changes (scope.in), ## Acceptance criteria (draft.Done, each in f5c3a's plain line form), ## Out of scope
+    (scope.out), ## Preconditions, then the extra sections and the label note, inside the framed region as now.
+    Reading decisions and scope from the yaml moves to PhaseSpecProse so both files stay under 120 lines;
+    PhaseTicketRenderer does not grow. BugOutcomeParser accepts acceptance_criteria as a string or a list; the bug
+    renderer lists them. A docs page gives product owners the same shape as a copyable ticket template. The
+    design-partner master writes a scenario where a criterion has a trigger and an observable result, and bug criteria
+    as a list.
+  out: >
+    A steps or tasks section — a procedure in a ticket became an acceptance criterion and sank a correct run.
+    The Why/What-changes shape for bugs — a bug's description is what is wrong and what correct looks like; a
+    "what changes" section would be a fix procedure. Parsing the template: agent-smith reads a PO ticket as free text
+    and only the Acceptance criteria list as items, as today. The epic's ## Slices section, which keeps its place after
+    the reader sections. The embedded pin — it moves once, in 2026-10-01-aeb6d.
+
+decisions:
+  - key: "THE HEADING STAYS 'Acceptance criteria'. Two readers find criteria by it on every tracker without a field."
+  - key: "THE GOAL LEADS UNHEADED AND VERBATIM. Divergence finds it word for word; under Why it would read as the reason rather than the outcome."
+  - key: "THE PLAIN LINE FORM, NO BOLD. HTML strips it, Jira shows it literally, markdown keeps it — three read-backs and none equal to PhaseDraft.Done. One item per criterion, no nested WHEN/THEN items, which the HTML item match would split."
+  - key: "AN UNLISTED BUG LINE IS ITS OWN CRITERION. Each non-empty line without a list marker becomes one item; an indented line joins the item above, the section reader's own rule, so what is written is what is read."
+  - key: "BUGS GET LISTED CRITERIA, NOT THE SHAPE. Their criteria become readable items; the rest of a bug ticket is already the reader's shape for a bug."
+
+steps:
+  - id: prose
+    action: "PhaseSpecProse (Application/Services/SpecDialog): Decisions, ScopeIn, ScopeOut read from the yaml map."
+  - id: body
+    action: "PhaseTicketBody composes the reader shape above; the Shared/middle/tail indirection goes."
+  - id: bug
+    action: "BugOutcomeParser reads acceptance_criteria as a string or a list of strings; BugTicketRenderer renders each unlisted line as '- ' plus the collapsed text and keeps listed lines and their indented continuations."
+  - id: tests
+    action: "RequirementTicketTests, TicketRegionRewriteTests:144, SpecDialogOutcomeTests:358, DialogProposalPaneTests:190-193 assert the new headings and the listed bug criterion."
+  - id: docs
+    action: "docs/trigger-it/writing-a-ticket.md: the template (goal line, Why, What changes, Acceptance criteria with a GIVEN/WHEN/THEN line, Out of scope), why there is no steps section, which part is read as items; nav under Trigger it; phase-workflow.md and spec-dialogue.md 'What approval files' link it."
+  - id: skill
+    action: "agent-smith-skills, on the open PR #205 branch: the draft template shows a scenario done item beside a line item, the rules say when a scenario fits, the bug template lists acceptance_criteria."
+
+tests:
+  - "RequirementBody_LeadsWithTheGoalThenWhyWhatChangesCriteriaOutOfScope"
+  - "RenderEpicParent_LeadsWithTheGoal_ThenTheReaderSections_ThenSlices"
+  - "RequirementBody_OmitsSteps (kept)"
+  - "RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_Markdown"
+  - "RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_AzureDevOpsHtml"
+  - "RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_JiraParagraphs"
+  - "Parse_BugAcceptanceCriteriaAsAList_KeepsEveryItem"
+  - "RenderBody_UnlistedAcceptanceCriteriaLines_BecomeOneItemEach"
+  - "TicketTemplateDoc_AcceptanceCriteria_ReadAsCriteria (reads the page's template block through AcceptanceCriteriaSection)"
+
+done:
+  - "WHEN a phase or an epic is filed THEN its ticket reads goal, Why, What changes, Acceptance criteria, Out of scope, Preconditions in that order and carries no steps"
+  - "WHEN a filed body is read back from markdown, Azure DevOps HTML or Jira THEN its acceptance criteria equal PhaseDraft.Done"
+  - "WHEN a bug carries acceptance criteria as a list or as unlisted lines THEN the section reader returns one criterion per item or line"
+  - "the docs page is in the mkdocs nav, linked from phase-workflow.md, and its template's criteria are read as items"
+  - "the skills change is on PR #205; the pin moves in 2026-10-01-aeb6d"
+  - "build green, full suite green"

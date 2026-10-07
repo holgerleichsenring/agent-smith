@@ -14,8 +14,8 @@ public sealed class PhaseDraftReader
     public PhaseDraft Read(string yaml)
     {
         var map = OutcomeYamlReader.ReadMap(yaml);
-        var phaseId = OutcomeYamlReader.GetString(map, "phase")
-            ?? throw new InvalidOperationException("Schema-valid phase draft has no 'phase' field.");
+        var phaseId = OutcomeYamlReader.GetString(map, "spec")
+            ?? throw new InvalidOperationException("Schema-valid spec draft has no 'spec' field.");
         var goal = OutcomeYamlReader.GetString(map, "goal")
             ?? throw new InvalidOperationException("Schema-valid phase draft has no 'goal' field.");
         return new PhaseDraft(phaseId, goal, yaml.Trim(), PhaseDraftLists.Strings(map, "requires"))

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0139: Named catalogs for agents/repos/trackers/pipeline_triggers
-phase: p0139
+spec: p0139
 decisions:
   - category: Architecture
     chose: "**Four top-level catalogs, not three"

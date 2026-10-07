@@ -125,7 +125,7 @@ public sealed class QuestionHandbackTests
         Application.Services.Specs.SpecHandbackComment.Build(PreviousQuestion().Handback!, null, string.Empty));
 
     private static SpecSet PreviousQuestion() => new(
-        SpecSetKey.For("recording", "1").Value, [], SpecAccounting.Empty,
+        TicketKey.For("recording", "1").Value, [], SpecAccounting.Empty,
         [new SpecRevision(1, Application.Services.Specs.SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-2))],
         SpecSource.BranchArtifact,
         new SpecHandback(SpecHandbackCase.Question, "reads two ways", Readings: [ReadingA, ReadingB], Taken: 0));
@@ -136,7 +136,7 @@ public sealed class QuestionHandbackTests
         harness.Services.GetRequiredService<ISpecSetPointerStore>().SaveAsync(
             string.Empty,
             new SpecSetPointer(
-                SpecSetKey.For("recording", "1").Value, "primary", SpecSha, 1,
+                TicketKey.For("recording", "1").Value, "primary", SpecSha, 1,
                 SpecHandbackCase.Question, 1),
             CancellationToken.None);
 
@@ -154,7 +154,7 @@ public sealed class QuestionHandbackTests
     private sealed class SeededSpecSetReader(SpecSet set, string sha) : ISpecSetReader
     {
         public Task<SpecSetOnBranch> ReadAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, SpecSetKey key,
+            PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
             CancellationToken cancellationToken) =>
             Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(set, sha)));
     }

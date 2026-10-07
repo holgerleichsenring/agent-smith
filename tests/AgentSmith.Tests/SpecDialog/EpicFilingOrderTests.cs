@@ -40,7 +40,7 @@ public sealed class EpicFilingOrderTests
             Child("p9000b")));
 
         report.Error.Should().BeNull();
-        provider.Created.Should().ContainSingle().Which.Title.Should().Be("p9000: Widget platform");
+        provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}: Widget platform$");
         var body = provider.Created[0].Body;
         body.IndexOf("p9000b", StringComparison.Ordinal).Should()
             .BeLessThan(body.IndexOf("p9000a", StringComparison.Ordinal),
@@ -167,16 +167,17 @@ public sealed class EpicFilingOrderTests
         };
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), TestSupport.ApprovedSetDoubles.SetFiler(),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
 
     private static EpicOutcome Epic(params PhaseDraft[] children) =>
-        new(new PhaseDraft("p9000", "Widget platform", "phase: p9000", []), children);
+        new(new PhaseDraft("p9000", "Widget platform", "spec: p9000", []), children);
 
     private static PhaseDraft Child(string id, IReadOnlyList<string>? requires = null) =>
-        new(id, $"slice {id}", $"phase: {id}", requires ?? []);
+        new(id, $"slice {id}", $"spec: {id}", requires ?? []);
 
     private static ConversationState State() => new()
     {

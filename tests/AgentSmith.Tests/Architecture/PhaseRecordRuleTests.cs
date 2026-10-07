@@ -59,7 +59,7 @@ public sealed class PhaseRecordRuleTests
         var unresolved = Record.UnresolvedPointers();
 
         unresolved.Should().BeEmpty(
-            "a `-> .agentsmith/phases/…` pointer names a file the reader will open; a "
+            "a `-> .agentsmith/specs/…` pointer names a file the reader will open; a "
             + "renamed or moved phase file takes its pointer with it.\n  "
             + string.Join("\n  ", unresolved));
     }

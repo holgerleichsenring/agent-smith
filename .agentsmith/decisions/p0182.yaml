@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0182-project-map-redis-cache
+spec: p0182-project-map-redis-cache
 
 decisions:
   - category: Architecture

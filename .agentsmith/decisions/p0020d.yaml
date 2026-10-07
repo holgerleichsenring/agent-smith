@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0020d: Agentic Detail Updates
-phase: p0020d
+spec: p0020d
 decisions:
   - category: Architecture
     chose: `ReportDetailAsync` on `IProgressReporter`

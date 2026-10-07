@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0158d: CLI ergonomics + multi-repo guard
-phase: p0158d
+spec: p0158d
 decisions:
   - category: Architecture
     chose: "**Multi-repo guard lives in ExecutePipelineUseCase, not in SourceOptions.ApplyTo.** The CLI populates ContextKeys.SourceOverrideRepo + ContextKeys.Source* on the request context; ExecutePipelineUseCase resolves the project, then applies the guard once with full project shape in scope. Pushing the guard into SourceOptions would require every CLI command to resolve the project up-front just to validate flags"

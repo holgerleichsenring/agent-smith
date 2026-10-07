@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0038: MAD Discussion Pipeline
-phase: p0038
+spec: p0038
 decisions:
   - category: Architecture
     chose: SkillsPath moved to ProjectConfig instead of hardcoded path

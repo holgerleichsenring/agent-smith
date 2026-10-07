@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0129b: build-verifier + test-verifier (D5 slice 2/3)
-phase: p0129b
+spec: p0129b
 decisions:
   - category: Architecture
     chose: "**LLM-only static analysis instead of actual build/test execution.** Phase D D5 spec said build-verifier \"runs the project's build\" and test-verifier \"runs the project's tests\". p0129a's VerifyRoundHandler dispatches verifier skills via IChatClient WITHOUT tool access"

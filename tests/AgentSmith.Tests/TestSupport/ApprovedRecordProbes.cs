@@ -20,7 +20,7 @@ internal static class ApprovedRecordProbes
         string tracker, string platform, string ticketId)
     {
         var store = new InMemorySpecApprovalStore();
-        var key = SpecSetKey.For(platform, ticketId);
+        var key = TicketKey.For(platform, ticketId);
         store.SaveAsync(
             ApprovedSets.Record(key.Value, ApprovedSets.Noon, tracker: tracker),
             CancellationToken.None).GetAwaiter().GetResult();

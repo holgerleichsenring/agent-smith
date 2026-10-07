@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0059: PR Comment as Input
-phase: p0059
+spec: p0059
 decisions:
   - category: Architecture
     chose: Unified webhook dispatch pattern (IWebhookHandler) handles both GitHub Issues and PR Comments

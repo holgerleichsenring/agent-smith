@@ -21,12 +21,12 @@ public sealed class ApprovedSpecSetOutstandingTests : IDisposable
 
     private readonly AgentSmithDbContext _context;
 
-    private readonly ApprovedSpecSetRepository _repository;
+    private readonly ApprovedSeriesRepository _repository;
 
     public ApprovedSpecSetOutstandingTests()
     {
         _context = MigratedStoreTemplate.Context(_connection);
-        _repository = new ApprovedSpecSetRepository(_context);
+        _repository = new ApprovedSeriesRepository(_context);
     }
 
     /// <summary>
@@ -125,10 +125,10 @@ public sealed class ApprovedSpecSetOutstandingTests : IDisposable
             ApprovedSets.Record(key, at, tracker: tracker, ticketId: ticketId),
             CancellationToken.None);
 
-    private async Task<ApprovedSpecSet> RowAsync(string key)
+    private async Task<ApprovedSeries> RowAsync(string key)
     {
         _context.ChangeTracker.Clear();
-        return await _context.Set<ApprovedSpecSet>().AsNoTracking()
-            .SingleAsync(a => a.SpecKey == key);
+        return await _context.Set<ApprovedSeries>().AsNoTracking()
+            .SingleAsync(a => a.TicketKey == key);
     }
 }

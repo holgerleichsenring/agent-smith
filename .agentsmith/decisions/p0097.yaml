@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0097: Parallel Skill Rounds
-phase: p0097
+spec: p0097
 decisions:
   - category: Architecture
     chose: DeferredBuffers context key as the channel between handler base and executor. SkillRoundHandlerBase always builds a `SkillRoundBuffer`; if the executor put a list under `ContextKeys.DeferredBuffers` before dispatching the batch, the handler appends to it and returns; otherwise it applies the buffer immediately (sequential default). Public `ICommandHandler.ExecuteAsync` signature unchanged

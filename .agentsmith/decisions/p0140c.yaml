@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0140c: Poller restructure (per-tracker)
-phase: p0140c
+spec: p0140c
 decisions:
   - category: Architecture
     chose: "**One `TrackerPoller` replaces the four per-platform pollers, not four per-tracker wrappers.** Post-p0140c the loop is identical across platforms"

@@ -14,8 +14,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// 2026-09-17-042ej: one work ticket's runs across the projects of one tracker, newest first
-/// and capped, each with the phases it worked. Three set-based queries over the run ids —
-/// never one per phase, because this read runs on every nudge window of a live run.
+/// and capped, each with the specs it executed. Three set-based queries over the run ids —
+/// never one per spec, because this read runs on every nudge window of a live run.
 /// </summary>
 public sealed class FiledWorkRunsReader(
     IServiceScopeFactory scopeFactory,
@@ -42,18 +42,18 @@ public sealed class FiledWorkRunsReader(
             .Take(Cap).ToListAsync(ct);
         if (runs.Count == 0) return [];
 
-        var phases = await PhasesAsync(uow, runs.Select(r => r.Id).ToList(), ct);
+        var specs = await SpecsAsync(uow, runs.Select(r => r.Id).ToList(), ct);
         var composed = new List<FiledWorkRunView>(runs.Count);
-        foreach (var run in runs) composed.Add(await ComposeAsync(run, phases, ct));
+        foreach (var run in runs) composed.Add(await ComposeAsync(run, specs, ct));
         return composed;
     }
 
     private async Task<FiledWorkRunView> ComposeAsync(
-        Run run, ILookup<string, FiledWorkPhaseView> phases, CancellationToken ct) =>
+        Run run, ILookup<string, FiledWorkSpecView> specs, CancellationToken ct) =>
         new(run.Id, run.Project, run.Pipeline, run.Status, run.CostTotalUsd,
             run.StartedAt, run.FinishedAt,
             RunStoryJson.TryDeserialize<List<RunPullRequestView>>(run.PullRequestsJson) ?? [],
-            [.. phases[run.Id]],
+            [.. specs[run.Id]],
             await QuestionAsync(run, ct));
 
     /// <summary>
@@ -68,23 +68,23 @@ public sealed class FiledWorkRunsReader(
                 await checkpoints.GetByRunIdAsync(run.Id, ct), logger)
             : null;
 
-    private async Task<ILookup<string, FiledWorkPhaseView>> PhasesAsync(
+    private async Task<ILookup<string, FiledWorkSpecView>> SpecsAsync(
         IUnitOfWork uow, List<string> ids, CancellationToken ct)
     {
-        var rows = await uow.Set<RunPhase>().AsNoTracking()
+        var rows = await uow.Set<RunSpec>().AsNoTracking()
             .Where(p => ids.Contains(p.RunId))
             .OrderBy(p => p.Ordinal).ThenBy(p => p.Id).ToListAsync(ct);
-        var kinds = rows.Select(p => RunPhaseProjection.ReviewKindPrefix + p.PhaseId).Distinct().ToList();
+        var kinds = rows.Select(p => RunSpecProjection.ReviewKindPrefix + p.SpecId).Distinct().ToList();
         var stored = await uow.Set<RunArtifact>().AsNoTracking()
             .Where(a => ids.Contains(a.RunId) && kinds.Contains(a.Kind))
             .ToListAsync(ct);
-        return rows.ToLookup(p => p.RunId, p => Phase(p, stored), StringComparer.Ordinal);
+        return rows.ToLookup(p => p.RunId, p => Spec(p, stored), StringComparer.Ordinal);
     }
 
-    /// <summary>The two states RunPhaseProjection.StatusOf writes for a phase still going.</summary>
+    /// <summary>The two states RunSpecProjection.StatusOf writes for a phase still going.</summary>
     private static readonly string[] Running = ["not_started", "in_progress"];
 
-    private FiledWorkPhaseView Phase(RunPhase phase, List<RunArtifact> stored)
+    private FiledWorkSpecView Spec(RunSpec phase, List<RunArtifact> stored)
     {
         // The projection KEEPS the last verdict it saw and clears EndedAt when a phase runs
         // again, so a verdict on a running row is what stopped the attempt before. Terminal is
@@ -92,11 +92,11 @@ public sealed class FiledWorkRunsReader(
         // appended "handed_back" to that list, and a fourth would otherwise silently hide the
         // verdict of a state this reader had not been taught.
         var terminal = !Running.Contains(phase.Status, StringComparer.Ordinal);
-        var kind = RunPhaseProjection.ReviewKindPrefix + phase.PhaseId;
+        var kind = RunSpecProjection.ReviewKindPrefix + phase.SpecId;
         var row = stored.FirstOrDefault(a => a.RunId == phase.RunId && a.Kind == kind);
-        return new FiledWorkPhaseView(
-            phase.PhaseId, phase.Ordinal, phase.Title, phase.Status,
+        return new FiledWorkSpecView(
+            phase.SpecId, phase.Ordinal, phase.Title, phase.Status,
             terminal ? phase.Verdict : null,
-            reviews.Of(row?.Content, phase.PhaseId));
+            reviews.Of(row?.Content, phase.SpecId));
     }
 }

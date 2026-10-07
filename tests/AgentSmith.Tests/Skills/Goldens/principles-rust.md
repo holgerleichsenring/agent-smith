@@ -36,7 +36,8 @@ belongs in the language delta that is composed below this core, never here.
   one its own unit with its own contract.
 - Keep units small. A growing unit is accumulating responsibilities; split it
   by responsibility before it becomes load-bearing. Concrete size limits are
-  set by the language delta and are enforced, not aspirational.
+  set by the language delta where the stack documents one, and are
+  enforced, not aspirational.
 
 ## SOLID
 
@@ -108,7 +109,8 @@ belongs in the language delta that is composed below this core, never here.
 The language delta composed with this core MUST define the mechanisms for:
 
 1. Naming style (casing, prefixes/suffixes, test naming).
-2. Code layout (where units live, what shares a source unit, size limits).
+2. Code layout (where units live, what shares a source unit, size limits
+   where the stack documents one).
 3. Abstraction and composition idiom (how contracts are declared and how
    collaborators are supplied).
 4. Error mechanics (how failures are signaled, propagated, and logged).
@@ -139,8 +141,11 @@ states what applies instead.
 - Organize by modules: a module is one cohesive responsibility, and several
   small, closely related types live together in one module file. Split a
   module when its responsibility sentence needs an "and".
-- Keep functions small (a screenful; extract when a function grows past
-  roughly 30 lines). Cohesion is measured per module, not per type.
+- Max 40 lines per function, counted as physical lines of the item —
+  extract when reached. The Limits section states it as data. Cohesion is measured per module, not per type.
+  Source: measured — the p95 of tokio (33), ripgrep (42) and serde (41),
+  `#[cfg(test)]` modules excluded, ratified 2026-10-06 (agent-smith decisions/2026-10-03-24d4.yaml). clippy's
+  `too_many_lines` (100 code lines) is allowed by default.
 
 ### Abstractions and composition
 
@@ -188,6 +193,12 @@ states what applies instead.
   failures flow as `Result` through `?`, and the never-swallow rule means
   never discarding a `Result` (`#[must_use]` stays honored) and never
   `.unwrap()` outside tests.
+
+## Limits
+
+```yaml
+function_lines: 40
+```
 
 ---
 

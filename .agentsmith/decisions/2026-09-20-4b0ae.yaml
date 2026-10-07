@@ -1,4 +1,4 @@
-phase: 2026-09-20-4b0ae
+spec: 2026-09-20-4b0ae
 decisions:
   - id: the-act-fires-the-acknowledgement
     chose: >

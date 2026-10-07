@@ -1,4 +1,4 @@
-phase: p0400c
+spec: p0400c
 decisions:
   - what: "A phase whose derivation JSON omits ships_code is rejected; the deriver's retry loop hands the rejection back to the model."
     alternatives:

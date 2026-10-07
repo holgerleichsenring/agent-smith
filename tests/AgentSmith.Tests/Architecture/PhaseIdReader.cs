@@ -4,9 +4,9 @@ namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
 /// p0509: reads a phase id out of the three places the record states one — a spec's
-/// <c>phase:</c> field, a context key, a <c>requires:</c> entry.
+/// <c>spec:</c> field, a context key, a <c>requires:</c> entry.
 /// <para>
-/// The framework mints its own ids: <c>PhaseIdFactory.For</c> turns ticket 19106 into
+/// The framework once minted ids from the ticket: ticket 19106 became
 /// p19106a. A four-digit reading truncates that to p1910, so two phases of one ticket
 /// collapse onto one id, the context key matches nothing at all, and a <c>requires:</c>
 /// naming it resolves to a phase nobody wrote.
@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Architecture;
 /// <para>
 /// The widening is ADDITIVE and ANCHORED, never a replacement. <c>Counter</c> is the
 /// reading installed with the rule and stays byte-identical, because some eighty legacy
-/// specs put the whole slug in the <c>phase:</c> field
+/// specs put the whole slug in the <c>spec:</c> field
 /// (<c>p0169j-a-frozen-trail-persistence</c>) and are read by PREFIX. <c>Whole</c> wins
 /// only where it reaches the END of the value, which is exactly where the value IS an id
 /// and nothing else: p19106a keeps its fifth digit and p0131c-pre keeps its tail, while
@@ -34,7 +34,7 @@ internal sealed class PhaseIdReader
 
     /// <summary>The reading in force.</summary>
     public static PhaseIdReader Current { get; } = new(
-        specId: $@"^\s*phase:\s*""?(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})",
+        specId: $@"^\s*spec:\s*""?(?<id>{Whole}(?=""?\s*$)|{Minted}|{Counter})",
         // The colon is the anchor here, so one widened branch says what two would.
         contextId: $@"^    (?<id>{Whole}|{Minted}):",
         inlineRequires: $@"{Whole}(?=\s*(?:""|'|,|\]|$))|{Minted}|{Counter}",
@@ -45,7 +45,7 @@ internal sealed class PhaseIdReader
     /// be PROVEN not to have moved the violation set out from under p0430's ratchet.
     /// </summary>
     public static PhaseIdReader Legacy { get; } = new(
-        specId: $@"^\s*phase:\s*""?(?<id>{Counter})",
+        specId: $@"^\s*spec:\s*""?(?<id>{Counter})",
         contextId: $@"^    (?<id>{Counter}):",
         inlineRequires: Counter,
         blockRequires: $@"^\s*-\s*(?<id>{Counter})",

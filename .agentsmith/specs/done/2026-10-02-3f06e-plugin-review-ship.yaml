@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-3f06e
+goal: "The spec-first plugin runs the loop as 2.3.0: an evidence script and a fresh reviewer before building, a worktree per phase, and ship-phase running verify commands, then commit and PR."
+
+applies_to: "spec-first plugin repository (review-spec, ship-phase, execute-phase, workflow text, context template and schema); agent-smith's evidence case file"
+
+requires: [2026-10-02-3f06b, 2026-10-02-3f06d]
+
+facts:
+  - claim: "No plugin skill on main mentions a spec review, a worktree or a pull request, and the plugin ships no script or hook; 3f06d adds only a review inside step 5."
+    evidence: "observed: git grep over the plugin's skills/ and templates/ on origin/main, 2026-10-02"
+  - claim: "create-phase writes the spec and its planned entry in the working tree and ends by asking for approval; nothing commits them."
+    evidence: "spec-first:skills/create-phase/SKILL.md:66-77"
+  - claim: "The context template has no verify field, and bootstrap points context.yaml at a context.schema.json the plugin does not ship."
+    evidence: "spec-first:templates/contexts/default/context.yaml; spec-first:skills/bootstrap-project/SKILL.md:73"
+  - claim: "agent-smith reads a verify stage as label, command and optional when_present."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlVerifyStage.cs:19-27"
+  - claim: "agent-smith's commit gate keys on the phase id in parentheses in the message."
+    evidence: ".claude/hooks/phase-gate.sh:74-75"
+  - claim: "A skill can bundle a script (CLAUDE_SKILL_DIR) and pre-approve it with allowed-tools for one turn; a skill running in the main thread can use the Agent tool, and a fresh subagent has no conversation history."
+    evidence: "observed: Claude Code skills and sub-agents documentation, read by the 3f06 reviewers, 2026-10-02"
+
+assumptions:
+  - claim: "python3 is present where the plugin is used."
+    check: "The skill reports 'evidence check did not run' when it is not, never skips silently."
+  - claim: "gh is installed and authenticated where ship-phase opens a PR."
+    check: "ship-phase stops before pushing and says so when gh auth status fails."
+
+scope:
+  in: >
+    create-phase commits the spec and its planned entry on a phase branch in a new worktree. review-spec (main thread,
+    because the reviewer needs a fresh context and the main thread holds the Agent tool): scripts/check-evidence.py
+    (stdlib, 3f06b's grammar under the repository policy; evidence_roots: maps a qualifier to a
+    path relative to the repository, absent = unchecked) with its parse cases in evidence-cases.yaml, then a subagent given spec, wider goal and a reviewer brief (open around every cited line,
+    follow fields to their sinks, extract archives, grep old wording across every register after a cut; BUILD, BUILD
+    WITH CUTS or REFUSE); the author applies cuts and re-runs the script. execute-phase works in that worktree and
+    ends at the done criteria; prompt.md and the workflow skill name the new steps. ship-phase: runs verify: stages
+    from the repository root, commits as 'feat: … ({id})', pushes, opens the PR (goal, done, tests, decisions); with no
+    stages it says so and relies on the project's own gate. templates/context.schema.json (open top level; verify: stages and
+    evidence_roots: only), copied to .{project}/ by bootstrap and by the 2.3.0 update-project row. The plugin lists
+    eight skills (README, marketplace, workflow table). agent-smith gains the same evidence-cases.yaml — PARSE cases
+    only (token → path, lines, observed, minted) — and EvidenceReferences_SharedCases_MatchThePluginScript, synced by
+    hand.
+  out: >
+    A hook shipped by the plugin. Code-structure rules — a later series after the threshold evaluation.
+
+decisions:
+  - key: "A SCRIPT, NOT AN INSTRUCTION. Resolving paths and lines is the mechanical part of a review; asked of a model it becomes judgement."
+  - key: "ONE OWNER FOR THE COMMIT. ship-phase commits; execute-phase stops at done criteria."
+  - key: "THE SPEC IS COMMITTED BEFORE THE WORK. A worktree cut from the default branch would not contain an uncommitted spec."
+  - key: "PARSE CASES ONLY, COPIED BY HAND. Resolution needs a tree and a policy each side holds differently; parsing is pure and must agree. Two repositories cannot read each other in CI; one file copied verbatim is a convention, named as one, as PhaseIdSchemaTests names its pattern."
+
+steps:
+  - id: create
+    action: "create-phase: worktree, phase branch, commit of spec and entry."
+  - id: review
+    action: "review-spec skill, check-evidence.py, evidence-cases.yaml; the copy in agent-smith's tests."
+  - id: execute
+    action: "execute-phase without commit; prompt.md and spec-first-workflow step list."
+  - id: ship
+    action: "ship-phase; templates/context.schema.json, bootstrap copy, version 2.3.0 and update-project row; skill count."
+
+tests:
+  - "check-evidence.py over evidence-cases.yaml: every case gets its verdict"
+  - "agent-smith: EvidenceReferences_SharedCases_MatchThePluginScript"
+
+done:
+  - "in a scratch project, create-phase → review-spec → execute-phase → ship-phase yields a committed spec, a review, verify run, a commit and a PR"

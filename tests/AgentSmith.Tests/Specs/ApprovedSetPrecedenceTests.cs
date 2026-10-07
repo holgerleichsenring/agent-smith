@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Specs;
 /// a branch that answered BADLY is not replaced by a copy at all.
 /// <para>
 /// 2026-09-17-0e79a's versioned arm is gone with the instants it compared: the approval a set was
-/// published from still travels in <c>set.yaml</c>, which is what keeps an approved set from being
+/// published from still travels in the series manifest, which is what keeps an approved set from being
 /// re-cut, and that is the only thing the comparison was ever read for.
 /// </para>
 /// </summary>
@@ -28,8 +28,6 @@ public sealed class ApprovedSetPrecedenceTests
     private const string Key = "azdo-19106";
 
     private readonly SpecSourceResolver _sut = new(
-        new PhaseSpecFromTicket(
-            new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader()),
         new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
         new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
         NullLogger<SpecSourceResolver>.Instance);
@@ -51,7 +49,7 @@ public sealed class ApprovedSetPrecedenceTests
     [Fact]
     public void SpecSource_ABranchSetThatDoesNotParse_IsNotReplacedByTheCarriedRecord()
     {
-        var unreadable = SpecSetOnBranch.Unreadable("set.yaml is on the ticket branch and did not parse");
+        var unreadable = SpecSetOnBranch.Unreadable("the manifest is on the ticket branch and did not parse");
         var record = ApprovedSets.Record(Key, ApprovedSets.Noon, ["p19106x"]);
 
         var decision = _sut.Decide(unreadable, Filed(), null, new PipelineContext(), Key, TicketLabelVocabulary.Default, record);
@@ -88,22 +86,22 @@ public sealed class ApprovedSetPrecedenceTests
     }
 
     [Fact]
-    public void SpecSource_AHandWrittenPhaseTicket_StillReadsItsDescription()
+    public void SpecSource_AHandWrittenPhaseTicket_DerivesFromItsText()
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec, ["phase"]), null,
             new PipelineContext(), Key, TicketLabelVocabulary.Default);
 
-        decision.Source.Should().Be(SpecSource.TicketDescription);
-        decision.Set!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
+        decision.Source.Should().Be(SpecSource.Derived, "2026-10-06-03c7d: a description is never a spec");
+        decision.Set.Should().BeNull();
     }
 
-    /// <summary>set.yaml carries the approval, which is what keeps an approved set from being
+    /// <summary>The manifest carries the approval, which is what keeps an approved set from being
     /// re-cut once the record is no longer a source.</summary>
     [Fact]
     public void SetYaml_TheApproval_RoundTripsThroughTheOneSerializer()
     {
-        var index = new SpecSetIndex();
+        var index = new SeriesManifest();
         var set = ApprovedSets.Set(
             Key, [ApprovedSets.Phase("p0001a")], ApprovedSets.Approval(ApprovedSets.Noon, "session-9"))
             with { Revisions = [new SpecRevision(1, "initial derivation", ApprovedSets.Noon)] };
@@ -116,7 +114,7 @@ public sealed class ApprovedSetPrecedenceTests
     [Fact]
     public void SetYaml_ASetNobodyApproved_ReadsBackWithNoApproval()
     {
-        var index = new SpecSetIndex();
+        var index = new SeriesManifest();
         var set = ApprovedSets.Set(Key, [ApprovedSets.Phase("p0001a")], approval: null, SpecSource.Derived)
             with { Revisions = [new SpecRevision(1, "initial derivation", ApprovedSets.Noon)] };
 
@@ -138,7 +136,7 @@ public sealed class ApprovedSetPrecedenceTests
         Please add the widget endpoint.
 
         ```yaml
-        phase: p9999
+        spec: p9999
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl

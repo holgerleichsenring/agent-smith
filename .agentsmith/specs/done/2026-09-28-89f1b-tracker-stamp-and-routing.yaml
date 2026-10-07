@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-89f1b
+goal: "A renamed approval stamp is honoured wherever the default one is, init-project can be label-routed again, spec-dialog in a label map is refused, and the dead parent-link surface is gone."
+
+applies_to: "backend (spec gate, project resolution, amendment, routing rules, ticket providers, config) and dashboard (tracker form)"
+
+requires: []
+
+scope:
+  in: "The tracker's label vocabulary threaded through four readers, the routable pipeline set, a spec-dialog refusal, LinkToParentAsync and parent_link_type deleted with an advisory for files that still carry the key."
+  out: "How a label-started init runs (ticket branch, IsInit=false, the single-result record): unchanged, nothing reported a defect there."
+
+decisions:
+  - key: |
+      FOUR READERS NEVER LEARNED THE STAMP COULD BE RENAMED. 3c7ac left three on the constant; 8e51e's
+      amendment was built on a branch without 3c7ac. The harmful one is the spec gate: a renamed-stamp
+      ticket with no approval record derives its own spec instead of parking. Matching is per tracker,
+      never global: a word renamed on one tracker may be a routing word on another.
+  - key: |
+      init-project IS LABEL-STARTABLE AND HAS BEEN SINCE p0133. 3c7ad excluded it from the routable set
+      reading only the dashboard launcher; the label path, its smoke test and the shipped samples say
+      otherwise. spec-dialog genuinely needs a transcript and is the one to refuse, at save and at
+      startup, naming the entry.
+  - key: |
+      THE PARENT LINK HAS NO CALLER SINCE b3d7, WHICH DEFERRED ITS REMOVAL TO THE PHASE THAT REMOVES IT.
+      This is that phase. The loader ignores unknown keys, so a file that still sets parent_link_type
+      gets an advisory finding instead of silence. That finding comes from one table of retired keys
+      (RetiredConfigKeys) read off the raw file and the stored documents; this phase creates it and the
+      later slices of this series add their rows.
+
+steps:
+  - id: stamp
+    action: "AmendedSpecification, FiledTicketLabels (CarriesApprovedSet, BindsPhaseExecution), ProjectResolver, FiledTicketSpecGate/SpecSourceResolver and MissingSpecReason take the tracker's TicketLabelVocabulary."
+  - id: routing
+    action: "init-project leaves NeedsHostSuppliedContext; RoutingPipelineNames and ConfigDraftRules refuse spec-dialog in a label map or default_pipeline, naming label and value."
+  - id: retired-keys
+    action: "RetiredConfigKeys: key path, since and reason; Advisory findings for a file or stored document that still sets one."
+  - id: parent-link
+    action: "Delete LinkToParentAsync and everything only it reads (analysis note, slice b); parent_link_type becomes a detected, reported retired key; schema and studio drop it."
+  - id: docs
+    action: "labels.md names the approved-set stamp as renameable and says spec-dialog cannot be label-routed."
+
+tests:
+  - "the tests listed in .agentsmith/notes/2026-09-28-89f1-defect-analysis.md, slice b"
+
+done:
+  - "a renamed stamp parks, binds and is named exactly like the default"
+  - "the studio offers init-project for a label"
+  - "no ITicketProvider member is test-only"
+  - "build and all tests green"

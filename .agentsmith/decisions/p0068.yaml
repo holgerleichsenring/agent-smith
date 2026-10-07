@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0068: API Finding Location
-phase: p0068
+spec: p0068
 decisions:
   - category: Architecture
     chose: DisplayLocation as computed property on Finding record

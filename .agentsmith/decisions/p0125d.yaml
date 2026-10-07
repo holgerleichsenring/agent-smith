@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0125d: validate-concepts CLI verb (D1 slice 4/4)
-phase: p0125d
+spec: p0125d
 decisions:
   - category: Architecture
     chose: "**`IConceptWriter` discovered via DI, not via reflection over assemblies.** Coding-principles is non-negotiable on \"no assembly scanning magic\" and the user explicitly rejected the `[PublishesConcept]` attribute path. The explicit contract has three benefits: handlers self-declare what they publish (truth-at-the-writer), registration is single-line in DI, and discovery cost is zero. Trade-off: a tiny boilerplate cost (one `IReadOnlyList<ConceptDeclaration>` property per publishing handler) for a build-time-discoverable, principle-aligned design."

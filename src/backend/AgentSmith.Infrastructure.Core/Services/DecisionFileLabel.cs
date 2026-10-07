@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// p0380: resolves WHICH decision YAML a logged decision belongs to —
 /// decisions/&lt;phase&gt;.yaml when the source label is a phase id, else
 /// decisions/&lt;runId&gt;.yaml for the active run (the revived `run:` slot of
-/// decision.schema.json, parallel to phase decisions). No phase label and no
+/// decision.schema.json, parallel to `spec:` decisions). No phase label and no
 /// run scope =&gt; null (nothing schema-conformant to write).
 /// </summary>
 internal sealed partial record DecisionFileLabel(string FileName, string HeaderKey, string Id)
@@ -14,7 +14,7 @@ internal sealed partial record DecisionFileLabel(string FileName, string HeaderK
     public static DecisionFileLabel? Resolve(string? sourceLabel, string? runId)
     {
         if (sourceLabel is not null && PhasePattern().IsMatch(sourceLabel))
-            return new DecisionFileLabel($"{sourceLabel}.yaml", "phase", sourceLabel);
+            return new DecisionFileLabel($"{sourceLabel}.yaml", "spec", sourceLabel);
         if (!string.IsNullOrEmpty(runId))
             return new DecisionFileLabel($"{runId}.yaml", "run", runId);
         return null;
@@ -22,7 +22,7 @@ internal sealed partial record DecisionFileLabel(string FileName, string HeaderK
 
     public string Header => $"{HeaderKey}: {Id}\ndecisions:\n";
 
-    // Mirrors the `phase` pattern in .agentsmith/decision.schema.json: the closed
+    // Mirrors the `spec` pattern in .agentsmith/decision.schema.json: the closed
     // counter namespace, or a p0507 date-minted id. The date branch cannot collide with
     // a run id — a run id carries a `T` and a time where this one carries the suffix.
     [GeneratedRegex(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$")]

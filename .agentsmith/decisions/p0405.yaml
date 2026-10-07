@@ -1,4 +1,4 @@
-phase: p0405
+spec: p0405
 decisions:
   - what: "The executor ANNOUNCES its live command list (PipelineStepsPlannedEvent); the read path serves the entries beyond the last executed step. Nothing is re-derived."
     alternatives:

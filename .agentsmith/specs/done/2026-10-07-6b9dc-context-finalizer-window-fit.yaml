@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+spec: 2026-10-07-6b9dc
+goal: "The context-pressure finaliser shrinks tool results to fit the stated window before forwarding, and a context-length refusal names the largest tool result instead of a compaction setting."
+
+applies_to: "backend (chat-client chain: context-pressure finaliser, context-length refusal)"
+
+requires: [2026-10-07-6b9da]
+
+facts:
+  - claim: "Above 0.85 of the window the finaliser appends one instruction and forwards the FULL list with tools off; nothing reduces it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextPressureFinalizingChatClient.cs:27,40-49"
+  - claim: "Compaction keeps the last iterations verbatim, so a large recent tool result survives a fold."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:207-215"
+  - claim: "The refusal text with a stated window always advises lowering compaction.max_context_tokens."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextLengthRefusalChatClient.cs:56-65"
+  - claim: "The existing refusal test expects the compaction advice when no tool result is present."
+    evidence: "tests/AgentSmith.Tests/Services/ContextLengthRefusalChatClientTests.cs:28"
+  - claim: "The estimator counts a tool result by its text length."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/CompactingChatClient.cs:229-242"
+  - claim: "observed 2026-10-06: a design turn with a stated window of 200,000 was refused at ~276,332 estimated tokens and the operator was told to lower max_context_tokens; the cause was one step adding ~1.04M characters."
+    evidence: "observed: 2026-10-06, run 2026-10-06T09-59-19-2892 summary and trail"
+
+assumptions:
+  - claim: "After 6b9da a single result is ≤ ~25,000 tokens, so overrun now needs several large results in the recent tail."
+    check: "Test with five bounded 100,000-character results against a 100,000-token window."
+
+scope:
+  in: >
+    When the finaliser fires and the forced list still estimates at or above 0.85 of the window — the finaliser's own bound —
+    it re-cuts tool results in the FORWARDED copy, largest first, with ToolResultBound.Recut (the
+    original total kept) at a shrinking budget (floor 4,000 characters), until the estimate fits; the stored history is
+    untouched. If every result is at the floor and it still does not fit, the rest is not tool
+    output: it throws locally naming role, estimate and the non-tool share, instead of sending a
+    request the provider will refuse. The refusal text names the
+    largest tool result (tool name, characters forwarded, and the original total when re-cut) and advises the setting only when no single result
+    dominates.
+  out: >
+    The master clamp and estimator changes (2026-09-28-23a2c). Counting tool schemas. Copilot:
+    its session keeps the history and the loop forwards only new messages
+    (CopilotSessionChatClient.cs:47-50), so there is nothing here to measure or shrink.
+
+decisions:
+  - key: "SHRINK THE COPY, NOT THE HISTORY. The finaliser's turn is the last; altering stored messages would change what later decorators and the trace see for earlier calls."
+  - key: "LARGEST FIRST, WITH A FLOOR. One oversized result is the observed shape; cutting every result evenly would cost small, precise reads first."
+  - key: "FAIL LOCALLY OVER A KNOWN REFUSAL. A request estimated above the window is refused at the provider anyway, after a network round-trip and with a text that names nothing."
+  - key: "FIT TO 0.85, THE FINALISER'S OWN BOUND. It was chosen because the estimate omits tool schemas and the reply needs room (ContextPressureFinalizingChatClient.cs:22-27); the estimate is a lower bound of what is sent, so fitting under it is necessary, not sufficient."
+
+steps:
+  - id: fit
+    action: "Add a ForwardedViewFit helper that re-bounds FunctionResultContent largest-first in a copied list until the estimate is under a target."
+    new:
+      - "ForwardedViewFit: largest-first re-bound of a copied message list"
+  - id: finaliser
+    action: "Call ForwardedViewFit in the finaliser before forwarding; throw with role, estimate and non-tool share when every result is at the floor."
+    modify:
+      - "ContextPressureFinalizingChatClient: forwards only what fits"
+  - id: refusal
+    action: "Make Explain name the largest tool result (name via call id) and pick the advice by whether it dominates."
+    modify:
+      - "ContextLengthRefusalChatClient: names the cause"
+
+tests:
+  - "Fit_OneHugeResult_ShrinksItAndKeepsOthers"
+  - "Fit_AlreadyUnderTarget_ReturnsSameMessages"
+  - "Fit_StoredHistory_IsNotMutated"
+  - "Fit_AlreadyBoundedResult_KeepsTrueTotalAndOneMarker"
+  - "Fit_UnmarkedResult_ShrinksWithTrueTotal"
+  - "Finaliser_AllResultsAtFloor_ThrowsNamingNonToolShare"
+  - "Explain_DominantToolResult_NamesToolAndSize"
+  - "Explain_NoToolResults_StillAdvisesMaxContextTokens"
+
+done:
+  - "With a stated window, a tool loop whose recent tail outgrows it forwards a request estimated under 0.85 of the window (non-Copilot), or — every result at the floor — fails locally naming the non-tool share."
+  - "The refusal text for the 2026-10-06 shape names the tool and its size."
+  - "Full suite green."

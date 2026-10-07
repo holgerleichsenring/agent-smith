@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0095c: Lifecycle Recovery
-phase: p0095c
+spec: p0095c
 decisions:
   - category: Architecture
     chose: "IJobHeartbeatService exposes both `Start(ticketId) → IAsyncDisposable` and `IsAliveAsync(ticketId)`. The second method keeps StaleJobDetector and EnqueuedReconciler in AgentSmith.Application (which doesn't reference StackExchange.Redis). Without IsAliveAsync they'd need direct IDatabase access, forcing them into Infrastructure and breaking the layering. Cost: one extra interface method; benefit: correct layering and tests don't need Redis mocks."

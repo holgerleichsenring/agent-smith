@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0032: Architecture Cleanup
-phase: p0032
+spec: p0032
 decisions:
   - category: Architecture
     chose: `ILlmClient` abstraction wrapping LLM providers

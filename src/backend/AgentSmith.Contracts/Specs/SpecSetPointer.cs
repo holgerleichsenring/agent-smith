@@ -8,6 +8,16 @@ namespace AgentSmith.Contracts.Specs;
 /// per-ticket hand-back case and counter. Whether a repeat ends the loop is read from
 /// the ticket thread, not from a sha: every derivation commits a fresh revision, so
 /// the sha this slot once carried never matched (2026-09-07-bd7a).
+/// <para>
+/// 2026-10-06-03c7c: <see cref="Key"/> is the TICKET key, and the pointer also caches the
+/// series' base id. The branch is the source of that id; this copy is read only when the branch
+/// carries no set.
+/// </para>
+/// <para>
+/// 2026-10-06-03c7e: <see cref="ExecutedThrough"/> is how many leading specs of the series the
+/// record step moved to done/ — what filing, which never reads the branch, needs so an amendment
+/// never writes an executed spec back into planned/.
+/// </para>
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -15,7 +25,9 @@ public sealed record SpecSetPointer(
     string RevisionSha,
     int RevisionNumber,
     SpecHandbackCase LastHandbackCase = SpecHandbackCase.None,
-    int RepeatedHandbackCount = 0);
+    int RepeatedHandbackCount = 0,
+    string? SeriesId = null,
+    int ExecutedThrough = 0);
 
 /// <summary>
 /// p0393a: a set found on the ticket branch, with the sha of the last commit that

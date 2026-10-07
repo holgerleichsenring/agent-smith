@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class DoneCriterionTests
 {
     private const string Mixed = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         done:
           - "  the table exists  "
@@ -56,7 +56,7 @@ public sealed class DoneCriterionTests
 
     [Fact]
     public void Validate_ADoneScenarioWithAnUnknownKey_IsRefused() =>
-        Validator.ValidateYaml("phase: p9000a\ngoal: g\ndone:\n  - when: w\n    then: t\n    because: b\n")
+        Validator.ValidateYaml("spec: p9000a\ngoal: g\ndone:\n  - when: w\n    then: t\n    because: b\n")
             .Should().BeOfType<SpecDraftInvalid>();
 
     [Fact]
@@ -69,24 +69,17 @@ public sealed class DoneCriterionTests
     }
 
     [Fact]
-    public void Extract_AHandWrittenTicketWithAScenario_CarriesItsLine() =>
-        new PhaseSpecFromTicket(Validator, new PhaseDraftReader())
-            .Extract($"A widget phase.\n\n```yaml\n{Mixed}\n```\n")
-            .Should().BeOfType<PhaseSpecExtracted>()
-            .Which.Draft.Done.Should().Contain(GivenWhenThen);
-
-    [Fact]
     public void Parse_AnEpicChildWithOnlyScenarios_HasDone()
     {
         var parser = new EpicOutcomeParser(Validator, new PhaseDraftReader(), new RequiresEdgeChecker());
         var yaml = """
             kind: epic
-            parent: { phase: p9000, goal: Widget platform }
+            parent: { spec: p9000, goal: Widget platform }
             children:
-              - phase: p9000a
+              - spec: p9000a
                 goal: Widget storage layer
                 done: [{ when: a widget is saved, then: it is stored }]
-              - phase: p9000b
+              - spec: p9000b
                 goal: Widget API
                 done: [{ when: the API is called, then: a stored widget returns }]
             """;

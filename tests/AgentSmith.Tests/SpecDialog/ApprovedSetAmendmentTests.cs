@@ -28,12 +28,12 @@ public sealed class ApprovedSetAmendmentTests
     {
         var store = ApprovedSetDoubles.Store();
         var recorder = Recorder(store);
-        await recorder.RecordAsync(State(), Project(), "19106", [Draft("p19106a")], default);
+        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         var record = await recorder.LoadAsync(Project(), "19106", default);
 
         record.Should().NotBeNull("the conversation edits the record, never the branch");
-        record!.Key.Should().Be(SpecSetKey.For("azuredevops", "19106").Value);
+        record!.Key.Should().Be(TicketKey.For("azuredevops", "19106").Value);
         record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a");
     }
 
@@ -50,11 +50,11 @@ public sealed class ApprovedSetAmendmentTests
         var store = ApprovedSetDoubles.Store();
         var clock = new SteppingClock(ApprovedSets.Noon);
         var recorder = Recorder(store, clock);
-        await recorder.RecordAsync(State(), Project(), "19106", [Draft("p19106a")], default);
+        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
         var first = (await recorder.LoadAsync(Project(), "19106", default))!.Approval!;
 
         await recorder.RecordAsync(
-            State(), Project(), "19106", [Draft("p19106a"), Draft("p19106b")], default);
+            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a"), Draft("p19106b")), "goal", default);
 
         var again = (await recorder.LoadAsync(Project(), "19106", default))!;
         again.Approval!.IsNewerThan(first).Should().BeTrue(
@@ -67,7 +67,7 @@ public sealed class ApprovedSetAmendmentTests
         new(store, new NoReferenceSetReader(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"Do {id}", $"phase: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
+        new(id, $"Do {id}", $"spec: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
 
     private static ConversationState State() => new()
     {

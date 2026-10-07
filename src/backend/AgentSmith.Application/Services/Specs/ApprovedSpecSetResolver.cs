@@ -30,7 +30,7 @@ public sealed class ApprovedSpecSetResolver(
 {
     /// <summary>The approval that governs this run, or null when nobody approved this ticket.</summary>
     public async Task<SpecApprovalRecord?> ResolveAsync(
-        PipelineContext pipeline, SpecSetKey key, CancellationToken cancellationToken)
+        PipelineContext pipeline, TicketKey key, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         var tracker = TrackerOf(pipeline);
@@ -58,7 +58,7 @@ public sealed class ApprovedSpecSetResolver(
         pipeline.TryGet<string>(ContextKeys.TrackerConnection, out var name) && name is not null
             ? name : string.Empty;
 
-    private SpecApprovalRecord? Carried(PipelineContext pipeline, SpecSetKey key, string tracker)
+    private SpecApprovalRecord? Carried(PipelineContext pipeline, TicketKey key, string tracker)
     {
         var record = SpecApprovalJson.Read(CarriedJson(pipeline));
         if (record is null) return null;
@@ -86,7 +86,7 @@ public sealed class ApprovedSpecSetResolver(
     }
 
     private async Task<SpecApprovalRecord?> StoredAsync(
-        string tracker, SpecSetKey key, CancellationToken ct)
+        string tracker, TicketKey key, CancellationToken ct)
     {
         try { return await store.GetAsync(tracker, key.Value, ct); }
         // A store this process cannot reach answers nothing; the carry is the primary route and

@@ -49,9 +49,14 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
     // silently skips. Best-effort: a missing path just no-ops.
     // 2026-10-01-283df: a force-stage ignores .git/info/exclude, and the run record's path is the
     // whole .agentsmith directory — so the uploaded websites a run carries are excluded by pathspec.
-    public async Task ForceStageAsync(ISandbox sandbox, string path, CancellationToken cancellationToken)
+    public Task ForceStageAsync(ISandbox sandbox, string path, CancellationToken cancellationToken) =>
+        ForceStagePathsAsync(sandbox, [path], cancellationToken);
+
+    // 2026-10-06-03c7d: several paths in one add — every one must exist, or git refuses the lot.
+    public async Task ForceStagePathsAsync(
+        ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken cancellationToken)
     {
-        await Run(sandbox, "git", ["add", "-f", "--", path, ReferenceDirectory.ExcludePathspec], cancellationToken);
+        await Run(sandbox, "git", ["add", "-f", "--", .. paths, ReferenceDirectory.ExcludePathspec], cancellationToken);
     }
 
     // p0399: remove files from the working tree AND the index in one step — a spec
@@ -80,11 +85,17 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
     // compares it against the pointer this system recorded: a DIFFERENT sha means a
     // human edited the spec on the branch, and that edit is INPUT to the next revision,
     // never something to overwrite. Empty when the path has no commit yet.
-    public async Task<string> GetLastCommitForPathAsync(
-        ISandbox sandbox, string path, CancellationToken cancellationToken)
+    public Task<string> GetLastCommitForPathAsync(
+        ISandbox sandbox, string path, CancellationToken cancellationToken) =>
+        GetLastCommitForPathsAsync(sandbox, [path], cancellationToken);
+
+    // 2026-10-06-03c7d: a series lies in several places — its manifest and its spec files in the
+    // state directories — so its revision is the last commit on any of them; a pathspec may glob.
+    public async Task<string> GetLastCommitForPathsAsync(
+        ISandbox sandbox, IReadOnlyList<string> paths, CancellationToken cancellationToken)
     {
         var result = await sandbox.RunStepAsync(
-            BuildStep("git", new[] { "log", "-1", "--format=%H", "--", path }), null, cancellationToken);
+            BuildStep("git", ["log", "-1", "--format=%H", "--", .. paths]), null, cancellationToken);
         if (result.ExitCode != 0) return string.Empty;
         return (result.OutputContent ?? string.Empty).Trim();
     }

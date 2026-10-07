@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0020a: Intent Engine
-phase: p0020a
+spec: p0020a
 decisions:
   - category: Architecture
     chose: "Three-stage engine: Regex (free) → Haiku (cheap) → deterministic project resolution"

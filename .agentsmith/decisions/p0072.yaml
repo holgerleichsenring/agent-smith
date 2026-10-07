@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0072: Jira Assignee Webhook Trigger
-phase: p0072
+spec: p0072
 decisions:
   - category: Architecture
     chose: Handler returns WebhookResult(TriggerInput, Pipeline) instead of enqueueing jobs directly

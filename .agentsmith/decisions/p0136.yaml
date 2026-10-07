@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0136: Per-project sandbox container resources via IOptions
-phase: p0136
+spec: p0136
 decisions:
   - category: Architecture
     chose: "**Target the Sandbox path (ISandboxFactory / PodSpecBuilder / DockerContainerSpecBuilder) only"

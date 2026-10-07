@@ -30,4 +30,16 @@ public sealed class DerivedPhaseYamlRendererTests
         draft.Assumptions.Should().Equal("every other finding is transitive", "42");
         draft.Contexts.Should().Equal("frontend", "true");
     }
+
+    /// <summary>2026-10-06-03c7b: the derived spec names its id under the key the schema requires.</summary>
+    [Fact]
+    public void DerivedPhaseYamlRenderer_Render_WritesSpecKey()
+    {
+        var yaml = new DerivedPhaseYamlRenderer().Render(
+            "p19106a", "Raise the floors", [], [("raise", "Raise the versions")], ["The build exits 0."],
+            "p19106a.md", [0], "19106");
+
+        yaml.Should().StartWith("spec: p19106a").And.NotContain("phase:");
+        new PhaseDraftReader().Read(yaml).PhaseId.Should().Be("p19106a");
+    }
 }

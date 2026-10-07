@@ -69,8 +69,14 @@ public sealed class EvidenceCheckTests
 
     [Fact]
     public async Task EvidenceCheck_PlannedPhasePath_IsRefused() =>
-        (await Check(".agentsmith/phases/planned/2026-10-02-0000-x.yaml"))
+        (await Check(".agentsmith/specs/planned/2026-10-02-0000-x.yaml"))
             .Should().ContainSingle().Which.Reason.Should().Contain("a plan is not evidence");
+
+    /// <summary>2026-10-06-03c7b: the plan directories moved with the noun; the rule moved with them.</summary>
+    [Fact]
+    public void EvidencePolicy_Repository_RefusesSpecsPlannedAndActive() =>
+        EvidencePolicy.Repository.RefusedPathPrefixes
+            .Should().Equal(".agentsmith/specs/planned/", ".agentsmith/specs/active/");
 
     [Fact]
     public async Task EvidenceCheck_NoReference_IsAProblem() =>

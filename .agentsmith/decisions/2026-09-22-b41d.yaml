@@ -1,4 +1,4 @@
-phase: 2026-09-22-b41d
+spec: 2026-09-22-b41d
 decisions:
   - id: the-narrowing-is-a-second-factory-method-the-caller-picks
     chose: >

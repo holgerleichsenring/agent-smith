@@ -73,5 +73,5 @@ public sealed class PhaseFactsRuleTests
     ];
 
     private static bool Stating(string facts) =>
-        PhaseSpecFile.States(YamlAsJson.Convert($"phase: 2026-10-02-0000\ngoal: g\n{facts}\n"));
+        PhaseSpecFile.States(YamlAsJson.Convert($"spec: 2026-10-02-0000\ngoal: g\n{facts}\n"));
 }

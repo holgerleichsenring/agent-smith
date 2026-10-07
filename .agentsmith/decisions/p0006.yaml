@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0006: Retry & Resilience
-phase: p0006
+spec: p0006
 decisions:
   - category: Tooling
     chose: Polly via `Microsoft.Extensions.Http.Resilience` chosen over custom retry logic

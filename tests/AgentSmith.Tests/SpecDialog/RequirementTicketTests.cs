@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class RequirementTicketTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         scope:
           in: >
@@ -86,7 +86,7 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement()
     {
-        var parent = new PhaseDraft("p9000", "Widget platform", "phase: p9000\ngoal: Widget platform", ["p8000"]);
+        var parent = new PhaseDraft("p9000", "Widget platform", "spec: p9000\ngoal: Widget platform", ["p8000"]);
 
         var body = new PhaseTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
 
@@ -97,7 +97,7 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_MultiLineDone_ReadsBackAsOneCriterion()
     {
-        const string yaml = "phase: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
+        const string yaml = "spec: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
 
         var body = new PhaseTicketRenderer()
             .RenderPhase(new PhaseDraftReader().Read(yaml)).Body;
@@ -139,19 +139,6 @@ public sealed class RequirementTicketTests
         Render().Should().NotContain("Parent:");
 
     /// <summary>
-    /// 2026-09-22-b3d7: the cut's work ticket is the second renderer that carries the requirement
-    /// body, and it is the one a run actually picks up — so the absent-not-malformed reading is
-    /// pinned on it as well as on the filed phase.
-    /// </summary>
-    [Fact]
-    public void SpecSource_TheCutsWorkTicket_LeavesTheDerivationToRun() =>
-        new PhaseSpecFromTicket(
-                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
-            .Extract(new PhaseTicketRenderer().RenderEpicParent(Draft, []).Body)
-            .Should().BeOfType<PhaseSpecInvalid>()
-            .Which.IsAbsent.Should().BeTrue();
-
-    /// <summary>
     /// 2026-09-17-0e79a: the approved set is stored and carried, not embedded. A fence in the body
     /// would be a second truth — one anyone with tracker access can edit, and one the source
     /// precedence would take over the record a person actually approved.
@@ -179,28 +166,6 @@ public sealed class RequirementTicketTests
             [FiledTicketLabels.ApprovedSetStamp, "bug"], TicketLabelVocabulary.Default).Should().BeTrue();
         FiledTicketLabels.CarriesApprovedSet(["phase"], TicketLabelVocabulary.Default).Should().BeFalse(
             "a hand-written phase ticket is not held to a set nobody approved");
-    }
-
-    /// <summary>The extractor must read a filed body as ABSENT, never as malformed.</summary>
-    [Fact]
-    public void FiledPhaseBody_ReadsBackAsNoSpecAtAll() =>
-        new PhaseSpecFromTicket(
-                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
-            .Extract(new PhaseTicketRenderer().RenderPhase(Draft).Body)
-            .Should().BeOfType<PhaseSpecInvalid>()
-            .Which.IsAbsent.Should().BeTrue();
-
-    [Fact]
-    public void SpecSource_RequirementTicket_LeavesTheDerivationToRun()
-    {
-        var extraction = new PhaseSpecFromTicket(
-            new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader())
-            .Extract(Render());
-
-        extraction.Should().BeOfType<PhaseSpecInvalid>()
-            .Which.IsAbsent.Should().BeTrue(
-                "absent — not malformed — is what makes SpecSourceResolver fall through to "
-                + "Derived instead of failing the run");
     }
 
     private static string Render() => new PhaseTicketRenderer().RenderPhase(Draft).Body;

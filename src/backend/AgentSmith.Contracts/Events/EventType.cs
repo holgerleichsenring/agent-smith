@@ -95,7 +95,7 @@ public enum EventType
     // run row so the run view can show why it got the process it got.
     RunWorkShapeResolved = 78,
     // p0466: a phase of the derived sequence changed standing (selected /
-    // through / stopped). Projected into the RunPhase row so a finished phase
+    // through / stopped). Projected into the RunSpec row so a finished phase
     // is addressable after the run — the phase used to survive only as a
     // "p19213a: " prefix on a step name.
     PhaseStateChanged = 79,

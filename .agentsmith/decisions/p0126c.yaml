@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0126c: skill-call runtime + scope guards + tool-kit + cost tracking (slice 3/3)
-phase: p0126c
+spec: p0126c
 decisions:
   - category: Architecture
     chose: "**`IGitIgnoreResolver` extracted to Contracts; the existing `GitIgnoreResolver` flips from internal to public and implements it.** PathReadGuard lives in Application, depends on the contract, and stays free of Infrastructure references. The wrapper-not-replacement decision from the original p0126 spec holds"

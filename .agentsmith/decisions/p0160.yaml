@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0160: Docs restructure + rewrite
-phase: p0160
+spec: p0160
 decisions:
   - category: Architecture
     chose: "**Task-oriented nav over feature-oriented catalogue.** Pre-p0160 nav had 12 sections + 50+ pages organised around what Agent Smith *contains* (Pipelines, Concepts, Configuration, Providers, …). New nav has six sections organised around the reader's verbs (Get / Connect / Trigger / Host / Understand / Reference). The pre-existing catalogue moves to Reference unchanged; it's still there for the curious, just demoted from the first-click surface."

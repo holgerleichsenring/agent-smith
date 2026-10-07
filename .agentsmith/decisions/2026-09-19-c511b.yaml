@@ -1,4 +1,4 @@
-phase: 2026-09-19-c511b
+spec: 2026-09-19-c511b
 decisions:
   - id: the-guard-sits-at-the-sink
     chose: >

@@ -1,4 +1,4 @@
-phase: 2026-09-17-042ej
+spec: 2026-09-17-042ej
 decisions:
   - id: a-read-of-its-own-behind-dialog-write-and-runs-read
     chose: >

@@ -1,4 +1,4 @@
-phase: 2026-09-22-476a
+spec: 2026-09-22-476a
 decisions:
   - id: the-fix-is-the-precedent
     chose: >

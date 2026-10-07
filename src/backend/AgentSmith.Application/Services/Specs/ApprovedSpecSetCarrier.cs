@@ -26,7 +26,7 @@ public sealed class ApprovedSpecSetCarrier(
         string tracker, string? platform, string? ticketId, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(platform) || string.IsNullOrWhiteSpace(ticketId)) return null;
-        var key = SpecSetKey.For(platform!, ticketId!);
+        var key = TicketKey.For(platform!, ticketId!);
         try
         {
             var record = await store.GetAsync(tracker ?? string.Empty, key.Value, ct);

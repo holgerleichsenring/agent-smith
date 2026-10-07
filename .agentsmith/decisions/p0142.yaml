@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0142: SkillCallRuntime consumer migration
-phase: p0142
+spec: p0142
 decisions:
   - category: Architecture
     chose: "**All three handler families (SkillRoundHandlerBase + FilterRoundHandler + VerifyRoundHandler) migrate to ISkillCallRuntime in one slice.** Spec proposed three slices; the structural shape (build SkillCallRequest, hand to runtime, translate result) is identical across the three handlers and the cost-scope debt is already closed from p0132a/b. One slice means one PR, one test motion."

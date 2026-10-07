@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-5ab2d
+goal: "A chat command awaiting confirmation is stored in the database with its expiry; Confirm on an expired or missing one answers 'no longer pending, please send it again'."
+
+applies_to: "backend (chat clarification store, Slack and Teams interaction handlers, persistence migration, archive bookkeeping)"
+
+requires: ["2026-10-02-5ab2b"]
+
+facts:
+  - claim: "A pending clarification is one Redis string clarification:{platform}:{channel} with a 2-hour TTL."
+    evidence: "src/backend/AgentSmith.Server/Services/ClarificationStateManager.cs:17,24-34,64-65"
+  - claim: "It is written when the intent engine asks for confirmation."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:98-104"
+  - claim: "Slack and Teams read it on the click; a missing one only logs a warning, so the person gets no answer; read and clear are two calls."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackInteractionHandler.cs:54-65; src/backend/AgentSmith.Server/Services/Adapters/TeamsInteractionHandler.cs:71-81"
+  - claim: "SlackInteractionHandler is a ratchet row (136, now 133); TeamsInteractionHandler has 117 lines; HelpHandler has 46."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:86; src/backend/AgentSmith.Server/Services/Handlers/HelpHandler.cs"
+  - claim: "The two buttons answer confirm and help; Slack rewrites the clicked message (removing its buttons) only after a pending one was found."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackMessageBlockBuilder.cs:33-41; src/backend/AgentSmith.Server/Services/Adapters/TeamsStatusCardBuilder.cs:31-36; SlackInteractionHandler.cs:58-65,120"
+  - claim: "The data archive exports every mapped table; a restore first clears only the server's own bookkeeping, and the table count is pinned."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveTableOrder.cs:22-25; src/backend/AgentSmith.Server/Services/Archive/ServerBookkeepingReset.cs:23-27; tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33,54,81; tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+  - claim: "ClarificationStateManager is a singleton."
+    evidence: "src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:30"
+
+scope:
+  in: >
+    PendingClarification entity (table PendingClarifications), key (Platform lower-cased, max 32; ChannelId, max 400 —
+    Teams conversation ids are long): SuggestedText,
+    OriginalInput, UserId, ExpiresAt, Token (a Guid minted by each Set); configured in ServerStateConfigurations; migrations in both assemblies.
+    ClarificationStateManager keeps its surface over a scoped repository: Set upserts with ExpiresAt = now + 2 h;
+    TakeAsync reads the row, deletes it by key and Token, and returns it only when that delete removed one row and
+    it had not expired (compared client-side, SQLite cannot compare DateTimeOffset in SQL). ClarificationTaker (one per click) calls TakeAsync; on null
+    with answer confirm it sends HelpHandler's new 'This request is no longer pending — please send it again.'; on
+    null with answer help it shows help as today. Slack rewrites the clicked message whether or not one was taken, so
+    no dead buttons remain. Both handlers use it in place of their read-and-clear. PendingClarifications is
+    server-derived bookkeeping: ServerBookkeepingReset clears it before a restore; the pinned table counts rise by one.
+  out: "Pruning rows nobody clicks: one row per channel at most, overwritten by the next request."
+
+decisions:
+  - key: "A CONFIRM IS STATE. The operator's pending command must survive a Redis flush; its two hours are a column, not a TTL."
+  - key: "TAKE IS ATOMIC. The conditional delete lets one replica win a double click; today two replicas could both read before either clears and dispatch twice."
+  - key: "EXPIRED AND GONE READ THE SAME. Both mean nothing will run; on Confirm the person is told to resend instead of hearing nothing."
+  - key: "ONLY CONFIRM HEARS IT. The other button is help, not cancel: help needs no pending command, so it is shown as before and nobody is told to resend what they did not want."
+
+steps:
+  - id: schema
+    action: "Entity, configuration in ServerStateConfigurations, migrations in both assemblies."
+  - id: store
+    action: "PendingClarificationRepository; ClarificationStateManager over it with TakeAsync; Redis dependency removed."
+  - id: handlers
+    action: "HelpHandler.SendClarificationExpiredAsync; ClarificationTaker; Slack and Teams handlers use it; Slack's message update runs on every click."
+  - id: archive
+    action: "ServerBookkeepingReset clears PendingClarifications; archive table counts raised."
+
+tests:
+  - "ClarificationStateManager_SetThenTake_ReturnsItOnce"
+  - "ClarificationStateManager_Expired_TakeReturnsNull"
+  - "ClarificationStateManager_TwoConcurrentTakes_OneWins"
+  - "SlackInteractionHandler_ConfirmWithNothingPending_AnswersResend"
+  - "TeamsInteractionHandler_ConfirmWithNothingPending_AnswersResend"
+  - "SlackInteractionHandler_HelpWithNothingPending_ShowsHelpAndNoResend"
+  - "SlackInteractionHandler_NothingPending_StillRemovesTheButtons"
+  - "ClarificationStateManager_LongTeamsConversationId_RoundTrips"
+  - "ServerBookkeepingReset_Restore_ClearsPendingClarifications"
+
+done:
+  - "a clarification set, Redis flushed, then Confirm clicked dispatches the command"
+  - "build green, full suite green"

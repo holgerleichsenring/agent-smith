@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0112: Branch Persistence MVP (shipped as p0112a)
-phase: p0112
+spec: p0112
 decisions:
   - category: Architecture
     chose: "**Push the work branch on every run that produced commits, regardless of pipeline outcome.** CommitAndPRHandler is a late pipeline step"

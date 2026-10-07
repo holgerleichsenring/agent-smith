@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0058b: Microsoft Teams Integration
-phase: p0058b
+spec: p0058b
 decisions:
   - category: Implementation
     chose: Adaptive Cards for all 5 QuestionType variants

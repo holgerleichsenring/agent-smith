@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0123: SkillObservation as Universal Pipeline Output (Finding retired)
-phase: p0123
+spec: p0123
 decisions:
   - category: Architecture
     chose: "**`SkillObservation` absorbs every Finding-shaped field that has a real consumer (File, StartLine, EndLine, ApiPath, SchemaName, EvidenceMode, ReviewStatus, Category)"

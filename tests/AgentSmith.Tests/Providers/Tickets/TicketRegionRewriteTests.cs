@@ -138,7 +138,7 @@ public sealed class TicketRegionRewriteTests
     {
         var body = new AgentSmith.Application.Services.SpecDialog.PhaseTicketRenderer()
             .RenderPhase(new Contracts.Models.PhaseDraft(
-                "p9001", "the widget stops dropping", "phase: p9001", [])).Body;
+                "p9001", "the widget stops dropping", "spec: p9001", [])).Body;
 
         FramedTicketRegion.Marked(body).Should().BeTrue();
         body.Should().Contain("the widget stops dropping");
@@ -151,7 +151,7 @@ public sealed class TicketRegionRewriteTests
     {
         var body = new AgentSmith.Application.Services.SpecDialog.PhaseTicketRenderer()
             .RenderPhase(
-                new Contracts.Models.PhaseDraft("p9001", "goal", "phase: p9001", []), "job-1",
+                new Contracts.Models.PhaseDraft("p9001", "goal", "spec: p9001", []), "job-1",
                 AgentSmith.Application.Services.SpecDialog.TicketLabelNote.For(
                     [AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp],
                     AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp)).Body;

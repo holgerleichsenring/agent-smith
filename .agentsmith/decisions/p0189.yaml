@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0189-context-yaml-parse-errors-and-stream-in-tree
+spec: p0189-context-yaml-parse-errors-and-stream-in-tree
 
 decisions:
   - category: Architecture

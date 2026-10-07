@@ -1,4 +1,4 @@
-phase: 2026-09-20-4b0ac
+spec: 2026-09-20-4b0ac
 decisions:
   - id: the-menu-opens-upward-and-no-clipping-is-lifted
     chose: >

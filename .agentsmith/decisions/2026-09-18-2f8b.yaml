@@ -1,4 +1,4 @@
-phase: 2026-09-18-2f8b
+spec: 2026-09-18-2f8b
 decisions:
   - id: the-view-is-added-to-the-local-flag-never-substituted
     chose: >

@@ -21,17 +21,20 @@ public static class SpecDerivationRegistrations
         services.AddTransient<IPhasePremiseChecker, PhasePremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
-    services.AddTransient<ISpecSetReader, SpecSetReader>();
-    services.AddTransient<SpecSetPhaseFileReader>(); // 2026-09-22-6ad7: one phase off the branch
-    services.AddTransient<ISpecSetWriter, SpecSetWriter>();
+    // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
+    services.AddTransient<ISpecSetReader, SeriesReader>();
+    services.AddTransient<SeriesManifestFinder>();
+    services.AddTransient<SeriesSpecFileReader>();
+    services.AddTransient<ISpecSetWriter, SeriesWriter>();
+    services.AddTransient<SeriesStaleFiles>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedPhaseYamlRenderer>();
-    services.AddTransient<SpecSetIndex>();
-    // 2026-09-22-b6ad: the files a spec-set directory holds, for the run's publish and for the
-    // checkout-free write filing makes onto the ticket branch.
-    services.AddTransient<SpecSetFiles>();
+    services.AddTransient<SeriesManifest>();
+    // 2026-09-22-b6ad: the files a series holds, for the run's publish and for the checkout-free
+    // write filing makes onto the ticket branch.
+    services.AddTransient<SeriesFiles>();
     services.AddTransient<FiledSpecBranch>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
@@ -50,6 +53,10 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ScopedContextCoverage>(); // 2026-09-08-1830: the cut covers what the scope call named
     services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();
     services.AddTransient<SpecSourceResolver>();
+    // 2026-10-06-03c7c: a series' base id is minted in code, once, and read back thereafter.
+    services.TryAddSingleton(TimeProvider.System);
+    services.AddTransient<SeriesIdFactory>();
+    services.AddTransient<SeriesResolver>();
     services.AddTransient<SpecFallback>();
     services.AddTransient<SpecCutGate>();
     services.AddTransient<SpecRefusalReporter>();

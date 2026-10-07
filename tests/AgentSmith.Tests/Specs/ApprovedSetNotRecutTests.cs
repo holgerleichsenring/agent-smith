@@ -308,33 +308,31 @@ public sealed class ApprovedSetNotRecutTests
         bool approved, string? fingerprint = null, bool handback = false, string? executed = null)
     {
         var harness = new ApprovedSetHarness { Branch = { Key = Key }, PointerSha = "branch-sha" };
-        harness.Branch.SeedSet(
-            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approved, handback, executed),
+        harness.Branch.SeedSeries("2026-10-06-0a0a",
+            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approved, handback),
             new Dictionary<string, string>
             {
                 ["p19106a-first"] = PhaseYaml("p19106a"),
                 ["p19106b-second"] = PhaseYaml("p19106b"),
-            });
+            }, executed);
         return harness;
     }
 
     private static string BranchYaml(
-        string fingerprint, bool approved, bool handback, string? executed = null)
+        string fingerprint, bool approved, bool handback)
     {
         var lines = new List<string>
         {
-            $"key: {Key}",
-            "source: Approved",
-            "phases:",
-            "- p19106a-first",
-            "- p19106b-second",
+            $"ticket: {Key}",
+            "specs:",
+            "- p19106a",
+            "- p19106b",
             "revisions:",
             "- number: 1",
             "  cause: approved in design conversation session-77",
             "  at: 2026-09-17T12:00:00.0000000+00:00",
             $"ticket_fingerprint: {fingerprint}",
         };
-        if (executed is not null) lines.AddRange(["executed_phases:", $"- {executed}"]);
         if (approved)
             lines.AddRange([
                 "approved_at: 2026-09-17T12:00:00.0000000+00:00",
@@ -354,7 +352,7 @@ public sealed class ApprovedSetNotRecutTests
     }
 
     private static string PhaseYaml(string id) => $"""
-        phase: {id}
+        spec: {id}
         goal: "Goal {id}"
         done:
           - "Done {id}."

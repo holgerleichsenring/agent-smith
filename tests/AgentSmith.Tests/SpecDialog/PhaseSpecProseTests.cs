@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class PhaseSpecProseTests
 {
     private static readonly IReadOnlyDictionary<string, object?> Map = OutcomeYamlReader.ReadMap("""
-        phase: p9000a
+        spec: p9000a
         goal: g
         scope:
           in: "  the table  "
@@ -30,5 +30,5 @@ public sealed class PhaseSpecProseTests
 
     [Fact]
     public void ScopeIn_NoScope_IsEmpty() =>
-        PhaseSpecProse.ScopeIn(OutcomeYamlReader.ReadMap("phase: p1\ngoal: g")).Should().BeEmpty();
+        PhaseSpecProse.ScopeIn(OutcomeYamlReader.ReadMap("spec: p1\ngoal: g")).Should().BeEmpty();
 }

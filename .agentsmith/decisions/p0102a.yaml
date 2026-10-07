@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0102a: API Scan Source Checkout
-phase: p0102a
+spec: p0102a
 decisions:
   - category: Architecture
     chose: `TryCheckoutSourceHandler` mirrors `CheckoutSourceHandler` but is fail-soft. Two handlers with shared `ISourceProviderFactory` is clearer than one handler with a policy flag

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0019: K8s Deployment
-phase: p0019
+spec: p0019
 decisions:
   - category: Architecture
     chose: Multi-stage Dispatcher Dockerfile (build → runtime with non-root user)

@@ -4,10 +4,10 @@ Agent Smith evolves through a structured phase process. Each phase is a bounded 
 
 ## What is a phase?
 
-A phase is a YAML spec in `.agentsmith/phases/` that describes a feature, refactor, or capability addition. The file is named `{id}-{label}.yaml`, for example `2026-09-27-481bf-ticket-kind-is-a-word.yaml`.
+A phase is a YAML spec in `.agentsmith/specs/` that describes a feature, refactor, or capability addition. The file is named `{id}-{label}.yaml`, for example `2026-09-27-481bf-ticket-kind-is-a-word.yaml`.
 
 ```
-.agentsmith/phases/
+.agentsmith/specs/
   done/              # Completed phases (historical reference)
   active/            # Currently in progress
   planned/           # Specified, not yet implemented
@@ -35,14 +35,14 @@ planned/  -->  active/  -->  done/
 
 | Status | Directory | Meaning |
 |--------|-----------|---------|
-| Planned | `phases/planned/` | Specified with goal, scope and definition of done, not yet started |
-| Active | `phases/active/` | Currently being implemented |
-| Done | `phases/done/` | Implemented. The spec stays as historical reference |
+| Planned | `specs/planned/` | Specified with goal, scope and definition of done, not yet started |
+| Active | `specs/active/` | Currently being implemented |
+| Done | `specs/done/` | Implemented. The spec stays as historical reference |
 
 ## Phase spec structure
 
 ```yaml
-phase: 2026-09-27-481bf
+spec: 2026-09-27-481bf
 goal: "One sentence stating what the phase makes true."
 applies_to: "Which part of the system the phase touches"
 requires: ["2026-09-27-481bb", "2026-09-27-481bc"]
@@ -59,7 +59,7 @@ done:
     then: "the observable result"
 ```
 
-`phase` and `goal` are required; the schema is `.agentsmith/phase-spec.schema.json`. A `done` item is one line, or a scenario with `when` and `then` (and an optional `given`, nothing else) when the criterion has a trigger and an observable result. Every reader sees a scenario as one plain line — `GIVEN an optional precondition WHEN the trigger THEN the observable result` — in the run's acceptance contract, the execution prompt and the filed ticket alike. A filed ticket shows the spec in a reader's shape, described in [Writing a ticket](../../trigger-it/writing-a-ticket.md). The reasoning behind the choices goes into a separate decision file, `.agentsmith/decisions/{id}.yaml`.
+`spec` and `goal` are required; the schema is `.agentsmith/spec.schema.json`. A `done` item is one line, or a scenario with `when` and `then` (and an optional `given`, nothing else) when the criterion has a trigger and an observable result. Every reader sees a scenario as one plain line — `GIVEN an optional precondition WHEN the trigger THEN the observable result` — in the run's acceptance contract, the execution prompt and the filed ticket alike. A filed ticket shows the spec in a reader's shape, described in [Writing a ticket](../../trigger-it/writing-a-ticket.md). The reasoning behind the choices goes into a separate decision file, `.agentsmith/decisions/{id}.yaml`.
 
 ## Phase tracking
 
@@ -68,18 +68,18 @@ The `state` section of each context's `context.yaml` (`.agentsmith/contexts/<nam
 ```yaml
 state:
   done:
-    2026-09-27-481bf: "A ticket says what kind its tracker calls it. -> .agentsmith/phases/done/2026-09-27-481bf-ticket-kind-is-a-word.yaml"
-    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/phases/done/p0001-core-infrastructure.yaml"
+    2026-09-27-481bf: "A ticket says what kind its tracker calls it. -> .agentsmith/specs/done/2026-09-27-481bf-ticket-kind-is-a-word.yaml"
+    p0001: "Initial pipeline: fetch ticket, checkout, plan, execute, commit -> .agentsmith/specs/done/p0001-core-infrastructure.yaml"
   active: {}
   planned: {}
 ```
 
 ## Creating a new phase
 
-1. Mint an id and write the spec in `phases/planned/` with goal, scope and definition of done
-2. Move it to `phases/active/` when starting implementation
+1. Mint an id and write the spec in `specs/planned/` with goal, scope and definition of done
+2. Move it to `specs/active/` when starting implementation
 3. Implement according to the spec, logging decisions in `decisions/{id}.yaml`
-4. Move it to `phases/done/` when all acceptance criteria are met
+4. Move it to `specs/done/` when all acceptance criteria are met
 5. Add the `state.done` line to `context.yaml`
 
 !!! info "Phase-first workflow"
@@ -87,4 +87,4 @@ state:
 
 ## Phases in your repositories
 
-The `code` pipeline applies the same method to the repositories it works on. Each phase a run executes is written to that repository's `.agentsmith/phases/done/` and indexed with a `state.done` line in its `context.yaml`, so the target repository carries the same planned-to-done record. Those ids are minted from the ticket number plus a series letter: ticket `57` becomes `p0057a`, `p0057b`, and so on.
+The `code` pipeline applies the same method to the repositories it works on. Each phase a run executes is written to that repository's `.agentsmith/specs/done/` and indexed with a `state.done` line in its `context.yaml`, so the target repository carries the same planned-to-done record. Those ids are minted from the ticket number plus a series letter: ticket `57` becomes `p0057a`, `p0057b`, and so on.

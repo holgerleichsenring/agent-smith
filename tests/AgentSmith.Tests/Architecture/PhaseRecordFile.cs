@@ -19,7 +19,7 @@ internal static class PhaseRecordFile
         ArchitectureSources.AgentSmithRoot, "contexts", "default", "context.yaml");
 
     public static string PhasesRoot { get; } =
-        System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "phases");
+        System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "specs");
 
     public static string Text() => File.ReadAllText(Path);
 

@@ -19,19 +19,20 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// 2026-10-01-283dh: an HTML mock in a spec directory whose name starts with a phase id belongs to
 /// that phase — matched by the frozen id, never the stem a goal edit re-slugs — the phase prompt
-/// names it, and no revision deletes it.
+/// names it, and no revision deletes a kept spec's mock.
 /// </summary>
 public sealed class SpecPhaseMockTests
 {
     private const string Key = "azdo-19106";
-    private const string Dir = ".agentsmith/specs/" + Key;
+    private const string Dir = SeriesPaths.Planned;
+    private const string Base = "2026-10-06-0a0a";
 
     [Fact]
-    public async Task SpecSetPhaseFileReader_MockNamedByPhaseIdWithOldSlug_IsStillMatched()
+    public async Task SeriesSpecFileReader_MockNamedByPhaseIdWithOldSlug_IsStillMatched()
     {
         var branch = new SpecBranchFiles { Key = Key };
-        branch.SeedSet($"key: {Key}\nsource: Approved\nphases:\n- p19106a-the-new-goal\n",
-            new Dictionary<string, string> { ["p19106a-the-new-goal"] = "phase: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
+        branch.SeedSeries(Base, $"ticket: {Key}\nspecs:\n- p19106a\n",
+            new Dictionary<string, string> { ["p19106a-the-new-goal"] = "spec: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
         branch.Seed($"{Dir}/p19106a-the-old-goal-mock.html", "<h1>mock</h1>");
         branch.Seed($"{Dir}/p19106a.html", "<h1>bare</h1>");
         branch.Seed($"{Dir}/p19106ab-other.html", "<h1>another phase</h1>");
@@ -58,17 +59,19 @@ public sealed class SpecPhaseMockTests
         SpecPromptSection.Build(Set(Phase("p1", null)), Phase("p1", null)).Should().NotContain("design mock");
 
     [Fact]
-    public void SpecSetStaleFiles_HtmlBesideSpecs_IsNeverSelected()
+    public void SeriesStaleFiles_AKeptSpecsMock_IsNeverSelectedAndADroppedSpecsIs()
     {
-        var listed = new[] { $"{Dir}/p1-kept.yaml", $"{Dir}/p2-dropped.yaml", $"{Dir}/p2-dropped-mock.html", $"{Dir}/p1-mock.html" };
+        var listed = new[] { $"{Dir}/{Base}a-kept.yaml", $"{Dir}/{Base}b-dropped.yaml",
+            $"{Dir}/{Base}b-dropped-mock.html", $"{Dir}/{Base}a-mock.html" };
+        var set = Set(Phase($"{Base}a", null, "kept")) with { Series = Base };
 
-        var stale = SpecSetStaleFiles.Select(listed, new SpecSetKey(Key), Set(Phase("p1", null, "kept")));
+        var stale = new SeriesStaleFiles().Select(listed, set, new SeriesFiles(new SeriesManifest()).Render(set));
 
-        stale.Should().Equal($"{Dir}/p2-dropped.yaml");
+        stale.Should().Equal($"{Dir}/{Base}b-dropped.yaml", $"{Dir}/{Base}b-dropped-mock.html");
     }
 
     private static SpecPhase Phase(string id, IReadOnlyList<string>? mocks, string slug = "slug") =>
-        new(new PhaseDraft(id, "Goal", $"phase: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
+        new(new PhaseDraft(id, "Goal", $"spec: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
 
     private static SpecSet Set(SpecPhase phase) =>
         new(Key, [phase], SpecAccounting.Empty, [], SpecSource.BranchArtifact);
@@ -83,11 +86,7 @@ public sealed class SpecPhaseMockTests
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["primary"] = sandbox.Object });
-        var reader = new SpecSetReader(readers.Object,
-            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, readers.Object,
-                new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetPhaseFileReader(new PhaseDraftReader(), NullLogger<SpecSetPhaseFileReader>.Instance),
-            new SpecSetIndex(), new SandboxTargets(), NullLogger<SpecSetReader>.Instance);
-        return await reader.ReadAsync(pipeline, new RepoConnection { Name = "primary" }, new SpecSetKey(Key), default);
+        var reader = SeriesDoubles.Reader(readers.Object);
+        return await reader.ReadAsync(pipeline, new RepoConnection { Name = "primary" }, new TicketKey(Key), default);
     }
 }

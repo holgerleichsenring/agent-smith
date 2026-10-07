@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0075: Phase Docs to YAML
-phase: p0075
+spec: p0075
 decisions:
   - category: Architecture
     chose: YAML over markdown

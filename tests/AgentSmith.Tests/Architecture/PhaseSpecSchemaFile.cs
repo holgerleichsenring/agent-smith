@@ -4,7 +4,7 @@ using Json.Schema;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// p0521: the shipped phase-spec schema — located once, readable as a document, and
+/// p0521: the shipped spec schema — located once, readable as a document, and
 /// evaluatable against a phase file.
 /// <para>
 /// This is the same file <c>AgentSmith.Application.csproj</c> embeds and the deployed
@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Architecture;
 internal static class PhaseSpecSchemaFile
 {
     public static string Path { get; } =
-        System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "phase-spec.schema.json");
+        System.IO.Path.Combine(ArchitectureSources.AgentSmithRoot, "spec.schema.json");
 
     private static string Text { get; } = File.ReadAllText(Path);
 

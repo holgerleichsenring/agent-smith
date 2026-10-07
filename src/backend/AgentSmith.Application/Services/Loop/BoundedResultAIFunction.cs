@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Loop;
@@ -18,15 +19,18 @@ namespace AgentSmith.Application.Services.Loop;
 /// rather than wonder.
 /// </para>
 /// <para>
+/// 2026-10-07-6b9da: the cut itself is <see cref="ToolResultBound"/>, the same one every tool
+/// loop applies, so a result bounded here passes the loop's bound unchanged.
+/// </para>
+/// <para>
 /// p0423: it reports the size it cut FROM, because a bound whose effect nobody can see
 /// is indistinguishable from a tool that returned little.
 /// </para>
 /// </summary>
 public sealed class BoundedResultAIFunction(
-    AIFunction inner, ResultBoundReporter? reporter = null, int budgetChars = 100_000)
+    AIFunction inner, ResultBoundReporter? reporter = null, int budgetChars = ToolResultBound.DefaultBudget)
     : AIFunction
 {
-
     public override string Name => inner.Name;
 
     public override string Description => inner.Description;
@@ -39,20 +43,10 @@ public sealed class BoundedResultAIFunction(
         AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
         var result = await inner.InvokeAsync(arguments, cancellationToken);
-        if (result is not string text) return result;
+        // AIFunctionFactory marshals a string return as a JSON string; both are bounded.
+        var text = ToolResultBound.TextOf(result);
+        if (text is null) return result;
         reporter?.Report(text.Length);
-        return Bound(text, budgetChars);
-    }
-
-    internal static string Bound(string text, int budgetChars)
-    {
-        if (text.Length <= budgetChars) return text;
-        var half = budgetChars / 2;
-        var dropped = text.Length - (half * 2);
-        return text[..half]
-            + $"\n\n… {dropped:N0} characters dropped from the middle of this result "
-            + $"({text.Length:N0} in total). Ask for the part you need — narrow the path, "
-            + "the pattern or the line range.\n\n"
-            + text[^half..];
+        return ToolResultBound.Apply(text, budgetChars);
     }
 }

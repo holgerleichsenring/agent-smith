@@ -85,6 +85,11 @@ comment on the line:
 - **Separate test project** → tests live in the build tool's test source set
   of the same project.
 
+## Limits
+
+No limits — no Scala source states a size limit as a rule; see "Layout and
+size".
+
 ## Artefacts
 
 No artefacts — the project's formatter and linter configuration already

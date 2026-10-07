@@ -1,4 +1,4 @@
-phase: 2026-09-18-7b31
+spec: 2026-09-18-7b31
 decisions:
   - id: one-step-because-two-thirds-of-the-first-cut-already-runs
     chose: >

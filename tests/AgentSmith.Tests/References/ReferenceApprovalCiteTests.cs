@@ -57,7 +57,7 @@ public sealed class ReferenceApprovalCiteTests
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],
-        }, "19106", [new PhaseDraft("p1", "Do it", "phase: p1", []) { Done = ["done"] }], CancellationToken.None);
+        }, "19106", ApprovedSetDoubles.Series(new PhaseDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
 
         record.CitedSets.Should().Equal(ReferenceSandboxFixture.SetId);
     }
@@ -72,7 +72,7 @@ public sealed class ReferenceApprovalCiteTests
         var uncited = await sets.AddAsync("s-1", [File("draft/index.html")], CancellationToken.None);
         var elsewhere = await sets.AddAsync("s-2", [File("other/index.html")], CancellationToken.None);
         await new ReferenceFileRepository(db).AddAsync(LegacyAttachmentCopyTests.Image("s-1"), CancellationToken.None);
-        var approvals = new ApprovedSpecSetRepository(db);
+        var approvals = new ApprovedSeriesRepository(db);
         await approvals.SaveAsync(Record("s-1", [cited.SetId]), CancellationToken.None);
         var deleter = new SpecDialogConversationDeleter(db, new SpecDialogSessionRepository(db),
             new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals);

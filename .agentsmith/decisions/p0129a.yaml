@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0129a: Verify-phase wiring + scope-verifier (D5 slice 1/3)
-phase: p0129a
+spec: p0129a
 decisions:
   - category: Architecture
     chose: "**VerifyRoundHandler is a standalone command-handler, not a SkillRoundHandlerBase descendant.** The spec phrased it as \"descends from SkillRoundHandlerBase\"; in practice SkillRoundHandlerBase processes ONE skill per call (driven by `(skillName, round)`), while Verify needs to dispatch ALL active VerifyDiff investigators in a single command. Inverting the iteration onto the base class would mean refactoring its public surface for a single new caller. Cleaner: VerifyRoundHandler runs its own loop over active verifiers, calls `IChatClient.GetResponseAsync` via the same `IChatClientFactory` path, parses with the existing internal `ObservationParser.ParseWithoutIds`, and tracks cost via the existing `PipelineCostTracker`. The handler stays focused (~150 lines split across three files) and the base class is unchanged. -- alternatives: emit per-verifier SkillRound commands from a separate command (rejected: needs a coordinating \"VerifyConvergence\" handler to decide re-loop, plus a new ICommandHandler<SkillRoundContext> variant for verify_diff mode"

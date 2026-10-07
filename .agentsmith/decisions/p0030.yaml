@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0030: Systemic Fixes
-phase: p0030
+spec: p0030
 decisions:
   - category: Architecture
     chose: `CommandResult` carries PR URL through pipeline

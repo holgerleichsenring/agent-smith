@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-283dc
+goal: "Each uploaded website is a read-only address in the design turn's sandbox map, so read_file and grep see its HTML and CSS, and the prompt says what the address is."
+
+applies_to: "backend (a repo-less reference sandbox, the dialog's scope assembly, the proposal review, a prompt section)"
+
+requires: ["2026-10-01-283db"]
+
+facts:
+  - claim: "The turn's sandbox map is the scope's repos first, then its templates, and the master reads its address list off that map."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:19-23,28-36,57-62"
+  - claim: "A spawned sandbox needs no repository: SpawnAsync returns the container 'with nothing in it yet', on the generic image when no language is given."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:46-54; src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:43"
+  - claim: "SourceScopeSandbox is bound to a clone url and refuses every step without one; it is at 120 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandbox.cs:46,69-72"
+  - claim: "The read-only rule serves the four content reads, server-built programs and writes under declared prefixes, as a static guard any ISandbox can call."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:33-48"
+  - claim: "Ticket documents write text as-is and binary as base64 decoded by one shell step per file; one WriteFile carries at most 10 MB."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketDocumentMaterializer.cs:53-56,65-67; src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:6"
+  - claim: "Every sandbox carries a relocatable python3, put on each step's PATH by the agent."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:82-84"
+  - claim: "A conversation's sandboxes are held between turns under a string key built from conversation, name and revision."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/IHeldSandboxRegister.cs:30; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeHold.cs:26,37,62"
+  - claim: "The runner opens templates synchronously through SpecDialogTemplateScopes.Open and is at 120 lines; Stamp turns EVERY opened entry into template provenance."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTemplateScopes.cs:38-47,63,71-75; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:33,49,79"
+  - claim: "The proposal review reads the map minus template: keys as the repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:97-104"
+  - claim: "Grounding keeps only the project repos the map names, so a non-repo entry drops out by construction."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:58-64"
+  - claim: "The template section is appended to the master body from the address list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:319-321"
+
+scope:
+  in: >
+    ReferenceSetSandbox (ISourceScopeSandbox; RepoName = its address; ResolvedSha = the set's content
+    hash): lazy; on first step it spawns through SourceScopeOpener.SpawnAsync (generic image) and fills
+    /work through the INNER sandbox — text extensions written as-is, binary files written as .b64 and then
+    decoded by ONE python3 step running a constant script over the set root (no path is interpolated into
+    a command) — and serves steps through SourceScopeRefusal with no writable prefix. Held per conversation
+    under HeldSandbox.KeyFor(conversation, address, setId). Address: reference:<name>, the name sanitised
+    to [a-z0-9-], at most 40 characters, 'site' when nothing survives, -2/-3 for a repeat. SpecDialogTemplateScopes
+    becomes SpecDialogReadOnlyScopes with OpenAsync (async — it reads the conversation's sets), returning
+    templates plus one scope per site set; the runner's line becomes an await and its length stays; Stamp
+    stamps only template: keys. DerivationLookFactory.ForProposalReview excludes reference: keys as it
+    excludes template: keys. ReferencePromptSection, appended on the template section's line: these
+    addresses are an uploaded website, read-only; its CSS states exact values.
+  out: >
+    Rendering — 2026-10-01-283de. Image sets: they already reach the model as image parts.
+
+decisions:
+  - key: "A REFERENCE IS AN ADDRESS, NOT A NEW TOOL. read_file, grep and directory_tree already route by address."
+  - key: "THE GENERIC IMAGE FOR READING. Reading HTML needs no browser; the browser is its own sandbox in 283de."
+  - key: "ONE DECODE STEP. A 500-file set decoded file by file is 500 round trips through Redis."
+
+steps:
+  - id: sandbox
+    action: "ReferenceSetSandbox + ReferenceSetMaterialiser; SourceScopeHold generalised to take the prepare step."
+  - id: scopes
+    action: "SpecDialogReadOnlyScopes.OpenAsync (rename of SpecDialogTemplateScopes); Stamp filters template:; ReferenceScopeName with sanitising."
+  - id: review
+    action: "DerivationLookFactory excludes reference: keys."
+  - id: prompt
+    action: "ReferencePromptSection beside TemplatePromptSection."
+
+tests:
+  - "ReferenceSetSandbox_FirstRead_MaterialisesEveryFileAtItsRelativePath"
+  - "ReferenceSetMaterialiser_FiftyBinaryFiles_DecodesInOneStep"
+  - "ReferenceSetSandbox_WriteFile_IsRefused"
+  - "ReferenceSetSandbox_SecondTurn_TakesTheHeldSandboxBackWithoutRewriting"
+  - "ReferenceScopeName_NameWithSpacesAndSlashes_IsSanitised"
+  - "SpecDialogReadOnlyScopes_Stamp_RecordsTemplatesOnly"
+  - "DerivationLookFactory_ProposalReview_ExcludesReferenceAddresses"
+  - "GroundSpecDialog_ReferenceInMap_IsNotGrounded"
+
+done:
+  - "a scripted design turn greps a color out of an uploaded stylesheet by its reference: address"
+  - "build green, full suite green"

@@ -1,4 +1,4 @@
-phase: 2026-09-18-7a05
+spec: 2026-09-18-7a05
 decisions:
   - id: the-terminal-answer-is-204
     chose: >

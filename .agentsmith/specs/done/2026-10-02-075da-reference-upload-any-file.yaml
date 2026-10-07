@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-075da
+goal: "An upload into a design conversation keeps every authored file whatever its type; only OS litter, rebuildable folders and files over the per-file bound are left out, each named with its reason."
+
+applies_to: "backend (reference upload validator, zip reader, file types, materialiser, prompt section)"
+
+requires: ["2026-10-02-0d72"]
+
+facts:
+  - claim: "The upload keeps a file only when its extension is one of twenty website types; the same lookup is the stored media type, dereferenced with '!'."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceFileTypes.cs:10-26; ReferenceSetValidator.cs:26-28; ReferenceZipReader.cs:36-39; ReferenceSetUpload.cs:75-80"
+  - claim: "A set with no website file is refused whole."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:28,57-59; ReferenceZipReader.cs:37-39"
+  - claim: "A file over 5 MB refuses the whole set."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:42-55; src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:10-14"
+  - claim: "Only OS litter (.DS_Store, __MACOSX, ._*, Thumbs.db, desktop.ini) is dropped silently before the check."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceIgnoreList.cs:10-23"
+  - claim: "Into a sandbox, a file is written as text only when its extension is in a nine-entry list AND it decodes as UTF-8; everything else goes as base64 and is decoded by one python step."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:24-26,77-93"
+  - claim: "MediaType is read for images only (fetched by id with Kind image); the browser server types a file by extension, defaulting to application/octet-stream."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:32,59-60; src/sandbox-images/browser/site.mjs:9-16,54"
+  - claim: "Path rules (240 chars, any-case duplicate, absolute, drive, '..', NUL) run over every path, kept or skipped."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceSetValidator.cs:24,36-40; ReferencePathRule.cs:29-31"
+  - claim: "The decode step decodes and deletes EVERY *.b64 under the root, an uploaded one included."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:22,28-35"
+  - claim: "The per-file bound is also the repository-HTML render bound."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/RepoTreeListing.cs:37-38"
+  - claim: "The design prompt calls every set 'a website … its HTML, CSS, scripts and assets'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:21-28,42-49"
+  - claim: "The upload answer lists skipped paths without a reason."
+    evidence: "src/backend/AgentSmith.Server/Models/ReferenceUploadView.cs:8-10; src/backend/AgentSmith.Server/Services/References/ReferenceSetUpload.cs:53-60"
+
+scope:
+  in: >
+    The extension allow-list stops deciding what is stored: ReferenceFileTypes types a known extension and answers
+    application/octet-stream for every other. A file is LEFT OUT, with a reason, when (1) a path segment is a
+    rebuildable folder — .git, node_modules, .venv, venv, __pycache__, .pytest_cache, .mypy_cache, .next, .nuxt,
+    .gradle, .terraform, bower_components (ReferenceRebuildableFolders, one list; 075db mirrors it under a test) — or
+    (2) it is over the per-file bound, which rises from 5 MB to the 25 MB set bound (a 10 MB single-file HTML page is
+    the material). OS litter stays silent. A left-out path is held to the HOSTILE path rules only (absolute, drive,
+    '..', NUL); length and duplicates apply to stored paths. The set bound (25 MB, 500 files) still refuses, naming the
+    three largest top-level entries. The 'no site file' refusal goes; nothing kept is refused as 'nothing to keep'.
+    The ZIP reader applies the rule before inflating, by path and declared length; a kept entry is still counted
+    while inflated against the per-file and set bounds, so a lying one is refused. ReferenceUploadView lists left-out
+    entries as {path, reason}, a rebuildable folder collapsed to the folder, and names stored files that commonly hold
+    credentials (.env, .env.*, *.env, .npmrc, *.pem, *.key, id_rsa*, credentials*.json, kubeconfig) as credentialFiles,
+    so the composer says their contents are now readable by the model and the run. The materialiser writes as text
+    every file that decodes as strict UTF-8 and holds no NUL, whatever its extension; encoded files carry the suffix
+    .agentsmith-b64, which no upload is decoded by. ReferencePromptSection's headings become 'Material the operator
+    uploaded' / 'Material the approval cites' and the prose says it may be a website, an application's source or
+    documents. A browser upload carries no file mode: the prompt says scripts are not executable.
+  out: >
+    Honouring the folder's own .gitignore and letting the operator choose before sending (075db: the body ceiling
+    makes that a client concern). Running anything (075dc). Raising the set bound: the 26 MB route ceiling and the
+    30m ingress bound it, and a chunked upload is not asked for. The run carry already writes a set under
+    .agentsmith/reference/<id>/ in the repository tree (283df); a tool that ignores dot-directories poorly now meets
+    source files there too — unchanged here, named in the decision log.
+
+decisions:
+  - key: "STORE BY ABSENCE OF A REASON, NOT BY PRESENCE OF A TYPE. A .py, a .env, a Dockerfile is what tells the model what it holds."
+  - key: "REBUILDABLE, NOT UNWANTED. The list names folders a manifest rebuilds; nothing authored is on it."
+  - key: "CREDENTIAL FILES ARE KEPT AND NAMED (operator ruling: a .env says what is needed). The answer says the model and the run can read them; it does not pretend the list is exhaustive."
+  - key: "AN OVERSIZED FILE IS LEFT OUT, NOT A VETO. One 52 MB PDF must not cost the other thirty files."
+
+steps:
+  - id: types
+    action: "ReferenceFileTypes.MediaTypeOf never null (octet-stream fallback); ReferenceRebuildableFolders; ReferenceLeftOut {Path, Reason}."
+  - id: check
+    action: "ReferenceSetValidator and ReferenceZipReader keep by the rule above; ReferenceSetCheck carries left-out entries; the set-bound refusal names the largest top-level entries."
+  - id: answer
+    action: "ReferenceUploadView {…, LeftOut[{path,reason}], LeftOutCount, EnvFiles}; ReferenceSetUpload logs at Information; dashboard type and uploadNote follow."
+  - id: sandbox
+    action: "ReferenceSetMaterialiser text rule: strict UTF-8 and no NUL."
+  - id: prompt
+    action: "ReferencePromptSection headings and wording for turn and run; refusal strings say 'upload', not 'website'."
+  - id: flip
+    action: "Rewrite the cases this flips: ReferenceUploadTests, ReferenceZipReaderTests, ReferenceSetValidatorTests, DesignTurnReferenceGrepTests heading, dashboard uploadNote.test.ts and SpecDialogSurface upload-answer shape."
+
+tests:
+  - "ReferenceUpload_SourceFolder_KeepsPyEnvDockerfileAndTypesUnknownAsOctetStream"
+  - "ReferenceUpload_VenvAndGitFolders_AreLeftOutCollapsedWithReason"
+  - "ReferenceUpload_OneFileOverTheFileBound_IsLeftOutAndTheRestIsStored"
+  - "ReferenceUpload_OverTheSetBound_RefusesNamingTheLargestTopLevelEntries"
+  - "ReferenceZipReader_RebuildableEntries_AreNotInflated"
+  - "ReferenceSetMaterialiser_PyAndDockerfile_AreWrittenAsText; BinaryWithNul_IsEncoded; AnUploadedB64File_IsLeftAsIs"
+  - "ReferenceUpload_OverLongPathUnderVenv_DoesNotRefuseTheSet"
+  - "ReferenceZipReader_EntryInflatingPastItsDeclaredLength_IsRefused"
+  - "ReferenceUploadRoute_BrowserSourceFolder_AnswersCredentialFilesAndLeftOut (booted server)"
+  - "ReferencePromptSection_SaysMaterialNotWebsite"
+
+done:
+  - "a folder holding .py, .env, Dockerfile and a .venv is stored without the .venv, the answer names .venv/ as rebuildable and .env as a credential file"
+  - "build green, full suite green, dashboard tests and build green"

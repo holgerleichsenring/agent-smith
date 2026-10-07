@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-09-28-10ffc
+goal: "The CLI loses the spawned-job mode nobody can start any more, keeping its one-shot runs and its Redis reachability probe."
+
+applies_to: "backend (AgentSmith.Cli run command and composition)"
+
+requires: ["2026-09-28-10ffb"]
+
+scope:
+  in: >
+    RunCommand's job-mode options (--job-id, --redis-url, --channel-id, --platform) and its Done/Error
+    reporting go. The ServiceProviderFactory parameters that only serve job mode go. So do the
+    spawned-job branch of CliRunRecordingRegistration and the job-mode Redis progress and dialogue
+    registration in CliInteractionRegistration, together with RedisProgressReporter if nothing else
+    registers it.
+  out: >
+    CliInfraPreflightProbe: it already reports Redis as not required (CliInfraPreflightProbe.cs:20-23),
+    and a set REDIS_URL there means doctor pointed at a server deployment, so it stays. The CLI's
+    config import/export and database migrate, which read the server database and stay.
+
+decisions:
+  - key: |
+      JOB MODE HAS NO CALLER AFTER 10ffb. The options (RunCommand.cs:22-25), the Done/Error reporting
+      (:75-83), the recording branch (CliRunRecordingRegistration.cs:36-41, 50-51) and the Redis
+      channels (CliInteractionRegistration.cs:43-49) exist for a spawned job, and 10ffb deletes the
+      spawners. The composition parameters that carry them are removed too (ServiceProviderFactory.cs:28-78).
+  - key: |
+      THE OPERATOR RULE: the CLI is a development tool and is never spawned as an image. The server's
+      migrate init container still runs the CLI image (8-deployment-server.yaml:34). That runs a
+      one-shot migration, not a pipeline, and is named here rather than changed.
+  - key: |
+      SERIES: third of 2026-09-28-10ff. Suggested order: after 10ffb.
+
+steps:
+  - id: remove
+    path: "src/backend/AgentSmith.Cli"
+    action: "Remove the job-mode options, reporting, composition parameters, recording branch and Redis channel registration; delete RedisProgressReporter (its only registration is CliInteractionRegistration.cs:46-49) and its mentions in the IMessageBus docs (IMessageBus.cs:14, 38); migrate CliShapedDiTests (:109-111, 144-146)."
+
+tests:
+  - "RunCommand_Parse_HasNoJobModeOptions"
+  - "CliComposition_OneShotRun_RegistersNoRedisProgressReporter"
+  - "CliInfraPreflightProbe_RedisUrlUnset_ReportsNotRequired"
+
+done:
+  - "`agentsmith run` has one-shot mode only; doctor still reports Redis reachability when REDIS_URL is set"
+  - "build green, full suite green"

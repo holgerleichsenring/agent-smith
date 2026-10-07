@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=../decision.schema.json
-phase: p0365
+spec: p0365
 
 decisions:
   - category: Architecture

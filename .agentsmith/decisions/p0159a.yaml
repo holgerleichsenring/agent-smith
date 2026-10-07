@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0159a: Design system + token pipeline
-phase: p0159a
+spec: p0159a
 decisions:
   - category: Architecture
     chose: "**CSS custom properties as the consumption surface, not Tailwind tokens or a design-token tool like Style Dictionary.** Both sites already serve CSS; tokens ride straight in `:root { --color-primary: ...; }`. Zero runtime, zero build complexity beyond a ~120-line YAML-to-CSS transformer. Style Dictionary would solve the same problem with a 30-dep tree and a build-config layer."

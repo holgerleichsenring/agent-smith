@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-02-75dc
+goal: "The sandbox reaper treats a run whose row heartbeat is fresh as alive, so a flushed Redis never removes the sandboxes of a live init run."
+
+applies_to: "backend (the sandbox reapers' live-run set)"
+
+requires: ["2026-10-02-5f89e"]
+
+facts:
+  - claim: "The live-run set the reapers judge against is the Redis active-runs set unioned with the DB ActiveRun lease, fresh for three minutes."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/LiveRunSetReader.cs:15-35"
+  - claim: "Init runs hold no ActiveRun lease; since 5f89e every run renews its own row's HeartbeatAt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunLivenessRepository.cs:15-18; .agentsmith/phases/done/2026-10-02-5f89e-run-restart-orphan.yaml"
+  - claim: "The orphan reaper removes containers whose run id is not in the live set."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxOrphanReaper.cs:55-57"
+
+scope:
+  in: "The live-run set also contains every unfinished run whose last sign of life (the later of HeartbeatAt and StartedAt) is within the same three-minute freshness the lease uses. One query beside the stale-run scan, filtered client-side like it."
+  out: "Changing the reapers' judgement rules or the lease itself."
+
+decisions:
+  - key: "ONE FRESHNESS FOR BOTH SIGNALS. The row heartbeat and the lease mean the same thing — a process is driving this run — so they share LeaseFreshFor rather than carrying two numbers that can drift."
+
+steps:
+  - id: query
+    action: "RunLivenessRepository gains the fresh-run ids (unfinished, last sign of life within the window), behind a contract the Server can reach."
+  - id: union
+    action: "LiveRunSetReader unions those ids into the live set."
+
+tests:
+  - "LiveRunSetReader_AnInitRunBeatingItsRow_IsLiveWithAnEmptyRedisAndNoLease"
+  - "RunLiveness_FreshRunIds_ExcludesFinishedAndStaleRuns"
+
+done:
+  - "with Redis flushed, a beating init run's sandboxes are not reaped"
+  - "build green, full suite green"

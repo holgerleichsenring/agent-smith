@@ -1,4 +1,4 @@
-phase: 2026-09-17-0e79d
+spec: 2026-09-17-0e79d
 decisions:
   - id: the-renderer-methods-keep-their-names
     chose: >

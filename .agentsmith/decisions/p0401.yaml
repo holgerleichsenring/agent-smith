@@ -1,4 +1,4 @@
-phase: p0401
+spec: p0401
 decisions:
   - what: "The rule is mechanical: a static class in Application/Infrastructure must hold no non-constant static FIELD. Static functions over values stay static."
     alternatives:

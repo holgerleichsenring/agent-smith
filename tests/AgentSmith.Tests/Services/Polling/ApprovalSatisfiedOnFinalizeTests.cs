@@ -73,7 +73,7 @@ public sealed class ApprovalSatisfiedOnFinalizeTests
         var store = new InMemorySpecApprovalStore();
         await store.SaveAsync(
             ApprovedSets.Record(
-                SpecSetKey.For("jira", ticketId).Value, ApprovedSets.Noon, ticketId: ticketId),
+                TicketKey.For("jira", ticketId).Value, ApprovedSets.Noon, ticketId: ticketId),
             CancellationToken.None);
         return store;
     }

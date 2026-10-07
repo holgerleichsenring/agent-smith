@@ -36,7 +36,7 @@ public sealed class SpecSetTicketCommenterTests
         var body = SpecSetComment.Render(set, "https://example.test/pr/1");
 
         body.Should().StartWith(SpecSetComment.Marker);
-        body.Should().Contain("p19106a — Raise the direct package floors the audit names");
+        body.Should().Contain("2026-10-06-9106a — Raise the direct package floors the audit names");
         body.Should().Contain("- The manifests carry versions the audit no longer flags.");
         body.Should().Contain("- The build exits 0.");
         body.Should().Contain("- one direct package is affected").And.Contain($"_{Evidence}_",
@@ -77,7 +77,7 @@ public sealed class SpecSetTicketCommenterTests
     {
         var set = Set();
         var read = new PhaseDraftReader().Read(
-            "phase: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
+            "spec: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
         var phase = set.Phases[0] with { Draft = set.Phases[0].Draft with { Assumptions = read.Assumptions } };
 
         var body = SpecSetComment.Render(set with { Phases = [phase] }, null);
@@ -123,7 +123,7 @@ public sealed class SpecSetTicketCommenterTests
              "handback": {"case": "none", "reason": ""}}
             """;
         var parsed = DerivationTestParsers.Real().Parse(
-            reply, "azdo-19106", "19106", segments, SpecSource.Derived, null, [Evidence]);
+            reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, [Evidence]);
         parsed.Error.Should().BeNull();
         return parsed.Derivation!.Set;
     }

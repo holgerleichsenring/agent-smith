@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0146a: Delete ApiCodeContext + regex extractors
-phase: p0146a
+spec: p0146a
 decisions:
   - category: Architecture
     chose: "**`DotNetRouteExtractor.cs` deleted alongside `RouteMapper.cs` even though the spec's `delete:` list didn't enumerate it.** The recent commit (3e2fe76) that added class-level `[Route]` prefix combination was the immediate trigger for the regex-elimination cut named in the phase goal; keeping the extractor while removing its sole caller would leave dead code in tree. Same anti-pattern (per-framework regex semantics) the spec rules out. -- alternatives: keep DotNetRouteExtractor (rejected: dead after RouteMapper deletion, and the LLM-trust principle from the umbrella explicitly disallows reintroducing it later); ship without the recent fix-up commit (rejected: orthogonal"

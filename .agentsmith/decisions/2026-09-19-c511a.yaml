@@ -1,4 +1,4 @@
-phase: 2026-09-19-c511a
+spec: 2026-09-19-c511a
 decisions:
   - id: the-contract-asks-for-a-surface-not-a-path
     chose: >

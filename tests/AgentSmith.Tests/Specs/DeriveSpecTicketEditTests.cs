@@ -112,11 +112,7 @@ public sealed class DeriveSpecTicketEditTests
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var draftReader = new PhaseDraftReader();
-        var reader = new SpecSetReader(
-            factory.Object, gitOps,
-            new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
-            new SpecSetIndex(), new SandboxTargets(),
-            NullLogger<SpecSetReader>.Instance);
+        var reader = AgentSmith.Tests.TestSupport.SeriesDoubles.Reader(factory.Object, gitOps);
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", PointerSha, 1), default)
             .GetAwaiter().GetResult();
@@ -127,7 +123,6 @@ public sealed class DeriveSpecTicketEditTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -140,6 +135,7 @@ public sealed class DeriveSpecTicketEditTests
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
+            new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -164,20 +160,17 @@ public sealed class DeriveSpecTicketEditTests
     private static SeededFileReader SeededFiles(string? fingerprint)
     {
         var files = new SeededFileReader();
-        files.Seed($".agentsmith/specs/{Key}/set.yaml", SetYaml(fingerprint));
-        files.Seed($".agentsmith/specs/{Key}/p19106a-first.yaml", PhaseYaml("p19106a"));
-        files.Seed($".agentsmith/specs/{Key}/p19106b-second.yaml", PhaseYaml("p19106b"));
+        files.Seed($".agentsmith/series/2026-10-06-0a0a.yaml", SetYaml(fingerprint));
+        files.Seed($".agentsmith/specs/done/p19106a-first.yaml", PhaseYaml("p19106a"));
+        files.Seed($".agentsmith/specs/planned/p19106b-second.yaml", PhaseYaml("p19106b"));
         return files;
     }
 
     private static string SetYaml(string? fingerprint) => $"""
-        key: {Key}
-        source: Derived
-        phases:
-        - p19106a-first
-        - p19106b-second
-        executed_phases:
+        ticket: {Key}
+        specs:
         - p19106a
+        - p19106b
         revisions:
         - number: 1
           cause: initial derivation
@@ -191,7 +184,7 @@ public sealed class DeriveSpecTicketEditTests
         """;
 
     private static string PhaseYaml(string id) => $"""
-        phase: {id}
+        spec: {id}
         goal: "Goal {id}"
         done:
           - "Done {id}."
@@ -203,7 +196,7 @@ public sealed class DeriveSpecTicketEditTests
         var segments = TicketSegmenter.Segment(EditedTicket);
         var carries = segments.Select(s => s.Id).ToList();
         SpecPhase Phase(string id, string goal) => new(
-            new PhaseDraft(id, goal, $"phase: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+            new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
         var phases = new[] { Phase("p19106a", "Goal p19106a"), Phase("p19106b", "Cut again from the edited text") };
         return new SpecDerivation(
@@ -221,8 +214,8 @@ public sealed class DeriveSpecTicketEditTests
         public string? CauseSeen { get; private set; }
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-            AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
         {
             Calls++;
             PreviousSeen = previous;

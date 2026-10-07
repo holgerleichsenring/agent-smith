@@ -14,14 +14,14 @@ public sealed class DbSpecSetPointerStore(IServiceScopeFactory scopeFactory) : I
     public async Task<SpecSetPointer?> GetAsync(string project, string key, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<TicketSpecSetRepository>()
+        return await scope.ServiceProvider.GetRequiredService<TicketSeriesRepository>()
             .GetAsync(project, key, ct);
     }
 
     public async Task SaveAsync(string project, SpecSetPointer pointer, CancellationToken ct)
     {
         using var scope = scopeFactory.CreateScope();
-        await scope.ServiceProvider.GetRequiredService<TicketSpecSetRepository>()
+        await scope.ServiceProvider.GetRequiredService<TicketSeriesRepository>()
             .SaveAsync(project, pointer, ct);
     }
 }

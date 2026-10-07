@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class FiledTicketSpecificationTests
 {
     private const string Yaml = """
-        phase: p9000a
+        spec: p9000a
         goal: Widget storage layer
         scope:
           in: >
@@ -51,7 +51,7 @@ public sealed class FiledTicketSpecificationTests
         var body = Render(conversation: null);
 
         body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
-            .And.Contain(SpecSetKey.Root, "the run reads the set from the branch")
+            .And.Contain(SeriesPaths.Planned, "the run reads the set from the branch")
             .And.NotContain("Approved in design conversation",
                 "a ticket filed without a conversation never named one");
     }

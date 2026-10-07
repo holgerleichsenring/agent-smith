@@ -61,7 +61,7 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ApprovedSpecSet", b =>
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ApprovedSeries", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -80,22 +80,36 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CarryingRepo")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("RecordJson")
+                    b.Property<string>("Repositories")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("SatisfiedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SpecKey")
+                    b.Property<string>("SeriesId")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
@@ -112,10 +126,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Tracker", "SatisfiedAt");
 
-                    b.HasIndex("Tracker", "SpecKey")
+                    b.HasIndex("Tracker", "TicketKey")
                         .IsUnique();
 
-                    b.ToTable("ApprovedSpecSets");
+                    b.ToTable("ApprovedSeries", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ChatRunBinding", b =>
@@ -1134,59 +1148,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("RunLlmCalls");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunPhase", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("EndedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("Ordinal")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("PhaseId")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RunId")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("StartedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Verdict")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RunId");
-
-                    b.HasIndex("RunId", "PhaseId")
-                        .IsUnique();
-
-                    b.ToTable("RunPhases");
-                });
-
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunRepo", b =>
                 {
                     b.Property<long>("Id")
@@ -1274,6 +1235,59 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasIndex("RunId");
 
                     b.ToTable("RunSandboxes");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunSpec", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verdict")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "SpecId")
+                        .IsUnique();
+
+                    b.ToTable("RunSpecs");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunStep", b =>
@@ -1560,7 +1574,7 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("TakenTickets");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSpecSet", b =>
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSeries", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -1574,9 +1588,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("HandbackSourceSha")
-                        .HasMaxLength(191)
-                        .HasColumnType("TEXT");
+                    b.Property<int>("ExecutedThrough")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("INTEGER");
@@ -1597,7 +1610,12 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SpecKey")
+                    b.Property<string>("SeriesId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
@@ -1607,10 +1625,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Project", "SpecKey")
+                    b.HasIndex("Project", "TicketKey")
                         .IsUnique();
 
-                    b.ToTable("TicketSpecSets");
+                    b.ToTable("TicketSeries");
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.UnmovedTicket", b =>

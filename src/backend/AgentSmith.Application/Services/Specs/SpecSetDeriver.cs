@@ -45,11 +45,11 @@ public sealed class SpecSetDeriver(
     private const int MaxAttempts = 3;
 
     public async Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
-        Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-        AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+        Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
+        string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
-        var key = previous?.Key ?? SpecSetKeyFactory.For(ticket, pipeline).Value;
+        var key = previous?.Key ?? TicketKeyFactory.For(ticket, pipeline).Value;
         var look = looks.Create(pipeline);
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
@@ -70,7 +70,7 @@ public sealed class SpecSetDeriver(
             if (look?.TemplateRefusal is { } refused)
                 return (null, $"The declared template could not be read: {refused}");
             var parsed = parser.Parse(
-                response.Text, key, ticket.Id.Value, segments,
+                response.Text, key, series, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
                 previous?.ExecutedHead, look?.Evidence.Lines);
             if (parsed.Derivation is null)

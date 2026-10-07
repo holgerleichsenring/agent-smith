@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-03c7g
+goal: "A run's spec progress is RunSpecs, served at /api/runs/{id}/specs and shown as 'Specs' — while events, artifact kinds and step columns keep their stored names."
+
+applies_to: "server (run table, query endpoints) + dashboard"
+
+requires:
+  - 2026-10-06-03c7e
+
+facts:
+  - claim: "RunPhases holds one row per spec a run executes, keyed (RunId, PhaseId)"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunPhase.cs:12; src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunPhaseConfiguration.cs:21; src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPhaseProjection.cs:18-25"
+  - claim: "The API serves /api/runs/{runId}/phases and /phases/{phaseId}"
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunPhaseQueryEndpoints.cs:18-19"
+  - claim: "The dashboard reads them through runPhasesApi and renders PhasesPanel and PhaseRecord"
+    evidence: "src/dashboard/src/lib/runPhasesApi.ts:18-57; src/dashboard/src/components/jobs/story/PhasesPanel.tsx:35; src/dashboard/src/components/jobs/story/PhaseRecord.tsx:17"
+  - claim: "The durable trail stores event type names and payloads and parses them back; renaming either breaks replay of stored runs"
+    evidence: "observed: 03c7 predecessor review of EventEnvelopeSerializer.cs:52-63, 2026-10-06"
+  - claim: "An archive imports only at its own migration head"
+    evidence: "observed: 03c7 predecessor review of ArchiveSchemaCheck.cs:20-26, 2026-10-06"
+  - claim: "SQLite, Postgres and MySQL share one migrations assembly; SQL Server has its own"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23-33"
+
+assumptions:
+  - claim: "Only the run-story components and runPhasesApi consume the phases endpoints"
+    check: "grep src/dashboard for runPhasesApi and /phases before building"
+
+scope:
+  in: "RunPhases → RunSpecs and its PhaseId → SpecId, renamed in place in both migration assemblies; the two endpoints → /specs with payload specs/specId (detail: spec); dashboard runSpecsApi, useRunSpecs, useRunSpecRecord, SpecsPanel, SpecOutcome; the label text 'Phase'/'Phases' in jobs/[id]/page.tsx:505, PhaseAccount.tsx:24, TicketStatistics.tsx:51 and DialogFiledRuns.tsx."
+  out: "Hub event types and payloads, artifact kinds phase_record:/phase_review:, RunSteps.PhaseId and RunDecisions.PhaseId — stored names a renamed reader would have to carry forever, invisible to a user."
+
+decisions:
+  - rename_in_place: "Table and column are renamed; rows are kept. An archive taken before this is imported with the previous release, then migrated."
+
+steps:
+  - id: db
+    action: "Rename table and column with a migration per assembly; entity, configuration and projection follow"
+  - id: api
+    action: "Rename the endpoints and their reader"
+  - id: dashboard
+    action: "runSpecsApi, SpecsPanel, SpecOutcome; the label 'Specs'"
+
+tests:
+  - "RunSpecProjection_StateChanged_UpsertsRunSpecsRow"
+  - "RunSpecsEndpoint_ReturnsRows"
+  - "SpecsPanel_RendersRows (dashboard)"
+
+done:
+  - "No endpoint path, payload key or UI label names a spec 'phase'"
+  - "Full suite, dashboard test and build green on all providers"

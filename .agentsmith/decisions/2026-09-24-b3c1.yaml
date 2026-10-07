@@ -1,4 +1,4 @@
-phase: 2026-09-24-b3c1
+spec: 2026-09-24-b3c1
 decisions:
   - what: "Join the six unconverted readers to the converter that already ships, rather than adding a second one."
     alternatives:

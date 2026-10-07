@@ -22,6 +22,7 @@ public sealed class ScanContextWindowTests
 {
     private const int Window = 4000;      // tokens; the estimator counts 4 chars per token
     private const int MessageChars = 800;
+    private const int ResultChars = 8000;
 
     [Fact]
     public async Task ScanMaster_AtARaisedCeiling_ReducesInsteadOfOverflowing()
@@ -49,10 +50,12 @@ public sealed class ScanContextWindowTests
         var chat = new RecordingChat();
 
         await ScanClient(chat, compaction: false, window: Window)
-            .GetResponseAsync(Sweep(24), ToolOptions(), CancellationToken.None);
+            .GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
         chat.Options[^1]!.ToolMode.Should().Be(ChatToolMode.None, "the exploration ends here");
         chat.Forwarded[^1][^1].Text.Should().Contain("reply now with your final answer");
+        CompactingChatClient.EstimateTokens(chat.Forwarded[^1]).Should().BeLessThan((int)(Window * 0.85),
+            "the forwarded copy is re-cut to the finaliser's bound");
     }
 
     [Fact]
@@ -92,6 +95,21 @@ public sealed class ScanContextWindowTests
     {
         Tools = [AIFunctionFactory.Create(() => "ok", "probe")],
     };
+
+    // 2026-10-07-6b9dc: past the hard bound the finaliser re-cuts tool results until the forwarded
+    // copy fits, and fails locally when nothing it can cut is left — so the overrun it finalises
+    // is tool output, as a real sweep's is: three 8,000-character results against a 4,000-token window.
+    private static List<ChatMessage> ToolSweep(int toolRounds)
+    {
+        var list = new List<ChatMessage> { new(ChatRole.System, "SYSTEM"), new(ChatRole.User, "USER") };
+        for (var i = 0; i < toolRounds; i++)
+        {
+            list.Add(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"c{i}", "probe")]));
+            list.Add(new ChatMessage(ChatRole.Tool,
+                [new FunctionResultContent($"c{i}", new string((char)('a' + i), ResultChars))]));
+        }
+        return list;
+    }
 
     private static List<ChatMessage> Sweep(int toolRounds)
     {

@@ -69,7 +69,7 @@ public sealed class TicketLifecycle(ISpecApprovalStore? approvals = null, TimePr
         TrackerConnection ticketConfig, TicketId ticketId, ILogger logger, CancellationToken ct)
     {
         if (approvals is null) return;
-        var key = SpecSetKey.For(ticketConfig.Type.ToString().ToLowerInvariant(), ticketId.Value);
+        var key = TicketKey.For(ticketConfig.Type.ToString().ToLowerInvariant(), ticketId.Value);
         try
         {
             await approvals.MarkSatisfiedAsync(

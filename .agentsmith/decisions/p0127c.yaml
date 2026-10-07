@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0127c: Skill content migration + hard cutover (D3 slice 3/3, cross-repo)
-phase: p0127c
+spec: p0127c
 decisions:
   - category: Architecture
     chose: "**Hard cutover, no dual-tolerance period.** Loader removes legacy parsing in the same PR that flips the agent-smith-skills pin to 2.0.0; the 2.0.0 skills release is the first version that no longer carries any legacy SKILL.md files. Same discipline as p0125a's vocabulary cutover."

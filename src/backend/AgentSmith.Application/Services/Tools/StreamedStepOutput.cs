@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Sandbox.Wire;
 
@@ -6,6 +5,10 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// The live output feed of one step, collected into two bounded buffers.
+/// <para>
+/// 2026-10-07-6b9db: each stream is its own <see cref="StreamCapture"/> — head, rolling tail,
+/// count and flag — so a stdout that fills its buffer no longer stops stderr, nor the reverse.
+/// </para>
 /// <para>
 /// Synchronous by construction: <c>Progress&lt;T&gt;</c> dispatches asynchronously via the
 /// captured SynchronizationContext / ThreadPool, which races the awaited run — events can
@@ -20,14 +23,8 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 internal sealed class StreamedStepOutput
 {
-    private const string TruncationNotice = "\n... (output truncated at 1 MB)";
-
-    private readonly StringBuilder _stdout = new();
-    private readonly StringBuilder _stderr = new();
-
-    public bool Truncated { get; private set; }
-    public string Stdout => _stdout.ToString();
-    public string Stderr => _stderr.ToString();
+    public StreamCapture Stdout { get; } = new();
+    public StreamCapture Stderr { get; } = new();
 
     /// <summary>The one collector to hand a step — built once, so two reads cannot buffer
     /// into the same instance through two different sinks.</summary>
@@ -37,21 +34,8 @@ internal sealed class StreamedStepOutput
     {
         switch (ev.Kind)
         {
-            case StepEventKind.Stdout: Append(_stdout, ev.Line); break;
-            case StepEventKind.Stderr: Append(_stderr, ev.Line); break;
+            case StepEventKind.Stdout: Stdout.Append(ev.Line); break;
+            case StepEventKind.Stderr: Stderr.Append(ev.Line); break;
         }
     });
-
-    private void Append(StringBuilder sb, string line)
-    {
-        if (Truncated) return;
-        var addedBytes = Encoding.UTF8.GetByteCount(line) + 1;
-        if (sb.Length + addedBytes > SizeLimits.RunCommandMaxBufferBytes)
-        {
-            Truncated = true;
-            sb.Append(TruncationNotice);
-            return;
-        }
-        sb.Append(line).Append('\n');
-    }
 }

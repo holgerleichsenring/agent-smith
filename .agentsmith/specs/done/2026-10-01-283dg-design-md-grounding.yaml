@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-01-283dg
+goal: "A repo-root DESIGN.md — token frontmatter and prose — reaches the design partner's grounding and the coding master's prompt whenever the target repository carries one."
+
+applies_to: "backend (dialog grounding, a code-preset loader, one master prompt section)"
+
+requires: []
+
+facts:
+  - claim: "Nothing in the backend reads DESIGN.md; only dashboard sources mention it."
+    evidence: "grep -rl DESIGN.md src/backend → no match; src/dashboard/src/app/globals.css, src/dashboard/src/styles/mock-parity.css"
+  - claim: "This repository's DESIGN.md opens with YAML frontmatter — colors, typography, rounded, spacing, components — up to line 358, then prose; 29,160 bytes in all."
+    evidence: "DESIGN.md:1-6,26,124,131,142,358"
+  - claim: "Dialog grounding reads each scoped repository's context.yaml files and principles remotely through ISourceProvider, needing no sandbox, and reports absent and unreadable apart."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/DialogGroundingReader.cs:21-48,88-105; src/backend/AgentSmith.Application/Services/SpecDialog/DialogGrounding.cs:11-38"
+  - claim: "The grounding step publishes what it read onto the pipeline for the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/GroundSpecDialogHandler.cs:39-47"
+  - claim: "A coding run loads principles from every sandbox in LoadCodingPrinciples, a code-preset step before the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs:14-55; src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:49"
+  - claim: "Server-built sections are appended to the master body for both the dialog and the coding master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:312-321"
+  - claim: "The design-partner master renders only the inputs it declares; a new input would need a skills release and a pin move."
+    evidence: "agent-smith-skills skills/_masters/design-partner-master/SKILL.md:6-12"
+
+scope:
+  in: >
+    DESIGN.md at the repository root, exactly that name. Dialog: DialogGroundingReader reads it with the same
+    TryRead (absent vs unreadable kept apart) and DialogGrounding carries it as a third RemoteFileSet; the
+    grounding report names it. Run: LoadDesignSystem, a code-preset step after LoadCodingPrinciples, reads
+    it from every sandbox. Both publish ContextKeys.DesignSystem as ContextDocuments. DesignSystemPromptSection
+    renders one section per repository that has one, appended beside the template section: the frontmatter
+    verbatim (the tokens are exact values), the prose after it, the whole capped at 32,000 characters with
+    any cut named and the path given so the rest can be read.
+  out: >
+    Parsing tokens into typed values or linting code against them — the comparison is 2026-10-01-283di.
+    Writing or updating DESIGN.md. Skill text — 2026-10-01-283dj.
+
+decisions:
+  - key: "A SERVER SECTION, NOT A SKILL INPUT. A declared input waits on a skills release; a section appended like the template section reaches every pinned master today."
+  - key: "VERBATIM FRONTMATTER. The tokens are the exact half of a design system; summarising them reintroduces the estimate this series removes."
+
+steps:
+  - id: dialog
+    action: "DialogGroundingReader reads DESIGN.md; DialogGrounding gains Design; GroundSpecDialogHandler publishes it; DialogGroundingReport names it."
+  - id: run
+    action: "CommandNames.LoadDesignSystem + LoadDesignSystemHandler (sandbox read, per repo) inserted after LoadCodingPrinciples."
+  - id: prompt
+    action: "ProjectMetaPaths.DesignSystem = DESIGN.md; DesignSystemPromptSection; one line in AgenticMasterHandler."
+
+tests:
+  - "DialogGroundingReader_DesignMdPresent_IsCarriedVerbatim"
+  - "DialogGroundingReader_DesignMdUnreadable_IsReportedNotAbsent"
+  - "LoadDesignSystem_TwoSandboxesOneWithDesignMd_PublishesOne"
+  - "DesignSystemPromptSection_Over32000Chars_KeepsFrontmatterAndNamesTheCut"
+  - "DesignSystemPromptSection_None_RendersNothing"
+
+done:
+  - "a design turn on this repository shows its DESIGN.md colors in the master prompt"
+  - "build green, full suite green"

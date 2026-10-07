@@ -627,7 +627,8 @@ public sealed class FiledWorkStartTests
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
             config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
-            new EpicChildOrderer(), ApprovedSetDoubles.SetFiler(store, starter),
+            new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
+            ApprovedSetDoubles.SetFiler(store, starter),
             starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return await filer.FileAsync(State(), proposal, mayStartRuns, CancellationToken.None);
     }
@@ -714,12 +715,12 @@ public sealed class FiledWorkStartTests
 
     private static EpicOutcome Epic() =>
         new(new PhaseDraft("p9000", "Widget platform",
-                "phase: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"reachable\"", [])
+                "spec: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"reachable\"", [])
             { Done = ["reachable"] },
             [Draft("p9000a"), Draft("p9000b")]);
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"slice {id}", $"phase: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"{id} done\"", [])
+        new(id, $"slice {id}", $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"{id} done\"", [])
         { Done = [$"{id} done"] };
 
     private static ConversationState State() => new()
@@ -824,6 +825,8 @@ public sealed class FiledWorkStartTests
 
         public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
             Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken ct) => Task.CompletedTask;
     }
 
     /// <summary>Records how many labels were on the ticket at the moment the resolution ran, over
@@ -854,5 +857,7 @@ public sealed class FiledWorkStartTests
 
         public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
             Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken ct) => Task.CompletedTask;
     }
 }

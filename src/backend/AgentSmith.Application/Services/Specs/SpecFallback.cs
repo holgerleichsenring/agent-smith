@@ -19,11 +19,11 @@ public sealed class SpecFallback(
     DerivedPhaseYamlRenderer yamlRenderer)
 {
     public SpecSet Build(
-        string key, Ticket ticket, IReadOnlyList<TicketSegment> segments,
+        string key, string series, Ticket ticket, IReadOnlyList<TicketSegment> segments,
         IReadOnlyList<string> doneCriteria, SpecSource source)
     {
         ArgumentNullException.ThrowIfNull(ticket);
-        var phaseId = PhaseIdFactory.For(ticket.Id.Value, 0);
+        var phaseId = SeriesIdFactory.Member(series, 0);
         var goal = string.IsNullOrWhiteSpace(ticket.Title) ? $"Ticket {ticket.Id.Value}" : ticket.Title;
         var slug = PhaseIdFactory.Slug(goal);
         var fileStem = $"{phaseId}-{slug}";
@@ -46,7 +46,8 @@ public sealed class SpecFallback(
             [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
             source,
             Handback: null,
-            TicketPinnedWhole: true);
+            TicketPinnedWhole: true,
+            Series: series);
     }
 
     /// <summary>

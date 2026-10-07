@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0061: Project Knowledge Base
-phase: p0061
+spec: p0061
 decisions:
   - category: Architecture
     chose: wiki/ compiled incrementally by LLM from runs/ + security/

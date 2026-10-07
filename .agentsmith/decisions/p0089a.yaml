@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0089a: Skill Content Improvements
-phase: p0089a
+spec: p0089a
 decisions:
   - category: Architecture
     chose: Confidence calibration defined once in observation-schema.md

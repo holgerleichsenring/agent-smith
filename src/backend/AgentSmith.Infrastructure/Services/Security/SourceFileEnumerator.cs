@@ -22,13 +22,12 @@ public sealed class SourceFileEnumerator
 
     // p0390: after a merge the work specs of many tickets coexist in the trunk, and a
     // security scan would pattern-match every historical one. The exclusion is the
-    // PATH PREFIX .agentsmith/specs, never the whole .agentsmith directory — that also
-    // carries project configuration a scan may legitimately want to see. The set above
-    // matches single directory SEGMENTS, which cannot express a two-segment path, so
-    // this is a separate prefix check rather than another entry in it.
+    // PATH PREFIX (2026-10-06-03c7d: and the series manifests'), never the whole .agentsmith
+    // directory, which carries configuration a scan may want; a separate prefix check.
     private static readonly string[] ExcludedPathPrefixes =
     [
-        AgentSmith.Contracts.Specs.SpecSetKey.Root + "/",
+        AgentSmith.Contracts.Specs.SeriesPaths.SpecsRoot + "/",
+        AgentSmith.Contracts.Specs.SeriesPaths.SeriesRoot + "/",
     ];
 
     private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)

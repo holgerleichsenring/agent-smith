@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0132a: per-skill cost attribution (slice 1/3 of p0132)
-phase: p0132a
+spec: p0132a
 decisions:
   - category: Architecture
     chose: "**Wrap-in-scope instead of full SkillCallRuntime migration.** Headline goal (PerSkillBreakdown surfaces in result.md) is achieved by BeginCall/EndCall alone; the runtime's additional machinery (LimitEnforcer / RetryCoordinator / LoopTraceCollector / OutcomeClassifier / PipelineConcurrencyGate) is valuable but orthogonal to per-skill cost visibility. The 441-line base class has two distinct paths (Discussion / Structured / Gate) that don't fit cleanly through the runtime's single-shot ExecuteAsync shape without a major restructure. Scope wrap is the minimal change that delivers operator value while keeping the runtime as a known-good future migration target."

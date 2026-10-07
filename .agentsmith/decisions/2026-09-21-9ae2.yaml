@@ -1,4 +1,4 @@
-phase: 2026-09-21-9ae2
+spec: 2026-09-21-9ae2
 decisions:
   - id: the-pattern-accepts-git-s-own-options-and-nothing-else
     chose: >

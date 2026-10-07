@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0201: Sandbox Liveness + Orphan Reaper
-phase: p0201
+spec: p0201
 decisions:
   - category: Architecture
     chose: SandboxLivenessSupervisor + ISandboxLivenessSupervisor seam, not direct watcher start from PipelineSandboxCoordinator

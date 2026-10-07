@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../decision.schema.json
 # p0052: Single Executable Release
-phase: p0052
+spec: p0052
 decisions:
   - category: Tooling
     chose: PublishSingleFile + SelfContained without trimming

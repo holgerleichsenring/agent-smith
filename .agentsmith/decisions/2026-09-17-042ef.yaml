@@ -1,4 +1,4 @@
-phase: 2026-09-17-042ef
+spec: 2026-09-17-042ef
 decisions:
   - id: the-dialog-joins-the-rules-it-never-copies
     chose: >
