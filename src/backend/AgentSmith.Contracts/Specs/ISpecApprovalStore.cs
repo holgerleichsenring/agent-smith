@@ -2,9 +2,9 @@ namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
 /// 2026-09-17-0e79a: the server's record of what a person approved, keyed by the TRACKER
-/// CONNECTION and the spec key. One ticket matching two projects of ONE tracker is spawned twice
+/// CONNECTION and the ticket key. One ticket matching two projects of ONE tracker is spawned twice
 /// and is the same work, so one record serves both; two tracker instances numbering a ticket
-/// alike are different work, and the spec key alone cannot tell them apart. The per-project
+/// alike are different work, and the ticket key alone cannot tell them apart. The per-project
 /// pointer stays where it is.
 /// <para>
 /// It is the FALLBACK route, not the primary one. A funnel run executes in the server and can
@@ -24,7 +24,7 @@ public interface ISpecApprovalStore
     /// oldest approval first, at most <paramref name="limit"/> of them — what lets a DISCOVERY
     /// query name the tickets an approval still expects work on.
     /// <para>
-    /// It enumerates by the stored TICKET ID and not by the spec key, because the key lowercases
+    /// It enumerates by the stored TICKET ID and not by the ticket key, because the key lowercases
     /// the id and replaces every non-alphanumeric character: <c>DPG-1239</c> becomes
     /// <c>jira-dpg-1239</c>, and no query can ask a tracker for that. Recovering the id with a
     /// per-provider parser is what this repository refused to write for the ticket's label stamp,
@@ -46,4 +46,10 @@ public interface ISpecApprovalStore
     /// </summary>
     Task MarkSatisfiedAsync(
         string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-06-03c7f: the operator retried the ticket — it is outstanding again, so discovery
+    /// names it on the next poll. Silent on a record that does not exist or was never satisfied.
+    /// </summary>
+    Task ReopenAsync(string tracker, string key, CancellationToken cancellationToken);
 }

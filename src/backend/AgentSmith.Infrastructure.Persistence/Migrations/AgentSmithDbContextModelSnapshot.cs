@@ -61,7 +61,7 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ActiveRuns");
                 });
 
-            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ApprovedSpecSet", b =>
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ApprovedSeries", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -80,22 +80,36 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CarryingRepo")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("RecordJson")
+                    b.Property<string>("Repositories")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("SatisfiedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SpecKey")
+                    b.Property<string>("SeriesId")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
@@ -112,10 +126,10 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Tracker", "SatisfiedAt");
 
-                    b.HasIndex("Tracker", "SpecKey")
+                    b.HasIndex("Tracker", "TicketKey")
                         .IsUnique();
 
-                    b.ToTable("ApprovedSpecSets");
+                    b.ToTable("ApprovedSeries", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ChatRunBinding", b =>

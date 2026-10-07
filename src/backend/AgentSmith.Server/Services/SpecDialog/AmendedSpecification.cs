@@ -16,9 +16,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <param name="Set">The phases to record under the ticket's key, in run order, re-id'd to the
 /// ticket's series (2026-10-06-03c7c).</param>
 /// <param name="Region">The whole framework region, markers included.</param>
-/// <param name="Error">Why this proposal cannot amend anything; the other two are then empty.</param>
+/// <param name="Error">Why this proposal cannot amend anything; the others are then empty.</param>
+/// <param name="Goal">2026-10-06-03c7f: the series' goal the re-record keeps — an epic's parent
+/// goal, a lone spec's own.</param>
 internal sealed record AmendedSpecification(
-    FiledSeries Set, string Region, string? Error)
+    FiledSeries Set, string Region, string? Error, string Goal = "")
 {
     /// <param name="vocabulary">The bound ticket's tracker's label names, so the note names the
     /// stamp that board actually carries — the one a filing on it wrote.</param>
@@ -43,7 +45,7 @@ internal sealed record AmendedSpecification(
 
     private static AmendedSpecification FromPhase(
         FiledSeries set, string conversation, AmendmentRendering rendering, string? note) =>
-        new(set, rendering.Renderer.RenderPhase(set.Drafts[0], conversation, note).Body, null);
+        new(set, rendering.Renderer.RenderPhase(set.Drafts[0], conversation, note).Body, null, set.Drafts[0].Goal);
 
     private static AmendedSpecification FromEpic(
         EpicOutcome epic, string series, string conversation, AmendmentRendering rendering, string? note)
@@ -58,7 +60,8 @@ internal sealed record AmendedSpecification(
             set,
             rendering.Renderer.RenderEpicParent(
                 epic.Parent, set.Drafts, epic.Templates, conversation, note, series).Body,
-            null);
+            null,
+            epic.Parent.Goal);
     }
 
     private static AmendedSpecification Refused(string error) =>

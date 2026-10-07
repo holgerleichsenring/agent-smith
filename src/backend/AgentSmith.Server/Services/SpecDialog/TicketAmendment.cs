@@ -88,7 +88,7 @@ public sealed class TicketAmendment(
             return $"Ticket {ticketId} was NOT rewritten, and nothing else was changed either — "
                 + $"the approved set under it is the one it had. {rewrite.Reason}";
 
-        var record = await approvals.RecordAsync(state, project, ticketId, amended.Set, ct);
+        var record = await approvals.RecordAsync(state, project, ticketId, amended.Set, amended.Goal, ct);
         // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as
         // the TRACKER stored it, and a stale one reads as a ticket edit on the next run — which
         // posts a notice telling the operator their edit was ignored, after every amendment, for

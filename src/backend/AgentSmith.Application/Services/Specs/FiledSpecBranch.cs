@@ -92,8 +92,8 @@ public sealed class FiledSpecBranch(
     private IReadOnlyList<RepoFile> Rendered(SpecSet set) =>
         [.. files.Render(set).Select(f => new RepoFile(f.Path, f.Content))];
 
-    // The approval instant travels in the index exactly as the record carries it, so the
-    // precedence compares equal instants and the branch — which wins a tie — stands.
+    // 2026-10-06-03c7f: the manifest's goal and approval are the stored row's, carried on its set
+    // unchanged — the approval instant exactly as the record holds it.
     // 2026-10-06-03c7e: the positions the record step already moved to done/ are executed, so an
     // amendment renders only the specs after them into planned/.
     private static SpecSet Published(SpecApprovalRecord record, Ticket ticket, int executedThrough) =>

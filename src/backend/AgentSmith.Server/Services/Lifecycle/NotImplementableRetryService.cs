@@ -19,9 +19,14 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// <para>
 /// 2026-09-21-1fa0: it MOVES before it CLEARS, and reports the tracker's own answer.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7f: it also clears the approval's SatisfiedAt, so a retried ticket is admitted
+/// and discovered again.
+/// </para>
 /// </summary>
 public sealed class NotImplementableRetryService(
     ISpecSetPointerStore pointers,
+    ISpecApprovalStore approvals,
     IUnmovedTicketStore unmovedTickets,
     ITicketProviderFactory ticketFactory,
     ILogger<NotImplementableRetryService> logger)
@@ -56,6 +61,8 @@ public sealed class NotImplementableRetryService(
         // 2026-09-18-c1a7: the ordinary poller claims the moved ticket — indistinguishable at
         // the gate from any other claim, so the record the gate reads has to go with it.
         await ClearHandbackAsync(project, ticketId, cancellationToken);
+        // 2026-10-06-03c7f: a retried ticket is new work, so discovery names it again.
+        await approvals.ReopenAsync(project.Tracker.Name, KeyOf(project, ticketId), cancellationToken);
         await unmovedTickets.ClearAsync(project.Name, ticketId, cancellationToken);
         logger.LogInformation(
             "Retry: {Project}/#{Ticket} moved back to '{Status}' and its hand-back state cleared",
@@ -66,9 +73,7 @@ public sealed class NotImplementableRetryService(
     private async Task ClearHandbackAsync(
         ResolvedProject project, string ticketId, CancellationToken ct)
     {
-        var platform = project.Tracker.Type.ToString().ToLowerInvariant();
-        var key = TicketKey.For(platform, ticketId);
-        var pointer = await pointers.GetAsync(project.Name, key.Value, ct);
+        var pointer = await pointers.GetAsync(project.Name, KeyOf(project, ticketId), ct);
         if (pointer is null) return;
         await pointers.SaveAsync(project.Name, pointer with
         {
@@ -76,4 +81,7 @@ public sealed class NotImplementableRetryService(
             RepeatedHandbackCount = 0,
         }, ct);
     }
+
+    private static string KeyOf(ResolvedProject project, string ticketId) =>
+        TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
 }

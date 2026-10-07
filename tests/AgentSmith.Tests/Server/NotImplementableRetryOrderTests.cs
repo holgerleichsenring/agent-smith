@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Moq;
 
@@ -28,6 +29,7 @@ public sealed class NotImplementableRetryOrderTests
 
     private readonly RecordingUnmovedStore _holds = new();
     private readonly InMemorySpecSetPointerStore _pointers = new();
+    private readonly InMemorySpecApprovalStore _approvals = new();
     private readonly CapturingLogger<NotImplementableRetryService> _logger = new();
 
     [Fact]
@@ -102,6 +104,21 @@ public sealed class NotImplementableRetryOrderTests
             .Which.Should().Contain("no move to").And.Contain("keeps its hold");
     }
 
+    /// <summary>2026-10-06-03c7f: a retried ticket is new work — discovery names it again.</summary>
+    [Fact]
+    public async Task Retry_NotImplementable_ClearsSatisfied()
+    {
+        var key = TicketKey.For("github", Ticket).Value;
+        await _approvals.SaveAsync(ApprovedSets.Record(
+            key, ApprovedSets.Noon, tracker: "tracker-a", ticketId: Ticket), CancellationToken.None);
+        await _approvals.MarkSatisfiedAsync("tracker-a", key, ApprovedSets.Noon, CancellationToken.None);
+
+        await Service(Provider(moved: true)).RetryAsync(Config(Target), Ticket, CancellationToken.None);
+
+        (await _approvals.ListOutstandingAsync("tracker-a", 10, CancellationToken.None))
+            .TicketIds.Should().Equal(Ticket);
+    }
+
     private static Mock<ITicketProvider> Provider(bool moved)
     {
         var provider = new Mock<ITicketProvider>();
@@ -115,7 +132,7 @@ public sealed class NotImplementableRetryOrderTests
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
-        return new NotImplementableRetryService(_pointers, _holds, factory.Object, _logger);
+        return new NotImplementableRetryService(_pointers, _approvals, _holds, factory.Object, _logger);
     }
 
     private Task SeedHandbackAsync() => _pointers.SaveAsync(

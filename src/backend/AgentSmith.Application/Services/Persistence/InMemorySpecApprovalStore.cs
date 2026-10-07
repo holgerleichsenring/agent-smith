@@ -57,5 +57,11 @@ public sealed class InMemorySpecApprovalStore : ISpecApprovalStore
         return Task.CompletedTask;
     }
 
+    public Task ReopenAsync(string tracker, string key, CancellationToken cancellationToken)
+    {
+        _satisfied.TryRemove(Id(tracker, key), out _);
+        return Task.CompletedTask;
+    }
+
     private static string Id(string? tracker, string? key) => $"{tracker} {key}";
 }

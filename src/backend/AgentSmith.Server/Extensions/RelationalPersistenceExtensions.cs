@@ -121,7 +121,7 @@ internal static class RelationalPersistenceExtensions
         // leader) turns answered/expired checkpoints into capacity-queue resume entries.
         // p0393a: the work-spec pointer (repo, sha, hand-back counters) tells a re-trigger's own
         // revision from a reviewer's edit; 2026-09-17-0e79a: beside it, what a person APPROVED.
-        services.AddScoped<TicketSeriesRepository>().AddScoped<ApprovedSpecSetRepository>();
+        services.AddScoped<TicketSeriesRepository>().AddScoped<ApprovedSeriesRepository>();
         services.RemoveAll<ISpecSetPointerStore>().RemoveAll<ISpecApprovalStore>();
         services.AddSingleton<ISpecSetPointerStore, DbSpecSetPointerStore>();
         services.AddSingleton<ISpecApprovalStore, DbSpecApprovalStore>();

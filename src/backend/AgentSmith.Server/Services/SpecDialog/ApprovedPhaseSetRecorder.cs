@@ -9,13 +9,15 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-0e79a: stores what a person APPROVED under the spec key of the ticket the
+/// 2026-09-17-0e79a: stores what a person APPROVED under the ticket key of the ticket the
 /// approval filed, so the run that works that ticket executes the approved set instead of
 /// deriving its own.
 /// <para>
-/// The key is the spec key alone — the tracker type of the filing project plus the created
-/// ticket id, exactly what <c>TicketKeyFactory</c> computes for the run. One ticket matching
-/// two projects of one tracker is spawned twice and is the same work, so one record serves both.
+/// The key is the ticket key — the tracker type of the filing project plus the created ticket
+/// id, the same <see cref="TicketKey.For"/> the run computes — beside the tracker connection.
+/// One ticket matching two projects of one tracker is spawned twice and is the same work, so one
+/// record serves both. 2026-10-06-03c7f: the record keeps the series' GOAL — an epic's parent
+/// goal, a lone spec's own — which the manifest then carries.
 /// </para>
 /// <para>
 /// The set is stored with NO revisions: numbering and cause are the RUN's bookkeeping. Since
@@ -36,8 +38,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// a second approval cannot land under a key no run resolves. The record is the editable
 /// artifact; the dialog has no clone of the branch and never reads one.
 /// <para>
-/// 2026-10-06-03c7c: <see cref="TicketAmendment"/> calls <see cref="LoadAsync"/> before it renders,
-/// so an amended ticket keeps its series base and its executed head keeps its ids by position.
+/// <see cref="LoadAsync"/> has two callers: <see cref="TicketAmendment"/>, before it renders, so an
+/// amended ticket keeps its series base (2026-10-06-03c7c), and <see cref="ApprovedSetDivergence"/>,
+/// which compares the ticket's text with the approved goals before a turn runs.
 /// </para>
 /// <para>
 /// WHICH PHASES ALREADY RAN LIVES ON THE BRANCH, so the constraint is written down instead: a
@@ -55,9 +58,10 @@ public sealed class ApprovedPhaseSetRecorder(
     TimeProvider time, ILogger<ApprovedPhaseSetRecorder> logger)
 {
     /// <summary>The record that was stored — what filing then writes to the ticket branch.</summary>
+    /// <param name="goal">The series' goal: an epic's parent goal, a lone spec's own.</param>
     public async Task<SpecApprovalRecord> RecordAsync(
         ConversationState state, ResolvedProject project, string ticketId,
-        FiledSeries series, CancellationToken cancellationToken)
+        FiledSeries series, string goal, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(project);
@@ -66,13 +70,8 @@ public sealed class ApprovedPhaseSetRecorder(
         var approval = new SpecApproval(time.GetUtcNow(), state.JobId, state.UserId);
         var previous = await store.GetAsync(project.Tracker.Name, key.Value, cancellationToken);
         var set = new SpecSet(
-            key.Value,
-            [.. series.Drafts.Select(d => new SpecPhase(d, LabelOf(d, previous), string.Empty, []))],
-            SpecAccounting.Empty,
-            [],
-            SpecSource.Approved,
-            Approval: approval,
-            Series: series.Id);
+            key.Value, [.. series.Drafts.Select(d => new SpecPhase(d, LabelOf(d, previous), string.Empty, []))],
+            SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
         var repositories = Repositories(state, project);
         // 2026-09-25-c1f7: the ticket id is stored as it was GIVEN, because discovery has to name
         // it in a tracker query and the spec key above has already lowered and re-spelled it.

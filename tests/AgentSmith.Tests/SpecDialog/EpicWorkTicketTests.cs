@@ -548,5 +548,8 @@ public sealed class EpicWorkTicketTests
         public Task MarkSatisfiedAsync(
             string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

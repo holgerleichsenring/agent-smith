@@ -200,7 +200,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
         var retry = new NotImplementableRetryService(
-            new InMemorySpecSetPointerStore(), _store, factory.Object,
+            new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), _store, factory.Object,
             NullLogger<NotImplementableRetryService>.Instance);
 
         var moved = await retry.RetryAsync(Config().Projects[Project], Ticket, CancellationToken.None);

@@ -825,6 +825,8 @@ public sealed class FiledWorkStartTests
 
         public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
             Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken ct) => Task.CompletedTask;
     }
 
     /// <summary>Records how many labels were on the ticket at the moment the resolution ran, over
@@ -855,5 +857,7 @@ public sealed class FiledWorkStartTests
 
         public Task MarkSatisfiedAsync(string tracker, string key, DateTimeOffset at, CancellationToken ct) =>
             Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken ct) => Task.CompletedTask;
     }
 }

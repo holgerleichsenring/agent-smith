@@ -119,6 +119,32 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-10-06-03c7f: an amended epic re-records its parent's goal as the series' goal, so the
+    /// row and the manifest written from it keep saying what the whole series is for.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_Epic_KeepsGoal()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        var sources = new RecordingBranchSources();
+        var epic = new EpicOutcome(
+            new PhaseDraft("p9001", "the widget is reliable", "spec: p9001", []),
+            [Child("p9001a", "the widget stops dropping"), Child("p9001b", "the widget reports drops")]);
+
+        await Amendment(tracker, sources, store).ApplyAsync(State(), epic, default);
+
+        var record = (await store.GetAsync(Tracker, Key, default))!;
+        record.Set.Goal.Should().Be("the widget is reliable", "the parent's goal is the series' goal");
+        record.Set.Phases.Should().HaveCount(2);
+        new SeriesManifest().Parse(sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!
+            .Goal.Should().Be("the widget is reliable");
+    }
+
+    private static PhaseDraft Child(string id, string goal) =>
+        new(id, goal, $"spec: {id}\ngoal: {goal}", []) { Done = ["It is done."] };
+
+    /// <summary>
     /// 2026-10-06-03c7d: an amendment that changes a filed spec's goal keeps its label, so the
     /// checkout-free write, which cannot delete, never leaves a second file for one id.
     /// </summary>

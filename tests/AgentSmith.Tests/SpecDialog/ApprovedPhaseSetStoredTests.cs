@@ -22,7 +22,7 @@ public sealed class ApprovedPhaseSetStoredTests
         var store = ApprovedSetDoubles.Store();
 
         await ApprovedSetDoubles.Recorder(store).RecordAsync(
-            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "19106").Value, default);
         record.Should().NotBeNull("the run computes exactly this key from the tracker type and the ticket id");
@@ -46,7 +46,7 @@ public sealed class ApprovedPhaseSetStoredTests
         var store = ApprovedSetDoubles.Store();
 
         await ApprovedSetDoubles.Recorder(store).RecordAsync(
-            State(), Project(), "DPG-1239", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+            State(), Project(), "DPG-1239", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         var key = TicketKey.For("azuredevops", "DPG-1239");
         key.Value.Should().Be("azuredevops-dpg-1239", "the key cannot give the id back");
@@ -64,7 +64,7 @@ public sealed class ApprovedPhaseSetStoredTests
         var store = ApprovedSetDoubles.Store();
 
         await ApprovedSetDoubles.Recorder(store).RecordAsync(
-            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         (await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "19106").Value, default))!
             .Set.Revisions.Should().BeEmpty();
@@ -76,7 +76,7 @@ public sealed class ApprovedPhaseSetStoredTests
         var store = ApprovedSetDoubles.Store();
 
         await ApprovedSetDoubles.Recorder(store).RecordAsync(
-            State() with { Scope = null }, Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+            State() with { Scope = null }, Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         (await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "19106").Value, default))!
             .Repositories.Should().Equal("sample-api", "sample-web");

@@ -28,7 +28,7 @@ public sealed class ApprovedSetAmendmentTests
     {
         var store = ApprovedSetDoubles.Store();
         var recorder = Recorder(store);
-        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
 
         var record = await recorder.LoadAsync(Project(), "19106", default);
 
@@ -50,11 +50,11 @@ public sealed class ApprovedSetAmendmentTests
         var store = ApprovedSetDoubles.Store();
         var clock = new SteppingClock(ApprovedSets.Noon);
         var recorder = Recorder(store, clock);
-        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), default);
+        await recorder.RecordAsync(State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a")), "goal", default);
         var first = (await recorder.LoadAsync(Project(), "19106", default))!.Approval!;
 
         await recorder.RecordAsync(
-            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a"), Draft("p19106b")), default);
+            State(), Project(), "19106", ApprovedSetDoubles.Series(Draft("p19106a"), Draft("p19106b")), "goal", default);
 
         var again = (await recorder.LoadAsync(Project(), "19106", default))!;
         again.Approval!.IsNewerThan(first).Should().BeTrue(

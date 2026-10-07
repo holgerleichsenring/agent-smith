@@ -17,8 +17,8 @@ namespace AgentSmith.Contracts.Specs;
 /// a missing fact is not evidence of an edit.</param>
 /// <param name="Approval">2026-09-17-0e79a: the approval this set was ratified by in the design
 /// conversation, or null for a set nobody approved. On a set read back from the branch it is the
-/// approval the published revision came from, which is what the precedence compares a fresh
-/// record against.</param>
+/// approval the published revision came from; the branch's set wins over any stored record
+/// whatever the two instants say (2026-09-22-6ad7).</param>
 /// <param name="Series">2026-10-06-03c7c: the series' code-minted base id
 /// (<c>{yyyy-MM-dd}-{xxxx}</c>); its phases are the base plus a letter. Null only on a set not yet
 /// stamped — a set read off a branch without one is treated as absent.</param>
@@ -109,9 +109,10 @@ public enum SpecSource
 
     /// <summary>
     /// 2026-09-17-0e79a: approved by a person in the design conversation and carried to the run
-    /// that works the ticket it filed. It outranks the DESCRIPTION because a ticket the framework
-    /// files no longer carries a fence, and yields to the BRANCH ARTIFACT unless its approval is
-    /// newer than the one the branch was published from.
+    /// that works the ticket it filed. 2026-10-06-03c7f: it is used ONLY while the ticket branch
+    /// holds nothing at the series' path — the run then publishes it there. A branch that answered
+    /// is the set whatever the approval instants say, and an approved set is re-cut only on a
+    /// person's demand.
     /// </summary>
     Approved = 3,
 }

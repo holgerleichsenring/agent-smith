@@ -73,6 +73,29 @@ public sealed class FiledSpecBranchTests
     }
 
     /// <summary>
+    /// 2026-10-06-03c7f: an epic's parent goal is the series' goal — stored with the approval and
+    /// written into the manifest beside the approval the row holds.
+    /// </summary>
+    [Fact]
+    public async Task Filing_Epic_ManifestCarriesGoalAndApproval()
+    {
+        var sources = new RecordingBranchSources();
+        var store = ApprovedSetDoubles.Store();
+        var parent = new PhaseDraft("p9000", "Move the billing stack", "spec: p9000", []);
+
+        await FileAsync(sources: sources, store: store,
+            phases: [Draft("p9000a"), Draft("p9000b")], parent: parent);
+
+        var record = (await store.GetAsync("sample-tracker", Key, default))!;
+        record.Set.Goal.Should().Be("Move the billing stack", "the row keeps the epic's goal");
+        var manifest = new SeriesManifest().Parse(
+            sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!;
+        manifest.Goal.Should().Be("Move the billing stack");
+        new SeriesManifest().ApprovalOf(manifest).Should().Be(record.Approval,
+            "the manifest's approval is the row's");
+    }
+
+    /// <summary>
     /// The first run's publish is only a no-op if it finds the directory it would have written
     /// itself. A filing that wrote a SUBSET would leave that run staging the rest and committing a
     /// second revision over a set nobody changed — so both writers render through one place, and
@@ -451,7 +474,7 @@ public sealed class FiledSpecBranchTests
         ISpecSetPointerStore? pointers = null, JournallingProvider? provider = null,
         FiledWorkStarter? starter = null, bool mayStartRuns = false,
         IReadOnlyList<PhaseDraft>? phases = null, IReadOnlyList<string>? scoped = null,
-        AgentSmithConfig? config = null)
+        AgentSmithConfig? config = null, PhaseDraft? parent = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
@@ -465,7 +488,7 @@ public sealed class FiledSpecBranchTests
         var set = phases ?? [Draft("p9000a")];
         OutcomeProposal proposal = set.Count == 1
             ? new PhaseOutcome(set[0])
-            : new EpicOutcome(Draft("p9000"), set);
+            : new EpicOutcome(parent ?? Draft("p9000"), set);
         return filer.FileAsync(State(scoped), proposal, mayStartRuns, CancellationToken.None);
     }
 
@@ -610,6 +633,9 @@ public sealed class FiledSpecBranchTests
 
         public Task MarkSatisfiedAsync(
             string tracker, string key, DateTimeOffset at, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+
+        public Task ReopenAsync(string tracker, string key, CancellationToken cancellationToken) =>
             Task.CompletedTask;
     }
 }

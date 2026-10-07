@@ -31,7 +31,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     // p0393a: pointer at the spec set that lives in git on the ticket branch.
     public DbSet<TicketSeries> TicketSeries => Set<TicketSeries>();
     // 2026-09-17-0e79a: the set a person approved in the design conversation, before any branch.
-    public DbSet<ApprovedSpecSet> ApprovedSpecSets => Set<ApprovedSpecSet>();
+    public DbSet<ApprovedSeries> ApprovedSeries => Set<ApprovedSeries>();
     // p0327: durable dialogue — parked runs + the answer inbox.
     public DbSet<RunCheckpoint> RunCheckpoints => Set<RunCheckpoint>();
     public DbSet<DialogueAnswerEntry> DialogueAnswers => Set<DialogueAnswerEntry>();
@@ -59,7 +59,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         new DialogFileConfigurations(Database.ProviderName).Apply(modelBuilder); // 3af8 + 283da
         modelBuilder.ApplyConfiguration(new SpecDialogTicketTextConfiguration()); // 8e51c
         new TicketRecordConfigurations().Apply(modelBuilder); // 2026-09-25-b4d9
-        modelBuilder.ApplyConfiguration(new ApprovedSpecSetConfiguration()); // 2026-09-17-0e79a
+        modelBuilder.ApplyConfiguration(new ApprovedSeriesConfiguration()); // 2026-09-17-0e79a, 2026-10-06-03c7f
         modelBuilder.ApplyConfiguration(new RunCheckpointConfiguration());
         modelBuilder.ApplyConfiguration(new DialogueAnswerEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunExpectationConfiguration()); // p0328
