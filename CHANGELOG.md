@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.156.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.155.0...v0.156.0) (2026-10-07)
+
+
+### Features
+
+* a run's spec progress is RunSpecs, served at /api/runs/{id}/specs and shown as Specs (2026-10-06-03c7g) ([93d9dd6](https://github.com/holgerleichsenring/agent-smith/commit/93d9dd64e58f626b43109a379e468f7e932c6029))
+* a series has a code-minted id, minted before a filed ticket renders, and the ticket key is its own type (2026-10-06-03c7c) ([0b569e0](https://github.com/holgerleichsenring/agent-smith/commit/0b569e024c95ccc150094fa8e0be498a1d4ef74f))
+* a series lies in specs/planned/ with one manifest at series/{base}.yaml (2026-10-06-03c7d) ([1f35c47](https://github.com/holgerleichsenring/agent-smith/commit/1f35c47c42dabf286e1a84b2c07e98b868c45496))
+* an approval is stored as the series it approved, keyed by ticket key and series id, the epic goal kept (2026-10-06-03c7f) ([4560afe](https://github.com/holgerleichsenring/agent-smith/commit/4560afe27f43765379eea3af1979a08d57616af0))
+* an executed spec moves to specs/done/ with its outcome — one file, one stem (2026-10-06-03c7e) ([de5c97b](https://github.com/holgerleichsenring/agent-smith/commit/de5c97b6b033e871f97ffec110cb93f9effce42a))
+* every tool result bounded in the tool loop, head and tail, plain string (2026-10-07-6b9da) ([68d5c76](https://github.com/holgerleichsenring/agent-smith/commit/68d5c76d4ac29763a40db5fe30044fd3bcf87cf1))
+* finaliser re-cuts the forwarded copy to fit the window; refusal names the largest tool result (2026-10-07-6b9dc) ([3887f0e](https://github.com/holgerleichsenring/agent-smith/commit/3887f0e9678e182119edcaccb6f71a0c48031088))
+* run_command stdout and stderr each bounded, head and tail, true totals (2026-10-07-6b9db) ([95f9b00](https://github.com/holgerleichsenring/agent-smith/commit/95f9b00b6f1df239356679abc90efcd11ee19364))
+* the noun is spec — one construct for specs, series and their lifecycle (2026-10-06-03c7) ([dbc5f3d](https://github.com/holgerleichsenring/agent-smith/commit/dbc5f3d39a889948ff028e7b19da30bd79cfef76))
+* the plugin says spec — create-spec, specs/, spec/{id}, spec:, a migration script (2026-10-06-03c7a) ([a316d77](https://github.com/holgerleichsenring/agent-smith/commit/a316d77b53e5d3a2990871a955ae3b2ad91962fc))
+* the product reads and writes spec:, records into specs/done/, and this repository moves to .agentsmith/specs/ (2026-10-06-03c7b) ([9b72d32](https://github.com/holgerleichsenring/agent-smith/commit/9b72d32e4f308469be6a8d7880526ef7c15390e7))
+* the tracker drawer is five tabs and names a missing field on itself (2026-10-06-cea8) ([a51eb1d](https://github.com/holgerleichsenring/agent-smith/commit/a51eb1d4ed91b200592b7738c115ede48db112cd))
+* the tracker drawer is five tabs and names a missing field on itself (2026-10-06-cea8) ([6fe435f](https://github.com/holgerleichsenring/agent-smith/commit/6fe435ff1ef372cb8fc18f123d523eb6c24f2c41))
+
 ## [0.155.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.154.0...v0.155.0) (2026-10-04)
 
 
