@@ -14,6 +14,16 @@ public sealed class ToolResultBoundTests
     private const int Budget = 2_000;
 
     [Fact]
+    public void StatedTotal_MarkedOrUnmarkedText_ReturnsTotalOrNull()
+    {
+        var bound = (string)ToolResultBound.Apply(new string('a', 50_000), Budget)!;
+
+        ToolResultBound.StatedTotal(bound).Should().Be(50_000);
+        ToolResultBound.StatedTotal("head\n… [truncated: 900 of 1000 characters omitted]").Should().Be(1_000);
+        ToolResultBound.StatedTotal("plain text").Should().BeNull();
+    }
+
+    [Fact]
     public void Apply_UnderBudget_ReturnsSameText()
     {
         var text = new string('a', 500);

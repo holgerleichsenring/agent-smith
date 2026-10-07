@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-07-6b9dc
+
+decisions:
+  - category: Implementation
+    chose: "Cut the largest result by the whole excess (estimate minus target, in characters), floored at 4,000, then re-estimate and repeat"
+    over: "Levelling the top results down together, or cutting every result by an even share"
+    reason: |
+      One oversized result is the observed shape, and the excess is known from the estimate, so one
+      cut usually fits; small precise reads keep their text. Each Recut output stays within its
+      budget, so every pass shrinks a result or retires it at the floor and the loop terminates.
+  - category: Implementation
+    chose: "Changed results become NEW FunctionResultContent and ChatMessage objects (CallId, Exception, AdditionalProperties, roles, order and the other contents kept); RawRepresentation is cleared on both"
+    over: "Mutating the stored result in place, or copying RawRepresentation along"
+    reason: |
+      The caller's list and its messages are the stored history later iterations and the trace read.
+      A provider that finds its own raw message sends that instead of Contents, which would forward
+      the uncut text; a tool-result message from the function-invoking client carries none anyway.
+  - category: Implementation
+    chose: "Results that are not text (object results) are counted but never cut"
+    over: "Serializing them to text so they can be re-cut"
+    reason: |
+      Same rule as 6b9da: structured data a consumer may read as such is not turned into text. Such a
+      result stays in the tool share of the estimate, so an unfittable request is still reported.
+  - category: Implementation
+    chose: "ToolResultBound.StatedTotal(text) in Contracts, reusing the two marker regexes Recut matches"
+    over: "A second copy of the marker regex in the refusal client"
+    reason: |
+      The refusal names the original total of a re-cut result; one owner of the marker shape keeps
+      the parse and the cut from disagreeing. ToolResultBound stays under the 120-line limit (118).
+  - category: Implementation
+    chose: "Dominance threshold 0.5: the largest tool result dominates when its ~tokens are at least half of the estimate"
+    over: "A fixed character size, or a share relative to the window"
+    reason: |
+      At half or more of the request, one result IS the overrun and folding cannot reach it —
+      compaction keeps the latest iterations verbatim. Below that the conversation as a whole grew
+      and the compaction trigger is the right lever. The observed 2026-10-06 shape (~260k of ~276k
+      tokens from one step) is far above the threshold.
+  - category: Implementation
+    chose: "The refusal always names the largest tool result when there is one; only the advice depends on dominance, and the no-window text keeps its context_window_tokens advice"
+    over: "Naming it only when it dominates"
+    reason: |
+      The named result is a fact about the refused request in every case; the advice is the part a
+      threshold decides. A request with no tool result keeps the old text exactly, which the
+      existing test (max_context_tokens) pins.
+  - category: Implementation
+    chose: "The unfittable case throws InvalidOperationException in the finaliser with role, window, estimate and non-tool share (estimate minus tool-result tokens)"
+    over: "Forwarding anyway and letting ContextLengthRefusalChatClient explain the refusal"
+    reason: |
+      The refusal client sits below the finaliser and never sees this exception, so the message
+      carries role and window itself; sending a request estimated over the bound costs a round-trip
+      to be refused with a text that names nothing.
+  - category: Architecture
+    chose: "ForwardedViewFit as an internal static class of pure functions next to CompactingChatClient; LargestToolResult as a record with a static In(messages) factory"
+    over: "An injected service"
+    reason: |
+      Both are pure functions over a message list with no collaborator, as EstimateTokens and
+      ToolResultBound are; the chat clients they serve are built by hand in ChatClientFactory, not
+      resolved from DI. NoStaticStateRuleTests draws the line at state and dependencies, which neither has.
+  - category: TradeOff
+    chose: "The 3eb1/7df4 finalise tests (ScoutContextWindowTests, ScanContextWindowTests) now overrun with three 8,000-character tool results and also assert the forwarded estimate is under 0.85 of the window"
+    over: "Keeping their 24 rounds of plain assistant text, or exempting text-only overruns from the local failure"
+    reason: |
+      Their old fixture estimated ~4,874 tokens against a 4,000-token window with no tool result in
+      it — a request the provider refuses for certain, which the old finaliser forwarded anyway. Under
+      this phase's contract nothing in it can be cut, so it fails locally (pinned by
+      Finaliser_AllResultsAtFloor_ThrowsNamingNonToolShare). A real sweep's overrun is tool output, which
+      is what the finalise path now shrinks; the tests keep their intent through the real factory chain.
+  - category: TradeOff
+    chose: "Fail locally only when the fitted request still estimates at or above the WINDOW; between the 0.85 bound and the window it is forwarded as before."
+    over: "Fail locally whenever the fitted request misses the 0.85 bound."
+    reason: |
+      Before this phase such a request was forwarded and was often answered — the 0.85 bound is
+      headroom for schemas and the reply, not the provider's limit. Failing it locally would turn
+      runs that finish today into failures. Only a request the provider is certain to refuse
+      (estimate at or above the window, and the estimate is a lower bound) is not sent.

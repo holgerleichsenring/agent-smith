@@ -66,6 +66,18 @@ public static partial class ToolResultBound
         return (string)Apply(text, budget)!;
     }
 
+    /// <summary>
+    /// 2026-10-07-6b9dc: the true total a bound marker in <paramref name="text"/> states — this
+    /// bound's own or BoundedResultTool's head-only one; null when the text carries neither.
+    /// </summary>
+    public static long? StatedTotal(string text)
+    {
+        var own = OwnMarker().Match(text);
+        if (own.Success) return Count(own);
+        var headOnly = HeadOnlyMarker().Match(text);
+        return headOnly.Success ? Count(headOnly) : null;
+    }
+
     /// <summary>The text of a string or JSON-string tool result; null for any other result.</summary>
     public static string? TextOf(object? result) => result switch
     {
