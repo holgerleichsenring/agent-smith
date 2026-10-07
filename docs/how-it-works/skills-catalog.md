@@ -17,7 +17,7 @@ What's inside:
 - `patterns/`, the static security patterns the security scan runs, and `references/`, shared text the masters pull in.
 - Tests for the loader contract and prompt rendering.
 
-Release tags follow semver (`v5.10.0`, …). Every tag is a self-contained catalog you can pin.
+Release tags follow semver (`v5.11.0`, …). Every tag is a self-contained catalog you can pin.
 
 ## Why a separate repo
 
@@ -34,7 +34,7 @@ You usually don't. With no `skills:` block the embedded catalog is used. To over
 
 ```yaml
 skills:
-  version: v5.10.0             # pull this release tag instead of the embedded catalog
+  version: v5.11.0             # pull this release tag instead of the embedded catalog
   cache_dir: /var/lib/agentsmith/skills
 ```
 
@@ -55,8 +55,8 @@ Resolution: an explicit `path` wins, then `url`, then `version`; only when none 
 
 At orchestrator startup (when a `version` override is set; the embedded default works the same way with the built-in tarball instead of a fetch):
 
-1. Look at `skills.version` (e.g. `v5.10.0`).
-2. Check if `${cache_dir}/v5.10.0/` exists.
+1. Look at `skills.version` (e.g. `v5.11.0`).
+2. Check if `${cache_dir}/v5.11.0/` exists.
 3. If not, fetch it (clone the tag, extract the tarball, copy from the path).
 4. Load every `SKILL.md` under its `skills/` directory and validate it; a skill the loader refuses is named, not silently skipped.
 
@@ -70,7 +70,7 @@ Normally: upgrade Agent Smith — every release carries its own catalog. To run 
 
 ```yaml
 skills:
-  version: v5.10.0     # override the embedded catalog
+  version: v5.11.0     # override the embedded catalog
 ```
 
 On a server, change it under **Configuration → Skills** and save. No restart: every replica notices the configuration change within seconds, pulls the new tag right away and logs whether the refresh worked, and the next run uses it. The CLI reads the file on each invocation anyway.
@@ -82,7 +82,7 @@ If the new tag includes a breaking change to the concept vocabulary (renaming a 
 For air-gapped hosts and image builds there's a CLI verb that does the fetch/extract step ahead of time:
 
 ```bash
-agent-smith skills pull --version v5.10.0 --output /var/lib/agentsmith/skills
+agent-smith skills pull --version v5.11.0 --output /var/lib/agentsmith/skills
 agent-smith skills pull --url https://artifacts.internal.example/agent-smith-skills.tar.gz --sha256 <digest>
 ```
 

@@ -36,7 +36,8 @@ belongs in the language delta that is composed below this core, never here.
   one its own unit with its own contract.
 - Keep units small. A growing unit is accumulating responsibilities; split it
   by responsibility before it becomes load-bearing. Concrete size limits are
-  set by the language delta and are enforced, not aspirational.
+  set by the language delta where the stack documents one, and are
+  enforced, not aspirational.
 
 ## SOLID
 
@@ -108,7 +109,8 @@ belongs in the language delta that is composed below this core, never here.
 The language delta composed with this core MUST define the mechanisms for:
 
 1. Naming style (casing, prefixes/suffixes, test naming).
-2. Code layout (where units live, what shares a source unit, size limits).
+2. Code layout (where units live, what shares a source unit, size limits
+   where the stack documents one).
 3. Abstraction and composition idiom (how contracts are declared and how
    collaborators are supplied).
 4. Error mechanics (how failures are signaled, propagated, and logged).
@@ -138,8 +140,12 @@ states what applies instead.
 ### Layout and size
 
 - A module (file) is one cohesive responsibility; a small type and the
-  functions that operate on it may share a file. Keep modules under roughly
-  200 lines and functions under roughly 30 — extract when exceeded.
+  functions that operate on it may share a file. Max 300 lines per module
+  and 50 lines per function, physical lines — extract when exceeded. The Limits section states both as
+  data.
+  Source: ESLint's stated defaults for `max-lines` (300) and
+  `max-lines-per-function` (50), https://eslint.org/docs/latest/rules/,
+  read 2026-10-06.
 - Public surface is exported deliberately; everything else stays
   module-private. No barrel files that re-export the world.
 
@@ -185,6 +191,13 @@ states what applies instead.
 - **Class-first composition with constructor-injected services** → module
   and function composition is equally idiomatic: passing collaborators as
   typed function parameters satisfies dependency inversion without classes.
+
+## Limits
+
+```yaml
+function_lines: 50
+file_lines: 300
+```
 
 ---
 
