@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Loop;
 using FluentAssertions;
+using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Tests.Loop;
 
@@ -12,32 +13,54 @@ namespace AgentSmith.Tests.Loop;
 public sealed class BoundedResultAIFunctionTests
 {
     [Fact]
-    public void AResultWithinBudget_IsUntouched()
+    public async Task AResultWithinBudget_IsUntouched()
     {
         var text = new string('x', 500);
 
-        BoundedResultAIFunction.Bound(text, budgetChars: 1000).Should().Be(text);
+        var result = await Bounded(text, budgetChars: 1000).InvokeAsync(new AIFunctionArguments());
+
+        result.Should().Be(text);
     }
 
     [Fact]
-    public void AnOversizedResult_KeepsTheHeadAndTheTail_AndSaysWhatItDropped()
+    public async Task AnOversizedResult_KeepsTheHeadAndTheTail_AndSaysWhatItDropped()
     {
         var text = "START" + new string('x', 10_000) + "END";
 
-        var bound = BoundedResultAIFunction.Bound(text, budgetChars: 1000);
+        var bound = (string)(await Bounded(text, budgetChars: 1000).InvokeAsync(new AIFunctionArguments()))!;
 
         bound.Should().StartWith("START", "a listing says what it is at the start");
         bound.Should().EndWith("END", "a build log says how it went at the end");
-        bound.Should().Contain("characters dropped from the middle");
-        bound.Length.Should().BeLessThan(text.Length);
+        bound.Should().Contain("characters cut from the middle").And.Contain("10,008");
+        bound.Length.Should().BeLessThanOrEqualTo(1000);
     }
 
     [Fact]
-    public void TheNoteTellsTheModelHowToAskForTheRest()
+    public async Task TheNoteTellsTheModelHowToAskForTheRest()
     {
-        var bound = BoundedResultAIFunction.Bound(new string('y', 5_000), budgetChars: 100);
+        var bound = (string)(await Bounded(new string('y', 5_000), budgetChars: 1000)
+            .InvokeAsync(new AIFunctionArguments()))!;
 
-        bound.Should().Contain("narrow the path",
+        bound.Should().Contain("start_line/line_count").And.Contain("narrower path or pattern",
             "a truncation the model cannot act on is just a mystery");
     }
+
+    [Fact]
+    public async Task BoundedResultAIFunction_FactoryToolReturning200k_IsBounded()
+    {
+        var reporter = new ResultBoundReporter();
+        var tool = new BoundedResultAIFunction(
+            AIFunctionFactory.Create(() => new string('z', 200_000), "read_file"), reporter);
+
+        using var scope = reporter.Begin();
+        var result = await tool.InvokeAsync(new AIFunctionArguments());
+
+        result.Should().BeOfType<string>("a factory tool's JSON-string result is bounded, not passed through");
+        ((string)result!).Length.Should().BeLessThanOrEqualTo(100_000);
+        ((string)result!).Should().Contain("200,000");
+        scope.OriginalChars.Should().Be(200_000);
+    }
+
+    private static BoundedResultAIFunction Bounded(string text, int budgetChars) =>
+        new(AIFunctionFactory.Create(() => text, "tool"), budgetChars: budgetChars);
 }

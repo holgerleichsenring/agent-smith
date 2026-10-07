@@ -59,16 +59,20 @@ public sealed class RunCommandOutputTests
         text.Should().Contain("from an older agent");
     }
 
+    // 2026-10-07-6b9db: a body this long sits past the agent's 1,000,000-character capture cap,
+    // and with no stream that counted more, nothing holds its tail — the text keeps the head
+    // within the stdout budget and says the tail was not captured rather than showing one.
     [Fact]
-    public async Task RunAsync_BodyExceedsTheBuffer_IsCutAndSaysTruncated()
+    public async Task RunAsync_BodyPastTheCaptureCap_KeepsItsHeadAndSaysTheTailWasNotCaptured()
     {
         var sut = new SandboxStepRunner(new FakeSandbox(body: new string('x', 2_000_000)));
 
         var text = await sut.RunAsync("cat huge.log", null, CancellationToken.None);
 
         text.Should().Contain("truncated: true");
-        text.Should().Contain("(output truncated at 1 MB)");
-        text.Length.Should().BeLessThan(1_100_000, "the 1 MB ceiling survived the source change");
+        text.Should().Contain("stdout_chars: at least 2000000 (the tail was not captured)");
+        text.Should().Contain("of 2,000,000 characters cut from the end");
+        text.Length.Should().BeLessThan(SizeLimits.RunCommandStdoutMaxChars + 1_000);
     }
 
     [Fact]

@@ -17,4 +17,16 @@ public static class SizeLimits
     // of a 128k window in a single reply.
     public const int ExploringToolResultMaxChars = 40_000;
     public const int RunCommandMaxBufferBytes = 1_048_576;
+
+    // 2026-10-07-6b9db: what run_command hands the model, per section. stdout is the content,
+    // stderr an excerpt (its first error and its summary); together they stay under the tool
+    // loop's 100,000 bound, so the loop never cuts across both sections at once. The error
+    // line is bounded too: the agent's OutputTail keeps a last line whole, however long.
+    public const int RunCommandStdoutMaxChars = 60_000;
+    public const int RunCommandStderrMaxChars = 20_000;
+    public const int RunCommandErrorLineMaxChars = 8_000;
+
+    // The sandbox agent stores at most this many stdout characters in a run step's result
+    // body, with no flag (StepExecutor.MaxCapturedOutputChars). A body this long may be cut.
+    public const int RunStepCapturedStdoutMaxChars = 1_000_000;
 }

@@ -22,6 +22,7 @@ public sealed class ScoutContextWindowTests
 {
     private const int Window = 4000;      // tokens; the estimator counts 4 chars per token
     private const int MessageChars = 800;
+    private const int ResultChars = 8000;
 
     [Fact]
     public async Task Scout_ALongSweep_FoldsBeforeTheProviderRefuses()
@@ -91,12 +92,14 @@ public sealed class ScoutContextWindowTests
         var chat = new RecordingChat();
         var client = ScoutClient(chat, Agent(Window, compaction: false));
 
-        await client.GetResponseAsync(Sweep(24), ToolOptions(), CancellationToken.None);
+        await client.GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
         var options = chat.Options[^1]!;
         options.ToolMode.Should().Be(ChatToolMode.None, "the exploration ends here");
         options.Tools.Should().NotBeNullOrEmpty("a tool-bearing history needs the tools declared");
         chat.Forwarded[^1][^1].Text.Should().Contain("reply now with your final answer");
+        CompactingChatClient.EstimateTokens(chat.Forwarded[^1]).Should().BeLessThan((int)(Window * 0.85),
+            "the forwarded copy is re-cut to the finaliser's bound");
     }
 
     // The caller's ChatOptions is shared by FunctionInvokingChatClient across every
@@ -108,7 +111,7 @@ public sealed class ScoutContextWindowTests
         var client = ScoutClient(chat, Agent(Window, compaction: false));
         var options = ToolOptions();
 
-        await client.GetResponseAsync(Sweep(24), options, CancellationToken.None);
+        await client.GetResponseAsync(ToolSweep(3), options, CancellationToken.None);
 
         options.ToolMode.Should().BeNull();
     }
@@ -119,7 +122,7 @@ public sealed class ScoutContextWindowTests
         var chat = new RecordingChat { Reply = """{"primary_language": "csharp"}""" };
         var client = ScoutClient(chat, Agent(Window, compaction: false));
 
-        var response = await client.GetResponseAsync(Sweep(24), ToolOptions(), CancellationToken.None);
+        var response = await client.GetResponseAsync(ToolSweep(3), ToolOptions(), CancellationToken.None);
 
         chat.Options[^1]!.ToolMode.Should().Be(ChatToolMode.None, "the turn was finalised");
         new ProjectMapJsonReader()
@@ -152,6 +155,21 @@ public sealed class ScoutContextWindowTests
     {
         Tools = [AIFunctionFactory.Create(() => "ok", "probe")],
     };
+
+    // 2026-10-07-6b9dc: past the hard bound the finaliser re-cuts tool results until the forwarded
+    // copy fits, and fails locally when nothing it can cut is left — so the overrun it finalises
+    // is tool output, as a real sweep's is: three 8,000-character results against a 4,000-token window.
+    private static List<ChatMessage> ToolSweep(int toolRounds)
+    {
+        var list = new List<ChatMessage> { new(ChatRole.System, "SYSTEM"), new(ChatRole.User, "USER") };
+        for (var i = 0; i < toolRounds; i++)
+        {
+            list.Add(new ChatMessage(ChatRole.Assistant, [new FunctionCallContent($"c{i}", "probe")]));
+            list.Add(new ChatMessage(ChatRole.Tool,
+                [new FunctionResultContent($"c{i}", new string((char)('a' + i), ResultChars))]));
+        }
+        return list;
+    }
 
     private static List<ChatMessage> Sweep(int toolRounds)
     {

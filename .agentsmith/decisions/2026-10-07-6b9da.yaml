@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-07-6b9da
+
+decisions:
+  - category: Architecture
+    chose: "Bound in ToolImageFunctionInvokingChatClient.InvokeFunctionAsync, after base invocation and before the result enters the history"
+    over: "Wrapping each tool per surface, or a delegating chat client that rewrites FunctionResultContent on every request"
+    reason: |
+      Every tool-bearing client the factory builds ends in this one function-invoking client, so
+      one override reaches master, scout, planning, design dialog and bootstrap loops; a per-surface
+      wrap is what missed the design dialog. Rewriting per request would re-cut the same history on
+      every iteration instead of once.
+  - category: Implementation
+    chose: "JSON-string detection by JsonElement ValueKind String (TextOf); every other result passes through unchanged"
+    over: "Serializing any non-string result to text and bounding that"
+    reason: |
+      AIFunctionFactory marshals a string return into a JsonElement string, which a provider then
+      JSON-escapes again; unwrapping exactly that case recovers the text the tool produced. An object
+      result is structured data a consumer may read as such, and turning it into text is a change of
+      contract this phase does not need.
+  - category: Implementation
+    chose: "Marker wording: '[… D of T characters cut from the middle|end of this result — only its head (above) and tail (below) are / head (above) is shown. What is not shown may still exist: this is not a complete listing. To read more, page with read_file start_line/line_count, or ask again with a narrower path or pattern.]', numbers in invariant N0"
+    over: "The p0422 wording ('characters dropped from the middle … narrow the path, the pattern or the line range')"
+    reason: |
+      The model must be told the true total, that absence cannot be read from the cut (485e) and the
+      exact paging parameters. A fixed shape with invariant digits is also what lets Recut find the
+      marker and keep its total; the 'end' variant keeps a recut of a head-only text truthful, since
+      its tail was never captured.
+  - category: Implementation
+    chose: "Size the marker for dropped == total before cutting, so the whole output fits the budget"
+    over: "Cutting to the budget and appending the marker after it"
+    reason: |
+      The dropped count is never wider than the total, so the real marker can only be shorter; the
+      output stays within budget without iterating. Within budget is what makes a second pass a no-op
+      (skill loop and tool loop both bound at 100,000), so the first cut's total and hint survive.
+  - category: Implementation
+    chose: "knownTotal raises the stated total only when the text is cut; text within budget comes back unchanged"
+    over: "Marking any text whose knownTotal exceeds its length"
+    reason: |
+      Within-budget-is-unchanged is the idempotence rule; a caller that already holds a partial
+      section under budget states its total in its own header (2026-10-07-6b9db adds per-section totals).
+  - category: Implementation
+    chose: "Log the cut at Information in the loop client with tool name, total and kept, via an ILoggerFactory constructor parameter"
+    over: "Passing the logger factory to the FunctionInvokingChatClient base, or logging in ToolResultBound"
+    reason: |
+      ToolResultBound is a pure function in Contracts; the loop knows the tool name. Handing the
+      factory to the base would also switch on the base class's own invocation logging, a behaviour
+      change outside this phase. The constructor call fits the existing line, so ChatClientFactory
+      does not grow against its length ratchet.
+  - category: Implementation
+    chose: "BoundedResultAIFunctionTests go through InvokeAsync with an AIFunctionFactory tool instead of the deleted static Bound"
+    over: "Keeping a static Bound on BoundedResultAIFunction for the tests"
+    reason: |
+      The decorator's job now is to unwrap, report and delegate; exercising it through a factory tool
+      proves the JSON-string case p0422 missed, and the cut's own rules are pinned in ToolResultBoundTests.

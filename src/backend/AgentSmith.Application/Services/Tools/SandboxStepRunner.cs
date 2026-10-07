@@ -84,7 +84,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
     {
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: program, Args: args, TimeoutSeconds: runCommandTimeout.For(timeoutSeconds));
-        return await ExecuteAsync(step, ct);
+        return await ExecuteAsync(step, RunCommandOutput.Render, ct);
     }
 
     /// <summary>A command the MODEL authored, which needs the shell it is written for.</summary>
@@ -93,10 +93,13 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         var timeout = runCommandTimeout.For(timeoutSeconds);
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "/bin/sh", Args: ["-c", command], TimeoutSeconds: timeout);
-        return (await ExecuteAsync(step, ct)).Rendered;
+        return (await ExecuteAsync(step, BoundedRunCommandOutput.Render, ct)).Rendered;
     }
 
-    private async Task<ProgramRun> ExecuteAsync(Step step, CancellationToken ct)
+    // 2026-10-07-6b9db: the render is the caller's — a program's output keeps its head-only
+    // text, a model-authored command's sections are bounded head and tail.
+    private async Task<ProgramRun> ExecuteAsync(
+        Step step, Func<StepResult, long, StreamedStepOutput, string> render, CancellationToken ct)
     {
         // p0491: the streamed lines are the live drawer's feed and the FALLBACK stdout;
         // the model reads the result body instead (see RunCommandOutput). stderr has no
@@ -105,7 +108,6 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         var startedAt = DateTimeOffset.UtcNow;
         var result = await sandbox.RunStepAsync(step, streamed.Collector, ct);
         var elapsedMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
-        return new ProgramRun(result.ExitCode, RunCommandOutput.Render(
-            result, elapsedMs, streamed.Stdout, streamed.Stderr, streamed.Truncated));
+        return new ProgramRun(result.ExitCode, render(result, elapsedMs, streamed));
     }
 }

@@ -1,3 +1,5 @@
+using System.Globalization;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Agent;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
@@ -65,6 +67,38 @@ public sealed class ContextLengthRefusalChatClientTests
     public void Explain_NamesTheEstimateItMeasured() =>
         ContextLengthRefusalChatClient.Explain("Primary", "m", 200000, 210000)
             .Should().Contain("210000").And.Contain("200000");
+
+    [Fact]
+    public async Task Explain_DominantToolResult_NamesToolAndSize()
+    {
+        var bounded = (string)ToolResultBound.Apply(new string('x', 1_040_000), 900_000)!;
+        var client = new ContextLengthRefusalChatClient(
+            new ThrowingChat(ProviderError), "DesignDialog", "m", 200000);
+        List<ChatMessage> messages =
+        [
+            new(ChatRole.User, "the ticket"),
+            new(ChatRole.Assistant, [new FunctionCallContent("c1", "run_command")]),
+            new(ChatRole.Tool, [new FunctionResultContent("c1", bounded)]),
+        ];
+
+        var act = () => client.GetResponseAsync(messages, options: null, CancellationToken.None);
+
+        var message = (await act.Should().ThrowAsync<InvalidOperationException>()).Which.Message;
+        message.Should().Contain("'run_command'").And.Contain($"{bounded.Length.ToString("N0", CultureInfo.InvariantCulture)} characters")
+            .And.Contain("cut from 1,040,000 characters").And.Contain("narrow the call")
+            .And.NotContain("max_context_tokens");
+    }
+
+    [Fact]
+    public void Explain_NoToolResults_StillAdvisesMaxContextTokens() =>
+        ContextLengthRefusalChatClient.Explain("Primary", "m", 200000, 210000, largest: null)
+            .Should().Contain("max_context_tokens").And.NotContain("tool result");
+
+    [Fact]
+    public void Explain_NoDominantToolResult_NamesItAndAdvisesMaxContextTokens() =>
+        ContextLengthRefusalChatClient.Explain(
+                "Primary", "m", 200000, 210000, new LargestToolResult("read_file", 40_000, null))
+            .Should().Contain("'read_file'").And.Contain("40,000 characters").And.Contain("max_context_tokens");
 
     private sealed class ThrowingChat(string message) : IChatClient
     {
