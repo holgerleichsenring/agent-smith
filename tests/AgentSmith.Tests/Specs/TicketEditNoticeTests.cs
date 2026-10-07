@@ -60,9 +60,9 @@ public sealed class TicketEditNoticeTests
     }
 
     [Fact]
-    public void SpecSetIndex_RoundTripsTheTicketFingerprint()
+    public void SeriesManifest_RoundTripsTheTicketFingerprint()
     {
-        var index = new SpecSetIndex();
+        var index = new SeriesManifest();
         var stamped = Set(SpecRevisionCause.Initial) with { TicketFingerprint = "abc123" };
         var unstamped = Set(SpecRevisionCause.Initial);
 

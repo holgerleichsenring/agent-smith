@@ -22,9 +22,11 @@ public sealed class SpecSetPointerRecorder(
     ISpecSetPointerStore pointers,
     ILogger<SpecSetPointerRecorder> logger)
 {
+    /// <param name="executedThrough">2026-10-06-03c7e: set by the record step only; every other
+    /// commit keeps the count the row holds.</param>
     public async Task RecordAsync(
         string project, RepoConnection carryingRepo, SpecSet set, string sha,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, int? executedThrough = null)
     {
         ArgumentNullException.ThrowIfNull(carryingRepo);
         ArgumentNullException.ThrowIfNull(set);
@@ -33,7 +35,8 @@ public sealed class SpecSetPointerRecorder(
             set.Key, carryingRepo.Name ?? string.Empty, sha, set.Current.Number,
             existing?.LastHandbackCase ?? SpecHandbackCase.None,
             existing?.RepeatedHandbackCount ?? 0,
-            set.Series ?? existing?.SeriesId), cancellationToken);
+            set.Series ?? existing?.SeriesId,
+            executedThrough ?? existing?.ExecutedThrough ?? 0), cancellationToken);
         logger.LogDebug(
             "Spec set {Key} pointer names {Sha} (revision {Revision})", set.Key, sha, set.Current.Number);
     }

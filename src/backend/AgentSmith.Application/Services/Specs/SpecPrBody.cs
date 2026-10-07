@@ -18,10 +18,9 @@ public static class SpecPrBody
     public static string BuildInitial(SpecSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
-        var key = new SpecSetKey(set.Key);
         var sb = new StringBuilder();
         sb.AppendLine("> 🚧 **Work in progress** — opened at the spec commit so the derivation can be");
-        sb.AppendLine($"> reviewed while the run is still working. The specs live in `{key.Directory}/`;");
+        sb.AppendLine($"> reviewed while the run is still working. The specs live in `{SeriesPaths.Planned}/`;");
         sb.AppendLine("> a correcting comment on the ticket amends an unexecuted phase or re-cuts the");
         sb.AppendLine("> unexecuted tail — an executed phase is never edited.");
         sb.AppendLine();

@@ -14,12 +14,13 @@ public enum SpecSetBranchState
     /// <summary>The branch carries a set and it read back.</summary>
     Answered = 0,
 
-    /// <summary>There is no index at the spec path: nobody has written the set to the branch.</summary>
+    /// <summary>No series manifest names the ticket: nobody has written the set to the branch.</summary>
     NothingAtThePath = 1,
 
     /// <summary>
-    /// The set could not be read: <c>set.yaml</c> does not parse, a listed phase file does not
-    /// read back as a spec, or the repository carrying it is not checked out in this run.
+    /// The set could not be read: the ticket's manifest does not parse or is not the only one, a
+    /// listed spec has no file, two files or one that does not read back as a spec, or the
+    /// repository carrying it is not checked out in this run.
     /// </summary>
     Unreadable = 2,
 }

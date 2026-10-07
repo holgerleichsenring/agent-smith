@@ -202,7 +202,7 @@ public sealed class EpicWorkTicketTests
         var gate = new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance);
 
         var handback = gate.MissingSet(
-            Fetched(provider.Created[0].Labels), new SpecSetKey("recording-1"), null,
+            Fetched(provider.Created[0].Labels), new TicketKey("recording-1"), null,
             SpecSetBranchState.NothingAtThePath, TicketLabelVocabulary.Default);
 
         handback!.Case.Should().Be(SpecHandbackCase.SpecificationMissingFromBranch);
@@ -240,7 +240,7 @@ public sealed class EpicWorkTicketTests
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
 
         provider.Created[0].Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
-            .And.Contain(SpecSetKey.Root, "the run publishes the set to the ticket branch under it")
+            .And.Contain(SeriesPaths.Planned, "the run publishes the set to the ticket branch under it")
             .And.Contain("job-1", "the pointer records the conversation the set was approved in");
     }
 

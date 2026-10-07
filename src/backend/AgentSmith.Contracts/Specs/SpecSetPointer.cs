@@ -13,6 +13,11 @@ namespace AgentSmith.Contracts.Specs;
 /// series' base id. The branch is the source of that id; this copy is read only when the branch
 /// carries no set.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7e: <see cref="ExecutedThrough"/> is how many leading specs of the series the
+/// record step moved to done/ — what filing, which never reads the branch, needs so an amendment
+/// never writes an executed spec back into planned/.
+/// </para>
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -21,7 +26,8 @@ public sealed record SpecSetPointer(
     int RevisionNumber,
     SpecHandbackCase LastHandbackCase = SpecHandbackCase.None,
     int RepeatedHandbackCount = 0,
-    string? SeriesId = null);
+    string? SeriesId = null,
+    int ExecutedThrough = 0);
 
 /// <summary>
 /// p0393a: a set found on the ticket branch, with the sha of the last commit that

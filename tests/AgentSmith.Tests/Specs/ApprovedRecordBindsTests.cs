@@ -109,7 +109,7 @@ public sealed class ApprovedRecordBindsTests
         park.Should().BeNull();
     }
 
-    private static readonly SpecSetKey Key = new("jira-1");
+    private static readonly TicketKey Key = new("jira-1");
 
     private static Ticket TicketWith(params string[] labels) =>
         new(new TicketId("1"), "A ticket", "Body", null, "Open", "jira", labels);

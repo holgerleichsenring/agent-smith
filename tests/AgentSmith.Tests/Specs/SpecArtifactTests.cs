@@ -25,98 +25,92 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class SpecArtifactTests
 {
+    private const string Base = "2026-10-06-1a1a";
+    private const string A = Base + "a";
+    private const string B = Base + "b";
+
+    // 2026-10-06-03c7d: one manifest under series/, the specs and companions in specs/planned/,
+    // and nothing under a per-ticket directory.
     [Fact]
-    public async Task SpecArtifacts_AreWrittenToTheTicketBranchUnderSpecsProviderId()
+    public async Task SeriesWriter_DerivedRun_WritesManifestAndPlannedSpecs()
     {
         var files = new RecordingFileReader();
-        var pipeline = PipelineWithSandbox();
-        var set = TwoPhaseSet();
 
-        await Writer(files).WriteAsync(pipeline, new RepoConnection { Name = "primary" }, set, default);
+        await Writer(files).WriteAsync(PipelineWithSandbox(), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
 
-        files.Written.Keys.Should().Contain(
+        files.Written.Keys.Should().BeEquivalentTo(
         [
-            ".agentsmith/specs/azdo-19106/set.yaml",
-            ".agentsmith/specs/azdo-19106/p19106a-first.yaml",
-            ".agentsmith/specs/azdo-19106/p19106a-first.md",
-            ".agentsmith/specs/azdo-19106/p19106b-second.yaml",
-            ".agentsmith/specs/azdo-19106/p19106b-second.md",
-            ".agentsmith/specs/azdo-19106/accounting.md",
+            $".agentsmith/series/{Base}.yaml",
+            $".agentsmith/specs/planned/{A}-first.yaml",
+            $".agentsmith/specs/planned/{A}-first.md",
+            $".agentsmith/specs/planned/{B}-second.yaml",
+            $".agentsmith/specs/planned/{B}-second.md",
         ]);
-        files.Written[".agentsmith/specs/azdo-19106/p19106a-first.md"]
-            .Should().Contain("verbatim from segment one");
+        files.Written[$".agentsmith/specs/planned/{A}-first.md"].Should().Contain("verbatim from segment one");
+        files.Written.Keys.Should().NotContain(k => k.Contains("azdo-19106"), "nothing lies under a ticket directory");
     }
 
     [Fact]
-    public async Task SpecSetWriter_NewRevision_RemovesFilesAbsentFromCut()
-    {
-        var files = new RecordingFileReader();
-        files.Existing.AddRange(
-        [
-            ".agentsmith/specs/azdo-19106/set.yaml",
-            ".agentsmith/specs/azdo-19106/accounting.md",
-            ".agentsmith/specs/azdo-19106/p19106-whole-ticket.yaml",
-            ".agentsmith/specs/azdo-19106/p19106-whole-ticket.md",
-        ]);
-        var steps = new List<Step>();
-        var pipeline = PipelineWithSandbox(RecordingSandbox(steps));
-
-        await Writer(files).WriteAsync(pipeline, new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
-
-        var removed = GitRemoveArgs(steps);
-        removed.Should().Contain(".agentsmith/specs/azdo-19106/p19106-whole-ticket.yaml");
-        removed.Should().Contain(".agentsmith/specs/azdo-19106/p19106-whole-ticket.md");
-        removed.Should().NotContain(a => a.EndsWith("set.yaml") || a.EndsWith("accounting.md"));
-    }
-
-    [Fact]
-    public async Task SpecSetWriter_IndexAndAccounting_SurviveReplace()
+    public async Task SeriesWriter_DroppedSpecOfAnotherSeries_IsNeverRemoved()
     {
         var files = new RecordingFileReader();
         files.Existing.AddRange(
         [
-            ".agentsmith/specs/azdo-19106/set.yaml",
-            ".agentsmith/specs/azdo-19106/accounting.md",
-            ".agentsmith/specs/azdo-19106/p19106a-first.yaml",
-            ".agentsmith/specs/azdo-19106/p19106a-first.md",
+            $".agentsmith/specs/planned/{Base}c-dropped.yaml",
+            ".agentsmith/specs/planned/2026-10-06-9f9fa-other-series.yaml",
+            $".agentsmith/specs/planned/{A}.html",
         ]);
         var steps = new List<Step>();
-        var pipeline = PipelineWithSandbox(RecordingSandbox(steps));
 
-        await Writer(files).WriteAsync(pipeline, new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+        await Writer(files).WriteAsync(
+            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
 
-        // The directory held nothing but the (partial) current cut plus index and
-        // accounting — a revision that is a full replace still deletes NOTHING here.
-        GitRemoveArgs(steps).Should().BeEmpty();
+        GitRemoveArgs(steps).Should().Contain($".agentsmith/specs/planned/{Base}c-dropped.yaml")
+            .And.NotContain(a => a.Contains("other-series"), "another series' spec is not this cut's to remove")
+            .And.NotContain(a => a.EndsWith(".html"), "a kept spec's mock is a companion the renderer never writes");
     }
 
     [Fact]
-    public void SpecSetIndex_RoundTripsTheOrderTheAccountingAndTheExecutedHead()
+    public async Task SeriesWriter_ForceStagesOnlyWhatItWrote()
     {
-        var set = TwoPhaseSet() with { Executed = ["p19106a"] };
+        var files = new RecordingFileReader();
+        var steps = new List<Step>();
 
-        var index = new SpecSetIndex();
-        var doc = index.Parse(index.Serialize(set))!;
+        await Writer(files).WriteAsync(
+            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
 
-        doc.Phases.Should().Equal("p19106a-first", "p19106b-second");
-        doc.ExecutedPhases.Should().Equal("p19106a");
+        var add = steps.Single(s => s.Command == "git" && s.Args is ["add", "-f", ..]).Args!;
+        add.Should().Contain(files.Written.Keys).And.NotContain(".agentsmith/specs/planned");
+    }
+
+    [Fact]
+    public void SeriesManifest_RoundTripsTheOrderTheAccountingAndTheExecutedHead()
+    {
+        var set = TwoPhaseSet() with { Executed = [A] };
+
+        var manifest = new SeriesManifest();
+        var doc = manifest.Parse(manifest.Serialize(set))!;
+
+        doc.Ticket.Should().Be("azdo-19106");
+        doc.Specs.Should().Equal(A, B);
+        doc.ExecutedSpecs.Should().Equal(A);
         doc.Discarded.Should().ContainSingle().Which.Reason.Should().Be("a sign-off");
-        index.AccountingOf(doc).Carried.Should().HaveCount(2);
-        index.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);
+        manifest.AccountingOf(doc).Carried.Should().HaveCount(2);
+        manifest.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);
     }
 
     // 2026-09-07-c9d4: the readings and the taken index survive the branch, so the next run
     // names the reading it proceeds on from the question that was actually asked.
     [Fact]
-    public void SpecSetIndex_RoundTripsAQuestionHandbackWithItsReadings()
+    public void SeriesManifest_RoundTripsAQuestionHandbackWithItsReadings()
     {
         var question = new SpecHandback(
             SpecHandbackCase.Question, "reads two ways",
             Readings: ["only where an advisory forces it", "everywhere"], Taken: 1);
         var set = TwoPhaseSet() with { Phases = [], Handback = question };
 
-        var index = new SpecSetIndex();
-        var read = index.HandbackOf(index.Parse(index.Serialize(set))!)!;
+        var manifest = new SeriesManifest();
+        var read = manifest.HandbackOf(manifest.Parse(manifest.Serialize(set))!)!;
 
         read.Case.Should().Be(SpecHandbackCase.Question);
         read.Readings.Should().Equal("only where an advisory forces it", "everywhere");
@@ -124,45 +118,45 @@ public sealed class SpecArtifactTests
         read.TakenReading.Should().Be("everywhere");
     }
 
-    // 2026-09-08-1830: the contexts the cut left out survive the branch, so the ticket
-    // comment and the next run read the reason instead of re-asking.
     [Fact]
-    public void SpecSetIndex_RoundTripsTheDiscardedContexts()
+    public void SeriesManifest_RoundTrip_KeepsFingerprintPinnedAndDiscarded()
     {
         var accounting = TwoPhaseSet().Accounting with
         {
             DiscardedContexts = [new DiscardedContext("backend", "the audit flags nothing there")],
         };
-        var set = TwoPhaseSet() with { Accounting = accounting };
+        var set = TwoPhaseSet() with
+        {
+            Accounting = accounting, TicketPinnedWhole = true, TicketFingerprint = "fp-1", Goal = "Ship the widget",
+        };
 
-        var index = new SpecSetIndex();
-        var read = index.AccountingOf(index.Parse(index.Serialize(set))!);
+        var manifest = new SeriesManifest();
+        var doc = manifest.Parse(manifest.Serialize(set))!;
 
-        read.DiscardedContexts.Should().ContainSingle()
+        manifest.AccountingOf(doc).DiscardedContexts.Should().ContainSingle()
             .Which.Should().Be(new DiscardedContext("backend", "the audit flags nothing there"));
-        read.Discarded.Should().ContainSingle("the segment accounting is untouched");
+        manifest.AccountingOf(doc).Discarded.Should().ContainSingle("the segment accounting is untouched");
+        manifest.FingerprintOf(doc).Should().Be("fp-1");
+        doc.TicketPinnedWhole.Should().BeTrue();
+        doc.Goal.Should().Be("Ship the widget");
     }
 
     [Fact]
-    public void SpecSetKey_IsProviderAndTicketId_SoMergedSpecsCoexistInTheTrunk()
+    public void SeriesPaths_BelongTo_MatchesTheIdAndNeverALongerOne()
     {
-        var key = SpecSetKey.For(TicketKey.For("AzureDevOps", "AB#19106"));
-
-        key.Value.Should().Be("azuredevops-ab-19106");
-        key.Directory.Should().Be(".agentsmith/specs/azuredevops-ab-19106");
-        key.YamlPath("p1a-x").Should().EndWith("/p1a-x.yaml");
+        SeriesPaths.Manifest(Base).Should().Be($".agentsmith/series/{Base}.yaml");
+        SeriesPaths.BelongsTo($"{A}-first.yaml", A).Should().BeTrue();
+        SeriesPaths.BelongsTo($"{A}.html", A).Should().BeTrue();
+        SeriesPaths.BelongsTo($"{A}b-x.yaml", A).Should().BeFalse();
+        SeriesPaths.BelongsToSeries($"{B}-second.md", Base).Should().BeTrue();
+        SeriesPaths.BelongsToSeries($"{Base}-x.yaml", Base).Should().BeFalse("the base is not itself a spec");
     }
 
-    private static SpecSetWriter Writer(ISandboxFileReader files)
+    private static SeriesWriter Writer(ISandboxFileReader files)
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files);
-        return new SpecSetWriter(
-            factory.Object,
-            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver,
-                NullLogger<SandboxGitOperations>.Instance, factory.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetFiles(new SpecSetIndex()),
-            new SandboxTargets(), NullLogger<SpecSetWriter>.Instance);
+        return AgentSmith.Tests.TestSupport.SeriesDoubles.Writer(factory.Object);
     }
 
     // p0399: exit 0 on every step keeps the writer on the "unchanged" path after the
@@ -198,13 +192,14 @@ public sealed class SpecArtifactTests
 
     private static SpecSet TwoPhaseSet() => new(
         "azdo-19106",
-        [Phase("p19106a", "first"), Phase("p19106b", "second")],
+        [Phase(A, "first"), Phase(B, "second")],
         new SpecAccounting(
-            [new CarriedSegment(1, "p19106a"), new CarriedSegment(2, "p19106b")],
+            [new CarriedSegment(1, A), new CarriedSegment(2, B)],
             [new DiscardedSegment(3, "a sign-off")],
             []),
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-        SpecSource.Derived);
+        SpecSource.Derived,
+        Series: Base);
 
     private static SpecPhase Phase(string id, string slug) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []),

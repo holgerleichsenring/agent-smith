@@ -90,14 +90,14 @@ public sealed class SeriesIdentityTests
     }
 
     [Fact]
-    public void SpecSetIndex_Series_RoundTrips()
+    public void SeriesFiles_Series_NamesTheManifest()
     {
-        var index = new SpecSetIndex();
+        var files = new SeriesFiles(new SeriesManifest());
 
-        var doc = index.Parse(index.Serialize(Set("2026-10-06-0001")))!;
-
-        index.SeriesOf(doc).Should().Be("2026-10-06-0001");
-        index.SeriesOf(index.Parse(index.Serialize(Set(null)))!).Should().BeNull();
+        files.Render(Set("2026-10-06-0001"))[0].Path.Should().Be(".agentsmith/series/2026-10-06-0001.yaml",
+            "2026-10-06-03c7d: the base is the manifest's file name");
+        FluentActions.Invoking(() => files.Render(Set(null))).Should().Throw<InvalidOperationException>(
+            "a set without a series has no manifest to be written to");
     }
 
     private static SpecSet Parse(TicketKey key, string series, IReadOnlyList<TicketSegment> segments) =>

@@ -80,7 +80,8 @@ public sealed class SpecHandbackRepeatTests
 
     private static SpecSet Contradiction() => new(
         TicketKey.For("azdo", "1").Value, [], SpecAccounting.Empty, [], SpecSource.Derived,
-        new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such client here"));
+        new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such client here"),
+        Series: "2026-10-06-2c2c");
 
     private static Mock<ITicketProvider> ParkingProvider(List<TicketComment> thread)
     {
@@ -98,12 +99,7 @@ public sealed class SpecHandbackRepeatTests
     {
         var readers = new Mock<ISandboxFileReaderFactory>();
         readers.Setup(f => f.Create(sandbox)).Returns(files);
-        var writer = new SpecSetWriter(
-            readers.Object,
-            new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
-                readers.Object, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetFiles(new SpecSetIndex()), new SandboxTargets(),
-            NullLogger<SpecSetWriter>.Instance);
+        var writer = AgentSmith.Tests.TestSupport.SeriesDoubles.Writer(readers.Object);
         return new SpecSetPublisher(
             writer, new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
             Mock.Of<ISpecPullRequestOpener>(),

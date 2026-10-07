@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Specs;
 public static class MissingSpecReason
 {
     public static string For(
-        Ticket ticket, SpecSetKey key, SpecApprovalRecord? record, SpecSetBranchState state,
+        Ticket ticket, TicketKey key, SpecApprovalRecord? record, SpecSetBranchState state,
         TicketLabelVocabulary vocabulary)
     {
         ArgumentNullException.ThrowIfNull(ticket);
@@ -41,11 +41,12 @@ public static class MissingSpecReason
     private static string Stamp(Ticket ticket, TicketLabelVocabulary vocabulary) =>
         (ticket.Labels ?? []).FirstOrDefault(vocabulary.IsApprovedSetStamp) ?? vocabulary.ApprovedSetStamp;
 
-    private static string Branch(SpecSetKey key, SpecSetBranchState state) =>
+    // 2026-10-06-03c7d: a series is found by the manifest naming the ticket key.
+    private static string Branch(TicketKey key, SpecSetBranchState state) =>
         state == SpecSetBranchState.NothingAtThePath
-            ? $"There is nothing at `{key.Directory}/` on the ticket branch."
-            : $"The ticket branch carries something at `{key.Directory}/` that this run could not "
-              + "read back as a specification.";
+            ? $"No series manifest under `{SeriesPaths.SeriesRoot}/` on the ticket branch names `{key.Value}`."
+            : $"The ticket branch carries a series for `{key.Value}` under `{SeriesPaths.SeriesRoot}/` "
+              + $"and `{SeriesPaths.Planned}/` that this run could not read back as a specification.";
 
     private static string Approval(SpecApprovalRecord? record) =>
         record is null

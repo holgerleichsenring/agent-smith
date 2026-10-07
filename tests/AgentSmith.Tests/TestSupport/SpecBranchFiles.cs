@@ -1,9 +1,10 @@
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Tests.TestSupport;
 
 /// <summary>
-/// 2026-09-17-0e79a: an in-memory ticket branch — the files the spec-set reader would find in a
+/// 2026-09-17-0e79a: an in-memory ticket branch — the files the series reader would find in a
 /// sandbox. Empty by default, which is "no set on the branch".
 /// </summary>
 internal sealed class SpecBranchFiles : ISandboxFileReader
@@ -14,12 +15,12 @@ internal sealed class SpecBranchFiles : ISandboxFileReader
 
     internal void Seed(string path, string content) => _files[path] = content;
 
-    /// <summary>Seeds a set.yaml and one file per phase stem under this branch's spec directory.</summary>
-    internal void SeedSet(string setYaml, IReadOnlyDictionary<string, string> phaseYamlByStem)
+    /// <summary>2026-10-06-03c7d: seeds a manifest at series/{base}.yaml and one planned spec per stem.</summary>
+    internal void SeedSeries(string seriesBase, string manifestYaml, IReadOnlyDictionary<string, string> specYamlByStem)
     {
-        Seed($".agentsmith/specs/{Key}/set.yaml", setYaml);
-        foreach (var (stem, yaml) in phaseYamlByStem)
-            Seed($".agentsmith/specs/{Key}/{stem}.yaml", yaml);
+        Seed(SeriesPaths.Manifest(seriesBase), manifestYaml);
+        foreach (var (stem, yaml) in specYamlByStem)
+            Seed(SeriesPaths.Spec(SeriesPaths.Planned, stem), yaml);
     }
 
     public Task<bool> ExistsAsync(string path, CancellationToken ct) =>
@@ -33,7 +34,7 @@ internal sealed class SpecBranchFiles : ISandboxFileReader
 
     public Task<IReadOnlyList<string>> ListAsync(string path, int? maxDepth, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<string>>(
-            [.. _files.Keys.Where(k => k.StartsWith(path, StringComparison.Ordinal))]);
+            [.. _files.Keys.Where(k => k.StartsWith(path.TrimEnd('/') + "/", StringComparison.Ordinal))]);
 
     public Task WriteAsync(string path, string content, CancellationToken ct)
     {

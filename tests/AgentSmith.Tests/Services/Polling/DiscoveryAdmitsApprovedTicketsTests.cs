@@ -95,7 +95,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
     }
 
     /// <summary>
-    /// The stored id is the TRACKER'S OWN. <c>SpecSetKey.For</c> lowercases it and replaces every
+    /// The stored id is the TRACKER'S OWN. <c>TicketKey.For</c> lowercases it and replaces every
     /// non-alphanumeric character, so a query built from the key would ask Jira for
     /// <c>jira-dpg-1239</c> and match nothing — and recovering the id with a per-provider parser is
     /// what this repository refused to write for the ticket's label stamp.

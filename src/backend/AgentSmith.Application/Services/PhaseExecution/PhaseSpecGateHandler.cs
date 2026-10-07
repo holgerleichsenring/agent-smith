@@ -28,7 +28,7 @@ public sealed class PhaseSpecGateHandler(ILogger<PhaseSpecGateHandler> logger)
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return Task.FromResult(CommandResult.Fail(
                 $"No phase spec for ticket {context.Ticket.Id.Value}: DeriveSpec produced "
-                + "neither a branch artifact, an embedded spec nor a derived set."));
+                + "neither a branch artifact nor a derived set."));
 
         if (set.IsHandedBack)
             return Task.FromResult(CommandResult.Ok(

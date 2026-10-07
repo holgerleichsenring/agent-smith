@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-17-0e79a: DeriveSpec end to end over an approved record — the first run publishes the
-/// approved set to the ticket branch with a pointer and a draft pull request, and set.yaml records
+/// approved set to the ticket branch with a pointer and a draft pull request, and the manifest records
 /// the approval it was published from.
 /// <para>
 /// 2026-09-22-6ad7: that publish is now the HAND-OFF, and it fires only where the branch carries
@@ -53,7 +53,7 @@ public sealed class ApprovedSetDeriveSpecTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        var index = new SpecSetIndex();
+        var index = new SeriesManifest();
         var written = index.ApprovalOf(index.Parse(index.Serialize(harness.Writer.Written!))!);
         written!.At.Should().Be(ApprovedSets.Noon);
         written.Conversation.Should().Be("session-77",
@@ -140,7 +140,7 @@ public sealed class ApprovedSetDeriveSpecTests
     public async Task DeriveSpec_AFiledTicketWhoseApprovalExists_SaysItsSpecsNeverReachedTheBranch()
     {
         var harness = Harness();
-        harness.Branch.Seed($".agentsmith/specs/{Key}/set.yaml", "key: [this is not\n  a document");
+        harness.Branch.Seed(".agentsmith/series/2026-10-06-0a0a.yaml", $"ticket: {Key}\nspecs: [this is not\n  a document");
         await harness.Approvals.SaveAsync(
             ApprovedSets.Record(Key, ApprovedSets.Noon, conversation: "session-77"), default);
         var context = harness.Context(Filed());
@@ -174,8 +174,8 @@ public sealed class ApprovedSetDeriveSpecTests
         await harness.Handler().ExecuteAsync(context, default);
 
         context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Reason
-            .Should().Contain($"`{SpecSetKey.Root}/{Key}/`")
-            .And.Contain(SpecSetKey.Root, "the operator is told where to put them");
+            .Should().Contain($"`{SeriesPaths.SeriesRoot}/`").And.Contain($"`{Key}`")
+            .And.Contain(SeriesPaths.SeriesRoot, "the operator is told where to put them");
     }
 
     /// <summary>
@@ -198,20 +198,21 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     /// <summary>
-    /// A HAND-WRITTEN phase ticket carries the phase label and no filing stamp: the framework did
-    /// not file it, its spec legitimately lives in its description, and the p0315d path stands.
+    /// A HAND-WRITTEN phase ticket carries the phase label and no filing stamp. 2026-10-06-03c7d: a
+    /// fenced spec in its description is no source any more — the text is derived from like any.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_HandWrittenPhaseTicketWithNoRecord_StillUsesItsDescription()
+    public async Task ApprovedSet_HandWrittenPhaseTicketWithNoRecord_DerivesFromItsText()
     {
         var harness = Harness();
+        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(
             harness.Context(Ticket(EmbeddedSpec, labels: ["phase"])), default);
 
         result.IsSuccess.Should().BeTrue();
-        harness.Writer.Written!.Source.Should().Be(SpecSource.TicketDescription);
-        harness.Writer.Written.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
+        harness.Deriver.Calls.Should().Be(1, "no code path reads a ticket description as a spec");
+        harness.Writer.Written!.Source.Should().Be(SpecSource.Derived);
     }
 
     [Fact]
@@ -227,37 +228,6 @@ public sealed class ApprovedSetDeriveSpecTests
         result.IsSuccess.Should().BeTrue();
         harness.Deriver.Calls.Should().Be(1,
             "an epic child of the N-children shape deliberately carries no spec");
-    }
-
-    /// <summary>
-    /// 2026-09-17-0e79a review: a failed step names the phase, not the reason. The same sentence
-    /// is published on the run's gate trail, which is where a person reads why a run stopped.
-    /// </summary>
-    [Fact]
-    public async Task LoudMiss_IsPublishedOnTheRunsGateTrail()
-    {
-        var events = new RecordingEventPublisher();
-        var gate = new SpecCutGate(events, NullLogger<SpecCutGate>.Instance);
-        var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.RunId, "run-1");
-
-        var result = await gate.RefuseSpecAsync(pipeline, "19106", "the approval never arrived", default);
-
-        result.IsSuccess.Should().BeFalse();
-        events.Gates.Should().ContainSingle()
-            .Which.Should().Match<GateCheckedEvent>(
-                e => e.Gate == "spec-source" && !e.Passed && e.Reason.Contains("never arrived"));
-    }
-
-    private sealed class RecordingEventPublisher : IEventPublisher
-    {
-        internal List<GateCheckedEvent> Gates { get; } = [];
-
-        public Task PublishAsync(RunEvent runEvent, CancellationToken cancellationToken)
-        {
-            if (runEvent is GateCheckedEvent gate) Gates.Add(gate);
-            return Task.CompletedTask;
-        }
     }
 
     /// <summary>
@@ -292,15 +262,16 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     [Fact]
-    public async Task ApprovedSet_MalformedEmbeddedSpecAndNoRecord_StillFailsLoudly()
+    public async Task ApprovedSet_MalformedEmbeddedSpecAndNoRecord_IsDerivedFrom()
     {
         var harness = Harness();
+        harness.Deriver.Result = Derivation();
 
         var result = await harness.Handler().ExecuteAsync(
             harness.Context(Ticket("```yaml\nspec: nope\ngoal: 3\n```")), default);
 
-        result.IsSuccess.Should().BeFalse("shipping a spec and getting it wrong is not 'derive one'");
-        harness.Deriver.Calls.Should().Be(0);
+        result.IsSuccess.Should().BeTrue("2026-10-06-03c7d: a ticket's text is input, never a spec");
+        harness.Deriver.Calls.Should().Be(1);
     }
 
     /// <summary>
@@ -328,7 +299,7 @@ public sealed class ApprovedSetDeriveSpecTests
     {
         var harness = Harness();
         harness.PointerSha = "branch-sha";
-        harness.Branch.SeedSet(BranchSetYaml, new Dictionary<string, string>
+        harness.Branch.SeedSeries("2026-10-06-0a0a", BranchSetYaml, new Dictionary<string, string>
         {
             ["p19106a-onthebranch"] = "spec: p19106a\ngoal: \"As it stands on the branch\"\ndone:\n  - \"Done.\"",
         });
@@ -342,11 +313,9 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     private const string BranchSetYaml = """
-        key: azdo-19106
-        series: 2026-10-06-0a0a
-        source: Approved
-        phases:
-        - p19106a-onthebranch
+        ticket: azdo-19106
+        specs:
+        - p19106a
         revisions:
         - number: 1
           cause: approved in design conversation session-1

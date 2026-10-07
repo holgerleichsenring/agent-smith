@@ -25,7 +25,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// <para>
 /// A DEMAND IS A RE-APPROVAL. The set the run publishes is read back off the branch by the next
-/// run, and <see cref="SpecSetIndex.ApprovalOf"/> is what tells it the set was approved. A re-cut
+/// run, and <see cref="SeriesManifest.ApprovalOf"/> is what tells it the set was approved. A re-cut
 /// published without one would silently lose the immunity after exactly one demand, so the demand
 /// records a new approval — attributed to the person who wrote it, timestamped when they wrote
 /// it. That timestamp is also what CLEARS the demand: a comment no newer than the approval on the

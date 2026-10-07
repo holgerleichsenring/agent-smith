@@ -137,4 +137,21 @@ public sealed class SourceFileEnumeratorSandboxTests
         files.Should().Contain("/work/.agentsmith/contexts/default/context.yaml",
             "the rest of .agentsmith stays in scope — only the spec archive is excluded");
     }
+
+    // 2026-10-06-03c7d: the series manifests beside the specs are excluded alike.
+    [Fact]
+    public async Task SourceFileEnumerator_SeriesDir_Excluded()
+    {
+        var reader = new Mock<ISandboxFileReader>();
+        reader.Setup(r => r.TryReadAsync("/work/.gitignore", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        reader.Setup(r => r.ListAsync("/work", It.IsAny<int?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "/work/src/App.cs", "/work/.agentsmith/series/2026-10-06-1a1a.yaml" });
+
+        var files = new List<string>();
+        await foreach (var f in new SourceFileEnumerator().EnumerateAsync(reader.Object, "/work", CancellationToken.None))
+            files.Add(f);
+
+        files.Should().Equal("/work/src/App.cs");
+    }
 }

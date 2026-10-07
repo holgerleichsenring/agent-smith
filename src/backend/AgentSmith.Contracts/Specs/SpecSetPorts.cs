@@ -38,11 +38,14 @@ public interface ISpecSetDeriver
 /// 2026-09-22-6ad7: it answers WHY it found nothing, because the caller's two answers to that
 /// differ — an unwritten branch is handed the set once, a broken one is handed back.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7d: the set is found by the TICKET KEY its series manifest names.
+/// </para>
 /// </summary>
 public interface ISpecSetReader
 {
     Task<SpecSetOnBranch> ReadAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, SpecSetKey key,
+        PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
         CancellationToken cancellationToken);
 }
 

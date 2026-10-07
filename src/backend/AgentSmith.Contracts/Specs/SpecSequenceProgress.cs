@@ -12,8 +12,10 @@ namespace AgentSmith.Contracts.Specs;
 /// </summary>
 public sealed record SpecSequenceProgress(IReadOnlyList<PhaseProgress> Phases)
 {
+    /// <summary>2026-10-06-03c7e: a spec already in done/ is seeded Done — it ran in an earlier run.</summary>
     public static SpecSequenceProgress ForSet(SpecSet set) =>
-        new([.. set.Phases.Select(p => new PhaseProgress(p.PhaseId, p.Draft.Goal, PhaseRunState.NotStarted))]);
+        new([.. set.Phases.Select(p => new PhaseProgress(p.PhaseId, p.Draft.Goal,
+            set.Executed.Contains(p.PhaseId, StringComparer.Ordinal) ? PhaseRunState.Done : PhaseRunState.NotStarted))]);
 
     /// <summary>True while any phase is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Phases.Any(p => p.State != PhaseRunState.Done);

@@ -65,7 +65,7 @@ internal static class ApprovedSetDoubles
     /// handed — what filing does between storing the record and starting the ticket.</summary>
     internal static FiledSpecBranch Branch(
         RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null) =>
-        new(sources ?? new RecordingBranchSources(), new SpecSetFiles(new SpecSetIndex()),
+        new(sources ?? new RecordingBranchSources(), new SeriesFiles(new SeriesManifest()),
             new SpecSetPointerRecorder(
                 pointers ?? new InMemorySpecSetPointerStore(),
                 NullLogger<SpecSetPointerRecorder>.Instance),

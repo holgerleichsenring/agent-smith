@@ -1638,6 +1638,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<int>("ExecutedThrough")
+                        .HasColumnType("int");
+
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("int");
 

@@ -67,14 +67,11 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var onBranch = await reader.ReadAsync(context.Pipeline, repo, SpecSetKey.For(key), cancellationToken);
+        var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
         var previous = onBranch.Read;
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
             Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
         if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
-        if (decision.Error is not null)
-            return await gate.RefuseSpecAsync(
-                context.Pipeline, context.Ticket.Id.Value, decision.Error, cancellationToken);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
         var series = seriesOf.Resolve(decision.Set, approval, pointer); // 2026-10-06-03c7c

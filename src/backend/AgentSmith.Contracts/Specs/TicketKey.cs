@@ -3,8 +3,8 @@ namespace AgentSmith.Contracts.Specs;
 /// <summary>
 /// 2026-10-06-03c7c: the identity of one ticket across trackers — <c>&lt;provider&gt;-&lt;ticketId&gt;</c>,
 /// lowercased with every non-alphanumeric character collapsed. It keys the approval record, the
-/// series pointer and the design conversation; where a ticket's files lie is
-/// <see cref="SpecSetKey"/>'s question, which derives its path from this value.
+/// series pointer and the design conversation. 2026-10-06-03c7d: where a ticket's files lie is
+/// <see cref="SeriesPaths"/>' question — the manifest naming this key is found on the branch.
 /// </summary>
 public readonly record struct TicketKey(string Value)
 {

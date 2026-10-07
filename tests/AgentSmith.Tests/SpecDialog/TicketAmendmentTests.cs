@@ -42,7 +42,6 @@ public sealed class TicketAmendmentTests : IDisposable
     private const string Tracker = "sample-tracker";
     private const string Ticket4711 = "4711";
     private const string Key = "github-4711";
-    private const string Directory = $".agentsmith/specs/{Key}";
     private const string Prose = "A person wrote this, and it must survive.";
 
     private readonly SqliteConnection _connection;
@@ -120,6 +119,23 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     /// <summary>
+    /// 2026-10-06-03c7d: an amendment that changes a filed spec's goal keeps its label, so the
+    /// checkout-free write, which cannot delete, never leaves a second file for one id.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_ChangedGoal_KeepsTheFiledLabel()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem;
+
+        await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
+
+        (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem.Should().Be(first);
+    }
+
+    /// <summary>
     /// The branch set carries a fingerprint of the ticket AS THE TRACKER STORED IT. A stale one
     /// reads as a ticket EDIT on the next run, which posts a comment telling the operator their
     /// edit was ignored — after every amendment, for ever. So the read-back happens AFTER the
@@ -135,8 +151,9 @@ public sealed class TicketAmendmentTests : IDisposable
         await Amendment(tracker, sources).ApplyAsync(
             State(), Proposal("the widget stops dropping"), default);
 
-        var written = new SpecSetIndex().FingerprintOf(
-            new SpecSetIndex().Parse(sources.Writes[0].ContentOf($"{Directory}/set.yaml"))!);
+        var manifest = sources.Writes[0].Paths.Single(p => p.StartsWith(SeriesPaths.SeriesRoot + "/", StringComparison.Ordinal));
+        var written = new SeriesManifest().FingerprintOf(
+            new SeriesManifest().Parse(sources.Writes[0].ContentOf(manifest))!);
         written.Should().Be(TicketTextFingerprint.Of(tracker.Ticket()),
             "the next run compares against the ticket as it stands after the amendment")
             .And.NotBe(before, "a fingerprint of the ticket before the rewrite reports an edit nobody made");

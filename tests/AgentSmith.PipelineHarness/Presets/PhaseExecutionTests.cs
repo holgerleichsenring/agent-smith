@@ -2,9 +2,11 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,19 +16,22 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0315d fast-tier coverage for the phase-driven scenario, through the REAL composition:
-/// the ticket boundary is a recording fake returning a genuine p0315c phase
-/// ticket (markdown summary + ONE fenced yaml spec, rendered by the
-/// production PhaseTicketRenderer); the LLM is scripted; the sandbox is the
-/// staging-aware stub. Proves the spec-first path end-to-end — extraction
-/// gate, spec-as-approved-plan prompt, done-criteria contract, the
-/// specs/done/ dogfood record — and the mid-run clarification park.
+/// the ticket boundary is a recording fake; the LLM is scripted; the sandbox is the
+/// staging-aware stub. Proves the spec-first path end-to-end — spec gate,
+/// spec-as-approved-plan prompt, done-criteria contract, the specs/done/ dogfood record —
+/// and the mid-run clarification park.
+/// <para>
+/// 2026-10-06-03c7d: a ticket's text is no spec source any more, so the spec lies on the
+/// branch: it is seeded at the reader port, as the other branch-artifact presets do — the
+/// fast tier's sandbox is fresh per run.
+/// </para>
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class PhaseExecutionTests
 {
     private const string ValidYaml =
         """
-        spec: p9999
+        spec: 2026-10-06-5e5ea
         goal: "Add a widget endpoint to the sample service"
         steps:
           - id: impl
@@ -51,6 +56,11 @@ public sealed class PhaseExecutionTests
                 new TicketComment(
                     "operator", new DateTimeOffset(2026, 7, 1, 9, 0, 0, TimeSpan.Zero),
                     "Answer to your question: use bearer-token auth for the widget endpoint"),
+                // The cut comment the set's own publish posted after it: the answer is not input
+                // the set has not seen, so the seeded spec is worked unamended.
+                new TicketComment(
+                    "agent-smith", new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero),
+                    AgentSmith.Application.Services.Specs.SpecSetComment.Render(SeededSet(), null)),
             ]);
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
@@ -74,7 +84,7 @@ public sealed class PhaseExecutionTests
         // (AgenticMasterPlanSectionTests over the production BuildPlanSection).
         var promptText = string.Join(
             "\n", harness.ChatClient.LastScriptedMessages.Select(m => m.Text ?? string.Empty));
-        promptText.Should().Contain("spec: p9999",
+        promptText.Should().Contain("spec: 2026-10-06-5e5ea",
             "the validated spec must reach the master verbatim");
         promptText.Should().Contain("Add the widget endpoint + handler",
             "the spec's steps are the work the master executes");
@@ -93,7 +103,7 @@ public sealed class PhaseExecutionTests
             .Any(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
                 && s.Path is { } p
                 && p.Contains(".agentsmith/specs/done/", StringComparison.Ordinal)
-                && p.EndsWith("p9999-add-a-widget-endpoint-to-the-sample-service.yaml", StringComparison.Ordinal));
+                && p.EndsWith("2026-10-06-5e5ea-add-a-widget-endpoint-to-the-sample-service.yaml", StringComparison.Ordinal));
         wroteRecord.Should().BeTrue(
             "the phase yaml must be written to .agentsmith/specs/done/ in the sandbox tree");
 
@@ -143,6 +153,8 @@ public sealed class PhaseExecutionTests
     private static RealCompositionHarness BuildHarness(PhaseTicketProvider tickets) =>
         RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
         {
+            services.RemoveAll<ISpecSetReader>();
+            services.AddSingleton<ISpecSetReader>(new SeededSpecSetReader(SeededSet(), "seeded-sha"));
             // The analyzer would drain the scripted FIFO at AnalyzeCode (same
             // reason FixBug's keystone tests stub it).
             HarnessProjectAnalyzerStub.Register(services);
@@ -152,11 +164,26 @@ public sealed class PhaseExecutionTests
             services.AddSingleton<ITicketProviderFactory>(new PhaseTicketProviderFactory(tickets));
         });
 
-    // 2026-09-17-0e79a: a HAND-WRITTEN phase ticket — the shape the extractor still inverts.
-    // The framework's own filing carries no fence any more: its spec is the approved record.
-    private static string PhaseTicketBody() =>
-        "## Goal\nAdd a widget endpoint to the sample service\n\n---\n\n```yaml\n"
-        + ValidYaml.Trim() + "\n```\n";
+    private static string PhaseTicketBody() => "## Goal\nAdd a widget endpoint to the sample service\n";
+
+    // The spec as the branch carries it: one planned spec of a series, no pointer recorded, so
+    // the run works it unamended.
+    private static SpecSet SeededSet() => new(
+        TicketKey.For("recording", "1").Value,
+        [new SpecPhase(new PhaseDraftReader().Read(ValidYaml), "add-a-widget-endpoint-to-the-sample-service",
+            string.Empty, [])],
+        SpecAccounting.Empty,
+        [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow.AddHours(-1))],
+        SpecSource.BranchArtifact,
+        Series: "2026-10-06-5e5e");
+
+    private sealed class SeededSpecSetReader(SpecSet set, string sha) : ISpecSetReader
+    {
+        public Task<SpecSetOnBranch> ReadAsync(
+            PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(set, sha)));
+    }
 
     private sealed class PhaseTicketProvider(
         string body, IReadOnlyList<TicketComment>? comments = null) : ITicketProvider

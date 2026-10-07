@@ -77,16 +77,11 @@ internal sealed class ApprovedSetHarness
         var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
             Deriver,
-            new SpecSetReader(
-                factory.Object, gitOps,
-                new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
-                new SpecSetIndex(), new SandboxTargets(),
-                NullLogger<SpecSetReader>.Instance),
+            SeriesDoubles.Reader(factory.Object, gitOps),
             Publisher(),
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),

@@ -41,24 +41,18 @@ public sealed class SpecSetWriterUnchangedTests
     {
         var output = step.Args switch
         {
-            ["log", "-1", "--format=%H", "--", _] => "path-sha",
+            ["log", "-1", "--format=%H", "--", ..] => "path-sha",
             ["rev-parse", "HEAD"] => "head-sha",
             _ => string.Empty,
         };
         return new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0, null, output);
     }
 
-    private static SpecSetWriter Writer()
+    private static SeriesWriter Writer()
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(new NullFileReader());
-        return new SpecSetWriter(
-            factory.Object,
-            new SandboxGitOperations(
-                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
-                new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetFiles(new SpecSetIndex()), new SandboxTargets(),
-            NullLogger<SpecSetWriter>.Instance);
+        return AgentSmith.Tests.TestSupport.SeriesDoubles.Writer(factory.Object);
     }
 
     private static PipelineContext Pipeline(ISandbox sandbox)
@@ -74,7 +68,8 @@ public sealed class SpecSetWriterUnchangedTests
     private static SpecSet Set() => new(
         "azdo-1", [], SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-        SpecSource.Derived);
+        SpecSource.Derived,
+        Series: "2026-10-06-1b1b");
 
     private sealed class NullFileReader : ISandboxFileReader
     {

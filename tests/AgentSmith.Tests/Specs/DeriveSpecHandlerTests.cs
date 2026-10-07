@@ -105,7 +105,7 @@ public sealed class DeriveSpecHandlerTests
     {
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Nothing);
         return reader.Object;
@@ -131,7 +131,6 @@ public sealed class DeriveSpecHandlerTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),

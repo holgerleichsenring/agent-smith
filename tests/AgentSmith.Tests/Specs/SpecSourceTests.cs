@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
@@ -13,8 +12,8 @@ using AgentSmith.Contracts.Tickets;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0393a: the fixed source precedence — branch artifact, then a spec embedded in the
-/// ticket DESCRIPTION, then derivation. A ticket COMMENT is never a source: after the
+/// p0393a: the fixed source precedence — branch artifact, then derivation (2026-10-06-03c7d: a
+/// spec embedded in the ticket DESCRIPTION is no source any more). A ticket COMMENT is never a source: after the
 /// first run the ticket carries the derived spec as a comment, so a rule reading "a
 /// ticket carrying a spec skips derivation" would feed the run its own echo.
 /// <para>
@@ -40,8 +39,6 @@ public sealed class SpecSourceTests
         """;
 
     private readonly SpecSourceResolver _sut = new(
-        new PhaseSpecFromTicket(
-            new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader()),
         new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
         new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
         NullLogger<SpecSourceResolver>.Instance);
@@ -118,15 +115,14 @@ public sealed class SpecSourceTests
     }
 
     [Fact]
-    public void SpecSource_TicketDescriptionCarriesASpec_SkipsDerivation()
+    public void SpecSource_TicketDescriptionCarriesASpec_IsDerivedFromLikeAnyText()
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec), null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
 
-        decision.Source.Should().Be(SpecSource.TicketDescription);
-        decision.Cause.Should().Be(SpecRevisionCause.Initial);
-        decision.NeedsModel.Should().BeFalse("an authored spec is not re-derived");
-        decision.Set!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
+        decision.Source.Should().Be(SpecSource.Derived, "2026-10-06-03c7d: a ticket's text is never a spec");
+        decision.NeedsModel.Should().BeTrue();
+        decision.Set.Should().BeNull();
     }
 
     [Fact]
@@ -138,18 +134,6 @@ public sealed class SpecSourceTests
         decision.Source.Should().Be(SpecSource.Derived);
         decision.NeedsModel.Should().BeTrue();
         decision.Set.Should().BeNull();
-    }
-
-    [Fact]
-    public void SpecSource_MalformedEmbeddedSpec_FailsInsteadOfSilentlyDeriving()
-    {
-        var decision = _sut.Decide(
-            SpecSetOnBranch.Nothing,
-            Ticket("```yaml\nspec: nope\ngoal: 3\n```"),
-            null, new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
-
-        decision.Error.Should().NotBeNull(
-            "shipping a spec and getting it wrong must not degrade into 'no spec, derive one'");
     }
 
     private static SpecSetOnBranch Read(SpecSet set) =>

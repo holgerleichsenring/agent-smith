@@ -18,10 +18,6 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// two projects of one tracker is spawned twice and is the same work, so one record serves both.
 /// </para>
 /// <para>
-/// 2026-10-06-03c7c: the set carries its series' base id, so the record an amendment loads
-/// names the base the amendment keeps.
-/// </para>
-/// <para>
 /// The set is stored with NO revisions: numbering and cause are the RUN's bookkeeping. Since
 /// 2026-09-22-b6ad filing mints revision 1 on the branch it writes, and the record stays the
 /// unnumbered hand-off it always was — an amendment is compared by its approval instant, never by
@@ -41,8 +37,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// artifact; the dialog has no clone of the branch and never reads one.
 /// <para>
 /// 2026-10-06-03c7c: <see cref="TicketAmendment"/> calls <see cref="LoadAsync"/> before it renders,
-/// so an amended ticket keeps the series base its first filing minted and its executed head keeps
-/// its ids by position.
+/// so an amended ticket keeps its series base and its executed head keeps its ids by position.
 /// </para>
 /// <para>
 /// WHICH PHASES ALREADY RAN LIVES ON THE BRANCH, so the constraint is written down instead: a
@@ -69,9 +64,10 @@ public sealed class ApprovedPhaseSetRecorder(
         ArgumentNullException.ThrowIfNull(series);
         var key = KeyFor(project, ticketId);
         var approval = new SpecApproval(time.GetUtcNow(), state.JobId, state.UserId);
+        var previous = await store.GetAsync(project.Tracker.Name, key.Value, cancellationToken);
         var set = new SpecSet(
             key.Value,
-            [.. series.Drafts.Select(d => new SpecPhase(d, PhaseIdFactory.Slug(d.Goal), string.Empty, []))],
+            [.. series.Drafts.Select(d => new SpecPhase(d, LabelOf(d, previous), string.Empty, []))],
             SpecAccounting.Empty,
             [],
             SpecSource.Approved,
@@ -110,11 +106,15 @@ public sealed class ApprovedPhaseSetRecorder(
         return store.GetAsync(project.Tracker.Name, KeyFor(project, ticketId).Value, cancellationToken);
     }
 
+    // 2026-10-06-03c7d: a filed spec keeps its label through an amendment — a relabel leaves a
+    // second file for one id, which the reader refuses.
+    private static string LabelOf(PhaseDraft draft, SpecApprovalRecord? previous) =>
+        previous?.Set.Phases.FirstOrDefault(p => p.PhaseId == draft.PhaseId)?.Slug ?? PhaseIdFactory.Slug(draft.Goal);
+
     private static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
         TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
 
-    // The scope's repositories when the session named some, the project's own otherwise — a
-    // scope of "all of them" and no scope at all are the same set of repositories.
+    // The scope's repositories when the session named some, the project's own otherwise.
     private static IReadOnlyList<string> Repositories(ConversationState state, ResolvedProject project) =>
         state.Scope?.Repos is { Count: > 0 } scoped ? scoped : [.. project.Repos.Select(r => r.Name)];
 }

@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Specs;
 /// <see cref="At"/> is the APPROVAL INSTANT — the one field the precedence compares. A set
 /// can be approved again (2026-09-17-0e79b's amendment), so an approval is a version marker
 /// and not a one-shot hand-off: the run prefers the branch artifact UNLESS a record carries
-/// a newer instant than the one <c>set.yaml</c> was published from.
+/// a newer instant than the one the series manifest was published from.
 /// </para>
 /// <para>
 /// The instant and the time are ONE field on purpose. Two timestamps written together are

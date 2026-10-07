@@ -31,4 +31,7 @@ public sealed class TicketSeries : EntityBase
 
     /// <summary>How many times in a row the same case came back.</summary>
     public int RepeatedHandbackCount { get; set; }
+
+    /// <summary>How many leading specs the record step moved to done/.</summary>
+    public int ExecutedThrough { get; set; }
 }

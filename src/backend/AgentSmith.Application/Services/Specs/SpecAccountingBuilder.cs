@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -41,41 +40,6 @@ public static class SpecAccountingBuilder
             discardedContexts);
     }
 
-    /// <summary>
-    /// The accounting as the reviewer reads it in the pull request. Discarded first:
-    /// what was left out is the part a human has to agree with.
-    /// </summary>
-    public static string Render(
-        SpecAccounting accounting, IReadOnlyList<TicketSegment> segments, string ticketId)
-    {
-        var sb = new StringBuilder();
-        sb.Append("# Ticket ").Append(ticketId).Append(" — what was carried, what was not\n\n");
-        sb.Append("Every block of the ticket is either carried by a phase or discarded with a "
-            + "reason. Nothing is summarised away silently.\n\n");
-
-        sb.Append("## Discarded\n\n");
-        if (accounting.Discarded.Count == 0)
-            sb.Append("_Nothing was discarded._\n");
-        foreach (var d in accounting.Discarded)
-            sb.Append("- segment ").Append(d.SegmentId).Append(": ").Append(d.Reason)
-                .Append("\n  > ").Append(FirstLine(segments, d.SegmentId)).Append('\n');
-
-        sb.Append("\n## Carried\n\n");
-        foreach (var group in accounting.Carried.GroupBy(c => c.PhaseId))
-            sb.Append("- **").Append(group.Key).Append("**: segment(s) ")
-                .Append(string.Join(", ", group.Select(c => c.SegmentId))).Append('\n');
-        if (accounting.DiscardedContexts.Count > 0)
-            sb.Append("\n## Contexts left out\n\n").Append(RenderDiscardedContexts(accounting)).Append('\n');
-
-        if (!accounting.IsComplete)
-            sb.Append("\n## Unaccounted\n\nsegment(s) ")
-                .Append(string.Join(", ", accounting.Unaccounted))
-                .Append(" — the split was refused for this reason and the whole ticket is "
-                    + "carried by a single phase instead.\n");
-
-        return sb.ToString();
-    }
-
     /// <summary>The discarded list, short enough to sit in a pull-request body.</summary>
     public static string RenderDiscardedForPullRequest(SpecAccounting accounting)
     {
@@ -88,11 +52,4 @@ public static class SpecAccountingBuilder
     /// <summary>2026-09-08-1830: the named contexts the cut left out, with their reasons.</summary>
     public static string RenderDiscardedContexts(SpecAccounting accounting) =>
         string.Join("\n", accounting.DiscardedContexts.Select(d => $"- {d.Context}: {d.Reason}"));
-
-    private static string FirstLine(IReadOnlyList<TicketSegment> segments, int id)
-    {
-        var text = segments.FirstOrDefault(s => s.Id == id)?.Text ?? string.Empty;
-        var line = text.Split('\n')[0].Trim();
-        return line.Length <= 120 ? line : line[..120] + "…";
-    }
 }

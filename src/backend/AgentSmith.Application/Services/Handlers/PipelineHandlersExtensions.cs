@@ -168,10 +168,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<EvidenceReferences>().AddTransient<EvidenceCheck>().AddTransient<EpicChildOrderer>().AddTransient<ProposalEvidenceReview>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
-        // p0315d: phase-execution — spec extraction gate (inverse of the p0315c
-        // renderer), spec-first master prompt, mid-run clarification park and the
-        // specs/done/ dogfood record.
-        services.AddTransient<IPhaseSpecFromTicket, PhaseSpecFromTicket>();
+        // p0315d: phase-execution — spec gate, spec-first master prompt, mid-run clarification
+        // park and the specs/done/ record. 2026-10-06-03c7d: no spec is read from a ticket's text.
         services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
         services.AddTransient<VerifyCommandRunner>(); // p0419

@@ -23,9 +23,14 @@ namespace AgentSmith.Tests.Specs;
 public sealed class SpecSetOnBranchTests
 {
     private const string Key = "azdo-19106";
+    private const string Base = "2026-10-06-0a0a";
+
+    private static string Manifest(string ticket, string id) => $"ticket: {ticket}\nspecs:\n- {id}\n";
+
+    private static string Spec(string id) => $"spec: {id}\ngoal: g\ndone:\n  - d\n";
 
     [Fact]
-    public async Task SpecSetReader_NothingAtThePath_SaysNothingIsAtThePath()
+    public async Task SeriesReader_NothingAtThePath_SaysNothingIsAtThePath()
     {
         var result = await ReadAsync(new SpecBranchFiles { Key = Key });
 
@@ -34,10 +39,10 @@ public sealed class SpecSetOnBranchTests
     }
 
     [Fact]
-    public async Task SpecSetReader_ASetYamlThatDoesNotParse_IsUnreadableRatherThanAbsent()
+    public async Task SeriesReader_AManifestNamingTheTicketThatDoesNotParse_IsUnreadableRatherThanAbsent()
     {
         var branch = new SpecBranchFiles { Key = Key };
-        branch.Seed($".agentsmith/specs/{Key}/set.yaml", "key: [this is not\n  a document");
+        branch.Seed($".agentsmith/series/{Base}.yaml", $"ticket: {Key}\nspecs: [this is not\n  a document");
 
         var result = await ReadAsync(branch);
 
@@ -47,35 +52,77 @@ public sealed class SpecSetOnBranchTests
     }
 
     [Fact]
-    public async Task SpecSetReader_AListedPhaseFileThatIsNotThere_IsUnreadable()
+    public async Task SeriesReader_AListedSpecWithNoFile_IsUnreadable()
     {
         var branch = new SpecBranchFiles { Key = Key };
-        branch.SeedSet(
-            $"key: {Key}\nseries: 2026-10-06-0a0a\nsource: Approved\nphases:\n- p19106a-onthebranch\n",
-            new Dictionary<string, string>());
+        branch.SeedSeries(Base, Manifest(Key, $"{Base}a"), new Dictionary<string, string>());
 
         var result = await ReadAsync(branch);
 
         result.State.Should().Be(SpecSetBranchState.Unreadable);
-        result.Why.Should().Contain("p19106a-onthebranch");
+        result.Why.Should().Contain($"{Base}a");
+    }
+
+    [Fact]
+    public async Task SeriesReader_FindsManifestByTicketKey()
+    {
+        var branch = new SpecBranchFiles { Key = Key };
+        branch.SeedSeries("2026-10-06-9e9e", Manifest("azdo-77", "2026-10-06-9e9ea"),
+            new Dictionary<string, string> { ["2026-10-06-9e9ea-other"] = Spec("2026-10-06-9e9ea") });
+        branch.SeedSeries(Base, Manifest(Key, $"{Base}a"),
+            new Dictionary<string, string> { [$"{Base}a-first"] = Spec($"{Base}a") });
+
+        var result = await ReadAsync(branch);
+
+        result.State.Should().Be(SpecSetBranchState.Answered);
+        result.Set!.Series.Should().Be(Base, "the base is the manifest's file name");
+        result.Set.Key.Should().Be(Key);
+        result.Set.Phases.Should().ContainSingle().Which.FileStem.Should().Be($"{Base}a-first",
+            "the label is read off the file name");
+    }
+
+    [Fact]
+    public async Task SeriesReader_TwoManifestsNamingOneTicket_IsUnreadable()
+    {
+        var branch = new SpecBranchFiles { Key = Key };
+        branch.SeedSeries(Base, Manifest(Key, $"{Base}a"), new Dictionary<string, string>());
+        branch.SeedSeries("2026-10-06-9e9e", Manifest(Key, "2026-10-06-9e9ea"), new Dictionary<string, string>());
+
+        var result = await ReadAsync(branch);
+
+        result.State.Should().Be(SpecSetBranchState.Unreadable);
+        result.Why.Should().Contain("2 manifests");
+    }
+
+    [Fact]
+    public async Task SeriesReader_TwoFilesForOneId_IsUnreadable()
+    {
+        var branch = new SpecBranchFiles { Key = Key };
+        branch.SeedSeries(Base, Manifest(Key, $"{Base}a"), new Dictionary<string, string>
+        {
+            [$"{Base}a-old-label"] = Spec($"{Base}a"),
+            [$"{Base}a-new-label"] = Spec($"{Base}a"),
+        });
+
+        var result = await ReadAsync(branch);
+
+        result.State.Should().Be(SpecSetBranchState.Unreadable, "which file is the spec is not the reader's guess");
+        result.Why.Should().Contain("old-label").And.Contain("new-label");
     }
 
     /// <summary>
-    /// 2026-10-06-03c7c: a set written before series existed carries ids derived from a ticket
-    /// number. It is read as ABSENT, so the run derives the ticket whole under a minted base.
+    /// 2026-10-06-03c7d: a set.yaml under a per-ticket directory is not where a series lies; in-flight
+    /// work in the old layout is ignored and the ticket is derived whole.
     /// </summary>
     [Fact]
-    public async Task SpecSetReader_ASetWithoutSeries_IsReadAsAbsent()
+    public async Task SeriesReader_AnOldSetUnderTheTicketDirectory_IsReadAsAbsent()
     {
         var branch = new SpecBranchFiles { Key = Key };
-        branch.SeedSet(
-            $"key: {Key}\nsource: Derived\nphases:\n- p19106a-first\n",
-            new Dictionary<string, string> { ["p19106a-first"] = "spec: p19106a\ngoal: g\ndone:\n  - d\n" });
+        branch.Seed($".agentsmith/specs/{Key}/set.yaml", $"key: {Key}\nseries: {Base}\nphases:\n- p19106a-first\n");
 
         var result = await ReadAsync(branch);
 
         result.State.Should().Be(SpecSetBranchState.NothingAtThePath);
-        result.Read.Should().BeNull();
     }
 
     /// <summary>
@@ -83,7 +130,7 @@ public sealed class SpecSetOnBranchTests
     /// a branch it cannot see may well carry the edit a copy would hide.
     /// </summary>
     [Fact]
-    public async Task SpecSetReader_NoSandboxForTheCarryingRepository_IsUnreadableRatherThanAbsent()
+    public async Task SeriesReader_NoSandboxForTheCarryingRepository_IsUnreadableRatherThanAbsent()
     {
         var result = await ReadAsync(new SpecBranchFiles { Key = Key }, sandboxed: false);
 
@@ -104,15 +151,8 @@ public sealed class SpecSetOnBranchTests
         if (sandboxed)
             pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
                 ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["primary"] = sandbox.Object });
-        var reader = new SpecSetReader(
-            readers.Object,
-            new SandboxGitOperations(
-                new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, readers.Object,
-                new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SpecSetPhaseFileReader(
-                new PhaseDraftReader(), NullLogger<SpecSetPhaseFileReader>.Instance),
-            new SpecSetIndex(), new SandboxTargets(), NullLogger<SpecSetReader>.Instance);
+        var reader = SeriesDoubles.Reader(readers.Object);
         return await reader.ReadAsync(
-            pipeline, new RepoConnection { Name = "primary" }, new SpecSetKey(Key), default);
+            pipeline, new RepoConnection { Name = "primary" }, new TicketKey(Key), default);
     }
 }

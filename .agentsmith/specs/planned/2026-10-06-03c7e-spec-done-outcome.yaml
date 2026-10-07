@@ -15,7 +15,7 @@ facts:
   - claim: "The published record body is the draft YAML with the account and review as comment lines"
     evidence: "src/backend/AgentSmith.Application/Services/Specs/PhaseRecordBody.cs:28-32"
   - claim: "The marker rewrites the whole set and moves the DB pointer; the renderer rewrites every phase on every write"
-    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/ExecutedPhaseMarker.cs:43,55,63; src/backend/AgentSmith.Application/Services/Specs/SpecSetFiles.cs:31-36"
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/ExecutedPhaseMarker.cs:43,55,63; src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:27-33"
   - claim: "The index writer adds a state.done line in every repo that got the record"
     evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/PhaseIndexWriter.cs:39,48-55"
   - claim: "Progress seeds every spec NotStarted, the executed head included"

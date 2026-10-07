@@ -40,10 +40,11 @@ public sealed class TicketSeriesRepository(IUnitOfWork unitOfWork)
         row.RevisionNumber = pointer.RevisionNumber;
         row.LastHandbackCase = (int)pointer.LastHandbackCase;
         row.RepeatedHandbackCount = pointer.RepeatedHandbackCount;
+        row.ExecutedThrough = pointer.ExecutedThrough;
     }
 
     private static SpecSetPointer ToPointer(TicketSeries row) => new(
         row.TicketKey, row.CarryingRepo, row.RevisionSha, row.RevisionNumber,
         (SpecHandbackCase)row.LastHandbackCase, row.RepeatedHandbackCount,
-        row.SeriesId.Length == 0 ? null : row.SeriesId);
+        row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough);
 }

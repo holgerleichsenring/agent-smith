@@ -39,7 +39,7 @@ public sealed class RenamedApprovedSetStampTests
     public void FiledTicketSpecGate_RenamedStampNoRecord_Parks()
     {
         var park = new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance).MissingSet(
-            TicketWith(Renamed), new SpecSetKey("gh-1"), record: null,
+            TicketWith(Renamed), new TicketKey("gh-1"), record: null,
             SpecSetBranchState.NothingAtThePath, Vocabulary);
 
         park.Should().NotBeNull(
@@ -51,7 +51,7 @@ public sealed class RenamedApprovedSetStampTests
     public void FiledTicketSpecGate_DefaultStampOnARenamingBoard_StillParks()
     {
         var park = new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance).MissingSet(
-            TicketWith(FiledTicketLabels.ApprovedSetStamp), new SpecSetKey("gh-1"), record: null,
+            TicketWith(FiledTicketLabels.ApprovedSetStamp), new TicketKey("gh-1"), record: null,
             SpecSetBranchState.NothingAtThePath, Vocabulary);
 
         park.Should().NotBeNull("reading is the configured name AND every name ever written");
@@ -61,7 +61,7 @@ public sealed class RenamedApprovedSetStampTests
     public void MissingSpecReason_RenamedStamp_NamesIt()
     {
         var reason = MissingSpecReason.For(
-            TicketWith(Renamed), new SpecSetKey("gh-1"), record: null,
+            TicketWith(Renamed), new TicketKey("gh-1"), record: null,
             SpecSetBranchState.NothingAtThePath, Vocabulary);
 
         reason.Should().Contain($"carries '{Renamed}'")

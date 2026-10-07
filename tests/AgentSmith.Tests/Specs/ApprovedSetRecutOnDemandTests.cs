@@ -111,7 +111,7 @@ public sealed class ApprovedSetRecutOnDemandTests
         written.Approval.Should().NotBeNull("a re-cut set is still a set somebody stands behind");
         written.Approval!.Principal.Should().Be(demand.Author);
         written.Approval.At.Should().Be(demand.CreatedAt);
-        new SpecSetIndex().Serialize(written).Should().Contain("approved_by: sample.operator",
+        new SeriesManifest().Serialize(written).Should().Contain("approved_by: sample.operator",
             "the approval reaches the branch, which is the only set the next run reads");
     }
 
@@ -212,7 +212,7 @@ public sealed class ApprovedSetRecutOnDemandTests
     {
         var harness = new ApprovedSetHarness { Branch = { Key = Key }, PointerSha = "branch-sha" };
         harness.Deriver.Result = Recut();
-        harness.Branch.SeedSet(
+        harness.Branch.SeedSeries("2026-10-06-0a0a",
             BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), executed, approvedAt ?? Approved),
             new Dictionary<string, string>
             {
@@ -226,11 +226,10 @@ public sealed class ApprovedSetRecutOnDemandTests
     {
         var lines = new List<string>
         {
-            $"key: {Key}", "series: 2026-10-06-0a0a",
-            "source: Approved",
-            "phases:",
-            "- p19106a-first",
-            "- p19106b-second",
+            $"ticket: {Key}",
+            "specs:",
+            "- p19106a",
+            "- p19106b",
             "revisions:",
             "- number: 1",
             "  cause: approved in design conversation session-77",
@@ -240,7 +239,7 @@ public sealed class ApprovedSetRecutOnDemandTests
             "approved_in_conversation: session-77",
             "approved_by: sample.approver",
         };
-        if (executed is not null) lines.AddRange(["executed_phases:", $"- {executed}"]);
+        if (executed is not null) lines.AddRange(["executed_specs:", $"- {executed}"]);
         return string.Join("\n", lines);
     }
 

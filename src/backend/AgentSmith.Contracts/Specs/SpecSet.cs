@@ -69,6 +69,10 @@ public sealed record SpecSet(
     /// </summary>
     public const int MaxPhases = 8;
 
+    /// <summary>2026-10-06-03c7d: the series' goal the manifest carries — an epic's own goal, or
+    /// null when nothing set one.</summary>
+    public string? Goal { get; init; }
+
     /// <summary>The revision the run works from — always the latest.</summary>
     [JsonIgnore]
     public SpecRevision Current => Revisions[^1];
@@ -99,9 +103,6 @@ public enum SpecSource
 {
     /// <summary>Read back from the ticket branch — the winner whenever it exists.</summary>
     BranchArtifact = 0,
-
-    /// <summary>A spec embedded in the ticket DESCRIPTION — the p0315c phase-ticket shape.</summary>
-    TicketDescription = 1,
 
     /// <summary>Derived from the ticket prose against the analysed repository.</summary>
     Derived = 2,

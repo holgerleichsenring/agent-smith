@@ -1574,6 +1574,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("ExecutedThrough")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("INTEGER");
 

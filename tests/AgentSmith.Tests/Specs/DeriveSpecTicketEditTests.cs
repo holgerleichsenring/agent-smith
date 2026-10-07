@@ -112,11 +112,7 @@ public sealed class DeriveSpecTicketEditTests
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var draftReader = new PhaseDraftReader();
-        var reader = new SpecSetReader(
-            factory.Object, gitOps,
-            new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
-            new SpecSetIndex(), new SandboxTargets(),
-            NullLogger<SpecSetReader>.Instance);
+        var reader = AgentSmith.Tests.TestSupport.SeriesDoubles.Reader(factory.Object, gitOps);
         var pointers = new InMemorySpecSetPointerStore();
         pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", PointerSha, 1), default)
             .GetAwaiter().GetResult();
@@ -127,7 +123,6 @@ public sealed class DeriveSpecTicketEditTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -165,20 +160,18 @@ public sealed class DeriveSpecTicketEditTests
     private static SeededFileReader SeededFiles(string? fingerprint)
     {
         var files = new SeededFileReader();
-        files.Seed($".agentsmith/specs/{Key}/set.yaml", SetYaml(fingerprint));
-        files.Seed($".agentsmith/specs/{Key}/p19106a-first.yaml", PhaseYaml("p19106a"));
-        files.Seed($".agentsmith/specs/{Key}/p19106b-second.yaml", PhaseYaml("p19106b"));
+        files.Seed($".agentsmith/series/2026-10-06-0a0a.yaml", SetYaml(fingerprint));
+        files.Seed($".agentsmith/specs/planned/p19106a-first.yaml", PhaseYaml("p19106a"));
+        files.Seed($".agentsmith/specs/planned/p19106b-second.yaml", PhaseYaml("p19106b"));
         return files;
     }
 
     private static string SetYaml(string? fingerprint) => $"""
-        key: {Key}
-        series: 2026-10-06-0a0a
-        source: Derived
-        phases:
-        - p19106a-first
-        - p19106b-second
-        executed_phases:
+        ticket: {Key}
+        specs:
+        - p19106a
+        - p19106b
+        executed_specs:
         - p19106a
         revisions:
         - number: 1
@@ -186,9 +179,9 @@ public sealed class DeriveSpecTicketEditTests
           at: 2026-09-08T10:00:00.0000000+00:00
         carried:
         - segment: 1
-          spec: p19106a
+          phase: p19106a
         - segment: 2
-          spec: p19106b
+          phase: p19106b
         {(fingerprint is null ? string.Empty : "ticket_fingerprint: " + fingerprint)}
         """;
 

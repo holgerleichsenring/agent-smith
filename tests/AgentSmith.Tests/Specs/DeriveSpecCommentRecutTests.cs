@@ -123,11 +123,7 @@ public sealed class DeriveSpecCommentRecutTests
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         var draftReader = new PhaseDraftReader();
-        var reader = new SpecSetReader(
-            factory.Object, gitOps,
-            new SpecSetPhaseFileReader(draftReader, NullLogger<SpecSetPhaseFileReader>.Instance),
-            new SpecSetIndex(), new SandboxTargets(),
-            NullLogger<SpecSetReader>.Instance);
+        var reader = AgentSmith.Tests.TestSupport.SeriesDoubles.Reader(factory.Object, gitOps);
         // The last commit on the spec path is the marker's; the pointer names what the caller says.
         var pointers = new InMemorySpecSetPointerStore();
         if (pointerSha is not null)
@@ -140,7 +136,6 @@ public sealed class DeriveSpecCommentRecutTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
@@ -185,20 +180,18 @@ public sealed class DeriveSpecCommentRecutTests
     private static SeededFileReader SeededFiles()
     {
         var files = new SeededFileReader();
-        files.Seed($".agentsmith/specs/{Key}/set.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
-        files.Seed($".agentsmith/specs/{Key}/{HeadId}-first.yaml", PhaseYaml(HeadId));
-        files.Seed($".agentsmith/specs/{Key}/{TailId}-second.yaml", PhaseYaml(TailId));
+        files.Seed($".agentsmith/series/{Series}.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
+        files.Seed($".agentsmith/specs/planned/{HeadId}-first.yaml", PhaseYaml(HeadId));
+        files.Seed($".agentsmith/specs/planned/{TailId}-second.yaml", PhaseYaml(TailId));
         return files;
     }
 
     private static string SetYaml(string fingerprint) => $"""
-        key: {Key}
-        series: {Series}
-        source: Derived
-        phases:
-        - {HeadId}-first
-        - {TailId}-second
-        executed_phases:
+        ticket: {Key}
+        specs:
+        - {HeadId}
+        - {TailId}
+        executed_specs:
         - {HeadId}
         revisions:
         - number: 1
@@ -206,9 +199,9 @@ public sealed class DeriveSpecCommentRecutTests
           at: 2026-09-08T10:00:00.0000000+00:00
         carried:
         - segment: 1
-          spec: {HeadId}
+          phase: {HeadId}
         - segment: 2
-          spec: {TailId}
+          phase: {TailId}
         ticket_fingerprint: {fingerprint}
         """;
 

@@ -69,13 +69,6 @@ public sealed class DoneCriterionTests
     }
 
     [Fact]
-    public void Extract_AHandWrittenTicketWithAScenario_CarriesItsLine() =>
-        new PhaseSpecFromTicket(Validator, new PhaseDraftReader())
-            .Extract($"A widget phase.\n\n```yaml\n{Mixed}\n```\n")
-            .Should().BeOfType<PhaseSpecExtracted>()
-            .Which.Draft.Done.Should().Contain(GivenWhenThen);
-
-    [Fact]
     public void Parse_AnEpicChildWithOnlyScenarios_HasDone()
     {
         var parser = new EpicOutcomeParser(Validator, new PhaseDraftReader(), new RequiresEdgeChecker());

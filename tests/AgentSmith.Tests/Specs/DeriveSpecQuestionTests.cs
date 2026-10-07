@@ -127,7 +127,7 @@ public sealed class DeriveSpecQuestionTests
         var draftReader = new PhaseDraftReader();
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<SpecSetKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Answered(new SpecSetReadResult(PreviousQuestion(), "sha-1")));
         var pointers = new InMemorySpecSetPointerStore();
@@ -139,7 +139,6 @@ public sealed class DeriveSpecQuestionTests
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new PhaseSpecFromTicket(validator, draftReader),
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),

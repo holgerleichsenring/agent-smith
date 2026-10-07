@@ -41,7 +41,7 @@ public sealed class SpecMarkdownTests
         var markdown = SpecMarkdown.Render(Set(Phase(document: "")));
 
         markdown.Should().Contain("No phase document found");
-        markdown.Should().Contain(".agentsmith/specs/azdo-19106/p19106a-rename.md");
+        markdown.Should().Contain(".agentsmith/specs/planned/p19106a-rename.md");
     }
 
     // 2026-09-07-c9d4: the run detail shows a question the way the ticket does — both

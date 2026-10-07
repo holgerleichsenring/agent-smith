@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
@@ -9,17 +8,16 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0393a: the fixed precedence between the possible spec sources — the branch artifact wins,
-/// then a spec embedded in the ticket DESCRIPTION, then derivation.
+/// then derivation. 2026-10-06-03c7d: a spec embedded in the ticket DESCRIPTION is no source any
+/// more — a spec lies on the branch, and a ticket's text is input to deriving one.
 /// <para>
 /// 2026-09-22-6ad7: THE BRANCH IS THE ONLY SET A RUN READS. A branch that ANSWERED is the set,
 /// and the approval record is not consulted, compared or merged over it. A branch with NOTHING
 /// AT THE PATH is a hand-off that has not happened: the record supplies the set once and the run
 /// publishes it (<see cref="ApprovedSetHandoff"/>). A branch that answered BADLY — present and
 /// unreadable — is an operator's edit gone wrong, and it reaches the filed-ticket gate rather
-/// than a copy. The record outranks the description either way, because a ticket the framework
-/// files stops carrying a fence, while a hand-written phase ticket has no record and keeps the
-/// description path. The decision also carries the revision CAUSE, because the two readers of
-/// that cause are downstream of this choice.
+/// than a copy. The decision also carries the revision CAUSE, because the two readers of that
+/// cause are downstream of this choice.
 /// </para>
 /// <para>
 /// A ticket COMMENT is deliberately NOT a source. After the first run the ticket carries the
@@ -30,7 +28,6 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed class SpecSourceResolver(
-    IPhaseSpecFromTicket specFromTicket,
     ApprovedSetHandoff handoff,
     FiledTicketSpecGate filedGate,
     ILogger<SpecSourceResolver> logger)
@@ -39,8 +36,6 @@ public sealed class SpecSourceResolver(
     /// <param name="Source">Where the set came from.</param>
     /// <param name="Set">The set already available, if any.</param>
     /// <param name="NeedsModel">True when the deriver has to run — a first cut or an amendment.</param>
-    /// <param name="Error">Set when a present spec is MALFORMED or a required one is MISSING,
-    /// which fails loudly.</param>
     /// <param name="Cause">The cause the next revision names.</param>
     /// <param name="Handback">2026-09-22-6ad7: set when the run PARKS instead of working — the
     /// approved specification is not readable on the branch and there is none to guess from.</param>
@@ -49,7 +44,7 @@ public sealed class SpecSourceResolver(
     /// one would read back as unapproved on the next run — losing the immunity after exactly one
     /// demand.</param>
     public sealed record Decision(
-        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Error = null, string? Cause = null,
+        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null,
         SpecHandback? Handback = null, SpecApproval? Approval = null);
 
     public Decision Decide(
@@ -77,38 +72,11 @@ public sealed class SpecSourceResolver(
             && handoff.Decide(record, key) is { } handedOver)
             return handedOver with { Cause = handedOver.Cause ?? cause };
 
-        // BEFORE the description, not after it: a ticket the framework filed from an approved set
-        // has no spec of its own, so a fenced block in its description is a paste, and reading it
-        // would hand the run the one editable truth this phase exists to remove.
-        if (filedGate.MissingSet(ticket, new SpecSetKey(key), record, branch.State, vocabulary) is { } missing)
+        // A ticket the framework filed from an approved set has no spec of its own: a branch
+        // without one parks rather than derive a guess.
+        if (filedGate.MissingSet(ticket, new TicketKey(key), record, branch.State, vocabulary) is { } missing)
             return new Decision(SpecSource.Approved, null, false, Cause: cause, Handback: missing);
 
-        var extraction = specFromTicket.Extract(ticket.Description);
-        if (extraction is PhaseSpecExtracted extracted) return FromDescription(extracted, ticket, key, cause);
-
-        // A MALFORMED embedded spec is someone shipping a spec and getting it wrong. It
-        // must not degrade silently into "no spec, derive one" — that would hide the error
-        // behind a plausible derivation.
-        if (extraction is PhaseSpecInvalid { IsAbsent: false } invalid)
-            return new Decision(SpecSource.TicketDescription, null, false, invalid.Error, cause);
-
         return new Decision(SpecSource.Derived, null, NeedsModel: true, Cause: cause);
-    }
-
-    private Decision FromDescription(PhaseSpecExtracted extracted, Ticket ticket, string key, string cause)
-    {
-        logger.LogInformation(
-            "Ticket {Ticket} carries phase spec {PhaseId} in its DESCRIPTION — no derivation",
-            ticket.Id.Value, extracted.Draft.PhaseId);
-        var phase = new SpecPhase(
-            extracted.Draft, PhaseIdFactory.Slug(extracted.Draft.Goal), string.Empty, []);
-        return new Decision(
-            SpecSource.TicketDescription,
-            new SpecSet(
-                key, [phase], SpecAccounting.Empty,
-                [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.TicketDescription),
-            NeedsModel: false,
-            Cause: cause);
     }
 }
