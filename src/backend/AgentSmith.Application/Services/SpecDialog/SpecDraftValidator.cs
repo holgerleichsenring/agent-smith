@@ -46,9 +46,9 @@ public sealed class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
 
         if (document is null) return new SpecDraftInvalid("the ```yaml block is empty");
 
-        var result = SchemaValidator.Validate(document, schemaProvider.Schema, "phase-spec");
+        var result = SchemaValidator.Validate(document, schemaProvider.Schema, "spec");
         return result.IsValid
             ? new SpecDraftValid(yaml.Trim())
-            : new SpecDraftInvalid(result.ErrorMessage ?? "phase-spec schema validation failed");
+            : new SpecDraftInvalid(result.ErrorMessage ?? "spec schema validation failed");
     }
 }
