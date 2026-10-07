@@ -20,7 +20,7 @@ public sealed class SchemaValidatorTests
         return outcome.Should().BeOfType<SpecDraftInvalid>().Subject.Error;
     }
 
-    /// <summary>A draft exercising all three phase-spec oneOf sites, plus one real error.</summary>
+    /// <summary>A draft exercising all three spec-schema oneOf sites, plus one real error.</summary>
     private static string DraftWith(int sites, bool arrayActions = false)
     {
         var yaml = new StringBuilder("spec: p9999\ngoal: \"g\"\ntests: \"not-an-array\"\nrequires:\n");
@@ -35,7 +35,7 @@ public sealed class SchemaValidatorTests
         return yaml.ToString();
     }
 
-    private const string TheRealError = "phase-spec/tests: Value is \"string\" but should be \"array\"";
+    private const string TheRealError = "spec/tests: Value is \"string\" but should be \"array\"";
 
     [Fact]
     public void SchemaValidator_APassingOneOf_ContributesNoneOfItsLosingBranches() =>
@@ -48,8 +48,8 @@ public sealed class SchemaValidatorTests
     [Fact]
     public void SchemaValidator_AOneOfMatchingNeitherBranch_StillReports() =>
         Refusal("spec: p9999\ngoal: \"g\"\nrequires: 42\n").Should()
-            .Contain("phase-spec/requires: Value is \"integer\" but should be \"array\"")
-            .And.Contain("phase-spec/requires: Value is \"integer\" but should be \"string\"");
+            .Contain("spec/requires: Value is \"integer\" but should be \"array\"")
+            .And.Contain("spec/requires: Value is \"integer\" but should be \"string\"");
 
     // 2026-09-24-3907: naming only the dead end is unsatisfiable for a reader told to "fix
     // exactly what the error names" — three live design turns answered it by guessing another
@@ -58,12 +58,12 @@ public sealed class SchemaValidatorTests
     [Fact]
     public void SchemaValidator_AnUnknownKey_IsReportedByNameAndAsNotAllowed() =>
         Refusal("spec: p9999\ngoal: \"g\"\nscope:\n  in: \"x\"\n  invented_key: \"y\"\n").Should()
-            .Be("phase-spec/scope/invented_key: this property is not allowed here — it allows in, out");
+            .Be("spec/scope/invented_key: this property is not allowed here — it allows in, out");
 
     [Fact]
     public void SchemaValidator_ASchemaValuedAdditionalProperties_StillReportsItsTypeError() =>
         Refusal("spec: p9999\ngoal: \"g\"\ndep-graph:\n  a: \"not-an-array\"\n").Should()
-            .Be("phase-spec/dep-graph/a: Value is \"string\" but should be \"array\"");
+            .Be("spec/dep-graph/a: Value is \"string\" but should be \"array\"");
 
     [Fact]
     public void SchemaValidator_ADraftWithOneRealError_ReportsExactlyThatOne() =>
@@ -132,8 +132,8 @@ public sealed class SchemaValidatorTests
               exclusions: "no major-version changes"
             """);
 
-        refusal.Should().Contain("phase-spec/scope/repositories: this property is not allowed here");
-        refusal.Should().Contain("phase-spec/scope/exclusions: this property is not allowed here");
+        refusal.Should().Contain("spec/scope/repositories: this property is not allowed here");
+        refusal.Should().Contain("spec/scope/exclusions: this property is not allowed here");
         refusal.Should().Contain("it allows in, out",
             "a reader told to fix exactly what the error names must be given something to aim at");
     }

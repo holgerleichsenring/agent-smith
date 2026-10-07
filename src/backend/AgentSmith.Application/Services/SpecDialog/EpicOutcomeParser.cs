@@ -23,11 +23,11 @@ public sealed class EpicOutcomeParser(
     public OutcomeResolution Parse(IReadOnlyDictionary<string, object?> map)
     {
         if (OutcomeYamlReader.GetMap(map, "parent") is not { } parentMap)
-            return new OutcomeInvalid("epic outcome is missing 'parent' (a phase-spec mapping)");
+            return new OutcomeInvalid("epic outcome is missing 'parent' (a spec mapping)");
         var childMaps = OutcomeYamlReader.GetList(map, "children");
         if (childMaps is null || childMaps.Count < 2)
             return new OutcomeInvalid(
-                "epic outcome needs 'children' with at least two phase-spec entries — "
+                "epic outcome needs 'children' with at least two spec entries — "
                 + "a single slice is just a phase; emit the bare ```yaml draft instead");
 
         if (childMaps.Count > SpecSet.MaxPhases)
@@ -43,7 +43,7 @@ public sealed class EpicOutcomeParser(
         for (var i = 0; i < childMaps.Count; i++)
         {
             if (childMaps[i] is not Dictionary<object, object?> childNode)
-                return new OutcomeInvalid($"epic child #{i + 1} is not a phase-spec mapping");
+                return new OutcomeInvalid($"epic child #{i + 1} is not a spec mapping");
             var (child, error) = ReadDraft(childNode, $"child #{i + 1}");
             if (child is null) return new OutcomeInvalid(error!);
             children.Add(child);
@@ -69,7 +69,7 @@ public sealed class EpicOutcomeParser(
         {
             SpecDraftValid valid => (draftReader.Read(valid.Yaml), null),
             SpecDraftInvalid invalid => (null, $"epic {role}: {invalid.Error}"),
-            _ => (null, $"epic {role}: the phase-spec entry is empty"),
+            _ => (null, $"epic {role}: the spec entry is empty"),
         };
     }
 }
