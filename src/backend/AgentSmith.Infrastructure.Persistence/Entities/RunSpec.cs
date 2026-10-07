@@ -1,7 +1,8 @@
 namespace AgentSmith.Infrastructure.Persistence.Entities;
 
 /// <summary>
-/// p0466: one derived phase of a run — the thing the operator reasons in, finally a row.
+/// p0466: one spec a run executes — the thing the operator reasons in, finally a row.
+/// 2026-10-06-03c7g: was RunPhase; the table and its key column were renamed in place.
 /// <para>
 /// Before this, a phase existed only as the "p19213a: " prefix a step name carried, so a
 /// phase that had ended was not addressable by anything: no id to link to, no place to
@@ -9,13 +10,13 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// only ever show what was still live.
 /// </para>
 /// </summary>
-public sealed class RunPhase : EntityBase
+public sealed class RunSpec : EntityBase
 {
     public long Id { get; set; }
     public string RunId { get; set; } = string.Empty;
 
-    /// <summary>The derived phase id ("p19213a") — unique within the run.</summary>
-    public string PhaseId { get; set; } = string.Empty;
+    /// <summary>The spec id ("p19213a") — unique within the run.</summary>
+    public string SpecId { get; set; } = string.Empty;
 
     /// <summary>The phase's 1-based position in the derived sequence.</summary>
     public int Ordinal { get; set; }

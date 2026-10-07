@@ -21,7 +21,7 @@ export function PhaseAccount({ phase, calls, commands }: PhaseAccountProps) {
   return (
     <section className="card" data-testid="phase-account" data-phase={phase.phaseId ?? ""}>
       <div className="card-h">
-        <h3>{phase.phaseId ? `Phase ${phase.phaseId}` : "Steps outside any phase"}</h3>
+        <h3>{phase.phaseId ? `Spec ${phase.phaseId}` : "Steps outside any spec"}</h3>
         <span className={failed ? "badge bad" : "badge neu"} data-testid="phase-verdict">
           {failed ? "something did not pass" : "nothing failed"}
         </span>

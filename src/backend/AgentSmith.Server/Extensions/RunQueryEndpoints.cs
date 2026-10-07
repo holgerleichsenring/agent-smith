@@ -31,7 +31,7 @@ internal static class RunQueryEndpoints
         // is its own endpoint class — same READ surface, separate responsibility.
         app.MapRunStepQueryEndpoints();
         // p0466: the phase's own read surface — a finished phase is a place to go back to.
-        app.MapRunPhaseQueryEndpoints();
+        app.MapRunSpecQueryEndpoints();
         // p0423b: the story view's own surface — statistics folded from the trail
         // and the recorded conversation. Deliberately opened, never pushed.
         app.MapRunStoryEndpoints();

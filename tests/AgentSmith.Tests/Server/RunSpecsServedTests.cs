@@ -23,7 +23,7 @@ namespace AgentSmith.Tests.Server;
 /// engine through the endpoint handlers.
 /// </summary>
 [Collection(RelationalStoreCollection.Name)]
-public sealed class RunPhasesServedTests : IDisposable
+public sealed class RunSpecsServedTests : IDisposable
 {
     private const string RunId = "2026-08-19T09-00-00-0001";
     private static readonly DateTimeOffset T = DateTimeOffset.Parse("2026-08-19T09:00:00Z");
@@ -31,7 +31,7 @@ public sealed class RunPhasesServedTests : IDisposable
     private readonly SqliteConnection _connection;
     private readonly IServiceScopeFactory _scopes;
 
-    public RunPhasesServedTests()
+    public RunSpecsServedTests()
     {
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
@@ -45,7 +45,7 @@ public sealed class RunPhasesServedTests : IDisposable
     public void Dispose() => _connection.Dispose();
 
     [Fact]
-    public async Task RunPhase_LifecycleEvents_ProduceOnePhaseRowPerSelectedPhase()
+    public async Task RunSpecProjection_StateChanged_UpsertsRunSpecsRow()
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
@@ -55,7 +55,7 @@ public sealed class RunPhasesServedTests : IDisposable
 
         var phases = await ReadPhasesAsync();
 
-        phases.Select(p => p.PhaseId).Should().Equal("p19213a", "p19213b");
+        phases.Select(p => p.SpecId).Should().Equal("p19213a", "p19213b");
         phases.Select(p => p.Ordinal).Should().Equal(1, 2);
         phases[0].Status.Should().Be("done");
         phases[0].Title.Should().Be("Make the thing exist");
@@ -65,7 +65,7 @@ public sealed class RunPhasesServedTests : IDisposable
     }
 
     [Fact]
-    public async Task RunPhase_SelectedTwice_StaysOneRow()
+    public async Task RunSpec_SelectedTwice_StaysOneRow()
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
@@ -136,7 +136,7 @@ public sealed class RunPhasesServedTests : IDisposable
         var detail = await ReadPhaseAsync("p19213a");
 
         detail!.Record.Should().Contain("goal: \"Make it exist\"");
-        detail.Phase.PhaseId.Should().Be("p19213a");
+        detail.Spec.SpecId.Should().Be("p19213a");
     }
 
     /// <summary>
@@ -182,13 +182,13 @@ public sealed class RunPhasesServedTests : IDisposable
     }
 
     [Fact]
-    public async Task RunPhaseEndpoint_UnknownPhase_IsNotFound() =>
-        (await RunPhaseQueryEndpoints.GetRunPhaseAsync(
+    public async Task RunSpecEndpoint_UnknownSpec_IsNotFound() =>
+        (await RunSpecQueryEndpoints.GetRunSpecAsync(
             RunId, "p00000a", Phases(), CancellationToken.None))
             .Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.NotFound>();
 
     [Fact]
-    public async Task RunPhasesEndpoint_FinishedRun_ReturnsEveryPhaseWithItsDecisions()
+    public async Task RunSpecsEndpoint_ReturnsRows()
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
@@ -213,11 +213,11 @@ public sealed class RunPhasesServedTests : IDisposable
     }
 
     [Fact]
-    public async Task RunPhasesEndpoint_RunWithoutPhases_ReturnsEmpty() =>
+    public async Task RunSpecsEndpoint_RunWithoutSpecs_ReturnsEmpty() =>
         (await ReadPhasesAsync()).Should().BeEmpty();
 
     [Fact]
-    public async Task RunPhase_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild()
+    public async Task RunSpec_HandedBackOnAFalsePremise_DoesNotReadLikeARedBuild()
     {
         // 2026-09-17-0e79c: the two ask opposite things of the operator — a red build is fixed
         // by working the code, a false premise by amending the specification. A reader telling
@@ -256,7 +256,7 @@ public sealed class RunPhasesServedTests : IDisposable
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;
 
     private RunStepsReader Steps() => new(_scopes, new RunStepAggregatesReader(), new RunRailComposer());
-    private RunPhasesReader Phases() => new(_scopes, Steps());
+    private RunSpecsReader Phases() => new(_scopes, Steps());
 
     private async Task ApplyAsync(params AgentSmith.Contracts.Events.RunEvent[] events)
     {
@@ -270,16 +270,16 @@ public sealed class RunPhasesServedTests : IDisposable
 
     // The endpoint handlers ARE the surface under test — the same code path the
     // dashboard hits, minus the HTTP pipeline.
-    private async Task<IReadOnlyList<RunPhaseView>> ReadPhasesAsync() =>
-        ValueOf<IReadOnlyList<RunPhaseView>>(
-            await RunPhaseQueryEndpoints.GetRunPhasesAsync(RunId, Phases(), CancellationToken.None),
-            "phases");
+    private async Task<IReadOnlyList<RunSpecView>> ReadPhasesAsync() =>
+        ValueOf<IReadOnlyList<RunSpecView>>(
+            await RunSpecQueryEndpoints.GetRunSpecsAsync(RunId, Phases(), CancellationToken.None),
+            "specs");
 
-    private async Task<RunPhaseDetailView?> ReadPhaseAsync(string phaseId)
+    private async Task<RunSpecDetailView?> ReadPhaseAsync(string phaseId)
     {
-        var result = await RunPhaseQueryEndpoints.GetRunPhaseAsync(
+        var result = await RunSpecQueryEndpoints.GetRunSpecAsync(
             RunId, phaseId, Phases(), CancellationToken.None);
-        return (result as IValueHttpResult)?.Value as RunPhaseDetailView;
+        return (result as IValueHttpResult)?.Value as RunSpecDetailView;
     }
 
     private async Task<IReadOnlyList<RunStepView>> ReadRailAsync() =>

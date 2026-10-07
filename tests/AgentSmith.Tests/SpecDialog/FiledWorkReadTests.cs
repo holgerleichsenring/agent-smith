@@ -80,11 +80,26 @@ public sealed class FiledWorkReadTests : IDisposable
             Phase("r-1", "p3", 3, "in_progress"), Phase("r-1", "p4", 4, "not_started"),
             Phase("r-1", "p5", 5, "not_started"));
 
-        var phases = (await ReadAsync()).Tickets.Single().Runs.Single().Phases;
+        var phases = (await ReadAsync()).Tickets.Single().Runs.Single().Specs;
 
-        phases.Select(p => p.PhaseId).Should().Equal("p1", "p2", "p3", "p4", "p5");
+        phases.Select(p => p.SpecId).Should().Equal("p1", "p2", "p3", "p4", "p5");
         phases.Select(p => p.Status).Should()
             .Equal("done", "done", "in_progress", "not_started", "not_started");
+    }
+
+    /// <summary>2026-10-06-03c7g: the payload names a run's specs as specs/specId.</summary>
+    [Fact]
+    public async Task FiledWork_RunPayload_SerializesSpecsAndSpecId()
+    {
+        await FilingAsync(Filed(Work, "alpha"));
+        await RunsAsync(Run("r-1", "alpha", Work, T));
+        await PhasesAsync(Phase("r-1", "p1", 1, "done"));
+
+        var run = (await ReadAsync()).Tickets.Single().Runs.Single();
+        var json = JsonSerializer.Serialize(run, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        json.Should().Contain("\"specs\":[{\"specId\":\"p1\"")
+            .And.NotContain("\"phases\"").And.NotContain("\"phaseId\"");
     }
 
     /// <summary>
@@ -188,7 +203,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await RunsAsync(Run("r-1", "alpha", Work, T));
         await PhasesAsync(Phase("r-1", "p1", 1, "failed", "dotnet test exited 1"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single();
+        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
         phase.Verdict.Should().Be("dotnet test exited 1");
         phase.Status.Should().Be("failed");
@@ -206,7 +221,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await PhasesAsync(
             Phase("r-1", "p1", 1, "handed_back", "the premise 'api has no cache' is false (P3)"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single();
+        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
         phase.Status.Should().Be("handed_back");
         phase.Verdict.Should().Be("the premise 'api has no cache' is false (P3)");
@@ -224,7 +239,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await RunsAsync(Run("r-1", "alpha", Work, T));
         await PhasesAsync(Phase("r-1", "p1", 1, "abandoned", "the sandbox vanished"));
 
-        (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single()
+        (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single()
             .Verdict.Should().Be("the sandbox vanished");
     }
 
@@ -235,7 +250,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await RunsAsync(Run("r-1", "alpha", Work, T));
         await PhasesAsync(Phase("r-1", "p1", 1, "done", "already satisfied on entry"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single();
+        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
         phase.Verdict.Should().Be("already satisfied on entry", "the row states it; nothing derives it");
     }
@@ -248,7 +263,7 @@ public sealed class FiledWorkReadTests : IDisposable
         // What the projection leaves behind: the verdict is kept, the status moved on.
         await PhasesAsync(Phase("r-1", "p1", 1, "in_progress", "the premise was false"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single();
+        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
         phase.Verdict.Should().BeNull("a verdict belongs to a terminal row, not to a running one");
     }
@@ -260,7 +275,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await RunsAsync(Run("r-1", "alpha", Work, T));
         await PhasesAsync(Phase("r-1", "p1", 1, "in_progress"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single();
+        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
         phase.Status.Should().Be("in_progress", "a running phase is shown as running");
         phase.Verdict.Should().BeNull();
@@ -275,7 +290,7 @@ public sealed class FiledWorkReadTests : IDisposable
             "rule":"no silent catch","why":"the catch body logs nothing","cites":"P1","reverted":null}]}
             """);
 
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
         review!.Reviewed.Should().BeTrue();
         review.Why.Should().BeNull();
@@ -293,7 +308,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await ReviewedAsync(
             """{"reviewed":false,"findings":[],"why":"the run's configured cost cap is exhausted"}""");
 
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
         review!.Reviewed.Should().BeFalse();
         review.Why.Should().Be("the run's configured cost cap is exhausted");
@@ -308,7 +323,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await RunsAsync(Run("r-1", "alpha", Work, T));
         await PhasesAsync(Phase("r-1", "p1", 1, "in_progress"));
 
-        (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single()
+        (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single()
             .Review.Should().BeNull();
     }
 
@@ -350,7 +365,7 @@ public sealed class FiledWorkReadTests : IDisposable
     {
         await ReviewedAsync("[{\"repository\":\"api\",\"path\":\"src/A.cs\"}");
 
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
         review.Should().NotBeNull("a row that exists is not a phase that was never reviewed");
         review!.Unreadable.Should().BeTrue();
@@ -371,7 +386,7 @@ public sealed class FiledWorkReadTests : IDisposable
             "rule":"r","why":"kept from an earlier pass"}]}
             """);
 
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
         review!.Reviewed.Should().BeFalse();
         review.Unreadable.Should().BeFalse();
@@ -395,7 +410,7 @@ public sealed class FiledWorkReadTests : IDisposable
 
         await ReviewedAsync(events.Published.OfType<PhaseReviewedEvent>().Single().ReportJson);
 
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Phases.Single().Review;
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
         review!.Reviewed.Should().BeTrue();
         review.Findings.Should().BeEquivalentTo(recorded.Findings);
     }
@@ -544,7 +559,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await AddAsync(new RunArtifact
         {
             RunId = "r-1",
-            Kind = RunPhaseProjection.ReviewKindPrefix + "p1",
+            Kind = RunSpecProjection.ReviewKindPrefix + "p1",
             Content = reviewJson,
         });
     }
@@ -586,11 +601,11 @@ public sealed class FiledWorkReadTests : IDisposable
             PullRequestsJson = pullRequests,
         };
 
-    private static RunPhase Phase(
+    private static RunSpec Phase(
         string runId, string phaseId, int ordinal, string status, string? verdict = null) =>
         new()
         {
-            RunId = runId, PhaseId = phaseId, Ordinal = ordinal, Status = status,
+            RunId = runId, SpecId = phaseId, Ordinal = ordinal, Status = status,
             Title = $"Phase {phaseId}", StartedAt = T, Verdict = verdict,
         };
 
@@ -636,7 +651,7 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     private Task RunsAsync(params Run[] runs) => AddAsync(runs);
-    private Task PhasesAsync(params RunPhase[] phases) => AddAsync(phases);
+    private Task PhasesAsync(params RunSpec[] phases) => AddAsync(phases);
 
     private async Task AddAsync<T>(params T[] rows) where T : class
     {

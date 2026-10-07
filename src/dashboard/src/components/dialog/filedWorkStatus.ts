@@ -16,7 +16,7 @@ export interface StatusWords {
   tone: MarkTone;
 }
 
-// RunPhaseProjection.StatusOf writes exactly these five and nothing else.
+// RunSpecProjection.StatusOf writes exactly these five and nothing else.
 const PHASE_STATUS: Record<string, StatusWords> = {
   not_started: { word: "not started", tone: "" },
   in_progress: { word: "running", tone: "" },
@@ -33,7 +33,7 @@ export function phaseStatusWords(status: string): StatusWords {
   return PHASE_STATUS[status] ?? { word: status.replace(/_/g, " "), tone: "" };
 }
 
-// RunPhaseProjection.IsTerminal — the three states a phase does not leave again.
+// RunSpecProjection.IsTerminal — the three states a phase does not leave again.
 const TERMINAL = new Set(["done", "failed", "handed_back"]);
 
 /** Whether the phase has stopped. A phase still running has not reached its review yet; one

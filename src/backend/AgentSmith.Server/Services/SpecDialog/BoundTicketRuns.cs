@@ -26,7 +26,7 @@ public sealed class BoundTicketRuns(
                 ticketId, cancellationToken);
             return new TicketRunsResult([.. found.Select(run => new TicketRun(
                 run.RunId, run.Project, run.Status, run.StartedAt,
-                [.. run.Phases.Select(phase => phase.PhaseId)],
+                [.. run.Specs.Select(spec => spec.SpecId)],
                 [.. run.PullRequests.Select(pr => pr.Url ?? pr.Repo)]))]);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)

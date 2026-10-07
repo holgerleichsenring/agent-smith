@@ -22,7 +22,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunStep> RunSteps => Set<RunStep>();
     public DbSet<RunEvent> RunEvents => Set<RunEvent>();
     public DbSet<RunDecision> RunDecisions => Set<RunDecision>();
-    public DbSet<RunPhase> RunPhases => Set<RunPhase>(); // p0466: a phase as an addressable thing
+    public DbSet<RunSpec> RunSpecs => Set<RunSpec>(); // p0466: a phase as an addressable thing
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();
@@ -68,7 +68,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
         modelBuilder.ApplyConfiguration(new ConfigEntityConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigEntityVersionConfiguration()); // p0349
         modelBuilder.ApplyConfiguration(new ConfigRefConfiguration()); // p0349
-        modelBuilder.ApplyConfiguration(new RunPhaseConfiguration()); // p0466
+        modelBuilder.ApplyConfiguration(new RunSpecConfiguration()); // p0466
         new ServerStateConfigurations().Apply(modelBuilder); // 2026-08-26-7a51 + 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new ChatRunBindingConfiguration());
         new RunChildConfiguration().Apply(modelBuilder);

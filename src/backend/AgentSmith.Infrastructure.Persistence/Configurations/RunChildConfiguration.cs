@@ -26,7 +26,7 @@ public sealed class RunChildConfiguration
     private static readonly Type[] Children =
     [
         typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
-        typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunPhase),
+        typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunSpec),
     ];
 
     public void Apply(ModelBuilder modelBuilder)

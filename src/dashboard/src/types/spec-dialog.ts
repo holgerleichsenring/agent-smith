@@ -405,9 +405,9 @@ export interface FiledWorkReview {
   unreadable: boolean;
 }
 
-/** One phase of the run, as its own row says it stands. */
-export interface FiledWorkPhase {
-  phaseId: string;
+/** One spec the run executed, as its own row says it stands. */
+export interface FiledWorkSpec {
+  specId: string;
   ordinal: number;
   title: string;
   /** not_started | in_progress | done | failed. */
@@ -444,7 +444,7 @@ export interface FiledWorkRun {
   startedAt: string;
   finishedAt: string | null;
   pullRequests: FiledWorkPullRequest[];
-  phases: FiledWorkPhase[];
+  specs: FiledWorkSpec[];
   pendingQuestion: FiledWorkQuestion | null;
 }
 

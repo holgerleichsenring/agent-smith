@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-03c7g
+
+decisions:
+  - category: Architecture
+    chose: "One migration RenameRunPhasesToRunSpecs per assembly, scaffolded by the repo's pinned dotnet ef 9.0.17 (--no-build, project = startup = the migrations assembly) and its Up/Down rewritten to RenameTable, RenameColumn and two RenameIndex calls"
+    over: "The scaffolded drop RunPhases + create RunSpecs"
+    reason: |
+      EF cannot tell a renamed entity from a new one, so the scaffold dropped every stored row. The
+      spec keeps rows; the designer and snapshot stay as generated. Same shape as
+      RenameTicketWorkSpecToSpecSet (p0393a), the repository's one earlier in-place rename, and the
+      same name in AgentSmith.Infrastructure.Persistence (SQLite, Postgres, MySQL) and
+      AgentSmith.Infrastructure.Persistence.SqlServer keeps both histories aligned.
+  - category: Implementation
+    chose: "Down renames the table and column back FIRST, then the indexes on RunPhases"
+    over: "Down as the exact reverse order of Up (indexes first, on RunSpecs)"
+    reason: |
+      SQLite has no ALTER INDEX RENAME; EF rebuilds the index from the target model, which in Down
+      knows only RunPhases. Indexes-first threw NotSupportedException ('RenameIndexOperation') and
+      broke RunStoreRepairTests.Migration_AppliesAndIsReversible, which migrates the whole chain back.
+  - category: TradeOff
+    chose: "The primary-key constraint keeps its stored name PK_RunPhases on Postgres, MySQL and SQL Server"
+    over: "Dropping and re-adding the key as PK_RunSpecs"
+    reason: |
+      EF has no rename-key operation, MySQL cannot drop the key of an AUTO_INCREMENT column, and the
+      model never names the key, so no later migration reads it. p0393a made the same choice.
+  - category: Scope
+    chose: "An archive taken before this is imported with the previous release, then migrated"
+    over: "Teaching the archive importer to map RunPhases/PhaseId onto RunSpecs/SpecId"
+    reason: |
+      An archive imports only at its own migration head (ArchiveSchemaCheck). The rename keeps rows,
+      so importing on the release that wrote the archive and upgrading afterwards carries every row
+      across without a second reader that has to know the old names forever.
+  - category: Architecture
+    chose: "Entity RunSpec, RunSpecConfiguration, RunSpecProjection, RunSpecsReader, RunSpecView(SpecId…), RunSpecDetailView(Spec, Record), RunSpecQueryEndpoints at /api/runs/{runId}/specs and /specs/{specId} with payload keys specs/specId/spec"
+    over: "Keeping the C# type names and renaming only the surfaces"
+    reason: |
+      A type named for the old word would carry it back into every new caller. The projection
+      consumes PhaseStateChangedEvent, PhaseRecordedEvent and PhaseReviewedEvent unchanged and its
+      artifact kinds phase_record:/phase_review: stay, since the durable trail and the artifact
+      store hold those names.
+  - category: Scope
+    chose: "RunSteps.PhaseId, RunDecisions.PhaseId, RunStepView.PhaseId, hub events and artifact kinds keep their names"
+    over: "Renaming them in this slice"
+    reason: |
+      The spec's scope.out names the stored columns, events and kinds: stored names a renamed reader
+      would have to carry forever, invisible to a user.
+  - category: Scope
+    chose: "The filed-work payload follows too: FiledWorkPhaseView -> FiledWorkSpecView (SpecId), FiledWorkRunView.Phases -> Specs, served as specs/specId; dashboard FiledWorkPhase -> FiledWorkSpec with DialogFiledRuns, BoundTicketRuns and the tests following"
+    over: "Leaving it for a later slice because scope.in names only the two run endpoints"
+    reason: |
+      The done criterion says no payload key names a spec 'phase', and this payload is read from the
+      same RunSpecs rows. The coordinator asked for it inside 03c7g. TicketRun (the dialog tool's
+      shape) and the FiledWorkPhaseReviews service keep their names; neither is this payload.
+  - category: Implementation
+    chose: "Dashboard runSpecsApi, useRunSpecs, useRunSpecRecord, SpecsPanel (heading 'Specs'), SpecOutcome; breadcrumb 'Spec {id}', PhaseAccount heading 'Spec {id}' / 'Steps outside any spec', TicketStatistics metric 'Specs'; test ids spec-*"
+    over: "Changing only the visible heading"
+    reason: |
+      The spec names the module and component names. PhaseAccount keeps its component name and its
+      RunPhaseStatistics input: those come from the statistics fold over the hub event trail, which
+      stays out of scope.
+  - category: Tooling
+    chose: "route-permission-baseline.tsv edited for the two renamed routes, same permission runs.read"
+    over: "Regenerating the whole baseline with the write flag"
+    reason: "Two rows changed path and nothing changed permission; a hand edit shows exactly that in the diff."

@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchRunPhase } from "@/lib/runPhasesApi";
+import { fetchRunSpec } from "@/lib/runSpecsApi";
 
-// p0466: the spec a phase executed, fetched when the operator opens that phase.
-// It is the largest thing a phase carries, so the list read never ships it —
-// opening one phase costs one document, not every document the run produced.
+// p0466: the spec body a run executed, fetched when the operator opens that spec.
+// It is the largest thing a spec row carries, so the list read never ships it —
+// opening one spec costs one document, not every document the run produced.
 
-export function useRunPhaseRecord(
+export function useRunSpecRecord(
   runId: string | null,
-  phaseId: string | null,
+  specId: string | null,
 ): { record: string | null; loading: boolean } {
   const [record, setRecord] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!runId || !phaseId) {
+    if (!runId || !specId) {
       setRecord(null);
       return;
     }
@@ -23,7 +23,7 @@ export function useRunPhaseRecord(
     setLoading(true);
     void (async () => {
       try {
-        const detail = await fetchRunPhase(runId, phaseId, ctrl.signal);
+        const detail = await fetchRunSpec(runId, specId, ctrl.signal);
         setRecord(detail?.record ?? null);
       } catch {
         setRecord(null);
@@ -32,7 +32,7 @@ export function useRunPhaseRecord(
       }
     })();
     return () => ctrl.abort();
-  }, [runId, phaseId]);
+  }, [runId, specId]);
 
   return { record, loading };
 }

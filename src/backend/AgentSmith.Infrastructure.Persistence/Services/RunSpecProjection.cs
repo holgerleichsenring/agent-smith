@@ -11,11 +11,11 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// spec it executed kept where the server can serve it.
 /// <para>
 /// A phase changes standing more than once, so every change UPSERTS the one row the
-/// (RunId, PhaseId) index guarantees. Nothing here parses a step name: the producer
+/// (RunId, SpecId) index guarantees. Nothing here parses a step name: the producer
 /// states which phase it is talking about.
 /// </para>
 /// </summary>
-public sealed class RunPhaseProjection
+public sealed class RunSpecProjection
 {
     /// <summary>The artifact kind a phase record is stored under, one row per phase.</summary>
     public const string RecordKindPrefix = "phase_record:";
@@ -30,7 +30,7 @@ public sealed class RunPhaseProjection
         var row = await FindAsync(uow, e.RunId, e.PhaseId, ct);
         if (row is null)
         {
-            row = new RunPhase { RunId = e.RunId, PhaseId = e.PhaseId, StartedAt = e.Timestamp };
+            row = new RunSpec { RunId = e.RunId, SpecId = e.PhaseId, StartedAt = e.Timestamp };
             uow.Add(row);
         }
         row.Ordinal = e.Ordinal;
@@ -76,9 +76,9 @@ public sealed class RunPhaseProjection
         await uow.SaveChangesAsync(ct);
     }
 
-    private static Task<RunPhase?> FindAsync(
-        IUnitOfWork uow, string runId, string phaseId, CancellationToken ct) =>
-        uow.Set<RunPhase>().FirstOrDefaultAsync(p => p.RunId == runId && p.PhaseId == phaseId, ct);
+    private static Task<RunSpec?> FindAsync(
+        IUnitOfWork uow, string runId, string specId, CancellationToken ct) =>
+        uow.Set<RunSpec>().FirstOrDefaultAsync(p => p.RunId == runId && p.SpecId == specId, ct);
 
     private static bool IsTerminal(PhaseRunState state) =>
         state is PhaseRunState.Done or PhaseRunState.Failed or PhaseRunState.HandedBack;

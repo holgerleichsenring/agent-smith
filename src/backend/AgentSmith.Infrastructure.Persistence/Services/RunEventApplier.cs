@@ -14,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// carry structured run facts the dashboard reads.
 ///
 /// p0466: the terminal transition and the phase's standing are projections of
-/// their own — see RunFinalizationProjection / RunPhaseProjection.
+/// their own — see RunFinalizationProjection / RunSpecProjection.
 ///
 /// <para>2026-08-25-61f1: an event arrives with the position it holds in its run's trail,
 /// and every projection that INSERTS stamps it on the row. That position is the row's
@@ -29,7 +29,7 @@ public sealed class RunEventApplier(
     RunPullRequestProjection pullRequests,
     RunClassificationProjection classification,
     RunFinalizationProjection finalization,
-    RunPhaseProjection phases,
+    RunSpecProjection phases,
     RunLlmCallProjection llmCalls,
     RunDecisionProjection decisions)
 {
