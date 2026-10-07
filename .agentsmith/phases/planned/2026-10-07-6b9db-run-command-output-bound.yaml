@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-07-6b9db
+goal: "run_command hands the model stdout and stderr each within its own budget, head and tail kept and the cut named, and the trail counts both as delivered."
+
+applies_to: "backend (run_command rendering, streamed output, sandbox result event)"
+
+requires: [2026-10-07-6b9da]
+
+facts:
+  - claim: "The model text takes stdout from the result body, cut head-only at 1 MB, and stderr from the live stream, unbounded apart from the stream buffer."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RunCommandOutput.cs:31-41,64-74"
+  - claim: "The stream buffers keep the HEAD up to 1 MB each and share one Truncated flag: once either fills, neither collects."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/StreamedStepOutput.cs:28,45-56"
+  - claim: "DeliveredChars is the body's length only; stderr is not counted."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/SandboxEventProjector.cs:93"
+  - claim: "observed 2026-10-06: two service runs on a TypeScript monorepo ran `npm test` (OutputChars ~984,800, DeliveredChars ~15,700); the next model call grew by 470,816 and 481,602 tokens — jest writes to stderr."
+    evidence: "observed: archive 2026-10-06, runs 2026-09-05T19-22-17-a81d (events 702-707) and 2026-09-08T11-28-15-989e (events 773-778)"
+  - claim: "A build's reason is at the END of its output, often on stdout; a head-only cut lost it (p0419)."
+    evidence: ".agentsmith/phases/done/p0419-step-failure-cause.yaml:24,30,52"
+
+scope:
+  in: >
+    RunCommandOutput bounds stdout and stderr separately, head and tail, with ToolResultBound
+    (2026-10-07-6b9da): stdout 60,000, stderr 20,000 — together under the loop bound, so the loop
+    never cuts across the two sections. The header names each section's total and whether it was
+    cut. StreamedStepOutput keeps a head and a rolling tail per stream with its own flag, so a
+    stderr past 1 MB still yields its last lines. DeliveredChars counts the bounded stdout plus
+    the bounded stderr.
+  out: >
+    VerifyCommandRunner and OutputTail cut tail-only with no marker; they do not reach the model
+    loop and are named for a later phase. Per-tool bounds beyond run_command (6b9da).
+
+decisions:
+  - key: "STDERR IS AN EXCERPT, STDOUT THE CONTENT. Stderr carries progress, warnings and a failure's cause; 20,000 head and tail keeps the first error and the summary. Stdout is what a command was asked for and gets the larger share."
+  - key: "SECTION BUDGETS SUM BELOW THE LOOP BOUND. Left to the loop bound alone, a cut through the middle of the rendered text would drop stdout's tail and stderr's head together."
+  - key: "COUNTERS FROM THE SAME BUDGETS. DeliveredChars is computed from the constants RunCommandOutput applies, so the trail cannot claim less than the model received (the 15,700 vs ~480k gap)."
+
+steps:
+  - id: budgets
+    action: "Add RunCommandStdoutMaxChars 60,000 and RunCommandStderrMaxChars 20,000 to SizeLimits."
+    modify:
+      - "SizeLimits: two section budgets"
+  - id: stream
+    action: "Make StreamedStepOutput keep head and rolling tail per stream with a per-stream flag and total."
+    modify:
+      - "StreamedStepOutput: head+tail per stream"
+  - id: render
+    action: "Bound stdout and stderr in RunCommandOutput with ToolResultBound; header carries stdout_chars/stderr_chars and per-section truncated."
+    modify:
+      - "RunCommandOutput: two bounded sections"
+  - id: counter
+    action: "Count stderr characters in the projector and set DeliveredChars to bounded stdout + bounded stderr."
+    modify:
+      - "SandboxEventProjector: delivered counts stderr"
+
+tests:
+  - "Render_StderrOf1MB_KeepsHeadAndTailWithin20000"
+  - "Render_StdoutOver60000_KeepsTailWithBuildVerdict"
+  - "Render_SmallOutput_IsUnchangedButForCountHeaders"
+  - "StreamedStepOutput_StdoutFull_StderrStillCollected"
+  - "StreamedStepOutput_StderrPast1MB_KeepsLastLines"
+  - "Projector_StderrHeavyCommand_DeliveredCountsStderr"
+
+done:
+  - "A command printing 1 MB to stderr reaches the model as ≤ 20,000 stderr characters with head, tail and the dropped count."
+  - "A failing build whose verdict is the last stdout line still shows it."
+  - "DeliveredChars ≥ the characters of both sections the model received."
+  - "Full suite green."

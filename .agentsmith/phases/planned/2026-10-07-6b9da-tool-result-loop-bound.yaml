@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../phase-spec.schema.json
+phase: 2026-10-07-6b9da
+goal: "Every tool result in every tool loop is bounded once, head and tail kept, the cut named with a way to page — so no single result can push a conversation past its window."
+
+applies_to: "backend (tool loop in the chat-client chain, the result bound)"
+
+requires: []
+
+facts:
+  - claim: "Every tool-bearing chat client ends in ONE function-invoking client the factory builds; master, scout, planning, spec-dialog, context and code-map loops all pass through it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:53-61,169-170,199-200; src/backend/AgentSmith.Infrastructure/Services/ToolImages/ToolImageFunctionInvokingChatClient.cs:14-29"
+  - claim: "p0422 already defines the bound the run-20 incident called for: head and tail kept, dropped count named, a hint to narrow path, pattern or line range, 100,000 characters."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/BoundedResultAIFunction.cs:6-24,26,47-57"
+  - claim: "It is applied only in the skill loop; the design-dialog surface carries no bound, the scout surface a head-only 40,000."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:149-156; src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:36-40,78-89; src/backend/AgentSmith.Application/Services/Tools/BoundedResultTool.cs:34-39"
+  - claim: "A string returned through AIFunctionFactory arrives as a JsonElement, not a string."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/BoundedResultTool.cs:26-30"
+  - claim: "BoundedResultAIFunction bounds only `result is string`."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/BoundedResultAIFunction.cs:42"
+  - claim: "read_file returns a file up to 1 MB whole, with line numbers by default, and pages by start_line/line_count."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:59; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:223-228"
+  - claim: "A model once read absence from a list that said it was cut (485e)."
+    evidence: ".agentsmith/phases/done/2026-09-24-485e-premise-search-proves-presence.yaml:3,24"
+  - claim: "Infrastructure does not reference Application."
+    evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:4-6"
+  - claim: "observed 2026-10-06: a design turn on a TypeScript repo grew by ~1.04M characters in one tool step, 0.5 s after the call, and was refused; its repo holds lockfiles of 450 KB and 512 KB."
+    evidence: "observed: run 2026-10-06T09-59-19-2892 trail (LLM calls 3→4); node-service-template checkout"
+
+assumptions:
+  - claim: "Because of the JsonElement marshalling, the skill-loop bound cuts nothing today."
+    check: "A test invoking BoundedResultAIFunction over an AIFunctionFactory tool returning 200k characters; the step that moves the bound fixes it either way."
+  - claim: "FunctionInvokingChatClient.InvokeFunctionAsync is overridable in the pinned Microsoft.Extensions.AI 10.3.0."
+    check: "Build after the override step."
+
+scope:
+  in: >
+    The head-and-tail bound moves to Contracts as ToolResultBound (string or JSON-string result in,
+    bounded result out), and the function-invoking client applies it to every result before the
+    result enters the history. BoundedResultAIFunction calls it, so the skill loop is bounded for
+    JSON-string results too. The cut text adds a read_file paging hint.
+  out: >
+    run_command's own section budgets (2026-10-07-6b9db). The finaliser and the refusal text
+    (2026-10-07-6b9dc). Tool results in the trace — a phase of its own. Per-surface bounds stay
+    (scout 40,000, spec reads 16,000, audit 12,000); this bound is the ceiling above them.
+
+decisions:
+  - key: "ONE BOUND IN THE LOOP, NOT PER SURFACE. p0422 asked for one decorator over all tools; a per-surface wrap missed the design dialog. The loop is the one place every surface passes."
+  - key: "100,000 CHARACTERS, HEAD AND TAIL (p0422). A source file of 2,500 lines passes whole; a lockfile keeps its head, its tail and the means to read any range. Head-only cuts lost a build's verdict (p0419)."
+  - key: "THE CUT SAYS IT IS NOT AN INVENTORY. 485e: a model read absence from a cut list; the marker states the middle was dropped and that what is not shown may exist."
+  - key: "NO SIZE BY WINDOW. A per-result bound from the window would vary by deployment; folding the whole conversation stays compaction's job."
+
+steps:
+  - id: bound
+    action: "Create ToolResultBound in Contracts with Bound(string, int) and Apply(object?, int) handling string and JSON-string results; marker names dropped/total, says what is not shown may exist, and how to page."
+    new:
+      - "ToolResultBound: head+tail bound, default 100,000"
+  - id: skill-loop
+    action: "Make BoundedResultAIFunction call ToolResultBound.Apply and delete its own Bound."
+    modify:
+      - "BoundedResultAIFunction: JSON-string results bounded"
+  - id: loop
+    action: "Override InvokeFunctionAsync in ToolImageFunctionInvokingChatClient to bound the result; log tool name, total and kept when it cuts."
+    modify:
+      - "ToolImageFunctionInvokingChatClient: every result bounded"
+
+tests:
+  - "Bound_UnderBudget_ReturnsUnchanged"
+  - "Bound_OverBudget_KeepsHeadAndTailAndNamesDropped"
+  - "Apply_JsonStringResult_IsBounded"
+  - "BoundedResultAIFunction_FactoryToolReturning200k_IsBounded"
+  - "ToolLoop_ReadFileReturning1MB_ModelReceivesBoundedResult"
+  - "ToolLoop_SmallResult_ReachesModelUnchanged"
+
+done:
+  - "A 1 MB tool result reaches the provider as ≤ 100,000 characters plus the marker, in master, scout and spec-dialog loops (harness test through the real factory)."
+  - "A result under the bound is byte-identical to today."
+  - "Full suite green."
