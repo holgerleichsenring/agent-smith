@@ -47,7 +47,9 @@ public sealed class PrinciplesTemplateContentTests
 
         var anchors = new[]
         {
-            "English", "20 lines per method", "120 lines", "one type per file",
+            // 2026-10-03-24d4: the delta states a measured, sourced method limit and no class
+            // limit, so the anchor is that a method limit exists, not today's number.
+            "English", "lines per method", "one type per file",
             "single responsibility", "open/closed", "Liskov", "interface segregation",
             "dependency inversion", "tell, don", "composition over inheritance",
             "convention over configuration", "PascalCase", "camelCase", "_camelCase",
