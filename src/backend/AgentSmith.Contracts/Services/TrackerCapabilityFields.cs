@@ -22,36 +22,36 @@ public static class TrackerCapabilityFields
     {
         TrackerType.AzureDevOps =>
         [
-            new CapabilityField("organization", "Organization", Required: true),
-            new CapabilityField("project", "Project", Required: true),
-            new CapabilityField("url", "URL", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
+            new CapabilityField("organization", "Organization", Required: true, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("project", "Project", Required: true, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("url", "URL", Required: false, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
             WorkItemKinds,
         ],
         TrackerType.GitHub =>
         [
-            new CapabilityField("url", "Repository URL", Required: true),
-            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
+            new CapabilityField("url", "Repository URL", Required: true, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
         ],
         TrackerType.GitLab =>
         [
-            new CapabilityField("project", "Project path", Required: true),
-            new CapabilityField("url", "Base URL", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
+            new CapabilityField("project", "Project path", Required: true, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("url", "Base URL", Required: false, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
         ],
         TrackerType.Jira =>
         [
-            new CapabilityField("url", "Base URL", Required: true),
-            new CapabilityField("project", "Project key", Required: false),
-            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret),
+            new CapabilityField("url", "Base URL", Required: true, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("project", "Project key", Required: false, Group: TrackerFieldGroups.Connection),
+            new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             // 2026-10-02-5f89a: the account the token belongs to — a field of the tracker, not JIRA_EMAIL.
-            new CapabilityField("email", "Account email", Required: true),
+            new CapabilityField("email", "Account email", Required: true, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
             WorkItemKinds,
-            new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map),
+            new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Connection),
         ],
         _ => throw new ConfigurationException(
             $"Tracker type '{type}' has no capabilities descriptor — add its field set."),
@@ -65,24 +65,24 @@ public static class TrackerCapabilityFields
     // be set from the UI. CapabilityCoverageTests keeps this list level with the raw model.
     private static readonly IReadOnlyList<CapabilityField> WorkflowFields =
     [
-        new CapabilityField("triggerStatuses", "Trigger statuses", Required: false, CapabilityFieldKind.List),
-        new CapabilityField("openStates", "Open states", Required: false, CapabilityFieldKind.List),
-        new CapabilityField("doneStatus", "Done status", Required: false),
-        new CapabilityField("failedStatus", "Failed status", Required: false),
-        new CapabilityField("needsClarificationStatus", "Needs-clarification status", Required: false),
-        new CapabilityField("notImplementableStatus", "Not-implementable status", Required: false),
-        new CapabilityField("closeTransitionName", "Close transition name", Required: false),
-        new CapabilityField("extraFields", "Extra ticket fields", Required: false, CapabilityFieldKind.List),
-        new CapabilityField("zeroMatchComment", "Comment when nothing matched", Required: false, CapabilityFieldKind.Bool),
+        new CapabilityField("triggerStatuses", "Trigger statuses", Required: false, CapabilityFieldKind.List, Group: TrackerFieldGroups.Intake),
+        new CapabilityField("openStates", "Open states", Required: false, CapabilityFieldKind.List, Group: TrackerFieldGroups.Intake),
+        new CapabilityField("doneStatus", "Done status", Required: false, Group: TrackerFieldGroups.Outcome),
+        new CapabilityField("failedStatus", "Failed status", Required: false, Group: TrackerFieldGroups.Outcome),
+        new CapabilityField("needsClarificationStatus", "Needs-clarification status", Required: false, Group: TrackerFieldGroups.Outcome),
+        new CapabilityField("notImplementableStatus", "Not-implementable status", Required: false, Group: TrackerFieldGroups.Outcome),
+        new CapabilityField("closeTransitionName", "Close transition name", Required: false, Group: TrackerFieldGroups.Transition),
+        new CapabilityField("extraFields", "Extra ticket fields", Required: false, CapabilityFieldKind.List, Group: TrackerFieldGroups.Intake),
+        new CapabilityField("zeroMatchComment", "Comment when nothing matched", Required: false, CapabilityFieldKind.Bool, Group: TrackerFieldGroups.Intake),
         new CapabilityField(
             "pipelineFromLabel", "Pipeline by label", Required: false, CapabilityFieldKind.Map,
-            Choices: Commands.PipelinePresets.Routable),
+            Choices: Commands.PipelinePresets.Routable, Group: TrackerFieldGroups.Routing),
         // OPTIONAL: Required is a blocking draft finding, and would make every existing tracker unsaveable.
         new CapabilityField(
-            "defaultPipeline", "Default pipeline", Required: false, Choices: Commands.PipelinePresets.Routable),
-        new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map),
+            "defaultPipeline", "Default pipeline", Required: false, Choices: Commands.PipelinePresets.Routable, Group: TrackerFieldGroups.Routing),
+        new CapabilityField("lifecycleStatusNames", "Lifecycle status names", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Transition),
         // 2026-09-25-3c7ac: what this board calls the labels agent-smith writes onto it.
-        new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map),
+        new CapabilityField("labelNames", "Label names", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Routing),
     ];
 
     // 2026-09-18-b4f0: declared for the two tracker types whose create sends a kind, and for
@@ -90,5 +90,5 @@ public static class TrackerCapabilityFields
     // accepts two state events, so neither has a kind this choice would change. The coverage
     // test unions the field keys across types, so two arms is enough to count as declared.
     private static readonly CapabilityField WorkItemKinds =
-        new("workItemKinds", "Work item kind by filing role", Required: false, CapabilityFieldKind.Map);
+        new("workItemKinds", "Work item kind by filing role", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Filing);
 }

@@ -577,6 +577,10 @@
 .mock-config .dtab.on, .mock-dialog .dtab[aria-selected="true"] { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent); }
 .mock-config .dtab[data-marked="true"] { color: var(--run); }
 .mock-config .dtab .dtab-mark { font-size: 9.5px; }
+/* 2026-10-06-cea8: the tracker drawer's outcome block — four statuses read as one decision. */
+.mock-config .trk-outcomes { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.mock-config .trk-outcomes-head { font-size: 11.5px; font-weight: 650; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); }
+.mock-config .trk-warn { margin: 0; font-size: 12px; line-height: 1.45; color: var(--run); background: var(--run-wash); border-radius: 9px; padding: 8px 11px; }
 /* 2026-09-30-62bab: the operator's tier on a model — strong filled ink, fast outlined. */
 .mock-config .tier-pill { font-size: 11px; font-weight: 560; padding: 1px 8px; border-radius: 999px; white-space: nowrap; flex: none; }
 .mock-config .tier-pill.strong { background: var(--ink); color: var(--bg); }

@@ -56,16 +56,33 @@ public sealed class ConfigDraftRulesTests
     }
 
     [Fact]
-    public void Studio_RequiredFieldEmpty_BlocksSaveAndNamesTheField()
+    public void ForTracker_TwoRequiredFieldsEmpty_OneBlockingFindingEach()
     {
         var draft = new TrackerEntity(Id: "gh", Type: "github", AuthSecret: null);
 
-        var findings = _rules.ForTracker(draft);
+        var blocking = _rules.ForTracker(draft).Where(f => f.IsBlocking).ToList();
 
-        // 2026-09-16-a4d7 added a second, ADVISORY finding to the same draft (it declares
-        // no routing either), so the blocking one is selected rather than assumed alone.
-        findings.Should().ContainSingle(f => f.IsBlocking).Which.Reason
-            .Should().Contain("url").And.Contain("authSecret");
+        blocking.Select(f => f.Field).Should().BeEquivalentTo(["url", "authSecret"]);
+        blocking.Should().Contain(f => f.Reason == "Auth secret is required.");
+    }
+
+    [Fact]
+    public void ForTracker_JiraWithoutEmail_NamesEmailNotType()
+    {
+        var draft = new TrackerEntity(
+            Id: "j", Type: "jira", Url: "https://x.atlassian.net", AuthSecret: "JIRA_TOKEN");
+
+        _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking)
+            .Which.Field.Should().Be("email");
+    }
+
+    [Fact]
+    public void ForTracker_UnknownType_FindingNamesType()
+    {
+        var draft = new TrackerEntity(Id: "b", Type: "bugzilla", AuthSecret: null);
+
+        _rules.ForTracker(draft).Should().ContainSingle(f => f.IsBlocking)
+            .Which.Field.Should().Be("type");
     }
 
     [Fact]

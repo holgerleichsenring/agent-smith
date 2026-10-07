@@ -245,6 +245,9 @@ export interface CapabilityField {
    *  field was before this existed. A stored value outside the list is still shown: the list is
    *  guidance, and a configuration written before the list existed must stay readable. */
   choices?: string[];
+  /** 2026-10-06-cea8: what the field decides (connection, intake, outcome, transition, routing,
+   *  filing) — where a form places it. Null or absent for a field no form groups. */
+  group?: string | null;
 }
 
 export interface TrackerTypeDescriptor {

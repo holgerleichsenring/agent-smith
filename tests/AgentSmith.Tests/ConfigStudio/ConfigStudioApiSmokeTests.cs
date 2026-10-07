@@ -417,13 +417,14 @@ public sealed class ConfigStudioApiSmokeTests
             (await scan.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>())
                 .Should().NotContain(f => f!.Field == "needs_clarification_status");
 
-            // The tracker route reports the descriptor's requiredness instead of refusing.
+            // The tracker route reports the descriptor's requiredness instead of refusing,
+            // one finding per empty required field (2026-10-06-cea8).
             var tracker = await http.PostAsJsonAsync("/api/config/trackers/validate",
                 new TrackerEntity("draft", "azure_devops", AuthSecret: null));
             var trackerFindings =
                 await tracker.Content.ReadFromJsonAsync<List<AgentSmith.Server.Models.StartupFindingView>>();
-            trackerFindings.Should().ContainSingle(f => f!.Severity == "blocking").Which.Reason
-                .Should().Contain("organization").And.Contain("authSecret");
+            trackerFindings!.Where(f => f!.Severity == "blocking").Select(f => f!.Field)
+                .Should().BeEquivalentTo(["organization", "project", "authSecret"]);
             // 2026-09-16-a4d7: the same draft declares neither a label map nor a fallback,
             // so it also carries the ADVISORY finding naming where every ticket would go.
             trackerFindings.Should().Contain(f =>

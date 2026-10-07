@@ -42,9 +42,12 @@ public sealed record ConfigCapabilities(
 /// and closed. It rides BESIDE the kind rather than replacing it: a map's value side is a choice
 /// while the field is still a map, and one kind per field cannot say both. Empty means free text,
 /// which is every field that had no list before this existed.</param>
+/// <param name="Group">2026-10-06-cea8: what the field decides (connection, intake, outcome,
+/// transition, routing, filing), so the form can place it without knowing any key. Null for a
+/// field no form groups.</param>
 public sealed record CapabilityField(
     string Key, string Label, bool Required, CapabilityFieldKind Kind = CapabilityFieldKind.Text,
-    IReadOnlyList<string>? Choices = null);
+    IReadOnlyList<string>? Choices = null, string? Group = null);
 
 /// <summary>The value shape of a <see cref="CapabilityField"/>, as the form must edit it.</summary>
 [JsonConverter(typeof(CapabilityFieldKindConverter))]

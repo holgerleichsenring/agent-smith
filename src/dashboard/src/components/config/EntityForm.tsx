@@ -15,11 +15,12 @@ import type {
   StudioTracker,
 } from "@/lib/configApi";
 import { ENTITY_SINGULAR } from "./entities";
-import { TextField, SelectField, NumberField, CheckField, RefSelect } from "./formFields";
+import { TextField, SelectField, RefSelect } from "./formFields";
 import { CapabilityFieldInputs, pruneToType } from "./capabilityFields";
 import { AgentForm } from "./AgentForm";
 import { DraftCheckPanel } from "./DraftCheckPanel";
 import { ProjectForm } from "./ProjectForm";
+import { TrackerForm } from "./TrackerForm";
 import type { ConfigCatalog } from "./useConfigCatalog";
 
 // p0345: the create/edit form body, dispatched by entity kind. The `id` is
@@ -27,6 +28,7 @@ import type { ConfigCatalog } from "./useConfigCatalog";
 // RefSelect/MultiRefSelect bound to a catalog list — the project form is the
 // relational heart and gets its own five-tab file (2026-09-16-74a2). The secret form is
 // deliberately id-only with a redaction bar: no value input exists anywhere.
+// 2026-10-06-cea8: the tracker form is tabbed in its own file, like the project and agent.
 // p0345c: tracker/connection/agent forms are CAPABILITIES-driven — type and
 // provider are dropdowns from the backend descriptor, and the field set below
 // a type renders from that type's declared fields. No hardcoded type knowledge.
@@ -80,35 +82,17 @@ export function EntityForm({
         </div>
       );
     }
-    case "trackers": {
-      const t = draft as StudioTracker;
-      const descriptor = capabilities?.trackerTypes.find((d) => d.type === t.type) ?? null;
+    case "trackers":
       return (
-        <div className="flex flex-col gap-4">
-          {idField}
-          <SelectField
-            label="type"
-            value={t.type}
-            options={capabilities?.trackerTypes.map((d) => d.type) ?? []}
-            required
-            help={capabilities ? undefined : "capabilities unavailable"}
-            testId="form-field-type"
-            onChange={(v) => onChange(pruneToType(t, capabilities?.trackerTypes ?? [], v))}
-          />
-          {descriptor && (
-            <CapabilityFieldInputs
-              fields={descriptor.fields}
-              values={t as unknown as Record<string, unknown>}
-              onFieldChange={(key, value) => onChange({ ...t, [key]: value })}
-              findings={findings}
-              secrets={secretNames}
-            />
-          )}
-          <TrackerPollingBlock tracker={t} onChange={onChange} />
-          <DraftCheckPanel kind="trackers" draft={t} />
-        </div>
+        <TrackerForm
+          draft={draft as StudioTracker}
+          onChange={onChange}
+          capabilities={capabilities}
+          findings={findings}
+          secrets={secretNames}
+          idField={idField}
+        />
       );
-    }
     case "connections": {
       const c = draft as StudioConnection;
       const descriptor = capabilities?.connectionTypes.find((d) => d.type === c.type) ?? null;
@@ -227,70 +211,4 @@ export function EntityForm({
       );
     }
   }
-}
-
-// p0345c: polling is part of the v2 tracker CONTRACT (not per-type) — an
-// optional section: absent until the operator adds it, then enabled/interval/
-// jitter are editable; removing it restores the backend default.
-function TrackerPollingBlock({
-  tracker,
-  onChange,
-}: {
-  tracker: StudioTracker;
-  onChange: (next: StudioTracker) => void;
-}) {
-  if (!tracker.polling) {
-    return (
-      <div className="field">
-        <label>
-          polling <span className="help">backend default applies</span>
-        </label>
-        <div className="picks">
-          <button
-            type="button"
-            className="pick"
-            data-testid="form-field-polling-add"
-            onClick={() =>
-              onChange({ ...tracker, polling: { enabled: true, intervalSeconds: 300, jitterPercent: 10 } })
-            }
-          >
-            Configure polling
-          </button>
-        </div>
-      </div>
-    );
-  }
-  const polling = tracker.polling;
-  return (
-    <>
-      <CheckField
-        label="polling"
-        value={polling.enabled}
-        testId="form-field-polling-enabled"
-        onChange={(v) => onChange({ ...tracker, polling: { ...polling, enabled: v } })}
-      />
-      <NumberField
-        label="poll interval (seconds)"
-        value={polling.intervalSeconds}
-        testId="form-field-polling-intervalSeconds"
-        onChange={(v) => onChange({ ...tracker, polling: { ...polling, intervalSeconds: v ?? 0 } })}
-      />
-      <NumberField
-        label="jitter (%)"
-        value={polling.jitterPercent}
-        testId="form-field-polling-jitterPercent"
-        onChange={(v) => onChange({ ...tracker, polling: { ...polling, jitterPercent: v ?? 0 } })}
-      />
-      <div className="picks">
-        <button
-          type="button"
-          className="pick"
-          data-testid="form-field-polling-remove"
-          onClick={() => onChange({ ...tracker, polling: undefined })}
-        >
-          Remove polling override
-        </button>
-      </div>
-    </>
-  );
 }
