@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+phase: 2026-10-07-6b9db
+
+decisions:
+  - category: Implementation
+    chose: "ToolResultBound.ApplyParts(head, tail, budget, total) for a section held as two pieces; Apply(text, budget, knownTotal) for a section held whole"
+    over: "Joining head and tail and passing the counted total to Apply as knownTotal"
+    reason: |
+      Apply cuts at the middle of the text it is given. When the stream tail beyond the body is
+      shorter than the kept tail half, the joined text's kept tail would run across the gap and
+      show the end of the body glued to the end of the stream with nothing marking the missing
+      middle. ApplyParts reuses the same Cut and marker, so the cut always falls on the gap and
+      the stated total is still the counted one.
+  - category: Implementation
+    chose: "Body at the capture cap (Length >= 1,000,000): stream counted more -> body head + StreamCapture.After(body length) as tail, stream total; otherwise body head only, 'end' marker, header 'stdout_chars: at least N (the tail was not captured)'"
+    over: "Taking the stream's tail whenever the body is at the cap, or treating the body as complete"
+    reason: |
+      p0491: the stream can lag or be empty while the body is full, so a stream that counted no
+      more than the body is not evidence of the tail and showing it would be a fake tail. The
+      agent appends whole lines while under the cap, so a capped body may run past 1,000,000 by
+      one line; >= is the test. The Sandbox.Agent constant is mirrored in SizeLimits, not changed.
+  - category: Architecture
+    chose: "Split the render into BoundedRunCommandOutput (RunAsync), OutputSection (one section's bound, flag and count line), RunCommandHeader (shared header) and StreamCapture (one stream)"
+    over: "Growing RunCommandOutput and StreamedStepOutput in place"
+    reason: |
+      Each type keeps one responsibility and stays far under the 120-line file limit;
+      SandboxStepRunner only gains the render as a parameter of ExecuteAsync (113 lines).
+  - category: Implementation
+    chose: "RunProgramAsync renders through RunCommandOutput.Render(result, ms, StreamedStepOutput) with the head-only stream text and (stdout || stderr) truncated as its one flag, and no count lines; error line unbounded there"
+    over: "Using the bounded render, or adding stdout_chars/stderr_chars to the program render too"
+    reason: |
+      find_files parses its stdout line by line; a head+tail cut leaves half paths and a marker
+      read as a path (485e). Keeping the program text byte-identical is what 'find_files and
+      http_request output unchanged' asks for.
+  - category: Implementation
+    chose: "Stream head stays at the 1 MB buffer; the rolling tail keeps the last 60,000 characters (RunCommandStdoutMaxChars), a single wider line keeps its own last characters; Total counts line length + 1"
+    over: "A tail as large as the head, or a byte count"
+    reason: |
+      The tail only feeds the tail half of a section budget, so the stdout budget bounds what is
+      ever shown from it; memory stays bounded per stream. Counting characters plus one newline
+      per line matches how the agent writes the same lines into the body, so stream and body
+      totals are comparable for the capture-cap rule.
+  - category: Implementation
+    chose: "Error line bounded by ToolResultBound.Apply at 8,000, marker and all"
+    over: "A single-line ellipsis without a total"
+    reason: |
+      One marker shape everywhere keeps the true total visible; the marker's blank lines sit in
+      the header, which no parser reads past the first line (PhaseCommandLog) and ExtractStdout
+      locates by the 'stdout:' label.

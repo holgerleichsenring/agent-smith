@@ -26,6 +26,7 @@ public sealed class FilesystemToolHostRunCommandTests
         result.Should().Contain("exit_code: 0");
         result.Should().Contain("elapsed_ms:");
         result.Should().Contain("truncated: false");
+        result.Should().Contain("stdout_chars: 12\nstderr_chars: 12\n");
         result.Should().Contain("stdout:\nstdout line");
         result.Should().Contain("stderr:\nstderr line");
     }

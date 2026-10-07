@@ -37,6 +37,19 @@ public static partial class ToolResultBound
     }
 
     /// <summary>
+    /// 2026-10-07-6b9db: bounds an output held as two separate pieces — its first characters and
+    /// its last ones — of <paramref name="total"/> characters in all. Whatever lies between the
+    /// pieces was never held, so the cut always falls there and the kept tail never runs across
+    /// the gap. Pieces that hold the whole output within budget come back joined and unchanged.
+    /// </summary>
+    public static string ApplyParts(string head, string tail, int budget, long total)
+    {
+        long held = head.Length + tail.Length;
+        if (held <= budget && total <= held) return head + tail;
+        return Cut(head, tail, budget, Math.Max(total, held));
+    }
+
+    /// <summary>
     /// Shrinks an already bounded text to a smaller <paramref name="budget"/>, keeping the total
     /// its marker states — this bound's own, or BoundedResultTool's head-only one. Unmarked text
     /// is bounded as <see cref="Apply"/> would.

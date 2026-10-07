@@ -113,6 +113,32 @@ public sealed class ToolResultBoundTests
         ToolResultBound.TextOf(JsonSerializer.SerializeToElement(42)).Should().BeNull();
     }
 
+    // 2026-10-07-6b9db: a head and a tail held apart — the cut falls between them, never inside
+    // the tail, and the whole output names the total of what the pieces came from.
+    [Fact]
+    public void ApplyParts_HeadAndTailWithAGap_CutBetweenThemAndNamesTheTotal()
+    {
+        var bound = ToolResultBound.ApplyParts("HEAD" + new string('h', 5_000), "TAIL-END", Budget, 900_000);
+
+        bound.Length.Should().BeLessThanOrEqualTo(Budget);
+        bound.Should().StartWith("HEAD").And.EndWith("TAIL-END");
+        bound.Should().Contain("of 900,000 characters cut from the middle");
+    }
+
+    [Fact]
+    public void ApplyParts_WholeOutputWithinBudget_ReturnsTheJoinedText()
+    {
+        ToolResultBound.ApplyParts("head ", "tail", Budget, 9).Should().Be("head tail");
+    }
+
+    [Fact]
+    public void ApplyParts_NoTailAndATotalPastTheHead_SaysOnlyTheHeadIsShown()
+    {
+        var bound = ToolResultBound.ApplyParts("HEAD", string.Empty, Budget, 1_000_000);
+
+        bound.Should().StartWith("HEAD").And.Contain("of 1,000,000 characters cut from the end");
+    }
+
     private static string Long(int length) => "HEAD" + new string('m', length - 8) + "TAIL";
 
     private static long Dropped(string bound)
