@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.156.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.156.0...v0.156.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* draft validation messages name the spec schema, not phase-spec ([4f4694f](https://github.com/holgerleichsenring/agent-smith/commit/4f4694f332cb097fb1dc5b28f437ceb3e11a4e3b))
+* draft validation messages name the spec schema, not phase-spec ([85f9077](https://github.com/holgerleichsenring/agent-smith/commit/85f9077977b173b93440a454dbea6b55d4d07ede))
+
 ## [0.156.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.155.0...v0.156.0) (2026-10-07)
 
 
