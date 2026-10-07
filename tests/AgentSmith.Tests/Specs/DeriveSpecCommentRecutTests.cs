@@ -181,7 +181,7 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var files = new SeededFileReader();
         files.Seed($".agentsmith/series/{Series}.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
-        files.Seed($".agentsmith/specs/planned/{HeadId}-first.yaml", PhaseYaml(HeadId));
+        files.Seed($".agentsmith/specs/done/{HeadId}-first.yaml", PhaseYaml(HeadId));
         files.Seed($".agentsmith/specs/planned/{TailId}-second.yaml", PhaseYaml(TailId));
         return files;
     }
@@ -191,8 +191,6 @@ public sealed class DeriveSpecCommentRecutTests
         specs:
         - {HeadId}
         - {TailId}
-        executed_specs:
-        - {HeadId}
         revisions:
         - number: 1
           cause: initial derivation

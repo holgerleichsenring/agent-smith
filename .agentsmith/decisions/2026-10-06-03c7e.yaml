@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-03c7e
+
+decisions:
+  - category: Architecture
+    chose: "ExecutedPhaseMarker is deleted; the record step is WritePhaseRecordHandler (resolve series, spec and carrier) -> SpecDoneRecorder (sandbox, branch, done files, index line, manifest) -> SeriesRecordCommit (git rm planned, force-stage, commit+push, pointer with ExecutedThrough), with SpecDoneFiles writing done/{stem}.yaml, its companion and mocks"
+    over: "Keeping the marker beside a reworked handler"
+    reason: |
+      Marking executed is no longer a second write: the record commit IS the mark, so one commit carries
+      the done file, the manifest and the index line, and the pointer moves to its sha. Splitting by
+      responsibility keeps each type under the class and method limits.
+  - category: Implementation
+    chose: "SpecSet.Executed stays as the in-memory view, derived by the reader from which spec files lie in specs/done/; the manifest's executed_specs is removed"
+    over: "Removing SpecSet.Executed and asking every consumer to look at directories"
+    reason: |
+      PhaseSequenceHandler, PrecedingPhases, SpecSequenceProgress, SpecAmendmentRule and the prompts
+      already read set.Executed. Deriving it at the reader makes done/ the one source while those
+      readers stay unchanged; SpecSequenceProgress.ForSet therefore seeds done specs Done.
+  - category: Implementation
+    chose: "The reader lists planned/, done/ and active/; a spec with a copy in done/ resolves to that copy and only done/ reads as executed"
+    over: "Refusing a spec with a planned and a done file as two files for one id"
+    reason: |
+      An executed spec is append-only, so its done copy is the truth; a planned copy beside it is the
+      leftover of a checkout-free amendment written before the record, and the next revision's stale
+      removal takes it (SeriesStaleFiles keeps mocks only of the unexecuted tail).
+  - category: Implementation
+    chose: "Planned files are removed by staging the ones that exist (git add -f) and then git rm -f; the done files are written, never moved"
+    over: "git mv, or git rm --ignore-unmatch alone"
+    reason: |
+      git mv fails on a missing target directory and an untracked source; git rm --ignore-unmatch skips
+      an untracked file but leaves it in the tree, where the run-level CommitAndPR would add it back.
+  - category: Implementation
+    chose: "The index line is written by PhaseIndexWriter into the carrier only and staged in the same series commit; the writer now returns the repo-relative path it wrote"
+    over: "Leaving the line in the working tree for CommitAndPR"
+    reason: |
+      A later spec of the run may fail and stop the run; the line and the done file it names must land
+      together or not at all.
+  - category: Implementation
+    chose: "The carrier is ContextKeys.SpecRepo resolved against WritePhaseRecordContext.Repos (the run's repos, else the project's); its sandbox is SandboxTargets.SandboxesForRepo, falling back to ContextKeys.Sandbox"
+    over: "Separate single- and multi-sandbox branches"
+    reason: |
+      The old single path returned before marking anything executed and the marker found no carrier
+      without ContextKeys.Repos. One resolution serves both shapes (RecordOutcome_SingleSandbox_MarksExecuted).
+  - category: Implementation
+    chose: "PhaseRecordBody renders the outcome block with YamlDotNet's representation model (SpecOutcomeBlock): run, delivered and review, multi-line text as literal blocks, empty sections omitted"
+    over: "Hand-written YAML text, or the previous comment lines"
+    reason: |
+      The done file must read back as a spec (PhaseDraftReader parses it on the next run), and markdown
+      account text can carry characters a hand-written block scalar would mis-indent.
+  - category: Implementation
+    chose: "A record whose commit fails, or whose phase is in no series, fails the step"
+    over: "Logging a warning and continuing, as the marker did"
+    reason: |
+      The record is the step's whole job now: a silent miss would make the next run re-run an executed
+      spec. The PhaseRecordedEvent is still published first, so the server holds the text either way.
+  - category: Implementation
+    chose: "FiledSpecBranch reads ExecutedThrough via SpecSetPointerRecorder.ExecutedThroughAsync and marks that many leading positions executed before rendering"
+    over: "Giving filing the pointer store directly"
+    reason: |
+      The recorder already owns the pointer for filing; the renderer then emits the manifest with every
+      id and planned files only after the executed head.
+  - category: TradeOff
+    chose: "PhaseIndexLineTests pin the line's shape at PhaseIndexWriter directly; the handler-level cases (lands in done/, no spec, multi-repo) moved to SpecDoneRecordGitTests and SpecDoneOutcomeTests over real git"
+    over: "Initialising git in every index-line temp directory"
+    reason: |
+      The handler now commits, so a non-git directory can no longer host it; the line's splice rules
+      are the writer's and stay pinned there.
+  - category: Tooling
+    chose: "The assumption 'write then git rm is detected as a rename' was checked with real git: the companion moves as R100 (asserted in RecordOutcome_ExecutedSpec_MovesToDoneWithOutcome); a small spec yaml plus outcome scored R054"
+    over: "Asserting the yaml rename too"
+    reason: |
+      The yaml's similarity falls with the size of its outcome block, so a long account can drop below
+      git's 50% default and show as delete+add. That changes how a diff reads, not what the branch holds.

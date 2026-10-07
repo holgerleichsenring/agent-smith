@@ -40,4 +40,10 @@ public sealed class SpecSetPointerRecorder(
         logger.LogDebug(
             "Spec set {Key} pointer names {Sha} (revision {Revision})", set.Key, sha, set.Current.Number);
     }
+
+    /// <summary>2026-10-06-03c7e: how many leading specs of the ticket's series the record step
+    /// moved to done/ — 0 when no pointer exists.</summary>
+    public async Task<int> ExecutedThroughAsync(
+        string project, string key, CancellationToken cancellationToken) =>
+        (await pointers.GetAsync(project, key, cancellationToken))?.ExecutedThrough ?? 0;
 }

@@ -1,5 +1,4 @@
 using AgentSmith.Application.Models;
-using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
@@ -9,7 +8,6 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace AgentSmith.Tests.Specs;
@@ -30,13 +28,14 @@ public sealed class PhaseRecordPublishedTests
         var publisher = EventTestStubs.Recording();
         var pipeline = Pipeline();
 
-        var result = await Handler(publisher).ExecuteAsync(Context(pipeline), CancellationToken.None);
+        await Handler(publisher).ExecuteAsync(Context(pipeline), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue();
         var announced = publisher.Events.OfType<PhaseRecordedEvent>().Single();
         announced.RunId.Should().Be(RunId);
         announced.PhaseId.Should().Be("p19213a");
-        announced.Body.Should().Contain("spec: p19213a");
+        announced.Body.Should().Contain("spec: p19213a")
+            .And.Contain("outcome:", "2026-10-06-03c7e: the server holds the done file's text")
+            .And.Contain(RunId);
     }
 
     /// <summary>
@@ -57,23 +56,11 @@ public sealed class PhaseRecordPublishedTests
 
     private static WritePhaseRecordHandler Handler(IEventPublisher publisher)
     {
-        var files = new Mock<ISandboxFileReader>();
         var factory = new Mock<ISandboxFileReaderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(files.Object);
-        var targets = new SandboxTargets();
-        return new WritePhaseRecordHandler(
-            factory.Object,
-            new ExecutedPhaseMarker(null!, null!, NullLogger<ExecutedPhaseMarker>.Instance),
-            new PhaseRecordPublisher(publisher),
-            new PhaseRecordIndexLine(),
-            new PhaseIndexWriter(
-                factory.Object,
-                new AgentSmith.Infrastructure.Services.ContextYamlStateDoneCodec(
-                    new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
-                targets,
-                NullLogger<PhaseIndexWriter>.Instance),
-            targets,
-            NullLogger<WritePhaseRecordHandler>.Instance);
+        factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(Mock.Of<ISandboxFileReader>());
+        return AgentSmith.Tests.TestSupport.SeriesDoubles.RecordHandler(
+            factory.Object, new AgentSmith.Application.Services.Persistence.InMemorySpecSetPointerStore(),
+            events: publisher);
     }
 
     private static PipelineContext Pipeline()
@@ -87,5 +74,5 @@ public sealed class PhaseRecordPublishedTests
     }
 
     private static WritePhaseRecordContext Context(PipelineContext pipeline) =>
-        new(new Repository(new BranchName("main"), "https://example.invalid/sample.git"), pipeline);
+        new(new Repository(new BranchName("main"), "https://example.invalid/sample.git"), pipeline, []);
 }

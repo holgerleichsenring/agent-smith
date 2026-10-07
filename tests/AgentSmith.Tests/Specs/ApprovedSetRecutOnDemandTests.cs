@@ -213,16 +213,16 @@ public sealed class ApprovedSetRecutOnDemandTests
         var harness = new ApprovedSetHarness { Branch = { Key = Key }, PointerSha = "branch-sha" };
         harness.Deriver.Result = Recut();
         harness.Branch.SeedSeries("2026-10-06-0a0a",
-            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), executed, approvedAt ?? Approved),
+            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approvedAt ?? Approved),
             new Dictionary<string, string>
             {
                 ["p19106a-first"] = PhaseYaml("p19106a"),
                 ["p19106b-second"] = PhaseYaml("p19106b"),
-            });
+            }, executed);
         return harness;
     }
 
-    private static string BranchYaml(string fingerprint, string? executed, DateTimeOffset approvedAt)
+    private static string BranchYaml(string fingerprint, DateTimeOffset approvedAt)
     {
         var lines = new List<string>
         {
@@ -239,7 +239,6 @@ public sealed class ApprovedSetRecutOnDemandTests
             "approved_in_conversation: session-77",
             "approved_by: sample.approver",
         };
-        if (executed is not null) lines.AddRange(["executed_specs:", $"- {executed}"]);
         return string.Join("\n", lines);
     }
 

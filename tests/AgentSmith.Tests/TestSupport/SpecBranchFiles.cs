@@ -16,11 +16,16 @@ internal sealed class SpecBranchFiles : ISandboxFileReader
     internal void Seed(string path, string content) => _files[path] = content;
 
     /// <summary>2026-10-06-03c7d: seeds a manifest at series/{base}.yaml and one planned spec per stem.</summary>
-    internal void SeedSeries(string seriesBase, string manifestYaml, IReadOnlyDictionary<string, string> specYamlByStem)
+    /// <param name="executed">2026-10-06-03c7e: ids of specs that ran — seeded into done/.</param>
+    internal void SeedSeries(
+        string seriesBase, string manifestYaml, IReadOnlyDictionary<string, string> specYamlByStem,
+        string? executed = null)
     {
         Seed(SeriesPaths.Manifest(seriesBase), manifestYaml);
         foreach (var (stem, yaml) in specYamlByStem)
-            Seed(SeriesPaths.Spec(SeriesPaths.Planned, stem), yaml);
+            Seed(SeriesPaths.Spec(
+                executed is not null && SeriesPaths.BelongsTo(stem + ".yaml", executed)
+                    ? SeriesPaths.Done : SeriesPaths.Planned, stem), yaml);
     }
 
     public Task<bool> ExistsAsync(string path, CancellationToken ct) =>

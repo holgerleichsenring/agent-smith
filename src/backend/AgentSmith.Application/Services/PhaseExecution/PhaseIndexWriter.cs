@@ -15,6 +15,10 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// AREA ("backend") rather than a context. The change was made in a sandbox, and
 /// <see cref="SandboxTargets"/> already resolves that sandbox's context.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7e: written into the CARRYING repository only, and the path it wrote is
+/// returned so the record commit carries the line beside the done file it names.
+/// </para>
 /// </summary>
 public sealed class PhaseIndexWriter(
     ISandboxFileReaderFactory readerFactory,
@@ -22,8 +26,9 @@ public sealed class PhaseIndexWriter(
     SandboxTargets sandboxTargets,
     ILogger<PhaseIndexWriter> logger)
 {
-    /// <summary>True when the line reached the context — a pointer without one is the defect.</summary>
-    public async Task<bool> WriteAsync(
+    /// <summary>The repo-relative path of the context file the line reached, or null when it
+    /// reached none — a pointer without one is the defect.</summary>
+    public async Task<string?> WriteAsync(
         PipelineContext pipeline, ISandbox sandbox, string? sandboxKey,
         string repoLocalPath, string phaseId, string line, CancellationToken ct)
     {
@@ -33,12 +38,11 @@ public sealed class PhaseIndexWriter(
             logger.LogWarning(
                 "PhaseIndexWriter: no discovered context for sandbox '{Key}' — no index line",
                 sandboxKey ?? "(single)");
-            return false;
+            return null;
         }
 
-        var path = Path.Combine(
-            repoLocalPath, ProjectMetaPaths.Contexts, discovery.ContextName,
-            ProjectMetaPaths.ContextYamlFile);
+        var relative = $"{ProjectMetaPaths.Contexts}/{discovery.ContextName}/{ProjectMetaPaths.ContextYamlFile}";
+        var path = Path.Combine(repoLocalPath, relative);
         var reader = readerFactory.Create(sandbox);
         // A context that was discovered but has no file on this sandbox is seeded from the
         // discovery's own workdir — the alternative is a pointer nothing indexes.
@@ -50,11 +54,11 @@ public sealed class PhaseIndexWriter(
         {
             logger.LogWarning(
                 "PhaseIndexWriter: {Path} left untouched — {Reason}", path, upserted.ParseError);
-            return false;
+            return null;
         }
         await reader.WriteAsync(path, upserted.Yaml, ct);
         logger.LogInformation("Phase index line written to {Path}", path);
-        return true;
+        return relative;
     }
 
     private RemoteContextDiscovery? Discovery(

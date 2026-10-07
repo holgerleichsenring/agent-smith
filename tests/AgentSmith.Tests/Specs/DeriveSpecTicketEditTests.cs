@@ -161,7 +161,7 @@ public sealed class DeriveSpecTicketEditTests
     {
         var files = new SeededFileReader();
         files.Seed($".agentsmith/series/2026-10-06-0a0a.yaml", SetYaml(fingerprint));
-        files.Seed($".agentsmith/specs/planned/p19106a-first.yaml", PhaseYaml("p19106a"));
+        files.Seed($".agentsmith/specs/done/p19106a-first.yaml", PhaseYaml("p19106a"));
         files.Seed($".agentsmith/specs/planned/p19106b-second.yaml", PhaseYaml("p19106b"));
         return files;
     }
@@ -171,8 +171,6 @@ public sealed class DeriveSpecTicketEditTests
         specs:
         - p19106a
         - p19106b
-        executed_specs:
-        - p19106a
         revisions:
         - number: 1
           cause: initial derivation

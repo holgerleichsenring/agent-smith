@@ -309,17 +309,17 @@ public sealed class ApprovedSetNotRecutTests
     {
         var harness = new ApprovedSetHarness { Branch = { Key = Key }, PointerSha = "branch-sha" };
         harness.Branch.SeedSeries("2026-10-06-0a0a",
-            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approved, handback, executed),
+            BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approved, handback),
             new Dictionary<string, string>
             {
                 ["p19106a-first"] = PhaseYaml("p19106a"),
                 ["p19106b-second"] = PhaseYaml("p19106b"),
-            });
+            }, executed);
         return harness;
     }
 
     private static string BranchYaml(
-        string fingerprint, bool approved, bool handback, string? executed = null)
+        string fingerprint, bool approved, bool handback)
     {
         var lines = new List<string>
         {
@@ -333,7 +333,6 @@ public sealed class ApprovedSetNotRecutTests
             "  at: 2026-09-17T12:00:00.0000000+00:00",
             $"ticket_fingerprint: {fingerprint}",
         };
-        if (executed is not null) lines.AddRange(["executed_specs:", $"- {executed}"]);
         if (approved)
             lines.AddRange([
                 "approved_at: 2026-09-17T12:00:00.0000000+00:00",

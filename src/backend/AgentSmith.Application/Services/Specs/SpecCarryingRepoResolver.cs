@@ -47,4 +47,17 @@ public static class SpecCarryingRepoResolver
             r => approvedRepos.Any(n => string.Equals(n, r.Name, StringComparison.OrdinalIgnoreCase)))
             ?.Name ?? string.Empty;
     }
+
+    /// <summary>
+    /// 2026-10-06-03c7e: the repository the run published the series into, by the name the run
+    /// recorded (<c>ContextKeys.SpecRepo</c>), among <paramref name="repos"/> — the run's, or the
+    /// project's in a single-sandbox run. The first of them when the name is absent or not found.
+    /// </summary>
+    public static RepoConnection? Named(IReadOnlyList<RepoConnection>? repos, string? name)
+    {
+        if (repos is not { Count: > 0 }) return null;
+        if (string.IsNullOrWhiteSpace(name)) return repos[0];
+        return repos.FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?? repos[0];
+    }
 }

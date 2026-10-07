@@ -1,107 +1,67 @@
-using System.Text.RegularExpressions;
 using AgentSmith.Application.Models;
-using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
-using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.PhaseExecution;
 
 /// <summary>
-/// p0315d: dogfoods the methodology — writes the executed phase spec to
-/// <c>.agentsmith/specs/done/{phaseId}-{slug}.yaml</c> in every repo's
-/// sandbox working tree (mirroring WriteRunResultHandler's per-repo record
-/// fan-out), so CommitAndPR force-stages it with the change set and the
-/// target repo carries the same planned→done record this project lives.
+/// p0315d: dogfoods the methodology — the executed phase spec is recorded in the repository it
+/// was worked in, as this project records its own.
 /// <para>
-/// 2026-08-26-31e5: and the <c>state.done</c> line that NAMES that file. The pointer has
-/// shipped since p0315d and the index never did, so the chronicle existed as loose files
-/// nobody assembled and a repository agent-smith had worked in for months still described
-/// only its first day. Every repo that gets the pointer gets the line.
+/// 2026-10-06-03c7e: the record IS the spec, moved. <c>specs/done/{stem}.yaml</c> is the spec
+/// plus an <c>outcome:</c> block under the stem the series already gave it — one file, no second
+/// slug — and the planned files leave in the same series commit, so the directory says it ran.
+/// Only the repository carrying the series gets the file and its <c>state.done</c> line. The
+/// command keeps its name: it is persisted in run history.
 /// </para>
 /// </summary>
-public sealed partial class WritePhaseRecordHandler(
-    ISandboxFileReaderFactory readerFactory,
-    ExecutedPhaseMarker executedPhases,
+public sealed class WritePhaseRecordHandler(
     PhaseRecordPublisher publisher,
     PhaseRecordIndexLine indexLine,
-    PhaseIndexWriter indexWriter,
-    SandboxTargets sandboxTargets,
-    ILogger<WritePhaseRecordHandler> logger)
+    SpecDoneRecorder recorder)
     : ICommandHandler<WritePhaseRecordContext>
 {
-    [GeneratedRegex("[^a-z0-9]+")]
-    private static partial Regex NonSlugRegex();
-
     public async Task<CommandResult> ExecuteAsync(
         WritePhaseRecordContext context, CancellationToken cancellationToken)
     {
-        // Absent spec is a composition bug: this step only runs inside the
-        // code preset, where PhaseSpecGate always publishes it.
-        // p0393: the step now runs in the ONE code-changing preset, which handles ordinary
-        // tickets too — and an ordinary ticket carries no phase spec. There is nothing to
-        // record then, and demanding one would fail every bug and feature run.
+        ArgumentNullException.ThrowIfNull(context);
+        // p0393: an ordinary ticket carries no phase spec — there is nothing to record.
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) || draft is null)
             return CommandResult.Ok("No phase spec on this run; nothing to record");
-        var relativePath = Path.Combine(
-            ".agentsmith", "specs", "done", $"{draft.PhaseId}-{Slug(draft.Goal)}.yaml");
 
-        var line = indexLine.Compose(draft.Goal, relativePath.Replace('\\', '/'));
+        var body = PhaseRecordBody.For(draft, context.Pipeline);
+        await publisher.PublishAsync(context.Pipeline, draft, body, cancellationToken);
+        return await RecordAsync(context, draft, body, cancellationToken);
+    }
+
+    private async Task<CommandResult> RecordAsync(
+        WritePhaseRecordContext context, PhaseDraft draft, string body, CancellationToken cancellationToken)
+    {
+        if (!TryPhase(context.Pipeline, draft.PhaseId, out var set, out var phase))
+            return CommandResult.Fail($"Phase {draft.PhaseId} is in no series on this run, so nothing can carry its record");
+        var carrier = SpecCarryingRepoResolver.Named(context.Repos, CarrierName(context.Pipeline));
+        if (carrier is null)
+            return CommandResult.Fail($"Phase {draft.PhaseId} ran in a run with no repository to carry its record");
+
+        var path = SeriesPaths.Spec(SeriesPaths.Done, phase.FileStem);
+        var line = indexLine.Compose(draft.Goal, path);
         if (line is null)
             return CommandResult.Fail(
-                $"Phase record pointer alone exceeds {PhaseRecordIndexLine.MaxChars} characters: {relativePath}");
-
-        var body = Specs.PhaseRecordBody.For(draft, context.Pipeline);
-        var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
-            && r is { Count: > 0 } ? r : null;
-        await publisher.PublishAsync(context.Pipeline, draft, body, cancellationToken);
-        if (repos is null)
-        {
-            var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
-            await WriteAsync(sandbox, context.Repository.LocalPath, relativePath, body, cancellationToken);
-            await indexWriter.WriteAsync(
-                context.Pipeline, sandbox, null, context.Repository.LocalPath,
-                draft.PhaseId, line, cancellationToken);
-            return CommandResult.Ok($"Phase record {relativePath} written (single sandbox)");
-        }
-
-        var written = 0;
-        var indexed = 0;
-        foreach (var repo in repos)
-        {
-            var matches = sandboxTargets.SandboxesForRepo(context.Pipeline, repo);
-            if (matches.Count == 0)
-            {
-                logger.LogWarning("WritePhaseRecord: no sandbox for repo '{Repo}' — skipping", repo.Name);
-                continue;
-            }
-            await WriteAsync(matches[0].Value, context.Repository.LocalPath, relativePath, body, ct: cancellationToken);
-            written++;
-            if (await indexWriter.WriteAsync(
-                    context.Pipeline, matches[0].Value, matches[0].Key, context.Repository.LocalPath,
-                    draft.PhaseId, line, cancellationToken))
-                indexed++;
-        }
-        await executedPhases.MarkAsync(context.Pipeline, repos, draft, cancellationToken);
-        return CommandResult.Ok(
-            $"Phase record {relativePath} written in {written} repo(s), indexed in {indexed}");
+                $"Phase record pointer alone exceeds {PhaseRecordIndexLine.MaxChars} characters: {path}");
+        return await recorder.RecordAsync(
+            context.Pipeline, new SpecDoneRecord(carrier, set, phase, body, line), cancellationToken);
     }
 
-    private async Task WriteAsync(
-        ISandbox sandbox, string repoLocalPath, string relativePath, string body, CancellationToken ct)
+    private static bool TryPhase(PipelineContext pipeline, string phaseId, out SpecSet set, out SpecPhase phase)
     {
-        var reader = readerFactory.Create(sandbox);
-        await reader.WriteAsync(Path.Combine(repoLocalPath, relativePath), body, ct);
-        logger.LogInformation("Phase record written to {Path}", relativePath);
+        set = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var s) ? s! : null!;
+        phase = set?.Phases.FirstOrDefault(p => p.PhaseId == phaseId)!;
+        return set is not null && phase is not null;
     }
 
-    internal static string Slug(string goal)
-    {
-        var slug = NonSlugRegex().Replace(goal.ToLowerInvariant(), "-").Trim('-');
-        return slug.Length <= 60 ? slug : slug[..60].TrimEnd('-');
-    }
+    private static string? CarrierName(PipelineContext pipeline) =>
+        pipeline.TryGet<string>(ContextKeys.SpecRepo, out var name) ? name : null;
 }

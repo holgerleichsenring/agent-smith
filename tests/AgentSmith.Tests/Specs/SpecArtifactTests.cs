@@ -84,16 +84,17 @@ public sealed class SpecArtifactTests
     }
 
     [Fact]
-    public void SeriesManifest_RoundTripsTheOrderTheAccountingAndTheExecutedHead()
+    public void SeriesManifest_RoundTripsTheOrderAndTheAccountingAndListsNoExecutedHead()
     {
         var set = TwoPhaseSet() with { Executed = [A] };
 
         var manifest = new SeriesManifest();
-        var doc = manifest.Parse(manifest.Serialize(set))!;
+        var text = manifest.Serialize(set);
+        var doc = manifest.Parse(text)!;
 
         doc.Ticket.Should().Be("azdo-19106");
-        doc.Specs.Should().Equal(A, B);
-        doc.ExecutedSpecs.Should().Equal(A);
+        doc.Specs.Should().Equal([A, B], "an executed spec stays in the series' order");
+        text.Should().NotContain("executed", "2026-10-06-03c7e: done/ says a spec ran, not a list");
         doc.Discarded.Should().ContainSingle().Which.Reason.Should().Be("a sign-off");
         manifest.AccountingOf(doc).Carried.Should().HaveCount(2);
         manifest.RevisionsOf(doc)[^1].Cause.Should().Be(SpecRevisionCause.Initial);

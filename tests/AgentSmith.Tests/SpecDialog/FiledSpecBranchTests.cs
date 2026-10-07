@@ -399,6 +399,35 @@ public sealed class FiledSpecBranchTests
         return (SeriesIdFactory.Member(series, 0), SeriesIdFactory.Member(series, 1));
     }
 
+    /// <summary>
+    /// 2026-10-06-03c7e: filing never reads the branch, so the pointer tells it how many leading
+    /// specs the record step already moved to done/ — an amendment must not write one back.
+    /// </summary>
+    [Fact]
+    public async Task Amendment_AfterExecutedSpec_WritesNoPlannedFileForIt()
+    {
+        var sources = new RecordingBranchSources();
+        var pointers = new InMemorySpecSetPointerStore();
+        await pointers.SaveAsync("proj", new SpecSetPointer(Key, "sample-api", "record-sha", 1, ExecutedThrough: 1), default);
+        var amended = Record("sample-api") with
+        {
+            Set = Record("sample-api").Set with
+            {
+                Phases = [new SpecPhase(Draft("2026-10-06-3d3da"), "first", string.Empty, []),
+                    new SpecPhase(Draft("2026-10-06-3d3db"), "second", string.Empty, [])],
+            },
+        };
+
+        var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
+            Project(), amended, new TicketId("1"), Stored(), carrier: null, default);
+
+        result.Written.Should().BeTrue(result.Error);
+        sources.Writes[0].Paths.Should().Contain($"{Planned}/2026-10-06-3d3db-second.yaml")
+            .And.NotContain(p => p.Contains("2026-10-06-3d3da"), "the executed spec lies in done/ and stays there");
+        Index(sources).Specs.Should().Equal(["2026-10-06-3d3da", "2026-10-06-3d3db"], "the series keeps its order");
+        (await pointers.GetAsync("proj", Key, default))!.ExecutedThrough.Should().Be(1, "filing keeps the count");
+    }
+
     private static SeriesManifestDocument Index(RecordingBranchSources sources) =>
         new SeriesManifest().Parse(sources.Writes[0].ContentOf(ManifestPath(sources.Writes[0])))!;
 

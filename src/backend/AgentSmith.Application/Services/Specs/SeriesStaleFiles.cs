@@ -9,6 +9,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// series that the current render did not write — a dropped spec, a relabelled one's old name and
 /// an amendment's leftovers alike. A design mock of a spec still in the series is a companion the
 /// renderer never writes, and stays.
+/// <para>
+/// 2026-10-06-03c7e: a spec is resolved by its state. An executed spec lies in done/, so a copy
+/// of it — or of its mock — still in planned/ is a leftover and goes.
+/// </para>
 /// </summary>
 public sealed class SeriesStaleFiles
 {
@@ -31,6 +35,6 @@ public sealed class SeriesStaleFiles
         if (seriesBase.Length == 0 || !SeriesPaths.BelongsToSeries(name, seriesBase)) return false;
         if (written.Contains(path)) return false;
         return !(SpecPhaseMocks.IsMock(name)
-            && set.Phases.Any(p => SeriesPaths.BelongsTo(name, p.PhaseId)));
+            && set.UnexecutedTail.Any(p => SeriesPaths.BelongsTo(name, p.PhaseId)));
     }
 }

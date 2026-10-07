@@ -11,6 +11,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// the segments the manifest says it carries. The label is the file name's; the manifest lists
 /// ids only. Two spec files for one id is refused: which of them is the spec is not this reader's
 /// guess to make.
+/// <para>
+/// 2026-10-06-03c7e: a spec is resolved across the state directories. Its copy in
+/// <c>specs/done/</c> wins — an executed spec is append-only, and a planned copy beside it is a
+/// leftover the next revision removes. Only <c>done/</c> reads as executed; <c>active/</c> does not.
+/// </para>
 /// </summary>
 public sealed class SeriesSpecFileReader(
     PhaseDraftReader draftReader,
@@ -23,16 +28,26 @@ public sealed class SeriesSpecFileReader(
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(doc);
-        var candidates = listed
-            .Where(p => SeriesPaths.IsSpecFile(SeriesPaths.FileName(p))
-                && SeriesPaths.BelongsTo(SeriesPaths.FileName(p), id))
-            .Distinct(StringComparer.Ordinal).ToList();
+        var candidates = Candidates(listed, id);
         if (candidates.Count == 0)
             return SeriesSpecRead.Failed($"spec {id} is listed in its series manifest and has no file under {SeriesPaths.SpecsRoot}/");
         if (candidates.Count > 1)
             return SeriesSpecRead.Failed($"spec {id} has {candidates.Count} files: {string.Join(", ", candidates)}");
         return await ReadFileAsync(files, listed, candidates[0], id, doc, cancellationToken);
     }
+
+    private static List<string> Candidates(IReadOnlyList<string> listed, string id)
+    {
+        var all = listed
+            .Where(p => SeriesPaths.IsSpecFile(SeriesPaths.FileName(p))
+                && SeriesPaths.BelongsTo(SeriesPaths.FileName(p), id))
+            .Distinct(StringComparer.Ordinal).ToList();
+        var done = all.Where(IsDone).ToList();
+        return done.Count > 0 ? done : all;
+    }
+
+    private static bool IsDone(string path) =>
+        path.StartsWith(SeriesPaths.Done + "/", StringComparison.Ordinal);
 
     private async Task<SeriesSpecRead> ReadFileAsync(
         ISandboxFileReader files, IReadOnlyList<string> listed, string path, string id,
@@ -48,7 +63,7 @@ public sealed class SeriesSpecFileReader(
             var draft = draftReader.Read(yaml);
             var inDirectory = listed.Where(p => p.StartsWith(directory + "/", StringComparison.Ordinal)).ToList();
             return SeriesSpecRead.Read(new SpecPhase(draft, LabelOf(stem, id), markdown, Carried(doc, draft.PhaseId),
-                SpecPhaseMocks.Of(inDirectory, directory, draft.PhaseId)));
+                SpecPhaseMocks.Of(inDirectory, directory, draft.PhaseId)), IsDone(path));
         }
         catch (Exception ex) when (ex is InvalidOperationException or YamlDotNet.Core.YamlException)
         {

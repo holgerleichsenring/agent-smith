@@ -6,8 +6,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// is found by, the goal, the ordered spec IDS (never stems — a spec's label is read off its file
 /// name), the revisions, the accounting, the hand-back, the fingerprint and the approval.
 /// <para>
-/// Executed ids are recorded here because an executed spec is APPEND-ONLY: editing one would
-/// rewrite the record of work that already happened and already sits in the branch history.
+/// 2026-10-06-03c7e: no executed list — a spec that ran lies in <c>specs/done/</c>, and its
+/// directory is what says so.
 /// </para>
 /// </summary>
 public sealed class SeriesManifestDocument
@@ -18,7 +18,6 @@ public sealed class SeriesManifestDocument
     public string? Goal { get; set; }
     public bool TicketPinnedWhole { get; set; }
     public List<string> Specs { get; set; } = [];
-    public List<string> ExecutedSpecs { get; set; } = [];
     public List<SeriesRevisionEntry> Revisions { get; set; } = [];
     public List<SeriesCarriedEntry> Carried { get; set; } = [];
     public List<SeriesDiscardedEntry> Discarded { get; set; } = [];

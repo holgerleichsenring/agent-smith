@@ -32,7 +32,6 @@ public sealed class SeriesManifest
             Goal = set.Goal,
             TicketPinnedWhole = set.TicketPinnedWhole,
             Specs = [.. set.Phases.Select(p => p.PhaseId)],
-            ExecutedSpecs = [.. set.Executed],
             Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
             {
                 Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),

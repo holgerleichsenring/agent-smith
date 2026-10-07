@@ -21,6 +21,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// ticket key; its specs are read from <c>specs/planned/</c> by id. The revision sha is the last
 /// commit on the manifest and on every spec file of the series.
 /// </para>
+/// <para>
+/// 2026-10-06-03c7e: specs are read across planned/, done/ and active/; a spec is executed when
+/// it lies in done/ — the manifest keeps no executed list.
+/// </para>
 /// </summary>
 public sealed class SeriesReader(
     ISandboxFileReaderFactory readerFactory,
@@ -57,7 +61,7 @@ public sealed class SeriesReader(
             return SpecSetOnBranch.Unreadable(why);
         }
         var sha = await gitOps.GetLastCommitForPathsAsync(sandbox, RevisionPaths(lookup.Base!), cancellationToken);
-        var set = SetOf(ticket, lookup.Base!, lookup.Document!, phases.Read);
+        var set = SetOf(ticket, lookup.Base!, lookup.Document!, phases.Read, phases.Executed);
         logger.LogInformation(
             "Series {Base} of {Ticket} read from the ticket branch: {Phases} spec(s), revision {Revision}",
             lookup.Base, set.Key, set.Phases.Count, set.Current.Number);
@@ -68,19 +72,26 @@ public sealed class SeriesReader(
     public static IReadOnlyList<string> RevisionPaths(string seriesBase) =>
         [SeriesPaths.Manifest(seriesBase), SeriesPaths.SpecFilesPathspec(seriesBase)];
 
-    private async Task<(IReadOnlyList<SpecPhase> Read, string? Why)> ReadSpecsAsync(
+    private async Task<(IReadOnlyList<SpecPhase> Read, IReadOnlyList<string> Executed, string? Why)> ReadSpecsAsync(
         ISandboxFileReader files, SeriesManifestDocument doc, CancellationToken ct)
     {
-        var listed = await ListAsync(files, SeriesPaths.Planned, ct);
+        var listed = await ListStatesAsync(files, ct);
         var read = new List<SpecPhase>(doc.Specs.Count);
+        var executed = new List<string>();
         foreach (var id in doc.Specs)
         {
             var spec = await specs.ReadAsync(files, listed, id, doc, ct);
-            if (spec.Phase is null) return ([], spec.Why);
+            if (spec.Phase is null) return ([], [], spec.Why);
             read.Add(spec.Phase);
+            if (spec.Executed) executed.Add(spec.Phase.PhaseId);
         }
-        return (read, null);
+        return (read, executed, null);
     }
+
+    private static async Task<IReadOnlyList<string>> ListStatesAsync(ISandboxFileReader files, CancellationToken ct) =>
+        [.. await ListAsync(files, SeriesPaths.Planned, ct),
+            .. await ListAsync(files, SeriesPaths.Done, ct),
+            .. await ListAsync(files, SeriesPaths.Active, ct)];
 
     private static async Task<IReadOnlyList<string>> ListAsync(
         ISandboxFileReader files, string directory, CancellationToken ct) =>
@@ -89,10 +100,11 @@ public sealed class SeriesReader(
             .Distinct(StringComparer.Ordinal)];
 
     private SpecSet SetOf(
-        TicketKey ticket, string seriesBase, SeriesManifestDocument doc, IReadOnlyList<SpecPhase> phases) =>
+        TicketKey ticket, string seriesBase, SeriesManifestDocument doc, IReadOnlyList<SpecPhase> phases,
+        IReadOnlyList<string> executed) =>
         new(ticket.Value, phases, manifest.AccountingOf(doc), manifest.RevisionsOf(doc),
             SpecSource.BranchArtifact, manifest.HandbackOf(doc), doc.TicketPinnedWhole,
-            doc.ExecutedSpecs, manifest.FingerprintOf(doc), manifest.ApprovalOf(doc), seriesBase)
+            executed, manifest.FingerprintOf(doc), manifest.ApprovalOf(doc), seriesBase)
         {
             Goal = string.IsNullOrWhiteSpace(doc.Goal) ? null : doc.Goal,
         };
