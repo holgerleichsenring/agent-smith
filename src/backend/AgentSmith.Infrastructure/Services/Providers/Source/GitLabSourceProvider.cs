@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -260,47 +260,37 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     private ProviderException MissingDiffRef(string field) =>
         new(ProviderType, $"MR diff_refs did not contain {field} — cannot anchor inline comments.");
 
+    // 2026-10-08-f147: only the token's own marked notes go — a marker is text anyone can paste.
     public async Task<int> DeleteCommentsByMarkerAsync(
         string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
     {
-        var deleted = 0;
-        for (var page = 1; ; page++)
+        var self = await new GitLabUsers(_baseUrl, _privateToken, _httpClient).TokenUserIdAsync(cancellationToken);
+        if (self is null)
         {
-            var notes = await GetNotesPageAsync(prIdentifier, page, cancellationToken);
-            foreach (var (noteId, body) in notes)
-                if (body.StartsWith(markerPrefix, StringComparison.Ordinal))
-                {
-                    await DeleteNoteAsync(prIdentifier, noteId, cancellationToken);
-                    deleted++;
-                }
-            if (notes.Count < NotesPageSize) break;
+            _logger.LogWarning("Could not read the token's GitLab user; no marked note on MR !{MrIid} is deleted", prIdentifier);
+            return 0;
         }
+        var deleted = 0;
+        foreach (var note in await Notes().ReadAsync(prIdentifier, MaxNotePages, cancellationToken))
+            if (note.AuthorId == self && note.Body.StartsWith(markerPrefix, StringComparison.Ordinal))
+            {
+                await DeleteNoteAsync(prIdentifier, note.Id, cancellationToken);
+                deleted++;
+            }
         _logger.LogInformation("Deleted {Count} marked note(s) on MR !{MrIid}", deleted, prIdentifier);
         return deleted;
     }
 
-    // 2026-10-08-e8b9d: the review is read by a collaborator over this provider's client.
+    // 2026-10-08-e8b9d / f147: the review and the standing requests for changes, read by collaborators.
     public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitLabPrReviewThreadReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ListAsync(prUrl, cancellationToken);
 
-    private const int NotesPageSize = 100;
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitLabMrActReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ChangesRequestedAsync(prUrl, cancellationToken);
 
-    private async Task<List<(long Id, string Body)>> GetNotesPageAsync(
-        string mrIid, int page, CancellationToken cancellationToken)
-    {
-        var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests/{mrIid}/notes"
-            + $"?per_page={NotesPageSize}&page={page}";
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        await response.EnsureSuccessWithBodyAsync(cancellationToken);
-        using var json = await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken), cancellationToken: cancellationToken);
-        return json.RootElement.EnumerateArray()
-            .Select(n => (n.GetProperty("id").GetInt64(),
-                n.TryGetProperty("body", out var b) ? b.GetString() ?? "" : ""))
-            .ToList();
-    }
+    private const int MaxNotePages = 50;
+
+    private GitLabNotesPager Notes() => new(_baseUrl, _projectPath, _privateToken, _httpClient, _logger);
 
     private async Task DeleteNoteAsync(string mrIid, long noteId, CancellationToken cancellationToken)
     {

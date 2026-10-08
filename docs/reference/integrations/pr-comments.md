@@ -72,7 +72,9 @@ Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>
 
 The pull request's own author never counts as a reviewer. If the token agent-smith uses belongs to you, you are that author, and your own Request changes is ignored.
 
-GitLab merge requests do not start a rework yet: GitLab does not document when a reviewer's `requested_changes` state was set.
+On GitLab (19.3 or later), **Request changes** on an agent-smith merge request starts a rework the same way. Enable **Merge request events** on the project webhook; the token behind the repository's `auth` secret needs the `api` scope (it reads notes, users and members and posts the answer). The act and its time are GitLab's own "requested changes" system note, so a repeated Request changes after the next attempt starts another one; an approval by the same reviewer after the request withdraws it. The webhook fires only for a reviewer listed on the merge request: a reviewer GitLab could not add (for example a second reviewer on a single-reviewer merge request) sends no delivery, and their request is read only by the ticket's next run.
+
+A comment counts as agent-smith's own only when it carries the agent-smith marker **and** was written by the account behind the repository's token, on every host; a pasted marker is a stranger's comment, never collected as ours and never deleted when a review is re-posted.
 
 On Azure DevOps, keep the **Pull request updated** subscription that starts PR reviews filtered to **Source branch updated** (`PushNotification`), and add a second **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A delivery carrying that header never starts a PR review.
 

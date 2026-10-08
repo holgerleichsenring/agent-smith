@@ -12,8 +12,13 @@ public sealed class PrReviewSelectionTests
     private static readonly DateTimeOffset Start = new(2026, 10, 8, 9, 0, 0, TimeSpan.Zero);
     private static readonly PreviousAttempt Attempt = new("run-1", "success", Start, true);
 
+    // 2026-10-08-f147: a reader marks a note ours (marker AND the token's account); here the marked
+    // notes stand for the token's own.
     private static PrReviewNote Note(int minutes, string body = "please rename") =>
-        new(new PrCommentAuthor("u", "r", "alice", "alice"), false, false, Start.AddMinutes(minutes), body);
+        new(new PrCommentAuthor("u", "r", "alice", "alice"), false, false, Start.AddMinutes(minutes), body)
+        {
+            IsOurs = OwnPrNoteMarker.IsOurs(body, writtenByToken: true),
+        };
 
     private static PrReviewThread Thread(bool? resolved, params PrReviewNote[] notes) => new("a.cs", 3, resolved, notes);
 

@@ -92,7 +92,7 @@ GitHub HMACs the body with the secret and sends it in `X-Hub-Signature-256`. The
 **Project Settings → Webhooks** (or for group-wide: **Group Settings → Webhooks**).
 
 - URL: `https://agent-smith.your-host.example/webhook/gitlab`
-- Trigger: **Issues events**, plus **Comments** if you want issue comments carrying the project's `comment_keyword` to start runs (the same **Comments** event also carries [MR commands](../reference/integrations/pr-comments.md)), and **Merge request events** for review labels. Every **Issues events** delivery reaches the issue handler, which starts a run when the issue sits in a trigger status.
+- Trigger: **Issues events**, plus **Comments** if you want issue comments carrying the project's `comment_keyword` to start runs (the same **Comments** event also carries [MR commands](../reference/integrations/pr-comments.md)), and **Merge request events** for review labels and for a reviewer's **Request changes** on an agent-smith merge request, which starts a rework (GitLab 19.3 or later; see [PR reviews](../reference/integrations/pr-comments.md#request-changes-starts-a-rework)). Every **Issues events** delivery reaches the issue handler, which starts a run when the issue sits in a trigger status.
 - Secret token: paste your `GITLAB_WEBHOOK_TOKEN` value.
 
 Give the server the same value as an environment variable:

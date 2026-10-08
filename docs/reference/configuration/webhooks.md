@@ -47,7 +47,7 @@ The HTTP response says what the receiver did with the delivery, not how the run 
 | Platform | Trigger events | PR comment commands | Signature method |
 |----------|----------------|:-------------------:|------------------|
 | GitHub | `issues` (labeled) | Yes | HMAC-SHA256 (`X-Hub-Signature-256`) |
-| GitLab | `Issue Hook` (labeled) | Yes | Token header (`X-Gitlab-Token`) |
+| GitLab | `Issue Hook` (labeled), `Merge Request Hook` (Request changes starts a rework, 19.3+) | Yes | Token header (`X-Gitlab-Token`) |
 | Azure DevOps | `workitem.updated` | Yes | Basic auth |
 | Jira | `issue_updated` (assigned), `comment_created` | No | HMAC (`x-hub-signature`) |
 

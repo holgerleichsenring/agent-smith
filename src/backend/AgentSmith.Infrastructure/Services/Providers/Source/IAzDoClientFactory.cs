@@ -24,4 +24,9 @@ public interface IAzDoClientFactory
     WorkItemTrackingHttpClient CreateWorkItemClient(string organizationUrl, string personalAccessToken);
 
     IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken);
+
+    /// <summary>2026-10-08-f147: the identity id the token acts as (connectionData), or null when
+    /// the connection cannot say.</summary>
+    Task<string?> AuthorizedIdentityIdAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken);
 }

@@ -229,17 +229,20 @@ public sealed class AzureReposSourceProvider(
         },
     };
 
+    // 2026-10-08-f147: only the token's own marked comments go — a marker is text anyone can paste.
     public async Task<int> DeleteCommentsByMarkerAsync(
         string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
     {
         var prId = int.Parse(prIdentifier);
+        var self = await SelfAsync(cancellationToken);
         var client = await CreateConnectionAsync(cancellationToken);
         var threads = await client.GetThreadsAsync(
             _project, _repoName, prId, cancellationToken: cancellationToken);
         var deleted = 0;
         foreach (var thread in threads.Where(t => t.IsDeleted != true))
-            foreach (var comment in (thread.Comments ?? []).Where(
-                c => c.Content?.StartsWith(markerPrefix, StringComparison.Ordinal) == true))
+            foreach (var comment in (thread.Comments ?? []).Where(c => self is not null
+                && string.Equals(c.Author?.Id, self, StringComparison.OrdinalIgnoreCase)
+                && c.Content?.StartsWith(markerPrefix, StringComparison.Ordinal) == true))
             {
                 await client.DeleteCommentAsync(
                     _project, _repoName, prId, thread.Id, comment.Id, cancellationToken: cancellationToken);
@@ -305,7 +308,10 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
         Reviews().ChangesRequestedAsync(prUrl, cancellationToken);
 
-    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, _project, _repoName, _cloneUrl);
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
+
+    private Task<string?> SelfAsync(CancellationToken cancellationToken) =>
+        clientFactory.AuthorizedIdentityIdAsync(_organizationUrl, _personalAccessToken, cancellationToken);
 
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{prId}";

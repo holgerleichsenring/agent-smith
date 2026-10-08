@@ -9,7 +9,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// an Azure DevOps author's trust verdict is keyed on them.
 /// </summary>
 public sealed class AzureReposReviewReads(
-    Func<CancellationToken, Task<GitHttpClient>> connect, string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader
+    Func<CancellationToken, Task<GitHttpClient>> connect, Func<CancellationToken, Task<string?>> self,
+    string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader
 {
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -17,7 +18,8 @@ public sealed class AzureReposReviewReads(
         var client = await connect(cancellationToken);
         var repo = await client.GetRepositoryAsync(project, repoName, cancellationToken: cancellationToken);
         var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
-        return AzureReposReviewMapping.Map(threads, repoUrl, repo.Id.ToString(), repo.ProjectReference.Id.ToString());
+        return AzureReposReviewMapping.Map(threads, repoUrl, repo.Id.ToString(), repo.ProjectReference.Id.ToString(),
+            await self(cancellationToken));
     }
 
     public async Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken)

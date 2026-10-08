@@ -90,7 +90,7 @@ public sealed class PrReviewReaderTests
             ],
         };
 
-        var mapped = AzureReposReviewMapping.Map([thread], "u", "repo", "proj");
+        var mapped = AzureReposReviewMapping.Map([thread], "u", "repo", "proj", null);
 
         mapped.Single().Resolved.Should().BeTrue();
         mapped.Single().Notes.Select(n => n.Body).Should().Equal("kept");
@@ -101,7 +101,8 @@ public sealed class PrReviewReaderTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var url = request.RequestUri!.ToString();
-            var body = url.Contains("/users/7") ? """{ "id": 7, "bot": true }"""
+            var body = request.RequestUri.AbsolutePath.EndsWith("/api/v4/user") ? """{ "id": 99 }"""
+                : url.Contains("/users/7") ? """{ "id": 7, "bot": true }"""
                 : url.Contains("/users/") ? """{ "id": 8, "bot": false }"""
                 : """
                   [ { "notes": [ { "id": 1, "body": "rename", "system": false, "resolvable": true, "resolved": true,

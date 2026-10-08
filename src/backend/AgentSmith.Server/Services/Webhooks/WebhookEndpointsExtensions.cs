@@ -56,6 +56,9 @@ internal static class WebhookEndpointsExtensions
         // label/comment handlers so existing triggers keep first-match precedence.
         services.AddSingleton<IWebhookHandler, GitHubPrEventWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitLabMrEventWebhookHandler>();
+        // 2026-10-08-f147: after the push/open handler, which takes every update with oldrev; the
+        // review handler answers Handled for any admitted review and would otherwise swallow pushes.
+        services.AddSingleton<IWebhookHandler, GitLabMrReviewWebhookHandler>();
         services.AddSingleton<IWebhookHandler, AzureDevOpsPrEventWebhookHandler>();
         return services;
     }

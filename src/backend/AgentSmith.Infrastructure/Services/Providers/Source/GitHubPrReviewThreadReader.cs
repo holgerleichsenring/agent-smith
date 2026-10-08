@@ -11,12 +11,16 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// own Octokit connection — thread resolution exists only in GraphQL. Review threads, review bodies
 /// (an empty body, like the COMMENT review our pr-review posts, is no note) and top-level comments,
 /// 100 of each; a reply carrying an errors array throws, because GraphQL fails as HTTP 200.
+/// <para>2026-10-08-f147: the same query asks who the token is (viewer), so a marked note is ours
+/// only when the token's account wrote it.</para>
 /// </summary>
 public sealed class GitHubPrReviewThreadReader(
     IGitHubClient client, string owner, string repo, string repoUrl, ILogger logger) : IPrReviewThreadReader
 {
+    private string? _viewer;
+
     private const string Query =
-        "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){"
+        "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
         + "reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved path line originalLine "
         + "comments(first:100){nodes{author{__typename login} authorAssociation body createdAt publishedAt}}}}"
         + "reviews(first:100){nodes{author{__typename login} authorAssociation body submittedAt}}"
@@ -31,7 +35,9 @@ public sealed class GitHubPrReviewThreadReader(
         using var doc = JsonDocument.Parse(response.Body);
         if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
             throw new InvalidOperationException($"GitHub GraphQL refused the review query: {errors.GetRawText()}");
-        return Read(doc.RootElement.GetProperty("data").GetProperty("repository").GetProperty("pullRequest"), number);
+        var data = doc.RootElement.GetProperty("data");
+        _viewer = data.TryGetProperty("viewer", out var viewer) && viewer.ValueKind == JsonValueKind.Object ? Str(viewer, "login") : null;
+        return Read(data.GetProperty("repository").GetProperty("pullRequest"), number);
     }
 
     private IReadOnlyList<PrReviewThread> Read(JsonElement pr, int number)
@@ -61,8 +67,12 @@ public sealed class GitHubPrReviewThreadReader(
         var at = Str(node, timeField) ?? Str(node, fallbackTime);
         if (at is null) return null;
         var author = node.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object ? a : (JsonElement?)null;
+        var login = author is { } l ? Str(l, "login") : null;
         return new PrReviewNote(Author(author, Str(node, "authorAssociation")),
-            author is { } x && Str(x, "__typename") == "Bot", false, DateTimeOffset.Parse(at), body);
+            author is { } x && Str(x, "__typename") == "Bot", false, DateTimeOffset.Parse(at), body)
+        {
+            IsOurs = OwnPrNoteMarker.IsOurs(body, login is not null && string.Equals(login, _viewer, StringComparison.OrdinalIgnoreCase)),
+        };
     }
 
     private PrCommentAuthor? Author(JsonElement? author, string? association) =>

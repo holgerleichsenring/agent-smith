@@ -7,4 +7,9 @@ namespace AgentSmith.Contracts.Reviews;
 /// is null for a deleted account; IsBot and IsSystem are what the host says, never a name pattern.
 /// </summary>
 public sealed record PrReviewNote(
-    PrCommentAuthor? Author, bool IsBot, bool IsSystem, DateTimeOffset At, string Body);
+    PrCommentAuthor? Author, bool IsBot, bool IsSystem, DateTimeOffset At, string Body)
+{
+    /// <summary>2026-10-08-f147: written by agent-smith — the agentsmith marker AND the token's own
+    /// account. A marker alone is text anyone can paste.</summary>
+    public bool IsOurs { get; init; }
+}

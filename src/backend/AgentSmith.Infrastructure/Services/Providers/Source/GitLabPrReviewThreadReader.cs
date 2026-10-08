@@ -9,19 +9,24 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// 2026-10-08-e8b9d: a GitLab merge request's review from its discussions, paged by 100 up to ten
 /// pages. A discussion is resolved when every resolvable note in it is; a discussion with none is
 /// not resolvable. Whether an author is a bot is read once per author from the users API.
+/// <para>2026-10-08-f147: an author carries the UNESCAPED project path — the member lookup escapes
+/// it, and a second escape (%252F) answered 404, so every GitLab review note counted as untrusted.
+/// A note is ours when it carries our marker and the token's own user wrote it.</para>
 /// </summary>
 public sealed class GitLabPrReviewThreadReader(
     string baseUrl, string projectPath, string token, string repoUrl, HttpClient http, ILogger logger) : IPrReviewThreadReader
 {
     private const int PageSize = 100;
     private const int MaxPages = 10;
-    private readonly Dictionary<long, bool> _bots = [];
+    private readonly GitLabUsers _users = new(baseUrl, token, http);
+    private long? _tokenUser;
 
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
         if (!GitLabMergeRequestUpdater.TryParseMergeRequestIid(prUrl, out var iid))
             throw new ArgumentException($"Not a GitLab merge request URL: {prUrl}", nameof(prUrl));
         var threads = new List<PrReviewThread>();
+        _tokenUser = await _users.TokenUserIdAsync(cancellationToken);
         for (var page = 1; page <= MaxPages; page++)
         {
             using var doc = await GetAsync($"merge_requests/{iid}/discussions?per_page={PageSize}&page={page}", cancellationToken);
@@ -51,24 +56,12 @@ public sealed class GitLabPrReviewThreadReader(
         var author = note.GetProperty("author");
         var id = author.GetProperty("id").GetInt64();
         var login = Str(author, "username") ?? id.ToString();
-        return new PrReviewNote(new PrCommentAuthor(repoUrl, projectPath, id.ToString(), login),
-            await IsBotAsync(id, ct), Bool(note, "system"),
-            DateTimeOffset.Parse(Str(note, "created_at")!), Str(note, "body") ?? string.Empty);
-    }
-
-    private async Task<bool> IsBotAsync(long userId, CancellationToken ct)
-    {
-        if (_bots.TryGetValue(userId, out var known)) return known;
-        using var user = await GetUserAsync(userId, ct);
-        return _bots[userId] = user is not null && Bool(user.RootElement, "bot");
-    }
-
-    private async Task<JsonDocument?> GetUserAsync(long userId, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/api/v4/users/{userId}");
-        request.Headers.Add("PRIVATE-TOKEN", token);
-        using var response = await http.SendAsync(request, ct);
-        return response.IsSuccessStatusCode ? await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct) : null;
+        var body = Str(note, "body") ?? string.Empty;
+        return new PrReviewNote(new PrCommentAuthor(repoUrl, Uri.UnescapeDataString(projectPath), id.ToString(), login),
+            await _users.IsBotAsync(id, ct), Bool(note, "system"), DateTimeOffset.Parse(Str(note, "created_at")!), body)
+        {
+            IsOurs = OwnPrNoteMarker.IsOurs(body, id == _tokenUser),
+        };
     }
 
     private async Task<JsonDocument> GetAsync(string path, CancellationToken ct)
