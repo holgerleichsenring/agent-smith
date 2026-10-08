@@ -189,6 +189,7 @@ export function DialogComposer({
                     type="button"
                     role="menuitem"
                     data-testid="dialog-composer-attach-folder"
+                    aria-describedby="dialog-composer-folder-hint"
                     onClick={() => {
                       setAttaching(false);
                       folder.current?.click();
@@ -197,6 +198,12 @@ export function DialogComposer({
                   >
                     Folder
                   </button>
+                  {/* 2026-10-08-e8b9i: the page opens the picker; the browser adds its own
+                      "upload N files?" prompt to a folder pick, which no page can restyle or
+                      suppress. Saying so beforehand keeps it from reading as this page's. */}
+                  <span id="dialog-composer-folder-hint" className="d-menu-sub" data-testid="dialog-composer-folder-hint">
+                    Your browser may ask to confirm a folder upload.
+                  </span>
                 </>
               )}
             </div>

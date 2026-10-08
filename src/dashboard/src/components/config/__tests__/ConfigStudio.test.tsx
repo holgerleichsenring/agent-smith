@@ -4,7 +4,10 @@ import { ConfigStudio } from "../ConfigStudio";
 import { ConfigCatalogProvider } from "../ConfigCatalogProvider";
 
 // The factory is hoisted above imports, so all fixtures live inside it.
-vi.mock("@/lib/configApi", () => {
+vi.mock("@/lib/configApi", async (importOriginal) => {
+  // 2026-10-08-e8b9i: the import client and its refusal are the real ones, so the overwrite
+  // prompt is driven by a 409 answered over fetch, as in the browser.
+  const actual = await importOriginal<typeof import("@/lib/configApi")>();
   const agents = [
     { id: "gpt5", provider: "openai", catalog: { c: { model: "c" }, s: { model: "s" } }, models: { primary: "c", scout: "s" }, keySecret: "OPENAI_KEY" },
     // p0343b: an entry whose roles are NOT the gpt5 pair, and whose key ref is honestly
@@ -77,6 +80,8 @@ vi.mock("@/lib/configApi", () => {
     // module mock has to declare it or the form throws on mount.
     fetchProjectContexts: vi.fn().mockResolvedValue({ contexts: [], unreadableReason: null }),
     fetchConnectionRepos: vi.fn().mockResolvedValue({ discoveredAt: null, repos: [] }),
+    importConfigYml: actual.importConfigYml,
+    ConfigStoreNotEmptyError: actual.ConfigStoreNotEmptyError,
   };
 });
 
@@ -258,5 +263,56 @@ describe("ConfigStudio", () => {
     await screen.findByTestId("config-card-agents-gpt5");
 
     expect(container.querySelector(".ecard")).not.toHaveClass("inert");
+  });
+
+  // 2026-10-08-e8b9i: a filled store answers the import 409; the overwrite is asked in the page's
+  // own dialog, and only Overwrite sends it again with force.
+  describe("import into a filled store", () => {
+    function importAnswers() {
+      const imports: string[] = [];
+      vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+        if (!String(url).includes("/api/config/import")) return { ok: false, status: 404, json: async () => ({}) };
+        imports.push(String(url));
+        return imports.length === 1
+          ? { ok: false, status: 409, json: async () => ({ error: "The config store already holds 7 entities." }) }
+          : { ok: true, status: 200, json: async () => ({ imported: 7, dropped: [] }) };
+      }));
+      return imports;
+    }
+
+    async function pickYaml() {
+      render(<ConfigCatalogProvider><ConfigStudio section="agents" /></ConfigCatalogProvider>);
+      const input = await screen.findByTestId("config-import-file");
+      // jsdom's File has no text(); the handler reads the file through it.
+      const file = Object.assign(new File(["agents: []"], "agentsmith.yml"), { text: async () => "agents: []" });
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      fireEvent.change(input);
+    }
+
+    it("ConfigStudio_ImportIntoFilledStore_AsksInPageDialogAndOverwritesOnConfirm", async () => {
+      const imports = importAnswers();
+      await pickYaml();
+
+      const asked = await screen.findByTestId("confirm-dialog");
+      expect(asked.textContent).toContain("Overwrite the current config?");
+      expect(asked.textContent).toContain("already holds 7 entities");
+      expect(screen.getByTestId("config-import-yml")).not.toBeDisabled();
+      fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
+      await waitFor(() => expect(screen.getByTestId("config-import-ok").textContent).toContain("Imported 7"));
+      expect(imports).toEqual(["/api/config/import", "/api/config/import?force=true"]);
+      vi.unstubAllGlobals();
+    });
+
+    it("ConfigStudio_ImportIntoFilledStore_KeepCurrent_DoesNotOverwrite", async () => {
+      const imports = importAnswers();
+      await pickYaml();
+
+      fireEvent.click(await screen.findByTestId("confirm-dialog-cancel"));
+
+      await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument());
+      expect(imports).toEqual(["/api/config/import"]);
+      vi.unstubAllGlobals();
+    });
   });
 });

@@ -12,6 +12,7 @@ import { useCapabilities } from "./useCapabilities";
 import { useConfigCatalogContext } from "./ConfigCatalogProvider";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDialog";
 
 // p0345: the Configuration studio — the catalog of the editable entity kinds
 // plus the Changes audit view. It loads the whole catalog once (the FK pickers
@@ -128,6 +129,8 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [importError, setImportError] = useState<Error | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 2026-10-08-e8b9i: the overwrite is asked in the page's own dialog, not the browser's.
+  const confirmation = useConfirmDialog();
 
   const onExport = async () => {
     setExporting(true);
@@ -171,9 +174,14 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
         await runImport(yaml, false);
       } catch (err) {
         if (err instanceof ConfigStoreNotEmptyError) {
-          if (window.confirm(`${err.message}\n\nOverwrite the current config? History is kept.`)) {
-            await runImport(yaml, true);
-          }
+          // Not busy while the person decides; busy again only once they chose to overwrite.
+          setImporting(false);
+          const overwrite = await confirmation.ask(`Overwrite the current config?\n\n${err.message}`, {
+            confirmLabel: "Overwrite", cancelLabel: "Keep current",
+          });
+          if (!overwrite) return;
+          setImporting(true);
+          await runImport(yaml, true);
         } else {
           throw err;
         }
@@ -233,6 +241,7 @@ function ThesisNote({ reload }: { reload: () => void | Promise<void> }) {
       >
         {exporting ? "Exporting…" : "Export agentsmith.yml ↧"}
       </button>
+      <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
 }
