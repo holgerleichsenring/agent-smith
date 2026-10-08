@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9f
+
+decisions:
+  - category: Implementation
+    chose: "The approved notice is shown only when set.Approval names a conversation (Conversation.Length > 0)"
+    over: "Any non-null set.Approval, or Source == Approved"
+    reason: |
+      A filed approved series reads back as BranchArtifact, so Source loses the fact; the approval
+      survives. A ticket-demanded re-cut also records an approval, with an empty conversation, on a
+      model-cut set whose companions are never blank, so blank there is the real p0394 failure.
+  - category: Implementation
+    chose: "Skip the empty companion in SeriesFiles.Render and SpecDoneFiles.WriteAsync; keep the planned .md in the removal list"
+    over: "Writing an empty .md as before, or a placeholder text"
+    reason: |
+      Every reader already treats an absent companion as empty. Keeping the planned path in the
+      removal list lets the record commit drop a leftover empty .md; it removes only paths that exist.
+  - category: Implementation
+    chose: "Shortened the SpecMarkdown class summary and the AppendPhaseDocuments comment"
+    over: "Splitting the class"
+    reason: |
+      The added DocumentOf helper and constant pushed the file past the 120-line ratchet; the trimmed
+      lines restated history, so the file stays one responsibility at exactly 120 lines.

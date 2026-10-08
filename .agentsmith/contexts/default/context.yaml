@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-08-e8b9f: "AN APPROVED SPEC HAS NO COMPANION, AND THE VIEWER SAYS SO (spec viewer, series files). A set approved in a named design conversation shows an approved note instead of 'No phase document found', which stays for derived and demand re-cut sets; no empty .md is written to planned/ or done/. -> .agentsmith/specs/done/2026-10-08-e8b9f-spec-companion-notice.yaml"
     2026-10-04-2bf2: "AN INIT CAN REFRESH PRINCIPLES (transfer, launch, dashboard, CLI). Core, delta and overlays recomposed; the last Project Specifics section copied verbatim; mode Refreshed in sentence, prompt and PR body; InitLaunchRequest to the launcher; an InitOptionChip beside Auto-accept, independent of it; --refresh-principles. -> .agentsmith/specs/done/2026-10-04-2bf2-init-principles-refresh.yaml"
     2026-10-04-8a59: "THE DOCS CATCH UP WITH THE SESSION (docs, plugin 2.4.0). Facts and evidence checks, overlays and the Scala delta, the dialog's evidence findings, the plugin loop create-phase → review-spec → apply-spec → deliver-spec. -> .agentsmith/specs/done/2026-10-04-8a59-docs-session-catchup.yaml"
     2026-10-01-aeb6d: "THE EMBEDDED SKILLS PIN MOVES TO 5.10.0 (embedded skills pin, principles goldens). Tests read documents, subject binding, scenarios, bug criteria, design_read and visual references from the pinned masters; goldens for csharp, scala and scala+spark; overlay fixtures proven equal to the pin. -> .agentsmith/specs/done/2026-10-01-aeb6d-skills-pin-document-binding.yaml"
@@ -1069,7 +1070,6 @@ state:
     2026-10-07-6b9dc: "THE FINALISER FITS THE WINDOW (chat-client chain). Over 0.85 of the window the forwarded copy's tool results are re-cut largest first (true total, one marker, floor 4,000) while the history stays; at the floor it fails locally naming the non-tool share; a refusal names the largest tool result. -> .agentsmith/specs/done/2026-10-07-6b9dc-context-finalizer-window-fit.yaml"
   active: {}
   planned:
-    2026-10-08-e8b9f: "AN APPROVED SPEC HAS NO COMPANION, AND THE VIEWER SAYS SO (spec viewer, series files). Approved sets carry blank markdown by construction; no empty .md is written, the viewer says approved instead of 'No phase document found', which stays for derived sets. -> .agentsmith/specs/planned/2026-10-08-e8b9f-spec-companion-notice.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/specs/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"

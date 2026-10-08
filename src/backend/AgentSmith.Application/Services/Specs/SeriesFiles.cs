@@ -26,6 +26,8 @@ public sealed class SeriesFiles(SeriesManifest manifest)
         {
             files.Add(new SpecSetFile(
                 SeriesPaths.Spec(SeriesPaths.Planned, phase.FileStem), phase.Draft.Yaml.TrimEnd() + "\n"));
+            // 2026-10-08-e8b9f: an approved spec has no companion — no empty file stands in for one.
+            if (string.IsNullOrWhiteSpace(phase.Markdown)) continue;
             files.Add(new SpecSetFile(
                 SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem), phase.Markdown));
         }

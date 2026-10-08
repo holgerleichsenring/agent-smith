@@ -114,8 +114,19 @@ public sealed class FiledSpecBranchTests
         var published = Published(record, written);
         var expected = new SeriesFiles(new SeriesManifest()).Render(published);
         written.Paths.Should().BeEquivalentTo(expected.Select(f => f.Path));
-        written.ContentOf($"{Planned}/{(await MembersAsync(store)).First}-do-the-thing.md").Should().NotBeNull(
-            "the markdown companion is part of every cut too");
+    }
+
+    // 2026-10-08-e8b9f: an approved spec has no ticket companion, so filing writes no empty .md for it.
+    [Fact]
+    public async Task Filing_ApprovedSet_WritesNoCompanion()
+    {
+        var sources = new RecordingBranchSources();
+        var store = ApprovedSetDoubles.Store();
+
+        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
+
+        sources.Writes[0].Paths.Should().NotContain(p => p.EndsWith(".md"));
+        sources.Writes[0].Paths.Should().Contain(p => p.EndsWith("-do-the-thing.yaml"));
     }
 
     [Fact]
