@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-08-e8b9f: "AN APPROVED SPEC HAS NO COMPANION, AND THE VIEWER SAYS SO (spec viewer, series files). A set approved in a named design conversation shows an approved note instead of 'No phase document found', which stays for derived and demand re-cut sets; no empty .md is written to planned/ or done/. -> .agentsmith/specs/done/2026-10-08-e8b9f-spec-companion-notice.yaml"
     2026-10-04-2bf2: "AN INIT CAN REFRESH PRINCIPLES (transfer, launch, dashboard, CLI). Core, delta and overlays recomposed; the last Project Specifics section copied verbatim; mode Refreshed in sentence, prompt and PR body; InitLaunchRequest to the launcher; an InitOptionChip beside Auto-accept, independent of it; --refresh-principles. -> .agentsmith/specs/done/2026-10-04-2bf2-init-principles-refresh.yaml"
     2026-10-04-8a59: "THE DOCS CATCH UP WITH THE SESSION (docs, plugin 2.4.0). Facts and evidence checks, overlays and the Scala delta, the dialog's evidence findings, the plugin loop create-phase → review-spec → apply-spec → deliver-spec. -> .agentsmith/specs/done/2026-10-04-8a59-docs-session-catchup.yaml"
     2026-10-01-aeb6d: "THE EMBEDDED SKILLS PIN MOVES TO 5.10.0 (embedded skills pin, principles goldens). Tests read documents, subject binding, scenarios, bug criteria, design_read and visual references from the pinned masters; goldens for csharp, scala and scala+spark; overlay fixtures proven equal to the pin. -> .agentsmith/specs/done/2026-10-01-aeb6d-skills-pin-document-binding.yaml"

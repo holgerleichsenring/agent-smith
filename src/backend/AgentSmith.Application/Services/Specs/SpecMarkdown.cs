@@ -9,15 +9,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// run working toward, what was left out, and what changed it" without leaving the
 /// dashboard. The content of record is still the branch; this is the viewer's copy.
 /// <para>
-/// p0395: done-criteria render as a titled "Definition of done" list (the raw yaml
-/// key used to leak as a per-line prefix), and each phase's markdown companion is
-/// part of the copy — the viewer shows the server-held document instead of pointing
-/// at a branch it never reads, and a phase whose document is missing says so
-/// explicitly, naming the path that was looked up.
+/// p0395: done-criteria render as a titled "Definition of done" list, and each phase's
+/// markdown companion is part of the copy; a missing one names the path looked up.
 /// </para>
 /// </summary>
 public static class SpecMarkdown
 {
+    private const string NoCompanionByApproval =
+        "_Approved in the design conversation — the spec is the whole document; it has no ticket companion._";
+
     public static string Render(SpecSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
@@ -65,9 +65,7 @@ public static class SpecMarkdown
         }
     }
 
-    // The per-phase markdown companion, rendered from the set the server holds. A
-    // phase without one names the path that was looked up instead of leaving a
-    // silently blank section (the spec commit may have failed — see p0394).
+    // A blank companion is a failed spec commit (p0394) — unless a named conversation approved the set.
     private static void AppendPhaseDocuments(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
@@ -76,12 +74,15 @@ public static class SpecMarkdown
         {
             sb.AppendLine();
             sb.AppendLine($"### {phase.PhaseId} — `{phase.FileStem}.md`");
-            sb.AppendLine(string.IsNullOrWhiteSpace(phase.Markdown)
-                ? $"_No phase document found — nothing was readable at "
-                  + $"`{SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem)}` on the ticket branch._"
-                : phase.Markdown.TrimEnd());
+            sb.AppendLine(DocumentOf(set, phase));
         }
     }
+
+    private static string DocumentOf(SpecSet set, SpecPhase phase) =>
+        !string.IsNullOrWhiteSpace(phase.Markdown) ? phase.Markdown.TrimEnd()
+        : set.Approval is { Conversation.Length: > 0 } ? NoCompanionByApproval
+        : $"_No phase document found — nothing was readable at "
+          + $"`{SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem)}` on the ticket branch._";
 
     private static void AppendAccounting(StringBuilder sb, SpecSet set)
     {

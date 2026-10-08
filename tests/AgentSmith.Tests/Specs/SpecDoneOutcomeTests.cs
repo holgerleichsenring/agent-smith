@@ -123,6 +123,41 @@ public sealed class SpecDoneOutcomeTests
             .Should().Equal($"{SeriesPaths.Planned}/{A}-first.yaml", $"{SeriesPaths.Planned}/{A}-screen.html");
     }
 
+    // 2026-10-08-e8b9f: a blank companion (an approved spec's) is not written as an empty file.
+    [Fact]
+    public void SeriesFiles_BlankCompanion_RendersNoMarkdownFile()
+    {
+        var set = Set() with { Phases = [Set().Phases[0] with { Markdown = string.Empty }, Set().Phases[1]] };
+
+        new SeriesFiles(new SeriesManifest()).Render(set).Select(f => f.Path).Should().Equal(
+            SeriesPaths.Manifest(Base), $"{SeriesPaths.Planned}/{A}-first.yaml",
+            $"{SeriesPaths.Planned}/{B}-second.yaml", $"{SeriesPaths.Planned}/{B}-second.md");
+    }
+
+    [Fact]
+    public void SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale()
+    {
+        var set = Set() with { Phases = [Set().Phases[0] with { Markdown = string.Empty }] };
+        var rendered = new SeriesFiles(new SeriesManifest()).Render(set);
+
+        new SeriesStaleFiles().Select([$"{A}-first.yaml", $"{A}-first.md"], set, rendered)
+            .Should().Equal($"{SeriesPaths.Planned}/{A}-first.md");
+    }
+
+    [Fact]
+    public async Task SpecDoneFiles_BlankCompanion_WritesNoDoneMarkdownAndNamesThePlannedOne()
+    {
+        var files = new Mock<ISandboxFileReader>();
+        var phase = Set().Phases[0] with { Markdown = string.Empty };
+
+        var move = await new SpecDoneFiles().WriteAsync(files.Object, phase, "spec: x\n", default);
+
+        move.Written.Should().Equal($"{SeriesPaths.Done}/{A}-first.yaml");
+        move.Planned.Should().Equal($"{SeriesPaths.Planned}/{A}-first.yaml", $"{SeriesPaths.Planned}/{A}-first.md");
+        files.Verify(f => f.WriteAsync($"{SeriesPaths.Done}/{A}-first.md", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     [Fact]
     public void SeriesRecordCommit_Message_NamesTheSeriesTicketAndSpec()
     {

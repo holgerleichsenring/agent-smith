@@ -19,9 +19,11 @@ public sealed class SpecDoneFiles
         var written = new List<string>
         {
             await WriteAsync(files, SeriesPaths.Spec(SeriesPaths.Done, phase.FileStem), body, cancellationToken),
-            await WriteAsync(files, SeriesPaths.Companion(SeriesPaths.Done, phase.FileStem),
-                phase.Markdown, cancellationToken),
         };
+        // 2026-10-08-e8b9f: an approved spec has no companion; its planned path is still removed.
+        if (!string.IsNullOrWhiteSpace(phase.Markdown))
+            written.Add(await WriteAsync(files, SeriesPaths.Companion(SeriesPaths.Done, phase.FileStem),
+                phase.Markdown, cancellationToken));
         foreach (var mock in PlannedMocks(phase))
             if (await files.TryReadAsync(mock, cancellationToken) is { } html)
                 written.Add(await WriteAsync(
