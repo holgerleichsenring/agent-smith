@@ -81,9 +81,7 @@ internal static class SpecPromptComposer
 
     private static void AppendConversation(StringBuilder sb, PipelineContext pipeline)
     {
-        var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
-            ContextKeys.TicketComments, out var c) ? c : null;
-        var rendered = TicketConversationPromptSection.Render(comments);
+        var rendered = TicketConversationPromptSection.Render(pipeline);
         if (rendered.Length > 0) sb.AppendLine().AppendLine(rendered);
     }
 

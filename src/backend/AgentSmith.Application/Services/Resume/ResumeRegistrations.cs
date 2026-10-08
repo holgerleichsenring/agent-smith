@@ -28,6 +28,7 @@ public static class ResumeRegistrations
         services.TryAddSingleton<IRunCheckpointStore, NoOpRunCheckpointStore>();
         services.TryAddSingleton<IDialogueAnswerInbox, NoOpDialogueAnswerInbox>();
         services.TryAddSingleton<IPriorRunLedgerReader, NullPriorRunLedgerReader>();
+        services.TryAddSingleton<IPreviousAttemptReader, NullPreviousAttemptReader>(); // 2026-10-08-7c0e
         return services;
     }
 }

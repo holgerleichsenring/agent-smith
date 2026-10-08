@@ -13,6 +13,10 @@ public static partial class ContextKeys
     /// <summary>p0317: IReadOnlyList&lt;TicketComment&gt; — the ticket's comment thread,
     /// fetched fail-soft by FetchTicketHandler and rendered (delimited, chronological,
     /// author-attributed) into the master prompts. Absent when the ticket has none.</summary>
+    /// <summary>2026-10-08-7c0e: the ticket's newest code attempt before this run
+    /// (<see cref="Runs.PreviousAttempt"/>), set with the thread; absent on a first attempt.</summary>
+    public const string PreviousAttempt = "PreviousAttempt";
+
     public const string TicketComments = "TicketComments";
 
     /// <summary>p0317: IReadOnlyList&lt;TicketDocumentAttachment&gt; — downloaded text-like

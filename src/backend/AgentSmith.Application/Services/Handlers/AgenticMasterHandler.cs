@@ -880,7 +880,6 @@ public sealed class AgenticMasterHandler(
             AgenticMasterContext context, ISandbox sandbox, string runRecordDir,
             string repoPrefix, bool isScanMaster, CancellationToken cancellationToken)
     {
-        var comments = MasterPipelineFacts.ListFrom<TicketComment>(context.Pipeline, ContextKeys.TicketComments);
         var images = MasterPipelineFacts.ListFrom<TicketImageAttachment>(context.Pipeline, ContextKeys.Attachments);
         var documents = MasterPipelineFacts.ListFrom<TicketDocumentAttachment>(context.Pipeline, ContextKeys.TicketDocuments);
         var refs = MasterPipelineFacts.ListFrom<AttachmentRef>(context.Pipeline, ContextKeys.TicketAttachmentRefs);
@@ -897,7 +896,7 @@ public sealed class AgenticMasterHandler(
             : [];
 
         return (
-            isScanMaster ? string.Empty : TicketConversationPromptSection.Render(comments),
+            isScanMaster ? string.Empty : TicketConversationPromptSection.Render(context.Pipeline),
             TicketAttachmentPromptSection.Render(
                 images.Count, imageParts.Count > 0, materialized, MasterPipelineFacts.OtherBinaries(refs, materialized)),
             imageParts);

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-7c0e
+
+decisions:
+  - category: Implementation
+    chose: "The skew margin lives on PreviousAttempt (SkewMargin, Precedes) so the prompt split and the rework entry read one number"
+    over: "A constant per caller"
+    reason: |
+      A tracker's clock and the server's are compared in two places (this split, and the rework entry's
+      AlreadyServed). One minute is the stated margin; two copies would drift.
+  - category: Implementation
+    chose: "The earlier part of the thread is fitted in whole entries within what the new block left, never overshooting"
+    over: "Letting the earlier part overshoot the budget like the new block does"
+    reason: |
+      The budget is shared so the operator's latest word is never dropped; the new block may overshoot
+      for that reason alone. Letting the history overshoot as well would turn a cap into a suggestion, and
+      a cut entry reads like a complete one, so an entry that does not fit is dropped and counted.
+  - category: Implementation
+    chose: "The reader is registered chained onto the prior-run ledger reader's line, the null default in ResumeRegistrations"
+    over: "A new line in RelationalPersistenceExtensions"
+    reason: "RelationalPersistenceExtensions sits one line under its 225-line baseline."

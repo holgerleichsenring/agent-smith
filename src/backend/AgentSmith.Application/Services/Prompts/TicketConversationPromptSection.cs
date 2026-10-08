@@ -1,4 +1,6 @@
 using System.Globalization;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Prompts;
@@ -40,6 +42,19 @@ public static class TicketConversationPromptSection
     /// </summary>
     public const int MaxChars = 20_000;
 
+    /// <summary>
+    /// 2026-10-08-7c0e: the thread read against the previous attempt — the comments written since it
+    /// started lead the section; with no previous attempt, or nothing new since, it is the thread as
+    /// <see cref="Render(IReadOnlyList{TicketComment})"/> renders it.
+    /// </summary>
+    public static string Render(PipelineContext pipeline)
+    {
+        var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c) ? c : null;
+        return pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) && attempt is not null
+            ? TicketConversationSplit.Render(comments, attempt) ?? Render(comments)
+            : Render(comments);
+    }
+
     public static string Render(IReadOnlyList<TicketComment>? comments)
     {
         if (comments is null || comments.Count == 0) return string.Empty;
@@ -60,7 +75,7 @@ public static class TicketConversationPromptSection
     /// The operator's comments, plus the two kinds of ours that carry meaning for them:
     /// a question that was answered, and a question still waiting to be.
     /// </summary>
-    private static IReadOnlyList<TicketComment> Relevant(IReadOnlyList<TicketComment> ordered)
+    internal static IReadOnlyList<TicketComment> Relevant(IReadOnlyList<TicketComment> ordered)
     {
         var kept = new List<TicketComment>();
         for (var i = 0; i < ordered.Count; i++)
@@ -83,6 +98,6 @@ public static class TicketConversationPromptSection
         return (string.Join("\n\n", fitted.Kept), fitted.Dropped);
     }
 
-    private static string Format(TicketComment comment) =>
+    internal static string Format(TicketComment comment) =>
         $"[{comment.CreatedAt.ToString("u", CultureInfo.InvariantCulture)}] {comment.Author}:\n{comment.Body}";
 }
