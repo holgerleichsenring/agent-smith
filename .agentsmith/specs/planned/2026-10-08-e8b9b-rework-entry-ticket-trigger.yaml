@@ -1,93 +1,81 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-e8b9b
-goal: "One rework entry starts exactly one attempt on a finished ticket — from a keyword comment on a parked ticket or a move back — with the feedback since the previous attempt in view."
+goal: "A keyword comment on a finished ticket makes it claimable and starts one attempt; the run, whoever claims it, reads that comment from the thread as the rework act."
 
-applies_to: "backend (spawn funnel, claim, lifecycle, ticket context, spec revision cause, progress seed)"
+applies_to: "backend (ticket-comment routing, lifecycle, ticket context)"
 
-requires: [2026-10-08-e8b9a]
+requires: [2026-10-08-e8b9a, 2026-10-08-7c0e]
 
 facts:
-  - claim: "A comment-triggered dispatch is dropped when the ticket's status is not a trigger status."
+  - claim: "A comment-triggered dispatch is dropped when the status is not a trigger status; an empty trigger list accepts every status."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:50-56,106-108"
-  - claim: "Configuration refuses done_status and failed_status inside trigger_statuses, so a comment on a parked ticket always meets that gate."
-    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectTriggerRules.cs:44-75"
-  - claim: "GitHub applies a non-state status as a label and reports NotExpressible; a finalize that did not move records an unmoved-ticket fact, and the claim refuses that ticket while the fact stands."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:32-36, src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:27-38, src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:17-32"
-  - claim: "Retry moves the ticket to the first trigger status first, then clears hand-back state, reopens the approval and clears the unmoved fact; it launches nothing."
+  - claim: "Configuration refuses done_status and failed_status inside trigger_statuses; an empty list is only advisory."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectTriggerRules.cs:44-83"
+  - claim: "A success finalize records nothing about the move; a failure finalize and a park record an unmoved-ticket fact when the status did not move, and the claim refuses while it stands."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:46-52, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:164-169, src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:23-38,53-65, src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:17-32"
+  - claim: "GitHub applies a non-state status as a label, leaving the issue open."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:32-36"
+  - claim: "Retry stops with NoTriggerStatus when the list is empty, moves to the first trigger status, then clears hand-back state, the approval's SatisfiedAt and the unmoved fact."
     evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:38-66"
-  - claim: "A Jira move with no matching transition returns false and leaves the status."
+  - claim: "Jira offers no transition to the status a ticket is already in, so such a move returns false."
     evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTransitioner.cs:33-40"
-  - claim: "GitHub moves to 'open' by reopening the issue."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:154-162"
-  - claim: "The spawn funnel reserves capacity, then claims; a held lease answers AlreadyClaimed."
-    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:133-148, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:37-39"
-  - claim: "The envelope's RequestedByName rides the initial context of both the immediate claim and the capacity-queue row."
-    evidence: "src/backend/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs:33-38, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:24-40,66-73"
-  - claim: "The poller builds an envelope from a fetched ticket."
-    evidence: "src/backend/AgentSmith.Application/Services/Polling/PolledTicketEnvelope.cs:17-19"
-  - claim: "The run reads the whole thread; the prompt section renders it with no notion of an attempt."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:28-29, src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:42-56"
-  - claim: "The section is rendered for the master and for the spec derivation."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:883,900, src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:82-87"
-  - claim: "A spec-less run seeds its ledger from the latest same-ticket run regardless of outcome, done items staying done."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:128-131, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPriorRunLedgerReader.cs:30-37, src/backend/AgentSmith.Application/Services/Tools/PriorRunLedgerSeeder.cs:23-45"
-  - claim: "Delivered means success or shortfall; queued and waiting are pauses."
-    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-24"
-  - claim: "Runs carry Project, TicketId, Status and StartedAt, indexed on (Project, TicketId)."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:11-20, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunConfiguration.cs:27"
-  - claim: "The revision cause is RecutDemand, TicketEdit, Comment, the sha, then Resume/Retrigger; an approved set is amended only on a demand, a Retrigger only when nothing executed."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:59-71, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-47"
-  - claim: "A re-derivation re-uses the executed head verbatim, discards the model's entries at those positions and builds the model's later entries after it."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:21-26,84-91"
-  - claim: "A demand records a new approval attributed to its author and time, so the re-cut set stays approved."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:27-35, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:64-66"
+  - claim: "Any claimer — poller, approved-ticket admission, the workitem.updated hook, the capacity head — wins the lease by the same INSERT; the loser gets AlreadyClaimed."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:161-169, src/backend/AgentSmith.Application/Services/Polling/ApprovedTicketAdmission.cs:33-47, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs:21-22,55-56, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:37-39"
+  - claim: "A claim for a pipeline no label routes is refused unless the request is marked requested by name."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:21-25, src/backend/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs:33-38"
+  - claim: "The poller builds an envelope from a fetched ticket; SpawnPipelineRunsUseCase is at its 150-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/PolledTicketEnvelope.cs:17-32, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:96"
+  - claim: "The four comment handlers filter on the keyword and pass the status to the dispatcher."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs:54-66, src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:61-75"
+  - claim: "A demand is read in the run as the last foreign comment after our anchor that carries the phrase."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:40-57"
+  - claim: "FetchTicketHandler has room (135 of a 189 baseline) and fetches the thread before anything reads it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-81, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:55"
 
 assumptions:
-  - claim: "A ReworkAct serialised as a JSON string survives the capacity-queue round trip as ApprovedSpecSet does."
-    check: "Defer a rework spawn in a test and read ContextKeys.ReworkAct off the pumped request."
+  - claim: "The act's own time is in each payload: Jira comment.created, GitHub comment.created_at, GitLab object_attributes.created_at, Azure DevOps resource.fields['System.ChangedDate'] of the commented revision."
+    check: "One recorded delivery per platform in the handler tests."
 
 scope:
   in: >
-    ReworkEntry (Server/Services/Lifecycle): refuse when a lease is held (naming its run) or the latest
-    attempt is not terminal; ignore an act no newer than that attempt's start; move a parked ticket to the
-    first trigger status; clear hand-back, approval and unmoved fact through TicketReopener, extracted from
-    NotImplementableRetryService which then calls it; spawn the previous attempt's pipeline through the funnel, the act on the envelope.
-    Comment handlers pass a keyword act; the dispatcher routes it to ReworkEntry when the status is done or
-    failed, or the latest attempt is terminal. A refusal is commented on the ticket. Every run gets the
-    previous attempt; the conversation leads with the comments after its start; a delivered previous run
-    seeds no ledger; ReworkAct is a revision cause.
-  out: "The PR trigger (2026-10-08-e8b9c), PR threads (2026-10-08-e8b9d), PR commands (2026-10-08-e8b9e)."
+    ReworkEntry(project, ticket, act): a held lease is refused naming its run; no finished previous attempt
+    answers NotARework, and the caller keeps today's path; an act no newer than that attempt's start is
+    AlreadyServed. Otherwise: move to the first trigger status only when the status is not a trigger status
+    (empty list: no move); a refused move is refused and clears nothing; TicketReopener (extracted from Retry,
+    which calls it) clears; spawn the previous attempt's pipeline with RequestedByName. AlreadyClaimed is
+    success — another claimer serves it. Keyword comments route through ReworkEntry before the status gate; a
+    refusal is commented, opening 'Agent Smith —' and never quoting the keyword. In the run, ReworkActReader
+    sets ContextKeys.ReworkAct from the newest foreign keyword comment after the previous attempt's start.
+  out: "PR acts (2026-10-08-e8b9c). What the act does to an executed set (2026-10-08-f114)."
 
 decisions:
-  - key: "ONE ENTRY, THE ONE DOOR. ReworkEntry ends in SpawnPipelineRunsUseCase, so capacity, the lease and the unmoved gate stay the only guards; no second launch path."
-  - key: "THE POLLER CLEARS NOTHING. A moved-back ticket is claimed as today and gets the feedback context; a standing unmoved fact there means the ticket never left, which is no act."
-  - key: "MOVE BEFORE CLAIM, as Retry does: otherwise the attempt's finalize asks Jira for Done-to-Done, finds no transition, and records a false unmoved fact."
-  - key: "EXECUTED SET: a rework is cause Rework, after RecutDemand. It amends any set, approved included, because it is a deliberate act like a demand; the parser keeps the executed head, so the feedback becomes new phases after it; an approved set records the act as its new approval. No new mechanism."
-  - key: "A DELIVERED RUN IS NOT A RESUME. Its all-done ledger is finished work; a failed run's ledger still seeds."
+  - key: "THE ACT LIVES IN THE THREAD. Moving and clearing make the ticket claimable for every claimer, so the run reads the act itself; nothing rides an envelope another replica never sees."
+  - key: "THE ENTRY'S CHECK USES THE HOST'S TIME, never receipt time, so a redelivery is AlreadyServed."
+  - key: "THE POLLER CLEARS NOTHING. A move back by hand is claimed as today; a standing unmoved fact there means the ticket never left."
+  - key: "ON THE TICKET, Comment AND RecutDemand STAY THE CAUSES; ReworkAct only marks the attempt for 2026-10-08-f114."
 
 steps:
-  - id: contracts
-    action: "Add ReworkAct {Channel, Author, At, Reference}, IncomingTicketEnvelope.Rework, ContextKeys.ReworkAct and PreviousAttempt, IPreviousAttemptReader with Db and null implementations, registered as IPriorRunLedgerReader is."
   - id: entry
-    action: "Extract TicketReopener; add ReworkEntry returning Started, Queued, AlreadyServed or Refused(reason, runId)."
-  - id: ticket
-    action: "Pass ReworkAct from the four comment handlers; route it in WebhookSpawnDispatcher; comment a refusal."
+    action: "Add TicketReopener and ReworkEntry (Started, NotARework, AlreadyServed, Refused(reason, runId)); Retry calls TicketReopener."
+  - id: route
+    action: "Add KeywordCommentRouter, called by the four comment handlers with the act, asking ReworkEntry before WebhookSpawnDispatcher; post refusals."
   - id: run
-    action: "Set PreviousAttempt in TicketExtrasFetcher; render the feedback block; skip a delivered seed; add SpecRevisionCause.Rework to For, NeedsModel, the approval and SpecRecutNotice."
+    action: "Add ReworkAct and ContextKeys.ReworkAct; add ReworkActReader; call it in FetchTicketHandler after the extras."
 
 tests:
   - "ReworkEntry_LiveLease_RefusesNamingRun"
-  - "ReworkEntry_ActOlderThanLatestAttempt_AlreadyServed"
-  - "ReworkEntry_ParkedJiraTicket_MovesClearsAndClaimsOnce"
-  - "ReworkEntry_UnmovedGitHubTicket_ClearsFactAndClaims"
-  - "Dispatcher_KeywordOnDoneStatus_RoutesToReworkEntry"
-  - "Dispatcher_KeywordNoPreviousAttempt_KeepsStatusGate"
-  - "Conversation_PreviousAttempt_LeadsWithCommentsAfterIt"
-  - "PriorRunSeed_DeliveredPriorRun_SeedsNothing"
-  - "Cause_ReworkActOnApprovedExecutedSet_AmendsAndRecordsApproval"
-  - "Cause_ReworkActWhileResuming_IsResume"
+  - "ReworkEntry_NoFinishedAttempt_NotARework"
+  - "ReworkEntry_ActNotNewerThanAttempt_AlreadyServed"
+  - "ReworkEntry_DoneJiraTicket_MovesClearsAndClaims"
+  - "ReworkEntry_StatusAlreadyTrigger_DoesNotMove"
+  - "ReworkEntry_EmptyTriggerList_ClaimsWithoutMove"
+  - "ReworkEntry_RefusedMove_ClearsNothing"
+  - "ReworkEntry_OtherClaimerWins_IsStarted"
+  - "Router_KeywordOnFailedStatus_StartsRework"
+  - "Refusal_Text_IsOursAndOmitsKeyword"
+  - "ReworkActReader_KeywordAfterAttempt_SetsAct"
+  - "ReworkActReader_OurCommentOrOlder_SetsNothing"
 
 done:
-  - "A keyword comment on a ticket in done_status, failed_status, or an open GitHub issue held by an unmoved fact starts one attempt; a second comment during it starts none and says why."
-  - "The attempt's prompt leads with the comments after the previous attempt's start and opens on no all-done ledger."
-  - "On a fully executed set the rework re-derives and appends phases; full suite green."
+  - "A keyword comment on a ticket in done_status or failed_status, or an open GitHub issue held by an unmoved fact, starts one attempt whose context carries ReworkAct even when the poller claims it."
+  - "A redelivered comment, or one during a live run, starts nothing; full suite green."

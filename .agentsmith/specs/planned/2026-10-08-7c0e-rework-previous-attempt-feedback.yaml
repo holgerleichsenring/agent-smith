@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-7c0e
+goal: "Every ticket run knows its previous attempt, its prompt leads with the comments written since that attempt started, and a run after a success opens on no all-done checklist."
+
+applies_to: "backend (run history read, ticket context, prompt sections, progress seed)"
+
+requires: []
+
+facts:
+  - claim: "Runs carry Project, TicketId, Status, StartedAt and FinishedAt, indexed on (Project, TicketId); ids are time-sortable."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:10-21, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunConfiguration.cs:27, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPriorRunLedgerReader.cs:28-32"
+  - claim: "A terminal status sets FinishedAt once; queued and waiting_for_input keep it null."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:33-41,56-63"
+  - claim: "StartedAt is the server's clock at launch; a resumed or queued row is promoted and its StartedAt overwritten; a queued row's StartedAt is its enqueue time."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:44-47, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:106-118, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-23, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108"
+  - claim: "The run fetches the whole thread with the ticket; the prompt section renders it newest-first-fitted with no notion of an attempt."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-81, src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:28-29, src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:41-56,79-84"
+  - claim: "The section is rendered by the master and by SpecPromptComposer, which sits at the 120-line limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:883,900, src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:82-87, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "Ticket context keys live in a partial."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Ticket.cs:16"
+  - claim: "The prior-run seed fires only when the phase spec seeds nothing, reads the latest same-ticket ledger regardless of outcome, carries no status, and keeps done items done."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:128-131, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPriorRunLedgerReader.cs:30-37, src/backend/AgentSmith.Contracts/Runs/PriorRunLedger.cs:9-12, src/backend/AgentSmith.Application/Services/Tools/PriorRunLedgerSeeder.cs:23-45"
+  - claim: "Success, shortfall and failed are the run outcomes; shortfall is delivered with a stated gap."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-21"
+  - claim: "IPriorRunLedgerReader has a null implementation for compositions without a database."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/ResumeRegistrations.cs:30"
+
+assumptions:
+  - claim: "Tracker comment timestamps and the server clock agree within a minute."
+    check: "Compare a test comment's CreatedAt with the server's UtcNow on the deployed tracker; skew misfiles only comments written within that window."
+
+scope:
+  in: >
+    IPreviousAttemptReader.LatestAsync(project, ticket, excludingRunId): the newest Run row for the pair other
+    than this run, ignoring status queued (a reservation, never an attempt); returns run id, status, StartedAt,
+    and Finished (FinishedAt set: success, shortfall, failed, cancelled). TicketExtrasFetcher sets
+    ContextKeys.PreviousAttempt. TicketConversationPromptSection.Render(PipelineContext) leads with a block
+    'Since the previous attempt (run X, started T)' holding the foreign comments after T, then the rest under
+    the existing cap. PriorRunLedger carries Status; a prior run with status success seeds nothing.
+  out: "PR review threads (2026-10-08-e8b9d). What starts the attempt (2026-10-08-e8b9b)."
+
+decisions:
+  - key: "THE PREVIOUS ATTEMPT IS A ROW, NOT A GUESS: newest by id, this run excluded, queued rows excluded. A resumed attempt's start is its resume time, so 'since' means since it last ran."
+  - key: "ONLY SUCCESS DROPS THE SEED. A shortfall's and a failure's pending items are the unfinished work; a success's all-done ledger tells the master there is nothing to do. The seed fires only without phase-spec steps, so spec runs are unaffected."
+  - key: "NO GROWTH WHERE THERE IS NO ROOM. Render reads comments and the previous attempt from the context itself, so SpecPromptComposer's AppendConversation gets shorter, not longer."
+  - key: "FOLLOWS THE 2026-10-08-e8b9 REWORK SERIES: cut out of e8b9b at review, minted on its own because a series is minted in one go."
+
+steps:
+  - id: contract
+    action: "Add PreviousAttempt and IPreviousAttemptReader; ContextKeys.PreviousAttempt in ContextKeys.Ticket.cs; Db and null readers registered as IPriorRunLedgerReader is."
+  - id: fetch
+    action: "Set PreviousAttempt in TicketExtrasFetcher, fail-soft, keyed on ContextKeys.ProjectName and ContextKeys.RunId."
+  - id: render
+    action: "Add Render(PipelineContext) with the leading block; call it from AgenticMasterHandler and SpecPromptComposer."
+  - id: seed
+    action: "Add Status to PriorRunLedger, read it in DbPriorRunLedgerReader, return empty for success in PriorRunSeedSource."
+
+tests:
+  - "PreviousAttempt_ExcludesThisRunAndQueuedRows"
+  - "PreviousAttempt_ResumedRow_ReportsResumeStart"
+  - "PreviousAttempt_ReaderThrows_RunContinues"
+  - "Conversation_PreviousAttempt_LeadsWithForeignCommentsAfterStart"
+  - "Conversation_NoPreviousAttempt_RendersAsBefore"
+  - "PriorRunSeed_SuccessPrior_SeedsNothing"
+  - "PriorRunSeed_ShortfallPrior_StillSeeds"
+
+done:
+  - "A ticket's second run renders 'Since the previous attempt' with exactly the foreign comments after the first run's start."
+  - "A spec-less run after a successful one opens on an empty checklist; SpecPromptComposer stays at or under 120 lines; full suite green."

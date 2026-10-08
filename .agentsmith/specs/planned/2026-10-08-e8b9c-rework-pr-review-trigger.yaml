@@ -1,88 +1,85 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-e8b9c
-goal: "Request changes on a pull request agent-smith opened starts one rework attempt through the rework entry on GitHub, GitLab and Azure DevOps, acknowledged on the pull request; comments start nothing."
+goal: "Request changes on a pull request from an agent-smith ticket branch starts one rework attempt on GitHub, GitLab and Azure DevOps, and the run reads that act from the pull request itself."
 
-applies_to: "backend (PR webhook handlers, PR body) + docs"
+applies_to: "backend (PR webhook handlers, PR review readers, PR body) + docs"
 
-requires: [2026-10-08-e8b9a, 2026-10-08-e8b9b]
+requires: [2026-10-08-e8b9a, 2026-10-08-e8b9b, 2026-10-08-e8b9d, 2026-10-08-f114]
 
 facts:
-  - claim: "No handler accepts GitHub's pull_request_review event: the PR handlers take pull_request, issue_comment and pull_request_review_comment."
+  - claim: "No handler accepts GitHub's pull_request_review event."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:30-47, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:27-28, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs:19-26"
-  - claim: "A GitLab merge-request update without oldrev starts nothing, and the label handler needs an added label."
+  - claim: "A GitLab MR update without oldrev starts nothing; the label handler needs an added label."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs:43-50"
-  - claim: "GitLab 19.3+ sends a submitted review as merge_request action update whose changes.reviewers holds the previous and the current reviewer arrays, the current state requested_changes."
-    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/user/project/integrations/webhook_events.md, section on reviewer state on submitted reviews"
-  - claim: "The Azure DevOps PR handler starts pr-review on every active git.pullrequest.updated and says it cannot tell a push from a vote."
+  - claim: "GitLab 19.3+ sends a submitted review as an MR update whose changes.reviewers holds previous and current arrays; only a state change emits."
+    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/user/project/integrations/webhook_events.md, reviewer state on submitted reviews"
+  - claim: "The Azure DevOps PR handler starts pr-review on every active git.pullrequest.updated."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrEventWebhookHandler.cs:9-16,23-30,41-65"
-  - claim: "git.pullrequest.updated's change kind (push, reviewers, status, vote) is a subscription filter, not a payload field; the payload lists reviewers with their vote."
-    evidence: "observed: 2026-10-08, MicrosoftDocs azure-devops-docs docs/service-hooks/events.md, git.pullrequest.updated settings and sample payload"
-  - claim: "The Web Hooks consumer can send custom headers set on the subscription."
-    evidence: "observed: 2026-10-08, MicrosoftDocs azure-devops-docs docs/service-hooks/consumers.md, Web Hooks httpHeaders"
-  - claim: "A ticket's work branch is agent-smith/{ticketId}; agent-smith/init is the init branch."
-    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:18-28"
-  - claim: "A repository URL resolves to its project through IConfiguredRepoFinder."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReviewRouteResolver.cs:16-29"
-  - claim: "Write access is judged per host by keyed IPrCommentAuthorTrust over a PrCommentAuthor."
-    evidence: "src/backend/AgentSmith.Infrastructure/Extensions/PrCommentAuthorTrustExtensions.cs:24-26, src/backend/AgentSmith.Contracts/Webhooks/PrCommentAuthor.cs:11-15"
-  - claim: "PR comments are posted through IPrCommentProvider, reached by casting the repo's source provider; our comments open with an agentsmith HTML marker."
+  - claim: "git.pullrequest.updated's change kind is a subscription filter, not a payload field; the payload lists every reviewer's vote; the Web Hooks consumer can add headers."
+    evidence: "observed: 2026-10-08, MicrosoftDocs azure-devops-docs docs/service-hooks/events.md git.pullrequest.updated, docs/service-hooks/consumers.md Web Hooks httpHeaders"
+  - claim: "Ticket branches are agent-smith/{ticketId}; agent-smith/init is the init branch; the hierarchical overload has no caller; a rung is published as agent-smith/{parent}."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:18-47, src/backend/AgentSmith.Application/Services/Sandbox/SandboxRungPublisher.cs:62"
+  - claim: "The repo finder matches by substring and returns the first project, so app matches app-api; issue numbers are per repository."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Webhooks/ConfiguredRepoFinder.cs:12-34, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:111, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabFieldMapper.cs:58"
+  - claim: "Write access is judged by keyed IPrCommentAuthorTrust; Azure DevOps verifies the Basic Authorization header."
+    evidence: "src/backend/AgentSmith.Infrastructure/Extensions/PrCommentAuthorTrustExtensions.cs:24-26, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSignatureVerifier.cs:83-84"
+  - claim: "Comments are posted through IPrCommentProvider, reached by casting the repo's source provider; our comments open with an agentsmith marker."
     evidence: "src/backend/AgentSmith.Contracts/Providers/IPrCommentProvider.cs:14-16, src/backend/AgentSmith.Application/Services/Handlers/PostPrCommentsHandler.cs:21-26"
-  - claim: "The Azure DevOps provider already lists PR threads."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:236-237"
-  - claim: "The PR body is composed at the spec commit and again at the PR step."
+  - claim: "Azure DevOps threads are read today only privately, inside DeleteCommentsByMarkerAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:231-245"
+  - claim: "The PR body is composed at the spec commit and at the PR step."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:59-61, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:320-324"
-  - claim: "The PR docs list the subscribed GitHub events."
-    evidence: "docs/reference/integrations/pr-comments.md:57-63"
 
 assumptions:
-  - claim: "GitHub's pull_request_review submitted payload carries review.state 'changes_requested', review.user.login, review.author_association, review.submitted_at and pull_request.head.ref."
+  - claim: "GitHub's review payload carries review.state 'changes_requested', review.user, review.author_association, review.submitted_at, pull_request.user and pull_request.head.repo."
     check: "A recorded delivery in the handler test; compare state case-insensitively."
-  - claim: "An Azure DevOps vote leaves a PR thread whose properties carry CodeReviewThreadType VoteUpdate and CodeReviewVoteResult, authored by the voter, with its publishedDate."
-    check: "Vote 'Wait for author' on a test PR and GET its threads. If absent, cut the Azure DevOps half into its own phase, 'azure-devops vote record', which persists the last vote acted on."
+  - claim: "A GitLab requested_changes leaves a system note in the MR discussions; an Azure DevOps vote leaves a thread with CodeReviewThreadType VoteUpdate and CodeReviewVoteResult by the voter."
+    check: "Act on a test MR and PR, read discussions and threads. A host that fails gets a pending-rework row (project, ticket, act) the admission writes and ReworkActReader consumes."
 
 scope:
   in: >
-    PrReworkAdmission: head branch agent-smith/{id} (not init), project from the repo, reviewer trusted,
-    act (channel pull-request, reviewer, act time, PR reference) to ReworkEntry, then one marked PR comment:
-    the started run's id, or for a live run "this review was not picked up; request changes again after
-    run X finishes". GitHub: pull_request_review submitted with changes_requested. GitLab: a reviewer whose
-    state becomes requested_changes. Azure DevOps: a git.pullrequest.updated delivery carrying
-    X-AgentSmith-Change: review-vote is only a rework candidate, never pr-review; a reviewer at -5 is the
-    act, its time the vote thread's. One sentence in both PR bodies. Docs.
-  out: "Reading the review (2026-10-08-e8b9d). Foreign PRs keep today's routes."
+    PrReworkAdmission: head ref agent-smith/ plus one segment, not init; head repo equals base repo (GitHub
+    head.repo.full_name, null for a deleted fork; GitLab source_project_id = target_project_id; Azure DevOps
+    no forkSource); every project with a repo whose host+path EQUALS the PR's, kept only with a Run on
+    (project, ticket) — none or several: logged, not handled (a rung's parent with no run included); a
+    trusted reviewer who is not the PR author; the act to ReworkEntry; one marked comment. GitHub:
+    pull_request_review submitted, changes_requested, at submitted_at. GitLab: a reviewer turning
+    requested_changes, at object_attributes.updated_at. Azure DevOps: a delivery with X-AgentSmith-Change:
+    review-vote never starts pr-review; the act is the newest -5 vote thread, at its publishedDate.
+    IPrReviewActReader.LatestChangesRequestedAsync(prUrl) on 2026-10-08-e8b9d's readers serves the vote time
+    and ReworkActReader's pull-request channel. PR body sentence. Docs.
+  out: "Foreign PRs keep today's routes. The executed-set effect (2026-10-08-f114)."
 
 decisions:
-  - key: "THE ACT IS A STATE CHANGE, NOT A COMMENT. Only Request changes reaches ReworkEntry; comments are collected by 2026-10-08-e8b9d."
-  - key: "AZURE DEVOPS BY HEADER. The payload cannot say push from vote, and a vote delivery shows every standing vote; the operator gives the vote subscription a header, so a vote never starts pr-review, and the vote thread's time is what ReworkEntry compares."
-  - key: "SAME TRUST AS PR COMMANDS. A reviewer without write access is ignored and logged."
-  - key: "ALREADY SERVED IS SILENT: a redelivery or a second vote delivery for an act an attempt already started after posts nothing."
+  - key: "THE ACT LIVES ON THE PULL REQUEST, read in the run like the ticket's, so a claimer that never saw the webhook still serves it; no table unless a host cannot answer."
+  - key: "EXACT REPOSITORY, THEN A RUN. Substring matching and per-repo issue numbers make the first match a guess."
+  - key: "FOLLOWABLE REFUSAL. While run X works: 'when run X ends, submit Request changes again' — on GitLab and Azure DevOps 'reset your review or vote first', since only a change is sent."
+  - key: "AZURE DEVOPS BY HEADER: the payload cannot tell a vote; the header subscription never reviews."
 
 steps:
   - id: admission
-    action: "Add PrReworkAdmission and the PR comment texts behind an agentsmith:rework marker."
+    action: "Add PrReworkAdmission, an exact host+path project matcher, and the marked comment texts."
   - id: hosts
-    action: "Add GitHubPrReviewWebhookHandler and GitLabMrReviewWebhookHandler (registered before the GitLab MR handlers); route the header-marked Azure DevOps delivery to the admission."
-  - id: vote-time
-    action: "Add the Azure DevOps vote-time read over GetThreadsAsync."
-  - id: body
-    action: "Add the review-rule sentence to SpecPrBody.BuildInitial and CommitAndPRHandler's body."
-  - id: docs
-    action: "Document the events and the Azure DevOps vote subscription with its header."
+    action: "Add GitHubPrReviewWebhookHandler and GitLabMrReviewWebhookHandler (before the GitLab MR handlers); route header-marked Azure DevOps deliveries."
+  - id: act
+    action: "Add IPrReviewActReader to the three readers; add the pull-request channel to ReworkActReader."
+  - id: body-docs
+    action: "Add the rule sentence to both PR bodies; document GitLab 19.3+, the Azure DevOps push subscription on 'Source branch updated' and a second on 'Reviewer vote changed' with the header and the same Basic credentials."
 
 tests:
   - "GitHubPrReview_ChangesRequestedOnOurBranch_StartsReworkAndComments"
-  - "GitHubPrReview_Approved_NotHandled"
-  - "GitHubPrReview_ForeignBranch_NotHandled"
-  - "GitHubPrReview_UntrustedReviewer_NotHandled"
+  - "GitHubPrReview_ByPrAuthor_NotHandled"
+  - "GitHubPrReview_ForkHead_NotHandled"
+  - "GitHubPrReview_InitBranch_NotHandled"
+  - "PrRework_PrefixSiblingRepo_DoesNotMatch"
+  - "PrRework_NoRunForTicket_NotHandled"
   - "GitLabMrReview_ReviewerBecomesRequestedChanges_StartsRework"
-  - "GitLabMrReview_StateUnchanged_NotHandled"
-  - "AzureDevOpsPr_VoteHeaderMinusFive_StartsReworkNeverPrReview"
+  - "AzureDevOpsPr_VoteHeaderNewestVoteAfterAttempt_StartsRework"
   - "AzureDevOpsPr_VoteHeaderVoteOlderThanAttempt_AlreadyServed"
   - "AzureDevOpsPr_NoHeader_KeepsPrReview"
-  - "PrRework_LiveRun_CommentsNotPickedUp"
-  - "PrBody_Initial_StatesReviewRule"
+  - "PrRework_LiveRun_CommentsHostSpecificRetry"
+  - "ReworkActReader_ChangesRequestedAfterAttempt_SetsPullRequestAct"
 
 done:
-  - "On each host a Request changes on an agent-smith/{id} PR starts one attempt and the PR names its run; during that run a second one starts none and the PR says why."
-  - "A vote delivery never starts pr-review; ordinary PR comments start nothing."
-  - "Both PR bodies state the rule; docs list the events; full suite green."
+  - "On each host a Request changes on an agent-smith/{id} PR starts one attempt whose context carries the pull-request act whoever claims it; the PR names the run."
+  - "A header-marked vote delivery never starts pr-review; full suite green."
