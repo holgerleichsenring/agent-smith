@@ -17,6 +17,8 @@ internal static class ReferenceFileExtensions
     {
         services.AddScoped<ReferenceFileRepository>();
         services.AddScoped<ReferenceSetRepository>(); // 2026-10-01-283db
+        services.AddScoped<ReferenceUsageRepository>(); // 2026-10-08-e8b9g: the byte cap and duplicates
+        services.AddScoped<ReferenceUploadDeletion>(); // 2026-10-08-e8b9g: one upload removed
         // 2026-10-01-283dc: a design turn's reference sandbox reads its set from here.
         services.RemoveAll<IReferenceSetReader>();
         services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();

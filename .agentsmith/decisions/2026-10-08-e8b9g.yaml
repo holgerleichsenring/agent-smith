@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9g
+
+decisions:
+  - category: Architecture
+    chose: "MaxConversationBytes = 100 MB over the session's site and image rows; notes are not counted"
+    over: "Keeping a count of sets, or counting notes too"
+    reason: |
+      Bytes are what a design turn opens and a run writes into its sandbox; a count of three was
+      exhausted by three single files. Notes are the model's record about a set, not an upload,
+      so the used figure equals the sum of what the uploads panel lists.
+  - category: Implementation
+    chose: "UploadRefusal(Status, Reason) returned by ConversationUploadAdmission; the caller logs and answers"
+    over: "Returning IResult from the admission"
+    reason: |
+      ReferenceSetUpload logs every refusal at Warning with its reason (0d72); a record keeps that
+      single logging point and lets the image upload answer the same refusal.
+  - category: Security
+    chose: "Removal reachable by whoever may reach the open conversation (ConversationState.MayBeReachedBy), else 404"
+    over: "Owner only, as the conversation delete"
+    reason: |
+      The removal undoes an upload, and whoever may upload into the conversation (the resolver's
+      reach rule: owner, or anyone for a ticket-bound conversation) may remove one. Deleting the
+      whole conversation stays the owner's alone.
+  - category: TradeOff
+    chose: "Cited check before and after the delete (inside its transaction) plus the recorder re-reading set ids after its save"
+    over: "A distributed lock or serialisable transactions"
+    reason: |
+      The turn gate is per process and several replicas are a requirement. Each side checks after
+      its own write; what remains is one replica's check and commit interleaving with the other's
+      save and re-read within microseconds, and the run carry still fails loudly on a missing set.
+  - category: Implementation
+    chose: "ApprovalCitations constructed inside ApprovedPhaseSetRecorder from its own store and reader"
+    over: "A new constructor parameter"
+    reason: |
+      Every construction site of the recorder (DI and three test doubles) already passes the two
+      dependencies; the citation step is a responsibility of its own class without widening them,
+      and the recorder stays within its 120-line bound.
+  - category: Implementation
+    chose: "ContentSha256 nullable, no backfill, no index; migration AddReferenceFileContentHash generated with dotnet ef in both sets"
+    over: "Backfilling at migration time"
+    reason: |
+      A backfill reads every stored byte at migration; rows are days old and per conversation. The
+      check reads one conversation's rows, which the session index narrows to.

@@ -24,7 +24,7 @@ facts:
   - claim: "The first upload of a dialog opens the conversation on the server; before that there is no session and so no usage."
     evidence: "src/dashboard/src/hooks/useSpecDialog.ts:519-531"
   - claim: "An image has no name in the view; the chip formats sizes with its own sizeOf, the selection card with megabytes."
-    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogImageView.cs:13; src/dashboard/src/components/dialog/DialogTranscript.tsx:137-142"
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogImageView.cs:15; src/dashboard/src/components/dialog/DialogTranscript.tsx:137-142"
 
 assumptions:
   - claim: "e8b9g's view fields arrive as camelCase JSON: uploadBytes, uploadCapBytes, references[].cited, images[].bytes and images[].cited."

@@ -1,8 +1,6 @@
 using System.Security.Claims;
-using AgentSmith.Infrastructure.Persistence.Entities;
-using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
-using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.References;
 using AgentSmith.Server.Services.SpecDialog;
 
 namespace AgentSmith.Server.Extensions;
@@ -32,16 +30,6 @@ namespace AgentSmith.Server.Extensions;
 /// </summary>
 internal static class SpecDialogImageEndpoints
 {
-    private const string NotYours =
-        "This conversation belongs to someone else. Start one of your own to attach an image to it.";
-
-    private const string NoConversation =
-        "No conversation is open here and none could be started — name the project it is about.";
-
-    private const string NotAnImage =
-        "That file is not a PNG, JPEG, GIF or WebP image. The kind is read from the bytes, "
-        + "not from what it is called.";
-
     internal static WebApplication MapSpecDialogImageEndpoints(this WebApplication app)
     {
         app.MapPost("/api/spec-dialog/images", (Delegate)UploadAsync)
@@ -61,35 +49,14 @@ internal static class SpecDialogImageEndpoints
         string dialogId,
         string? project,
         SpecDialogImageBody body,
-        ImageKindFromBytes kinds,
-        SpecDialogConversationResolver conversation,
-        ReferenceFileRepository files,
+        SpecDialogImageUpload upload,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(http);
         var bytes = await body.ReadAsync(http, cancellationToken);
         if (bytes is null) return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
-        if (string.IsNullOrWhiteSpace(dialogId)) return Results.BadRequest("dialogId is required");
-        if (kinds.Of(bytes) is not { } mediaType) return Results.BadRequest(NotAnImage);
-
-        var target = await conversation.ResolveOrOpenAsync(
-            dialogId, project, http.User, cancellationToken);
-        if (target.BelongsToAnother) return Results.Conflict(NotYours);
-        if (target.SessionId is not { } session) return Results.BadRequest(NoConversation);
-
-        // 2026-10-01-283da: the bytes as bytes, an image a set of one.
-        var stored = await files.AddAsync(
-            new ReferenceFile
-            {
-                SessionId = session,
-                SetId = Guid.NewGuid().ToString("N"),
-                Kind = ReferenceFileKind.Image,
-                MediaType = mediaType,
-                Length = bytes.Length,
-                Content = bytes,
-            },
-            cancellationToken);
-        return Results.Ok(new SpecDialogImageView(stored.Id, mediaType, stored.CreatedAt));
+        // 2026-10-08-e8b9g: the kind, the conversation, its cap and its copies are the upload's.
+        return await upload.StoreAsync(dialogId, project, http.User, bytes, cancellationToken);
     }
 
     /// <summary>

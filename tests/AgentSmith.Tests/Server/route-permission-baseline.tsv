@@ -13,6 +13,8 @@ DELETE	/api/runs	runs.delete
 DELETE	/api/runs/{runId}	runs.delete
 DELETE	/api/runs/{runId}/judgements	runs.control
 DELETE	/api/spec-dialog/conversations/{sessionId}	dialog.write
+DELETE	/api/spec-dialog/images/{imageId:long}	dialog.write
+DELETE	/api/spec-dialog/references/{setId}	dialog.write
 GET	/api/access	access.read
 GET	/api/archive/export	archive.export
 GET	/api/archive/preview	archive.export

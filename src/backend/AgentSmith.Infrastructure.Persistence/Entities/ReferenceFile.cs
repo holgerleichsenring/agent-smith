@@ -34,6 +34,13 @@ public sealed class ReferenceFile : EntityBase
 
     public long Length { get; set; }
 
+    /// <summary>
+    /// 2026-10-08-e8b9g: the SHA-256 of <see cref="Content"/> as lower-case hex — what a duplicate
+    /// upload is recognised by. Null on a row stored before the column existed: those are never
+    /// matched, because hashing them would read every stored byte at migration time.
+    /// </summary>
+    public string? ContentSha256 { get; set; }
+
     /// <summary>The file itself. Unbounded and untyped by design — see the configuration.</summary>
     public byte[] Content { get; set; } = [];
 }

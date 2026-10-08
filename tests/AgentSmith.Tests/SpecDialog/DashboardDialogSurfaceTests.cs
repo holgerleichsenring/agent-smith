@@ -17,6 +17,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Tests.TestSupport;
+
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
@@ -352,7 +354,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
             new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turns,
-            new ReferenceFileRepository(_context), new SpecDialogTicketTextRepository(_context), new ReferenceSetRepository(_context));
+            new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
 
     /// <summary>A clock the test moves by hand, so no assertion about elapsed seconds waits
     /// on a real one.</summary>

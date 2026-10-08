@@ -11,6 +11,7 @@ using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Adapters;
+using AgentSmith.Server.Services.References;
 using AgentSmith.Server.Services.SpecDialog;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +19,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -268,8 +271,7 @@ public sealed class DialogImageUploadTests : IDisposable
                 new SpecDialogLatestOutcomeStore(
                     _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-                new SpecDialogTurnGate(TimeProvider.System), _attachments, _ticketText,
-                new ReferenceSetRepository(_context))
+                new SpecDialogTurnGate(TimeProvider.System), _ticketText, TestUploads.Over(_context))
             .ReadAsync(dialogId, CancellationToken.None)).Session;
 
     private async Task<long> StoreAgainstAsync(string sessionId) =>
@@ -290,9 +292,10 @@ public sealed class DialogImageUploadTests : IDisposable
         return await SpecDialogImageEndpoints.UploadAsync(
             http, Dialog, Project,
             new SpecDialogImageBody(NullLogger<SpecDialogImageBody>.Instance),
-            new ImageKindFromBytes(),
-            new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
-            _attachments, CancellationToken.None);
+            new SpecDialogImageUpload(new ImageKindFromBytes(),
+                new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
+                _attachments, TestUploads.Admission(_context)),
+            CancellationToken.None);
     }
 
     /// <summary>The real command handler, which is what must do the opening: its own guard

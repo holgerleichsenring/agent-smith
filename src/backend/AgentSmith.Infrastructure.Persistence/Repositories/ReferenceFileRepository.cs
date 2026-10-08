@@ -29,12 +29,10 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
     public async Task<IReadOnlyList<ReferenceImageEntry>> ListImagesAsync(string sessionId, CancellationToken ct)
     {
         var current = await Images(sessionId)
-            .Select(f => new { f.Id, f.MediaType, f.CreatedAt }).ToListAsync(ct);
+            .Select(f => new ReferenceImageEntry(f.Id, f.MediaType, f.CreatedAt, f.SetId, f.Length)).ToListAsync(ct);
         var legacy = await Uncopied(sessionId)
-            .Select(a => new { a.Id, a.MediaType, a.CreatedAt }).ToListAsync(ct);
-        return [.. current.Concat(legacy)
-            .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
-            .Select(i => new ReferenceImageEntry(i.Id, i.MediaType, i.CreatedAt))];
+            .Select(a => new ReferenceImageEntry(a.Id, a.MediaType, a.CreatedAt, null, null)).ToListAsync(ct);
+        return [.. current.Concat(legacy).OrderBy(i => i.At).ThenBy(i => i.Id)];
     }
 
     /// <summary>

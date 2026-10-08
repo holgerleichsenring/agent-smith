@@ -30,7 +30,7 @@ facts:
   - claim: "A reference sandbox knows its set and conversation; the reader returns a set's files whole."
     evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:25-44; src/backend/AgentSmith.Contracts/Sandbox/IReferenceSetReader.cs:7-17"
   - claim: "Vision is a per-agent flag; the session view carries no word of it."
-    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:44-50; src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:37-42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:98-103"
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:44-50; src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:39-44; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:98-103"
 
 assumptions:
   - claim: "The operator's OCR attempt ran on an image uploaded through Files or Folder, so the model met it as a sandbox file and reached for python."

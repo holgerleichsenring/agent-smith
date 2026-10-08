@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,6 +34,7 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
             file.SetId = setId;
             file.Kind = ReferenceFileKind.Site;
             file.Length = file.Content.LongLength;
+            file.ContentSha256 = file.Content.Sha256Hex(); // 2026-10-08-e8b9g
             unitOfWork.Add(file);
         }
 

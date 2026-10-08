@@ -8,9 +8,9 @@ requires: ["2026-10-08-e8b9g", "2026-10-08-e8b9j"]
 
 facts:
   - claim: "At approval the recorder stores the ids of the conversation's sets as the record's References; the list is read once, there."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:78-82; src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:51-70"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:78-84; src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:51-70"
   - claim: "Those ids are site sets only; images are never cited."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbReferenceSetReader.cs:22-28; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:44-53"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbReferenceSetReader.cs:22-28; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:45-54"
   - claim: "283df froze the list on purpose: what the person approved is what the run builds against; a later upload needs a new approval."
     evidence: ".agentsmith/specs/done/2026-10-01-283df-reference-run-carry.yaml:50"
   - claim: "Filing and an amendment both record through the recorder, so a re-approval cites what the conversation holds then."
@@ -24,7 +24,7 @@ facts:
   - claim: "A run's images reach the master from ContextKeys.Attachments, set by FetchTicket: the first ten as picture parts on a vision model; the note counts the list, not the parts, and says 'ticket image(s)'. Each attachment carries Content and a Base64 copy."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:59-66; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:884,895-903; src/backend/AgentSmith.Application/Services/Prompts/TicketImagePromptParts.cs:15-23; src/backend/AgentSmith.Application/Services/Prompts/TicketAttachmentPromptSection.cs:16-38; src/backend/AgentSmith.Contracts/Models/TicketImageAttachment.cs:8-15; src/backend/AgentSmith.Domain/Entities/AttachmentRef.cs:7-11"
   - claim: "The conversation delete keeps cited site and note rows only and removes every legacy row; the leader then sweeps a copy whose legacy row is gone. An uncopied legacy image has no set id."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:75-92; src/backend/AgentSmith.Infrastructure.Persistence/Services/LegacyAttachmentCopy.cs:51-55,80; src/backend/AgentSmith.Server/Services/Lifecycle/LegacyAttachmentCopySweeper.cs:37; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-94"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:73-90; src/backend/AgentSmith.Infrastructure.Persistence/Services/LegacyAttachmentCopy.cs:51-55,80; src/backend/AgentSmith.Server/Services/Lifecycle/LegacyAttachmentCopySweeper.cs:37; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-94"
   - claim: "On a run, upload tools exist only where the project enables the browser; the carried set names its session and id."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:33-56; src/backend/AgentSmith.Contracts/Specs/CarriedReferenceSet.cs:15-16"
   - claim: "The record is serialised whole by System.Text.Json with default options, so an appended parameter round-trips and an older reader ignores it."
