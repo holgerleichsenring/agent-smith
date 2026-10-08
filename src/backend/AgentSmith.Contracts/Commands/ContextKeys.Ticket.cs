@@ -21,6 +21,10 @@ public static partial class ContextKeys
     /// by the run itself from the thread, whoever claimed the ticket; absent when there is none.</summary>
     public const string ReworkAct = "ReworkAct";
 
+    /// <summary>2026-10-08-e8b9d: the review on the previous attempt's open pull requests
+    /// (IReadOnlyList&lt;Reviews.PrReviewFeedback&gt;), already filtered to what counts as feedback.</summary>
+    public const string PrReviewFeedback = "PrReviewFeedback";
+
     public const string TicketComments = "TicketComments";
 
     /// <summary>p0317: IReadOnlyList&lt;TicketDocumentAttachment&gt; — downloaded text-like

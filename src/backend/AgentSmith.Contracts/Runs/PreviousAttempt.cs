@@ -8,6 +8,10 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset StartedAt, bool Finished)
 {
+    /// <summary>2026-10-08-e8b9d: each repo's latest opened pull-request URL across the ticket's code
+    /// runs — the pull requests a rework reads its review from.</summary>
+    public IReadOnlyDictionary<string, string> PullRequestUrls { get; init; } = new Dictionary<string, string>();
+
     /// <summary>The skew allowed between a tracker's clock and the server's: a comment written within
     /// this margin of the attempt's start is read as belonging to that attempt.</summary>
     public static readonly TimeSpan SkewMargin = TimeSpan.FromMinutes(1);

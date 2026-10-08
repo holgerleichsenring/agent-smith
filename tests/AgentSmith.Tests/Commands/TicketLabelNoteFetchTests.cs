@@ -146,6 +146,7 @@ public sealed class TicketLabelNoteFetchTests
         var handler = new FetchTicketHandler(
             factory.Object, Mock.Of<IEventPublisher>(), Mock.Of<IRunContextAccessor>(),
             new TicketExtrasFetcher(new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), NullLogger<TicketExtrasFetcher>.Instance),
+            Moq.Mock.Of<AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher>(),
             new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLogger<FetchTicketHandler>.Instance);
 

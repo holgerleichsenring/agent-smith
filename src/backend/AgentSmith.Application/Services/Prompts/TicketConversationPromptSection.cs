@@ -50,9 +50,12 @@ public static class TicketConversationPromptSection
     public static string Render(PipelineContext pipeline)
     {
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c) ? c : null;
-        return pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) && attempt is not null
+        var conversation = pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) && attempt is not null
             ? TicketConversationSplit.Render(comments, attempt) ?? Render(comments)
             : Render(comments);
+        // 2026-10-08-e8b9d: the pull-request review follows the ticket's own words.
+        var review = PrReviewFeedbackPromptSection.Render(pipeline);
+        return review.Length == 0 ? conversation : conversation.Length == 0 ? review : $"{conversation}\n\n{review}";
     }
 
     public static string Render(IReadOnlyList<TicketComment>? comments)

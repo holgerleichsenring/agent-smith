@@ -24,6 +24,8 @@ public static class PrCommentAuthorTrustExtensions
         services.AddKeyedSingleton<IPrCommentAuthorTrust, GitHubAuthorAssociationTrust>("github");
         services.AddKeyedSingleton<IPrCommentAuthorTrust, GitLabMemberAccessTrust>("gitlab");
         services.AddKeyedSingleton<IPrCommentAuthorTrust, AzureDevOpsRepoContributeTrust>("azuredevops");
+        services.RemoveAll<AgentSmith.Contracts.Reviews.IPrReviewAuthorTrust>(); // 2026-10-08-e8b9d
+        services.AddSingleton<AgentSmith.Contracts.Reviews.IPrReviewAuthorTrust, PrReviewAuthorTrust>();
         return services;
     }
 }

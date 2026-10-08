@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -18,7 +19,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -295,6 +296,17 @@ public sealed class AzureReposSourceProvider(
             ?? throw new ProviderException(ProviderType, "PR already exists but could not be found.");
         logger.LogInformation("Found existing pull request: {Url}", BuildPrUrl(existing.PullRequestId));
         return BuildPrUrl(existing.PullRequestId);
+    }
+
+    // 2026-10-08-e8b9d: the review; the repository's ids name the author for the trust verdict.
+    public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        if (!AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId))
+            throw new ArgumentException($"Not an Azure Repos pull request URL: {prUrl}", nameof(prUrl));
+        var client = await CreateConnectionAsync(cancellationToken);
+        var repo = await client.GetRepositoryAsync(_project, _repoName, cancellationToken: cancellationToken);
+        var threads = await client.GetThreadsAsync(_project, _repoName, prId, cancellationToken: cancellationToken);
+        return AzureReposReviewMapping.Map(threads, _cloneUrl, repo.Id.ToString(), repo.ProjectReference.Id.ToString());
     }
 
     private string BuildPrUrl(int prId) =>

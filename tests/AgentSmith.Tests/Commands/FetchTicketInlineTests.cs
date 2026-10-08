@@ -30,6 +30,7 @@ public sealed class FetchTicketInlineTests
             Mock.Of<IEventPublisher>(),
             Mock.Of<IRunContextAccessor>(),
             new TicketExtrasFetcher(new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), NullLogger<TicketExtrasFetcher>.Instance),
+            Moq.Mock.Of<AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher>(),
             new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
 
@@ -61,6 +62,7 @@ public sealed class FetchTicketInlineTests
         var handler = new FetchTicketHandler(
             Mock.Of<ITicketProviderFactory>(), publisher.Object, runContext.Object,
             new TicketExtrasFetcher(new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), NullLogger<TicketExtrasFetcher>.Instance),
+            Moq.Mock.Of<AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher>(),
             new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
 

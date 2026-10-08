@@ -21,6 +21,7 @@ public sealed class FetchTicketHandler(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     TicketExtrasFetcher extras,
+    AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher prReview,
     EpicGroundFetcher epicGround,
     ILogger<FetchTicketHandler> logger)
     : ICommandHandler<FetchTicketContext>
@@ -81,6 +82,8 @@ public sealed class FetchTicketHandler(
         await extras.FetchAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
         // 2026-10-08-e8b9b: the rework act is read here, from the thread just fetched.
         Rework.ReworkActReader.Apply(context.Pipeline, context.CommentKeyword);
+        // 2026-10-08-e8b9d: and the review on the previous attempt's pull requests.
+        await prReview.FetchAsync(context.Pipeline, cancellationToken);
 
         // 2026-09-13-7d9f: the epic this ticket is one slice of, read ONCE — here, with the
         // ticket. A parent that cannot be read is named in the step and the run proceeds.

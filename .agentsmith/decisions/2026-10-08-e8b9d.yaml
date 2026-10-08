@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9d
+
+decisions:
+  - category: Security
+    chose: "Notes are judged by the per-host PR-comment trust through IPrReviewAuthorTrust; where none is registered nobody is trusted"
+    over: "Reading every note on the pull request"
+    reason: |
+      A stranger's comment on a public repository is not reviewer feedback, and the section reaches the
+      model. The verdict is the one a PR comment command already gets (write access), and a composition
+      without the host trusts — none falls open.
+  - category: Implementation
+    chose: "Ours are kept by the trust filter and judged by PrReviewSelection: kept only when a person answered later in the thread"
+    over: "Dropping every note carrying our marker"
+    reason: "A reviewer replying to our inline finding means the finding is part of what they said; the ticket section keeps answered questions of ours for the same reason."
+  - category: Implementation
+    chose: "The PR URLs ride PreviousAttempt as each repo's newest opened URL across the ticket's code runs"
+    over: "Only the previous attempt's own PullRequestsJson"
+    reason: "An attempt that failed before its PR step still reworks the pull request an earlier attempt opened."
+  - category: Implementation
+    chose: "The section is appended inside TicketConversationPromptSection.Render(PipelineContext)"
+    over: "A second call in SpecPromptComposer and the master"
+    reason: "SpecPromptComposer sits at 120 lines; both prompts already take that one call."

@@ -35,6 +35,7 @@ public sealed class FetchTicketHandlerTests
             _eventPublisher.Object,
             _runContext.Object,
             new TicketExtrasFetcher(new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), NullLogger<TicketExtrasFetcher>.Instance),
+            Moq.Mock.Of<AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher>(),
             new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLoggerFactory.Instance.CreateLogger<FetchTicketHandler>());
     }
