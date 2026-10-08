@@ -1,22 +1,24 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-e8b9i
-goal: "The config import overwrite and the archive restore ask through the page's own ConfirmDialog instead of window.confirm, and the Folder upload says the browser will ask before it does."
+goal: "The config import overwrite and the archive restore ask through the page's own ConfirmDialog instead of window.confirm, and the Folder upload says the browser may ask before it does."
 
 applies_to: "dashboard (config studio, data archive view, confirm dialog styles, dialog composer)"
 
-requires: []
+requires: ["2026-10-08-e8b9h"]
 
 facts:
-  - claim: "The dashboard's only native dialogs are two window.confirm calls: the config import's overwrite and the archive restore. No alert( or prompt( exists, and none sits on the upload path."
-    evidence: "src/dashboard/src/components/config/ConfigStudio.tsx:160-185; src/dashboard/src/components/system/DataArchiveView.tsx:111-114"
+  - claim: "The dashboard's only native dialogs are two window.confirm calls: the config import's overwrite and the archive restore; none sits on the upload path. Two comments in ConfirmDialog mention window.confirm."
+    evidence: "src/dashboard/src/components/config/ConfigStudio.tsx:160-185; src/dashboard/src/components/system/DataArchiveView.tsx:111-114; src/dashboard/src/components/dialog/ConfirmDialog.tsx:6,132"
+  - claim: "The studio sets its importing flag before it knows whether to ask."
+    evidence: "src/dashboard/src/components/config/ConfigStudio.tsx:165"
   - claim: "ConfirmDialog's promise hook was written for exactly these two sites."
     evidence: "src/dashboard/src/components/dialog/ConfirmDialog.tsx:129-135,136-171"
   - claim: "Its styles, and the destructive button's, apply only under .mock-dialog; the studio renders under .mock-config and the archive under the diagnostic page's .mock-system."
     evidence: "src/dashboard/src/styles/mock-parity.css:1171-1178,1182-1183; src/dashboard/src/components/config/ConfigStudio.tsx:54; src/dashboard/src/app/config/[[...slug]]/page.tsx:40-48,69"
-  - claim: "The archive test stubs the global confirm."
-    evidence: "src/dashboard/src/components/system/__tests__/DataArchiveView.test.tsx:45"
-  - claim: "The Folder entry opens a hidden webkitdirectory input; a refused upload's note carries role=alert, which is announced, not a dialog."
-    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:120-127,171-182,227-236"
+  - claim: "The archive tests stub the global confirm in beforeEach, and two of them restore."
+    evidence: "src/dashboard/src/components/system/__tests__/DataArchiveView.test.tsx:45,78,98"
+  - claim: "The Folder entry opens a hidden webkitdirectory input; menu items are nowrap; tests read the items' text as 'Folder'. A refused upload's note carries role=alert, which is announced, not a dialog."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:120-127,171-182,227-236; src/dashboard/src/styles/mock-parity.css:1207-1208; src/dashboard/src/components/dialog/__tests__/DialogComposerWebsite.test.tsx:21,36"
 
 assumptions:
   - claim: "The 'alert dialog' seen during upload is Chromium's own confirmation for a directory input ('Upload N files to this site?'), which a page can neither restyle nor suppress."
@@ -24,39 +26,42 @@ assumptions:
 
 scope:
   in: >
-    ConfigStudio's ConfigStoreNotEmptyError branch asks `await confirmation.ask(err.message + "\n\nOverwrite the
-    current config? History is kept.", {confirmLabel: "Overwrite", cancelLabel: "Keep current"})` and renders
-    <ConfirmDialog/>; DataArchiveView asks restoreWarning(file) with "Restore" / "Cancel" the same way. The .d-confirm*
-    rules and the .d-confirm .btn.bad pair leave the .mock-dialog scope so the dialog is styled on every page. The
-    Folder menu entry carries a second line, "Your browser asks to confirm a folder upload", so its prompt is expected,
-    not mistaken for the page's. The two tests stop stubbing window.confirm and answer the page's dialog.
+    ConfigStudio's ConfigStoreNotEmptyError branch asks "Overwrite the current config?\n\n" + err.message with labels
+    Overwrite / Keep current through useConfirmDialog and renders <ConfirmDialog/>; setImporting(true) moves after the
+    answer. DataArchiveView asks restoreWarning(file) with Restore / Cancel the same way. The .d-confirm* rules leave
+    the .mock-dialog scope; the button pair becomes `.d-confirm .btn.bad` and `.d-confirm .btn.bad:hover`, never a bare
+    `.btn.bad`. The Folder menu item gains <span className="d-menu-sub"> "Your browser may ask to confirm a folder
+    upload." referenced by aria-describedby and kept out of the item's text, so its name stays "Folder"; a
+    `.mock-dialog .d-menu-sub` rule (block, normal wrap, smaller, ink-3). The two ConfirmDialog comments are reworded.
+    Tests: DataArchiveView drops its confirm stub and both restore tests answer the dialog; ConfigStudio gains import
+    tests over a 409-then-200 fetch mock.
   out: >
-    Suppressing or restyling the browser's folder prompt: it belongs to the browser. A drag-and-drop folder path, which
-    would avoid it, is a new input route and was not asked for.
+    Suppressing or restyling the browser's folder prompt: it is the browser's. A drag-and-drop folder path, which would
+    avoid it, is a new input route and was not asked for.
 
 decisions:
-  - key: "THE BROWSER'S PROMPT IS NAMED, NOT FOUGHT. Nothing in the page opens it; saying it will come is the only honest handling."
+  - key: "THE BROWSER'S PROMPT IS NAMED, NOT FOUGHT. The page opens the picker; the browser adds the prompt, and saying it may come is the only honest handling."
   - key: "UNSCOPE THE DIALOG STYLES. A top-layer dialog belongs to no page section; three scoped copies would drift."
 
 steps:
   - id: studio
-    action: "Replace window.confirm in ConfigStudio.onFile with useConfirmDialog and render ConfirmDialog."
+    action: "Replace window.confirm in ConfigStudio.onFile with useConfirmDialog, set importing after the answer, render ConfirmDialog."
   - id: archive
     action: "Replace window.confirm in DataArchiveView.onFile with useConfirmDialog and render ConfirmDialog."
   - id: styles
-    action: "Move the .d-confirm rules in mock-parity.css out of the .mock-dialog scope."
+    action: "Unscope the .d-confirm rules, scope the button pair under .d-confirm, add .mock-dialog .d-menu-sub."
   - id: folder
-    action: "Add the browser-prompt line under the Folder menu entry in DialogComposer."
+    action: "Add the described-by hint to the Folder item; reword the two ConfirmDialog comments."
 
 tests:
   - "ConfigStudio_ImportIntoFilledStore_AsksInPageDialogAndOverwritesOnConfirm"
   - "ConfigStudio_ImportIntoFilledStore_KeepCurrent_DoesNotOverwrite"
   - "DataArchiveView_Restore_AsksInPageDialogBeforeUpload"
   - "DataArchiveView_RestoreCancelled_SendsNothing"
-  - "Dashboard_Source_HasNoWindowConfirmAlertOrPrompt"
-  - "DialogComposer_FolderEntry_SaysTheBrowserAsks"
+  - "Dashboard_Source_CallsNoConfirmAlertOrPrompt (calls matched by /\\b(window\\.)?(confirm|alert|prompt)\\s*\\(/ with comments stripped)"
+  - "DialogComposer_FolderEntry_NamedFolderDescribedByTheBrowserHint"
 
 done:
-  - "grep finds no window.confirm, alert( or prompt( in src/dashboard/src outside tests"
+  - "no call of confirm(, alert( or prompt( in src/dashboard/src outside tests, by the source-scan test"
   - "both prompts render in the page's styled dialog on their own pages"
   - "dashboard tests and build green"

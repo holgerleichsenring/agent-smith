@@ -11,16 +11,22 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/References/ReferenceUploadLimits.cs:18; src/backend/AgentSmith.Server/Services/References/ReferenceSetUpload.cs:45-47; src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:59-92"
   - claim: "One upload is bounded at 500 files and 25 MB a file and a set, its body at 26 MB, the ingress at 30m; an image at 5 MB. Nothing bounds a conversation's total."
     evidence: "src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:10-15; src/backend/AgentSmith.Server/Services/References/ReferenceUploadLimits.cs:27; deploy/k8s/9-ingress.yaml:15; src/backend/AgentSmith.Contracts/Models/TicketImageAttachment.cs:30"
-  - claim: "Every upload gets a fresh set id and an image is a set of one; no row carries a content hash, so nothing compares one upload with another."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:24-41; src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:80-91; src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-38"
-  - claim: "Two migration sets exist: the shared one (SQLite, PostgreSQL, MySQL) and SQL Server's own assembly; ReferenceFiles was created in both."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:19-36; src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261001165818_AddReferenceFiles.cs:14-36; src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261001165822_AddReferenceFiles.cs:14-26"
-  - claim: "The only delete is the whole conversation's; it refuses while a turn runs and keeps the sets (and notes) an approval of the conversation cites."
-    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:30,61-62; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationDeleter.cs:29-41; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:75-83; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-94"
-  - claim: "Uploads are read only for an OPEN session; a closed conversation is listed without a thread and is resumed (reopened) before the page shows it, so 'uploads vanish without an open session' is not a state the page reaches."
+  - claim: "Every upload gets a fresh set id and an image is a set of one; no row carries a content hash. The image endpoint stores the row itself and builds its view positionally."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:24-41; src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:80-92; src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-38"
+  - claim: "The leader copies legacy images into ReferenceFiles (fresh set id) for every row whose id has no copy, and sweeps a copy whose legacy row is gone."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/LegacyAttachmentCopy.cs:30-55,74-88"
+  - claim: "Two migration sets exist: the shared one (SQLite, PostgreSQL, MySQL) and SQL Server's own; the archive compares schema heads by migration NAME."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:19-36; src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261001165818_AddReferenceFiles.cs:14-36; src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261001165822_AddReferenceFiles.cs:14-26; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/ArchiveSchemaCheck.cs:24; src/backend/AgentSmith.Infrastructure.Persistence/Services/Archive/MigrationHeadName.cs:22-28"
+  - claim: "The only delete is the whole conversation's: owner check, turnGate.TryEnter (409 while held), Exit in finally; the gate is per process. It keeps the sets (and notes) an approval of the conversation cites."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:30,43-47,59-74; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationDeleter.cs:29-41; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:75-83; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-94"
+  - claim: "A turn waiting for the person's approval still holds the gate, while the view reports it Idle."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:38; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:43-45"
+  - claim: "The recorder reads the conversation's set ids once and then saves; it is at 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:78-83,119"
+  - claim: "Uploads are read only for an OPEN session; a closed conversation is listed without a thread and is resumed before the page shows it."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:26-34; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:73; src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:38"
-  - claim: "Image rows are listed without size or set id; an image not yet copied from the legacy table is read beside them."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/ReferenceImageEntry.cs:4; src/backend/AgentSmith.Server/Models/SpecDialogImageView.cs:13; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:12-16,28-38"
+  - claim: "Image rows are listed without size or set id; an uncopied legacy image is read beside them, and an id may name a legacy row only."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/ReferenceImageEntry.cs:4; src/backend/AgentSmith.Server/Models/SpecDialogImageView.cs:13; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:12-16,28-38,56-66"
   - claim: "The view reader is at 112 lines and the image endpoints at 113 of the 120-line rule; every route is pinned in a permission baseline."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:112; src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:113; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19,27; tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:15,61-62,93,95"
 
@@ -30,57 +36,57 @@ assumptions:
 
 scope:
   in: >
-    CAP: ReferenceUploadLimits.MaxConversationBytes = 100 MB over every ReferenceFiles row of the session (sets and
-    images; an uncopied legacy image is not counted). An upload that would pass it is refused (400) naming used, incoming
-    and cap; MaxSetsPerConversation goes. Checked before the save, unlocked: two concurrent uploads may overshoot by one. HASH: ReferenceFile.ContentSha256 (64 chars, nullable), filled on every new row; one
-    migration per assembly. A set is a duplicate when its sorted (path, hash) pairs equal an existing set's of the same
-    conversation; an image when its hash equals an existing image's. A duplicate is refused with 409 naming the
-    existing upload and when it came. Rows stored before the migration carry no hash and are never matched. REMOVE:
-    DELETE /api/spec-dialog/references/{setId}?dialogId= and DELETE /api/spec-dialog/images/{imageId}?dialogId=
-    (dialog.write, two baseline rows), in SpecDialogUploadDeletionEndpoints. Owner of the open conversation only (else 404);
-    409 while a turn runs; 409 "an approval of this conversation cites it — runs of the filed ticket build
-    against it" when CitedSetsAsync holds the set id. A set goes with its note; an image with its legacy row. READ:
-    ConversationUploads (new) builds images, references and usage for both the view and the GET list; references and
-    images gain Cited, images gain Bytes; the session view gains UploadBytes and UploadCapBytes.
+    CAP: MaxConversationBytes = 100 MB over the session's ReferenceFiles rows; an upload past it is refused (400) naming
+    used, incoming and cap; MaxSetsPerConversation goes. HASH: ReferenceFile.ContentSha256 (64, nullable, no index),
+    filled by both uploads and by LegacyAttachmentCopy; one migration named AddReferenceFileContentHash in each set.
+    A set duplicates another of the conversation when their sorted (path, hash) pairs are equal; an image when its hash
+    equals another image's; refused (409) naming the copy and when it came. Older rows carry no hash and never match.
+    Neither the cap nor the duplicate check takes a lock: concurrent uploads may overshoot by one or store a pair.
+    SpecDialogImageUpload (new, shaped like ReferenceSetUpload) holds the image's cap, hash, duplicate check and view;
+    the endpoint keeps mapping and body read. REMOVE: DELETE /api/spec-dialog/references/{setId}?dialogId= and
+    /images/{imageId}?dialogId= (dialog.write, baseline rows), copying the conversation delete: owner check (404),
+    TryEnter or 409 "a turn is running or waiting on your approval", Exit in finally. The image's SetId is resolved
+    first; a cited id is refused (409, runs build against it). The delete checks cited AFTER deleting, inside its
+    transaction, and rolls back; ApprovalCitations re-reads the ids after the record's save and drops vanished ones. A
+    set goes with its note; an image's ReferenceFile and same-id legacy row go in one transaction, a legacy-only id
+    too. READ: ConversationUploads serves view and GET list (still ReferenceSetView[], now with Cited); images gain
+    Bytes (null when legacy-only, not counted) and Cited; the session gains UploadBytes and UploadCapBytes.
   out: >
-    Dashboard: 2026-10-08-e8b9h. Citing images in approvals (2026-10-08-e8b9k; the refusal reads the same cited set,
-    so it covers images once they are cited). Releasing a removed set's held sandbox: no per-address release exists;
-    the next turn no longer opens it and eviction ends it.
+    Dashboard: 2026-10-08-e8b9h. Citing images: 2026-10-08-e8b9k. A removed set's held sandbox ends with eviction.
 
 decisions:
-  - key: "100 MB, FOUR FULL SETS. A design turn opens each set in its own container, a run writes every cited upload into one sandbox through the step bus, and cited material outlives the conversation (283df). Bytes cost; a count of three stopped at three single files."
-  - key: "PER-UPLOAD BOUNDS STAY. Body 26 MB and ingress 30m bound one request; nothing here needs more."
-  - key: "SAME BYTES AND PATHS, NOT SAME NAME. A renamed copy is a different upload to the model; a set and an image are never compared."
+  - key: "100 MB, FOUR FULL SETS. A design turn opens each set in its own container, a run writes every cited upload into one sandbox, and cited material outlives the conversation (283df). After an approval every set is cited, so one approved near the cap takes no more uploads."
+  - key: "SAME BYTES AND PATHS. A renamed copy is another upload to the model."
   - key: "NO BACKFILL. It would read every stored byte at migration time."
-  - key: "CITED IS REFUSED, NOT HIDDEN. A filed ticket whose run fails on a missing set (ReferenceSetCarrier) is the failure 283df removed."
+  - key: "BOTH SIDES CHECK AFTER THEIR WRITE. The gate is per process; what remains is a check and a commit of two replicas interleaving, which the carry still refuses loudly."
 
 steps:
   - id: limits
-    action: "Replace MaxSetsPerConversation with MaxConversationBytes, checked by both uploads before saving."
+    action: "Replace MaxSetsPerConversation with MaxConversationBytes; extract SpecDialogImageUpload."
   - id: hash
-    action: "Add ContentSha256 to ReferenceFile and its configuration; add the migration to both assemblies; fill it in ReferenceSetRepository.AddAsync and the image upload."
+    action: "Add ContentSha256 and the AddReferenceFileContentHash migration to both sets; fill it in both uploads and LegacyAttachmentCopy.CopyOf."
   - id: dedupe
-    action: "Add ReferenceDuplicates (set fingerprint from rows, image by hash) and refuse with 409 naming the copy."
+    action: "Add ReferenceDuplicates and refuse with 409 naming the copy."
   - id: remove
-    action: "Add ReferenceSetRepository.DeleteSetAsync and ReferenceFileRepository.DeleteImageAsync; map SpecDialogUploadDeletionEndpoints with owner, turn-gate and cited checks."
+    action: "Add DeleteSetAsync and DeleteImageAsync; map SpecDialogUploadDeletionEndpoints; add ApprovalCitations to the recorder."
   - id: read
-    action: "Add ConversationUploads, used by SpecDialogViewReader and the GET list; extend the three views."
+    action: "Add ConversationUploads, used by SpecDialogViewReader and the GET list; extend the views."
 
 tests:
   - "ReferenceUpload_OverConversationCap_RefusesNamingUsedAndCap"
-  - "ReferenceUpload_SameFilesAndPaths_Refused409NamingExisting"
-  - "ReferenceUpload_SameFilesOtherPath_IsStored"
+  - "ReferenceUpload_SameFilesAndPaths_Refused409NamingExisting; SameFilesOtherPath_IsStored"
   - "ImageUpload_SameBytes_Refused409"
   - "ReferenceUpload_RowWithoutHash_IsNotMatched"
-  - "DeleteReferenceSet_Uncited_RemovesFilesAndNote"
-  - "DeleteReferenceSet_CitedByApproval_Refused409"
-  - "DeleteImage_LegacyRow_RemovedWithIt"
-  - "DeleteUpload_TurnRunning_Refused409"
-  - "SpecDialogView_Uploads_CarryBytesCitedAndUsage"
+  - "LegacyAttachmentCopy_Copy_FillsContentSha256"
+  - "DeleteReferenceSet_Uncited_RemovesFilesAndNote; CitedByApproval_Refused409"
+  - "DeleteImage_CopiedLegacy_BothRowsGone; DeleteImage_UncopiedLegacyId_Removed"
+  - "DeleteUpload_GateHeld_Refused409NamingApproval"
+  - "ApprovalCitations_SetRemovedBeforeReRead_IsNotCited"
+  - "SpecDialogView_Uploads_CarryBytesCitedAndUsage; LegacyOnlyImage_BytesNullNotCounted"
   - "SqliteMigrate_ReferenceFiles_HasContentSha256"
 
 done:
   - "five uploads under 100 MB are stored; one past it is refused naming the cap"
-  - "the same folder uploaded twice is refused naming the first; an uncited set and an image are removed; a cited set is refused"
-  - "`dotnet ef migrations has-pending-model-changes` reports none for the shared and the SQL Server assembly"
+  - "the same folder twice is refused naming the first; an uncited set and an image are removed; a cited set is refused"
+  - "`dotnet ef migrations has-pending-model-changes` reports none for both sets"
   - "route baseline updated; build green, full suite green"

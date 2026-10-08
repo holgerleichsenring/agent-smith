@@ -2,30 +2,34 @@
 spec: 2026-10-08-e8b9j
 goal: "Uploaded files reach a sandbox byte for byte without python3, an image inside an upload is shown to a vision model on request, and the operator is told when the model sees no images."
 
-applies_to: "backend (sandbox wire and agent, in-process sandbox, reference materialiser, a design-turn tool, dialog view), dashboard (uploads panel)"
+applies_to: "backend (sandbox wire, agent, binary writer, materialiser, a design tool, dialog view), dashboard"
 
 requires: ["2026-10-08-e8b9g", "2026-10-08-e8b9h"]
 
 facts:
-  - claim: "A file that is not strict UTF-8 is written as base64 and decoded by one python3 step; its failure throws and the set reads as 'could not be opened'. The run carry writes through the same method."
-    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:31-38,62-105; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:63-66; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:42"
+  - claim: "A file that is not strict UTF-8 is written as base64 and decoded by one python3 step; its failure throws and the set reads as 'could not be opened'. The run carry and the visual-comparison recorder use the same decode."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:31-38,62-105; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:63-66; src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:42; src/backend/AgentSmith.Application/Services/Browser/VisualComparisonRecorder.cs:48-53"
   - claim: "python3 exists in containers only as the agent's injected payload; the in-process backend runs steps in the server, whose image installs curl and no python, and it is the server's final fallback."
-    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:37-42,84; src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:81-91; src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:33-43; src/backend/AgentSmith.Server/Dockerfile:35,42-45; src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:81-89"
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:37-42,84; src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:81-91; src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:30-43; src/backend/AgentSmith.Server/Dockerfile:35,42-45; src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:81-89"
+  - claim: "A binary writer already exists (base64 file plus a `base64 -d` shell step), registered for the pipeline and used by AcquireSource; the ticket document materialiser decodes the same way inline."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ISandboxBinaryFileWriter.cs:9-15; src/backend/AgentSmith.Application/Services/Sandbox/SandboxBinaryFileWriter.cs:6-33; src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:123; src/backend/AgentSmith.Application/Services/Handlers/AcquireSourceHandler.cs:16,31; src/backend/AgentSmith.Application/Services/Tickets/TicketDocumentMaterializer.cs:65-67"
   - claim: "WriteFile refuses over 10 MB of UTF-8, so a binary over about 7.5 MB (as base64) or a text over 10 MB cannot be written, although an upload keeps files up to 25 MB."
     evidence: "src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:6; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:115-121; src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:237; src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:12-15"
-  - claim: "A step kind an agent does not know is read as Unknown and answered with a result naming its protocol, not dropped."
-    evidence: "src/backend/AgentSmith.Sandbox.Wire/WireFormat.cs:17-23; src/backend/AgentSmith.Sandbox.Wire/Step.cs:61-67"
-  - claim: "Kind switches a new write kind meets: the agent's executor, the in-process sandbox, step facts that summarise a write by its path and hash its content, the mutation classifier; the source-scope guard refuses unlisted kinds."
-    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:20-28; src/backend/AgentSmith.Application/Services/Events/SandboxStepFacts.cs:30-33,44-55; src/backend/AgentSmith.Application/Services/Events/MutatingCommandClassifier.cs:15-20; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:37-47"
+  - claim: "A step travels as one Redis message; Redis runs at maxmemory 256mb with allkeys-lru."
+    evidence: "deploy/k8s/6-deployment-redis.yaml:24-27"
+  - claim: "Both executors validate a step first; validation is a switch per kind. An unknown kind is read as Unknown and answered naming the agent's protocol; the agent's tag follows the server's release unless pinned, which is reported."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/Step.cs:42-69; src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs:101-105; src/backend/AgentSmith.Sandbox.Wire/TolerantEnumConverter.cs:34-40; src/backend/AgentSmith.Sandbox.Wire/WireFormat.cs:17-23; src/backend/AgentSmith.Application/Services/Sandbox/AgentVersionResolver.cs:18-22; src/backend/AgentSmith.Server/Services/Startup/PinnedAgentProbe.cs:9-17; src/backend/AgentSmith.Sandbox.Wire/WireProtocol.cs:11-12,25-28"
+  - claim: "Kind switches a new write kind meets: the agent's executor, step facts (path summary, content hash), the mutation classifier, the in-memory test sandbox; the source-scope guard refuses unlisted kinds."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:20-28; src/backend/AgentSmith.Application/Services/Events/SandboxStepFacts.cs:30-33,44-55; src/backend/AgentSmith.Application/Services/Events/MutatingCommandClassifier.cs:15-20; tests/AgentSmith.Tests/References/InMemoryFileSandbox.cs:58; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeRefusal.cs:37-47"
   - claim: "Only images uploaded through the Image entry reach the model as pictures — the four most recent, vision only; an image inside a set is reachable only through read_file, which refuses non-UTF-8."
     evidence: "src/backend/AgentSmith.Application/Services/Prompts/DialogImageParts.cs:28,37-52; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnImages.cs:20-30; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:76-79"
-  - claim: "A tool can hand the loop an image through IToolImageDeposit, which refuses over 5 MB or a long edge over 1568 px and tells the model when its provider cannot show one."
-    evidence: "src/backend/AgentSmith.Contracts/Providers/IToolImageDeposit.cs:12-16; src/backend/AgentSmith.Infrastructure/Services/ToolImages/ToolImageRule.cs:12-28; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:198"
-  - claim: "Upload tools join a design turn through ReferenceDesignTools; run_in_reference only where sandboxes are containers. Its pip-in-a-venv and conditional-apt text holds for the default image, which sets no user."
+  - claim: "IToolImageDeposit refuses over 5 MB or a long edge over 1568 px; Copilot and the external worker accept no image after a tool result; a design tool words its result line by the deposit's answer."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IToolImageDeposit.cs:12-16; src/backend/AgentSmith.Infrastructure/Services/ToolImages/ToolImageRule.cs:12-28; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:198; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/CopilotChatClientBuilder.cs:24-26; src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ExternalWorkerChatClientBuilder.cs:30; src/backend/AgentSmith.Application/Services/Design/DesignNodeRender.cs:27-30"
+  - claim: "Upload tools join a design turn through ReferenceDesignTools; run_in_reference only on containers. Its pip-in-a-venv and conditional-apt text holds for the default image, which sets no user."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/ReferenceDesignTools.cs:15-35; src/backend/AgentSmith.Application/Services/Tools/ReferenceCommandToolHost.cs:24-32; src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:43; src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:20-33,78-90"
   - claim: "A reference sandbox knows its set and conversation; the reader returns a set's files whole."
     evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:25-44; src/backend/AgentSmith.Contracts/Sandbox/IReferenceSetReader.cs:7-17"
-  - claim: "Vision is a per-agent flag; the session view carries no word of it, so the operator is never told."
+  - claim: "Vision is a per-agent flag; the session view carries no word of it."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:44-50; src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:37-42; src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:98-103"
 
 assumptions:
@@ -34,52 +38,54 @@ assumptions:
 
 scope:
   in: >
-    WIRE: StepKind.WriteBytes = 7 (Path, Content base64), decoded at most SizeLimits.WriteBytesMaxBytes = 25 MB; the
-    agent's FileStepHandler and InProcessSandbox decode in C# and write atomically; StepExecutor routes it;
-    SandboxStepFacts summarises its path and records neither content nor hash; MutatingCommandClassifier counts it.
-    MATERIALISER: every file goes through one WriteBytes step (SandboxByteWriter); DecodeScript, EncodedSuffix and the
-    UTF-8 split are deleted; the marker stays. VISION: view_reference_image(reference, path) on every design turn with
-    an upload, any backend: reads the file through IReferenceSetReader.FileAsync and deposits it; its answer is the
-    deposit's caption, or the refusal plus "attach it through the Image entry to have it shown whole" for size or edge.
-    run_in_reference's text adds that images are seen with view_reference_image and no OCR engine is installed.
-    OPERATOR: SpecDialogSessionView.SeesImages from the project's agent.supports_vision; when false the uploads panel
-    says "This project's model does not see images; N stored image(s) are not shown to it".
+    WIRE: StepKind.WriteBytes = 7 (Path, Content base64, Append); Step.Validate requires Path and Content. Each step
+    carries at most SizeLimits.WriteBytesChunkMaxBytes = 4 MB decoded into path.tmp.<id>; the last chunk renames into
+    place; a file is at most WriteBytesMaxBytes = 25 MB. The agent's FileStepHandler and InProcessSandbox decode in C#;
+    the kind switches follow (facts). WireProtocol.Current rises to 2, MinimumSupported stays 1. WRITER:
+    SandboxBinaryFileWriter is re-implemented over WriteBytes and used by the materialiser, VisualComparisonRecorder,
+    AcquireSource and the ticket document materialiser; DecodeScript and EncodedSuffix go. Strict-UTF-8 text up to
+    WriteFileMaxBytes stays on WriteFile. VISION: view_reference_image(reference, path) on every design turn with an
+    upload, any backend; path as <name>/… or /work/<name>/…; type by extension (.png, .jpg/.jpeg, .gif, .webp, else
+    "not an image"); reads IReferenceSetReader.FileAsync, deposits, answers as DesignNodeRender does, or the refusal + "attach it through the Image entry to have it shown whole". run_in_reference's text adds that images
+    are seen with view_reference_image and no OCR engine is installed. OPERATOR: the session view gains SeesImages
+    (agent.supports_vision) and SeesUploadedImages (that AND the builder's AcceptsImageAfterToolResult), and
+    ImageCount (Image-entry images plus image-extension set files, server-side); the uploads panel says "This
+    project's model does not see images; N stored image(s) are not shown to it" when the matching flag is false.
   out: >
-    An OCR engine: vision reads text in an image, every uploaded image is now reachable by it, and a non-vision model is
-    named to the operator — an engine for text-only deployments is not asked for. Downscaling in C# (no image library).
-    The four-image turn ceiling (3af8). Runs: 2026-10-08-e8b9k.
+    An OCR engine: vision reads text in an image and every uploaded image is now reachable by it. Screenshots over 1568
+    px get the Image-entry answer: no downscaling here (no image library). The four-image turn ceiling (3af8). Runs:
+    2026-10-08-e8b9k.
 
 decisions:
-  - key: "A NEW KIND, NOT A FIELD ON WriteFile. An older agent drops an unknown field and would write the base64 as text; an unknown kind is answered as one."
-  - key: "BYTES FOR EVERY FILE. Exact bytes need no text rule; the step count is what it was."
+  - key: "A NEW KIND, NOT A FIELD. An older agent would drop a field and write base64 as text; a kind it answers as Unknown — so on a pre-e8b9j agent a binary fails naming its protocol."
+  - key: "TEXT STAYS ON WriteFile. Every agent reads it."
+  - key: "CHUNKS OF 4 MB. Not one 33 MB message into a 256 MB LRU Redis."
   - key: "FROM THE STORE, NOT THE SANDBOX. The tool works where no container runs and opens none."
-  - key: "TOO LARGE IS NAMED, NOT SHRUNK. The Image entry sends a picture whole as a message part."
 
 steps:
   - id: wire
-    action: "Add StepKind.WriteBytes and SizeLimits.WriteBytesMaxBytes; handle it in FileStepHandler, StepExecutor and InProcessSandbox; extend SandboxStepFacts and MutatingCommandClassifier."
-  - id: materialise
-    action: "Add SandboxByteWriter; make ReferenceSetMaterialiser write every file through it and delete the python decode."
+    action: "Add StepKind.WriteBytes, Append, validation and limits; handle it on both executors and every kind switch; raise Current."
+  - id: writer
+    action: "Re-implement SandboxBinaryFileWriter over chunked WriteBytes; move its three new callers onto it; delete the python decode."
   - id: tool
     action: "Add IReferenceSetReader.FileAsync and ReferenceImageToolHost (view_reference_image); compose it in ReferenceDesignTools; extend run_in_reference's text."
   - id: operator
-    action: "Add SeesImages to the session view and the not-seen line to DialogUploadsPanel."
+    action: "Add the three view fields and the not-seen line in DialogUploadsPanel."
 
 tests:
-  - "WriteBytes_Agent_WritesExactBytes; OverLimit_Refused"
-  - "WriteBytes_InProcess_WritesWithoutPython"
+  - "JobLoop_WriteBytesWithoutContent_ValidationFailure; InProcess_WriteBytesWithoutPath_Refused"
+  - "WriteBytes_InProcessChunks_20MBFileByteIdentical; Agent_LastChunk_RenamesIntoPlace"
   - "WriteBytesMaxBytes_EqualsReferenceSetFileBound"
-  - "ReferenceSetMaterialiser_PngAndPdf_ArriveByteIdenticalInProcess"
-  - "ReferenceSetMaterialiser_20MBBinary_IsWritten"
-  - "SandboxStepFacts_WriteBytes_RecordsNoContent"
-  - "SourceScope_WriteBytes_IsRefused"
-  - "ViewReferenceImage_SmallPng_DepositsIt"
-  - "ViewReferenceImage_LongEdgeOver1568_SaysUseTheImageEntry"
-  - "ViewReferenceImage_NotAnImage_SaysSo"
+  - "SandboxBinaryFileWriter_ChunksOver4MB_NoShellStep"
+  - "ReferenceSetMaterialiser_PngInProcess_ByteIdentical; Utf8Text_StaysOnWriteFile"
+  - "VisualComparisonRecorder_DiffImages_WrittenWithoutPython"
+  - "SandboxStepFacts_WriteBytes_HashesNothing; SourceScope_WriteBytes_IsRefused"
+  - "ViewReferenceImage_SmallPng_Deposits; WorkPrefixedPath_Resolves; NotAnImage_SaysSo; LongEdgeOver1568_SaysUseImageEntry"
   - "DesignTurn_InProcessWithUpload_HasViewReferenceImage"
+  - "SpecDialogView_CopilotAgent_SeesUploadedImagesFalse; ImageCount_CountsSetImages"
   - "DialogUploadsPanel_SeesImagesFalse_SaysNotShown (vitest)"
 
 done:
   - "a set holding a PNG and a 20 MB PDF opens on the in-process backend and in a container, files byte-identical"
-  - "a design turn on a vision model describes a screenshot uploaded inside a folder"
+  - "a design turn on a vision model describes a screenshot inside a folder whose long edge is at most 1568 px"
   - "build green, full suite green, dashboard tests green"
