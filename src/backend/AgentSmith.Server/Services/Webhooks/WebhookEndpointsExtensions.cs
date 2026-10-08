@@ -29,6 +29,8 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<PrReviewRouteResolver>();
         services.TryAddSingleton<PrRunContextFactory>();
+        services.AddSingleton<IDetachedPipelineLauncher, DetachedPipelineLauncher>(); // 2026-10-08-10b0
+        services.AddSingleton<AgentSmith.Server.Services.Sweep.PrSweepActions>();
         // 2026-10-08-e8b9b: the rework entry and the router the ticket-comment handlers share —
         // singletons beside the singleton handlers; the scoped chat launcher is reached through a scope.
         services.AddSingleton<ITicketReopener, Services.Lifecycle.TicketReopener>();

@@ -25,9 +25,13 @@ public sealed class PrCommandLaunch(
     ISourceProviderFactory sources,
     ILogger<PrCommandLaunch> logger) : IPrCommandLaunch
 {
-    public async Task<WebhookResult> LaunchAsync(PrCommentCommand command, PipelineRequest request, CancellationToken ct)
+    public async Task<WebhookResult> LaunchAsync(
+        PrCommentCommand command, PipelineRequest request, CancellationToken ct, IReadOnlySet<string>? allowedProjects = null)
     {
-        var owners = repoFinder.FindAll(configLoader.LoadConfig(serverContext.ConfigPath), command.Author.RepositoryUrl);
+        var owners = repoFinder.FindAll(configLoader.LoadConfig(serverContext.ConfigPath), command.Author.RepositoryUrl)
+            .Where(o => allowedProjects is null || allowedProjects.Contains(o.ProjectName)).ToList();
+        if (allowedProjects is not null && !string.IsNullOrEmpty(request.ProjectName) && !allowedProjects.Contains(request.ProjectName))
+            return WebhookResult.NotHandled($"project {request.ProjectName} is not swept here");
         var owner = owners.FirstOrDefault(o => o.ProjectName == request.ProjectName) ?? (owners.Count == 1 ? owners[0] : null);
         if (owner is null) return WebhookResult.NotHandled($"repository {command.Author.RepositoryUrl} belongs to no single configured project");
         using var scope = scopes.CreateScope();

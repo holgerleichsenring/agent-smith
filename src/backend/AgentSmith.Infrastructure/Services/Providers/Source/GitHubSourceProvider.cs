@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -337,6 +337,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         return (segments[0], segments[1]);
     }
 
-    // 2026-10-08-9e6e: the open pull requests that may carry a rework act, read by a collaborator.
+    // 2026-10-08-9e6e / 10b0: the open pull requests that may carry a rework act, and every open one with its comments.
+    public IOpenPullRequestLister OpenPullRequests() => new GitHubOpenPullRequests(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]);
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitHubChangedPullRequests(CreateGitHubClient(), _owner, _repo).ChangedSinceAsync(since, resume, maxPages, ct);
 }

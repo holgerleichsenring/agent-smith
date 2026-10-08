@@ -31,8 +31,9 @@ internal sealed class PrCommentHandlerFixture
     public PrCommentCommandAdmission Admission()
     {
         var launch = new Mock<AgentSmith.Server.Contracts.IPrCommandLaunch>();
-        launch.Setup(l => l.LaunchAsync(It.IsAny<PrCommentCommand>(), It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
-            .Callback<PrCommentCommand, PipelineRequest, CancellationToken>((c, r, _) => Launched.Add((c, r)))
+        launch.Setup(l => l.LaunchAsync(It.IsAny<PrCommentCommand>(), It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>(),
+                It.IsAny<IReadOnlySet<string>?>()))
+            .Callback<PrCommentCommand, PipelineRequest, CancellationToken, IReadOnlySet<string>?>((c, r, _, _) => Launched.Add((c, r)))
             .ReturnsAsync(WebhookResult.HandledNoRoute());
         return new(new CommentIntentParser(Model.Object), new ServerContext("config.yml"), launch.Object,
             NullLogger<PrCommentCommandAdmission>.Instance);

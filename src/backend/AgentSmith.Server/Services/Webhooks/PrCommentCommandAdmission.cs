@@ -20,7 +20,8 @@ public sealed class PrCommentCommandAdmission(
     ILogger<PrCommentCommandAdmission> logger)
 {
     public async Task<WebhookResult> AdmitAsync(
-        PrCommentCommand command, IPrCommentAuthorTrust trust, CancellationToken cancellationToken)
+        PrCommentCommand command, IPrCommentAuthorTrust trust, CancellationToken cancellationToken,
+        IReadOnlySet<string>? allowedProjects = null)
     {
         var match = commentIntentParser.Match(command.Body);
         if (match.Type == CommentIntentType.Unknown)
@@ -37,7 +38,7 @@ public sealed class PrCommentCommandAdmission(
 
         var request = await commentIntentParser.ResolveAsync(
             match.Tail!, serverContext.ConfigPath, cancellationToken);
-        return await RouteAsync(command, request, cancellationToken);
+        return await RouteAsync(command, request, cancellationToken, allowedProjects);
     }
 
     private WebhookResult Refuse(PrCommentCommand command)
@@ -50,7 +51,8 @@ public sealed class PrCommentCommandAdmission(
 
     // 2026-10-08-e8b9e: no trigger input any more — the free-text path parsed the command a second
     // time and attached its run to whatever lease the ticket had. The launch claims, and answers.
-    private async Task<WebhookResult> RouteAsync(PrCommentCommand command, PipelineRequest request, CancellationToken ct)
+    private async Task<WebhookResult> RouteAsync(
+        PrCommentCommand command, PipelineRequest request, CancellationToken ct, IReadOnlySet<string>? allowedProjects)
     {
         var pipeline = request.PipelineName;
         if (!PrCommentPipelines.Allowed.Contains(pipeline))
@@ -62,6 +64,6 @@ public sealed class PrCommentCommandAdmission(
 
         logger.LogInformation("PR comment command from {Author} on {Pr}: pipeline={Pipeline}",
             command.Author.AuthorLogin, command.PrLabel, pipeline);
-        return await launch.LaunchAsync(command, request, ct);
+        return await launch.LaunchAsync(command, request, ct, allowedProjects);
     }
 }

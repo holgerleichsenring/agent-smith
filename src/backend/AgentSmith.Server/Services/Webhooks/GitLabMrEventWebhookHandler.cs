@@ -54,7 +54,7 @@ public sealed class GitLabMrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoPath}#{mrIid}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {

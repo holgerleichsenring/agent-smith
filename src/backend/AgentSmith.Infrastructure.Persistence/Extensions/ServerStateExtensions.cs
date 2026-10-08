@@ -21,6 +21,7 @@ public static class ServerStateExtensions
         // 2026-10-08-0781: the rework nudge queue and its ledger.
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
         services.AddScoped<AgentSmith.Contracts.Sweep.ISweepCursors, SweepCursorStore>(); // 2026-10-08-9e6e
+        services.AddScoped<PrSweepStore>(); // 2026-10-08-10b0
         services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
         services.AddSingleton<DbReworkNudges>();
         services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());

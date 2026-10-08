@@ -66,7 +66,7 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoName}#{prId}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {

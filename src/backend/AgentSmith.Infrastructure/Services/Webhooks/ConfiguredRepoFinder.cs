@@ -24,17 +24,5 @@ public sealed class ConfiguredRepoFinder : IConfiguredRepoFinder
         return found;
     }
 
-    /// <summary>Host + path, lowercased, no scheme/userinfo/.git suffix — so a
-    /// payload clone_url ("https://user@host/org/repo.git") matches the
-    /// operator's configured web URL ("https://host/org/repo").</summary>
-    private static string Normalize(string url)
-    {
-        var normalized = Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            ? $"{uri.Host}{uri.AbsolutePath}"
-            : url;
-        normalized = normalized.TrimEnd('/');
-        if (normalized.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized[..^4];
-        return normalized.ToLowerInvariant();
-    }
+    private static string Normalize(string url) => RepoKey.Of(url);
 }

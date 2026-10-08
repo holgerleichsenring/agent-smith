@@ -20,7 +20,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -303,11 +303,8 @@ public sealed class AzureReposSourceProvider(
     }
 
     // 2026-10-08-e8b9d/e8b9c: the review and the standing votes, read by a collaborator.
-    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
-        Reviews().ListAsync(prUrl, cancellationToken);
-
-    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
-        Reviews().ChangesRequestedAsync(prUrl, cancellationToken);
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken ct) => Reviews().ListAsync(prUrl, ct);
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
 
     private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
 
@@ -428,6 +425,7 @@ public sealed class AzureReposSourceProvider(
         }
     }
 
-    // 2026-10-08-9e6e: active pull requests with a standing "Wait for author" vote, read by a collaborator.
+    // 2026-10-08-9e6e / 10b0: standing votes, open pull requests and their comments, read by collaborators.
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new AzureReposChangedPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl).ChangedSinceAsync(resume, maxPages, ct);
+    public IOpenPullRequestLister OpenPullRequests() => new AzureReposOpenPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl);
 }

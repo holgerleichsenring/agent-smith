@@ -42,10 +42,12 @@ public sealed class ChangeSweepHostedService(
         var interval = TimeSpan.FromSeconds(Math.Max(10, polling.Min(t => t.Polling.IntervalSeconds)));
         var sources = ActivatorUtilities.CreateInstance<ChangeSweepSources>(services).For(config, polling);
         var cycle = ActivatorUtilities.CreateInstance<ChangeSweepCycle>(services);
+        var prs = ActivatorUtilities.CreateInstance<PrSweep>(services); // 2026-10-08-10b0
         logger.LogInformation("Change sweep over {Sources} source(s) every {Interval}", sources.Count, interval);
         while (!ct.IsCancellationRequested)
         {
             await cycle.RunAsync(sources, interval / 2, ct);
+            await prs.RunAsync(config, polling, interval, interval / 2, ct);
             await Task.Delay(interval, ct);
         }
     }

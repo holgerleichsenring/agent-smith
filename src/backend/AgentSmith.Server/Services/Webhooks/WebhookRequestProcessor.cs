@@ -1,4 +1,3 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +10,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// to handlers, and routes results. p0140b: ticket-event handlers now perform their own
 /// spawn (via SpawnPipelineRunsUseCase) and return HandledNoRoute — the old structured-
 /// ticket routing branch was deleted. The remaining post-dispatch path: TriggerInput runs
-/// the free-form ExecutePipelineUseCase.
+/// the detached launcher (2026-10-08-10b0) with the project and pipeline the handler named.
 /// </summary>
 internal sealed class WebhookRequestProcessor(
     IServiceProvider services,
@@ -48,7 +47,9 @@ internal sealed class WebhookRequestProcessor(
 
         if (result.TriggerInput is not null)
         {
-            _ = ExecuteLegacyAsync(result.TriggerInput, result.Pipeline, result.InitialContext);
+            // 2026-10-08-10b0: the handler named project and pipeline — no intent parse, no lease.
+            _ = services.GetRequiredService<AgentSmith.Server.Contracts.IDetachedPipelineLauncher>().LaunchAsync(
+                result.ProjectName!, result.Pipeline!, result.InitialContext);
             await PublishWebhookReceivedAsync(platform, eventType!, path, actioned: true, skipReason: null);
             return (202, $"Accepted: {result.TriggerInput}");
         }
@@ -105,22 +106,5 @@ internal sealed class WebhookRequestProcessor(
             if (result.Handled) return result;
         }
         return WebhookResult.NotHandled();
-    }
-
-    private async Task ExecuteLegacyAsync(
-        string input, string? pipelineOverride, Dictionary<string, object>? initialContext = null)
-    {
-        try
-        {
-            var useCase = services.GetRequiredService<ExecutePipelineUseCase>();
-            var result = await useCase.ExecuteAsync(
-                input, configPath, headless: true, pipelineOverride, CancellationToken.None, initialContext);
-            logger.LogInformation(result.IsSuccess
-                ? "Run completed: {Message}" : "Run failed: {Message}", result.Message);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Run failed for: {Input}", input);
-        }
     }
 }

@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -390,6 +390,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
             : null;
     }
 
-    // 2026-10-08-9e6e: the open pull requests that may carry a rework act, read by a collaborator.
+    // 2026-10-08-9e6e / 10b0: the open pull requests that may carry a rework act, and every open one with its comments.
+    public IOpenPullRequestLister OpenPullRequests() => new GitLabOpenPullRequests(_baseUrl, _projectPath, _privateToken, _httpClient);
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitLabChangedPullRequests(_baseUrl, _projectPath, _privateToken, _httpClient).ChangedSinceAsync(since, maxPages, ct);
 }

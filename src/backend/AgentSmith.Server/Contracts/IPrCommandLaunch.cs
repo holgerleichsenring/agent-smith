@@ -10,5 +10,9 @@ namespace AgentSmith.Server.Contracts;
 /// </summary>
 public interface IPrCommandLaunch
 {
-    Task<WebhookResult> LaunchAsync(PrCommentCommand command, PipelineRequest request, CancellationToken cancellationToken);
+    /// <param name="allowedProjects">2026-10-08-10b0: when given, the owner is chosen among these only
+    /// (the PR sweep's polling entry); a project named outside them starts nothing.</param>
+    Task<WebhookResult> LaunchAsync(
+        PrCommentCommand command, PipelineRequest request, CancellationToken cancellationToken,
+        IReadOnlySet<string>? allowedProjects = null);
 }

@@ -1,5 +1,7 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Services.Webhooks;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
@@ -11,8 +13,10 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// owning project's platform trigger (pr_trigger_label). The historical word never stops
 /// triggering, so a deployment that configures nothing behaves exactly as it did.
 /// </summary>
-public sealed class PrTriggerLabelResolver
+public sealed class PrTriggerLabelResolver(IConfiguredRepoFinder? repoFinder = null)
 {
+    private readonly IConfiguredRepoFinder _repos = repoFinder ?? new ConfiguredRepoFinder();
+
     /// <summary>The only word the two PR-label handlers matched before it was configurable.
     /// Read for ever: pull requests carrying it sit on boards nobody will relabel.</summary>
     public const string HistoricalLabel = "security-review";
@@ -36,18 +40,9 @@ public sealed class PrTriggerLabelResolver
         !string.IsNullOrWhiteSpace(word)
         && labels.Contains(word, StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>The first project holding a repo whose configured URL the payload URL
-    /// contains — the match the GitLab handler made for its result's project name, kept
-    /// here so ONE reading of the config answers both which word triggers and which
-    /// project the run belongs to.</summary>
-    private static (string Name, ResolvedProject Project)? FindOwningProject(
-        AgentSmithConfig config, string repoUrl)
-    {
-        foreach (var (name, project) in config.Projects)
-            foreach (var repo in project.Repos)
-                if (repo.Url is not null
-                    && repoUrl.Contains(repo.Url, StringComparison.OrdinalIgnoreCase))
-                    return (name, project);
-        return null;
-    }
+    /// <summary>The project holding a repo whose URL EQUALS the payload's (2026-10-08-10b0: host and path,
+    /// as <see cref="IConfiguredRepoFinder"/> compares them — never a substring, which handed one
+    /// repository's label to its prefix sibling).</summary>
+    private (string Name, ResolvedProject Project)? FindOwningProject(AgentSmithConfig config, string repoUrl) =>
+        _repos.Find(config, repoUrl) is { } owner ? (owner.ProjectName, owner.Project) : null;
 }

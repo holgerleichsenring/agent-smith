@@ -59,7 +59,7 @@ public sealed class GitHubPrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoFullName}#{prNumber}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {
