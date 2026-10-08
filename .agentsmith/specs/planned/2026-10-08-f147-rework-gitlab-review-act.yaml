@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-f147
+goal: "A GitLab reviewer's Request changes on an agent-smith merge request starts one rework attempt, once GitLab can tell the run when that request was made."
+
+applies_to: "backend (GitLab MR webhook, GitLab review reader)"
+
+requires: [2026-10-08-e8b9c]
+
+facts:
+  - claim: "GitLab 19.3+ sends a submitted review as an MR update whose changes.reviewers holds the previous and current arrays matched by id; only a state change emits."
+    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/user/project/integrations/webhook_events.md, reviewer state on submitted reviews"
+  - claim: "GET merge_requests/:iid/reviewers returns each reviewer's current state with a created_at that is the assignment time, not the state's."
+    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/api/merge_requests.md line 1414ff"
+  - claim: "GitLab's API and system-note documentation name no note or timestamp for 'requested changes'."
+    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/api/notes.md, doc/user/project/system_notes.md, doc/user/project/merge_requests/reviews/_index.md"
+  - claim: "A GitLab MR update without oldrev starts nothing today."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73"
+
+assumptions:
+  - claim: "A durable time for the current requested_changes state is readable from GitLab (a system note, a review summary note, or an API field not yet documented)."
+    check: "Request changes on a test MR on the deployed GitLab and read discussions, notes and reviewers; build only once one source answers."
+
+scope:
+  in: >
+    GitLabMrReviewWebhookHandler (before the GitLab MR handlers): a reviewer whose current entry turns
+    requested_changes; PrReworkAdmission as on GitHub. GitLabPrReviewThreadReader implements
+    IPrReviewActReader from the reviewers API (state) and the source the assumption check finds (time).
+  out: "GitHub and Azure DevOps (2026-10-08-e8b9c)."
+
+decisions:
+  - key: "SPLIT, NOT GUESSED. The webhook's object_attributes.updated_at moves with any MR edit, and the reviewers API's created_at is the assignment; neither is the act's time, and without one the run cannot tell a served request from a new one."
+  - key: "FOLLOWS 2026-10-08-e8b9c, cut out of it at review because GitLab's half could not be specified."
+
+steps:
+  - id: handler
+    action: "Add GitLabMrReviewWebhookHandler and register it before GitLabMrLabelWebhookHandler."
+  - id: act
+    action: "Implement IPrReviewActReader in GitLabPrReviewThreadReader from the verified time source."
+
+tests:
+  - "GitLabMrReview_ReviewerBecomesRequestedChanges_StartsRework"
+  - "GitLabMrReview_StateUnchanged_NotHandled"
+  - "GitLabActReader_RequestedChangesAfterAttempt_ReturnsAct"
+
+done:
+  - "A Request changes on a GitLab agent-smith MR starts one attempt whose context carries the pull-request act; docs state GitLab 19.3+; full suite green."

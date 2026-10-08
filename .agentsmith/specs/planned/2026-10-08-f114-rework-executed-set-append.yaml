@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-f114
-goal: "A rework of a fully executed spec set appends new phases for the feedback instead of ending with nothing to run, and a pull-request act re-derives the set as a demand does."
+goal: "A rework of a fully executed spec set appends new phases for the feedback instead of ending with nothing to run, and a pull-request act re-derives even an approved set."
 
 applies_to: "backend (spec revision cause, amendment rule, previous-cut prompt, derivation notice)"
 
-requires: [2026-10-08-e8b9b]
+requires: [2026-10-08-e8b9b, 2026-10-08-e8b9d]
 
 facts:
   - claim: "The cause order is RecutDemand, TicketEdit, Comment, the sha, then Resume or Retrigger; Comment is any foreign comment after our cut comment."
@@ -23,46 +23,59 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:68-80"
   - claim: "The derivation comment names the re-cut and the kept phases per cause; the kept-set notice names the demand phrase as the door."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:21-39, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:52-62"
+  - claim: "A merged series stays readable from the base: its manifest and specs sit under shared paths, the reader lists planned, done and active, and an existing work branch is checked out as it is."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:3-12, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:55-64,91-94, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:48-52"
+  - claim: "A failed derivation falls back to a fresh single-phase set, which carries no executed head."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:40,108, src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-51, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:57"
+  - claim: "The cut reviewer judges the set against the ticket text only."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:86-90"
+  - claim: "The kept-set door and the edit rule describe only unstarted phases."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:57-67"
 
 assumptions:
-  - claim: "ContextKeys.ReworkAct (2026-10-08-e8b9b) carries channel, author and the host's act time, and 2026-10-08-e8b9c sets it for the pull-request channel."
+  - claim: "ContextKeys.ReworkAct (2026-10-08-e8b9b) carries author and the host's act time; 2026-10-08-e8b9c sets it for the pull request."
     check: "Read both specs' final text before building."
 
 scope:
   in: >
-    SpecRevisionCause.Rework ('rework requested on the pull request'), returned after RecutDemand and before
-    TicketEdit when ContextKeys.ReworkAct's channel is the pull request and the run is not resuming. NeedsModel
-    is true for Rework on any set, approved included; the revision records an approval attributed to the
-    reviewer at the act's time, as a demand does. When the set has no unexecuted phase and the cause is
-    Comment, RecutDemand or Rework, PreviousCutPromptSection adds an append paragraph naming the room left
-    (MaxPhases minus executed). With no room, NeedsModel is false and the derivation comment says the set is
-    full and the feedback needs a new ticket. SpecRecutNotice renders Rework.
-  out: "Raising MaxPhases. A ticket-channel cause: Comment and RecutDemand stay."
+    ReworkAct.Channel (ticket | pull request), owned here. SpecRevisionCause.Rework ('rework requested on the
+    pull request'), after RecutDemand and before TicketEdit, for a pull-request act when not resuming; it
+    amends any set, approved included, and carries set.Approval forward unchanged (an unapproved set records
+    none). A set with no unexecuted phase under Comment, TicketEdit, RecutDemand or Rework gets an append
+    paragraph naming the room left (MaxPhases minus executed) and, for Rework, the pull-request review
+    section; the parser refuses such a reply with fewer entries than the head. No room: NeedsModel is false
+    and the full-set line replaces 'the rest was cut again' whenever the model did not run. A failed
+    derivation over an executed head keeps the set and reports the refusal. TheDoor and TheEditRule name
+    appending.
+  out: "Raising MaxPhases. Giving the cut reviewer the review section: it keeps judging the ticket text, stated."
 
 decisions:
-  - key: "REUSE ON THE TICKET, ADD ONLY FOR THE PULL REQUEST. A ticket comment already is Comment, a demand RecutDemand; a review is neither, and without its own cause it reads as a Retrigger that amends nothing executed."
-  - key: "A REQUEST CHANGES IS A DEMAND. It is a deliberate act by someone with write access; the approval it records keeps the set approved and stops a second firing."
-  - key: "APPEND, NEVER REWRITE. Executed phases stay verbatim; the parser already guarantees it, the prompt now asks for the phases after them."
-  - key: "AT THE CAP, SAY SO. Asking the model for a ninth phase only earns a parse refusal; the run ends and the ticket is told why."
-  - key: "NO BRANCH, NO HEAD. After a merge or a deleted branch the resolver takes today's path; a fresh derivation sees the feedback sections of 2026-10-08-7c0e and 2026-10-08-e8b9d, and an approved record is handed over and runs whole again against the new base — stated, not prevented."
+  - key: "REUSE ON THE TICKET, ADD FOR THE PULL REQUEST: a review is neither a comment nor a demand, and as a Retrigger it amends nothing executed."
+  - key: "A REQUEST CHANGES RE-DERIVES BUT DOES NOT RE-APPROVE: the prior approval, conversation included, rides along."
+  - key: "APPEND, NEVER REWRITE: the parser keeps the head verbatim; the prompt asks for phases after it."
+  - key: "AT THE CAP, SAY SO, on the ticket here and on the pull request through 2026-10-08-e8b9c's comment texts."
+  - key: "A MERGED PR IS NOT A LOST HEAD: the base carries the series, so the rework reads it fully executed and appends; only a PR closed unmerged with its branch deleted takes today's path. A squash merge makes a plain re-trigger read as ReviewerEdit; a rework's own cause outranks it."
   - key: "FOLLOWS THE 2026-10-08-e8b9 REWORK SERIES: cut out of e8b9b at review, minted on its own because a series is minted in one go."
 
 steps:
   - id: cause
-    action: "Add SpecRevisionCause.Rework and its place in For; NeedsModel true for it with room; the approval in SpecSourceResolver beside the demand's."
+    action: "Add ReworkAct.Channel, SpecRevisionCause.Rework in For and NeedsModel, the approval carried in SpecSourceResolver."
   - id: prompt
-    action: "Add the append paragraph to PreviousCutPromptSection and the full-set line to SpecRecutNotice."
+    action: "Add the append paragraph, the head-count refusal, the full-set notice line, the executed-head keep on failed derivation, and the new TheDoor/TheEditRule wording."
 
 tests:
   - "Cause_PullRequestAct_IsRework"
   - "Cause_PullRequestActWhileResuming_IsResume"
   - "Cause_TicketChannelAct_StaysComment"
-  - "NeedsModel_ReworkOnApprovedSet_True"
   - "NeedsModel_FullSetAtCap_False"
-  - "PreviousCut_FullyExecutedComment_RendersAppendWithRoom"
-  - "Decide_Rework_RecordsReviewerApproval"
-  - "Derive_FullyExecutedSetWithComment_AppendsPhaseAfterHead"
+  - "Decide_ReworkOnApprovedSet_KeepsPriorApproval"
+  - "Decide_ReworkOnUnapprovedSet_RecordsNone"
+  - "PreviousCut_FullyExecutedTicketEdit_RendersAppendWithRoom"
+  - "Parse_AppendReplyShorterThanHead_Refused"
+  - "Notice_CommentAtCap_SaysFull"
+  - "Derive_FailsOverExecutedHead_KeepsSet"
+  - "Derive_BranchFromBaseCarryingMergedSeries_ReworkAppends"
 
 done:
-  - "A comment on an unapproved fully executed set, or a Request changes on any, yields a set with new phases after the executed head that the sequence then runs."
-  - "At eight executed phases the run derives nothing and says why; full suite green."
+  - "A comment on an unapproved fully executed set, or a Request changes on any, yields new phases after the executed head that the sequence runs."
+  - "At eight executed phases nothing is derived and the ticket says why; full suite green."
