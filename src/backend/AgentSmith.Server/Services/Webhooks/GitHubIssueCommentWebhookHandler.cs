@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -42,6 +43,8 @@ public sealed class GitHubIssueCommentWebhookHandler(
                 return WebhookResult.NotHandled();
 
             var commentBody = root.GetProperty("comment").GetProperty("body").GetString() ?? "";
+            if (OwnTicketComment.IsOurs(commentBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var repoUrl = root.GetProperty("repository").GetProperty("html_url").GetString() ?? "";
             var issueNumber = issueEl.GetProperty("number").GetInt32();
             var issueState = issueEl.GetProperty("state").GetString() ?? "open";

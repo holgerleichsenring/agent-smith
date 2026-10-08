@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -34,12 +35,11 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
             var root = doc.RootElement;
 
             var resource = root.GetProperty("resource");
-            var commentText = resource.TryGetProperty("text", out var textEl)
-                ? textEl.GetString() ?? "" : "";
-            var fields = resource.GetProperty("fields");
-            var workItemId = resource.GetProperty("id").GetInt32();
-            var state = fields.TryGetProperty("System.State", out var stateEl)
-                ? stateEl.GetString() ?? "" : "";
+            var (workItemId, fields) = AzureDevOpsWorkItemPayload.Read(resource);
+            var commentText = AzureDevOpsWorkItemPayload.CommentText(fields);
+            if (OwnTicketComment.IsOurs(commentText))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
+            var state = AzureDevOpsWorkItemPayload.State(fields);
             var ticketUrl = resource.TryGetProperty("url", out var urlEl) ? urlEl.GetString() : null;
 
             var planAnswers = planAnswerParser.Parse(commentText);

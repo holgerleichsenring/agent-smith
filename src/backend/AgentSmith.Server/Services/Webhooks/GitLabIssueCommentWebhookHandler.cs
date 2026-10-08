@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -22,7 +23,7 @@ public sealed class GitLabIssueCommentWebhookHandler(
     ILogger<GitLabIssueCommentWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
-        platform == "gitlab" && eventType == "Note Hook";
+        platform == "gitlab" && eventType == "note hook";
 
     public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
@@ -38,6 +39,8 @@ public sealed class GitLabIssueCommentWebhookHandler(
                 return WebhookResult.NotHandled();
 
             var noteBody = noteAttrs.GetProperty("note").GetString() ?? "";
+            if (OwnTicketComment.IsOurs(noteBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var repoUrl = root.TryGetProperty("project", out var proj)
                 ? proj.GetProperty("web_url").GetString() ?? "" : "";
 

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -34,6 +35,8 @@ public sealed class JiraCommentWebhookHandler(
             var root = doc.RootElement;
 
             var commentBody = ExtractCommentBody(root);
+            if (OwnTicketComment.IsOurs(commentBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var planAnswers = planAnswerParser.Parse(commentBody);
             var hasAnswers = planAnswers.Count > 0;
 

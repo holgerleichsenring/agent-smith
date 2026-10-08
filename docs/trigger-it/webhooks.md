@@ -12,7 +12,8 @@ In Azure DevOps: **Project Settings → Service hooks → Create subscription �
 
 Pick the trigger:
 
-- Event: **Work item updated** (covers status changes, label edits, comment additions).
+- Event: **Work item updated** (status changes and tag edits).
+- A second subscription with the event **Work item commented on**, if you want comments carrying the project's `comment_keyword` to start runs. Azure DevOps delivers a comment only through this event; the comment text is read from `System.History`.
 - Filters: **Area Path** = the area path your project lives under (or leave blank to receive everything from the project). **Work item type** = whatever types you want to trigger from (User Story, Bug, Task).
 
 For the action:
@@ -21,6 +22,12 @@ For the action:
 - Resource details to send: **All**.
 - Messages to send: **None**.
 - Detailed messages to send: **None** (the framework reads the payload).
+
+Azure DevOps sends no platform header by default, so point these subscriptions at `POST /webhook`: the server recognises Azure DevOps from the payload itself (its `publisherId` and `eventType`). The per-platform routes (`/webhook/github`, `/webhook/gitlab`) never read a payload that way.
+
+If you also subscribe to **Pull request updated**, filter it to **Source branch updated**: every `git.pullrequest.updated` delivery starts a PR review, whatever changed.
+
+> **Set `AZDO_WEBHOOK_SECRET`.** With it unset, every delivery to `/webhook` that reads as Azure DevOps is accepted unverified.
 
 Azure DevOps doesn't sign webhook payloads by default. Add a Basic Auth header instead — set the **Basic authentication** password in the Service Hook setup, and give the server the same value via the `AZDO_WEBHOOK_SECRET` environment variable:
 
@@ -85,7 +92,7 @@ GitHub HMACs the body with the secret and sends it in `X-Hub-Signature-256`. The
 **Project Settings → Webhooks** (or for group-wide: **Group Settings → Webhooks**).
 
 - URL: `https://agent-smith.your-host.example/webhook/gitlab`
-- Trigger: **Issues events**, plus **Merge request events** and **Comments** for [MR commands](../reference/integrations/pr-comments.md) and review labels.
+- Trigger: **Issues events**, plus **Comments** if you want issue comments carrying the project's `comment_keyword` to start runs (the same **Comments** event also carries [MR commands](../reference/integrations/pr-comments.md)), and **Merge request events** for review labels. Every **Issues events** delivery reaches the issue handler, which starts a run when the issue sits in a trigger status.
 - Secret token: paste your `GITLAB_WEBHOOK_TOKEN` value.
 
 Give the server the same value as an environment variable:

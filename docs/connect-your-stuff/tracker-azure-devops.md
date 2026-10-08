@@ -175,7 +175,7 @@ The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it o
 
 Three ways, pick one:
 
-- **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (the platform is auto-detected from the payload). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
+- **Webhook** (preferred). Azure DevOps posts to Agent Smith on work-item updates. The server listens on port 8081; point the service hook at `POST /webhook` (Azure DevOps sends no platform header, so the platform is recognised from the payload's `publisherId` and `eventType` — on `/webhook` only). Verification is a Basic-auth header checked against the `AZDO_WEBHOOK_SECRET` environment variable on the server process — there is no secret key in the config. Set up in [Webhooks: Azure DevOps](../trigger-it/webhooks.md#azure-devops). Leave polling off on the tracker.
 - **Polling**. Agent Smith asks the tracker every `interval_seconds` what's new. Use this when you can't set up a webhook (NAT, on-prem tracker, fast iteration). Turn it on in the tracker's polling section and set the interval there; the running server picks the change up without a restart.
 - **Manual CLI**. `agent-smith code --ticket 54 --project azuredevops-todolist` — explicit, useful for testing the config. See [Trigger from CLI](../trigger-it/cli.md).
 

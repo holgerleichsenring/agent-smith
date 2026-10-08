@@ -31,10 +31,8 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
             var root = doc.RootElement;
 
             var resource = root.GetProperty("resource");
-            var fields = resource.GetProperty("fields");
-            var workItemId = resource.GetProperty("id").GetInt32();
-            var state = fields.TryGetProperty("System.State", out var stateEl)
-                ? stateEl.GetString() ?? "" : "";
+            var (workItemId, fields) = AzureDevOpsWorkItemPayload.Read(resource);
+            var state = AzureDevOpsWorkItemPayload.State(fields);
             var ticketUrl = resource.TryGetProperty("url", out var urlEl) ? urlEl.GetString() : null;
 
             var envelope = WebhookEnvelopeBuilders.BuildForAzureDevOpsWorkItem(

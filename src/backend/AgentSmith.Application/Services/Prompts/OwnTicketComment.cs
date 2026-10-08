@@ -42,6 +42,11 @@ public static class OwnTicketComment
 
     public static bool IsOurs(TicketComment comment) => Carries(comment, Ours);
 
+    /// <summary>2026-10-08-e8b9a: the same test on a bare body, for a webhook that has no
+    /// comment record yet — a comment of ours is never a trigger, so it cannot loop.</summary>
+    public static bool IsOurs(string? body) => Ours.Any(marker =>
+        body?.Contains(marker, StringComparison.OrdinalIgnoreCase) == true);
+
     public static bool AwaitsAnswer(TicketComment comment) => Carries(comment, AwaitingAnswer);
 
     /// <summary>True when someone other than us commented after our last comment carrying <paramref name="marker"/>.</summary>
