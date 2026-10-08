@@ -30,12 +30,14 @@ public sealed class RenderReferenceToolFactory(
         Scope(pipeline, isDesignTurn) is { } scope ? new RenderReferenceToolHost(services, scope) : null;
 
     /// <summary>2026-10-01-283di: render_reference and compare_reference over one scope, or none.</summary>
+    /// <remarks>2026-10-08-e8b9k: a run's view_reference_image joins outside the browser gate.</remarks>
     public IReadOnlyList<AITool> Tools(PipelineContext pipeline, bool isDesignTurn) =>
-        Scope(pipeline, isDesignTurn) is { } scope
+        [.. Scope(pipeline, isDesignTurn) is { } scope
             ? [.. new RenderReferenceToolHost(services, scope).GetTools(null, null),
                .. new CompareReferenceToolHost(compare, scope).GetTools(null, null),
                .. isDesignTurn && design is not null ? design.For(pipeline) : []]
-            : [];
+            : Array.Empty<AITool>(),
+         .. !isDesignTurn && design is not null ? design.ForRun(pipeline) : []];
 
     private static RenderReferenceScope? Scope(PipelineContext pipeline, bool isDesignTurn)
     {

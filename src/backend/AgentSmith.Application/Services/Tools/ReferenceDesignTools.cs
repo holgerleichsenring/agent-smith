@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -41,5 +42,19 @@ public sealed class ReferenceDesignTools(
                 r => new ReferenceUploadAddress(r.Value.ConversationId, r.Value.SetId), StringComparer.Ordinal),
                 sets, images).GetTools(null, null));
         return tools;
+    }
+
+    /// <summary>
+    /// 2026-10-08-e8b9k: what a RUN's coding master gets over the sets it carries — view_reference_image,
+    /// whatever the browser flag says, because it reads the store and needs no browser.
+    /// </summary>
+    public IReadOnlyList<AITool> ForRun(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (sets is null || images is null
+            || !pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var carried)
+            || carried is null || carried.Count == 0) return [];
+        return [.. new ReferenceImageToolHost(carried.ToDictionary(c => c.Address,
+            c => new ReferenceUploadAddress(c.Session, c.SetId), StringComparer.Ordinal), sets, images).GetTools(null, null)];
     }
 }

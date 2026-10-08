@@ -22,4 +22,13 @@ public interface IReferenceSetReader
     async Task<ReferenceSetFile?> FileAsync(
         string sessionId, string setId, string path, CancellationToken cancellationToken) =>
         (await FilesAsync(sessionId, setId, cancellationToken)).FirstOrDefault(f => f.Path == path);
+
+    /// <summary>2026-10-08-e8b9k: the set ids of the conversation's images, oldest first — what an
+    /// approval cites beside the sets. None where there is no store.</summary>
+    Task<IReadOnlyList<string>> ImageSetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
+
+    /// <summary>2026-10-08-e8b9k: one image by its set id, or null.</summary>
+    Task<ReferenceImageFile?> ImageAsync(string sessionId, string setId, CancellationToken cancellationToken) =>
+        Task.FromResult<ReferenceImageFile?>(null);
 }

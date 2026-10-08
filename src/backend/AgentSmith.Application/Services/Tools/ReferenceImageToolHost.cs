@@ -3,6 +3,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -35,13 +36,12 @@ internal sealed class ReferenceImageToolHost(
         + "whole when the operator attaches it through the Image entry.")]
     public async Task<string> ViewReferenceImage(
         [Description("The upload's address, reference:<name>, as listed under 'Material the operator uploaded'.")] string reference,
-        [Description("The file's path in the upload, as <name>/… or /work/<name>/….")] string path,
+        [Description("The file's path in the upload, as <name>/… or /work/<name>/… (in a run also as the carried directory's path).")] string path,
         CancellationToken ct = default)
     {
         if (!uploads.TryGetValue(reference ?? string.Empty, out var upload))
             return $"Error: '{reference}' is not an upload here. Uploads: [{string.Join(", ", uploads.Keys)}].";
-        var relative = (path ?? string.Empty).StartsWith(WorkPrefix, StringComparison.Ordinal)
-            ? path![WorkPrefix.Length..] : (path ?? string.Empty).TrimStart('/');
+        var relative = Relative(path ?? string.Empty, upload.SetId);
         if (!MediaTypes.TryGetValue(Path.GetExtension(relative), out var mediaType))
             return $"not an image: '{path}' is not a .png, .jpg, .jpeg, .gif or .webp file.";
         var file = await sets.FileAsync(upload.Session, upload.SetId, relative, ct);
@@ -50,5 +50,14 @@ internal sealed class ReferenceImageToolHost(
         return result.IsAccepted
             ? $"image: {relative} follows this result"
             : $"image: not shown — {result.Refusal}. Ask the operator to attach it through the Image entry to have it shown whole.";
+    }
+
+    // A design turn's copy lies under /work/<name>/; a run's under .agentsmith/reference/<set id>/.
+    private static string Relative(string path, string setId)
+    {
+        var carried = $"{ReferenceDirectory.ForSet(setId)}/";
+        if (path.StartsWith(WorkPrefix, StringComparison.Ordinal)) path = path[WorkPrefix.Length..];
+        var at = path.IndexOf(carried, StringComparison.Ordinal);
+        return at >= 0 ? path[(at + carried.Length)..] : path.TrimStart('/');
     }
 }

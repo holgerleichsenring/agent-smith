@@ -123,6 +123,13 @@ describe("DialogUploadsPanel", () => {
     expect(screen.getByTestId("dialog-upload-later-a").textContent).toContain("after the ticket is approved again");
     expect(screen.queryByTestId("dialog-upload-later-b")).not.toBeInTheDocument();
   });
+
+  // 2026-10-08-e8b9k: an approval cites images too, so an image attached after it says the same.
+  it("DialogUploadsPanel_ApprovedTicket_UncitedImageSaysNextApproval", () => {
+    renderPanel(session(), approvedWork);
+
+    expect(screen.getByTestId("dialog-upload-later-7").textContent).toContain("after the ticket is approved again");
+  });
 });
 
 describe("DialogUploadsPanel, what the model sees", () => {

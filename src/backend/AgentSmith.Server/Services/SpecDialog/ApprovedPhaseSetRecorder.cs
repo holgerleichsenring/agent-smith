@@ -76,16 +76,15 @@ public sealed class ApprovedPhaseSetRecorder(
             SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
         var repositories = Repositories(state, project);
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
-        // re-spelled it). 2026-10-01-283df: and the website sets held NOW — the approval freezes the list.
-        var cited = new SpecApprovalRecord(
-            key.Value, set, repositories, project.Tracker.Name,
-            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty,
-            await references.SetIdsAsync(state.JobId, cancellationToken));
-        var record = await _citations.SaveAsync(cited, state.JobId, cancellationToken);
+        // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
+        var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name,
+            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty);
+        var record = await _citations.SaveAsync(
+            await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation "
-            + "{Conversation}, carried by {Repo}, citing {Sets} website set(s)", key.Value, set.Phases.Count,
-            approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count);
+            + "{Conversation}, carried by {Repo}, citing {Sets} set(s) and {Images} image(s)", key.Value, set.Phases.Count,
+            approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count, record.CitedImages.Count);
         return record;
     }
 

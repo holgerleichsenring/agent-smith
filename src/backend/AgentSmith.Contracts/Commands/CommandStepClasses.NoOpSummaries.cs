@@ -39,8 +39,8 @@ public static partial class CommandStepClasses
         ],
         [CommandNames.MaterializeReferenceSets] =
         [
-            // MaterializeReferenceSetsHandler: the approval cites no uploaded website.
-            "The approval cites no uploaded website",
+            // MaterializeReferenceSetsHandler: the approval cites no uploaded material (2026-10-08-e8b9k: sets or images).
+            "The approval cites no uploaded material",
         ],
         [CommandNames.PhaseSpecGate] =
         [

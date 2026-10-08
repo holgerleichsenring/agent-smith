@@ -114,16 +114,17 @@ public sealed class MaterializeReferenceSetsTests
         var files = new SandboxFileReaderFactory();
         return new MaterializeReferenceSetsHandler(ApprovedSetDoubles.Resolver(),
             new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files, new SandboxBinaryFileWriter()), new ReferenceGitExclusion(files), notes),
-            NullLogger<MaterializeReferenceSetsHandler>.Instance);
+            new ReferenceImageCarrier(reader, new SandboxBinaryFileWriter(), new ReferenceGitExclusion(files)),
+            new UploadImageAttachments(), NullLogger<MaterializeReferenceSetsHandler>.Instance);
     }
 
-    private PipelineContext Pipeline(IReadOnlyList<string> cited)
+    private PipelineContext Pipeline(IReadOnlyList<string> cited, IReadOnlyList<string>? images = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("github-7",
             new SpecSet("github-7", [], SpecAccounting.Empty, [], SpecSource.Approved,
                 Approval: new SpecApproval(Noon, "s-1", "person")),
-            ["sample-web", "sample-api"], "gh", "sample-api", "7", cited)));
+            ["sample-web", "sample-api"], "gh", "sample-api", "7", cited, images)));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox> { ["sample-web"] = _other, ["sample-api"] = _repo });
         pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
@@ -145,5 +146,14 @@ public sealed class MaterializeReferenceSetsTests
 
         public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<string>>([.. _sets.Keys]);
+
+        public Dictionary<string, byte[]> Images { get; } = new(StringComparer.Ordinal);
+
+        public Task<IReadOnlyList<string>> ImageSetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<string>>([.. Images.Keys]);
+
+        public Task<ReferenceImageFile?> ImageAsync(string sessionId, string setId, CancellationToken cancellationToken) =>
+            Task.FromResult(sessionId == "s-1" && Images.TryGetValue(setId, out var bytes)
+                ? new ReferenceImageFile("image/png", bytes) : null);
     }
 }

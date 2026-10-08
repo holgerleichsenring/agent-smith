@@ -12,15 +12,28 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class ApprovalCitations(ISpecApprovalStore store, IReferenceSetReader references)
 {
+    /// <summary>2026-10-08-e8b9k: the record citing the sets and the images the conversation holds now.</summary>
+    public async Task<SpecApprovalRecord> CiteAsync(SpecApprovalRecord record, string conversation, CancellationToken ct) =>
+        record with
+        {
+            References = await references.SetIdsAsync(conversation, ct),
+            Images = await references.ImageSetIdsAsync(conversation, ct),
+        };
+
     public async Task<SpecApprovalRecord> SaveAsync(
         SpecApprovalRecord record, string conversation, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);
         await store.SaveAsync(record, ct);
-        if (record.CitedSets.Count == 0) return record;
-        var held = (await references.SetIdsAsync(conversation, ct)).ToHashSet(StringComparer.Ordinal);
-        if (record.CitedSets.All(held.Contains)) return record;
-        var settled = record with { References = [.. record.CitedSets.Where(held.Contains)] };
+        if (record.CitedSets.Count == 0 && record.CitedImages.Count == 0) return record;
+        var sets = (await references.SetIdsAsync(conversation, ct)).ToHashSet(StringComparer.Ordinal);
+        var images = (await references.ImageSetIdsAsync(conversation, ct)).ToHashSet(StringComparer.Ordinal);
+        if (record.CitedSets.All(sets.Contains) && record.CitedImages.All(images.Contains)) return record;
+        var settled = record with
+        {
+            References = [.. record.CitedSets.Where(sets.Contains)],
+            Images = [.. record.CitedImages.Where(images.Contains)],
+        };
         await store.SaveAsync(settled, ct);
         return settled;
     }

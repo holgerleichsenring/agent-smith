@@ -73,9 +73,9 @@ function UploadRow({ upload, approved, onRemove }: { upload: DialogUpload; appro
           </button>
         )}
       </div>
-      {/* The approval froze the list of SETS it cites; one uploaded later reaches a run only
-          when the ticket is approved again. */}
-      {!cited && approved && upload.kind === "set" && (
+      {/* The approval froze the list it cites — sets and, since 2026-10-08-e8b9k, images; one
+          uploaded later reaches a run only when the ticket is approved again. */}
+      {!cited && approved && (
         <p className="ec-sub px-3 pb-2" data-testid={`dialog-upload-later-${id}`}>
           not in the approval — a run carries it after the ticket is approved again
         </p>

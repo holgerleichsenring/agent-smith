@@ -89,7 +89,8 @@ public sealed class ApprovedSeriesRepository(IUnitOfWork unitOfWork)
     {
         var rows = await unitOfWork.Set<ApprovedSeries>().AsNoTracking()
             .Where(a => a.ApprovedInConversation == conversation).Select(a => a.ContentJson).ToListAsync(ct);
-        return rows.SelectMany(json => SpecApprovalJson.Read(json)?.CitedSets ?? [])
+        // 2026-10-08-e8b9k: and the images, by the set id each is stored under.
+        return rows.Select(SpecApprovalJson.Read).SelectMany(r => r is null ? [] : r.CitedSets.Concat(r.CitedImages))
             .ToHashSet(StringComparer.Ordinal);
     }
 
