@@ -3,6 +3,7 @@ using System.Net.Http;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -13,7 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>Thin GitLab REST v4 orchestrator; mapping, listing, auth and attachments live in their own types.</summary>
-public sealed class GitLabTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
+public sealed class GitLabTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf, IChangedTicketLister
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -180,11 +181,9 @@ public sealed class GitLabTicketProvider : ITicketProvider, ITicketStatusHistory
         var s => s
     };
 
-    // 2026-10-08-2123: reopens and who the token is, read by a collaborator.
-    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
-        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
-        new GitLabStatusHistory(_http, _baseUrl, _projectPath).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
-
-    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
-        new GitLabStatusHistory(_http, _baseUrl, _projectPath).SelfAsync(cancellationToken);
+    // 2026-10-08-2123 / 9e6e: reopens, who the token is and the changed issues, read by collaborators.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken ct) => History().NewestPersonMoveIntoAsync(ticketId, statuses, self, ct);
+    public Task<TrackerActor?> SelfAsync(CancellationToken ct) => History().SelfAsync(ct);
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, int maxPages, CancellationToken ct) => new GitLabChangedTickets(_http, _baseUrl, _projectPath).ChangedSinceAsync(since, maxPages, ct);
+    private GitLabStatusHistory History() => new(_http, _baseUrl, _projectPath);
 }

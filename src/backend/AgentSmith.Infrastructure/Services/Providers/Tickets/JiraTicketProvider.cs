@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -15,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Thin Jira Cloud REST v3 orchestrator. Mapping in <see cref="JiraFieldMapper"/>, ADF in
 /// <see cref="JiraAdfRenderer"/>, search in <see cref="JiraIssueSearcher"/>, transitions in <see cref="JiraTransitioner"/>.
 /// </summary>
-public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
+public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf, IChangedTicketLister
 {
     private readonly string _baseUrl;
     private readonly TicketProviderHttpClient _http;
@@ -190,4 +191,7 @@ public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory,
 
     public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
         new JiraStatusHistory(_http, _baseUrl, _endpoints).SelfAsync(cancellationToken);
+
+    // 2026-10-08-9e6e: the tickets changed since a cursor, read by a collaborator.
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, int maxPages, CancellationToken ct) => new JiraChangedTickets(_http, _baseUrl, _endpoints, _projectKey).ChangedSinceAsync(since, maxPages, ct);
 }

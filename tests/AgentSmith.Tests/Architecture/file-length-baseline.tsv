@@ -130,5 +130,4 @@
 124	AgentSmith.Application/Services/Scope/RepoScopeEvaluator.cs
 123	AgentSmith.Infrastructure/Services/RateLimiting/RateLimitingChatClient.cs
 121	AgentSmith.Application/Services/Handlers/ObservationParser.cs
-121	AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs
 230	AgentSmith.Contracts/Commands/CommandNames.Pipeline.cs

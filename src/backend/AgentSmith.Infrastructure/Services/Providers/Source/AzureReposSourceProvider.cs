@@ -1,6 +1,7 @@
-using AgentSmith.Contracts.Reviews;
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -19,7 +20,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -426,4 +427,7 @@ public sealed class AzureReposSourceProvider(
             return [];
         }
     }
+
+    // 2026-10-08-9e6e: active pull requests with a standing "Wait for author" vote, read by a collaborator.
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new AzureReposChangedPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl).ChangedSinceAsync(resume, maxPages, ct);
 }

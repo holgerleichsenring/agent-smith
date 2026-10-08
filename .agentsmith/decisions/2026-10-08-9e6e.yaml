@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-9e6e
+
+decisions:
+  - category: Scope
+    chose: "Step 0 'verify' could not run against live trackers here; its checks are recorded UNVERIFIED and the code follows the documented API shapes"
+    over: "Blocking the build on the checks"
+    reason: |
+      Unverified, to check on Jira Cloud AND Data Center, GitHub, GitLab and Azure Boards before relying on the
+      sweep: (1) a comment updates the ticket's updated time on all four trackers; (2) a GitLab system note
+      ('requested changes') touches the merge request's updated_at; (3) JQL 'updated >= "yyyy/MM/dd HH:mm"' is read
+      in the searching user's zone, to the minute; (4) Jira Data Center's POST /rest/api/2/search accepts
+      startAt/maxResults and answers total. The operator directed building without them.
+  - category: Architecture
+    chose: "ChangeSweepHostedService under its own leader lease, rebuilt through LeaderEpochLoop extracted from the poller leader"
+    over: "Running the sweep inside PollerHostedService"
+    reason: "The poller gets 20 s per tracker; the sweep needs its own deadline (half the interval) and budget. The extraction takes PollerLeaderHostedService off its baseline row."
+  - category: Implementation
+    chose: "Cursors are UTC ticks advanced by a forward-only compare-and-set; first sight writes now and reads nothing"
+    over: "DateTimeOffset columns"
+    reason: "SQLite cannot compare DateTimeOffset; forward-only means a leader that lost its lease mid-cycle cannot move a cursor back."
+  - category: Implementation
+    chose: "GitHub pull requests are read as every open PR's latestReviews over GraphQL (endCursor, resumed on a cut); GitLab MRs by updated_after ascending; Azure Repos as active PRs with a −5 vote, nudged once per (PR, voters) in a leader term"
+    over: "Repository review-comment feeds"
+    reason: "A body-only Request changes need not move a PR's updated time, latestReviews shows it; the Azure DevOps list has no vote time, so a vote set is the change."
+  - category: Implementation
+    chose: "Changed tickets are nudged for every project of the polling entry with a code run on the ticket; a pull request only when exactly one configured project of its repository ran the ticket, from the same repository"
+    over: "Nudging every change"
+    reason: "As PrReworkAdmission owns a review: per-repository issue numbers make a second owner ambiguous, and a fork is never ours."
+  - category: TradeOff
+    chose: "A cut GitHub or Azure Repos read keeps its time and resumes at the stored page; finishing the pass moves the time to the last cycle's start"
+    over: "Storing the first cycle's start of a multi-cycle pass"
+    reason: "Passes longer than one cycle need more than 500 open pull requests in a repository; a review landing on an early page during such a pass can be missed until its next change. Stated, not solved."

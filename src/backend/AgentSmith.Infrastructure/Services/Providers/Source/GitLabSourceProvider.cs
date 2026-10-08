@@ -1,8 +1,9 @@
-using AgentSmith.Contracts.Reviews;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -16,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -388,4 +389,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
             ? branch.GetString()
             : null;
     }
+
+    // 2026-10-08-9e6e: the open pull requests that may carry a rework act, read by a collaborator.
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitLabChangedPullRequests(_baseUrl, _projectPath, _privateToken, _httpClient).ChangedSinceAsync(since, maxPages, ct);
 }

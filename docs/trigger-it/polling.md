@@ -47,9 +47,12 @@ The claim itself is a database lease, shared with the webhook path — webhook a
 |---|---|---|
 | Latency | Sub-second | Up to `interval_seconds` |
 | Tracker network reachability | Tracker must reach orchestrator | Orchestrator must reach tracker |
-| Tracker API rate limits | One request per ticket event | One request per `interval_seconds` |
+| Tracker API calls | One request per ticket event | Per interval: the poller's two ticket lists, the change sweep's changed-ticket read (one page usually) and one read of open pull requests per repository |
+| Rework acts (keyword comments, Request changes, Wait for author) | Delivered as they happen | Found by the change sweep from a persisted cursor; served by the same rework worker |
 | Secret to verify | Yes (HMAC or basic auth) | Auth token only |
-| Survives orchestrator restarts | Tracker retries until it gets 200 | Yes (high-water mark in Redis) |
+| Survives orchestrator restarts | Tracker retries until it gets 200 | Yes — the sweep's cursors are rows in the database and only move forward |
+
+GitHub allows 5,000 REST requests an hour per token. At a 60-second interval with ten GitHub repositories, polling spends about 2,600 of them (the change sweep, the worker's follow-up reads and the pull-request events of a later release); raise the interval past ten repositories.
 
 For most setups, **webhooks for the public trackers (GitHub Cloud, GitLab Cloud, Jira Cloud, Azure DevOps Cloud), polling for self-hosted ones behind a firewall**.
 
@@ -63,7 +66,7 @@ The `jitter_percent` field randomizes the actual interval by ±N% so multiple or
 
 If you run more than one orchestrator replica, only one polls. The polling lease is a Redis key `agentsmith:leader:poller` with a TTL; one replica wins, the others wait. If the leader dies, the lease expires and another replica takes over within 30 seconds.
 
-You don't need to configure this — it's automatic. Same model is used for the housekeeping coordinator (stale-job detection, enqueue reconciliation) on a separate lease.
+You don't need to configure this — it's automatic. Same model is used for the housekeeping coordinator (stale-job detection, enqueue reconciliation) and for the change sweep (`agentsmith:leader:change-sweep`, which finds rework acts on tickets and pull requests changed since its cursor), each on a separate lease. Both the poller and the sweep rebuild in place when the configuration changes.
 
 ## Mixed mode
 
