@@ -13,7 +13,7 @@ using Octokit;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>Thin Octokit orchestrator; mapping, listing and attachments live in their own types.</summary>
-public sealed class GitHubTicketProvider : ITicketProvider
+public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -174,4 +174,12 @@ public sealed class GitHubTicketProvider : ITicketProvider
         if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
         return (segments[0], segments[1]);
     }
+
+    // 2026-10-08-2123: reopens and who the token is, read by a collaborator.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        new GitHubStatusHistory(_client, _owner, _repo).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+
+    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
+        new GitHubStatusHistory(_client, _owner, _repo).SelfAsync(cancellationToken);
 }

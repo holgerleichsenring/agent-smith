@@ -21,6 +21,11 @@ public static partial class ContextKeys
     /// by the run itself from the thread, whoever claimed the ticket; absent when there is none.</summary>
     public const string ReworkAct = "ReworkAct";
 
+    /// <summary>2026-10-08-2123: a person moved the ticket back into a trigger status after the previous
+    /// attempt (<see cref="Runs.ReworkAct"/>, channel Status), read from the tracker's history; kept
+    /// apart from <see cref="ReworkAct"/> so a later keyword comment does not hide it.</summary>
+    public const string StatusBackAct = "StatusBackAct";
+
     /// <summary>2026-10-08-e8b9d: the review on the previous attempt's open pull requests
     /// (IReadOnlyList&lt;Reviews.PrReviewFeedback&gt;), already filtered to what counts as feedback.</summary>
     public const string PrReviewFeedback = "PrReviewFeedback";

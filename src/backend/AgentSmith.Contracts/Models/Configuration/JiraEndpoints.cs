@@ -22,7 +22,15 @@ public sealed record JiraEndpoints
     /// <summary>Issue collection path (POST = create). No <c>{id}</c> — it addresses the collection.</summary>
     public string Create { get; init; } = "/rest/api/3/issue";
 
+    /// <summary>2026-10-08-2123: an issue's paged history (Cloud). A Data Center points this at the issue
+    /// itself with <c>?expand=changelog</c>; the reader takes either shape.</summary>
+    public string Changelog { get; init; } = "/rest/api/3/issue/{id}/changelog";
+
+    /// <summary>2026-10-08-2123: who the token is.</summary>
+    public string Myself { get; init; } = "/rest/api/3/myself";
+
     public string IssueFor(string key) => Issue.Replace("{id}", key);
+    public string ChangelogFor(string key) => Changelog.Replace("{id}", key);
     public string CommentFor(string key) => Comment.Replace("{id}", key);
     public string TransitionsFor(string key) => Transitions.Replace("{id}", key);
 }

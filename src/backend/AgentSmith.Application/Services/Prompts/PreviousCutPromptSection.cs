@@ -29,6 +29,7 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.TicketEdit) sb.AppendLine(TicketEditParagraph(previous));
         if (cause == SpecRevisionCause.Comment) sb.AppendLine(CommentParagraph(previous));
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
+        if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
         if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
         foreach (var phase in previous.Phases)
         {
@@ -59,8 +60,20 @@ public static class PreviousCutPromptSection
     // 2026-10-08-f114: with nothing left to run, the only place the input can go is AFTER the head.
     private static string AppendParagraph(SpecSet previous, string cause) =>
         $"Every phase above has executed. Repeat them unchanged and ADD new phases after them that carry out "
-        + $"what {(cause == SpecRevisionCause.Rework ? "the pull request review section" : "the ticket conversation and the current ticket text")} "
+        + $"what {Source(cause)} "
         + $"asks — at most {SpecSet.MaxPhases - previous.Executed.Count} new phase(s).";
+
+    private static string Source(string cause) => cause switch
+    {
+        SpecRevisionCause.Rework => "the pull request review section",
+        SpecRevisionCause.StatusBack => "the ticket conversation, the current ticket text and the pull request review section",
+        _ => "the ticket conversation and the current ticket text",
+    };
+
+    // 2026-10-08-2123: a person moved the finished ticket back — the feedback is wherever they wrote it.
+    private static string StatusBackParagraph(SpecSet previous) =>
+        $"A person moved the ticket back to work after revision {previous.Current.Number} ran — what they want is in the "
+        + "ticket conversation, the current ticket text and the pull request review section above.";
 
     private static string CommentParagraph(SpecSet previous) =>
         $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "

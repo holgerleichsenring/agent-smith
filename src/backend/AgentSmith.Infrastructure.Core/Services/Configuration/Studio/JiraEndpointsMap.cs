@@ -20,6 +20,8 @@ internal static class JiraEndpointsMap
         ("comment", e => e.Comment, (e, v) => e with { Comment = v }),
         ("transitions", e => e.Transitions, (e, v) => e with { Transitions = v }),
         ("create", e => e.Create, (e, v) => e with { Create = v }),
+        ("changelog", e => e.Changelog, (e, v) => e with { Changelog = v }), // 2026-10-08-2123
+        ("myself", e => e.Myself, (e, v) => e with { Myself = v }),
     ];
 
     /// <summary>The overridden paths, or null when every path is the default.</summary>

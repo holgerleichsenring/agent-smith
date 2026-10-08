@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>Thin Azure DevOps WorkItemTracking orchestrator: field mapping in
 /// <see cref="AzureDevOpsFieldMapper"/>, connection in <see cref="AzureDevOpsConnectionCache"/>.</summary>
-public sealed class AzureDevOpsTicketProvider : ITicketProvider
+public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
 {
     private readonly string _project;
     private readonly string _doneStatus;
@@ -199,4 +199,12 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider
 
     private static string ToHtml(string markdown) =>
         string.IsNullOrEmpty(markdown) ? markdown : Markdown.ToHtml(markdown, MarkdownPipeline);
+
+    // 2026-10-08-2123: state changes and who the token is, read by a collaborator.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        new AzureDevOpsStatusHistory(_connections, _project).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+
+    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
+        new AzureDevOpsStatusHistory(_connections, _project).SelfAsync(cancellationToken);
 }

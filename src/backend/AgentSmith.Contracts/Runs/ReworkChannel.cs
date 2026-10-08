@@ -6,4 +6,6 @@ public enum ReworkChannel
 {
     Ticket,
     PullRequest,
+    // 2026-10-08-2123: a person moved a finished ticket back into a trigger status.
+    Status,
 }

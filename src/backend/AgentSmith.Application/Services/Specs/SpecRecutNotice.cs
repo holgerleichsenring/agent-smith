@@ -29,6 +29,8 @@ public static class SpecRecutNotice
                 ("A re-cut was demanded on the ticket after", "from the ticket as it now reads"),
             SpecRevisionCause.Rework =>
                 ("Changes were requested on the pull request after", "with the review in view"),
+            SpecRevisionCause.StatusBack =>
+                ("The ticket was moved back to work after", "with the feedback since in view"),
             _ => (null, null),
         };
         if (since is null) return string.Empty;

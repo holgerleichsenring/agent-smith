@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>Thin GitLab REST v4 orchestrator; mapping, listing, auth and attachments live in their own types.</summary>
-public sealed class GitLabTicketProvider : ITicketProvider
+public sealed class GitLabTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -179,4 +179,12 @@ public sealed class GitLabTicketProvider : ITicketProvider
         "opened" or "open" or "reopen" => "reopen",
         var s => s
     };
+
+    // 2026-10-08-2123: reopens and who the token is, read by a collaborator.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        new GitLabStatusHistory(_http, _baseUrl, _projectPath).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+
+    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
+        new GitLabStatusHistory(_http, _baseUrl, _projectPath).SelfAsync(cancellationToken);
 }

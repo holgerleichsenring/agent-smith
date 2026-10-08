@@ -40,6 +40,8 @@ public static class SpecAmendmentRule
         if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxPhases) return false;
         if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)
             || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)) return true;
+        // 2026-10-08-2123: a move back amends only by appending to a fully executed set.
+        if (string.Equals(cause, SpecRevisionCause.StatusBack, StringComparison.Ordinal)) return IsAppend(cause, set);
         if (set.Approval is not null) return false;
         return cause switch
         {
@@ -54,5 +56,5 @@ public static class SpecAmendmentRule
     public static bool IsAppend(string cause, SpecSet set) =>
         set.UnexecutedTail.Count == 0 && set.Executed.Count > 0
         && cause is SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit
-            or SpecRevisionCause.RecutDemand or SpecRevisionCause.Rework;
+            or SpecRevisionCause.RecutDemand or SpecRevisionCause.Rework or SpecRevisionCause.StatusBack;
 }

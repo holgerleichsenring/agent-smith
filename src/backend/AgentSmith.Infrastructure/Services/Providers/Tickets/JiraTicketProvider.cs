@@ -15,7 +15,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// Thin Jira Cloud REST v3 orchestrator. Mapping in <see cref="JiraFieldMapper"/>, ADF in
 /// <see cref="JiraAdfRenderer"/>, search in <see cref="JiraIssueSearcher"/>, transitions in <see cref="JiraTransitioner"/>.
 /// </summary>
-public sealed class  JiraTicketProvider : ITicketProvider
+public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf
 {
     private readonly string _baseUrl;
     private readonly TicketProviderHttpClient _http;
@@ -60,15 +60,13 @@ public sealed class  JiraTicketProvider : ITicketProvider
     }
 
     // "Who am I": the cheapest authenticated call that proves the credentials and the site.
-    private const string MyselfEndpoint = "/rest/api/3/myself";
-
     public async Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         try
         {
             using var _ = await _http.SendForJsonOrThrowAsync(
-                HttpMethod.Get, $"{_baseUrl}{MyselfEndpoint}", null, cancellationToken);
+                HttpMethod.Get, $"{_baseUrl}{_endpoints.Myself}", null, cancellationToken);
             return ConnectionProbeResult.Reachable(stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
@@ -184,4 +182,12 @@ public sealed class  JiraTicketProvider : ITicketProvider
     public Task<TicketFinalizeResult> FinalizeAsync(
         TicketId ticketId, string comment, string? doneStatus, CancellationToken cancellationToken)
         => _finalizer.FinalizeAsync(ticketId, comment, doneStatus, cancellationToken);
+
+    // 2026-10-08-2123: the status history and who the token is, read by a collaborator.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        new JiraStatusHistory(_http, _baseUrl, _endpoints).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+
+    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
+        new JiraStatusHistory(_http, _baseUrl, _endpoints).SelfAsync(cancellationToken);
 }

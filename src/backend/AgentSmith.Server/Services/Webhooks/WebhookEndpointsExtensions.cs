@@ -51,6 +51,9 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IWebhookHandler, AzureDevOpsWorkItemCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, AzureDevOpsPrCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, JiraAssigneeWebhookHandler>();
+        // 2026-10-08-2123: after the assignee handler — one delivery is taken once.
+        services.AddSingleton<StatusBackGate>();
+        services.AddSingleton<IWebhookHandler, JiraStatusWebhookHandler>();
         services.AddSingleton<IWebhookHandler, JiraCommentWebhookHandler>();
         // p0167a: pr-opened / pr-synchronize -> pr-review. Registered AFTER the
         // label/comment handlers so existing triggers keep first-match precedence.

@@ -50,6 +50,10 @@ public static class SpecRevisionCause
     /// on the ticket nor a demand, and as a plain re-trigger it would amend nothing executed.</summary>
     public const string Rework = "rework requested on the pull request";
 
+    /// <summary>2026-10-08-2123: a person moved the fully executed ticket back into a trigger status
+    /// with feedback since — see <see cref="StatusBackCause"/>.</summary>
+    public const string StatusBack = "moved back to a trigger status";
+
     /// <summary>2026-09-17-0e79a: the set was approved in the design conversation. The cause names
     /// the conversation it was approved in, so the revision history says which approval this
     /// revision is.</summary>
@@ -69,6 +73,7 @@ public static class SpecRevisionCause
         if (!resuming && Demanded(previous.Set, pipeline) is not null) return RecutDemand;
         if (!resuming && pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var act)
             && act?.Channel == ReworkChannel.PullRequest) return Rework;
+        if (!resuming && StatusBackCause.Applies(previous.Set, ticket, pipeline)) return StatusBack;
         if (!resuming && IsEdited(previous.Set, ticket)) return TicketEdit;
         if (!resuming && IsCommented(pipeline)) return Comment;
         if (pointer is null

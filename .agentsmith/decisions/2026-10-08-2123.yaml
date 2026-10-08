@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-2123
+
+decisions:
+  - category: Architecture
+    chose: "A status move back is claimed through today's paths; the run reads the move from the tracker's history (ContextKeys.StatusBackAct)"
+    over: "Handing finished tickets from the dispatcher and the poller to the nudge worker"
+    reason: "The hand-off re-entered the dispatcher, stalled the capacity FIFO and changed first-run behaviour; today's claim already starts a moved ticket once, under the lease."
+  - category: Implementation
+    chose: "StatusBackGate acts only for a non-empty trigger_statuses holding the status, a finished code attempt, a payload time after what the attempt read, and an actor other than the tracker token"
+    over: "Dispatching every status delivery like the sibling handlers"
+    reason: "A status entry must never become a first-run trigger, post the zero-match comment, re-start on a redelivery, or treat Retry's own move as a person's."
+  - category: Implementation
+    chose: "TrackerIdentity caches who each tracker's token is, shared by the webhook gate and the run's history read"
+    over: "Each history reader asking the tracker itself"
+    reason: "One question, one cached answer per tracker; a tracker that cannot say is asked again rather than cached as nobody."
+  - category: Implementation
+    chose: "Jira reads the changelog's last page by total; a 404 or a configured expand=changelog reads changelog.histories; GitHub reads all issue events through Octokit; GitLab pages state events until a short page; Azure DevOps pages updates by 200"
+    over: "The spec's Link rel=last for GitHub and x-total-pages for GitLab"
+    reason: "Octokit pages the events itself and TicketProviderHttpClient returns no headers; reopen and state-event lists are short, so reading forward costs a few calls at most."
+  - category: Implementation
+    chose: "StatusBack names the revision only in the IsAppend shape with feedback — a foreign comment or review note after the cutoff, or a changed fingerprint; NeedsModel(StatusBack) is IsAppend"
+    over: "StatusBack for every move"
+    reason: "A move back over an unexecuted tail is today's retry; a move with nothing new has nothing to append."

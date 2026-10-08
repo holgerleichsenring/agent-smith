@@ -640,7 +640,12 @@
               "type": "string",
               "description": "List/apply workflow transitions. Default /rest/api/3/issue/{id}/transitions."
             },
-            "create": { "type": "string", "description": "Create an issue. Default /rest/api/3/issue." }
+            "create": { "type": "string", "description": "Create an issue. Default /rest/api/3/issue." },
+            "changelog": {
+              "type": "string",
+              "description": "An issue's status history. Default /rest/api/3/issue/{id}/changelog; a Data Center sets /rest/api/2/issue/{id}?expand=changelog."
+            },
+            "myself": { "type": "string", "description": "Who the token is. Default /rest/api/3/myself." }
           },
           "additionalProperties": false
         },
