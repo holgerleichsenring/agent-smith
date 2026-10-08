@@ -419,6 +419,7 @@ export function SpecDialogSurface() {
                   onAttach={(file) => void dialog.attach(file, project)}
                   onAttachSite={(files, leftOut) => void dialog.attachSite(files, project, leftOut)}
                   note={dialog.uploadNote}
+                  left={leftOf(session)}
                 />
               )}
             </section>
@@ -434,6 +435,8 @@ export function SpecDialogSurface() {
               paneRef={pane}
               panelRef={panel}
               marked={inspects > 0}
+              dialogId={dialog.dialogId}
+              onRefresh={dialog.refresh}
             />
           </div>
         </div>
@@ -443,4 +446,11 @@ export function SpecDialogSurface() {
       <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
+}
+
+/** 2026-10-08-e8b9h: what the conversation may still take under its byte cap; null before a
+ *  conversation exists, so the first upload — which opens it — is not pre-checked. */
+function leftOf(session: { uploadBytes?: number; uploadCapBytes?: number } | null): number | null {
+  if (!session?.uploadCapBytes) return null;
+  return Math.max(0, session.uploadCapBytes - (session.uploadBytes ?? 0));
 }

@@ -108,12 +108,14 @@ export interface SelectionTotals {
   over: string | null;
 }
 
-/** The totals of what will actually be sent, against the set's bounds. */
-export function totalsOf(sent: File[]): SelectionTotals {
+/** The totals of what will actually be sent, against the set's bounds — and, 2026-10-08-e8b9h,
+ *  against what the conversation has `left` under its byte cap (null: nothing known to check). */
+export function totalsOf(sent: File[], left: number | null = null): SelectionTotals {
   const bytes = sent.reduce((sum, file) => sum + file.size, 0);
   const over: string[] = [];
   if (bytes > MAX_SET_BYTES) over.push(`${megabytes(bytes - MAX_SET_BYTES)} over the 25 MB a set may hold`);
   if (sent.length > MAX_FILES) over.push(`${sent.length - MAX_FILES} files over the ${MAX_FILES} a set may hold`);
+  if (left !== null && bytes > left) over.push(`${sizeOf(bytes)} where the conversation has ${sizeOf(left)} left`);
   return { files: sent.length, bytes, over: over.length > 0 ? over.join("; ") : null };
 }
 
@@ -135,6 +137,14 @@ export function leftOutOf(entries: SelectionEntry[], ticks: boolean[]): PickLeft
 /** A size as the card states it. */
 export function megabytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "")} MB`;
+}
+
+/** 2026-10-08-e8b9h: a size the way a file manager says it — the transcript chip, the uploads
+ *  panel and the composer's refusal state sizes this one way. */
+export function sizeOf(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** A ticked entry's left-out files by reason; what a .gitignore left out counts only where the

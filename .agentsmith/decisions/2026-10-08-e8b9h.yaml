@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9h
+
+decisions:
+  - category: Architecture
+    chose: "useDialogUploads owns remove, its confirmation and its note; DialogUploadsPanel renders its own ConfirmDialog"
+    over: "Routing the removal through useSpecDialog and the surface's confirmation"
+    reason: |
+      useSpecDialog is 755 lines; it only gains refresh() (arm reseed, load), which a removal
+      needs so the transcript drops the chip. The surface file stays its size.
+  - category: Implementation
+    chose: "An image's removal prompt names its moment in UTC (yyyy-MM-dd HH:mm UTC)"
+    over: "The browser's locale format"
+    reason: |
+      An image has no name in the view. A UTC moment reads the same for every viewer and pins
+      deterministically in a test.
+  - category: Implementation
+    chose: "Composer refusal for an over-cap pick is local state shown in place of the hook's upload note"
+    over: "Writing it into the hook's upload note"
+    reason: |
+      Nothing was sent, so nothing the page-level hook knows changed; the next pick that fits
+      clears it.
+  - category: Implementation
+    chose: "sizeOf moved beside megabytes in referenceSelection.ts; chip, panel and composer use it"
+    over: "Converting every size to megabytes"
+    reason: |
+      The chip's file-manager wording (B, KB, MB) already existed; one formatter keeps the three
+      surfaces saying a size the same way. The selection card keeps megabytes for its totals.

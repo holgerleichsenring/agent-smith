@@ -8,6 +8,7 @@ import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } 
 import { DialogProposalCard } from "./DialogProposalCard";
 import { DialogDocumentCard } from "./DialogDocumentCard";
 import { documentBlocks } from "./documentBlocks";
+import { sizeOf } from "./referenceSelection";
 
 // 2026-09-15-cb3e: the conversation in order. What the agent sent is MARKDOWN and is
 // rendered as such — the framework composes its lines for this channel and the design
@@ -134,12 +135,6 @@ function ReferenceSetChip({ set }: { set: SpecDialogReferenceSet }) {
   );
 }
 
-/** A set's size the way a file manager says it. */
-function sizeOf(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function Decision({ entry }: { entry: DialogEntry }) {
   const approved = entry.decision === "approved";
