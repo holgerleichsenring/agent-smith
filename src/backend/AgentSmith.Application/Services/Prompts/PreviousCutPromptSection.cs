@@ -28,6 +28,8 @@ public static class PreviousCutPromptSection
         sb.AppendLine($"Cause of the revision you are writing now: {cause}");
         if (cause == SpecRevisionCause.TicketEdit) sb.AppendLine(TicketEditParagraph(previous));
         if (cause == SpecRevisionCause.Comment) sb.AppendLine(CommentParagraph(previous));
+        if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
+        if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
         foreach (var phase in previous.Phases)
         {
             var executed = previous.Executed.Contains(phase.PhaseId, StringComparer.Ordinal);
@@ -48,6 +50,17 @@ public static class PreviousCutPromptSection
         + "above are the CURRENT text: cut the phases that have not started from it — drop what "
         + "the ticket no longer asks for, add what it now asks for, keep what still holds. "
         + "Executed phases stay exactly as they are.";
+
+    private static string ReworkParagraph(SpecSet previous) =>
+        $"A reviewer requested changes on the pull request after revision {previous.Current.Number} was cut — "
+        + "the review is in the pull request review section above. Amend the phases that have not started as it "
+        + "asks. Executed phases stay exactly as they are.";
+
+    // 2026-10-08-f114: with nothing left to run, the only place the input can go is AFTER the head.
+    private static string AppendParagraph(SpecSet previous, string cause) =>
+        $"Every phase above has executed. Repeat them unchanged and ADD new phases after them that carry out "
+        + $"what {(cause == SpecRevisionCause.Rework ? "the pull request review section" : "the ticket conversation and the current ticket text")} "
+        + $"asks — at most {SpecSet.MaxPhases - previous.Executed.Count} new phase(s).";
 
     private static string CommentParagraph(SpecSet previous) =>
         $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "

@@ -81,6 +81,11 @@ public sealed class SpecDerivationParser(
                 $"{phaseElements.Count} phases exceed the maximum of {SpecSet.MaxPhases} — "
                 + "merge the smaller ones");
 
+        // 2026-10-08-f114: the head's positions are discarded, but a reply that does not even reach
+        // past them dropped the set it was asked to repeat — refused, so the deriver asks again.
+        if (phaseElements.Count < executedHead.Count)
+            return new Parsed(null,
+                $"the reply has {phaseElements.Count} phase(s) but {executedHead.Count} already ran — repeat them first");
         var built = new List<SpecPhase>(executedHead);
         for (var i = executedHead.Count; i < phaseElements.Count; i++)
         {

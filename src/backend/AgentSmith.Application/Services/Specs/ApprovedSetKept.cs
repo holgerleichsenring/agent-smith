@@ -57,14 +57,15 @@ public static class ApprovedSetKept
     public const string TheDoor =
         "If you cannot reach the branch at all, there is one deliberate exception: write a comment "
         + "whose FIRST line says nothing but `" + SpecSetComment.RecutDemand + "`, and the next "
-        + "run cuts the unstarted phases again from the ticket. Any other first line is an "
+        + "run cuts the unstarted phases again from the ticket, or adds phases after the ones that "
+        + "ran when none is left. Any other first line is an "
         + "ordinary comment and changes nothing.";
 
     private const string OnTheBranch = "The specs are on the ticket branch under `" + SeriesPaths.Planned + "/`";
 
     private const string TheEditRule =
         "Edit a phase that has NOT started there and the next run works your edit; a phase that "
-        + "already ran is never edited, so a correction to one becomes a new phase.";
+        + "already ran is never edited, so a correction to one becomes a new phase after it.";
 
     // The input this run saw and kept, or null when nothing arrived that would have re-cut a set
     // nobody approved. Not public: the three questions callers actually ask are below.
