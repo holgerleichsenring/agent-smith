@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-e8b9f
-goal: "An approved spec has no markdown companion, so none is written and the viewer says so; 'No phase document found' stays for a derived spec whose companion is really missing."
+goal: "A conversation-approved spec has no markdown companion, so none is written and the viewer says so; 'No phase document found' stays for a derived spec whose companion is really missing."
 
 applies_to: "backend (spec viewer copy, series file rendering, done files)"
 
@@ -21,6 +21,10 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:47-49"
   - claim: "The fallback companion is BuildWholeTicketMarkdown."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:41-44"
+  - claim: "A ticket-demanded re-cut records an approval with an empty conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:75-82"
+  - claim: "The run's publish removes stale planned files right after writing the rendered ones."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesWriter.cs:51-58"
   - claim: "A set read back off the branch has Source BranchArtifact and carries the manifest's approval."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:104-107"
   - claim: "The manifest stores the approval instant, conversation and principal."
@@ -46,24 +50,27 @@ assumptions:
 
 scope:
   in: >
-    The viewer tells an approved spec's missing companion from a derived one's. Neither writer
-    puts a blank companion on the branch, and the next revision of an approved series removes the
-    empty .md an earlier filing left.
+    The viewer tells a conversation-approved spec's missing companion from a model-cut one's.
+    Neither writer puts a blank companion on the branch. The empty .md an earlier filing left is
+    removed by the next run's publish (SeriesWriter, via SeriesStaleFiles), not by re-filing
+    through FiledSpecBranch; on a branch filed before the fix that cleanup is one commit with no
+    other change. SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale pins that existing
+    behaviour; it is not proof of the change.
   out: >
     The slug cut mid-word ('…-api-client-libra'), which is 2026-09-07-e9a2 (phase-slug-product-bound).
     Runs whose viewer copy was cached before the fix keep their text. Redeploying the operator's
     server is operator work.
 
 decisions:
-  - key: "APPROVAL DECIDES, NOT SOURCE. A filed approved series reads back as BranchArtifact; set.Approval survives that read, Source does not."
+  - key: "A NAMED CONVERSATION DECIDES, NOT SOURCE. A filed approved series reads back as BranchArtifact; its approval survives that read, Source does not. A ticket-demanded re-cut also carries an approval, with an empty conversation, on a model-cut set whose companions are never blank — so only an approval naming a conversation means 'no companion by construction'."
   - key: "WRITE NOTHING RATHER THAN AN EMPTY FILE. An empty .md reads like a lost document to anyone browsing the branch; every reader already treats absent as empty."
   - key: "KEEP THE ALARM FOR DERIVED SETS. A derived companion is never blank, so blank there means a failed or partial spec commit (p0394)."
 
 steps:
   - id: viewer
-    action: "In AppendPhaseDocuments, render a blank companion of a set with Approval as 'Approved in the design conversation — the spec is the whole document; it has no ticket companion.' and keep the not-found text otherwise."
+    action: "In AppendPhaseDocuments, render a blank companion of a set whose approval names a conversation (set.Approval is { Conversation.Length: > 0 }) as 'Approved in the design conversation — the spec is the whole document; it has no ticket companion.' and keep the not-found text otherwise."
     modify:
-      - "SpecMarkdown: notice keyed on set.Approval"
+      - "SpecMarkdown: notice keyed on the approval's conversation"
   - id: render
     action: "Skip the companion entry in SeriesFiles.Render when Markdown is blank."
     modify:
@@ -79,12 +86,13 @@ tests:
   - "Render_ApprovedPhaseWithoutDocument_SaysApprovedNotNotFound"
   - "Render_DerivedPhaseWithoutDocument_NamesTheLookedUpPath"
   - "Render_BranchReadApprovedSet_SaysApprovedNotNotFound"
+  - "Render_DemandRecutSetWithoutDocument_NamesTheLookedUpPath"
   - "SeriesFiles_BlankCompanion_RendersNoMarkdownFile"
   - "SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale"
   - "SpecDoneFiles_BlankCompanion_WritesNoDoneMarkdownAndNamesThePlannedOne"
   - "Filing_ApprovedSet_WritesNoCompanion"
 
 done:
-  - "An approved set's run viewer shows no 'No phase document found' line; a derived set with a blank companion still shows it with the planned path."
+  - "A conversation-approved set's run viewer shows no 'No phase document found' line; a derived or demand-re-cut set with a blank companion still shows it with the planned path."
   - "Filing an approved set writes the manifest and the spec yamls, no .md."
   - "Full suite green."
