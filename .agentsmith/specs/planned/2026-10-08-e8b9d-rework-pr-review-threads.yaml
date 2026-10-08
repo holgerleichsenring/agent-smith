@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9d
+goal: "A rework attempt reads the review on its open pull requests — unresolved threads and comments since the previous attempt, without ours or bots' — and the model sees it as feedback."
+
+applies_to: "backend (source providers, ticket context, prompt sections)"
+
+requires: [2026-10-08-e8b9b]
+
+facts:
+  - claim: "The PR comment surface posts and deletes; nothing lists comments, threads or their resolved state."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/IPrCommentProvider.cs:14-32"
+  - claim: "GitHub lists review and issue comments through Octokit and already posts raw JSON through client.Connection."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:198-200,225-252"
+  - claim: "GitLab reads merge-request notes over raw HTTP, paged by 100."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:281-299"
+  - claim: "GitLab's MR discussions endpoint returns notes with resolvable, resolved and system; the users API carries a bot attribute."
+    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/api/discussions.md (GET /projects/:id/merge_requests/:merge_request_iid/discussions) and doc/api/users.md"
+  - claim: "Azure DevOps lists PR threads with GetThreadsAsync and skips deleted ones."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:236-245"
+  - claim: "A thread's status is Active, Pending, Fixed, WontFix, Closed, ByDesign or Unknown; a comment's type includes System."
+    evidence: "observed: 2026-10-08, Microsoft.TeamFoundationServer.Client 19.225.2 Microsoft.TeamFoundation.SourceControl.WebApi.xml, CommentThreadStatus and CommentType"
+  - claim: "Providers address an existing PR by its URL and parse the host identifier themselves."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:84-88"
+  - claim: "Our PR comments open with '<!-- agentsmith:'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PostPrCommentsHandler.cs:21"
+  - claim: "Each run keeps one PR outcome per repo (status opened carries the URL) in PullRequestsJson."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PullRequestContracts.cs:3-18, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:44-54"
+  - claim: "Ticket extras are fetched fail-soft and an empty result sets nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:36-56"
+  - claim: "The ticket conversation is wrapped in the untrusted-data delimiters."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:56"
+
+assumptions:
+  - claim: "GitHub exposes thread resolution only through GraphQL pullRequest.reviewThreads (isResolved, comments with author __typename, createdAt, body, path, line)."
+    check: "Run the query against a test PR with one resolved and one open thread before building."
+  - claim: "Azure DevOps marks no bot identities; System comments are its only machine-authored marker."
+    check: "Read IdentityRef in the same SDK documentation for a bot or service flag."
+
+scope:
+  in: >
+    IPrReviewThreadReader.ListAsync(prUrl) on the three source providers, returning threads (file, line,
+    resolved or not resolvable) with notes (author, bot, created, body). PreviousAttempt carries each repo's
+    latest opened PR URL across the ticket's runs. PrReviewFeedback keeps a thread when it is unresolved or
+    has a note after the previous attempt's start, dropping our notes, bot notes and system notes. A fetcher
+    beside TicketExtrasFetcher fills ContextKeys.PrReviewFeedback fail-soft; one prompt section renders it
+    in the delimiters for the master and the spec derivation, after the ticket feedback.
+  out: "The trigger (2026-10-08-e8b9c). Answering or resolving threads."
+
+decisions:
+  - key: "UNRESOLVED OR NEW, NOT EVERYTHING. A resolved thread is settled unless someone wrote in it since the previous attempt; a comment that cannot be resolved counts only when new."
+  - key: "OURS BY MARKER, NOT BY ACCOUNT. The token's account may be the operator's own, so authorship would drop a human's review."
+  - key: "A BOT IS WHAT THE HOST SAYS: GitHub's Bot actor, GitLab's bot user attribute, Azure DevOps System comments. No name patterns."
+  - key: "READ IN THE RUN, NOT IN THE WEBHOOK. The ticket-side act and the poller need the same review, and a resumed attempt reads it fresh."
+
+steps:
+  - id: contract
+    action: "Add IPrReviewThreadReader, PrReviewThread and PrReviewNote; extend PreviousAttempt with PR URLs per repo."
+  - id: providers
+    action: "Implement ListAsync: GitHub GraphQL reviewThreads plus issue comments; GitLab discussions, bot read from the users API once per author; Azure DevOps GetThreadsAsync, resolved when not Active or Pending."
+  - id: select
+    action: "Add PrReviewFeedback.Select(threads, since)."
+  - id: run
+    action: "Add PrReviewFeedbackFetcher to FetchTicketHandler and PrReviewFeedbackPromptSection to the master and SpecPromptComposer."
+
+tests:
+  - "Select_ResolvedThreadNoNewNote_Dropped"
+  - "Select_ResolvedThreadNoteAfterAttempt_Kept"
+  - "Select_UnresolvedOldThread_Kept"
+  - "Select_OurMarkedNote_Dropped"
+  - "Select_BotAndSystemNotes_Dropped"
+  - "Select_TopLevelCommentBeforeAttempt_Dropped"
+  - "GitLabListAsync_Discussions_MapsResolvedAndSystem"
+  - "AzureDevOpsListAsync_FixedThread_IsResolved"
+  - "GitHubListAsync_GraphQlReply_MapsThreadsAndBot"
+  - "Fetcher_ReaderThrows_RunContinuesWithoutFeedback"
+  - "PromptSection_Feedback_RendersFileLineInsideDelimiters"
+
+done:
+  - "A rework attempt's master prompt holds the unresolved threads and the comments since the previous attempt, file and line named, without our or bot notes."
+  - "A provider failure costs the section, not the run; full suite green."

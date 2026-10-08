@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9a
+goal: "GitLab issue hooks, GitLab issue notes and every Azure DevOps service hook reach their handlers, an Azure DevOps comment is read from System.History, and the docs name the events to subscribe."
+
+applies_to: "backend (webhook detection and the ticket-comment handlers) + docs"
+
+requires: []
+
+facts:
+  - claim: "The detector reads the platform from headers only; GitLab's event header is lowercased unless it names a merge request; Azure DevOps is recognised only by an X-Azure-DevOps-EventType header."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookPlatformDetector.cs:23-32"
+  - claim: "A delivery with no recognised platform is answered 200 'Unknown platform' and dispatched nowhere."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:24-29"
+  - claim: "Only /webhook, /webhook/github, /webhook/gitlab and /webhook/jira are mapped; none names Azure DevOps."
+    evidence: "src/backend/AgentSmith.Server/Extensions/WebhookEndpoints.cs:16-19"
+  - claim: "The GitLab issue-note handler compares 'Note Hook' and the issue handler 'Issue Hook' — mixed case the detector never emits — while the MR-note handler compares 'note hook'."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs:24-25, src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs:21-22, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrCommentWebhookHandler.cs:19-20"
+  - claim: "Dispatch asks each handler's CanHandle and the first Handled result wins."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:97-108"
+  - claim: "The Azure DevOps work-item comment handler reads the comment from resource.text."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs:36-38"
+  - claim: "Microsoft's workitem.commented sample carries the comment in resource.fields['System.History'] and has no resource.text; every sample carries top-level eventType and publisherId 'tfs'."
+    evidence: "observed: 2026-10-08, MicrosoftDocs azure-devops-docs docs/service-hooks/events.md, section workitem.commented sample payload"
+  - claim: "The Web Hooks consumer sends custom headers only when the subscription lists them (httpHeaders, optional)."
+    evidence: "observed: 2026-10-08, MicrosoftDocs azure-devops-docs docs/service-hooks/consumers.md, Web Hooks consumer settings table"
+  - claim: "Ticket HTML is turned into text by one converter."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketHtmlConverter.cs:15-19"
+  - claim: "The Azure DevOps setup names only 'Work item updated'; the tracker page claims the platform is detected from the payload."
+    evidence: "docs/trigger-it/webhooks.md:13-15, docs/connect-your-stuff/tracker-azure-devops.md:178"
+  - claim: "The only casing test is the MR-note handler's; the GitLab issue-handler tests call HandleAsync directly, so CanHandle is never exercised; no test names the issue-comment handlers of GitHub, GitLab or Azure DevOps."
+    evidence: "tests/AgentSmith.Tests/Webhooks/GitLabMrCommentWebhookHandlerTests.cs:43-50, tests/AgentSmith.Tests/Integration/InitProjectLabelTriggerSmokeTests.cs:117-147"
+
+assumptions:
+  - claim: "GitLab sends X-Gitlab-Event 'Issue Hook' and 'Note Hook' for issues and their notes."
+    check: "GitLab webhook_events.md shows both header values; a recorded delivery in the routing test pins them."
+
+scope:
+  in: >
+    Body detection for Azure DevOps when no platform header is present; GitLab handler event names
+    in the detector's casing; the Azure DevOps comment text from System.History converted to text;
+    a routing test from recorded headers/bodies through Detect to the one handler that accepts them;
+    handler tests for the four ticket-comment handlers; docs for the events to subscribe.
+  out: >
+    What a comment starts once it arrives (2026-10-08-e8b9b). Confidential GitLab hooks.
+    Azure DevOps PR votes (2026-10-08-e8b9c).
+
+decisions:
+  - key: "DETECT AZURE DEVOPS FROM THE BODY. Its service hooks send no platform header by default; publisherId 'tfs' with a string eventType is Microsoft's own envelope. The header path stays first so a subscription that sets it keeps working."
+  - key: "ONE CASING, THE DETECTOR'S. Handlers compare the lowercased GitLab names the detector already emits and the MR-note handler already uses; changing the detector would break that handler instead."
+  - key: "System.History IS THE COMMENT. No fallback to resource.text: the documented payload has none, and a guessed second field is a heuristic."
+  - key: "STATED ACTIVATION. Azure DevOps deliveries that were dropped as unknown now reach every Azure DevOps handler, the PR handlers included; the docs say which subscription feeds which."
+
+steps:
+  - id: detect
+    action: "When no platform header matches, read the body: publisherId 'tfs' and a string eventType yield ('azuredevops', eventType)."
+    modify:
+      - "WebhookPlatformDetector: body fallback for Azure DevOps"
+  - id: gitlab
+    action: "Compare 'issue hook' and 'note hook' in the two GitLab issue handlers."
+    modify:
+      - "GitLabIssueWebhookHandler: CanHandle"
+      - "GitLabIssueCommentWebhookHandler: CanHandle"
+  - id: azdo-comment
+    action: "Read resource.fields['System.History'] through TicketHtmlConverter.ToText as the comment text."
+    modify:
+      - "AzureDevOpsWorkItemCommentWebhookHandler: comment text"
+  - id: tests
+    action: "Add a routing test over recorded deliveries and handler tests for the four ticket-comment handlers."
+    new:
+      - "WebhookRoutingTests: Detect then CanHandle, one accepting handler per delivery"
+      - "GitHubIssueCommentWebhookHandlerTests, GitLabIssueCommentWebhookHandlerTests, AzureDevOpsWorkItemCommentWebhookHandlerTests"
+  - id: docs
+    action: "Name 'Work item commented on' for comment_keyword, GitLab 'Comments' for issue notes, and state the body detection."
+    modify:
+      - "docs/trigger-it/webhooks.md, docs/connect-your-stuff/tracker-azure-devops.md"
+
+tests:
+  - "Detect_AzureDevOpsBodyWithoutHeader_ReturnsAzureDevOpsAndEventType"
+  - "Detect_BodyWithoutPublisher_ReturnsUnknown"
+  - "Routing_GitLabNoteHookOnIssue_ReachesIssueCommentHandler"
+  - "Routing_GitLabIssueHook_ReachesIssueHandler"
+  - "Routing_AzureDevOpsWorkItemCommented_ReachesCommentHandler"
+  - "AzureDevOpsComment_KeywordInSystemHistory_Dispatches"
+  - "AzureDevOpsComment_HtmlHistory_KeywordMatchedOnText"
+  - "GitHubIssueComment_KeywordOnPullRequestIssue_NotHandled"
+  - "GitLabIssueComment_NoteOnMergeRequest_NotHandled"
+
+done:
+  - "Microsoft's sample workitem.commented body, posted to /webhook without any custom header, reaches AzureDevOpsWorkItemCommentWebhookHandler and dispatches when the keyword is in System.History."
+  - "A GitLab 'Note Hook' on an issue and an 'Issue Hook' reach their handlers through Detect."
+  - "Docs name the events; full suite green."

@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9e
+goal: "A PR comment command that names a ticket goes through the ticket claim, and a live run on that ticket is answered on the pull request instead of having its lease taken over."
+
+applies_to: "backend (PR comment admission, active-run lease, run start)"
+
+requires: [2026-10-08-e8b9b]
+
+facts:
+  - claim: "An admitted PR command returns a trigger input naming the pipeline and the resolved ticket, with no claim."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:37-39,50-63"
+  - claim: "A trigger input is run fire-and-forget through the free-text entry, which parses the intent again."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:49-53,110-125, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:496-525"
+  - claim: "The run attaches its id to the ticket's lease at start, for ticket runs only."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:80-84,380-385"
+  - claim: "AttachRunAsync overwrites RunId, JobId and heartbeat of whatever row exists, and names the PR-comment path as the one that never claims."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:105-141"
+  - claim: "Release deletes only the holder's row, so the overwritten run's release reports HeldByAnotherRun and both runs work the ticket."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:85-102"
+  - claim: "A fresh lease blocks a claim; one older than ReclaimStaleAfter is reset to an unattached claim."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:30-31,56-79"
+  - claim: "The reconciler re-enqueues a taken ticket whose lease is missing or stale, without a claim."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:82-93"
+  - claim: "The claim service is the one door, with the unmoved gate before the lock."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:25-37"
+  - claim: "A comment may start code, security-scan or pr-review."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentPipelines.cs:20-27"
+  - claim: "The command carries the PR label and reference and the author's repository URL."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommand.cs:10-14, src/backend/AgentSmith.Contracts/Webhooks/PrCommentAuthor.cs:11-15"
+
+assumptions:
+  - claim: "ResumeRunLauncher and the capacity pump attach to a row they claimed themselves, so only an unclaimed launch meets a row held by another fresh run."
+    check: "Read ResumeRunLauncher.cs:37 and the pump's claim before changing AttachRunAsync."
+
+scope:
+  in: >
+    A command whose resolved request names a ticket is launched through the funnel ReworkEntry ends in —
+    extracted as TicketFunnelLaunch (fetch ticket, envelope, SpawnPipelineRunsUseCase) — with the resolved
+    pipeline, not the free-text path. The outcome is answered on the PR with the agentsmith marker: started
+    (run id), queued, refused with the claim's reason, or "run X is working on this ticket". AttachRunAsync
+    refuses a row held by another run whose heartbeat is fresh, and the run fails at attach naming the
+    holder, releasing nothing. Commands without a ticket keep today's path. Docs.
+  out: "Request changes (2026-10-08-e8b9c). Which pipelines a comment may start."
+
+decisions:
+  - key: "THE CLAIM, NOT A CHECK BEFORE IT. A lease read before a launch races a claim; only the INSERT the claim makes is atomic."
+  - key: "SAFETY IN THE API TOO. Routing every caller through the claim fixes today's path; AttachRunAsync refusing a fresh foreign holder stops the next unclaimed path from repeating it. A stale holder is still taken over, as the reconciler needs."
+  - key: "NO REWORK CLEARING HERE. A command on a ticket held by an unmoved fact gets the claim's refusal text; Request changes is the rework act."
+
+steps:
+  - id: funnel
+    action: "Extract TicketFunnelLaunch from ReworkEntry and have ReworkEntry call it."
+  - id: admission
+    action: "In PrCommentCommandAdmission.Route, launch a ticketed request through TicketFunnelLaunch and post the outcome on the PR; return a handled result without a trigger input."
+    modify:
+      - "PrCommentCommandAdmission: ticketed commands claim"
+  - id: lease
+    action: "Make AttachRunAsync return Attached or HeldByAnotherRun(runId) and fail the run on the latter."
+    modify:
+      - "IActiveRunLease, ActiveRunRepository, DbActiveRunLease, NoOpActiveRunLease: attach outcome"
+      - "ExecutePipelineUseCase: fails at attach when held"
+  - id: docs
+    action: "State in docs/reference/integrations/pr-comments.md that a ticketed command goes through the claim and is refused while a run is live."
+
+tests:
+  - "Admission_TicketedCommandLiveLease_CommentsLiveRunAndStartsNothing"
+  - "Admission_TicketedCommandFree_ClaimsOnceAndCommentsRunId"
+  - "Admission_UnmovedTicket_CommentsClaimRefusal"
+  - "Admission_CommandWithoutTicket_KeepsTriggerInput"
+  - "AttachRun_FreshForeignHolder_ReturnsHeldAndKeepsRow"
+  - "AttachRun_StaleForeignHolder_Attaches"
+  - "AttachRun_UnattachedClaim_Attaches"
+  - "Execute_AttachHeld_FailsBeforeFirstStep"
+
+done:
+  - "Two '/agent-smith fix #N' comments while a run works #N start no second run; the PR names the live run."
+  - "No code path leaves two runs holding one ticket's lease; full suite green."
