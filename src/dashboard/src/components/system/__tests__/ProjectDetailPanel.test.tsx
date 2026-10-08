@@ -96,7 +96,16 @@ describe("ProjectDetailPanel", () => {
     expect(tracker).toHaveTextContent("To Do");
     expect(tracker).toHaveTextContent("Done");
     expect(tracker).toHaveTextContent("Failed");
-    expect(tracker).toHaveTextContent("every 120s");
+    expect(tracker).toHaveTextContent("polling every 120s");
     expect(tracker).toHaveTextContent("@agentsmith");
+  });
+
+  // 2026-10-08-101b: the tracker entry's mode, polling or webhooks — never both.
+  it("ProjectDetailPanel_ShowsMode", () => {
+    renderPanel(makeProject(makeResolved(), { pollingEnabled: false }));
+
+    const tracker = screen.getByTestId("trigger-semantics");
+    expect(tracker).toHaveTextContent("webhooks");
+    expect(tracker).not.toHaveTextContent("polling every");
   });
 });

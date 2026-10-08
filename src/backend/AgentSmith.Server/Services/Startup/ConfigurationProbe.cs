@@ -22,5 +22,5 @@ public sealed class ConfigurationProbe(
 
     public Task<IReadOnlyList<StartupFinding>> ProbeAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<StartupFinding>>(
-            [.. validator.Findings(config), .. RoutingPipelineNames.Findings(config)]);
+            [.. validator.Findings(config), .. RoutingPipelineNames.Findings(config), .. TriggerModeFindings.Findings(config)]);
 }

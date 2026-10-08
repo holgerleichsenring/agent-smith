@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// delivery only nudges the ticket; the worker reads the review from GitHub.
 /// </summary>
 public sealed class GitHubPrReviewWebhookHandler(
-    PrReworkAdmission admission, ILogger<GitHubPrReviewWebhookHandler> logger) : IWebhookHandler
+    PrReworkAdmission admission, ILogger<GitHubPrReviewWebhookHandler> logger, TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && eventType == "pull_request_review";
@@ -28,7 +28,10 @@ public sealed class GitHubPrReviewWebhookHandler(
             if (PayloadActTime.Text(root, "action") != "submitted"
                 || !string.Equals(PayloadActTime.Text(review, "state"), "changes_requested", StringComparison.OrdinalIgnoreCase))
                 return WebhookResult.NotHandled("not a submitted request for changes");
-            return await admission.AdmitAsync(Read(root, review), cancellationToken);
+            var request = Read(root, review);
+            // 2026-10-08-101b: a polling project's repository gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(request.RepoUrl) is { } polled) return polled;
+            return await admission.AdmitAsync(request, cancellationToken);
         }
         catch (Exception ex)
         {

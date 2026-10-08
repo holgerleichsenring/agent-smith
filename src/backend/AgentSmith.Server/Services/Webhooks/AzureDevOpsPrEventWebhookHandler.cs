@@ -18,7 +18,8 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
-    ILogger<AzureDevOpsPrEventWebhookHandler> logger) : IWebhookHandler
+    ILogger<AzureDevOpsPrEventWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private static readonly HashSet<string> TriggerEventTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -53,6 +54,8 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
             var repoUrl = repository.GetProperty("remoteUrl").GetString() ?? "";
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return Task.FromResult(polled);
             var route = routeResolver.Resolve(config, "azuredevops", repoUrl, ExtractLabels(resource));
             if (route is null)
                 return Task.FromResult(WebhookResult.NotHandled(

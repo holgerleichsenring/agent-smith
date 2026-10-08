@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// author" (-5) nudges the ticket; the worker reads the standing vote threads from the host.
 /// </summary>
 public sealed class AzureDevOpsPrReviewVoteWebhookHandler(
-    PrReworkAdmission admission, ILogger<AzureDevOpsPrReviewVoteWebhookHandler> logger) : IWebhookHandler
+    PrReworkAdmission admission, ILogger<AzureDevOpsPrReviewVoteWebhookHandler> logger, TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public const string Header = "X-AgentSmith-Change";
     public const string VoteValue = "review-vote";
@@ -33,6 +33,7 @@ public sealed class AzureDevOpsPrReviewVoteWebhookHandler(
             using var doc = JsonDocument.Parse(payload);
             var pr = doc.RootElement.GetProperty("resource");
             var repoUrl = AzureDevOpsPrUrl.RepositoryUrl(pr);
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return polled; // 2026-10-08-101b
             var creator = PayloadActTime.Text(pr, "createdBy", "id");
             var voter = AzureDevOpsPrUrl.VotersAt(pr, -5).FirstOrDefault(v => !string.Equals(v, creator, StringComparison.OrdinalIgnoreCase));
             if (voter is null) return WebhookResult.NotHandled("no Wait-for-author vote in this delivery");

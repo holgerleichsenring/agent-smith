@@ -220,6 +220,22 @@ public sealed class TrackerPollerTests
     private static Ticket MakeTicket(string id, string[] labels, string status = "open")
         => new(new TicketId(id), $"title-{id}", "desc", null, status, "GitHub", labels);
 
+    // 2026-10-08-101b: a poller serves its own entry's projects; another entry's is not a zero match.
+    [Fact]
+    public async Task TrackerPoller_OtherEntrysProject_CountedApart()
+    {
+        var harness = new Harness();
+        harness.WithSharedTracker(TrackerType.GitHub);
+        harness.WithTaggedProject("alpha", "alpha-tag");
+        harness.OnOtherEntry("alpha");
+        harness.WithPendingTickets(MakeTicket("1", labels: new[] { "alpha-tag" }));
+
+        var result = await harness.Build().PollAsync(CancellationToken.None);
+
+        harness.SpawnCallCount.Should().Be(0);
+        result.ZeroMatched.Should().Be(0);
+    }
+
     private sealed class Harness
     {
         public TrackerConnection Tracker { get; private set; } = new()
@@ -291,6 +307,13 @@ public sealed class TrackerPollerTests
                 } : null,
             };
             _projects[name] = project;
+            return this;
+        }
+
+        /// <summary>2026-10-08-101b: the project belongs to another tracker entry of the same type.</summary>
+        public Harness OnOtherEntry(string name)
+        {
+            _projects[name] = _projects[name] with { Tracker = Tracker with { Name = "other-entry" } };
             return this;
         }
 

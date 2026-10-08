@@ -39,9 +39,11 @@ A polled ticket carries its labels and nothing else (no area path, no source rep
 
 On Jira and Azure DevOps the query also asks, by id, for tickets whose specification was approved and still expects work, even when they carry no trigger label, so an approved ticket isn't lost because nobody labelled it. That list is capped at fifty ids per query, oldest approval first, and the poller reports what didn't fit. GitHub and GitLab discovery is unchanged by this; their query doesn't carry the label guard the id list works around.
 
-The claim itself is a database lease, shared with the webhook path — webhook and poll racing on the same ticket resolve to one run.
+A tracker entry runs in one mode. When its `polling` is enabled, webhooks start nothing for the projects on it: a delivery for such a project is answered as not handled, with the reason `project <name> polls tracker <entry>; webhooks start nothing for it`, and no comment is written to the ticket. Webhooks and polling never race on one ticket.
 
 ## Polling vs webhooks
+
+Both modes start the same work; webhooks only start it sooner.
 
 | | Webhooks | Polling |
 |---|---|---|
@@ -71,7 +73,9 @@ You don't need to configure this — it's automatic. Same model is used for the 
 
 ## Mixed mode
 
-You can have webhooks on one tracker and polling on another in the same config. Polling state is per-tracker, so they don't interfere.
+The mode belongs to the tracker entry, so you can have webhooks on one entry and polling on another in the same config. A project's own `polling` block does not change it; the dashboard's project panel shows the mode the entry gives it (`polling every 60s` or `webhooks`).
+
+Each poller serves only the projects on its own entry. A project on a webhook entry is no longer picked up by a polling entry of the same tracker type: if it relied on that, move it to the polling entry or enable polling on its own. When two entries of different modes own projects on one repository, the configuration probe reports an advisory, and pull-request deliveries for that repository start nothing; the PR sweep serves it instead.
 
 ```yaml
 trackers:

@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 public sealed class GitLabMrCommentWebhookHandler(
     PrCommentCommandAdmission admission,
     [FromKeyedServices("gitlab")] IPrCommentAuthorTrust authorTrust,
-    ILogger<GitLabMrCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabMrCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "note hook";
@@ -33,7 +34,10 @@ public sealed class GitLabMrCommentWebhookHandler(
             if (!noteableType.Equals("MergeRequest", StringComparison.OrdinalIgnoreCase))
                 return WebhookResult.NotHandled();
 
-            return await admission.AdmitAsync(ReadCommand(root, attrs), authorTrust, cancellationToken);
+            var command = ReadCommand(root, attrs);
+            // 2026-10-08-101b: before the model — a polling project's repository gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(command.Author.RepositoryUrl) is { } polled) return polled;
+            return await admission.AdmitAsync(command, authorTrust, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -20,7 +20,8 @@ public sealed class GitLabIssueCommentWebhookHandler(
     KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
-    ILogger<GitLabIssueCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabIssueCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "note hook";
@@ -63,7 +64,10 @@ public sealed class GitLabIssueCommentWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(root, "user", "username"), PayloadActTime.Text(noteAttrs, "created_at"));
             return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, noteBody,

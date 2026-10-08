@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -18,7 +19,8 @@ public sealed class GitLabIssueWebhookHandler(
     WebhookSpawnDispatcher dispatcher,
     ApprovedRecordProbe approvals,
     ILogger<GitLabIssueWebhookHandler> logger,
-    StatusBackGate? statusBack = null) : IWebhookHandler
+    StatusBackGate? statusBack = null,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "issue hook";
@@ -55,7 +57,10 @@ public sealed class GitLabIssueWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
 
             logger.LogInformation(
                 "GitLab issue !{Issue} → resolved matches={Count}", issueId, matches.Count);

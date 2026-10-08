@@ -21,7 +21,8 @@ public sealed class GitHubIssueCommentWebhookHandler(
     KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
-    ILogger<GitHubIssueCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitHubIssueCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && eventType == "issue_comment";
@@ -62,7 +63,10 @@ public sealed class GitHubIssueCommentWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
             var comment = root.GetProperty("comment");
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(comment, "user", "login"), PayloadActTime.Text(comment, "created_at"));

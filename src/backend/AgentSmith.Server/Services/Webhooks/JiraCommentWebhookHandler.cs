@@ -20,7 +20,8 @@ public sealed class JiraCommentWebhookHandler(
     KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
-    ILogger<JiraCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<JiraCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "jira" && eventType == "comment_created";
@@ -54,7 +55,10 @@ public sealed class JiraCommentWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(root, "comment", "author", "displayName"), PayloadActTime.Text(root, "comment", "created"));
             return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueStatus, commentBody,

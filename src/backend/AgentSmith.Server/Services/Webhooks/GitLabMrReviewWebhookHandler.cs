@@ -14,7 +14,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// "requested changes" note for the act and its time.
 /// </summary>
 public sealed class GitLabMrReviewWebhookHandler(
-    PrReworkAdmission admission, ILogger<GitLabMrReviewWebhookHandler> logger) : IWebhookHandler
+    PrReworkAdmission admission, ILogger<GitLabMrReviewWebhookHandler> logger, TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "merge_request";
@@ -33,6 +33,7 @@ public sealed class GitLabMrReviewWebhookHandler(
             var reviewer = requesting.FirstOrDefault(r => r != author);
             if (reviewer is null) return WebhookResult.NotHandled("only the author requests changes");
             var repoUrl = PayloadActTime.Text(root, "project", "web_url") ?? string.Empty;
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return polled; // 2026-10-08-101b
             return await admission.AdmitAsync(new PrReviewRequest(RepoType.GitLab, repoUrl, PayloadActTime.Text(mr, "source_branch"),
                 Number(mr, "source_project_id") == Number(mr, "target_project_id"),
                 new PrCommentAuthor(repoUrl, Number(root.GetProperty("project"), "id") ?? string.Empty, reviewer, reviewer),

@@ -95,16 +95,19 @@ internal sealed class WebhookRequestProcessor(
         await tracker.RecordAsync(platform.ToLowerInvariant(), receivedAtUtc);
     }
 
-    private static async Task<WebhookResult> DispatchAsync(
+    internal static async Task<WebhookResult> DispatchAsync(
         IEnumerable<IWebhookHandler> handlers, string platform, string eventType,
         string body, IDictionary<string, string> headers)
     {
+        // 2026-10-08-101b: a delivery nobody handled says why — the last handler that gave a reason.
+        string? reason = null;
         foreach (var handler in handlers)
         {
             if (!handler.CanHandle(platform, eventType)) continue;
             var result = await handler.HandleAsync(body, headers);
             if (result.Handled) return result;
+            reason = result.SkipReason ?? reason;
         }
-        return WebhookResult.NotHandled();
+        return reason is null ? WebhookResult.NotHandled() : WebhookResult.NotHandled(reason);
     }
 }

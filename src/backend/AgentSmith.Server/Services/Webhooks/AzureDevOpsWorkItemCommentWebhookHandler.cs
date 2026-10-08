@@ -20,7 +20,8 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
     KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
-    ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "azuredevops" && eventType == "workitem.commented";
@@ -54,7 +55,10 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
             var act = PayloadActTime.Act(
                 PayloadActTime.Text(fields, "System.ChangedBy"), PayloadActTime.Text(fields, "System.ChangedDate"));
             return await router.RouteAsync(config, matches, new KeywordComment(envelope, state, commentText,

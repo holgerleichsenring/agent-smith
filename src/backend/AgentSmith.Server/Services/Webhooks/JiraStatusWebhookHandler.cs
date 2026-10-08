@@ -18,7 +18,8 @@ public sealed class JiraStatusWebhookHandler(
     IEnvelopeProjectResolver envelopeResolver,
     ApprovedRecordProbe approvals,
     StatusBackGate gate,
-    ILogger<JiraStatusWebhookHandler> logger) : IWebhookHandler
+    ILogger<JiraStatusWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "jira" && eventType == "issue_updated";
@@ -39,7 +40,10 @@ public sealed class JiraStatusWebhookHandler(
             {
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            return await gate.DispatchAsync(config, envelopeResolver.Resolve(config, envelope), envelope,
+            var matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            return await gate.DispatchAsync(config, modeGate?.Webhook(config, matches) ?? matches, envelope,
                 JiraAssigneeWebhookHandler.ExtractIssueStatus(root), At(root), Actor(root), cancellationToken);
         }
         catch (Exception ex)

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +17,8 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
     ApprovedRecordProbe approvals,
-    ILogger<AzureDevOpsWorkItemWebhookHandler> logger) : IWebhookHandler
+    ILogger<AzureDevOpsWorkItemWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "azuredevops" && eventType == "workitem.updated";
@@ -46,7 +48,10 @@ public sealed class AzureDevOpsWorkItemWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
 
             logger.LogInformation(
                 "ADO work item #{Id} → resolved matches={Count}", workItemId, matches.Count);
