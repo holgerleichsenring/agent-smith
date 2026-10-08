@@ -1,76 +1,78 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-9e6e
-goal: "In polling mode a change sweep finds tickets and agent-smith pull requests changed since its persisted cursor and enqueues nudges, so the worker serves the same acts webhooks deliver."
+goal: "In polling mode a change sweep finds tickets and agent-smith pull requests changed since a persisted cursor and enqueues nudges, so the worker serves the acts webhooks would deliver."
 
-applies_to: "backend (change sweep, cursors, ticket and source listers, nudge worker) + docs"
+applies_to: "backend (change sweep service, cursors, ticket and PR listers) + docs"
 
 requires: [2026-10-08-0781, 2026-10-08-2123]
 
 facts:
-  - claim: "The tracker poller lists claimable tickets by trigger status and reads no comments or pull requests; each poller gets 20 s per cycle."
+  - claim: "The tracker poller lists claimable tickets by trigger status and reads no comments or PRs; each poller gets 20 s per cycle."
     evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:38-46,57-70, src/backend/AgentSmith.Application/Services/Polling/PollerHostedService.cs:20,44-49"
-  - claim: "Pollers run in the replica holding 'agentsmith:leader:poller', through LeaderSubsystemRunner."
-    evidence: "src/backend/AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs:16-37, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:14-17"
-  - claim: "Jira searches through the Search template, Azure DevOps through a WIQL runner whose ordering is the caller's."
-    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:107, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWiqlRunner.cs:57-72"
-  - claim: "Our runs record each repo's opened PR URL; a ticket branch names its ticket."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:40-52, src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-60"
-  - claim: "The comment handlers alone parse plan answers."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:23, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:34, src/backend/AgentSmith.Application/Services/Triage/PlanAnswerParser.cs:14"
-  - claim: "The polling docs compare rate limits per ticket event versus per interval."
-    evidence: "docs/trigger-it/polling.md:44-52"
-  - claim: "GitHub allows 5,000 requests an hour per token; repository issues (pull requests included) and issue and review comments list by since (updated), ascending, 100 a page."
-    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28, https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-repository-issues, https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28, https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28"
-  - claim: "GitLab lists issues and merge requests by updated_after, ordered by updated_at; Azure DevOps lists pull requests with no updated filter."
-    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/issues/, https://docs.gitlab.com/api/merge_requests/#list-project-merge-requests, https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/get-pull-requests?view=azure-devops-rest-7.1"
+  - claim: "Pollers run in the leader of 'agentsmith:leader:poller' and rebuild when the config epoch moves; that service is 121 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs:22,36-37,45-80, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:14-17"
+  - claim: "Azure DevOps WIQL selects ids, hydrates a fixed field list without System.ChangedDate, and orders as the caller says."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWiqlRunner.cs:26-35,57-72"
+  - claim: "Jira searches through the Search template; GitHub's standing reviews read as latestReviews in GraphQL."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:15-17"
+  - claim: "A ticket branch names its ticket; run PR URLs sit unindexed in PullRequestsJson, read per ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-60, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:40-52"
+  - claim: "Configurations are grouped because AgentSmithDbContext is at 120; the polling docs claim a Redis high-water mark."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:72, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ServerStateConfigurations.cs:10-18, docs/trigger-it/polling.md:52"
+  - claim: "Jira /myself carries the token user's timeZone."
+    evidence: "observed: 2026-10-08, https://dac-static.atlassian.com/cloud/jira/platform/swagger-v3.v3.json (GET /rest/api/3/myself, User.timeZone)"
+  - claim: "WIQL takes timePrecision and $top; Azure DevOps active PRs list with reviewers[].vote and sourceRefName."
+    evidence: "observed: 2026-10-08, https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query-by-wiql?view=azure-devops-rest-7.1, https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/get-pull-requests?view=azure-devops-rest-7.1"
+  - claim: "GitLab filters issues and MRs by updated_after and touches updated_at at most once a minute; GitHub issues list by since (updated) and allows 5,000 requests an hour."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/issues/, https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/models/concerns/throttled_touch.rb, https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-repository-issues, https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28"
 
 assumptions:
-  - claim: "A comment updates the ticket's updated time on all four trackers, and a submitted review updates the GitHub PR's and GitLab MR's."
-    check: "Comment on a test ticket per tracker and review a test PR per host; read updated times."
+  - claim: "A comment updates the ticket's updated time on all four trackers; a GitLab system note touches the MR."
+    check: "First, before building: comment on a test ticket per tracker and request changes on a test MR; read updated times."
+  - claim: "JQL reads 'updated >= \"yyyy-MM-dd HH:mm\"' in the searching user's time zone, to the minute."
+    check: "Run the JQL around a known update time on the deployed Jira."
 
 scope:
   in: >
-    ChangeSweepHostedService, leader of 'agentsmith:leader:change-sweep', per polling tracker at its
-    interval, with its own deadline (half the interval) and call budget (10 pages per source a cycle).
-    SweepCursor(source, at), migrations in both sets. Ticket source, ascending from the cursor: Jira
-    'updated >= cursor ORDER BY updated ASC', GitHub issues since, GitLab issues updated_after, Azure DevOps
-    WIQL ChangedDate; a changed ticket of this tracker's projects with a code run is nudged. PR source per
-    repository those projects declare: GitHub issues since (pull_request items) and review comments since,
-    GitLab merge requests updated_after; a changed open agent-smith PR is nudged with its URL. Azure DevOps:
-    our open PR URLs in rotation, 10 a cycle. The cursor advances to the last item read, so a budget cut
-    resumes there. Sweep nudges also carry plan answers: the worker parses the newest foreign comment after
-    the cutoff and dispatches with them as the comment handlers do. Docs: the table names the sweep's calls.
+    ChangeSweepHostedService (at most 120 lines), leader of 'agentsmith:leader:change-sweep', rebuilt on
+    the config epoch; per entry with Polling.Enabled, at its interval, deadline half the interval, sources
+    in rotating start order. SweepCursor(source, at) in ServerStateConfigurations, both sets: first sight
+    is now; writes only move forward (compare-and-set to the max). Tickets ascending from the cursor, 10
+    pages: Jira 'updated >= cursor' formatted in the token user's zone, floored to the minute, one minute
+    re-read, a full minute read to its end over budget; GitHub issues since (PR items skipped); GitLab
+    issues updated_after cursor − 60 s; Azure DevOps WIQL ChangedDate with timePrecision, $top 200,
+    System.ChangedDate hydrated. A changed ticket of the entry's projects with a code run is nudged. PRs
+    per repository of those projects, head TicketOf, owner with a code run on that ticket: GitHub one
+    GraphQL page of open PRs with latestReviews, CHANGES_REQUESTED submitted after the cursor; GitLab
+    open MRs updated_after cursor − 60 s; Azure DevOps one active-PR list, a standing −5 vote. Nudge with the
+    PR URL. Docs: polling.md table and :52.
   out: "PR events (2026-10-08-10b0)."
 
 decisions:
-  - key: "NUDGES ONLY: the sweep reads what changed, never whether it is an act."
-  - key: "ASCENDING FROM A CURSOR, NOT A WINDOW: no 72-hour cut and no newest-first starvation; an open PR is followed as long as it is open."
-  - key: "OWN SERVICE, OWN BUDGET: outside the 20 s poller timeout; at 60 s with ten repositories it costs about 660 GitHub requests an hour of the 5,000."
-  - key: "AZURE DEVOPS ROTATES: its pull requests carry no updated time to filter on."
+  - key: "NUDGES ONLY: the sweep finds change; the worker decides acts."
+  - key: "OPEN PRS, NOT RUN ROWS: our rows never record a closed PR, so the host's open list is the candidate set."
+  - key: "GITHUB REVIEWS BY GRAPHQL: a body-only review need not move the PR's updated time; latestReviews shows it."
+  - key: "COST at 60 s, R GitHub repositories: 60(1 + R) requests an hour here, 180R for 10b0, about 3 per worker nudge; R = 10 is about 2,500 of 5,000. Azure DevOps re-nudges a standing −5 each cycle; the worker's cutoff makes it a no-op. Raise the interval past ten repositories."
 
 steps:
   - id: cursor
-    action: "Add SweepCursor with its configuration and migrations in both sets."
+    action: "Add SweepCursor in ServerStateConfigurations with migrations in both sets."
   - id: listers
-    action: "Add IChangedTicketLister per tracker and IChangedPullRequestLister per source host, one collaborator each."
+    action: "Add IChangedTicketLister per tracker and IChangedPullRequestLister per source host; the PR-to-ticket owner read."
   - id: sweep
-    action: "Add ChangeSweepHostedService and its registration; the worker's plan-answer branch for sweep nudges."
+    action: "Add ChangeSweepHostedService with its epoch rebuild; register it."
   - id: docs
-    action: "Rewrite the polling.md rate-limit rows."
+    action: "Rewrite the polling.md comparison table and line 52."
 
 tests:
   - "Sweep_ChangedTicketWithRun_Nudged"
   - "Sweep_BudgetCut_ResumesFromLastItem"
-  - "Sweep_ChangedAgentSmithPr_NudgedWithUrl"
-  - "Sweep_AzureDevOpsRotation_CoversAllOpenPrs"
-  - "Sweep_NotLeader_DoesNothing"
-  - "Worker_SweepNudgePlanAnswers_Dispatched"
+  - "Sweep_StaleLeaderWrite_CursorNeverMovesBack"
+  - "Sweep_JiraMinuteOverBudget_ReadToEnd"
+  - "Sweep_GitHubChangesRequestedAfterCursor_Nudged"
+  - "Sweep_AzureDevOpsMinusFive_Nudged"
+  - "Sweep_RotatingStart_NoSourceStarves"
 
 done:
-  - "Jira Cloud and Data Center, polling: keyword comment and status-back by the ticket source, plan answers too."
-  - "GitHub Issues, polling: the same by the ticket source."
-  - "GitLab Issues, polling: the same by the ticket source."
-  - "Azure Boards, polling: the same by the ticket source."
-  - "GitHub, polling: Request changes by the PR source."
-  - "GitLab, polling: Request changes by the PR source."
-  - "Azure Repos, polling: Wait-for-author by the rotation; every tracker with every host serves both rows; full suite green."
+  - "Jira Cloud and Data Center, GitHub Issues, GitLab Issues and Azure Boards, polling: keyword comments and status-back reach the worker within one interval."
+  - "GitHub, GitLab and Azure Repos, polling: Request changes and Wait for author reach the worker within one interval; any tracker pairs with any host; full suite green."

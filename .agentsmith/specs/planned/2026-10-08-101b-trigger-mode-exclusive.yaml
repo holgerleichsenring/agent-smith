@@ -2,67 +2,71 @@
 spec: 2026-10-08-101b
 goal: "A tracker entry is served by polling or by webhooks, never both: a polling entry's projects get nothing from webhook deliveries and the delivery list says why; the poller serves only its own entry."
 
-applies_to: "backend (webhook handlers, request processor, poller, startup findings, config snapshot) + dashboard + docs"
+applies_to: "backend (webhook handlers, request processor, poller, configuration probe, config snapshot) + dashboard + docs"
 
-requires: [2026-10-08-9e6e, 2026-10-08-10b0]
+requires: [2026-10-08-9e6e, 2026-10-08-10b0, 2026-10-08-2123]
 
 facts:
   - claim: "Polling is switched per tracker entry; the project-level block is deprecated and ignored by the pollers."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:55-60, src/backend/AgentSmith.Application/Services/Configuration/PollingConfigDeprecationWarner.cs:6-24, src/backend/AgentSmith.Server/Services/PollerFactory.cs:32-45"
-  - claim: "The poller resolves a ticket against every project, not only its own entry's; only discovery filters by tracker name."
-    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:107-115,134-141, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:26-32"
-  - claim: "The request processor drops every handler's NotHandled reason; it is at its 126-line baseline."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:40-45,97-108, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:99"
+  - claim: "The poller resolves a ticket against every project and counts no match as ZeroMatch; only discovery filters by entry; TrackerPoller is 208 of 210."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:107-127,134-141, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:26-32, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:43"
+  - claim: "Nineteen handlers are registered; the processor returns a bare NotHandled after the loop, dropping every reason; it is at its 126 baseline."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:40-59, src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:40-45,97-108, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:99"
   - claim: "An empty match list makes the dispatcher post the zero-match comment."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:24,33-37,64-80"
-  - claim: "A PR command resolves through the model before routing; plan answers are parsed only by the comment handlers."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:26-42"
-  - claim: "A Blocking finding is read only by project resolution, discovery and filed-work start, so it does not stop PR paths."
-    evidence: "src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:95-108, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:76-82, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:70-73"
-  - claim: "Startup announces config warnings; webhook secrets resolve per platform."
-    evidence: "src/backend/AgentSmith.Server/Services/Startup/StartupAnnouncer.cs:12-24, src/backend/AgentSmith.Contracts/Services/IWebhookSecretResolver.cs:11-18"
-  - claim: "The snapshot and the dashboard read the deprecated project-level block; the dashboard type is hand-mirrored."
-    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:94-101, tests/AgentSmith.Tests/Server/ConfigSnapshotMapperTests.cs:175-176, src/dashboard/src/lib/configApi.ts:50-57, src/dashboard/src/components/system/ProjectDetailPanel.tsx:149-153"
+  - claim: "A PR command reaches the model in PrCommentCommandAdmission; the longest handlers are JiraAssignee (117) and AzureDevOpsPrEvent (114), not baselined."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40, src/backend/AgentSmith.Server/Services/Webhooks/JiraAssigneeWebhookHandler.cs:24-25, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrEventWebhookHandler.cs:9-16"
+  - claim: "The configuration probe yields validator and routing findings; a repository can belong to several projects."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ConfigurationProbe.cs:20-26, src/backend/AgentSmith.Application/Services/Configuration/RoutingPipelineNames.cs:24-48, src/backend/AgentSmith.Infrastructure/Services/Webhooks/ConfiguredRepoFinder.cs:16-25"
+  - claim: "Parked answers resume through DialogueResumeSweeper from the ticket, whatever the mode."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:27,66-70"
+  - claim: "The snapshot, its test and the hand-mirrored dashboard type read the deprecated block; the polling docs promise webhook and poll resolve to one run."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:94-101, tests/AgentSmith.Tests/Server/ConfigSnapshotMapperTests.cs:175-176, src/dashboard/src/lib/configApi.ts:50-57, src/dashboard/src/components/system/ProjectDetailPanel.tsx:149-153, docs/trigger-it/polling.md:42,44-52"
 
 assumptions: []
 
 scope:
   in: >
-    TriggerMode.Polls(project): its tracker entry has polling enabled. The gate sits in the webhook
-    handlers only, after parsing and before any model or host call (the PR command handlers before
-    PrCommentCommandAdmission), dropping polling projects from the matches; none left: NotHandled('project P
-    polls tracker T; webhooks start nothing for it'), never the zero-match comment. Resolvers and launchers
-    stay ungated for 2026-10-08-10b0. WebhookRequestProcessor.DispatchAsync returns the last NotHandled
-    reason. TrackerPoller resolves only among projects of its own entry. Startup Advisory finding per
-    polling tracker whose platform also has a webhook secret. ConfigSnapshotMapper maps the entry's
-    polling; its test, configApi.ts and fixtures follow; the panel shows the mode. Docs: one mode per
-    tracker entry; webhooks are only faster.
-  out: "Removing the deprecated project-level block."
+    TriggerModeGate, called in one or two lines per handler before any model or host call: envelope +
+    dispatcher handlers (4) before DispatchAsync; comment handlers (4) before the router's enqueue; PR route
+    handlers (5) before the WebhookResult; PR command handlers (3) before AdmitAsync; review handlers
+    (GitHub review, Azure DevOps vote before its host read, GitLab MR review) before admission. Tickets: a
+    match whose project's entry polls is dropped; none left: NotHandled('project P polls tracker T;
+    webhooks start nothing for it'), never the zero-match comment. PRs: gated when any owner of the
+    repository (FindAll) polls. Resolvers and launchers stay ungated. DispatchAsync returns the last
+    non-null reason. TrackerPoller keeps matches of its own entry, counting others apart from ZeroMatch.
+    ConfigurationProbe: an Advisory per repository whose owners differ in mode. Snapshot maps the entry's
+    polling; test, configApi.ts, fixtures and panel follow. Docs rewrite polling.md:42 and :44-52.
+  out: "Slack and Teams endpoints are not webhook handlers. Removing the deprecated block."
 
 decisions:
-  - key: "PER TRACKER ENTRY: that is where polling is switched; 'per project' means its entry's mode."
-  - key: "GATE AT THE DOOR, NOT IN THE ROUTERS: the PR sweep reuses the resolvers and must not be refused by them."
-  - key: "ADVISORY, NOT BLOCKING: a blocking finding would not stop PR paths and a secret is per platform, so the finding names the polling entry whose platform still sends."
-  - key: "PLAN ANSWERS IN POLLING arrive through 2026-10-08-9e6e's sweep nudge."
-  - key: "SHIPS LAST: before 9e6e and 10b0 a polling project would lose acts and PR events with no other path."
+  - key: "PER TRACKER ENTRY: that is where polling is switched."
+  - key: "GATE AT THE DOOR, NOT IN THE ROUTERS: the PR sweep reuses the resolvers."
+  - key: "A MIXED REPOSITORY IS POLLED: any polling owner gates its PR deliveries; the probe names it, since only the config expresses modes."
+  - key: "BREAKING: a polling tracker ignores webhooks, and a project on a non-polling entry that a same-type polling entry served before goes silent; release notes say both."
+  - key: "PLAN ANSWERS NEED NOTHING NEW: DialogueResumeSweeper reads them from the ticket in both modes."
 
 steps:
   - id: gate
-    action: "Add TriggerMode and apply it in each webhook handler; return the skip reason from DispatchAsync (the 10b0 extraction left room)."
+    action: "Add TriggerModeGate and call it at the nineteen gate points; DispatchAsync returns the last non-null reason; WebhookRequestProcessor stays at or under its baseline after 2026-10-08-10b0's extraction (row deleted at 120 or less)."
   - id: poller
-    action: "Filter TrackerPoller's matches to its own entry's projects."
+    action: "Filter matches to the poller's entry in at most two lines, with their own count."
   - id: surface
-    action: "Add the advisory finding to the startup announcement; map the entry's polling into ConfigTrigger; test, dashboard type, fixtures and panel; docs."
+    action: "Add the mixed-mode advisory to ConfigurationProbe; map the entry's polling into ConfigTrigger; test, dashboard type, fixtures, panel; docs and the breaking-change note."
 
 tests:
   - "WebhookGate_PollingProject_NotHandledWithReason"
   - "WebhookGate_AllGated_NoZeroMatchComment"
   - "WebhookGate_PrCommand_NoModelCall"
+  - "WebhookGate_MixedModeRepo_Gated"
+  - "Dispatch_GitHubIssueCommentPair_ShowsReason"
+  - "Dispatch_GitHubPullRequestPair_ShowsReason"
   - "PrSweep_PollingProject_StillServed"
-  - "TrackerPoller_OtherEntrysProject_NotServed"
-  - "Startup_PollingTrackerWithWebhookSecret_Advisory"
+  - "TrackerPoller_OtherEntrysProject_CountedApart"
+  - "Probe_MixedModeRepository_Advisory"
   - "ConfigSnapshot_EntryPolling_IsTheMode"
 
 done:
-  - "A delivery for a polling entry's project starts nothing and the webhook list shows the reason; a webhook entry is unaffected; the poller serves only its entry."
+  - "A delivery for a polling entry's project starts nothing and the webhook list shows why; existing handler reasons now show there too; a webhook entry is unaffected; the poller serves only its entry."
   - "The panel shows each project's mode; full suite and dashboard tests green."
