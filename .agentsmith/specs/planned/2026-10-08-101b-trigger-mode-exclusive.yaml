@@ -11,7 +11,7 @@ facts:
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:55-60, src/backend/AgentSmith.Application/Services/Configuration/PollingConfigDeprecationWarner.cs:6-24, src/backend/AgentSmith.Server/Services/PollerFactory.cs:32-45"
   - claim: "The poller resolves a ticket against every project and counts no match as ZeroMatch; only discovery filters by entry; TrackerPoller is 208 of 210."
     evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:107-127,134-141, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:26-32, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:43"
-  - claim: "Nineteen handlers are registered; the processor returns a bare NotHandled after the loop, dropping every reason; it is at its 126 baseline."
+  - claim: "Nineteen handlers are registered today (2026-10-08-2123 adds the twentieth); the processor returns a bare NotHandled after the loop, dropping every reason; it is at its 126 baseline."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:40-59, src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:40-45,97-108, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:99"
   - claim: "An empty match list makes the dispatcher post the zero-match comment."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:24,33-37,64-80"
@@ -28,8 +28,9 @@ assumptions: []
 
 scope:
   in: >
-    TriggerModeGate, called in one or two lines per handler before any model or host call: envelope +
-    dispatcher handlers (4) before DispatchAsync; comment handlers (4) before the router's enqueue; PR route
+    TriggerModeGate, called in one or two lines per handler before any model or host call, twenty handlers:
+    envelope + dispatcher handlers (5, with JiraStatusWebhookHandler; the GitHub and GitLab reopen paths
+    gate inside their issue handlers) before DispatchAsync; comment handlers (4) before the router's enqueue; PR route
     handlers (5) before the WebhookResult; PR command handlers (3) before AdmitAsync; review handlers
     (GitHub review, Azure DevOps vote before its host read, GitLab MR review) before admission. Tickets: a
     match whose project's entry polls is dropped; none left: NotHandled('project P polls tracker T;
@@ -49,7 +50,7 @@ decisions:
 
 steps:
   - id: gate
-    action: "Add TriggerModeGate and call it at the nineteen gate points; DispatchAsync returns the last non-null reason; WebhookRequestProcessor stays at or under its baseline after 2026-10-08-10b0's extraction (row deleted at 120 or less)."
+    action: "Add TriggerModeGate and call it at the twenty gate points; DispatchAsync returns the last non-null reason; WebhookRequestProcessor stays at or under its baseline after 2026-10-08-10b0's extraction (row deleted at 120 or less)."
   - id: poller
     action: "Filter matches to the poller's entry in at most two lines, with their own count."
   - id: surface
