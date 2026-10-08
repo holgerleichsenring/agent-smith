@@ -19,6 +19,16 @@ public sealed class DbReferenceSetReader(IServiceScopeFactory scopeFactory) : IR
         return [.. files.Select(f => new ReferenceSetFile(f.Path, f.Content))];
     }
 
+    /// <summary>2026-10-08-e8b9j: one row, not the set.</summary>
+    public async Task<ReferenceSetFile?> FileAsync(
+        string sessionId, string setId, string path, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var file = await scope.ServiceProvider.GetRequiredService<ReferenceSetRepository>()
+            .FileAsync(sessionId, setId, path, cancellationToken);
+        return file is null ? null : new ReferenceSetFile(path, file);
+    }
+
     public async Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();

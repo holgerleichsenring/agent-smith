@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9j
+
+decisions:
+  - category: Architecture
+    chose: "Step gains Append AND RenameTo; chunks append at a temporary path and the last one names the target to move over"
+    over: "Append alone, as the spec's wire line names it"
+    reason: |
+      With Append alone the receiver cannot tell the last chunk or the target from a chunk, so
+      'the last chunk renames into place' has no carrier. RenameTo is that carrier; both fields
+      are read by WriteBytes only. A single-chunk file is one step with RenameTo set.
+  - category: Implementation
+    chose: "WriteBytesFile in AgentSmith.Sandbox.Wire holds the decode, bounds, append and move for both receivers"
+    over: "A copy in the agent's FileStepHandler and another in InProcessSandbox"
+    reason: |
+      Both files sit on the length ratchet (234 and 417); one implementation keeps the two
+      receivers from disagreeing about a bound and each gains only its dispatch line.
+  - category: Implementation
+    chose: "WireProtocol.Current raised to 2, MinimumSupported stays 1"
+    over: "Leaving Current at 1"
+    reason: |
+      A message shape grew (a kind and two fields), which is what Current marks. An agent on 1
+      still reads every step and answers a WriteBytes as an unknown kind naming its protocol; the
+      server's window 1-2 does not flag it.
+  - category: TradeOff
+    chose: "SeesUploadedImages reads the agent's own Type to pick the builder"
+    over: "Resolving the provider of the task's model assignment"
+    reason: |
+      The design turn's model assignment can name a provider per task; the agent type is the
+      default every project sets and the case (copilot, external worker) the flag exists for.
+  - category: Implementation
+    chose: "ConversationUploads carries the sight (optional DialogImageSight) and the image count"
+    over: "A new constructor parameter on SpecDialogViewReader"
+    reason: |
+      The view reader is constructed positionally in four test classes and is near its length
+      bound; the count is about the uploads, and the sight is read for the same project.
+  - category: Implementation
+    chose: "view_reference_image reads IReferenceSetReader.FileAsync, a default interface method reading the set whole, overridden by the relational reader to read one row"
+    over: "A required interface member"
+    reason: |
+      Five test doubles implement the reader; the default keeps them correct and the store reads
+      one row in production.

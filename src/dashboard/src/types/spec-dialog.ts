@@ -98,6 +98,11 @@ export interface SpecDialogSession {
   /** 2026-10-08-e8b9g: what the conversation's sets and images hold, and what they may hold. */
   uploadBytes?: number;
   uploadCapBytes?: number;
+  /** 2026-10-08-e8b9j: whether the model sees attached images, and images inside sets (a tool's
+   *  result, which some transports cannot follow with a picture); and how many images there are. */
+  seesImages?: boolean;
+  seesUploadedImages?: boolean;
+  imageCount?: number;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }

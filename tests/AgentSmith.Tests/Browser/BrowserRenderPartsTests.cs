@@ -60,7 +60,7 @@ public sealed class BrowserRenderPartsTests
         var fixture = new BrowserRenderFixture();
         fixture.Set.Add(new ReferenceSetFile("index.html", Encoding.UTF8.GetBytes("<p>x</p>")));
         var sandbox = new BrowserFakeSandbox();
-        var materialiser = new ReferenceSetMaterialiser(fixture, new SandboxFileReaderFactory());
+        var materialiser = new ReferenceSetMaterialiser(fixture, new SandboxFileReaderFactory(), new SandboxBinaryFileWriter());
 
         var hash = await materialiser.PrepareUnderAsync(sandbox, "conv", "s1", "sets/s1", CancellationToken.None);
         var again = await materialiser.PrepareUnderAsync(sandbox, "conv", "s1", "sets/s1", CancellationToken.None);

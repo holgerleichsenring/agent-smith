@@ -20,6 +20,7 @@ public static class SourceScopeExtensions
         // 2026-10-01-283dc: an uploaded website read like a repository; with no durable store
         // there are no sets, and the server composition replaces the reader with the relational one.
         services.AddTransient<ReferenceSetMaterialiser>();
+        services.TryAddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>(); // 2026-10-08-e8b9j
         services.AddTransient<IReferenceSetSandboxFactory, ReferenceSetSandboxFactory>();
         services.TryAddSingleton<IReferenceSetReader, NoReferenceSetReader>();
         // One instance per process is right: the observer lives in the async flow, not here.

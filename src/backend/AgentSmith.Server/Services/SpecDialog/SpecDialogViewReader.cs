@@ -29,7 +29,7 @@ public sealed class SpecDialogViewReader(
             : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
         var asked = state is null ? null : Asked(dialogId, state);
         // 2026-10-08-e8b9g: images and sets with whether an approval cites them, and the bytes held.
-        var held = state is null ? null : await uploads.ReadAsync(state.JobId, cancellationToken);
+        var held = state is null ? null : await uploads.ReadAsync(state.JobId, cancellationToken, state.Project);
         // 2026-09-27-481bc: one indexed row, and only for a conversation that HAS one — an unbound
         // conversation pays nothing, which matters because this read is issued after every message.
         var ticket = state is null ? null : Ticket(await ticketText.GetAsync(state.JobId, cancellationToken));
@@ -40,6 +40,9 @@ public sealed class SpecDialogViewReader(
                 References = held.References,
                 UploadBytes = held.Bytes,
                 UploadCapBytes = ReferenceUploadLimits.MaxConversationBytes,
+                SeesImages = held.Sight?.Images ?? true,
+                SeesUploadedImages = held.Sight?.UploadedImages ?? true,
+                ImageCount = held.ImageCount,
             },
             projects.All(),
             asked,

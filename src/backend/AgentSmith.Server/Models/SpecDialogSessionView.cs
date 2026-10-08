@@ -32,6 +32,9 @@ namespace AgentSmith.Server.Models;
 /// </param>
 /// <param name="UploadBytes">2026-10-08-e8b9g: what the conversation's sets and images hold together.</param>
 /// <param name="UploadCapBytes">2026-10-08-e8b9g: what they may hold — the remaining room is the difference.</param>
+/// <param name="SeesImages">2026-10-08-e8b9j: the conversation's model sees images attached through the Image entry.</param>
+/// <param name="SeesUploadedImages">2026-10-08-e8b9j: and images inside sets, which reach it as a tool's result.</param>
+/// <param name="ImageCount">2026-10-08-e8b9j: Image-entry images plus image files inside sets, counted by the server.</param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
 /// last assistant turn that carried a draft. Null when there is no proposal.
@@ -49,7 +52,10 @@ public sealed record SpecDialogSessionView(
     SpecDialogTicketView? Ticket = null,
     IReadOnlyList<ReferenceSetView>? References = null,
     long UploadBytes = 0,
-    long UploadCapBytes = 0);
+    long UploadCapBytes = 0,
+    bool SeesImages = true,
+    bool SeesUploadedImages = true,
+    int ImageCount = 0);
 
 /// <summary>
 /// 2026-09-27-481bc: the ticket text this conversation was GROUNDED ON — what every turn of it is

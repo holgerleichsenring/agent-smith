@@ -71,12 +71,12 @@ public sealed class CompareReferenceDockerTests(ITestOutputHelper output) : IRef
             Options.Create(new SandboxGlobalConfig()), Mock.Of<IRunContextAccessor>(), holds,
             NullLogger<BrowserSandboxOpener>.Instance);
         var files = new SandboxFileReaderFactory();
-        var stager = new RenderSourceStager(new ReferenceSetMaterialiser(this, files), new RepoRenderSource(files, new RepoTreeListing()));
+        var stager = new RenderSourceStager(new ReferenceSetMaterialiser(this, files, new SandboxBinaryFileWriter()), new RepoRenderSource(files, new RepoTreeListing()));
         var render = new RenderReferenceServices(new RenderSourceParser(),
             new RenderUrlGuard(new DnsHostAddressResolver(), new PublicAddressRule()),
             new ReferenceRenderer(opener, stager, new BrowserRenderInvocation(files)), this, new RenderResultText());
         return new CompareReferenceServices(render, new ReferenceComparer(opener, stager, new BrowserRenderInvocation(files)),
-            new StyleDifferenceComparer(), new VisualComparisonRecorder(files, NullLogger<VisualComparisonRecorder>.Instance));
+            new StyleDifferenceComparer(), new VisualComparisonRecorder(new SandboxBinaryFileWriter(), NullLogger<VisualComparisonRecorder>.Instance));
     }
 
     // The address the turn's map carries; comparing reads only its set id and never opens it.

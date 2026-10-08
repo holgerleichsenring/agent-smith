@@ -10,7 +10,7 @@ facts:
   - claim: "At approval the recorder stores the ids of the conversation's sets as the record's References; the list is read once, there."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:78-84; src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:51-70"
   - claim: "Those ids are site sets only; images are never cited."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbReferenceSetReader.cs:22-28; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:45-54"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbReferenceSetReader.cs:32-38; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:45-54"
   - claim: "283df froze the list on purpose: what the person approved is what the run builds against; a later upload needs a new approval."
     evidence: ".agentsmith/specs/done/2026-10-01-283df-reference-run-carry.yaml:50"
   - claim: "Filing and an amendment both record through the recorder, so a re-approval cites what the conversation holds then."

@@ -10,9 +10,10 @@ namespace AgentSmith.Server.Services.References;
 /// </summary>
 public sealed class ConversationUploads(
     ReferenceFileRepository files, ReferenceSetRepository sets, ReferenceUsageRepository usage,
-    ApprovedSeriesRepository approvals, ReferenceNoteRepository? notes = null)
+    ApprovedSeriesRepository approvals, ReferenceNoteRepository? notes = null, DialogImageSight? sight = null)
 {
-    public async Task<ConversationUploadsView> ReadAsync(string sessionId, CancellationToken ct)
+    /// <param name="project">2026-10-08-e8b9j: the conversation's project, whose model the sight is read for.</param>
+    public async Task<ConversationUploadsView> ReadAsync(string sessionId, CancellationToken ct, string? project = null)
     {
         var cited = await approvals.CitedSetsAsync(sessionId, ct);
         // 2026-10-02-075dd: each set with its note, so the operator sees what the model recorded.
@@ -22,6 +23,8 @@ public sealed class ConversationUploads(
         IReadOnlyList<ReferenceSetView> references = [.. (await sets.ListAsync(sessionId, ct))
             .Select(s => new ReferenceSetView(s.SetId, s.Name, s.Files, s.Bytes, s.At,
                 noted.GetValueOrDefault(s.SetId), cited.Contains(s.SetId)))];
-        return new ConversationUploadsView(images, references, await usage.BytesAsync(sessionId, ct));
+        return new ConversationUploadsView(images, references, await usage.BytesAsync(sessionId, ct),
+            images.Count + await usage.ImageFilesAsync(sessionId, ct),
+            project is null || sight is null ? DialogImageSightView.Unknown : sight.For(project));
     }
 }

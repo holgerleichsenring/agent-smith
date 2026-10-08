@@ -125,6 +125,27 @@ describe("DialogUploadsPanel", () => {
   });
 });
 
+describe("DialogUploadsPanel, what the model sees", () => {
+  it("DialogUploadsPanel_SeesImagesFalse_SaysNotShown", () => {
+    renderPanel(session({ seesImages: false, seesUploadedImages: false, imageCount: 3 }));
+
+    expect(screen.getByTestId("dialog-uploads-not-seen").textContent)
+      .toBe("This project's model does not see images; 3 stored image(s) are not shown to it.");
+  });
+
+  it("DialogUploadsPanel_SetImagesNotShownByTransport_SaysSo", () => {
+    renderPanel(session({ seesImages: true, seesUploadedImages: false, imageCount: 3 }));
+
+    expect(screen.getByTestId("dialog-uploads-not-seen").textContent).toContain("2 image file(s) in sets");
+  });
+
+  it("DialogUploadsPanel_ModelSeesImages_SaysNothing", () => {
+    renderPanel(session({ seesImages: true, seesUploadedImages: true, imageCount: 3 }));
+
+    expect(screen.queryByTestId("dialog-uploads-not-seen")).not.toBeInTheDocument();
+  });
+});
+
 describe("DialogPane uploads tab", () => {
   it("DialogPane_UploadsTab_LabelledWithNoStatus", () => {
     render(<DialogPane session={session()} projects={[]} proposal={null} filed={null} work={null}

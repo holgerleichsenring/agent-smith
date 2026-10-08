@@ -63,6 +63,12 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
             .Select(f => new { f.RelativePath, f.Content }).ToListAsync(ct))
             .Select(f => (f.RelativePath, f.Content))];
 
+    /// <summary>2026-10-08-e8b9j: one file's bytes by its path in the set, or null.</summary>
+    public async Task<byte[]?> FileAsync(string sessionId, string setId, string path, CancellationToken ct) =>
+        await unitOfWork.Set<ReferenceFile>().AsNoTracking()
+            .Where(f => f.SessionId == sessionId && f.SetId == setId && f.Kind == ReferenceFileKind.Site && f.RelativePath == path)
+            .Select(f => f.Content).FirstOrDefaultAsync(ct);
+
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>
         new(setId, ReferenceSetName.Of(files.Select(f => f.Path)), files.Count, files.Sum(f => f.Length), files.Min(f => f.At));

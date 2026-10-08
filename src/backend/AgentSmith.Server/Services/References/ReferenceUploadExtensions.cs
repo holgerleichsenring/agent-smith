@@ -21,6 +21,7 @@ internal static class ReferenceUploadExtensions
         services.AddScoped<ConversationUploadAdmission>();
         services.AddScoped<SpecDialogImageUpload>();
         services.AddScoped<ConversationUploads>();
+        services.AddSingleton<DialogImageSight>(); // 2026-10-08-e8b9j
         return services;
     }
 }

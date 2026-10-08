@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
@@ -25,7 +26,7 @@ public sealed class TicketDocumentMaterializerTests
         var (factory, writes) = BuildFileReader();
         var sandbox = new StubSandbox(); // exit 0 + one stdout line per run step
         var sut = new TicketDocumentMaterializer(
-            factory, NullLogger<TicketDocumentMaterializer>.Instance);
+            factory, new SandboxBinaryFileWriter(), NullLogger<TicketDocumentMaterializer>.Instance);
         var docx = new TicketDocumentAttachment(
             new AttachmentRef("https://x/spec.docx", "spec.docx",
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
@@ -37,7 +38,10 @@ public sealed class TicketDocumentMaterializerTests
         result.Should().ContainSingle();
         result[0].Path.Should().Be($"{RunRecordDir}/attachments/spec.docx.md");
         result[0].OriginFileName.Should().Be("spec.docx");
-        writes.Should().ContainKey($"{RunRecordDir}/attachments/spec.docx.b64");
+        // 2026-10-08-e8b9j: the document goes in as bytes (a WriteBytes step), not a .b64 file.
+        writes.Should().NotContainKey($"{RunRecordDir}/attachments/spec.docx.b64");
+        sandbox.RanSteps.Should().Contain(s => s.Kind == StepKind.WriteBytes
+            && s.RenameTo == $"{RunRecordDir}/attachments/spec.docx");
         writes[$"{RunRecordDir}/attachments/spec.docx.md"].Should().NotBeNullOrWhiteSpace();
         sandbox.RanSteps.Should().Contain(s =>
             s.Args != null && s.Args.Any(a => a.Contains("markitdown")));
@@ -49,7 +53,7 @@ public sealed class TicketDocumentMaterializerTests
         var (factory, writes) = BuildFileReader();
         var sandbox = new StubSandbox();
         var sut = new TicketDocumentMaterializer(
-            factory, NullLogger<TicketDocumentMaterializer>.Instance);
+            factory, new SandboxBinaryFileWriter(), NullLogger<TicketDocumentMaterializer>.Instance);
         var txt = new TicketDocumentAttachment(
             new AttachmentRef("https://x/notes.txt", "notes.txt", "text/plain"),
             System.Text.Encoding.UTF8.GetBytes("plain requirement notes"));
@@ -76,7 +80,7 @@ public sealed class TicketDocumentMaterializerTests
                     TimedOut: false, DurationSeconds: 0.01,
                     ErrorMessage: "markitdown: not found", OutputContent: string.Empty)));
         var sut = new TicketDocumentMaterializer(
-            factory, NullLogger<TicketDocumentMaterializer>.Instance);
+            factory, new SandboxBinaryFileWriter(), NullLogger<TicketDocumentMaterializer>.Instance);
         var pdf = new TicketDocumentAttachment(
             new AttachmentRef("https://x/spec.pdf", "spec.pdf", "application/pdf"), [1, 2, 3]);
 

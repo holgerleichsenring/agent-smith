@@ -16,5 +16,11 @@ public enum StepKind
     WriteFile = 3,
     ListFiles = 4,
     Grep = 5,
-    DirectoryTree = 6
+    DirectoryTree = 6,
+    /// <summary>
+    /// 2026-10-08-e8b9j: bytes into a file, decoded by the receiver — no python, no shell. One
+    /// step carries at most <see cref="SizeLimits.WriteBytesChunkMaxBytes"/>; a larger file goes
+    /// in chunks (<see cref="Step.Append"/>) and the last one names <see cref="Step.RenameTo"/>.
+    /// </summary>
+    WriteBytes = 7
 }

@@ -27,6 +27,14 @@ public sealed class ReferenceUsageRepository(IUnitOfWork unitOfWork)
             [.. set.Select(r => (r.RelativePath, r.ContentSha256)).OrderBy(f => f.RelativePath, StringComparer.Ordinal)]))];
     }
 
+    /// <summary>2026-10-08-e8b9j: how many files inside the conversation's sets are images by extension.</summary>
+    public async Task<int> ImageFilesAsync(string sessionId, CancellationToken ct)
+    {
+        string[] images = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+        var paths = await Uploads(sessionId).Where(f => f.Kind == ReferenceFileKind.Site).Select(f => f.RelativePath).ToListAsync(ct);
+        return paths.Count(p => images.Contains(Path.GetExtension(p), StringComparer.OrdinalIgnoreCase));
+    }
+
     private IQueryable<ReferenceFile> Uploads(string sessionId) =>
         unitOfWork.Set<ReferenceFile>().AsNoTracking()
             .Where(f => f.SessionId == sessionId

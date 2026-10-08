@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Browser;
 /// numbers. An image that cannot be written is logged and the comparison is kept without it:
 /// recording a report never fails the tool.
 /// </summary>
-public sealed class VisualComparisonRecorder(ISandboxFileReaderFactory files, ILogger<VisualComparisonRecorder> logger)
+public sealed class VisualComparisonRecorder(ISandboxBinaryFileWriter bytes, ILogger<VisualComparisonRecorder> logger)
 {
     internal const int MaxImagesPerRun = 4;
 
@@ -38,21 +38,21 @@ public sealed class VisualComparisonRecorder(ISandboxFileReaderFactory files, IL
     private async Task<IReadOnlyList<string>> WriteAsync(
         ISandbox repo, string dir, int number, IReadOnlyList<(string Viewport, byte[] Jpeg)> diffs, CancellationToken ct)
     {
+        // 2026-10-08-e8b9j: each JPEG goes as bytes, decoded by the receiver — no python step.
         try
         {
-            var io = files.Create(repo);
             var paths = new List<string>();
             foreach (var (viewport, jpeg) in diffs)
             {
-                var path = $"{dir}/{number:00}-{viewport}.jpg";
-                await io.WriteAsync(path + ReferenceSetMaterialiser.EncodedSuffix, Convert.ToBase64String(jpeg), ct);
-                paths.Add(path);
+                var name = $"{number:00}-{viewport}.jpg";
+                if (await bytes.WriteAsync(repo, dir, name, jpeg, ct) is { } failed)
+                {
+                    logger.LogWarning("Writing the comparison's diff images failed: {Error}", failed);
+                    return [];
+                }
+                paths.Add($"{dir}/{name}");
             }
-            var decoded = await repo.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "python3", Args: ["-c", ReferenceSetMaterialiser.DecodeScript, $"/work/{dir}"],
-                WorkingDirectory: "/work", TimeoutSeconds: 120), null, ct);
-            if (decoded.ExitCode == 0) return paths;
-            logger.LogWarning("Decoding the comparison's diff images failed: {Error}", decoded.ErrorMessage);
+            return paths;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

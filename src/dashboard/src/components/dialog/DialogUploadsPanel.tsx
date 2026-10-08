@@ -35,6 +35,9 @@ export function DialogUploadsPanel({
           {`${sizeOf(used)} of ${sizeOf(cap)} used, ${sizeOf(Math.max(0, cap - used))} left`}
         </p>
       )}
+      {notSeen(session) && (
+        <p className="ec-sub mb-2" data-testid="dialog-uploads-not-seen">{notSeen(session)}</p>
+      )}
       <ul className="flex flex-col gap-2">
         {uploadsOf(session).map((upload) => (
           <UploadRow
@@ -103,6 +106,18 @@ function ImageSummary({ upload }: { upload: Extract<DialogUpload, { kind: "image
       {image.bytes != null && <span className="ec-sub">{sizeOf(image.bytes)}</span>}
     </>
   );
+}
+
+/** 2026-10-08-e8b9j: said when the conversation's model cannot see what was attached — the
+ *  model is told already; the person attaching a screenshot is the one who would wait. */
+export function notSeen(session: SpecDialogSession): string | null {
+  const all = session.imageCount ?? 0;
+  if (session.seesImages === false && all > 0)
+    return `This project's model does not see images; ${all} stored image(s) are not shown to it.`;
+  const inSets = all - (session.images?.length ?? 0);
+  if (session.seesUploadedImages === false && inSets > 0)
+    return `This project's model is not shown images inside uploads; ${inSets} image file(s) in sets are not shown to it.`;
+  return null;
 }
 
 /** Every upload of the conversation, oldest first. */

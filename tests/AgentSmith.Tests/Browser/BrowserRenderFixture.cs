@@ -42,7 +42,7 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     /// <summary>2026-10-01-283di: compare_reference's services over the same fakes.</summary>
     public CompareReferenceServices CompareServices() =>
         new(Services(), new ReferenceComparer(Opener(), Stager(), new BrowserRenderInvocation(Files)),
-            new StyleDifferenceComparer(), new VisualComparisonRecorder(Files, NullLogger<VisualComparisonRecorder>.Instance));
+            new StyleDifferenceComparer(), new VisualComparisonRecorder(new SandboxBinaryFileWriter(), NullLogger<VisualComparisonRecorder>.Instance));
 
     public RenderReferenceToolFactory Factory() =>
         new(Services(), CompareServices(), new ReferenceDesignTools(new SandboxContainerRuntime(spawnsContainers)));
@@ -50,7 +50,7 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     private static SandboxFileReaderFactory Files { get; } = new();
 
     private RenderSourceStager Stager() =>
-        new(new ReferenceSetMaterialiser(this, Files), new RepoRenderSource(Files, new RepoTreeListing()));
+        new(new ReferenceSetMaterialiser(this, Files, new SandboxBinaryFileWriter()), new RepoRenderSource(Files, new RepoTreeListing()));
 
     private BrowserSandboxOpener Opener()
     {

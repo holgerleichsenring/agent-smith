@@ -113,7 +113,7 @@ public sealed class MaterializeReferenceSetsTests
     {
         var files = new SandboxFileReaderFactory();
         return new MaterializeReferenceSetsHandler(ApprovedSetDoubles.Resolver(),
-            new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files), new ReferenceGitExclusion(files), notes),
+            new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files, new SandboxBinaryFileWriter()), new ReferenceGitExclusion(files), notes),
             NullLogger<MaterializeReferenceSetsHandler>.Instance);
     }
 

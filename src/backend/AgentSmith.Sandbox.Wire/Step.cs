@@ -1,5 +1,7 @@
 namespace AgentSmith.Sandbox.Wire;
 
+// 2026-10-08-e8b9j: Append and RenameTo serve WriteBytes only — a chunk continues the file at
+// Path, and the last chunk moves it over RenameTo, so a reader never sees half a file.
 // 2026-09-17-042ed: SearchHidden asks a Grep step to search DOTFILES AND IGNORED PATHS as well.
 // Off by default, because a repository's ignore rules are what its own readers see: a grep that
 // reads .env, .npmrc and a checked-out .venv floods every master's result head with what the
@@ -29,7 +31,9 @@ public sealed record Step(
     bool WithSizes = false,
     DirectorySortBy SortBy = DirectorySortBy.Name,
     IReadOnlyList<string>? ExcludeGlobs = null,
-    bool SearchHidden = false)
+    bool SearchHidden = false,
+    bool Append = false,
+    string? RenameTo = null)
 {
     /// <summary>The protocol version stamped on every step this build sends. Stated once in
     /// <see cref="WireProtocol"/> so three records cannot disagree about what "current" is.</summary>
@@ -58,6 +62,7 @@ public sealed record Step(
             StepKind.DirectoryTree => string.IsNullOrEmpty(Path)
                 ? (false, "DirectoryTree step requires non-empty Path")
                 : (true, null),
+            StepKind.WriteBytes => ValidateWriteBytes(),
             // 2026-08-25-0d01: a kind this build cannot name is a report, not a crash. The
             // answer travels back on the result channel the server already reads, naming the
             // protocol this build speaks so the difference is legible at the other end.
@@ -75,6 +80,15 @@ public sealed record Step(
             return (false, "WriteFile step requires non-empty Path");
         if (Content is null)
             return (false, "WriteFile step requires non-null Content");
+        return (true, null);
+    }
+
+    private (bool IsValid, string? Error) ValidateWriteBytes()
+    {
+        if (string.IsNullOrEmpty(Path))
+            return (false, "WriteBytes step requires non-empty Path");
+        if (Content is null)
+            return (false, "WriteBytes step requires non-null Content");
         return (true, null);
     }
 

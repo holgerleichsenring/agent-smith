@@ -8,8 +8,9 @@ namespace AgentSmith.Tests.References;
 
 /// <summary>
 /// 2026-10-01-283dc: a container with a file system and nothing else — writes land at their path
-/// under /work, reads and greps see them, and the one python3 step decodes every .b64 file the way
-/// the materialiser's script does. It counts what reached it, which is what the tests assert on.
+/// under /work, reads and greps see them. 2026-10-08-e8b9j: WriteBytes steps land as the agent's
+/// do — appended chunks at Path, moved over RenameTo by the last one. It counts what reached it,
+/// python included, which is what the tests assert on.
 /// </summary>
 internal sealed class InMemoryFileSandbox : IHoldableSandbox
 {
@@ -30,11 +31,12 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
         Task.FromResult(step.Kind switch
         {
             StepKind.WriteFile => Write(step),
+            StepKind.WriteBytes => WriteBytes(step),
             StepKind.ReadFile => Files.TryGetValue(Resolve(step.Path!), out var bytes)
                 ? Read(step, bytes) : Fail(step, "file not found"),
             StepKind.ListFiles => Ok(step, List(step)),
             StepKind.Grep => Ok(step, Grep(step)),
-            StepKind.Run when step.Command == "python3" => Decode(step),
+            StepKind.Run when step.Command == "python3" => Python(step),
             StepKind.Run when step.Command == "/bin/sh" => Shell(step),
             _ => Ok(step, string.Empty),
         });
@@ -52,15 +54,23 @@ internal sealed class InMemoryFileSandbox : IHoldableSandbox
         return Ok(step, "ran");
     }
 
-    private StepResult Decode(Step step)
+    private StepResult WriteBytes(Step step)
+    {
+        Writes++;
+        var path = Resolve(step.Path!);
+        var chunk = Convert.FromBase64String(step.Content!);
+        Files[path] = step.Append && Files.TryGetValue(path, out var held) ? [.. held, .. chunk] : chunk;
+        if (step.RenameTo is { } target)
+        {
+            Files[Resolve(target)] = Files[path];
+            Files.Remove(path);
+        }
+        return Ok(step, string.Empty);
+    }
+
+    private StepResult Python(Step step)
     {
         PythonRuns++;
-        var suffix = AgentSmith.Application.Services.Sandbox.ReferenceSetMaterialiser.EncodedSuffix;
-        foreach (var encoded in Files.Keys.Where(p => p.EndsWith(suffix, StringComparison.Ordinal)).ToList())
-        {
-            Files[encoded[..^suffix.Length]] = Convert.FromBase64String(Encoding.UTF8.GetString(Files[encoded]));
-            Files.Remove(encoded);
-        }
         return Ok(step, string.Empty);
     }
 
