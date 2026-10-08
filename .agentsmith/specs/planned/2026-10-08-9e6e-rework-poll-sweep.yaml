@@ -1,72 +1,76 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-9e6e
-goal: "In polling mode each poll cycle finds the rework acts webhooks would deliver — a keyword comment, a pending Request changes — on recently finished tickets and starts each once through ReworkEntry."
+goal: "In polling mode a change sweep finds tickets and agent-smith pull requests changed since its persisted cursor and enqueues nudges, so the worker serves the same acts webhooks deliver."
 
-applies_to: "backend (poller, previous-attempt reader, rework entry) + docs"
+applies_to: "backend (change sweep, cursors, ticket and source listers, nudge worker) + docs"
 
-requires: [2026-10-08-f147, 2026-10-08-0781]
+requires: [2026-10-08-0781, 2026-10-08-2123]
 
 facts:
-  - claim: "The tracker poller lists claimable tickets by trigger status and claims those without a lease; it reads no comments and no pull requests."
-    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:38-46,57-70,134-169"
-  - claim: "Keyword comments reach ReworkEntry only through the webhook comment router, which comments a refusal on the ticket."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:26-42,45-60"
-  - claim: "Pollers are built per polling tracker and run in the one replica holding the poller lease."
-    evidence: "src/backend/AgentSmith.Server/Services/PollerFactory.cs:32-45, src/backend/AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs:11-37, src/backend/AgentSmith.Contracts/Services/IEventPoller.cs:18-23"
-  - claim: "ReworkEntry serves an act once: a held lease answers AlreadyServed or WorkedOn, an act no newer than the attempt's start plus one minute is AlreadyServed, and the claim's lease insert admits one winner."
-    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:26-45, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:37-39"
-  - claim: "The keyword act is read from a ticket's comments by ReworkActReader.Read; providers list comments with GetCommentsAsync."
-    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-26, src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:115-117"
-  - claim: "The previous-attempt reader orders code runs by time-sortable id, because SQLite cannot order a DateTimeOffset, and carries each repo's PR URL."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:11-36,40-52, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:9-13"
-  - claim: "Prior-run carry-over is capped at 72 hours."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/PriorRunLedgerSeeder.cs:18-21"
+  - claim: "The tracker poller lists claimable tickets by trigger status and reads no comments or pull requests; each poller gets 20 s per cycle."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:38-46,57-70, src/backend/AgentSmith.Application/Services/Polling/PollerHostedService.cs:20,44-49"
+  - claim: "Pollers run in the replica holding 'agentsmith:leader:poller', through LeaderSubsystemRunner."
+    evidence: "src/backend/AgentSmith.Server/Services/Hosting/PollerLeaderHostedService.cs:16-37, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:14-17"
+  - claim: "Jira searches through the Search template, Azure DevOps through a WIQL runner whose ordering is the caller's."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:107, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWiqlRunner.cs:57-72"
+  - claim: "Our runs record each repo's opened PR URL; a ticket branch names its ticket."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:40-52, src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-60"
+  - claim: "The comment handlers alone parse plan answers."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:23, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:34, src/backend/AgentSmith.Application/Services/Triage/PlanAnswerParser.cs:14"
+  - claim: "The polling docs compare rate limits per ticket event versus per interval."
+    evidence: "docs/trigger-it/polling.md:44-52"
+  - claim: "GitHub allows 5,000 requests an hour per token; repository issues (pull requests included) and issue and review comments list by since (updated), ascending, 100 a page."
+    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28, https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#list-repository-issues, https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28, https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28"
+  - claim: "GitLab lists issues and merge requests by updated_after, ordered by updated_at; Azure DevOps lists pull requests with no updated filter."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/issues/, https://docs.gitlab.com/api/merge_requests/#list-project-merge-requests, https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/get-pull-requests?view=azure-devops-rest-7.1"
 
 assumptions:
-  - claim: "A run id's leading part orders with its creation time, so 'started within 72 hours' is an id lower bound."
-    check: "Read the run id factory before building the candidate query."
+  - claim: "A comment updates the ticket's updated time on all four trackers, and a submitted review updates the GitHub PR's and GitLab MR's."
+    check: "Comment on a test ticket per tracker and review a test PR per host; read updated times."
 
 scope:
   in: >
-    ReworkSweep, an IEventPoller PollerFactory builds beside each TrackerPoller (same interval). Candidates:
-    IPreviousAttemptReader.RecentFinishedAsync(projects of this tracker, 72 h, 50) — per (project, ticket)
-    the newest code attempt, finished, newest first, at most 50 per cycle; a ticket with a lease is skipped.
-    Per candidate IReworkPendingActs.ServeAsync (2026-10-08-0781): the keyword act and PrPendingActCheck
-    on the attempt's PR URLs, through ReworkEntry under its per-ticket lock. Started answers as the webhook
-    path does; every other outcome is logged and asked again next cycle. A failing read skips that
-    candidate. Cost per cycle: at most 50 × (1 + 3 per
-    PR) host calls. Docs: polling and webhooks serve the same acts; webhooks only sooner.
-  out: >
-    The status-back act's cause (2026-10-08-2123); its claim is the poller's today. PR review on open or
-    push, the security-scan label, PR comment commands: webhook-only until 2026-10-08-10b0.
+    ChangeSweepHostedService, leader of 'agentsmith:leader:change-sweep', per polling tracker at its
+    interval, with its own deadline (half the interval) and call budget (10 pages per source a cycle).
+    SweepCursor(source, at), migrations in both sets. Ticket source, ascending from the cursor: Jira
+    'updated >= cursor ORDER BY updated ASC', GitHub issues since, GitLab issues updated_after, Azure DevOps
+    WIQL ChangedDate; a changed ticket of this tracker's projects with a code run is nudged. PR source per
+    repository those projects declare: GitHub issues since (pull_request items) and review comments since,
+    GitLab merge requests updated_after; a changed open agent-smith PR is nudged with its URL. Azure DevOps:
+    our open PR URLs in rotation, 10 a cycle. The cursor advances to the last item read, so a budget cut
+    resumes there. Sweep nudges also carry plan answers: the worker parses the newest foreign comment after
+    the cutoff and dispatches with them as the comment handlers do. Docs: the table names the sweep's calls.
+  out: "PR events (2026-10-08-10b0)."
 
 decisions:
-  - key: "CANDIDATES FROM OUR DATABASE, NOT THE TRACKER: a finished ticket left the trigger statuses the poller lists, and only our rows know its pull requests."
-  - key: "72 HOURS, 50 PER CYCLE: the carry-over window already used; an act on an older attempt waits for a webhook-free path — a ticket edit or status move — or a newer attempt."
-  - key: "SILENT REFUSALS: a refusal posted every cycle is spam; the act arrived without a webhook to answer it."
-  - key: "THE LEADER SWEEPS; exactly-once rests on 2026-10-08-0781's per-ticket lock, the lease and AlreadyServed, so a sweep and an end-of-run check on one ticket serve once."
+  - key: "NUDGES ONLY: the sweep reads what changed, never whether it is an act."
+  - key: "ASCENDING FROM A CURSOR, NOT A WINDOW: no 72-hour cut and no newest-first starvation; an open PR is followed as long as it is open."
+  - key: "OWN SERVICE, OWN BUDGET: outside the 20 s poller timeout; at 60 s with ten repositories it costs about 660 GitHub requests an hour of the 5,000."
+  - key: "AZURE DEVOPS ROTATES: its pull requests carry no updated time to filter on."
 
 steps:
-  - id: reader
-    action: "Add RecentFinishedAsync to IPreviousAttemptReader (Db and null)."
+  - id: cursor
+    action: "Add SweepCursor with its configuration and migrations in both sets."
+  - id: listers
+    action: "Add IChangedTicketLister per tracker and IChangedPullRequestLister per source host, one collaborator each."
   - id: sweep
-    action: "Add ReworkSweep, calling IReworkPendingActs per candidate, and build it in PollerFactory."
+    action: "Add ChangeSweepHostedService and its registration; the worker's plan-answer branch for sweep nudges."
   - id: docs
-    action: "One sentence in webhooks.md, pr-comments.md and the polling docs."
+    action: "Rewrite the polling.md rate-limit rows."
 
 tests:
-  - "RecentFinished_NewestFinishedPerTicketWithinWindowCapped"
-  - "ReworkSweep_KeywordAfterAttempt_EntersOnce"
-  - "ReworkSweep_PendingRequestChanges_EntersOnce"
-  - "ReworkSweep_LeaseHeld_Skipped"
-  - "ReworkSweep_Refused_NotCommentedAskedNextCycle"
-  - "ReworkSweep_SameActTwoCycles_SecondAlreadyServed"
-  - "ReworkSweep_AndRunEnd_SameTicket_ServedOnce"
+  - "Sweep_ChangedTicketWithRun_Nudged"
+  - "Sweep_BudgetCut_ResumesFromLastItem"
+  - "Sweep_ChangedAgentSmithPr_NudgedWithUrl"
+  - "Sweep_AzureDevOpsRotation_CoversAllOpenPrs"
+  - "Sweep_NotLeader_DoesNothing"
+  - "Worker_SweepNudgePlanAnswers_Dispatched"
 
 done:
-  - "GitHub, polling: keyword comment and Request changes by this sweep; status-back by the poller's claim; an act during a live run by 2026-10-08-0781 when it ends."
-  - "GitHub, webhooks: keyword comment by the comment router, Request changes by GitHubPrReviewWebhookHandler, status-back by the issue handler's claim; a live-run act by 2026-10-08-0781."
-  - "GitLab, polling: as GitHub, Request changes through 2026-10-08-f147's check."
-  - "GitLab, webhooks: comment router, GitLabMrReviewWebhookHandler, the issue handler's claim; a live-run act by 2026-10-08-0781."
-  - "Azure DevOps, polling: as GitHub."
-  - "Azure DevOps, webhooks: comment router, the review-vote handler, the work-item handler's claim; a live-run act by 2026-10-08-0781; full suite green."
+  - "Jira Cloud and Data Center, polling: keyword comment and status-back by the ticket source, plan answers too."
+  - "GitHub Issues, polling: the same by the ticket source."
+  - "GitLab Issues, polling: the same by the ticket source."
+  - "Azure Boards, polling: the same by the ticket source."
+  - "GitHub, polling: Request changes by the PR source."
+  - "GitLab, polling: Request changes by the PR source."
+  - "Azure Repos, polling: Wait-for-author by the rotation; every tracker with every host serves both rows; full suite green."

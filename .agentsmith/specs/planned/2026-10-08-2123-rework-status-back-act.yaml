@@ -1,71 +1,74 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-2123
-goal: "A person moving a finished ticket back into a trigger status is a rework act the run reads from the tracker's history, so a fully executed set gets appended phases instead of nothing to run."
+goal: "A person moving a finished ticket back into a trigger status is a rework act read from the tracker's history, so a fully executed set with new feedback gets appended phases."
 
-applies_to: "backend (ticket providers' history, rework act, spec revision cause)"
+applies_to: "backend (ticket providers' history, rework act, spec revision cause, nudge worker)"
 
-requires: [2026-10-08-f114, 2026-10-08-9e6e]
+requires: [2026-10-08-f114, 2026-10-08-0781]
 
 facts:
   - claim: "Without a demand, PR act, edit or comment the cause is Retrigger, which amends only a set with nothing executed."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:64-78, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-48"
-  - claim: "Rework amends any set, carries the approval and gets the append paragraph and its own notice line."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:41-42,56-57, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:69, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:29-31,62, src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:26-30"
-  - claim: "A rework act has a ticket or pull-request channel; the run reads acts in FetchTicketHandler, which has room (140 of 189)."
-    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-9, src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs:10, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:82-86, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:55"
+  - claim: "IsAppend is the empty-tail, executed-head shape; Rework amends any set, carries the approval and gets the append paragraph and a notice line."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:41-42,52-57, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:69, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:29-31,62, src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:26-30"
+  - claim: "A run reads its acts in FetchTicketHandler (140 of 189) into ContextKeys.ReworkAct, newest act winning."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:82-86, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:55, src/backend/AgentSmith.Contracts/Commands/ContextKeys.Ticket.cs:17-22, src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:41-45"
   - claim: "FetchTicketContext carries the trigger's comment_keyword from its builder."
     evidence: "src/backend/AgentSmith.Application/Models/FetchTicketContext.cs:11-18, src/backend/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:18"
-  - claim: "GitHub statuses are open, closed or a label; GitLab's are the issue state; Jira already calls /myself."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:154-162, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:162-182, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:62-63"
-  - claim: "Jira lists an issue's changelog paged by startAt/maxResults: author, created, items with field and toString; /myself returns accountId."
-    evidence: "observed: 2026-10-08, https://dac-static.atlassian.com/cloud/jira/platform/swagger-v3.v3.json (GET /rest/api/3/issue/{issueIdOrKey}/changelog, Changelog, ChangeDetails, GET /rest/api/3/myself)"
-  - claim: "Azure DevOps lists a work item's updates with revisedBy and fields carrying oldValue/newValue, paged by $top/$skip."
+  - claim: "GitHub statuses are open, closed or a label; GitLab's are the issue state; Jira's /myself is a private constant; JiraEndpoints holds overridable templates."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:154-162, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:162-182, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:62-63, src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:15-28"
+  - claim: "Jira's changelog pages by startAt/maxResults with total and isLast: author, created, items with field and toString; /myself returns accountId."
+    evidence: "observed: 2026-10-08, https://dac-static.atlassian.com/cloud/jira/platform/swagger-v3.v3.json (GET /rest/api/3/issue/{issueIdOrKey}/changelog, PageBeanChangelog, ChangeDetails, GET /rest/api/3/myself)"
+  - claim: "Azure DevOps lists a work item's updates with revisedBy and oldValue/newValue fields, paged by $top/$skip."
     evidence: "observed: 2026-10-08, https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/updates/list?view=azure-devops-rest-7.1"
-  - claim: "GitHub lists issue events (labeled with label, reopened) with actor and created_at, 100 per page."
-    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/issues/events?apiVersion=2022-11-28"
-  - claim: "GitLab lists an issue's state events with user, created_at and state; the initial opened is not tracked."
-    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/resource_state_events/"
+  - claim: "GitHub lists issue events (reopened) with actor and created_at, 100 per page, with a Link rel=last when it can be calculated."
+    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/issues/events?apiVersion=2022-11-28, https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28"
+  - claim: "GitLab lists an issue's state events (user, created_at, state) and sends x-total-pages below 10,000 records."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/resource_state_events/, https://docs.gitlab.com/api/rest/#pagination-response-headers"
 
 assumptions:
-  - claim: "An Azure DevOps update's time is its System.ChangedDate newValue (revisedDate of the latest update is not a real time); connectionData names the token's identity."
+  - claim: "An Azure DevOps update's time is its System.ChangedDate newValue; connectionData names the token's identity."
     check: "Read a test work item's updates and _apis/connectionData before building the Azure DevOps half."
 
 scope:
   in: >
-    ITicketStatusHistory.LatestIntoAsync(ticket, statuses, since): the newest change into one of the
-    trigger statuses after since, by anyone but the token's own identity (Jira /myself, GitHub and GitLab
-    GET /user, Azure DevOps connectionData) — Jira changelog status items, Azure DevOps System.State
-    updates, GitHub labeled-with-a-trigger-status or reopened when 'open' is one, GitLab a state event to
-    opened; pages newest first until older than since. FetchTicketContext carries the trigger statuses.
-    ReworkActReader.ApplyStatusBackAsync, after the PR channel, when the previous attempt finished: such a
-    change after its start plus one minute is a ReworkAct on channel Status unless a newer act was read;
-    fail-soft. SpecRevisionCause.StatusBack ('moved back to a trigger status'), after Rework: treated as
-    Rework by the amendment rule, approval carry and append paragraph (naming the ticket conversation and
-    the review section), with its own notice line.
-  out: "Which path claims the moved ticket: the poller or the tracker's webhook, both already (2026-10-08-9e6e)."
+    ITicketStatusHistory.LatestIntoAsync(ticket, statuses, since), newest page first: Jira the last page by
+    total (Data Center: the issue with expand=changelog through the Changelog template), GitHub Link
+    rel=last else next until done, GitLab x-total-pages, Azure DevOps all pages of $top=200. A change into a
+    trigger status by anyone but the token's identity (Jira accountId, else key or name, via a Myself
+    template; GitHub and GitLab GET /user; Azure DevOps connectionData). GitHub and GitLab: a reopen only,
+    when open or opened is a trigger status. Empty trigger_statuses: none. ContextKeys.StatusBackAct,
+    separate from ReworkAct, read after the previous attempt's cutoff. SpecRevisionCause.StatusBack, ahead of
+    TicketEdit and Comment: only in the IsAppend shape and only with a person's comment or review since the
+    cutoff; otherwise Retrigger. Amends and carries approval as Rework; its paragraph names the
+    conversation, the current ticket text and the review section. IReworkPendingActs serves it.
+  out: "Which path claims a moved ticket: the poller or the tracker's webhook, as today."
 
 decisions:
-  - key: "THE MOVE IS READ, NOT INFERRED: a claim after a finished attempt may be a Retry or our own ReworkEntry move; only the history says a person moved it."
-  - key: "OUR IDENTITY IS EXCLUDED, so ReworkEntry's own move is no act; a token owned by the operator hides the operator's own move, as it does on pull requests."
-  - key: "A MOVE IS A REWORK: it asks for more on a finished set; what to append comes from the comments and the review since the attempt."
+  - key: "THE MOVE IS READ, NOT INFERRED, and our own moves are excluded, so ReworkEntry and Retry never look like a person."
+  - key: "APPEND ONLY: a move back after a failed attempt keeps today's retry of the unexecuted tail."
+  - key: "A LABEL IS NOT A MOVE on GitHub or GitLab: done_status there stays served by the keyword comment."
+  - key: "A MOVE WITHOUT FEEDBACK IS A RETRIGGER: there is nothing to append from."
 
 steps:
   - id: history
-    action: "Add ITicketStatusHistory and one collaborator per tracker; the providers expose it by a cast."
+    action: "Add ITicketStatusHistory, one collaborator per tracker, Changelog and Myself in JiraEndpoints."
   - id: act
-    action: "Add ReworkChannel.Status, the trigger statuses on FetchTicketContext and ApplyStatusBackAsync in FetchTicketHandler."
+    action: "Add ContextKeys.StatusBackAct, the trigger statuses on FetchTicketContext and the read in FetchTicketHandler; add it to IReworkPendingActs."
   - id: cause
     action: "Add SpecRevisionCause.StatusBack to For, SpecAmendmentRule, SpecSourceResolver, PreviousCutPromptSection and SpecRecutNotice."
 
 tests:
-  - "JiraHistory_StatusIntoTrigger_ReturnsAuthorAndTime"
+  - "JiraHistory_StatusIntoTrigger_ReadsLastPage"
+  - "JiraDataCenter_OwnMove_Ignored"
   - "AzureDevOpsHistory_StateIntoTrigger_UsesChangedDate"
-  - "GitHubHistory_TriggerLabelAdded_IsMove"
+  - "GitHubHistory_Reopened_IsMove"
   - "GitLabHistory_Reopened_IsMove"
-  - "History_OwnIdentityMove_Ignored"
-  - "StatusBack_MoveAfterAttempt_SetsStatusAct"
-  - "Cause_StatusAct_IsStatusBack"
+  - "History_EmptyTriggerStatuses_None"
+  - "Cause_MoveThenKeywordComment_IsStatusBack"
+  - "Cause_MoveWithoutFeedback_IsRetrigger"
   - "Decide_StatusBackOnExecutedSet_Appends"
+  - "Decide_StatusBackWithUnexecutedTail_ContinuesSet"
 
 done:
-  - "A ticket moved back by a person after a fully executed attempt, in either mode, runs appended phases; our own move and a Retry stay Retrigger; full suite green."
+  - "A ticket moved back by a person after a fully executed attempt with feedback since it runs appended phases, in both modes; our own move, a Retry and a move without feedback stay Retrigger; full suite green."

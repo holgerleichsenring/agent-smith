@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-0781
+goal: "Every rework act is served on one path: webhooks and run ends enqueue a durable nudge, and one worker checks the ticket against what its last run read and serves the act once."
+
+applies_to: "backend (nudge queue, worker, lease release, run row, rework entry, webhook handlers)"
+
+requires: [2026-10-08-f147]
+
+facts:
+  - claim: "Every lease release passes DbActiveRunLease.ReleaseAsync, which reports Released only when it deleted the row; the CLI binds NoOpActiveRunLease."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbActiveRunLease.cs:16-22, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:89-102, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:242-251,387-392, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:120-137, src/backend/AgentSmith.Application/Services/Lifecycle/RunStartGate.cs:71-76, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:52, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:56-70, src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:95-101"
+  - claim: "Webhook handlers enter the rework inline, the vote handler after a host read, inside the delivery's request."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:26-60, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:31-46, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:35-67, src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:21-40"
+  - claim: "The cutoff today is the attempt's StartedAt plus one minute; the thread is read after the start, and TicketFetchedEvent follows the reads."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:9-20, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-93,115-130, src/backend/AgentSmith.Contracts/Events/TicketFetchedEvent.cs:15-25"
+  - claim: "The applier sets the title from TicketFetchedEvent and is at its 159-line baseline; the attempt reader ignores queued rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:48-51, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:21, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-32"
+  - claim: "ReworkEntry refuses a live lease or an unfinished attempt and serves acts after the attempt; a queued row's StartedAt is its enqueue time."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:26-59, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108"
+  - claim: "An operator cancel carries reason 'operator' onto the row."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:135-137, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:143-147"
+  - claim: "A cross-process lock exists: TryAcquire with a TTL, CAS release."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRedisClaimLock.cs:8-20"
+  - claim: "Indexed strings are capped at PersistenceLimits.IndexedString; there is a default and a SQL Server migration set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:8-10, src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261008160032_AddReferenceFileContentHash.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261008160036_AddReferenceFileContentHash.cs:1"
+
+assumptions:
+  - claim: "Hosts and servers keep clocks within five seconds."
+    check: "Compare a test comment's host time with the server clock on each deployed host."
+
+scope:
+  in: >
+    ReworkNudge(project, ticket, prUrl?, channel?, origin, dueAt, claimedUntil), migrations in both sets,
+    one pending row per (project, ticket), channels merged. IReworkNudges.EnqueueAsync, a no-op in the CLI.
+    Sources: the webhook handlers (keyword router when a code attempt exists, PrReworkAdmission after its
+    config-only filters, the vote and GitLab handlers on parse) enqueue and return; DbActiveRunLease on
+    Released. ReworkNudgeWorker on every replica claims due rows by compare-and-set, takes
+    'agentsmith:rework:{project}:{ticket}' (TTL 5 min; busy: dueAt plus backoff), gates on the database —
+    no lease, no queued code row, newest attempt finished and not waiting_for_input — then
+    IReworkPendingActs reads the acts (keyword comment, the hosts' act readers with trust) newer than the
+    attempt's ActsReadAt (StartedAt when null) plus 5 s, and enters ReworkEntry. An act at or before an
+    operator cancel's FinishedAt is not served and is said so. Live or waiting: a nudge with a channel says
+    'picked up when run X finishes' once. Started and refusals speak on the act's channel. The row is
+    deleted after handling. Run.ActsReadAt: taken before the reads, carried on TicketFetchedEvent, set once.
+  out: "Mode checks (2026-10-08-101b). Sweep nudges (2026-10-08-9e6e)."
+
+decisions:
+  - key: "ONE SERVING PATH: every source only says 'check this ticket'; the worker alone reads and decides."
+  - key: "THE CUTOFF IS WHAT THE RUN READ, taken before the read: an act during the read is served again rather than lost."
+  - key: "CANCEL MEANS STOP: an act made before an operator cancel is not served."
+  - key: "EXACTLY ONCE: the lock serializes, the lease or queued row of a run it started answers the next nudge, and a nudge undeleted after a crash meets them."
+
+steps:
+  - id: store
+    action: "Add ReworkNudge, its configuration (IndexedString keys), migrations in both sets, IReworkNudges with Db and no-op implementations."
+  - id: cutoff
+    action: "Add Run.ActsReadAt, TicketFetchedEvent.ActsReadAt and the dashboard mirror; PreviousAttempt carries ActsReadAt, FinishedAt and CancelReason."
+  - id: worker
+    action: "Add ReworkNudgeWorker, IReworkPendingActs; the release hook in DbActiveRunLease."
+  - id: sources
+    action: "Switch the keyword router, PrReworkAdmission and the vote and GitLab handlers to enqueue; drop their inline host reads."
+
+tests:
+  - "Worker_ActDuringRun_ServedAtReleaseOnce"
+  - "Worker_ParkedRun_ServedAfterResumeEnds"
+  - "Worker_ActTenSecondsAfterRead_Served"
+  - "Worker_CancelEnforcerRelease_Served"
+  - "Worker_OperatorCancel_NotServedSaysSo"
+  - "Worker_TwoReplicas_OneServe"
+  - "Worker_CrashBeforeDelete_SecondHandlingAlreadyServed"
+  - "Worker_LockBusy_Rescheduled"
+  - "Webhook_KeywordComment_EnqueuesNoHostCall"
+
+done:
+  - "Webhook mode, GitHub, GitLab and Azure DevOps: a keyword comment or Request changes starts one attempt via the worker; one made during a live run starts one when it ends, with no second act."
+  - "No webhook request waits on a host or a lock; RunEventApplier stays at 159 lines; full suite and dashboard tests green."
