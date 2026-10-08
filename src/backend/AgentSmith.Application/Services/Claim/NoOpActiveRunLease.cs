@@ -19,8 +19,8 @@ public sealed class NoOpActiveRunLease : IActiveRunLease
         string project, TicketId ticketId, string? runId, CancellationToken cancellationToken)
         => Task.FromResult(LeaseReleaseOutcome.Released);
 
-    public Task AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken cancellationToken)
-        => Task.CompletedTask;
+    public Task<LeaseAttachOutcome> AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken cancellationToken)
+        => Task.FromResult(LeaseAttachOutcome.Attached);
 
     public Task RenewHeartbeatAsync(string project, TicketId ticketId, CancellationToken cancellationToken)
         => Task.CompletedTask;

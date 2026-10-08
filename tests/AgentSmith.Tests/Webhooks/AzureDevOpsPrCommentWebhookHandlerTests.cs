@@ -73,8 +73,7 @@ public sealed class AzureDevOpsPrCommentWebhookHandlerTests
         var result = await CreateSut().HandleAsync(Comment("/agent-smith fix #99 in payments"), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("code");
-        result.TriggerInput.Should().Be("code #99 pr:MyProject/my-api#58");
+        _fixture.LaunchedAs().Should().Be("code #99 pr:MyProject/my-api#58");
     }
 
     [Fact]

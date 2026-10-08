@@ -65,10 +65,12 @@ public sealed class ExecutePipelineUseCase(
         {
             prologue = await BuildPrologueAsync(
                 request, configPath, runId, runStartedAt, cancellationToken);
+            // 2026-10-08-e8b9e: attached LAST in the guard — a live holder ends this run before RunStarted.
+            await AttachLeaseAsync(request, prologue.Project.Name, runId, prologue.Resume is not null, cancellationToken);
         }
         catch (Exception ex)
         {
-            await PublishPrologueFailureAsync(request, runId, ex);
+            if (ex is not LeaseHeldException { Resume: true }) await PublishPrologueFailureAsync(request, runId, ex);
             throw;
         }
 
@@ -77,11 +79,7 @@ public sealed class ExecutePipelineUseCase(
         var resumePlan = prologue.Resume;
 
         await PublishRunStartedAsync(runId, runStartedAt, request, prologue.Repos, projectConfig, cancellationToken);
-        // p0242: link the run id onto the lease the poller claimed (jobId stays
-        // null for an in-process run — the heartbeat is its liveness signal). Then
-        // pump the heartbeat for the run's lifetime, and RELEASE on every exit.
-        // p0515: under the CONFIGURED spelling — two capitalisations, not two leases.
-        await AttachLeaseAsync(request, projectConfig.Name, runId, cancellationToken);
+        // p0242 / p0515: lease attached above (CONFIGURED spelling); heartbeat for life, RELEASE on every exit.
         using var heartbeatCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var heartbeatPump = heartbeatPumps.RunAsync(projectConfig.Name, request.TicketId, runId, heartbeatCts.Token);
         // p0200: register a per-run CTS so /api/runs/{runId}/cancel and
@@ -378,10 +376,12 @@ public sealed class ExecutePipelineUseCase(
     // a ticket a newer run has since reclaimed keeps its new holder. Guarded to ticket
     // runs: CLI/non-ticket runs hold no lease, and a missing row is a harmless no-op.
     private async Task AttachLeaseAsync(
-        PipelineRequest request, string project, string runId, CancellationToken ct)
+        PipelineRequest request, string project, string runId, bool resume, CancellationToken ct)
     {
         if (request.TicketId is null) return;
-        await activeRunLease.AttachRunAsync(project, request.TicketId, runId, jobId: null, ct);
+        if (await activeRunLease.AttachRunAsync(project, request.TicketId, runId, jobId: null, ct) == LeaseAttachOutcome.Attached) return;
+        var holder = await activeRunLease.GetByTicketAsync(project, request.TicketId, ct);
+        throw new LeaseHeldException(request.TicketId.Value, holder?.RunId, resume);
     }
 
     private async Task ReleaseLeaseAsync(

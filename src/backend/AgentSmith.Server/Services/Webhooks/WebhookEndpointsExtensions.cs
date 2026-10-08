@@ -25,6 +25,7 @@ internal static class WebhookEndpointsExtensions
         // instead of carrying a literal each.
         services.AddSingleton<PrTriggerLabelResolver>();
         services.AddPrCommentAuthorTrust();
+        services.AddSingleton<IPrCommandLaunch, PrCommandLaunch>(); // 2026-10-08-e8b9e
         services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<PrReviewRouteResolver>();
         services.TryAddSingleton<PrRunContextFactory>();

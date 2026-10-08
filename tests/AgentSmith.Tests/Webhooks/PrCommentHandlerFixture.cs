@@ -25,9 +25,22 @@ internal sealed class PrCommentHandlerFixture
             .ReturnsAsync((string input, string _, CancellationToken _) => Resolve(input));
     }
 
-    public PrCommentCommandAdmission Admission() =>
-        new(new CommentIntentParser(Model.Object), new ServerContext("config.yml"),
+    /// <summary>2026-10-08-e8b9e: what the admission launched — the launch itself is PrCommandLaunch's.</summary>
+    public List<(PrCommentCommand Command, PipelineRequest Request)> Launched { get; } = [];
+
+    public PrCommentCommandAdmission Admission()
+    {
+        var launch = new Mock<AgentSmith.Server.Contracts.IPrCommandLaunch>();
+        launch.Setup(l => l.LaunchAsync(It.IsAny<PrCommentCommand>(), It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<PrCommentCommand, PipelineRequest, CancellationToken>((c, r, _) => Launched.Add((c, r)))
+            .ReturnsAsync(WebhookResult.HandledNoRoute());
+        return new(new CommentIntentParser(Model.Object), new ServerContext("config.yml"), launch.Object,
             NullLogger<PrCommentCommandAdmission>.Instance);
+    }
+
+    /// <summary>The launched command as the old trigger input spelled it: pipeline, ticket, PR reference.</summary>
+    public string? LaunchedAs() => Launched.Count == 0 ? null
+        : $"{Launched[^1].Request.PipelineName}{(Launched[^1].Request.TicketId is { } t ? $" #{t.Value}" : "")} {Launched[^1].Command.PrReference}";
 
     public static IPrCommentRepoLookup Repos(string? configuredUrl)
     {

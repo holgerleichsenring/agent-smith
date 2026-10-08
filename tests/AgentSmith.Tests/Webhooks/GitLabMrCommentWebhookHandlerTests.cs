@@ -57,8 +57,7 @@ public sealed class GitLabMrCommentWebhookHandlerTests
         var result = await CreateSut().HandleAsync(Note("/agent-smith fix #99 in core"), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("code");
-        result.TriggerInput.Should().Be("code #99 mr:org/my-api!15");
+        _fixture.LaunchedAs().Should().Be("code #99 mr:org/my-api!15");
     }
 
     [Fact]
@@ -68,7 +67,8 @@ public sealed class GitLabMrCommentWebhookHandlerTests
 
         var result = await CreateSut().HandleAsync(Note("/agent-smith security-scan"), EmptyHeaders);
 
-        result.Pipeline.Should().Be("security-scan");
+        result.Handled.Should().BeTrue();
+        _fixture.Launched.Single().Request.PipelineName.Should().Be("security-scan");
     }
 
     [Fact]

@@ -62,6 +62,10 @@ On GitHub, subscribe to:
 | `pull_request` | `opened`, `synchronize`, `labeled` | PR review on open and push; security scan on the review label |
 | `pull_request_review` | `submitted` | **Pull request reviews**: Request changes on an agent-smith PR starts a rework |
 
+## What a command starts
+
+A command that names a ticket (`/agent-smith fix #12`) is claimed like any other run of that ticket: it is admitted, queued for capacity or refused, and the pull request is told which — including when another run is already working on the ticket, in which case nothing new starts. A command without a ticket (`/as review`) runs against this pull request directly. Either way the command is read once; the run starts with the pipeline it resolved to.
+
 ## Request changes starts a rework
 
 Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`) start nothing: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts only when a reviewer with write access chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.

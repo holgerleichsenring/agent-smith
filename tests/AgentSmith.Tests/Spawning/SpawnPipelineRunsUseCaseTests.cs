@@ -396,6 +396,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 nudge ?? CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),
+                Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
     }

@@ -65,7 +65,7 @@ public sealed class GitHubPrCommentWebhookHandler(
         };
         return new PrCommentCommand(
             comment.GetProperty("body").GetString() ?? "", author,
-            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}");
+            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}", prNumber.ToString());
     }
 
     private static int? ExtractPrNumber(JsonElement root)
