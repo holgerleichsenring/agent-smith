@@ -16,7 +16,7 @@ facts:
   - claim: "Azure DevOps WIQL selects ids, hydrates a field list without System.ChangedDate, and orders as the caller says."
     evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWiqlRunner.cs:26-35,57-72"
   - claim: "GitHub standing reviews read as latestReviews; a repository's owners are every project declaring it, kept only with a code run on the ticket; a ticket branch names its ticket."
-    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:15-17, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:50-58, src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-60"
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:15-17, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:41-50, src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:54-60"
   - claim: "AgentSmithDbContext is at 120 and groups configurations; SQLite cannot compare DateTimeOffset; indexed strings cap at IndexedString; the docs claim a Redis high-water mark and describe the leader lease."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:72, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ServerStateConfigurations.cs:10-18, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunLivenessRepository.cs:20-29, src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:8-10, docs/trigger-it/polling.md:44-52,62-66"
   - claim: "Jira /myself carries the token user's timeZone."

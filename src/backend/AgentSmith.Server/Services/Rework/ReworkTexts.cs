@@ -19,10 +19,18 @@ public static class ReworkTexts
         ? $"{PrMarker}\nAgent Smith — ticket {ticketId} is already taken or queued for its next attempt, which reads this review. {Rule}"
         : $"{PrMarker}\nAgent Smith — rework of ticket {ticketId} started as run `{runId}`. {Rule}";
 
-    public static string PrLiveRun(string ticketId, string runId, bool voteOnly) =>
-        $"{PrMarker}\nAgent Smith — this review was not picked up: run `{runId}` is working on ticket {ticketId}. "
-        + $"When run `{runId}` ends, submit Request changes again"
-        + (voteOnly ? " (reset your vote first — only a change of vote is sent)." : ".");
+    // 2026-10-08-0781: a live run's acts are served when it ends — nobody has to ask again.
+    public static string PrLiveRun(string ticketId, string runId) =>
+        $"{PrMarker}\nAgent Smith — run `{runId}` is working on ticket {ticketId}; this review is picked up when it finishes.";
+
+    public static string TicketLiveRun(string runId) =>
+        $"Agent Smith — run `{runId}` is working on this ticket; this comment is picked up when it finishes.";
+
+    public static string PrWithheld(string ticketId, string runId) =>
+        $"{PrMarker}\nAgent Smith — this review was written before an operator stopped run `{runId}` on ticket {ticketId}, so it is not picked up. Request changes again to start a rework.";
+
+    public static string TicketWithheld(string runId) =>
+        $"Agent Smith — this comment was written before an operator stopped run `{runId}`, so it is not picked up. Comment again to start a rework.";
 
     public static string PrRefused(string ticketId, string reason) =>
         $"{PrMarker}\nAgent Smith — this review did not start a rework of ticket {ticketId}: {reason}.";

@@ -14,12 +14,13 @@ using Moq;
 
 namespace AgentSmith.Tests.Rework;
 
-/// <summary>2026-10-08-e8b9b: a keyword comment asks the rework entry before the status gate.</summary>
+/// <summary>2026-10-08-e8b9b: a keyword comment asks for a rework before the status gate;
+/// 2026-10-08-0781: on a ticket with a code attempt it nudges the ticket and returns.</summary>
 public sealed class KeywordCommentRouterTests
 {
     private readonly Mock<ISpawnPipelineRunsUseCase> _spawn = new();
-    private readonly Mock<IReworkEntry> _rework = new();
-    private readonly Mock<ITicketProvider> _ticket = new();
+    private readonly Mock<IPreviousAttemptReader> _attempts = new();
+    private readonly Mock<IReworkNudges> _nudges = new();
 
     private static AgentSmithConfig Config() => new()
     {
@@ -40,58 +41,60 @@ public sealed class KeywordCommentRouterTests
                 It.IsAny<Dictionary<string, string>?>()))
             .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
         var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(_ticket.Object);
         var dispatcher = new WebhookSpawnDispatcher(_spawn.Object, factory.Object, NullLogger<WebhookSpawnDispatcher>.Instance);
-        return new KeywordCommentRouter(dispatcher, _rework.Object, factory.Object, NullLogger<KeywordCommentRouter>.Instance);
+        return new KeywordCommentRouter(dispatcher, _attempts.Object, _nudges.Object, NullLogger<KeywordCommentRouter>.Instance);
     }
 
-    private void Outcome(ReworkOutcome outcome) => _rework.Setup(r => r.EnterAsync(It.IsAny<ResolvedProject>(), "T-1",
-        It.IsAny<ReworkAct>(), "code", It.IsAny<CancellationToken>())).ReturnsAsync(outcome);
+    private void Attempted() => _attempts.Setup(a => a.LatestAsync("p", "T-1", null, It.IsAny<CancellationToken>()))
+        .ReturnsAsync(new PreviousAttempt("run-1", "failed", DateTimeOffset.UtcNow.AddHours(-1), true));
 
-    private Task<WebhookResult> Route(string status, string body = "@agent-smith please fix the name") =>
+    private Task<WebhookResult> Route(string status, string body = "@agent-smith please fix the name",
+        Dictionary<string, string>? answers = null) =>
         Router().RouteAsync(Config(), [new ProjectMatch("p", "code", "jira")],
-            new KeywordComment(new IncomingTicketEnvelope { TicketId = "T-1", Platform = "jira" }, status, body, null,
+            new KeywordComment(new IncomingTicketEnvelope { TicketId = "T-1", Platform = "jira" }, status, body, answers,
                 new ReworkAct("alice", DateTimeOffset.UtcNow)), CancellationToken.None);
 
     [Fact]
-    public async Task Router_KeywordOnFailedStatus_StartsRework()
+    public async Task Router_KeywordOnAttemptedTicket_NudgesNoHostCall()
     {
-        Outcome(ReworkOutcome.Started("run-2"));
+        Attempted();
 
         (await Route("Failed")).Handled.Should().BeTrue();
 
-        _rework.Verify(r => r.EnterAsync(It.IsAny<ResolvedProject>(), "T-1", It.IsAny<ReworkAct>(), "code", It.IsAny<CancellationToken>()), Times.Once);
+        _nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.Project == "p" && r.TicketId == "T-1"
+            && r.Origin == ReworkNudgeOrigin.Ticket && r.Channel == ReworkChannel.Ticket), It.IsAny<CancellationToken>()), Times.Once);
         _spawn.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task Router_NotARework_KeepsTheStatusGatedDispatch()
+    public async Task Router_NoAttempt_KeepsTheStatusGatedDispatch()
     {
-        Outcome(ReworkOutcome.NotARework);
-
         await Route("To Do");
 
+        _spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), "code",
+            It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(),
+            It.IsAny<Dictionary<string, string>?>()), Times.Once);
+        _nudges.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Webhook_PlanAnswerComment_StaysInline()
+    {
+        Attempted();
+
+        await Route("To Do", "Q1: yes", new Dictionary<string, string> { ["1"] = "yes" });
+
+        _nudges.VerifyNoOtherCalls();
         _spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(), "code",
             It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(), It.IsAny<CancellationToken>(),
             It.IsAny<Dictionary<string, string>?>()), Times.Once);
     }
 
     [Fact]
-    public async Task Router_Refused_SaysSoOnTheTicket()
-    {
-        Outcome(ReworkOutcome.Refused("run run-9 is working on this ticket", "run-9"));
-
-        await Route("Done");
-
-        _ticket.Verify(t => t.UpdateStatusAsync(It.Is<TicketId>(id => id.Value == "T-1"),
-            It.Is<string>(s => s.Contains("run-9")), It.IsAny<CancellationToken>()), Times.Once);
-    }
-
-    [Fact]
     public async Task Router_NoKeyword_NotHandled()
     {
         (await Route("Done", "just a note")).Handled.Should().BeFalse();
-        _rework.VerifyNoOtherCalls();
+        _nudges.VerifyNoOtherCalls();
     }
 
     [Fact]
@@ -101,5 +104,15 @@ public sealed class KeywordCommentRouterTests
 
         AgentSmith.Application.Services.Prompts.OwnTicketComment.IsOurs(text).Should().BeTrue();
         text.Should().NotContain("@agent-smith");
+    }
+
+    [Fact]
+    public void LiveRunText_PromisesPickupNeverAsksAgain()
+    {
+        foreach (var text in new[] { ReworkTexts.TicketLiveRun("run-9"), ReworkTexts.PrLiveRun("12", "run-9") })
+        {
+            text.Should().Contain("picked up when it finishes");
+            text.Should().NotContain("again");
+        }
     }
 }

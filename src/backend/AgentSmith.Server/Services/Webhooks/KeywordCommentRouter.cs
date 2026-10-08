@@ -1,26 +1,24 @@
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
-using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Domain.Models;
-using AgentSmith.Server.Contracts;
-using AgentSmith.Server.Services.Rework;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// 2026-10-08-e8b9b: what a ticket comment starts, the same way on every tracker. A match whose
-/// trigger's comment_keyword the body carries — or a comment holding plan answers — is kept; a
-/// keyword comment asks the rework entry first, and only a comment that is not a rework takes the
-/// status-gated dispatch it always took. A refused rework is said on the ticket, in our own voice
-/// and without the keyword, so the comment cannot come back as a trigger.
+/// trigger's comment_keyword the body carries — or a comment holding plan answers — is kept; only a
+/// comment that is not a rework takes the status-gated dispatch it always took.
+/// <para>2026-10-08-0781: a keyword comment on a ticket with a code attempt nudges the ticket and
+/// returns — the worker reads the comment from the tracker, decides, and answers. Plan answers and
+/// a ticket no run has worked on still dispatch here, in the request.</para>
 /// </summary>
 public sealed class KeywordCommentRouter(
     WebhookSpawnDispatcher dispatcher,
-    IReworkEntry rework,
-    ITicketProviderFactory tickets,
+    IPreviousAttemptReader attempts,
+    IReworkNudges nudges,
     ILogger<KeywordCommentRouter> logger)
 {
     public async Task<WebhookResult> RouteAsync(
@@ -38,31 +36,19 @@ public sealed class KeywordCommentRouter(
             return WebhookResult.NotHandled();
         }
         foreach (var match in kept)
-            if (!await ServedAsReworkAsync(config.Projects[match.ProjectName], match, comment, ct))
+            if (!await NudgedAsync(match, comment, ct))
                 await dispatcher.DispatchAsync(config, [match], comment.Envelope, comment.PayloadStatus, comment.PlanAnswers, ct);
         return WebhookResult.HandledNoRoute();
     }
 
-    private async Task<bool> ServedAsReworkAsync(
-        ResolvedProject project, ProjectMatch match, KeywordComment comment, CancellationToken ct)
+    private async Task<bool> NudgedAsync(ProjectMatch match, KeywordComment comment, CancellationToken ct)
     {
         if (comment.Act is null || comment.PlanAnswers is { Count: > 0 }) return false;
-        var outcome = await rework.EnterAsync(project, comment.Envelope.TicketId!, comment.Act, match.PipelineName, ct);
-        if (outcome.Kind == ReworkOutcomeKind.Refused) await SayRefusedAsync(project, comment.Envelope.TicketId!, outcome, ct);
-        return outcome.Kind != ReworkOutcomeKind.NotARework;
-    }
-
-    private async Task SayRefusedAsync(ResolvedProject project, string ticketId, ReworkOutcome outcome, CancellationToken ct)
-    {
-        try
-        {
-            await tickets.Create(project.Tracker).UpdateStatusAsync(
-                new TicketId(ticketId), ReworkTexts.TicketRefusal(outcome.Reason!), ct);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Could not say on {Ticket} why the rework was refused", ticketId);
-        }
+        var ticketId = comment.Envelope.TicketId!;
+        if (await attempts.LatestAsync(match.ProjectName, ticketId, null, ct) is null) return false;
+        await nudges.EnqueueAsync(new ReworkNudgeRequest(match.ProjectName, ticketId, ReworkNudgeOrigin.Ticket,
+            Channel: ReworkChannel.Ticket), ct);
+        return true;
     }
 
     private static bool CarriesKeyword(AgentSmithConfig config, ProjectMatch match, string body) =>

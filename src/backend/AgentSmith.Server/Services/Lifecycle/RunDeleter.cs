@@ -25,12 +25,15 @@ public sealed class RunDeleter(
     IActiveRunLease lease,
     ICapacityQueue queue,
     CancelledTicketFinalizer ticketFinalizer,
-    ILogger<RunDeleter> logger)
+    ILogger<RunDeleter> logger,
+    IReworkWatermark? watermark = null)
 {
     public async Task<RunDeleteOutcome> DeleteAsync(string runId, CancellationToken ct)
     {
         var run = await runs.GetRunDetailAsync(runId, ct);
         if (run is null) return RunDeleteOutcome.NotFound;
+        // 2026-10-08-0781: before the release can nudge the ticket — a deleted run's acts are withheld.
+        if (watermark is not null) await watermark.WithholdRunAsync(runId, DateTimeOffset.UtcNow, ct);
         if (run.FinishedAt is null) await ForceClearAsync(run, ct);
         await deletion.DeleteAsync(runId, ct);
         logger.LogInformation("Deleted run {RunId} (status {Status})", runId, run.Status);

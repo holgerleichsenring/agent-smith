@@ -78,11 +78,12 @@ public sealed class ReworkEntryTests
     }
 
     [Fact]
-    public async Task ReworkEntry_ActWithinSkewOfStart_AlreadyServed()
+    public async Task ReworkEntry_ActTheRunRead_AlreadyServed()
     {
+        // 2026-10-08-0781: the margin is subtracted from the cutoff — only an act clearly before it was read.
         Attempt("success", true);
 
-        (await Act(1)).Kind.Should().Be(ReworkOutcomeKind.AlreadyServed);
+        (await Act(-1)).Kind.Should().Be(ReworkOutcomeKind.AlreadyServed);
     }
 
     [Fact]

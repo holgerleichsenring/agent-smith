@@ -1,12 +1,7 @@
 using AgentSmith.Application.Services;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Providers;
-using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
-using AgentSmith.Server.Contracts;
-using AgentSmith.Server.Services.Rework;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Webhooks;
@@ -14,18 +9,17 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <summary>
 /// 2026-10-08-e8b9c: what a Request changes starts, the same way on every host. The pull request must
 /// come from a ticket branch of the same repository; exactly one configured project whose repository
-/// EQUALS the pull request's must have a code run on that ticket; the reviewer must have write access
-/// and not be the pull request's author (often our own token). Then the rework entry decides, and the
-/// pull request is told — except for an act already served, which a redelivery would otherwise repeat.
+/// EQUALS the pull request's must have a code run on that ticket; the reviewer must not be the pull
+/// request's author (often our own token).
+/// <para>2026-10-08-0781: then the ticket is nudged and the delivery answered — no host call in the
+/// request. The worker reads the act from the host, with the host's trust, and answers it.</para>
 /// </summary>
 public sealed class PrReworkAdmission(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IConfiguredRepoFinder repoFinder,
     IPreviousAttemptReader attempts,
-    IPrReviewAuthorTrust trust,
-    IReworkEntry rework,
-    ISourceProviderFactory sources,
+    IReworkNudges nudges,
     ILogger<PrReworkAdmission> logger)
 {
     public async Task<WebhookResult> AdmitAsync(PrReviewRequest request, CancellationToken ct)
@@ -37,11 +31,8 @@ public sealed class PrReworkAdmission(
             return WebhookResult.NotHandled("the reviewer is the pull request's author");
         if (await OwnerAsync(request.RepoUrl, ticketId, ct) is not { } owner)
             return WebhookResult.NotHandled($"no single configured project has a run on ticket {ticketId}");
-        if (!await trust.IsTrustedAsync(request.Host, request.Reviewer, ct))
-            return WebhookResult.NotHandled("the reviewer may not write to the repository");
-        var outcome = await rework.EnterAsync(owner.Project, ticketId,
-            request.Act with { Channel = ReworkChannel.PullRequest }, PipelinePresets.CodeName, ct);
-        if (Text(request, ticketId, outcome) is { } text) await SayAsync(owner, request.PrNumber, text, ct);
+        await nudges.EnqueueAsync(new ReworkNudgeRequest(owner.ProjectName, ticketId, ReworkNudgeOrigin.PullRequest,
+            request.PrUrl, ReworkChannel.PullRequest), ct);
         return WebhookResult.HandledNoRoute();
     }
 
@@ -56,27 +47,5 @@ public sealed class PrReworkAdmission(
             logger.LogInformation("Request changes on {Repo} for ticket {Ticket}: {Count} owning project(s) — not handled",
                 repoUrl, ticketId, owners.Count);
         return owners.Count == 1 ? owners[0] : null;
-    }
-
-    private static string? Text(PrReviewRequest request, string ticketId, ReworkOutcome outcome) => outcome.Kind switch
-    {
-        ReworkOutcomeKind.Started => ReworkTexts.PrStarted(ticketId, outcome.RunId),
-        ReworkOutcomeKind.Refused when outcome.Busy
-            => ReworkTexts.PrLiveRun(ticketId, outcome.RunId ?? "(starting)", request.Host == RepoType.AzureDevOps),
-        ReworkOutcomeKind.Refused => ReworkTexts.PrRefused(ticketId, outcome.Reason!),
-        ReworkOutcomeKind.NotARework => ReworkTexts.PrRefused(ticketId, "the ticket is not waiting for one — its last run has not finished, or it is parked as not implementable"),
-        _ => null,
-    };
-
-    private async Task SayAsync(ConfiguredRepo owner, string prNumber, string text, CancellationToken ct)
-    {
-        try
-        {
-            if (sources.Create(owner.Repo) is IPrCommentProvider comments) await comments.PostCommentAsync(prNumber, text, ct);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Could not answer the review on {Repo}#{Pr}", owner.Repo.Name, prNumber);
-        }
     }
 }

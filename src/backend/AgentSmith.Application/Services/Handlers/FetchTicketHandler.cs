@@ -79,6 +79,9 @@ public sealed class FetchTicketHandler(
 
         // p0317: the conversation, the text-like documents and the full attachment listing
         // are part of the requirement record. All fail-soft: a run without them beats no run.
+        // 2026-10-08-0781: what this run read is the cutoff for the acts it serves — taken BEFORE
+        // the reads, so an act landing during them is served again rather than lost.
+        var actsReadAt = DateTimeOffset.UtcNow;
         await extras.FetchAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
         // 2026-10-08-e8b9b: the rework act is read here, from the thread just fetched.
         Rework.ReworkActReader.Apply(context.Pipeline, context.CommentKeyword);
@@ -90,7 +93,7 @@ public sealed class FetchTicketHandler(
         var ground = await epicGround.AttachAsync(
             provider, ticket, context.Pipeline, cancellationToken);
 
-        await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken);
+        await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken, actsReadAt);
 
         return CommandResult.Ok(
             $"Ticket {context.TicketId} fetched from {provider.ProviderType}{ground}");
@@ -113,7 +116,7 @@ public sealed class FetchTicketHandler(
     // p0184: publish the typed event for the dashboard. Best-effort —
     // a publish failure must not break ticket fetch.
     private async Task PublishFetchedEventAsync(
-        Ticket ticket, int attachmentCount, CancellationToken cancellationToken)
+        Ticket ticket, int attachmentCount, CancellationToken cancellationToken, DateTimeOffset? actsReadAt = null)
     {
         var runId = runContext.CurrentRunId;
         if (string.IsNullOrEmpty(runId)) return;
@@ -128,7 +131,8 @@ public sealed class FetchTicketHandler(
                 Labels: ticket.Labels,
                 AttachmentCount: attachmentCount,
                 Source: ticket.Source,
-                Timestamp: DateTimeOffset.UtcNow),
+                Timestamp: DateTimeOffset.UtcNow,
+                ActsReadAt: actsReadAt),
                 cancellationToken);
         }
         catch (Exception ex)

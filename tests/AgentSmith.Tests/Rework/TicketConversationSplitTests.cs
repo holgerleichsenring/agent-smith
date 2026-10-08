@@ -31,17 +31,18 @@ public sealed class TicketConversationSplitTests
     [Fact]
     public void Conversation_PreviousAttempt_LeadsWithForeignCommentsAfterStart()
     {
-        var attempt = new PreviousAttempt("run-1", "success", Start, true);
+        // 2026-10-08-0781: the split is what the run read, not when it started.
+        var attempt = new PreviousAttempt("run-1", "success", Start, true) { ActsReadAt = Start.AddMinutes(2) };
 
         var rendered = TicketConversationPromptSection.Render(Pipeline(attempt,
-            Said("alice", -30, "old ask"), Said("bob", 0, "within skew"), Said("carol", 10, "please rename it")));
+            Said("alice", -30, "old ask"), Said("bob", 1, "read by the run"), Said("carol", 10, "please rename it")));
 
         var lead = rendered.IndexOf("Since the previous attempt (run run-1", StringComparison.Ordinal);
         lead.Should().BeGreaterThan(0);
         rendered.IndexOf("please rename it", StringComparison.Ordinal).Should().BeGreaterThan(lead);
         var earlier = rendered.IndexOf("Earlier in the thread", StringComparison.Ordinal);
         earlier.Should().BeGreaterThan(rendered.IndexOf("please rename it", StringComparison.Ordinal));
-        rendered.IndexOf("within skew", StringComparison.Ordinal).Should().BeGreaterThan(earlier);
+        rendered.IndexOf("read by the run", StringComparison.Ordinal).Should().BeGreaterThan(earlier);
         rendered.Split("please rename it").Length.Should().Be(2, "a new comment is not repeated");
     }
 

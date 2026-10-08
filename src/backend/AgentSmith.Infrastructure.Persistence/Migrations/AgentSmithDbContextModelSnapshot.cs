@@ -595,6 +595,80 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ReferenceFiles", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ReworkLedger", b =>
+                {
+                    b.Property<string>("Project")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("NotServedThroughTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SpokenKeys")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Project", "TicketId");
+
+                    b.ToTable("ReworkLedgers", (string)null);
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ReworkNudge", b =>
+                {
+                    b.Property<string>("Project")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClaimToken")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DueTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Generation")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Origin")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PrUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Tries")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Project", "TicketId");
+
+                    b.HasIndex("DueTicks");
+
+                    b.ToTable("ReworkNudges", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.Run", b =>
                 {
                     b.Property<string>("Id")
@@ -602,6 +676,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AcceptanceJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("ActsReadAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AgentName")

@@ -1,7 +1,9 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -29,6 +31,7 @@ public sealed class ActiveRunRepository(
     // no job in the UI since relational" regression — the old Redis 2-min TTL
     // self-healed; the DB lease has no TTL).
     private static readonly TimeSpan ReclaimStaleAfter = TimeSpan.FromMinutes(3);
+    private static readonly TimeSpan RunlessDelay = TimeSpan.FromMinutes(1);
 
     public async Task<LeaseClaimOutcome> TryClaimAsync(string project, TicketId ticketId, CancellationToken ct)
     {
@@ -86,13 +89,26 @@ public sealed class ActiveRunRepository(
     // NEWER run held. runId null means "the claim no run has taken up yet" and
     // matches an unattached row only — widening it to "any holder" would rebuild
     // the same defect. A refusal is logged here, once, for all six call sites.
+    // 2026-10-08-0781: the release also asks the rework worker to check the ticket — in ONE
+    // transaction with the delete, so no reader sees the nudge while the lease still stands, and a
+    // refused release leaves no nudge. A release no run held (a rolled-back claim) waits a minute.
     public async Task<LeaseReleaseOutcome> ReleaseAsync(
         string project, TicketId ticketId, string? runId, CancellationToken ct)
     {
-        var deleted = await unitOfWork.Set<ActiveRun>()
-            .Where(a => a.Project == project && a.TicketId == ticketId.Value && a.RunId == runId)
-            .ExecuteDeleteAsync(ct);
-        if (deleted > 0) return LeaseReleaseOutcome.Released;
+        await using (var tx = await unitOfWork.BeginTransactionAsync(ct))
+        {
+            await new ReworkNudgeWriter(unitOfWork, violationTranslator).UpsertAsync(new ReworkNudgeRequest(
+                project, ticketId.Value, ReworkNudgeOrigin.RunEnd, Delay: runId is null ? RunlessDelay : null), timeProvider.GetUtcNow(), ct);
+            var deleted = await unitOfWork.Set<ActiveRun>()
+                .Where(a => a.Project == project && a.TicketId == ticketId.Value && a.RunId == runId)
+                .ExecuteDeleteAsync(ct);
+            if (deleted > 0)
+            {
+                await tx.CommitAsync(ct);
+                return LeaseReleaseOutcome.Released;
+            }
+            await tx.RollbackAsync(ct);
+        }
 
         var held = await GetByTicketAsync(project, ticketId, ct);
         if (held is null) return LeaseReleaseOutcome.NotFound;

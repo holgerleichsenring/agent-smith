@@ -18,6 +18,8 @@ namespace AgentSmith.Application.Services.Rework;
 public sealed class PrReviewFeedbackFetcher(
     ISourceProviderFactory sources, IPrReviewAuthorTrust trust, ILogger<PrReviewFeedbackFetcher> logger) : IPrReviewFeedbackFetcher
 {
+    private readonly PrStandingAct _standing = new(trust);
+
     public async Task FetchAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {
         if (!pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) || attempt is null) return;
@@ -52,16 +54,9 @@ public sealed class PrReviewFeedbackFetcher(
     }
 
     private async Task<ReworkAct?> ActAsync(
-        RepoType host, IPrReviewActReader reader, string url, PreviousAttempt attempt, CancellationToken cancellationToken)
-    {
-        var verdicts = new Dictionary<string, bool>(StringComparer.Ordinal);
-        PrReviewNote? newest = null;
-        foreach (var request in await reader.ChangesRequestedAsync(url, cancellationToken))
-            if (attempt.Precedes(request.At) && (newest is null || request.At > newest.At)
-                && await IsPersonAsync(host, request, verdicts, cancellationToken))
-                newest = request;
-        return newest is null ? null : new ReworkAct(newest.Author!.AuthorLogin, newest.At, ReworkChannel.PullRequest);
-    }
+        RepoType host, IPrReviewActReader reader, string url, PreviousAttempt attempt, CancellationToken cancellationToken) =>
+        await _standing.NewestAsync(host, reader, url, attempt, cancellationToken) is { } note
+            ? PrStandingAct.Act(note) : null;
 
     private async Task<IReadOnlyList<PrReviewThread>> CountableAsync(
         RepoType host, IReadOnlyList<PrReviewThread> threads, CancellationToken cancellationToken)

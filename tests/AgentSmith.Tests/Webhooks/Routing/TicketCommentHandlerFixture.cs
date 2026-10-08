@@ -47,22 +47,14 @@ internal sealed class TicketCommentHandlerFixture
             .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
     }
 
-    public Mock<AgentSmith.Server.Contracts.IReworkEntry> Rework { get; } = NotARework();
-
-    private static Mock<AgentSmith.Server.Contracts.IReworkEntry> NotARework()
-    {
-        var rework = new Mock<AgentSmith.Server.Contracts.IReworkEntry>();
-        rework.Setup(r => r.EnterAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(),
-                It.IsAny<AgentSmith.Contracts.Runs.ReworkAct>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(AgentSmith.Server.Services.Rework.ReworkOutcome.NotARework);
-        return rework;
-    }
+    // 2026-10-08-0781: no code attempt on the ticket — a comment takes the dispatch.
+    public Mock<IPreviousAttemptReader> Attempts { get; } = new();
 
     private WebhookSpawnDispatcher Dispatcher() => new(
         Spawn.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<WebhookSpawnDispatcher>.Instance);
 
     private KeywordCommentRouter Router() => new(
-        Dispatcher(), Rework.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<KeywordCommentRouter>.Instance);
+        Dispatcher(), Attempts.Object, new Mock<IReworkNudges>().Object, NullLogger<KeywordCommentRouter>.Instance);
 
     private static PlanAnswerParser Answers() => new(NullLogger<PlanAnswerParser>.Instance);
 

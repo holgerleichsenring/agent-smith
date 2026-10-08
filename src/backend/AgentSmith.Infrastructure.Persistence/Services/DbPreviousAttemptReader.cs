@@ -26,13 +26,23 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
                 && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
                 && (excludingRunId == null || r.Id != excludingRunId))
             .OrderByDescending(r => r.Id)
-            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt })
+            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt })
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;
         return new PreviousAttempt(run.Id, run.Status, run.StartedAt, run.FinishedAt is not null)
         {
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
+            ActsReadAt = run.ActsReadAt,
         };
+    }
+
+    // 2026-10-08-0781: a queued code reservation will run, and its end checks the ticket again.
+    public async Task<bool> HasQueuedAsync(string project, string ticketId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<Run>().AsNoTracking()
+            .AnyAsync(r => r.Project == project && r.TicketId == ticketId
+                && r.Pipeline == PipelinePresets.CodeName && r.Status == RunStatuses.Queued, cancellationToken);
     }
 
     // 2026-10-08-e8b9d: the newest opened URL per repo over the ticket's code runs — an attempt that

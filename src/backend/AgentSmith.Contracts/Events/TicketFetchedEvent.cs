@@ -21,5 +21,7 @@ public sealed record TicketFetchedEvent(
     IReadOnlyList<string> Labels,
     int AttachmentCount,
     string Source,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    // 2026-10-08-0781: the instant the run began reading the ticket's thread and pull requests.
+    DateTimeOffset? ActsReadAt = null)
     : RunEvent(RunId, EventType.TicketFetched, Timestamp);

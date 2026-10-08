@@ -23,7 +23,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 public sealed class RunFinalizationProjection(
     QueuedRunProjection queuedRuns,
     ICapacityBudget? capacityBudget = null,
-    ITakenTicketStore? takenTickets = null)
+    ITakenTicketStore? takenTickets = null,
+    IUniqueViolationTranslator? violations = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
     {
@@ -39,6 +40,11 @@ public sealed class RunFinalizationProjection(
         // A waiting state (queued / waiting_for_input) keeps FinishedAt null, so what a
         // terminal run gives up is given up here and nowhere else.
         if (run.FinishedAt is not null) await ReleaseWhatTheRunHeldAsync(uow, run, e.RunId, ct);
+        // 2026-10-08-0781: the second end of a run — the row is terminal now, whether the lease
+        // went before or goes later, so the worker checks the ticket either way.
+        if (run.FinishedAt is not null && violations is not null && run.TicketId is { Length: > 0 } ticket)
+            await new ReworkNudgeWriter(uow, violations).UpsertAsync(
+                new ReworkNudgeRequest(run.Project, ticket, ReworkNudgeOrigin.RunEnd), DateTimeOffset.UtcNow, ct);
     }
 
     // p0336: a terminal run stops holding compute — free its budget reservation. A waiting

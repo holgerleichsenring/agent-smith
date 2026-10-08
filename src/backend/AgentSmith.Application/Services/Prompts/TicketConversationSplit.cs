@@ -42,8 +42,9 @@ internal static class TicketConversationSplit
 
     private static string Compose(PreviousAttempt attempt, FittedEntries fresh, FittedEntries earlier)
     {
-        var started = attempt.StartedAt.ToString("u", CultureInfo.InvariantCulture);
-        var text = $"### Since the previous attempt (run {attempt.RunId}, started {started})\n\n"
+        // 2026-10-08-0781: the split point is what that run read, not when it started.
+        var read = attempt.Cutoff.ToString("u", CultureInfo.InvariantCulture);
+        var text = $"### Since the previous attempt (run {attempt.RunId}, read {read})\n\n"
             + string.Join("\n\n", fresh.Kept);
         if (earlier.Kept.Count > 0)
             text += "\n\n### Earlier in the thread\n\n" + string.Join("\n\n", earlier.Kept);

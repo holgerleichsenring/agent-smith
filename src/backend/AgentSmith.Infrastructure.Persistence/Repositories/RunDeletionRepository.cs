@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// keyed by the RUN id, never by (project, ticket): a re-triggered ticket's newer
 /// run must keep its lease when an older run of the same ticket is deleted.
 /// </summary>
-public sealed class RunDeletionRepository(IUnitOfWork unitOfWork)
+public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolationTranslator? violations = null)
 {
     public Task<int> DeleteAsync(string runId, CancellationToken ct) =>
         DeleteManyAsync([runId], ct);
@@ -29,11 +30,25 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork)
     private async Task<int> DeleteManyAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
     {
         await using var tx = await unitOfWork.BeginTransactionAsync(ct);
+        await WithholdActsAsync(ids, ct);
         await DeleteChildrenAsync(ids, ct);
         await DeleteSatellitesAsync(ids, ct);
         var deleted = await unitOfWork.Set<Run>().Where(r => ids.Contains(r.Id)).ExecuteDeleteAsync(ct);
         await tx.CommitAsync(ct);
         return deleted;
+    }
+
+    // 2026-10-08-0781: deleting a code run of a ticket withholds every rework act on that ticket made
+    // up to now — the operator removed the run, and its acts must not start another.
+    private async Task WithholdActsAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
+    {
+        if (violations is null) return;
+        var tickets = await unitOfWork.Set<Run>().AsNoTracking()
+            .Where(r => ids.Contains(r.Id) && r.Pipeline == PipelinePresets.CodeName && r.TicketId != "")
+            .Select(r => new { r.Project, r.TicketId }).Distinct().ToListAsync(ct);
+        var now = DateTimeOffset.UtcNow;
+        var ledger = new ReworkLedgerRepository(unitOfWork, violations);
+        foreach (var t in tickets) await ledger.RaiseAsync(t.Project, t.TicketId, now, ct);
     }
 
     private async Task DeleteChildrenAsync(IReadOnlyCollection<string> ids, CancellationToken ct)

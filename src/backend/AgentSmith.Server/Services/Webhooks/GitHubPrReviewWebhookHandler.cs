@@ -8,7 +8,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 
 /// <summary>
 /// 2026-10-08-e8b9c: a submitted GitHub review whose state is changes_requested is a rework act on
-/// the pull request; every other review, and every comment, starts nothing.
+/// the pull request; every other review, and every comment, starts nothing. 2026-10-08-0781: the
+/// delivery only nudges the ticket; the worker reads the review from GitHub.
 /// </summary>
 public sealed class GitHubPrReviewWebhookHandler(
     PrReworkAdmission admission, ILogger<GitHubPrReviewWebhookHandler> logger) : IWebhookHandler
@@ -46,11 +47,9 @@ public sealed class GitHubPrReviewWebhookHandler(
         {
             Association = PayloadActTime.Text(review, "author_association"),
         };
-        var act = PayloadActTime.Act(login, PayloadActTime.Text(review, "submitted_at"))
-            ?? throw new InvalidOperationException("the review carries no submitted_at");
         return new PrReviewRequest(RepoType.GitHub, PayloadActTime.Text(repository, "clone_url") ?? string.Empty,
             PayloadActTime.Text(pr, "head", "ref"),
             string.Equals(PayloadActTime.Text(pr, "head", "repo", "full_name"), fullName, StringComparison.OrdinalIgnoreCase),
-            reviewer, PayloadActTime.Text(pr, "user", "login"), pr.GetProperty("number").GetInt32().ToString(), act);
+            reviewer, PayloadActTime.Text(pr, "user", "login"), PayloadActTime.Text(pr, "html_url") ?? string.Empty);
     }
 }

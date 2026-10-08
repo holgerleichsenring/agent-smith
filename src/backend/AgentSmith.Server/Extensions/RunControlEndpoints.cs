@@ -113,13 +113,14 @@ internal static class RunControlEndpoints
         CancelledTicketFinalizer ticketFinalizer,
         TimeProvider timeProvider,
         CancelTerminalWriter terminalWriter,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReworkWatermark? watermark = null)
     {
         // p0320c: a QUEUED run has no executor and holds no lease — cancelling it
         // is a pure bookkeeping move: delete the queue entry and finish the row
         // 'cancelled' via the terminal event (no registry roundtrip).
         if (await QueuedRunCancel.TryAsync(runId, runs, capacityQueue, events, ticketFinalizer,
-                terminalWriter, cancellationToken))
+                terminalWriter, cancellationToken, watermark))
             return Results.Accepted();
 
         // p0330: SYNCHRONOUS persistence — the flag + kill deadline land on the
@@ -127,6 +128,8 @@ internal static class RunControlEndpoints
         // the cancel, and the enforcer's guarantee survives a restart.
         var persisted = await runs.MarkCancelRequestedAsync(
             runId, "operator", timeProvider.GetUtcNow() + CancelEnforcer.KillGrace, cancellationToken);
+        // 2026-10-08-0781: cancel means stop — the ticket's acts up to the request are withheld.
+        if (persisted && watermark is not null) await watermark.WithholdRunAsync(runId, timeProvider.GetUtcNow(), cancellationToken);
 
         var liveCancel = registry.TryCancel(runId, reason: "operator");
         var snapshotExists = broadcaster.Active.ContainsKey(runId);
