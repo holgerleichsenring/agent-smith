@@ -129,6 +129,25 @@ export async function uploadSpecDialogReferences(
   return (await res.json()) as SpecDialogReferenceUpload;
 }
 
+/**
+ * 2026-10-08-e8b9g/e8b9h: one upload taken back out of the conversation on this dialog id — a
+ * set by its id, an image by the id the transcript addresses it by. The server refuses (409)
+ * while a turn is running or waiting on an approval, and for an upload an approval cites; the
+ * refusal's reason is what the caller shows.
+ */
+export async function deleteSpecDialogReference(dialogId: string, setId: string): Promise<void> {
+  const path = `/api/spec-dialog/references/${encodeURIComponent(setId)}?dialogId=${encodeURIComponent(dialogId)}`;
+  const res = await apiFetch(path, { method: "DELETE" });
+  if (!res.ok) throw await refused(res, path);
+}
+
+/** The image counterpart of {@link deleteSpecDialogReference}. */
+export async function deleteSpecDialogImage(dialogId: string, imageId: number): Promise<void> {
+  const path = `/api/spec-dialog/images/${imageId}?dialogId=${encodeURIComponent(dialogId)}`;
+  const res = await apiFetch(path, { method: "DELETE" });
+  if (!res.ok) throw await refused(res, path);
+}
+
 /** Where the transcript reads one stored image from. */
 export function specDialogImageUrl(imageId: number): string {
   return `/api/spec-dialog/images/${imageId}`;

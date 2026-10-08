@@ -34,6 +34,9 @@ public sealed class ReferenceFileConfiguration(string? providerName) : IEntityTy
         builder.Property(f => f.Kind).HasMaxLength(ReferenceFileKind.MaxLength);
         builder.Property(f => f.RelativePath).HasMaxLength(PersistenceLimits.ReferencePath);
         builder.Property(f => f.MediaType).HasMaxLength(PersistenceLimits.IndexedString);
+        // 2026-10-08-e8b9g: compared within one conversation's rows, which the session index
+        // already narrows to — so no index of its own (MySQL could not index TEXT without a prefix).
+        builder.Property(f => f.ContentSha256).HasMaxLength(PersistenceLimits.Sha256Hex);
         builder.HasIndex(f => f.SessionId);
         builder.HasIndex(f => f.SetId);
     }

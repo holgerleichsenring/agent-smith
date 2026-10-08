@@ -42,7 +42,24 @@ internal static class ReferencePromptSection
     /// carrying repository (prefixed by its name when the master addresses several), outside the
     /// commit and outside a whole-repository search. Empty when the run carries none.
     /// </summary>
-    internal static string Carried(PipelineContext pipeline, bool prefixed)
+    internal static string Carried(PipelineContext pipeline, bool prefixed) =>
+        CarriedSets(pipeline, prefixed) + CarriedImages(pipeline);
+
+    // 2026-10-08-e8b9k: the images the approval cites — files beside the sets; the attachment note
+    // says which of them ride the message as pictures.
+    private static string CarriedImages(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<IReadOnlyList<CarriedReferenceImage>>(ContextKeys.ReferenceImages, out var images)
+            || images is null || images.Count == 0) return string.Empty;
+        return "\n\n## Images the approval cites\n"
+            + "The person who approved this work attached these images. They are files outside the commit — never "
+            + "edit or move them; copy one into the repository when the work needs it as an asset.\n"
+            + string.Join("\n", images.Select(i => i.Path is null
+                ? $"- image {i.SetId}: could not be read in this run"
+                : $"- `{i.Path}`{(i.Shown ? " — attached to this message" : string.Empty)}")) + "\n";
+    }
+
+    private static string CarriedSets(PipelineContext pipeline, bool prefixed)
     {
         if (!pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var sets)
             || sets is null || sets.Count == 0) return string.Empty;

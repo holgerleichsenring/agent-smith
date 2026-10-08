@@ -14,4 +14,21 @@ public interface IReferenceSetReader
     /// approval cites. Empty where there is no store.
     /// </summary>
     Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-08-e8b9j: one file of a set by its path, or null — what view_reference_image shows.
+    /// The default reads the set whole; the relational reader reads the one row.
+    /// </summary>
+    async Task<ReferenceSetFile?> FileAsync(
+        string sessionId, string setId, string path, CancellationToken cancellationToken) =>
+        (await FilesAsync(sessionId, setId, cancellationToken)).FirstOrDefault(f => f.Path == path);
+
+    /// <summary>2026-10-08-e8b9k: the set ids of the conversation's images, oldest first — what an
+    /// approval cites beside the sets. None where there is no store.</summary>
+    Task<IReadOnlyList<string>> ImageSetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
+
+    /// <summary>2026-10-08-e8b9k: one image by its set id, or null.</summary>
+    Task<ReferenceImageFile?> ImageAsync(string sessionId, string setId, CancellationToken cancellationToken) =>
+        Task.FromResult<ReferenceImageFile?>(null);
 }

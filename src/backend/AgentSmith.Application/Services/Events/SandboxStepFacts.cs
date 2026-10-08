@@ -29,7 +29,8 @@ internal static class SandboxStepFacts
     public static string? Summarize(Step step) => step.Kind switch
     {
         StepKind.Run => FromArgs(step.Args),
-        StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles or StepKind.DirectoryTree
+        // 2026-10-08-e8b9j: a WriteBytes step names its path; its base64 is never summarised or hashed.
+        StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles or StepKind.DirectoryTree or StepKind.WriteBytes
             => Trim(step.Path),
         StepKind.Grep => string.IsNullOrEmpty(step.Pattern)
             ? Trim(step.Path)

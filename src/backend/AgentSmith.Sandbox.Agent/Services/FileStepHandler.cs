@@ -9,18 +9,15 @@ namespace AgentSmith.Sandbox.Agent.Services;
 
 internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
 {
-    // p0244: the repo root every file op resolves a RELATIVE path against —
-    // identical to ProcessRunner's `WorkingDirectory ?? "/work"` for commands.
-    // Without this a relative WriteFile (the model writes e.g.
-    // "Src/Controllers/Foo.cs", not "/work/Src/...") resolved against the agent
-    // PROCESS cwd, landing OUTSIDE /work — so `git add -A` (run in /work) never
-    // saw it: no commit, no PR, while the agent "changed" the file. Reads were
-    // unaffected only because they happened to use absolute /work paths.
+    // p0244: the repo root every file op resolves a RELATIVE path against — identical to
+    // ProcessRunner's `WorkingDirectory ?? "/work"`. Without it a relative WriteFile landed
+    // outside /work, where `git add -A` never saw it: no commit, no PR.
     private const string WorkRoot = "/work";
+    private static readonly WriteBytesFile Bytes = new(); // 2026-10-08-e8b9j
 
-    private static string Resolve(Step step)
+    private static string Resolve(Step step, string? path = null)
     {
-        var path = step.Path!;
+        path ??= step.Path!;
         if (System.IO.Path.IsPathRooted(path)) return path;
         var root = string.IsNullOrEmpty(step.WorkingDirectory) ? WorkRoot : step.WorkingDirectory;
         return System.IO.Path.Combine(root, path);
@@ -38,6 +35,9 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
             {
                 StepKind.ReadFile => HandleRead(step, sw),
                 StepKind.WriteFile => await HandleWriteAsync(step, sw, cancellationToken),
+                StepKind.WriteBytes => await Bytes.WriteAsync(Resolve(step), step.Content!, step.Append,
+                    step.RenameTo is null ? null : Resolve(step, step.RenameTo), cancellationToken) is { } refused
+                    ? Failure(step, sw, refused) : Success(step, sw, null),
                 StepKind.ListFiles => await HandleListAsync(step, onEvents, sw),
                 _ => Failure(step, sw, $"Unsupported file kind: {step.Kind}")
             };

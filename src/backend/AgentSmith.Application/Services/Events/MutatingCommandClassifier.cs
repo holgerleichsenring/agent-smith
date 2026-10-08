@@ -14,7 +14,7 @@ public sealed partial class MutatingCommandClassifier
 {
     public bool IsMutating(Step step) => step.Kind switch
     {
-        StepKind.WriteFile => true,
+        StepKind.WriteFile or StepKind.WriteBytes => true, // 2026-10-08-e8b9j
         StepKind.Run => IsMutatingShellText(ShellText(step)),
         _ => false,
     };

@@ -29,12 +29,10 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
     public async Task<IReadOnlyList<ReferenceImageEntry>> ListImagesAsync(string sessionId, CancellationToken ct)
     {
         var current = await Images(sessionId)
-            .Select(f => new { f.Id, f.MediaType, f.CreatedAt }).ToListAsync(ct);
+            .Select(f => new ReferenceImageEntry(f.Id, f.MediaType, f.CreatedAt, f.SetId, f.Length)).ToListAsync(ct);
         var legacy = await Uncopied(sessionId)
-            .Select(a => new { a.Id, a.MediaType, a.CreatedAt }).ToListAsync(ct);
-        return [.. current.Concat(legacy)
-            .OrderBy(i => i.CreatedAt).ThenBy(i => i.Id)
-            .Select(i => new ReferenceImageEntry(i.Id, i.MediaType, i.CreatedAt))];
+            .Select(a => new ReferenceImageEntry(a.Id, a.MediaType, a.CreatedAt, null, null)).ToListAsync(ct);
+        return [.. current.Concat(legacy).OrderBy(i => i.At).ThenBy(i => i.Id)];
     }
 
     /// <summary>
@@ -66,20 +64,30 @@ public sealed class ReferenceFileRepository(IUnitOfWork unitOfWork)
                 legacy.Id, legacy.SessionId, legacy.MediaType, Convert.FromBase64String(legacy.ContentBase64));
     }
 
+    /// <summary>2026-10-08-e8b9k: one image by the set id an approval cites it under, or null.</summary>
+    public async Task<AgentSmith.Contracts.Sandbox.ReferenceImageFile?> ImageBySetAsync(
+        string sessionId, string setId, CancellationToken ct) =>
+        await Images(sessionId).Where(f => f.SetId == setId)
+            .Select(f => new AgentSmith.Contracts.Sandbox.ReferenceImageFile(f.MediaType, f.Content)).FirstOrDefaultAsync(ct);
+
     /// <summary>
     /// Every file of one conversation, in both tables, deleted — inside whatever transaction the
     /// caller opened, which is how they join the conversation delete's unit of work.
     /// 2026-10-01-283df: except the website sets in <paramref name="keep"/>, which an approval cites.
     /// 2026-10-02-075dd: and their notes — the run that carries a set reads how to run it.
+    /// 2026-10-08-e8b9k: and the images it cites, with the legacy row of the same id — the leader
+    /// sweeps a copy whose legacy row is gone.
     /// </summary>
     public async Task<int> DeleteBySessionAsync(string sessionId, IReadOnlySet<string> keep, CancellationToken ct)
     {
         var kept = keep.ToList();
+        var keptImages = await Images(sessionId).Where(f => kept.Contains(f.SetId)).Select(f => f.Id).ToListAsync(ct);
         return await unitOfWork.Set<ReferenceFile>()
-                .Where(f => f.SessionId == sessionId
-                    && !((f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Note) && kept.Contains(f.SetId)))
+                .Where(f => f.SessionId == sessionId && !(kept.Contains(f.SetId) && (f.Kind == ReferenceFileKind.Site
+                    || f.Kind == ReferenceFileKind.Note || f.Kind == ReferenceFileKind.Image)))
                 .ExecuteDeleteAsync(ct)
-            + await unitOfWork.Set<SpecDialogAttachment>().Where(a => a.SessionId == sessionId).ExecuteDeleteAsync(ct);
+            + await unitOfWork.Set<SpecDialogAttachment>()
+                .Where(a => a.SessionId == sessionId && !keptImages.Contains(a.Id)).ExecuteDeleteAsync(ct);
     }
 
     private IQueryable<ReferenceFile> Images(string sessionId) =>

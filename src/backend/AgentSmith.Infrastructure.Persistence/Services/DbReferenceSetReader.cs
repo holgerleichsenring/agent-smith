@@ -19,6 +19,32 @@ public sealed class DbReferenceSetReader(IServiceScopeFactory scopeFactory) : IR
         return [.. files.Select(f => new ReferenceSetFile(f.Path, f.Content))];
     }
 
+    /// <summary>2026-10-08-e8b9j: one row, not the set.</summary>
+    public async Task<ReferenceSetFile?> FileAsync(
+        string sessionId, string setId, string path, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var file = await scope.ServiceProvider.GetRequiredService<ReferenceSetRepository>()
+            .FileAsync(sessionId, setId, path, cancellationToken);
+        return file is null ? null : new ReferenceSetFile(path, file);
+    }
+
+    /// <summary>2026-10-08-e8b9k.</summary>
+    public async Task<IReadOnlyList<string>> ImageSetIdsAsync(string sessionId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return [.. (await scope.ServiceProvider.GetRequiredService<ReferenceFileRepository>()
+            .ListImagesAsync(sessionId, cancellationToken)).Where(i => i.SetId is not null).Select(i => i.SetId!)];
+    }
+
+    /// <summary>2026-10-08-e8b9k.</summary>
+    public async Task<ReferenceImageFile?> ImageAsync(string sessionId, string setId, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ReferenceFileRepository>()
+            .ImageBySetAsync(sessionId, setId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken)
     {
         using var scope = scopeFactory.CreateScope();

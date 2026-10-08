@@ -86,6 +86,94 @@ public sealed class ReferenceApprovalCiteTests
         (await approvals.CitedSetsAsync("s-1", CancellationToken.None)).Should().Equal(cited.SetId);
     }
 
+    // 2026-10-08-e8b9k: an approval cites the conversation's images beside its sets.
+    [Fact]
+    public void SpecApprovalJson_Images_RoundTrip()
+    {
+        var record = Record("s-1", ["set-a"]) with { Images = ["img-1"] };
+
+        SpecApprovalJson.Read(SpecApprovalJson.Write(record))!.CitedImages.Should().Equal("img-1");
+    }
+
+    [Fact]
+    public void SpecApprovalJson_OldRecord_CitesNoImages()
+    {
+        var json = SpecApprovalJson.Write(Record("s-1", ["set-a"])).Replace("\"images\":null,", string.Empty);
+
+        SpecApprovalJson.Read(json)!.CitedImages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ApprovedPhaseSetRecorder_ConversationWithImage_CitesIt()
+    {
+        var references = new WithImage();
+        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references,
+            TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+
+        var record = await recorder.RecordAsync(new ConversationState
+        {
+            JobId = ReferenceSandboxFixture.Conversation, ChannelId = "c", UserId = "u", Platform = "dashboard",
+            Project = "sample", TicketId = string.Empty, StartedAt = Noon,
+        }, new ResolvedProject
+        {
+            Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
+            Repos = [new RepoConnection { Name = "sample-api" }],
+        }, "19106", ApprovedSetDoubles.Series(new PhaseDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
+
+        record.CitedImages.Should().Equal("img-1");
+        record.CitedSets.Should().Equal(ReferenceSandboxFixture.SetId);
+    }
+
+    [Fact]
+    public async Task ConversationDelete_CitedImage_Survives()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var cited = await new ReferenceFileRepository(db).AddAsync(LegacyAttachmentCopyTests.Image("s-1"), CancellationToken.None);
+        await new ReferenceFileRepository(db).AddAsync(LegacyAttachmentCopyTests.Image("s-1"), CancellationToken.None);
+        var approvals = new ApprovedSeriesRepository(db);
+        await approvals.SaveAsync(Record("s-1", []) with { Images = [cited.SetId] }, CancellationToken.None);
+
+        await Deleter(db, approvals).DeleteAsync("s-1", CancellationToken.None);
+
+        (await db.Set<ReferenceFile>().AsNoTracking().Select(f => f.SetId).ToListAsync()).Should().Equal(cited.SetId);
+    }
+
+    [Fact]
+    public async Task ConversationDelete_CitedLegacyCopiedImage_SurvivesOrphanSweep()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        var id = await store.AddLegacyAsync("s-1", [0x89, 0x50, 0x4E, 0x47], Noon);
+        await using (var copy = store.Context()) await store.Copy(copy).CopyBatchAsync(CancellationToken.None);
+        await using var db = store.Context();
+        var setId = await db.Set<ReferenceFile>().AsNoTracking().Where(f => f.Id == id).Select(f => f.SetId).SingleAsync();
+        var approvals = new ApprovedSeriesRepository(db);
+        await approvals.SaveAsync(Record("s-1", []) with { Images = [setId] }, CancellationToken.None);
+
+        await Deleter(db, approvals).DeleteAsync("s-1", CancellationToken.None);
+        await using (var sweep = store.Context()) await store.Copy(sweep).RemoveOrphansAsync(CancellationToken.None);
+
+        await using var read = store.Context();
+        (await read.Set<ReferenceFile>().AsNoTracking().CountAsync(f => f.Id == id)).Should().Be(1,
+            "the legacy row of a cited image stays, so the leader's sweep keeps its copy");
+    }
+
+    private static SpecDialogConversationDeleter Deleter(AgentSmith.Infrastructure.Persistence.AgentSmithDbContext db, ApprovedSeriesRepository approvals) =>
+        new(db, new SpecDialogSessionRepository(db),
+            new DialogueAnswerRepository(db, new SqliteUniqueViolationTranslator()), new ReferenceFileRepository(db), approvals);
+
+    private sealed class WithImage : AgentSmith.Contracts.Sandbox.IReferenceSetReader
+    {
+        public Task<IReadOnlyList<AgentSmith.Contracts.Sandbox.ReferenceSetFile>> FilesAsync(string sessionId, string setId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AgentSmith.Contracts.Sandbox.ReferenceSetFile>>([]);
+
+        public Task<IReadOnlyList<string>> SetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<string>>([ReferenceSandboxFixture.SetId]);
+
+        public Task<IReadOnlyList<string>> ImageSetIdsAsync(string sessionId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<string>>(["img-1"]);
+    }
+
     private static SpecApprovalRecord Record(string conversation, IReadOnlyList<string>? references) =>
         new("azuredevops-19106",
             new SpecSet("azuredevops-19106", [], SpecAccounting.Empty, [], SpecSource.Approved,

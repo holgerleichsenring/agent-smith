@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9h
+goal: "The dialog pane gets an Uploads tab listing every set and image of the conversation with used and remaining bytes, and removes one after the page's own confirmation."
+
+applies_to: "dashboard (dialog pane, composer, spec-dialog client, dialog hook)"
+
+requires: ["2026-10-08-e8b9g"]
+
+facts:
+  - claim: "An upload is shown only as an inert chip or picture in the transcript, placed by its moment; nothing lists the conversation's uploads together."
+    evidence: "src/dashboard/src/components/dialog/transcriptImages.ts:12-15; src/dashboard/src/components/dialog/DialogTranscript.tsx:114-135; src/dashboard/src/hooks/useSpecDialog.ts:669-672"
+  - claim: "The transcript is rebuilt from the view only on an ARMED read: reseed is set true before load, as both uploads do."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:175,230-241,530-531,551"
+  - claim: "The pane offers a tab only when it has something to show; labels and the status eyebrow are keyed per tab."
+    evidence: "src/dashboard/src/components/dialog/DialogPaneTab.ts:3; src/dashboard/src/components/dialog/DialogPane.tsx:70-81,117-120; src/dashboard/src/components/dialog/DialogPaneTabs.tsx:54-77"
+  - claim: "The page's own modal confirmation exists as a promise hook; the dialog surface already renders one."
+    evidence: "src/dashboard/src/components/dialog/ConfirmDialog.tsx:37,136-171; src/dashboard/src/components/dialog/SpecDialogSurface.tsx:17,260,443"
+  - claim: "The client uploads images and sets; it has no delete for either and never issues the list GET."
+    evidence: "src/dashboard/src/lib/specDialogApi.ts:94-131"
+  - claim: "A 4xx's stated reason reaches the composer's upload note, never the page-wide failure panel."
+    evidence: "src/dashboard/src/lib/apiResponse.ts:100,109-114; src/dashboard/src/components/dialog/uploadNote.ts:17-22; src/dashboard/src/components/dialog/DialogComposer.tsx:227-236"
+  - claim: "A single picked file and an image are sent at once; several files or a folder go through the selection card, whose Send is held while totalsOf reports something over."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:98-108,243-259; src/dashboard/src/components/dialog/referenceSelection.ts:105-117"
+  - claim: "The first upload of a dialog opens the conversation on the server; before that there is no session and so no usage."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:519-531"
+  - claim: "An image has no name in the view; the chip formats sizes with its own sizeOf, the selection card with megabytes."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogImageView.cs:15; src/dashboard/src/components/dialog/DialogTranscript.tsx:137-142"
+
+assumptions:
+  - claim: "e8b9g's view fields arrive as camelCase JSON: uploadBytes, uploadCapBytes, references[].cited, images[].bytes and images[].cited."
+    check: "read the session view record after e8b9g lands"
+
+scope:
+  in: >
+    DialogPaneTab gains "uploads" (TAB_LABEL "Uploads", statusOf ""), offered whenever the session holds an upload.
+    DialogUploadsPanel lists them oldest first: a set as name, file count, size, note; an image as thumbnail
+    (specDialogImageUrl), size, moment. One line above: "<used> of <cap> used, <left> left". Every uncited upload has
+    Remove, asked through useDialogUploads' useConfirmDialog, whose <ConfirmDialog/> the panel renders itself: "Remove
+    '<name>'?" or "Remove the image attached <moment>?", then "The design partner no longer sees it from the next turn.
+    This cannot be undone.", labels Remove / Keep. Then it deletes and calls refresh() — added to useSpecDialog: arm
+    reseed, load — so the transcript drops the chip. A cited upload says "cited by an approval", no Remove; with a filed
+    ticket (work.approved) an uncited SET says "not in the approval — a run carries it after the ticket is approved
+    again"; images get that line in 2026-10-08-e8b9k. A refused removal shows its reason in the panel, e.g. e8b9g's "a
+    turn is running or waiting on your approval". Since every set is cited after an approval, a conversation approved
+    near the cap takes no more uploads; the usage line is how the operator sees it. COMPOSER: `left: number | null`
+    (cap minus used; null without a session, so the first upload is not pre-checked and opens the conversation); an
+    image or single file over it gets a composer-local refused note naming both sizes; totalsOf takes `left` and adds
+    it to `over`, holding Send. One formatter: sizeOf moves next to megabytes in referenceSelection.ts.
+  out: >
+    Choosing which uploads a turn sees without removing them. Previewing a set's files. Native dialogs: 2026-10-08-e8b9i.
+
+decisions:
+  - key: "A PANE TAB. The pane already shows what the conversation is grounded in; uploads are that."
+  - key: "CITED SHOWS WHY. A missing Remove without a reason reads as a bug."
+  - key: "CLIENT PRE-CHECK ONLY FOR THE CAP. The server stays the rule; the check saves sending 25 MB to be refused."
+
+steps:
+  - id: client
+    action: "Add deleteSpecDialogReference and deleteSpecDialogImage; extend the session types with the e8b9g fields."
+  - id: hook
+    action: "Add refresh() to useSpecDialog and useDialogUploads(dialogId, refresh) holding remove, its confirmation and note."
+  - id: panel
+    action: "Add DialogUploadsPanel, the uploads tab, its label and empty status; move sizeOf beside megabytes."
+  - id: composer
+    action: "Pass left from SpecDialogSurface to DialogComposer; refuse an image or single file over it; give totalsOf the remaining bytes."
+
+tests:
+  - "DialogUploadsPanel_SetsAndImages_ListedWithUsedAndLeft"
+  - "DialogUploadsPanel_Remove_AsksThenDeletesAndTranscriptDropsTheChip"
+  - "DialogUploadsPanel_RemoveImage_PromptNamesTheMoment"
+  - "DialogUploadsPanel_RemoveKept_SendsNothing"
+  - "DialogUploadsPanel_CitedUpload_HasNoRemoveAndSaysCited"
+  - "DialogUploadsPanel_Refused409_ShowsReasonInPanel"
+  - "DialogUploadsPanel_ApprovedTicket_UncitedSetSaysNextApproval"
+  - "DialogPane_UploadsTab_LabelledWithNoStatus; NoUploads_NotOffered"
+  - "DialogComposer_PickOverRemaining_RefusedBeforeSending (image, single file, selection card)"
+  - "specDialogApi_DeleteReference_UsesSetIdAndDialogId"
+
+done:
+  - "two sets and an image show with used and left bytes; removing one asks in the page's dialog and the transcript no longer shows it"
+  - "a cited set offers no Remove and says why"
+  - "dashboard tests and build green"

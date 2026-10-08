@@ -39,15 +39,15 @@ internal static class SpecDialogReferenceEndpoints
     }
 
     /// <summary>The conversation's websites on this dialog id; a dialog id with none open reads empty.</summary>
+    /// <remarks>2026-10-08-e8b9g: read as the dialog view reads it, so each set says whether it is cited.</remarks>
     internal static async Task<IResult> ListAsync(
         string dialogId, ClaimsPrincipal user, SpecDialogOwnership ownership,
-        SpecDialogSessionRepository sessions, ReferenceSetRepository sets, CancellationToken cancellationToken)
+        SpecDialogSessionRepository sessions, ConversationUploads uploads, CancellationToken cancellationToken)
     {
         if (!await ownership.MayWatchAsync(dialogId, ownership.OwnerOf(user), cancellationToken))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
         var open = await sessions.GetOpenByThreadAsync(DispatcherDefaults.PlatformDashboard, dialogId, cancellationToken);
         if (open is null) return Results.Ok(Array.Empty<ReferenceSetView>());
-        return Results.Ok((await sets.ListAsync(open.SessionId, cancellationToken))
-            .Select(s => new ReferenceSetView(s.SetId, s.Name, s.Files, s.Bytes, s.At)).ToList());
+        return Results.Ok((await uploads.ReadAsync(open.SessionId, cancellationToken)).References.ToList());
     }
 }

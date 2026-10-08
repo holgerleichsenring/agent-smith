@@ -36,6 +36,10 @@ export interface SpecDialogImage {
   id: number;
   mediaType: string;
   at: string;
+  /** 2026-10-08-e8b9g: its size; null for a legacy image not copied yet, which is not counted. */
+  bytes?: number | null;
+  /** 2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed. */
+  cited?: boolean;
 }
 
 /**
@@ -50,6 +54,8 @@ export interface SpecDialogReferenceSet {
   at: string;
   /** 2026-10-02-075dd: what the design partner recorded about the set — what it is, how to run it. */
   note?: string | null;
+  /** 2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed. */
+  cited?: boolean;
 }
 
 /** 2026-10-02-075da: one entry an upload did not store, and why — a rebuildable folder or a file
@@ -89,6 +95,14 @@ export interface SpecDialogSession {
   images: SpecDialogImage[];
   /** 2026-10-01-283db: the websites uploaded to this conversation, oldest first. */
   references?: SpecDialogReferenceSet[] | null;
+  /** 2026-10-08-e8b9g: what the conversation's sets and images hold, and what they may hold. */
+  uploadBytes?: number;
+  uploadCapBytes?: number;
+  /** 2026-10-08-e8b9j: whether the model sees attached images, and images inside sets (a tool's
+   *  result, which some transports cannot follow with a picture); and how many images there are. */
+  seesImages?: boolean;
+  seesUploadedImages?: boolean;
+  imageCount?: number;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }

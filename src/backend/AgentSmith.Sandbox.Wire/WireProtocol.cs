@@ -22,7 +22,9 @@ namespace AgentSmith.Sandbox.Wire;
 public static class WireProtocol
 {
     /// <summary>The protocol version this build speaks and stamps onto every message it sends.</summary>
-    public const int Current = 1;
+    /// <remarks>2026-10-08-e8b9j: 2 adds StepKind.WriteBytes with Append and RenameTo. An agent on
+    /// 1 still reads every step this build sends and answers a WriteBytes as an unknown kind.</remarks>
+    public const int Current = 2;
 
     /// <summary>The oldest protocol version this build still understands.</summary>
     public const int MinimumSupported = 1;

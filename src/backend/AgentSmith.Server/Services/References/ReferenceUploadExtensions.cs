@@ -16,6 +16,12 @@ internal static class ReferenceUploadExtensions
         services.AddSingleton<ReferenceZipReader>();
         services.AddSingleton<ReferenceSetValidator>();
         services.AddScoped<ReferenceSetUpload>();
+        // 2026-10-08-e8b9g: the byte cap and copies both uploads answer to, the image upload, the
+        // conversation's uploads as the page reads them, and the approval's re-read citation.
+        services.AddScoped<ConversationUploadAdmission>();
+        services.AddScoped<SpecDialogImageUpload>();
+        services.AddScoped<ConversationUploads>();
+        services.AddSingleton<DialogImageSight>(); // 2026-10-08-e8b9j
         return services;
     }
 }

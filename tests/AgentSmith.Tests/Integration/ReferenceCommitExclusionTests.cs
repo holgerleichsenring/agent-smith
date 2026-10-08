@@ -28,7 +28,7 @@ public sealed class ReferenceCommitExclusionTests
         await GitAsync(sandbox, "init", "-q", "-b", "main");
         var files = new SandboxFileReaderFactory();
         await new ReferenceGitExclusion(files).EnsureAsync(sandbox, CancellationToken.None);
-        await new ReferenceSetMaterialiser(new NoReferenceSetReader(), files).WriteUnderAsync(sandbox,
+        await new ReferenceSetMaterialiser(new NoReferenceSetReader(), files, new SandboxBinaryFileWriter()).WriteUnderAsync(sandbox,
             [new ReferenceSetFile("site/css/site.css", Encoding.UTF8.GetBytes("h1 { color: #c0ffee; }"))],
             ReferenceDirectory.ForSet("set-a"), CancellationToken.None);
         await files.Create(sandbox).WriteAsync(".agentsmith/runs/r-1/result.md", "# result", CancellationToken.None);

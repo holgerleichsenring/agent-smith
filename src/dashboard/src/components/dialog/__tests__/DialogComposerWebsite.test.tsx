@@ -11,6 +11,17 @@ function folderFile(path: string): File {
 }
 
 describe("DialogComposer, attaching files", () => {
+  // 2026-10-08-e8b9i: the browser adds its own prompt to a folder pick; the menu says so before,
+  // in a line of its own that describes the item without renaming it.
+  it("DialogComposer_FolderEntry_NamedFolderDescribedByTheBrowserHint", () => {
+    render(<DialogComposer onSend={vi.fn()} onAttach={vi.fn()} onAttachSite={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Attach" }));
+
+    const folder = screen.getByRole("menuitem", { name: "Folder" });
+    expect(folder).toHaveAccessibleDescription("Your browser may ask to confirm a folder upload.");
+    expect(screen.getByTestId("dialog-composer-folder-hint")).toHaveClass("d-menu-sub");
+  });
+
   // 2026-10-02-075db: 'Website' became 'Files', and it takes any type — the server keeps any
   // authored file since 075da, so the dialog no longer narrows the pick to website types.
   it("DialogComposer_TheMenu_OffersFilesAndFolderBesideImage", () => {

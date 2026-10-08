@@ -30,13 +30,14 @@ public sealed class ReferenceSetSandboxTests
         var files = _fixture.Spawned.Single().Files;
         files["/work/site/index.html"].Should().Equal(Encoding.UTF8.GetBytes("<h1>Hi</h1>"));
         files["/work/site/img/logo.png"].Should().Equal(Png, "a binary file is decoded back to its bytes");
-        files.Keys.Should().NotContain(k => k.EndsWith(ReferenceSetMaterialiser.EncodedSuffix));
+        files.Keys.Should().NotContain(k => k.Contains(".tmp."), "the last chunk moved each binary into place");
         scope.RepoName.Should().Be("reference:site");
         scope.ResolvedSha.Should().HaveLength(64, "the address carries the set's content hash");
     }
 
     [Fact]
-    public async Task ReferenceSetMaterialiser_FiftyBinaryFiles_DecodesInOneStep()
+    // 2026-10-08-e8b9j: binaries go as bytes, decoded by the receiver — one write each, no python.
+    public async Task ReferenceSetMaterialiser_FiftyBinaryFiles_WrittenAsBytesWithoutPython()
     {
         _fixture.Set.AddRange(Enumerable.Range(0, 50).Select(i => new ReferenceSetFile($"site/img/{i}.png", Png)));
         await using var scope = _fixture.Open(Holds.None());
@@ -44,8 +45,9 @@ public sealed class ReferenceSetSandboxTests
         await scope.MaterializeAsync(CancellationToken.None);
 
         var sandbox = _fixture.Spawned.Single();
-        sandbox.PythonRuns.Should().Be(1, "fifty files decoded file by file would be fifty round trips");
+        sandbox.PythonRuns.Should().Be(0, "the in-process backend has no python3 to decode with");
         sandbox.Files.Keys.Count(k => k.EndsWith(".png")).Should().Be(50);
+        sandbox.Files["/work/site/img/7.png"].Should().Equal(Png);
     }
 
     // 2026-10-02-075da: text is what decodes, whatever the extension.
@@ -60,8 +62,8 @@ public sealed class ReferenceSetSandboxTests
 
         var sandbox = _fixture.Spawned.Single();
         sandbox.Files["/work/app/app.py"].Should().Equal(Encoding.UTF8.GetBytes("print(1)"));
-        sandbox.Files["/work/app/blob.bin"].Should().Equal([0x41, 0x00, 0x42], "a NUL byte sends a file encoded");
-        sandbox.PythonRuns.Should().Be(1);
+        sandbox.Files["/work/app/blob.bin"].Should().Equal([0x41, 0x00, 0x42], "a NUL byte sends a file as bytes");
+        sandbox.PythonRuns.Should().Be(0);
     }
 
     [Fact]

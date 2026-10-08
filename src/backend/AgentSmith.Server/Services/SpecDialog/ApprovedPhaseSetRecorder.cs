@@ -57,6 +57,8 @@ public sealed class ApprovedPhaseSetRecorder(
     IReferenceSetReader references, // 2026-10-01-283df: the sets the approval cites
     TimeProvider time, ILogger<ApprovedPhaseSetRecorder> logger)
 {
+    private readonly ApprovalCitations _citations = new(store, references); // 2026-10-08-e8b9g
+
     /// <summary>The record that was stored — what filing then writes to the ticket branch.</summary>
     /// <param name="goal">The series' goal: an epic's parent goal, a lone spec's own.</param>
     public async Task<SpecApprovalRecord> RecordAsync(
@@ -73,18 +75,16 @@ public sealed class ApprovedPhaseSetRecorder(
             key.Value, [.. series.Drafts.Select(d => new SpecPhase(d, LabelOf(d, previous), string.Empty, []))],
             SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
         var repositories = Repositories(state, project);
-        // 2026-09-25-c1f7: the ticket id is stored as it was GIVEN, because discovery has to name
-        // it in a tracker query and the spec key above has already lowered and re-spelled it.
-        // 2026-10-01-283df: and the website sets held NOW — the approval freezes the list.
-        var record = new SpecApprovalRecord(
-            key.Value, set, repositories, project.Tracker.Name,
-            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty,
-            await references.SetIdsAsync(state.JobId, cancellationToken));
-        await store.SaveAsync(record, cancellationToken);
+        // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
+        // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
+        var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name,
+            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty);
+        var record = await _citations.SaveAsync(
+            await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Phases} phase(s) approved by {Principal} in conversation "
-            + "{Conversation}, carried by {Repo}, citing {Sets} website set(s)", key.Value, set.Phases.Count,
-            approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count);
+            + "{Conversation}, carried by {Repo}, citing {Sets} set(s) and {Images} image(s)", key.Value, set.Phases.Count,
+            approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count, record.CitedImages.Count);
         return record;
     }
 

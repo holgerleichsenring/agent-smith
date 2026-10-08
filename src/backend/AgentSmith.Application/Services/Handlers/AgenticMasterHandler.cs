@@ -899,7 +899,7 @@ public sealed class AgenticMasterHandler(
         return (
             isScanMaster ? string.Empty : TicketConversationPromptSection.Render(comments),
             TicketAttachmentPromptSection.Render(
-                images.Count, imageParts.Count > 0, materialized, MasterPipelineFacts.OtherBinaries(refs, materialized)),
+                images, imageParts.Count, materialized, MasterPipelineFacts.OtherBinaries(refs, materialized)),
             imageParts);
     }
 

@@ -10,4 +10,6 @@ namespace AgentSmith.Server.Models;
 /// </para>
 /// </summary>
 /// <param name="At">When it was attached — what places it in a transcript rendered flat.</param>
-public sealed record SpecDialogImageView(long Id, string MediaType, DateTimeOffset At);
+/// <param name="Bytes">2026-10-08-e8b9g: its size; null for a legacy image not copied yet, which is not counted.</param>
+/// <param name="Cited">2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed.</param>
+public sealed record SpecDialogImageView(long Id, string MediaType, DateTimeOffset At, long? Bytes = null, bool Cited = false);

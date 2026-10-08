@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.References;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -15,8 +16,7 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    ReferenceFileRepository files, SpecDialogTicketTextRepository ticketText, ReferenceSetRepository sets,
-    ReferenceNoteRepository? notes = null)
+    SpecDialogTicketTextRepository ticketText, ConversationUploads uploads)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -28,16 +28,22 @@ public sealed class SpecDialogViewReader(
             ? SpecDialogLatestOutcome.None
             : await latestOutcome.ReadAsync(Platform, dialogId, cancellationToken);
         var asked = state is null ? null : Asked(dialogId, state);
-        var images = state is null
-            ? []
-            : await Images(state.JobId, cancellationToken);
-        IReadOnlyList<ReferenceSetView> references = state is null ? [] : await References(state.JobId, cancellationToken);
+        // 2026-10-08-e8b9g: images and sets with whether an approval cites them, and the bytes held.
+        var held = state is null ? null : await uploads.ReadAsync(state.JobId, cancellationToken, state.Project);
         // 2026-09-27-481bc: one indexed row, and only for a conversation that HAS one — an unbound
         // conversation pays nothing, which matters because this read is issued after every message.
         var ticket = state is null ? null : Ticket(await ticketText.GetAsync(state.JobId, cancellationToken));
         return new SpecDialogView(
             dialogId,
-            state is null ? null : Session(dialogId, state, latest, images, ticket) with { References = references },
+            state is null ? null : Session(dialogId, state, latest, held!.Images, ticket) with
+            {
+                References = held.References,
+                UploadBytes = held.Bytes,
+                UploadCapBytes = ReferenceUploadLimits.MaxConversationBytes,
+                SeesImages = held.Sight?.Images ?? true,
+                SeesUploadedImages = held.Sight?.UploadedImages ?? true,
+                ImageCount = held.ImageCount,
+            },
             projects.All(),
             asked,
             state is null || asked is not null
@@ -60,24 +66,6 @@ public sealed class SpecDialogViewReader(
             ? SpecDialogChannelQuestion.From(
                 dialogId, pending.Question, state.LastActivityAt, pending.ExpiresAt)
             : null;
-
-    /// <summary>
-    /// 2026-09-20-3af8: the conversation's images, addressed rather than inlined — this read is
-    /// issued after every message, so the bytes would be re-sent on every reply.
-    /// </summary>
-    private async Task<IReadOnlyList<SpecDialogImageView>> Images(
-        string sessionId, CancellationToken cancellationToken) =>
-        [.. (await files.ListImagesAsync(sessionId, cancellationToken)) // 2026-10-01-283da: both tables
-            .Select(row => new SpecDialogImageView(row.Id, row.MediaType, row.At))];
-
-    /// <summary>2026-10-01-283db: the conversation's uploads, summarised — never their files;
-    /// 2026-10-02-075dd: each with its note, so the operator sees what the model recorded.</summary>
-    private async Task<IReadOnlyList<ReferenceSetView>> References(string sessionId, CancellationToken cancellationToken)
-    {
-        var noted = notes is null ? new Dictionary<string, string>() : await notes.NotesAsync(sessionId, cancellationToken);
-        return [.. (await sets.ListAsync(sessionId, cancellationToken))
-            .Select(s => new ReferenceSetView(s.SetId, s.Name, s.Files, s.Bytes, s.At, noted.GetValueOrDefault(s.SetId)))];
-    }
 
     private SpecDialogSessionView Session(
         string dialogId, ConversationState state, SpecDialogLatestOutcome latest,

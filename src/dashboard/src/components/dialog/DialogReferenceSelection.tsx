@@ -22,8 +22,11 @@ export function DialogReferenceSelection({
   files,
   onSend,
   onCancel,
+  left = null,
 }: {
   files: File[];
+  /** 2026-10-08-e8b9h: what the conversation has left under its byte cap; Send is held past it. */
+  left?: number | null;
   onSend: (files: File[], leftOut: PickLeftOut) => void;
   onCancel: () => void;
 }) {
@@ -49,7 +52,7 @@ export function DialogReferenceSelection({
     () => (entries ?? []).flatMap((entry, i) => sentBy(entry, ticks[i] ?? false)),
     [entries, ticks],
   );
-  const totals = totalsOf(sent);
+  const totals = totalsOf(sent, left);
   if (!entries) return null;
 
   return (

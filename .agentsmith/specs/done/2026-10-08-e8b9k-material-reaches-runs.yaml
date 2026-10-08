@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9k
+goal: "An approval cites the conversation's images as well as its sets, and the run of the filed ticket receives them as files and, on a vision model, as pictures."
+
+applies_to: "backend (approval record and recorder, reference reader, run carry, conversation delete, run prompt, coding tools), dashboard (uploads panel)"
+
+requires: ["2026-10-08-e8b9g", "2026-10-08-e8b9j"]
+
+facts:
+  - claim: "At approval the recorder stores the ids of the conversation's sets as the record's References; the list is read once, there."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:78-84; src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:51-70"
+  - claim: "Those ids are site sets only; images are never cited."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbReferenceSetReader.cs:32-38; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:45-54"
+  - claim: "283df froze the list on purpose: what the person approved is what the run builds against; a later upload needs a new approval."
+    evidence: ".agentsmith/specs/done/2026-10-01-283df-reference-run-carry.yaml:50"
+  - claim: "Filing and an amendment both record through the recorder, so a re-approval cites what the conversation holds then."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:95; src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:91"
+  - claim: "Only the Code preset reads the approval — ScopeRepos, DeriveSpec and MaterializeReferenceSets; no other preset has those steps."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:36-73; src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:23-33; src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:50,63; src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:38; src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:19,30-31"
+  - claim: "The carry reads every cited set from the approval's conversation before writing any, and fails the run naming any it cannot read; a process with no store has the empty reader."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:23-47; src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeExtensions.cs:24; src/backend/AgentSmith.Application/Services/Sandbox/NoReferenceSetReader.cs:6"
+  - claim: "MaterializeReferenceSets re-runs on resume, and the context it extends is checkpointed (Attachments is not excluded)."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:30-31; src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-40"
+  - claim: "A run's images reach the master from ContextKeys.Attachments, set by FetchTicket: the first ten as picture parts on a vision model; the note counts the list, not the parts, and says 'ticket image(s)'. Each attachment carries Content and a Base64 copy."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:59-66; src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:884,895-903; src/backend/AgentSmith.Application/Services/Prompts/TicketImagePromptParts.cs:15-23; src/backend/AgentSmith.Application/Services/Prompts/TicketAttachmentPromptSection.cs:16-38; src/backend/AgentSmith.Contracts/Models/TicketImageAttachment.cs:8-15; src/backend/AgentSmith.Domain/Entities/AttachmentRef.cs:7-11"
+  - claim: "The conversation delete keeps cited site and note rows only and removes every legacy row; the leader then sweeps a copy whose legacy row is gone. An uncopied legacy image has no set id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:73-90; src/backend/AgentSmith.Infrastructure.Persistence/Services/LegacyAttachmentCopy.cs:51-55,80; src/backend/AgentSmith.Server/Services/Lifecycle/LegacyAttachmentCopySweeper.cs:37; src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-94"
+  - claim: "On a run, upload tools exist only where the project enables the browser; the carried set names its session and id."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:33-56; src/backend/AgentSmith.Contracts/Specs/CarriedReferenceSet.cs:15-16"
+  - claim: "The record is serialised whole by System.Text.Json with default options, so an appended parameter round-trips and an older reader ignores it."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:17-23,31-41"
+
+assumptions: []
+
+scope:
+  in: >
+    SpecApprovalRecord.Images (image set ids), appended LAST, with CitedImages; the recorder fills it from
+    IReferenceSetReader.ImageSetIdsAsync. CitedSetsAsync answers sets and images, so the conversation delete and the
+    e8b9g removal (which resolves an image's SetId before the check) keep and refuse both; DeleteBySessionAsync keeps
+    cited Image rows and the legacy row of the same id, so the orphan sweep keeps the copy. MaterializeReferenceSets:
+    images-only is cited; the carrier reads each cited image, writes it to .agentsmith/reference/images/<setId>.<ext>
+    through the e8b9j writer and REPLACES the upload:-prefixed entries of ContextKeys.Attachments, so a resume does
+    not duplicate them. At most MaxImages minus the ticket's own images are attached; the rest are named as files
+    only. A cited image this process cannot read (no store, deleted) becomes a note, not a failure. The attachment note
+    counts ticket and uploaded images apart and reports the parts actually attached; on a text model it says the image
+    files cannot be read (read_file refuses non-UTF-8). ReferencePromptSection.Carried lists image paths.
+    view_reference_image joins the coding master over the carried sets whatever the browser flag. The uploads panel's
+    "approved again" line covers images.
+  out: >
+    Other presets: none reads an approval. An uncopied legacy image is cited only once the leader copies it. During a
+    multi-replica rollout an old pod ignores Images: acceptable for the window. Carrying from another conversation.
+
+decisions:
+  - key: "THE SNAPSHOT STAYS (operator asked for a decision). A live list would let an upload made after approval change what a queued or running build reads, unseen by whoever approved; removal is safe only because the cited list is fixed. Amendment is the way in."
+  - key: "IMAGES BESIDE SETS. CitedSets keeps meaning sets; an image is written and shown, a set written and searched."
+  - key: "THE TICKET'S IMAGES FIRST. They are the requirement; uploads fill what is left of the ten."
+  - key: "AN UNREADABLE IMAGE IS A NOTE. Images are shown, not built against; a missing set still fails the run."
+
+steps:
+  - id: record
+    action: "Append Images to SpecApprovalRecord; add ImageSetIdsAsync and ImageAsync to IReferenceSetReader and its implementations; the recorder fills Images."
+  - id: keep
+    action: "CitedSetsAsync unions CitedImages; DeleteBySessionAsync keeps cited images and their legacy rows."
+  - id: carry
+    action: "ReferenceSetCarrier writes cited images; MaterializeReferenceSetsHandler replaces upload: attachments within the ceiling."
+  - id: prompt
+    action: "Split the attachment note by origin and attached count; list image paths in ReferencePromptSection.Carried."
+  - id: tool
+    action: "Compose view_reference_image for a run's carried sets outside the browser gate; extend the panel's approved-again line to images."
+
+tests:
+  - "SpecApprovalJson_Images_RoundTrip; OldRecord_CitesNoImages"
+  - "ApprovedPhaseSetRecorder_ConversationWithImage_CitesIt"
+  - "ConversationDelete_CitedImage_Survives; CitedLegacyCopiedImage_SurvivesOrphanSweep"
+  - "MaterializeReferenceSets_CitedImage_WrittenAndAttachedAfterTicketImages"
+  - "MaterializeReferenceSets_RerunOnResume_DoesNotDuplicateUploads"
+  - "MaterializeReferenceSets_TenTicketImages_UploadNamedNotAttached"
+  - "MaterializeReferenceSets_ImagesOnly_IsCited; NoStore_ImageBecomesNote"
+  - "TicketAttachmentPromptSection_UploadsCountedApart; NonVision_SaysFilesUnreadable"
+  - "UploadAfterApproval_IsNotCarried_UntilAmendment"
+  - "CodingMaster_CarriedSetBrowserOff_HasViewReferenceImage"
+  - "DialogUploadsPanel_ApprovedTicket_UncitedImageSaysNextApproval (vitest)"
+
+done:
+  - "a ticket filed from a conversation holding a screenshot runs with it as a picture part and under .agentsmith/reference/images/, and its PR carries no such file"
+  - "build green, full suite green, dashboard tests green"

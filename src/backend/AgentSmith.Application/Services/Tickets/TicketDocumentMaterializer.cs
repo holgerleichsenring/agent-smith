@@ -18,6 +18,7 @@ namespace AgentSmith.Application.Services.Tickets;
 /// </summary>
 public sealed class TicketDocumentMaterializer(
     ISandboxFileReaderFactory readerFactory,
+    ISandboxBinaryFileWriter bytes,
     ILogger<TicketDocumentMaterializer> logger) : ITicketDocumentMaterializer
 {
     public async Task<IReadOnlyList<MaterializedTicketDocument>> MaterializeAsync(
@@ -62,13 +63,10 @@ public sealed class TicketDocumentMaterializer(
         ISandbox sandbox, ISandboxFileReader files, string path,
         TicketDocumentAttachment document, CancellationToken cancellationToken)
     {
-        await files.WriteAsync($"{path}.b64", Convert.ToBase64String(document.Content), cancellationToken);
-        var decode = await RunShellAsync(
-            sandbox, $"base64 -d < '{path}.b64' > '{path}' && rm -f '{path}.b64'", cancellationToken);
-        if (decode.ExitCode != 0)
+        // 2026-10-08-e8b9j: the document goes as bytes, decoded by the receiver.
+        if (await bytes.WriteAsync(sandbox, string.Empty, path, document.Content, cancellationToken) is { } failed)
         {
-            logger.LogWarning("In-sandbox decode of '{File}' failed (exit {Code})",
-                document.FileName, decode.ExitCode);
+            logger.LogWarning("Writing '{File}' into the sandbox failed: {Error}", document.FileName, failed);
             return null;
         }
 

@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 // 2026-09-20-4b0ab: the one modal moment on this page, drawn by the page. It was
-// window.confirm — an unstyled system alert with the origin above it and two buttons named by
-// the browser, carrying a three-paragraph warning written for a reader.
+// the browser's own confirmation — an unstyled system alert with the origin above it and two
+// buttons named by the browser, carrying a three-paragraph warning written for a reader.
 //
 // THE NATIVE DIALOG ELEMENT, AND THE ORDER IT IS OPENED IN. showModal gives the top layer,
 // focus containment and a painted backdrop; the top layer is what a hand-rolled scrim inside
@@ -129,7 +129,7 @@ interface Asked {
 /** The PROMISE-shaped ask, beside the callback form above. A caller that has to decide inside
  *  a handler it is already running — the config studio's overwrite prompt and the data
  *  archive's restore prompt are both a synchronous decision inside an async file handler, one
- *  of them after the file input has been cleared — reads as it did with window.confirm:
+ *  of them after the file input has been cleared — reads as it did with the browser's prompt:
  *  `if (!(await confirmation.ask(warning))) return;`. Without this they would each have to
  *  hold the pending value in state around a callback, which is how a second component gets
  *  written. */
