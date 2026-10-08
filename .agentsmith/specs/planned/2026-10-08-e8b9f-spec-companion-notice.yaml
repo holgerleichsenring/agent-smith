@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9f
+goal: "An approved spec has no markdown companion, so none is written and the viewer says so; 'No phase document found' stays for a derived spec whose companion is really missing."
+
+applies_to: "backend (spec viewer copy, series file rendering, done files)"
+
+requires: []
+
+facts:
+  - claim: "The viewer prints 'No phase document found — nothing was readable at <planned companion path>' for every phase whose Markdown is blank, whatever the set's origin."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecMarkdown.cs:71-84"
+  - claim: "An approved set is recorded with Markdown = string.Empty for every phase."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:72-74"
+  - claim: "SeriesFiles.Render writes a planned companion for every unexecuted phase, an empty one included; filing and the run's publish both render through it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:22-33"
+  - claim: "The reader turns a missing and an empty companion alike into string.Empty."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesSpecFileReader.cs:60"
+  - claim: "A derived phase's companion is never blank: it starts with a heading and the goal."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SegmentExtractor.cs:15-26"
+  - claim: "Derivation builds its companion with SegmentExtractor.BuildMarkdown."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:47-49"
+  - claim: "The fallback companion is BuildWholeTicketMarkdown."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:41-44"
+  - claim: "A set read back off the branch has Source BranchArtifact and carries the manifest's approval."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:104-107"
+  - claim: "The manifest stores the approval instant, conversation and principal."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:101-110"
+  - claim: "The prompt section already skips a blank companion."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:47-57"
+  - claim: "SpecDoneFiles writes the done companion unconditionally and names the planned one for removal."
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/SpecDoneFiles.cs:19-34"
+  - claim: "The record commit removes only planned paths that exist."
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/SeriesRecordCommit.cs:41-50"
+  - claim: "A planned file of the series that the render did not write is stale and is removed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesStaleFiles.cs:32-39"
+  - claim: "A filing test asserts the approved set's planned .md is written."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/FiledSpecBranchTests.cs:105-118"
+  - claim: "The viewer test pins the not-found text for a blank companion on a derived set."
+    evidence: "tests/AgentSmith.Tests/Specs/SpecMarkdownTests.cs:38-45"
+  - claim: "observed 2026-10-08: the operator's viewer named .agentsmith/specs/azuredevops-19455/…; that path is the pre-1f35c47c4 key.MarkdownPath, so the deployed server predates v0.156.0. The recorder wrote string.Empty there too."
+    evidence: "observed: 2026-10-08, git show 1f35c47c4^ SpecMarkdown.cs:82-83 and ApprovedPhaseSetRecorder.cs:74"
+
+assumptions:
+  - claim: "The operator's ticket 19455 series was approved in a design conversation."
+    check: "Its manifest on the ticket branch carries approvedAt."
+
+scope:
+  in: >
+    The viewer tells an approved spec's missing companion from a derived one's. Neither writer
+    puts a blank companion on the branch, and the next revision of an approved series removes the
+    empty .md an earlier filing left.
+  out: >
+    The slug cut mid-word ('…-api-client-libra'), which is 2026-09-07-e9a2 (phase-slug-product-bound).
+    Runs whose viewer copy was cached before the fix keep their text. Redeploying the operator's
+    server is operator work.
+
+decisions:
+  - key: "APPROVAL DECIDES, NOT SOURCE. A filed approved series reads back as BranchArtifact; set.Approval survives that read, Source does not."
+  - key: "WRITE NOTHING RATHER THAN AN EMPTY FILE. An empty .md reads like a lost document to anyone browsing the branch; every reader already treats absent as empty."
+  - key: "KEEP THE ALARM FOR DERIVED SETS. A derived companion is never blank, so blank there means a failed or partial spec commit (p0394)."
+
+steps:
+  - id: viewer
+    action: "In AppendPhaseDocuments, render a blank companion of a set with Approval as 'Approved in the design conversation — the spec is the whole document; it has no ticket companion.' and keep the not-found text otherwise."
+    modify:
+      - "SpecMarkdown: notice keyed on set.Approval"
+  - id: render
+    action: "Skip the companion entry in SeriesFiles.Render when Markdown is blank."
+    modify:
+      - "SeriesFiles: no empty companion"
+  - id: done-files
+    action: "Skip writing the done companion when Markdown is blank; keep the planned companion in the removal list."
+    modify:
+      - "SpecDoneFiles: no empty companion"
+  - id: tests
+    action: "Change the filing test to assert no planned .md for an approved set; add the tests below."
+
+tests:
+  - "Render_ApprovedPhaseWithoutDocument_SaysApprovedNotNotFound"
+  - "Render_DerivedPhaseWithoutDocument_NamesTheLookedUpPath"
+  - "Render_BranchReadApprovedSet_SaysApprovedNotNotFound"
+  - "SeriesFiles_BlankCompanion_RendersNoMarkdownFile"
+  - "SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale"
+  - "SpecDoneFiles_BlankCompanion_WritesNoDoneMarkdownAndNamesThePlannedOne"
+  - "Filing_ApprovedSet_WritesNoCompanion"
+
+done:
+  - "An approved set's run viewer shows no 'No phase document found' line; a derived set with a blank companion still shows it with the planned path."
+  - "Filing an approved set writes the manifest and the spec yamls, no .md."
+  - "Full suite green."
