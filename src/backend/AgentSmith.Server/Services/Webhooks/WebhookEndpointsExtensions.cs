@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Extensions;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Handlers;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +28,13 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<PrReviewRouteResolver>();
         services.TryAddSingleton<PrRunContextFactory>();
+        // 2026-10-08-e8b9b: the rework entry and the router the ticket-comment handlers share —
+        // singletons beside the singleton handlers; the scoped chat launcher is reached through a scope.
+        services.AddSingleton<ITicketReopener, Services.Lifecycle.TicketReopener>();
+        services.AddSingleton<IReworkParkCheck, Services.Rework.ReworkParkCheck>();
+        services.AddSingleton<IReworkLaunch, Services.Rework.ReworkLaunch>();
+        services.AddSingleton<IReworkEntry, Services.Rework.ReworkEntry>();
+        services.AddSingleton<KeywordCommentRouter>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

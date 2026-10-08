@@ -29,6 +29,8 @@ public static class OwnTicketComment
         "[agent-smith open questions]",
         "Agent Smith —",
         "Agent Smith &#8212;",
+        // 2026-10-08-e8b9b: the completed-run summary heads itself with a hyphen.
+        "Agent Smith - ",
     ];
 
     private static readonly string[] AwaitingAnswer =

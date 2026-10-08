@@ -17,7 +17,7 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
-    WebhookSpawnDispatcher dispatcher,
+    KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
     ILogger<AzureDevOpsWorkItemCommentWebhookHandler> logger) : IWebhookHandler
@@ -55,41 +55,15 @@ public sealed class AzureDevOpsWorkItemCommentWebhookHandler(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
             var matches = envelopeResolver.Resolve(config, envelope);
-            var filtered = FilterByKeywordOrAnswers(config, matches, commentText, planAnswers.Count > 0);
-
-            if (filtered.Count == 0 && matches.Count > 0)
-            {
-                logger.LogDebug(
-                    "ADO comment #{Id}: matched but no keyword/answers — ignoring", workItemId);
-                return WebhookResult.NotHandled();
-            }
-
-            var planAnswersDict = planAnswers.Count > 0
-                ? new Dictionary<string, string>(planAnswers) : null;
-            await dispatcher.DispatchAsync(
-                config, filtered, envelope, state, planAnswersDict, cancellationToken);
-            return WebhookResult.HandledNoRoute();
+            var act = PayloadActTime.Act(
+                PayloadActTime.Text(fields, "System.ChangedBy"), PayloadActTime.Text(fields, "System.ChangedDate"));
+            return await router.RouteAsync(config, matches, new KeywordComment(envelope, state, commentText,
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse Azure DevOps workitem.commented webhook");
             return WebhookResult.NotHandled();
         }
-    }
-
-    private static IReadOnlyList<ProjectMatch> FilterByKeywordOrAnswers(
-        AgentSmithConfig config, IReadOnlyList<ProjectMatch> matches,
-        string commentText, bool hasAnswers)
-    {
-        if (matches.Count == 0) return matches;
-        var kept = new List<ProjectMatch>(matches.Count);
-        foreach (var match in matches)
-        {
-            var trigger = config.Projects[match.ProjectName].AzuredevopsTrigger;
-            var hasKeyword = trigger?.CommentKeyword is { } kw
-                && commentText.Contains(kw, StringComparison.OrdinalIgnoreCase);
-            if (hasAnswers || hasKeyword) kept.Add(match);
-        }
-        return kept;
     }
 }

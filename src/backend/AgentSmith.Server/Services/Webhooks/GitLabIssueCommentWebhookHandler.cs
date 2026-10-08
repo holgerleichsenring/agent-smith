@@ -17,7 +17,7 @@ public sealed class GitLabIssueCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
-    WebhookSpawnDispatcher dispatcher,
+    KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
     ILogger<GitLabIssueCommentWebhookHandler> logger) : IWebhookHandler
@@ -64,41 +64,15 @@ public sealed class GitLabIssueCommentWebhookHandler(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
             var matches = envelopeResolver.Resolve(config, envelope);
-            var filtered = FilterByKeywordOrAnswers(config, matches, noteBody, planAnswers.Count > 0);
-
-            if (filtered.Count == 0 && matches.Count > 0)
-            {
-                logger.LogDebug("GitLab issue note !{Issue}: matched but no keyword/answers — ignoring",
-                    issueId);
-                return WebhookResult.NotHandled();
-            }
-
-            var planAnswersDict = planAnswers.Count > 0
-                ? new Dictionary<string, string>(planAnswers) : null;
-            await dispatcher.DispatchAsync(
-                config, filtered, envelope, issueState, planAnswersDict, cancellationToken);
-            return WebhookResult.HandledNoRoute();
+            var act = PayloadActTime.Act(
+                PayloadActTime.Text(root, "user", "username"), PayloadActTime.Text(noteAttrs, "created_at"));
+            return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, noteBody,
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitLab Note Hook webhook");
             return WebhookResult.NotHandled();
         }
-    }
-
-    private static IReadOnlyList<ProjectMatch> FilterByKeywordOrAnswers(
-        AgentSmithConfig config, IReadOnlyList<ProjectMatch> matches,
-        string noteBody, bool hasAnswers)
-    {
-        if (matches.Count == 0) return matches;
-        var kept = new List<ProjectMatch>(matches.Count);
-        foreach (var match in matches)
-        {
-            var trigger = config.Projects[match.ProjectName].GitlabTrigger;
-            var hasKeyword = trigger?.CommentKeyword is { } kw
-                && noteBody.Contains(kw, StringComparison.OrdinalIgnoreCase);
-            if (hasAnswers || hasKeyword) kept.Add(match);
-        }
-        return kept;
     }
 }

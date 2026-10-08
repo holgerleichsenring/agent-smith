@@ -17,6 +17,10 @@ public static partial class ContextKeys
     /// (<see cref="Runs.PreviousAttempt"/>), set with the thread; absent on a first attempt.</summary>
     public const string PreviousAttempt = "PreviousAttempt";
 
+    /// <summary>2026-10-08-e8b9b: the rework act this run serves (<see cref="Runs.ReworkAct"/>), read
+    /// by the run itself from the thread, whoever claimed the ticket; absent when there is none.</summary>
+    public const string ReworkAct = "ReworkAct";
+
     public const string TicketComments = "TicketComments";
 
     /// <summary>p0317: IReadOnlyList&lt;TicketDocumentAttachment&gt; — downloaded text-like

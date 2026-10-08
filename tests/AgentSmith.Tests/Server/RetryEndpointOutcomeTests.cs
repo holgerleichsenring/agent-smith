@@ -82,7 +82,7 @@ public sealed class RetryEndpointOutcomeTests : IDisposable
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         return new NotImplementableRetryService(
-            new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), Mock.Of<IUnmovedTicketStore>(), factory.Object,
+            new AgentSmith.Server.Services.Lifecycle.TicketReopener(new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), Mock.Of<IUnmovedTicketStore>()), factory.Object,
             NullLogger<NotImplementableRetryService>.Instance);
     }
 

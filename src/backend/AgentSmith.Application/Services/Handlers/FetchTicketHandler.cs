@@ -79,6 +79,8 @@ public sealed class FetchTicketHandler(
         // p0317: the conversation, the text-like documents and the full attachment listing
         // are part of the requirement record. All fail-soft: a run without them beats no run.
         await extras.FetchAsync(provider, context.TicketId, context.Pipeline, cancellationToken);
+        // 2026-10-08-e8b9b: the rework act is read here, from the thread just fetched.
+        Rework.ReworkActReader.Apply(context.Pipeline, context.CommentKeyword);
 
         // 2026-09-13-7d9f: the epic this ticket is one slice of, read ONCE — here, with the
         // ticket. A parent that cannot be read is named in the step and the run proceeds.

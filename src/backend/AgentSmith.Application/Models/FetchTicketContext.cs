@@ -8,8 +8,11 @@ namespace AgentSmith.Application.Models;
 /// Context for fetching a ticket from an external provider.
 /// p0322a: TicketId is null on ticketless runs (CLI-triggered init-project) —
 /// the handler skips the fetch cleanly instead of failing the step.
+/// <para>2026-10-08-e8b9b: CommentKeyword is the tracker trigger's comment_keyword, so the run can
+/// read a rework act from the thread whoever claimed the ticket.</para>
 /// </summary>
 public sealed record FetchTicketContext(
     TicketId? TicketId,
     TrackerConnection Config,
-    PipelineContext Pipeline) : ICommandContext;
+    PipelineContext Pipeline,
+    string? CommentKeyword = null) : ICommandContext;

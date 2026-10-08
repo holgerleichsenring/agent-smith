@@ -47,13 +47,27 @@ internal sealed class TicketCommentHandlerFixture
             .ReturnsAsync(new SpawnResult(Array.Empty<ClaimResult>()));
     }
 
+    public Mock<AgentSmith.Server.Contracts.IReworkEntry> Rework { get; } = NotARework();
+
+    private static Mock<AgentSmith.Server.Contracts.IReworkEntry> NotARework()
+    {
+        var rework = new Mock<AgentSmith.Server.Contracts.IReworkEntry>();
+        rework.Setup(r => r.EnterAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<AgentSmith.Contracts.Runs.ReworkAct>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AgentSmith.Server.Services.Rework.ReworkOutcome.NotARework);
+        return rework;
+    }
+
     private WebhookSpawnDispatcher Dispatcher() => new(
         Spawn.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<WebhookSpawnDispatcher>.Instance);
+
+    private KeywordCommentRouter Router() => new(
+        Dispatcher(), Rework.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<KeywordCommentRouter>.Instance);
 
     private static PlanAnswerParser Answers() => new(NullLogger<PlanAnswerParser>.Instance);
 
     public AzureDevOpsWorkItemCommentWebhookHandler AzureDevOpsComment() => new(
-        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Dispatcher(),
+        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Router(),
         ApprovedRecordProbes.None(), Answers(), NullLogger<AzureDevOpsWorkItemCommentWebhookHandler>.Instance);
 
     public AzureDevOpsWorkItemWebhookHandler AzureDevOpsUpdated() => new(
@@ -61,11 +75,11 @@ internal sealed class TicketCommentHandlerFixture
         ApprovedRecordProbes.None(), NullLogger<AzureDevOpsWorkItemWebhookHandler>.Instance);
 
     public GitHubIssueCommentWebhookHandler GitHubComment() => new(
-        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Dispatcher(),
+        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Router(),
         ApprovedRecordProbes.None(), Answers(), NullLogger<GitHubIssueCommentWebhookHandler>.Instance);
 
     public GitLabIssueCommentWebhookHandler GitLabComment() => new(
-        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Dispatcher(),
+        _loader.Object, new ServerContext(ConfigPath), _resolver.Object, Router(),
         ApprovedRecordProbes.None(), Answers(), NullLogger<GitLabIssueCommentWebhookHandler>.Instance);
 
     public GitLabIssueWebhookHandler GitLabIssue() => new(

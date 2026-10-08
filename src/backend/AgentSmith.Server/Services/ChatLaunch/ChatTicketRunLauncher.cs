@@ -52,7 +52,7 @@ public sealed class ChatTicketRunLauncher(
             ClaimOutcome.Claimed when spawn.RunId is not null => ChatLaunchResult.Started(spawn.RunId),
             ClaimOutcome.Queued when spawn.RunId is not null =>
                 ChatLaunchResult.Waiting(spawn.RunId, claim.Error ?? "waiting for capacity"),
-            ClaimOutcome.AlreadyClaimed => ChatLaunchResult.Refused("This ticket already has a run in flight."),
+            ClaimOutcome.AlreadyClaimed => ChatLaunchResult.Taken(),
             ClaimOutcome.Rejected => ChatLaunchResult.Refused(claim.Error ?? $"Refused: {claim.Rejection}."),
             _ => ChatLaunchResult.Refused(claim?.Error ?? "The run could not be started."),
         };
