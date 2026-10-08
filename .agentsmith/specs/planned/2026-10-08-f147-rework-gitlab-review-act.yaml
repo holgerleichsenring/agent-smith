@@ -1,46 +1,91 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-08-f147
-goal: "A GitLab reviewer's Request changes on an agent-smith merge request starts one rework attempt, once GitLab can tell the run when that request was made."
+goal: "A trusted reviewer's Request changes on a GitLab agent-smith MR starts one rework: agent-smith re-requests the review and records the act as its own marked note, which the run reads."
 
-applies_to: "backend (GitLab MR webhook, GitLab review reader)"
+applies_to: "backend (GitLab MR webhook, GitLab review reader, pending-act check, rework entry) + docs"
 
-requires: [2026-10-08-e8b9c]
+requires: [2026-10-08-e8b9c, 2026-10-08-e8b9d]
 
 facts:
-  - claim: "GitLab 19.3+ sends a submitted review as an MR update whose changes.reviewers holds the previous and current arrays matched by id; only a state change emits."
-    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/user/project/integrations/webhook_events.md, reviewer state on submitted reviews"
-  - claim: "GET merge_requests/:iid/reviewers returns each reviewer's current state with a created_at that is the assignment time, not the state's."
-    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/api/merge_requests.md line 1414ff"
-  - claim: "GitLab's API and system-note documentation name no note or timestamp for 'requested changes'."
-    evidence: "observed: 2026-10-08, gitlab-org/gitlab doc/api/notes.md, doc/user/project/system_notes.md, doc/user/project/merge_requests/reviews/_index.md"
-  - claim: "A GitLab MR update without oldrev starts nothing today."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73"
+  - claim: "GitLab 19.3+ sends a submitted review as an MR update whose changes.reviewers holds the previous and the current reviewer arrays; requested_changes is a reviewer state."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/user/project/integrations/webhook_events/ (Submit review events; Reviewer state tracking)"
+  - claim: "GET merge_requests/:iid/reviewers returns each reviewer's user, current state and a created_at that the docs do not tie to the state."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/merge_requests/#retrieve-merge-request-reviewers"
+  - claim: "A review can be re-requested by GraphQL mergeRequestReviewerRereview(projectPath, iid, userId); /request_review on an existing reviewer resets their review state; a re-request emits an MR update with re_requested true."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/graphql/reference/#mutationmergerequestreviewerrereview, https://docs.gitlab.com/user/project/quick_actions/#request_review, https://docs.gitlab.com/user/project/integrations/webhook_events/ (Re-request review events)"
+  - claim: "MR notes list newest first by created_at and carry author.id, created_at and system; a note can be deleted; only administrators or owners may set created_at."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/notes/#merge-requests"
+  - claim: "GET /user returns the token's own user with its id."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/users/#retrieve-the-current-user"
+  - claim: "GitLab resends a timed-out delivery; the receiver must expect duplicates."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/user/project/integrations/webhooks/ (Webhook receiver requirements; Delivery headers)"
+  - claim: "A GitLab MR update without oldrev starts nothing; the label handler takes only an added label."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:39-41,48,58"
+  - claim: "PrReworkAdmission filters branch, fork, author, owner and trust, then enters, then posts the outcome."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:31-46,61-81"
+  - claim: "ReworkEntry checks the live run, the attempt and the act time, then the park, the move, the clearing and the launch."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:26-38,47-59, src/backend/AgentSmith.Server/Contracts/IReworkEntry.cs:11-15"
+  - claim: "The run takes a provider's standing act newer than the previous attempt's start plus one minute, by a trusted non-bot reviewer."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:41-42,54-64,81-87, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:17-20"
+  - claim: "The GitLab reader maps author id and bot from the users API; GitLabSourceProvider is 401 of a 421 baseline."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrReviewThreadReader.cs:13-14,49-64, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:19,184-193,282-312, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:12"
+  - claim: "A note opening '<!-- agentsmith:' is ours and kept only when a foreign note follows; only the pr-review prefix is deleted by marker."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrReviewSelection.cs:15,28-34, src/backend/AgentSmith.Application/Services/Handlers/PostPrCommentsHandler.cs:21,31"
+  - claim: "An MR note starts a command only on a line opening /agent-smith or /as."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrCommentWebhookHandler.cs:19-20,32-36, src/backend/AgentSmith.Application/Webhooks/CommentIntentParser.cs:40"
+  - claim: "The live-run text names only Azure DevOps' vote reset; the docs say GitLab does not start a rework."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkTexts.cs:14,22-25, docs/reference/integrations/pr-comments.md:75"
 
 assumptions:
-  - claim: "A durable time for the current requested_changes state is readable from GitLab (a system note, a review summary note, or an API field not yet documented)."
-    check: "Request changes on a test MR on the deployed GitLab and read discussions, notes and reviewers; build only once one source answers."
+  - claim: "Request changes by a reviewer already in requested_changes emits no update; mergeRequestReviewerRereview sets requested_changes to unreviewed for the MR author's token."
+    check: "On a 19.3 test MR: request changes twice, then re-request through the API and read the reviewers API."
 
 scope:
   in: >
-    GitLabMrReviewWebhookHandler (before the GitLab MR handlers): a reviewer whose current entry turns
-    requested_changes; PrReworkAdmission as on GitHub. GitLabPrReviewThreadReader implements
-    IPrReviewActReader from the reviewers API (state) and the source the assumption check finds (time).
-  out: "GitHub and Azure DevOps (2026-10-08-e8b9c)."
+    PrPendingActCheck.FindAsync(repo, prUrl, attempt): the newest pending act on a pull request, the one
+    question the webhook and the poll sweep (2026-10-08-9e6e) ask. GitHub and Azure DevOps: the act
+    reader as PrReviewFeedbackFetcher reads it now (moved here, the fetcher calls it). GitLab
+    (IPrPendingActReader): a reviewer in requested_changes, not the MR author, not the token user (GET
+    /user), trusted, not a bot, with no marker note of ours for them newer than the attempt's start plus
+    one minute. GitLabMrReviewWebhookHandler, before GitLabMrLabelWebhookHandler: an update whose
+    changes.reviewers turns a reviewer to requested_changes; PrReworkAdmission then needs that reviewer
+    pending, else NotHandled. ReworkEntry takes an optional IReworkActRecord, run after the park check and
+    before the move: GitLab re-requests the review, then posts '<!-- agentsmith:rework-act reviewer={id} -->'
+    with the started text, edited to name the run once launched; a failed record is Refused, nothing moved;
+    a refused move deletes the note. A webhook refusal on GitLab re-requests too and says 'request changes
+    again'. GitLab's IPrReviewActReader: our newest marker per reviewer, at its created_at. Docs.
+  out: "The poll sweep (2026-10-08-9e6e). A refused act is served later only in polling mode (9e6e)."
 
 decisions:
-  - key: "SPLIT, NOT GUESSED. The webhook's object_attributes.updated_at moves with any MR edit, and the reviewers API's created_at is the assignment; neither is the act's time, and without one the run cannot tell a served request from a new one."
-  - key: "FOLLOWS 2026-10-08-e8b9c, cut out of it at review because GitLab's half could not be specified."
+  - key: "THE HOST KEEPS NO TIME, SO WE WRITE ONE: our note's created_at is the act's time; only notes by the token's own user count, so a pasted marker is nothing."
+  - key: "RESET ON SERVING. Re-requesting turns the reviewer back to unreviewed, so the act is pending exactly until served, a redelivery finds nothing pending, and a new Request changes is a new act — no stored state. It also lifts GitLab's merge block and notifies the reviewer while the rework runs."
+  - key: "RECORD BEFORE CLAIMABLE: answered after the entry, as the siblings are, a claimer's run could read the MR before the note exists."
+  - key: "A REFUSED ACT LEAVES NO MARKER (operator), so nothing is served later in silence; the webhook path resets it so 'request changes again' works as on GitHub."
+  - key: "REVIEWER BY USER ID: usernames change."
 
 steps:
-  - id: handler
-    action: "Add GitLabMrReviewWebhookHandler and register it before GitLabMrLabelWebhookHandler."
-  - id: act
-    action: "Implement IPrReviewActReader in GitLabPrReviewThreadReader from the verified time source."
+  - id: check
+    action: "Add PrPendingActCheck, IPrPendingActReader and IReworkActRecord; move the fetcher's act read into the check; ReworkEntry runs the record and withdraws it on a refused move."
+  - id: gitlab
+    action: "Add GitLabReworkActs (pending read, re-request, post, edit, delete) and IPrReviewActReader to GitLabPrReviewThreadReader; GitLabSourceProvider delegates in one line each."
+  - id: webhook
+    action: "Add GitLabMrReviewWebhookHandler and the GitLab record in PrReworkAdmission; ReworkTexts.PrLiveRun takes the host's repeat sentence."
+  - id: docs
+    action: "pr-comments.md and webhooks.md: GitLab 19.3+, Merge request events, an api-scope token that authored the MR, the re-request and the note."
 
 tests:
-  - "GitLabMrReview_ReviewerBecomesRequestedChanges_StartsRework"
+  - "GitLabMrReview_ReviewerTurnsRequestedChanges_RecordsBeforeLaunchAndStarts"
   - "GitLabMrReview_StateUnchanged_NotHandled"
-  - "GitLabActReader_RequestedChangesAfterAttempt_ReturnsAct"
+  - "GitLabMrReview_Redelivery_NothingPendingNotHandled"
+  - "GitLabMrReview_LiveRun_ReRequestsNoMarkerSaysAgain"
+  - "ReworkEntry_RecordFails_RefusedNothingMoved"
+  - "ReworkEntry_RefusedMove_DeletesNote"
+  - "GitLabPending_MarkerNewerThanAttempt_NotPending"
+  - "GitLabActReader_MarkerByOtherUser_Ignored"
+  - "ReworkActReader_GitLabMarkerAfterAttempt_SetsPullRequestAct"
+  - "GitLabThreads_OwnMarkerNote_NotFeedback"
 
 done:
-  - "A Request changes on a GitLab agent-smith MR starts one attempt whose context carries the pull-request act; docs state GitLab 19.3+; full suite green."
+  - "Webhook mode, GitLab: a Request changes on an agent-smith MR starts one attempt whose context carries the pull-request act whoever claims it; a resent delivery starts nothing."
+  - "Polling mode, GitLab: PrPendingActCheck answers the same act for 2026-10-08-9e6e with no webhook involved."
+  - "GitLabSourceProvider stays under its baseline; full suite green."

@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-10b0
+goal: "In polling mode a poll cycle also serves the pull-request events only webhooks start today: pr-review on open and push, the security-scan label, and PR comment commands."
+
+applies_to: "backend (poller, source providers, persistence) + docs"
+
+requires: [2026-10-08-101b, 2026-10-08-9e6e]
+
+facts:
+  - claim: "pr-review on open and push, the security-scan label and comment commands start only from webhook handlers."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:27-28, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs:25-26, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40"
+  - claim: "In polling mode every PR delivery is refused (2026-10-08-101b), so these features stop for polling projects until this phase."
+    evidence: ".agentsmith/specs/planned/2026-10-08-101b-trigger-mode-exclusive.yaml:28-38"
+  - claim: "A Run row carries no head sha or pull-request number of its own; a command is answered with a marked note."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-58, src/backend/AgentSmith.Server/Services/Webhooks/PrCommandTexts.cs:6-8"
+  - claim: "Persistence keeps a default migration set and a SQL Server set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260607082443_InitialCreate.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/AgentSmith.Infrastructure.Persistence.SqlServer.csproj:1"
+
+assumptions:
+  - claim: "Each host lists a repository's open pull requests with head sha, labels and comments in a few paged calls."
+    check: "Name the calls per host (GitHub pulls + issue comments, GitLab merge_requests + notes, Azure DevOps pullrequests + threads) before building."
+
+scope:
+  in: >
+    PrPollSweep, an IEventPoller beside the tracker's ReworkSweep, for each repository of its polling
+    projects: open pull requests, at most 50 per repository per cycle. A PrPollState row per (repository,
+    pull request) — last reviewed head sha, last labelled-scan head sha, last command note id handled —
+    with migrations in both sets. A head sha differing from the row starts pr-review (an unseen pull
+    request counts as opened); the review label present with an unscanned head starts security-scan; a
+    command note newer than the row's id goes to PrCommentCommandAdmission. The row is written before the
+    launch, so a second cycle finds it current.
+  out: "Webhook mode keeps its handlers unchanged."
+
+decisions:
+  - key: "STATE, BECAUSE NO HOST KEEPS IT: a push leaves no time we could compare with a run, so the last seen head sha is stored, not derived."
+  - key: "SPEC ONLY: written now so 2026-10-08-101b's polling refusal names where these features return."
+
+steps:
+  - id: state
+    action: "Add PrPollState with its configuration and migrations in both sets."
+  - id: list
+    action: "Add an open-pull-request listing to each source provider by a collaborator."
+  - id: sweep
+    action: "Add PrPollSweep and build it in PollerFactory; docs."
+
+tests:
+  - "PrPollSweep_NewHeadSha_StartsPrReviewOnce"
+  - "PrPollSweep_LabelOnUnscannedHead_StartsSecurityScan"
+  - "PrPollSweep_NewCommandNote_Admitted"
+  - "PrPollState_MigrationsInBothSets"
+
+done:
+  - "A polling project gets pr-review, the security-scan label and comment commands without webhooks, each once per head or note; full suite green."

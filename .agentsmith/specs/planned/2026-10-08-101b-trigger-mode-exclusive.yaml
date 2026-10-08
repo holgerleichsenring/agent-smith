@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-101b
+goal: "A project is served by polling or by webhooks, never both: a polling project's webhook deliveries start nothing and say why, config refuses a mixed repository, the dashboard shows the mode."
+
+applies_to: "backend (webhook routing, config findings, config snapshot) + dashboard + docs"
+
+requires: []
+
+facts:
+  - claim: "Polling is switched per tracker; the project-level block is deprecated and ignored by the pollers."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:55-60, src/backend/AgentSmith.Application/Services/Configuration/PollingConfigDeprecationWarner.cs:6-24, src/backend/AgentSmith.Server/Services/PollerFactory.cs:32-45"
+  - claim: "The dashboard's per-project polling row reads the ignored project-level block."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:94-101, src/dashboard/src/components/system/ProjectDetailPanel.tsx:149-153"
+  - claim: "Webhook routing has no per-project switch: the poller and the webhook dispatcher read the same trigger; webhook secrets are per platform."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:139-143, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:43-49, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSignatureVerifier.cs:81-84"
+  - claim: "A delivery's skip reason reaches the dashboard only through the handler's NotHandled(reason); the ticket dispatcher returns nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:40-45, src/backend/AgentSmith.Contracts/Services/IWebhookHandler.cs:22-41, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:26-41"
+  - claim: "Ticket handlers dispatch resolved matches; PR handlers resolve projects by repository in their own resolvers."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs:61, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:26-42, src/backend/AgentSmith.Server/Services/Webhooks/PrReviewRouteResolver.cs:16-24, src/backend/AgentSmith.Server/Services/Webhooks/PrTriggerLabelResolver.cs:14-31, src/backend/AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs:28, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:50-58"
+  - claim: "Trigger findings are per project, blocking or advisory, built in ProjectFindings and evaluated by ProjectConfigNormalizer."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectTriggerRules.cs:14-33, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectFindings.cs:11-15, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectConfigNormalizer.cs:44-50"
+
+assumptions:
+  - claim: "A blocking configuration finding keeps the project from being served, as the existing blocking trigger findings do."
+    check: "Read how StartupFindings' blocking entries gate a project before building."
+
+scope:
+  in: >
+    TriggerMode.Polls(project) = the project's tracker has polling enabled; the only switch. WebhookModeGate
+    drops polling projects wherever a delivery resolves its projects — WebhookSpawnDispatcher (now returning
+    its skip reason), KeywordCommentRouter, PrReviewRouteResolver, PrTriggerLabelResolver, PrCommandLaunch,
+    PrReworkAdmission — and when none is left the handler returns NotHandled('project P polls tracker T;
+    webhooks start nothing for it'). TriggerModeRules beside ProjectTriggerRules, over all projects: one
+    repository (host and path equal) declared by a polling project and a webhook project is Blocking on
+    both. The config snapshot carries the tracker's polling; the panel row reads 'mode: polling every Ns' or
+    'mode: webhooks'. Docs: one mode per project; polling and webhooks serve the same acts, webhooks only
+    sooner.
+  out: "PR events in polling mode (2026-10-08-10b0). Removing the deprecated project-level block."
+
+decisions:
+  - key: "THE TRACKER'S POLLING IS THE MODE. Routing has no per-project webhook switch to compare against, so a delivery is refused where it resolves its project; a secret only says a platform may send."
+  - key: "REFUSE PER PROJECT, NOT PER DELIVERY: a ticket matching a polling and a webhook project still serves the webhook one."
+  - key: "ONLY A SHARED REPOSITORY BLOCKS: it is the one configuration in which one PR delivery is both refused and served."
+  - key: "THE DEPRECATED BLOCK STAYS A WARNING; the dashboard stops reading it."
+
+steps:
+  - id: gate
+    action: "Add TriggerMode and WebhookModeGate; apply the gate at the six resolution points; WebhookSpawnDispatcher returns the skip reason its callers pass on."
+  - id: rule
+    action: "Add TriggerModeRules with its blocking finding, evaluated once over the resolved projects."
+  - id: surface
+    action: "Map the tracker's polling into ConfigTrigger; ProjectDetailPanel shows the mode; docs."
+
+tests:
+  - "WebhookModeGate_PollingProject_NotHandledWithReason"
+  - "WebhookModeGate_MixedMatches_ServesWebhookProject"
+  - "PrReview_PollingProjectRepo_NotHandled"
+  - "TriggerModeRules_SharedRepoAcrossModes_Blocking"
+  - "ConfigSnapshot_TrackerPolling_IsTheMode"
+  - "ProjectDetailPanel_ShowsMode"
+
+done:
+  - "A delivery for a polling project starts nothing and the webhook list shows the reason; a webhook project is unaffected."
+  - "A repository shared across modes is a blocking finding; the panel shows each project's mode; full suite and dashboard tests green."
