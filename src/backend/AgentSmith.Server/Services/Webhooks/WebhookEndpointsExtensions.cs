@@ -35,6 +35,9 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IReworkLaunch, Services.Rework.ReworkLaunch>();
         services.AddSingleton<IReworkEntry, Services.Rework.ReworkEntry>();
         services.AddSingleton<KeywordCommentRouter>();
+        services.AddSingleton<PrReworkAdmission>(); // 2026-10-08-e8b9c
+        services.AddSingleton<IWebhookHandler, GitHubPrReviewWebhookHandler>();
+        services.AddSingleton<IWebhookHandler, AzureDevOpsPrReviewVoteWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubIssueCommentWebhookHandler>();
         services.AddSingleton<IWebhookHandler, GitHubPrLabelWebhookHandler>();

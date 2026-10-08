@@ -60,6 +60,17 @@ On GitHub, subscribe to:
 | `issue_comment` | `created` | Comment on a PR (GitHub treats PRs as issues) |
 | `pull_request_review_comment` | `created` | Inline code comment on a PR |
 | `pull_request` | `opened`, `synchronize`, `labeled` | PR review on open and push; security scan on the review label |
+| `pull_request_review` | `submitted` | **Pull request reviews**: Request changes on an agent-smith PR starts a rework |
+
+## Request changes starts a rework
+
+Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`) start nothing: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts only when a reviewer with write access chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.
+
+The pull request's own author never counts as a reviewer. If the token agent-smith uses belongs to you, you are that author, and your own Request changes is ignored.
+
+GitLab merge requests do not start a rework yet: GitLab does not document when a reviewer's `requested_changes` state was set.
+
+On Azure DevOps, keep the **Pull request updated** subscription that starts PR reviews filtered to **Source branch updated** (`PushNotification`), and add a second **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A delivery carrying that header never starts a PR review.
 
 ## How it works
 

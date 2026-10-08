@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-08-e8b9c: "REQUEST CHANGES STARTS A REWORK (PR webhooks, repo finder, PR readers, PR body). GitHub reviews and header-marked Azure DevOps -5 votes on an agent-smith branch reach the rework entry; the run reads the standing act from the PR; the repo finder matches by equality. -> .agentsmith/specs/done/2026-10-08-e8b9c-rework-pr-review-trigger.yaml"
     2026-10-08-f114: "A REWORK APPENDS TO AN EXECUTED SET (spec revision, previous-cut prompt, notice). A fully executed set gets new phases after its head for a comment, an edit, a demand or a pull-request Rework; Rework re-derives an approved set and keeps its approval; the 8-phase cap is said. -> .agentsmith/specs/done/2026-10-08-f114-rework-executed-set-append.yaml"
     2026-10-08-e8b9d: "THE RUN READS THE REVIEW (PR review readers, ticket context, prompts). GitHub GraphQL, GitLab discussions and Azure DevOps threads are read for the previous attempt's open pull requests; trusted, non-bot notes that are unresolved or new reach the model as a delimited section. -> .agentsmith/specs/done/2026-10-08-e8b9d-rework-pr-review-threads.yaml"
     2026-10-08-e8b9b: "A KEYWORD COMMENT REWORKS A FINISHED TICKET (ticket comments, lifecycle, ticket context). ReworkEntry moves a parked ticket into a trigger status, clears what held it and launches one attempt; the run reads the act from the thread whoever claimed it; refusals are said on the ticket. -> .agentsmith/specs/done/2026-10-08-e8b9b-rework-entry-ticket-trigger.yaml"
@@ -1074,7 +1075,6 @@ state:
     2026-10-07-6b9dc: "THE FINALISER FITS THE WINDOW (chat-client chain). Over 0.85 of the window the forwarded copy's tool results are re-cut largest first (true total, one marker, floor 4,000) while the history stays; at the floor it fails locally naming the non-tool share; a refusal names the largest tool result. -> .agentsmith/specs/done/2026-10-07-6b9dc-context-finalizer-window-fit.yaml"
   active: {}
   planned:
-    2026-10-08-e8b9c: "REQUEST CHANGES STARTS A REWORK (PR webhooks, repo finder, PR readers, PR body). GitHub and Azure DevOps acts on an agent-smith branch reach the rework entry; the run reads the act from the PR. -> .agentsmith/specs/planned/2026-10-08-e8b9c-rework-pr-review-trigger.yaml"
     2026-10-08-e8b9e: "PR COMMANDS GO THROUGH THE CHAT LAUNCHERS (PR comments, lease, deferral). A ticketed command is claimed, a ticketless one launched without a parse; no start takes over a fresh lease. -> .agentsmith/specs/planned/2026-10-08-e8b9e-pr-comment-command-claim.yaml"
     2026-10-08-f147: "GITLAB REQUEST CHANGES STARTS A REWORK (GitLab MR webhook, review reader). Waits on a durable time for the requested_changes state, which GitLab does not document. -> .agentsmith/specs/planned/2026-10-08-f147-rework-gitlab-review-act.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"

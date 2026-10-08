@@ -77,7 +77,7 @@ Either way:
 - Payload URL: `https://agent-smith.your-host.example/webhook/github`
 - Content type: **application/json**
 - Secret: paste your `GITHUB_WEBHOOK_SECRET` value.
-- Events: **Issues** (state changes + label adds), optionally **Issue comments** (if you want comment-driven triggers via the project's `comment_keyword`), and **Pull requests** plus **Issue comments** if you want [PR commands](../reference/integrations/pr-comments.md) and review labels.
+- Events: **Issues** (state changes + label adds), **Pull request reviews** if a reviewer's Request changes should start a rework ([PR reviews](../reference/integrations/pr-comments.md#request-changes-starts-a-rework)), optionally **Issue comments** (if you want comment-driven triggers via the project's `comment_keyword`), and **Pull requests** plus **Issue comments** if you want [PR commands](../reference/integrations/pr-comments.md) and review labels.
 
 Give the server the same value as an environment variable:
 

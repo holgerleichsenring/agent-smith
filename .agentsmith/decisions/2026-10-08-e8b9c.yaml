@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9c
+
+decisions:
+  - category: Security
+    chose: "The run reads the pull-request act through the same trust, bot and PR-author filters as the webhook"
+    over: "Trusting whatever standing review the host returns"
+    reason: "Otherwise a stranger's Request changes on a public repository would become an act the run serves, even though the webhook refused it."
+  - category: Implementation
+    chose: "A ticket already in a trigger status counts as reworkable (no move), next to done_status, failed_status and an unmoved fact"
+    over: "Only parked statuses"
+    reason: |
+      A GitHub issue a successful run labelled stays open, so its status is a trigger status and no unmoved
+      fact was recorded; without this a Request changes on such a ticket's PR was NotARework. Verdict parks
+      still sit outside the trigger statuses and keep Retry as their only door.
+  - category: Implementation
+    chose: "ReworkOutcome carries Busy for a live-run refusal"
+    over: "Recognising the refusal by its text"
+    reason: "The PR answer differs for a live run (when to ask again) and the reason text is for people."
+  - category: Implementation
+    chose: "The full-set notice reaches the pull request through SpecSetTicketCommenter's new IFullSetPrNotice"
+    over: "A post from DeriveSpecHandler"
+    reason: "DeriveSpecHandler sits at its file-length baseline; the commenter already owns telling people about the cut."
+  - category: Scope
+    chose: "GitLab is cut out to 2026-10-08-f147"
+    over: "Shipping it on object_attributes.updated_at"
+    reason: "GitLab documents no time for the requested_changes state; updated_at moves with any MR edit and would make every redelivery a new act."

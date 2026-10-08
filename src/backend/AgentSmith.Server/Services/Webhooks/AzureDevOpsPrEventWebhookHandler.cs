@@ -33,6 +33,10 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
+        // 2026-10-08-e8b9c: a delivery from the review-vote subscription is a rework candidate only;
+        // dispatch stops at the first Handled, so this handler steps aside rather than review it.
+        if (AzureDevOpsPrReviewVoteWebhookHandler.IsVoteDelivery(headers))
+            return Task.FromResult(WebhookResult.NotHandled("a review-vote delivery never starts pr-review"));
         try
         {
             using var doc = JsonDocument.Parse(payload);

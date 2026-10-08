@@ -32,4 +32,15 @@ public static class ReworkActReader
         var attempt = pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var a) ? a : null;
         if (Read(comments, keyword, attempt) is { } act) pipeline.Set(ContextKeys.ReworkAct, act);
     }
+
+    /// <summary>
+    /// 2026-10-08-e8b9c: the pull-request channel — a standing Request changes read from the pull
+    /// request itself (by PrReviewFeedbackFetcher, with the same trust filter the webhook applies). The
+    /// newer of it and the ticket's act is the one this run serves.
+    /// </summary>
+    public static void ApplyPullRequest(PipelineContext pipeline, ReworkAct act)
+    {
+        var current = pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var a) ? a : null;
+        if (current is null || act.At > current.At) pipeline.Set(ContextKeys.ReworkAct, act);
+    }
 }

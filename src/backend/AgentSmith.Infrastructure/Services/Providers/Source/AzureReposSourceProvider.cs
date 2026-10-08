@@ -19,7 +19,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -298,16 +298,14 @@ public sealed class AzureReposSourceProvider(
         return BuildPrUrl(existing.PullRequestId);
     }
 
-    // 2026-10-08-e8b9d: the review; the repository's ids name the author for the trust verdict.
-    public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
-    {
-        if (!AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId))
-            throw new ArgumentException($"Not an Azure Repos pull request URL: {prUrl}", nameof(prUrl));
-        var client = await CreateConnectionAsync(cancellationToken);
-        var repo = await client.GetRepositoryAsync(_project, _repoName, cancellationToken: cancellationToken);
-        var threads = await client.GetThreadsAsync(_project, _repoName, prId, cancellationToken: cancellationToken);
-        return AzureReposReviewMapping.Map(threads, _cloneUrl, repo.Id.ToString(), repo.ProjectReference.Id.ToString());
-    }
+    // 2026-10-08-e8b9d/e8b9c: the review and the standing votes, read by a collaborator.
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
+        Reviews().ListAsync(prUrl, cancellationToken);
+
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
+        Reviews().ChangesRequestedAsync(prUrl, cancellationToken);
+
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, _project, _repoName, _cloneUrl);
 
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{prId}";

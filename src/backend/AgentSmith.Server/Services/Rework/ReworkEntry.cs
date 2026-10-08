@@ -42,7 +42,7 @@ public sealed class ReworkEntry(
     private static ReworkOutcome WhileLive(PreviousAttempt? attempt, string? liveRunId, ReworkAct act) =>
         attempt is not null && attempt.RunId == liveRunId && !attempt.Precedes(act.At)
             ? ReworkOutcome.AlreadyServed
-            : ReworkOutcome.Refused($"run {liveRunId ?? attempt?.RunId ?? "(starting)"} is working on this ticket", liveRunId);
+            : ReworkOutcome.WorkedOn(liveRunId ?? attempt?.RunId);
 
     private async Task<ReworkOutcome> ReopenAndLaunchAsync(
         ResolvedProject project, string ticketId, string pipeline, CancellationToken cancellationToken)

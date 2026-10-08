@@ -46,6 +46,19 @@ public static class TicketBranchNamer
         return new BranchName(branch);
     }
 
+    /// <summary>
+    /// 2026-10-08-e8b9c: the ticket a pull request's head branch belongs to — <c>agent-smith/</c> plus
+    /// exactly ONE segment that is not <c>init</c>; null for anything else (a foreign branch, the init
+    /// branch, the unused hierarchical form). A <c>refs/heads/</c> prefix is ignored.
+    /// </summary>
+    public static string? TicketOf(string? headRef)
+    {
+        var name = headRef?.StartsWith("refs/heads/", StringComparison.Ordinal) == true ? headRef["refs/heads/".Length..] : headRef;
+        if (name is null || !name.StartsWith(Prefix + "/", StringComparison.Ordinal)) return null;
+        var ticket = name[(Prefix.Length + 1)..];
+        return ticket.Length == 0 || ticket.Contains('/') || ticket == "init" ? null : ticket;
+    }
+
     private static string Slugify(string input) =>
         NonAlnum.Replace(input.ToLowerInvariant(), "-").Trim('-');
 

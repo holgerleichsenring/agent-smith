@@ -12,6 +12,8 @@ namespace AgentSmith.Application.Services.Rework;
 /// repo's provider reads the review; notes by untrusted people, bots and the host's system are dropped
 /// (ours are kept for PrReviewSelection to judge), then the selection keeps what is feedback. A repo
 /// the run does not carry, or a provider without a reader, is skipped.
+/// <para>2026-10-08-e8b9c: the same pass reads a standing Request changes newer than the previous
+/// attempt — trusted, not a bot — as the run's pull-request act.</para>
 /// </summary>
 public sealed class PrReviewFeedbackFetcher(
     ISourceProviderFactory sources, IPrReviewAuthorTrust trust, ILogger<PrReviewFeedbackFetcher> logger) : IPrReviewFeedbackFetcher
@@ -22,18 +24,23 @@ public sealed class PrReviewFeedbackFetcher(
         var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r) ? r ?? [] : [];
         var feedback = new List<PrReviewFeedback>();
         foreach (var (repoName, url) in attempt.PullRequestUrls)
-            if (repos.FirstOrDefault(x => x.Name == repoName) is { } repo
-                && await ReadAsync(repo, url, attempt, cancellationToken) is { Count: > 0 } threads)
-                feedback.Add(new PrReviewFeedback(repoName, url, threads));
+        {
+            if (repos.FirstOrDefault(x => x.Name == repoName) is not { } repo) continue;
+            var read = await ReadAsync(repo, url, attempt, pipeline, cancellationToken);
+            if (read is { Count: > 0 }) feedback.Add(new PrReviewFeedback(repoName, url, read));
+        }
         if (feedback.Count > 0) pipeline.Set(ContextKeys.PrReviewFeedback, (IReadOnlyList<PrReviewFeedback>)feedback);
     }
 
     private async Task<IReadOnlyList<PrReviewThread>?> ReadAsync(
-        RepoConnection repo, string url, PreviousAttempt attempt, CancellationToken cancellationToken)
+        RepoConnection repo, string url, PreviousAttempt attempt, PipelineContext pipeline, CancellationToken cancellationToken)
     {
-        if (sources.Create(repo) is not IPrReviewThreadReader reader) return null;
+        var provider = sources.Create(repo);
         try
         {
+            if (provider is IPrReviewActReader acts && await ActAsync(repo.Type, acts, url, attempt, cancellationToken) is { } act)
+                ReworkActReader.ApplyPullRequest(pipeline, act);
+            if (provider is not IPrReviewThreadReader reader) return null;
             var threads = await reader.ListAsync(url, cancellationToken);
             return PrReviewSelection.Select(await CountableAsync(repo.Type, threads, cancellationToken), attempt);
         }
@@ -42,6 +49,18 @@ public sealed class PrReviewFeedbackFetcher(
             logger.LogWarning(ex, "Could not read the review of {Url} — continuing without it", url);
             return null;
         }
+    }
+
+    private async Task<ReworkAct?> ActAsync(
+        RepoType host, IPrReviewActReader reader, string url, PreviousAttempt attempt, CancellationToken cancellationToken)
+    {
+        var verdicts = new Dictionary<string, bool>(StringComparer.Ordinal);
+        PrReviewNote? newest = null;
+        foreach (var request in await reader.ChangesRequestedAsync(url, cancellationToken))
+            if (attempt.Precedes(request.At) && (newest is null || request.At > newest.At)
+                && await IsPersonAsync(host, request, verdicts, cancellationToken))
+                newest = request;
+        return newest is null ? null : new ReworkAct(newest.Author!.AuthorLogin, newest.At, ReworkChannel.PullRequest);
     }
 
     private async Task<IReadOnlyList<PrReviewThread>> CountableAsync(

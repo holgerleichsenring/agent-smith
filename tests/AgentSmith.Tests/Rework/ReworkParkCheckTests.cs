@@ -49,6 +49,11 @@ public sealed class ReworkParkCheckTests
             .Should().Be(new ReworkPark(true, null));
 
     [Fact]
+    public async Task Check_TriggerStatus_ReworkableWithoutMove() =>
+        (await Check("open").CheckAsync(Project("open"), "T-1", CancellationToken.None))
+            .Should().Be(new ReworkPark(true, null));
+
+    [Fact]
     public async Task Check_VerdictParkStatus_NotParked() =>
         (await Check("Not implementable").CheckAsync(Project("To Do"), "T-1", CancellationToken.None))
             .Parked.Should().BeFalse();
