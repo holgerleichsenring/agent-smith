@@ -4,50 +4,62 @@ goal: "In polling mode a poll cycle also serves the pull-request events only web
 
 applies_to: "backend (poller, source providers, persistence) + docs"
 
-requires: [2026-10-08-101b, 2026-10-08-9e6e]
+requires: [2026-10-08-9e6e]
 
 facts:
   - claim: "pr-review on open and push, the security-scan label and comment commands start only from webhook handlers."
-    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:27-28, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs:25-26, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40"
-  - claim: "In polling mode every PR delivery is refused (2026-10-08-101b), so these features stop for polling projects until this phase."
-    evidence: ".agentsmith/specs/planned/2026-10-08-101b-trigger-mode-exclusive.yaml:28-38"
-  - claim: "A Run row carries no head sha or pull-request number of its own; a command is answered with a marked note."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-58, src/backend/AgentSmith.Server/Services/Webhooks/PrCommandTexts.cs:6-8"
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:27-28, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs:25-26, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:36-57,66-73, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40"
+  - claim: "A webhook-started pr-review or scan runs ExecutePipelineUseCase with the handler's initial context; a PR known only by number gets that context from its diff."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:49-54,110-124, src/backend/AgentSmith.Server/Services/Webhooks/PrRunContextFactory.cs:36-54, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatPrContextResolver.cs:13-31, src/backend/AgentSmith.Contracts/Providers/IPrDiffProvider.cs:8"
+  - claim: "The review-label word and the owning project come from PrTriggerLabelResolver; the pr-review route from PrReviewRouteResolver."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrTriggerLabelResolver.cs:14-31, src/backend/AgentSmith.Server/Services/Webhooks/PrReviewRouteResolver.cs:16-24"
+  - claim: "Pollers are built per polling tracker in PollerFactory."
+    evidence: "src/backend/AgentSmith.Server/Services/PollerFactory.cs:32-45"
   - claim: "Persistence keeps a default migration set and a SQL Server set."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20260607082443_InitialCreate.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/AgentSmith.Infrastructure.Persistence.SqlServer.csproj:1"
+  - claim: "GitHub lists open pull requests (100 per page) with head.sha, head.ref, labels and user."
+    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#list-pull-requests"
+  - claim: "GitLab lists merge requests with sha, source_branch, source_project_id and labels; MR notes list newest first."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/merge_requests/#list-project-merge-requests, https://docs.gitlab.com/api/notes/#merge-requests"
+  - claim: "Azure DevOps lists active pull requests by $top/$skip with lastMergeSourceCommit.commitId, sourceRefName, labels and createdBy."
+    evidence: "observed: 2026-10-08, https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/get-pull-requests?view=azure-devops-rest-7.1"
 
-assumptions:
-  - claim: "Each host lists a repository's open pull requests with head sha, labels and comments in a few paged calls."
-    check: "Name the calls per host (GitHub pulls + issue comments, GitLab merge_requests + notes, Azure DevOps pullrequests + threads) before building."
+assumptions: []
 
 scope:
   in: >
-    PrPollSweep, an IEventPoller beside the tracker's ReworkSweep, for each repository of its polling
-    projects: open pull requests, at most 50 per repository per cycle. A PrPollState row per (repository,
-    pull request) — last reviewed head sha, last labelled-scan head sha, last command note id handled —
-    with migrations in both sets. A head sha differing from the row starts pr-review (an unseen pull
-    request counts as opened); the review label present with an unscanned head starts security-scan; a
-    command note newer than the row's id goes to PrCommentCommandAdmission. The row is written before the
-    launch, so a second cycle finds it current.
+    IOpenPullRequestLister on each source provider (a collaborator each): open PRs with number, head sha,
+    head branch, labels, and their comments newer than a time (GitHub issue comments, GitLab notes, Azure
+    DevOps thread comments). PrPollState(repository, number, reviewedHead, scannedHead, commandsSeenAt),
+    in both migration sets. PrPollSweep, an IEventPoller beside each polling tracker's ReworkSweep, per
+    declared repository of its projects, at most 50 open PRs a cycle: a head unlike reviewedHead starts
+    pr-review on the PrReviewRouteResolver route; the review label with a head unlike scannedHead starts
+    security-scan; a comment newer than commandsSeenAt goes to PrCommentCommandAdmission. Runs start as
+    the webhook path starts them, context from the diff. The row is written before the launch. A
+    repository's first cycle only records current heads and now.
   out: "Webhook mode keeps its handlers unchanged."
 
 decisions:
-  - key: "STATE, BECAUSE NO HOST KEEPS IT: a push leaves no time we could compare with a run, so the last seen head sha is stored, not derived."
-  - key: "SPEC ONLY: written now so 2026-10-08-101b's polling refusal names where these features return."
+  - key: "STATE, BECAUSE NO HOST KEEPS IT: a push leaves no time we could compare with a run, so the last seen head is stored, not derived."
+  - key: "THE FIRST CYCLE RECORDS: otherwise switching a project to polling reviews every open PR at once."
+  - key: "WRITE BEFORE LAUNCH: a launch that fails is not retried by the sweep; a missed review is a push away, a doubled one costs a run."
+  - key: "SHIPS WITH 2026-10-08-101b: until then a webhook project would get both paths."
 
 steps:
   - id: state
     action: "Add PrPollState with its configuration and migrations in both sets."
   - id: list
-    action: "Add an open-pull-request listing to each source provider by a collaborator."
+    action: "Add IOpenPullRequestLister and one collaborator per source provider."
   - id: sweep
     action: "Add PrPollSweep and build it in PollerFactory; docs."
 
 tests:
+  - "PrPollSweep_FirstCycle_RecordsWithoutLaunching"
   - "PrPollSweep_NewHeadSha_StartsPrReviewOnce"
   - "PrPollSweep_LabelOnUnscannedHead_StartsSecurityScan"
-  - "PrPollSweep_NewCommandNote_Admitted"
+  - "PrPollSweep_NewCommandComment_Admitted"
+  - "PrPollSweep_OverFiftyPrs_Capped"
   - "PrPollState_MigrationsInBothSets"
 
 done:
-  - "A polling project gets pr-review, the security-scan label and comment commands without webhooks, each once per head or note; full suite green."
+  - "GitHub, GitLab and Azure DevOps, polling: pr-review on open and push, the scan label and comment commands each start once per head or comment without webhooks; webhook mode unchanged; full suite green."

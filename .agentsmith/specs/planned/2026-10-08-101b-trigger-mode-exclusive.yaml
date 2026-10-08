@@ -4,7 +4,7 @@ goal: "A project is served by polling or by webhooks, never both: a polling proj
 
 applies_to: "backend (webhook routing, config findings, config snapshot) + dashboard + docs"
 
-requires: []
+requires: [2026-10-08-9e6e, 2026-10-08-10b0]
 
 facts:
   - claim: "Polling is switched per tracker; the project-level block is deprecated and ignored by the pollers."
@@ -35,13 +35,14 @@ scope:
     both. The config snapshot carries the tracker's polling; the panel row reads 'mode: polling every Ns' or
     'mode: webhooks'. Docs: one mode per project; polling and webhooks serve the same acts, webhooks only
     sooner.
-  out: "PR events in polling mode (2026-10-08-10b0). Removing the deprecated project-level block."
+  out: "Removing the deprecated project-level block."
 
 decisions:
   - key: "THE TRACKER'S POLLING IS THE MODE. Routing has no per-project webhook switch to compare against, so a delivery is refused where it resolves its project; a secret only says a platform may send."
   - key: "REFUSE PER PROJECT, NOT PER DELIVERY: a ticket matching a polling and a webhook project still serves the webhook one."
   - key: "ONLY A SHARED REPOSITORY BLOCKS: it is the one configuration in which one PR delivery is both refused and served."
   - key: "THE DEPRECATED BLOCK STAYS A WARNING; the dashboard stops reading it."
+  - key: "SHIPS AFTER 9e6e AND 10b0: refusing a polling project's deliveries earlier would drop rework acts and PR events it has no other path to."
 
 steps:
   - id: gate

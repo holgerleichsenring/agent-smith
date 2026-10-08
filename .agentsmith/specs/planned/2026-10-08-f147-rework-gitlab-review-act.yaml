@@ -52,15 +52,15 @@ scope:
     pending, else NotHandled. ReworkEntry takes an optional IReworkActRecord, run after the park check and
     before the move: GitLab re-requests the review, then posts '<!-- agentsmith:rework-act reviewer={id} -->'
     with the started text, edited to name the run once launched; a failed record is Refused, nothing moved;
-    a refused move deletes the note. A webhook refusal on GitLab re-requests too and says 'request changes
-    again'. GitLab's IPrReviewActReader: our newest marker per reviewer, at its created_at. Docs.
-  out: "The poll sweep (2026-10-08-9e6e). A refused act is served later only in polling mode (9e6e)."
+    a refused move deletes the note. A refusal records and re-requests nothing, so the act stays pending.
+    GitLab's IPrReviewActReader: our newest marker per reviewer, at its created_at. Docs.
+  out: "Serving an act made during a live run when it ends (2026-10-08-0781). The poll sweep (2026-10-08-9e6e)."
 
 decisions:
   - key: "THE HOST KEEPS NO TIME, SO WE WRITE ONE: our note's created_at is the act's time; only notes by the token's own user count, so a pasted marker is nothing."
   - key: "RESET ON SERVING. Re-requesting turns the reviewer back to unreviewed, so the act is pending exactly until served, a redelivery finds nothing pending, and a new Request changes is a new act — no stored state. It also lifts GitLab's merge block and notifies the reviewer while the rework runs."
   - key: "RECORD BEFORE CLAIMABLE: answered after the entry, as the siblings are, a claimer's run could read the MR before the note exists."
-  - key: "A REFUSED ACT LEAVES NO MARKER (operator), so nothing is served later in silence; the webhook path resets it so 'request changes again' works as on GitHub."
+  - key: "A REFUSED ACT LEAVES NO MARKER AND NO RESET: it stays pending, so the end-of-run check serves it and nobody is asked to act again."
   - key: "REVIEWER BY USER ID: usernames change."
 
 steps:
@@ -69,7 +69,7 @@ steps:
   - id: gitlab
     action: "Add GitLabReworkActs (pending read, re-request, post, edit, delete) and IPrReviewActReader to GitLabPrReviewThreadReader; GitLabSourceProvider delegates in one line each."
   - id: webhook
-    action: "Add GitLabMrReviewWebhookHandler and the GitLab record in PrReworkAdmission; ReworkTexts.PrLiveRun takes the host's repeat sentence."
+    action: "Add GitLabMrReviewWebhookHandler and the GitLab record in PrReworkAdmission."
   - id: docs
     action: "pr-comments.md and webhooks.md: GitLab 19.3+, Merge request events, an api-scope token that authored the MR, the re-request and the note."
 
@@ -77,7 +77,7 @@ tests:
   - "GitLabMrReview_ReviewerTurnsRequestedChanges_RecordsBeforeLaunchAndStarts"
   - "GitLabMrReview_StateUnchanged_NotHandled"
   - "GitLabMrReview_Redelivery_NothingPendingNotHandled"
-  - "GitLabMrReview_LiveRun_ReRequestsNoMarkerSaysAgain"
+  - "GitLabMrReview_LiveRun_NoMarkerNoReRequest"
   - "ReworkEntry_RecordFails_RefusedNothingMoved"
   - "ReworkEntry_RefusedMove_DeletesNote"
   - "GitLabPending_MarkerNewerThanAttempt_NotPending"
@@ -86,6 +86,6 @@ tests:
   - "GitLabThreads_OwnMarkerNote_NotFeedback"
 
 done:
-  - "Webhook mode, GitLab: a Request changes on an agent-smith MR starts one attempt whose context carries the pull-request act whoever claims it; a resent delivery starts nothing."
-  - "Polling mode, GitLab: PrPendingActCheck answers the same act for 2026-10-08-9e6e with no webhook involved."
+  - "Webhook mode, GitLab: Request changes on an agent-smith MR starts one attempt through GitLabMrReviewWebhookHandler, carrying the pull-request act whoever claims it; a resent delivery starts nothing."
+  - "Both modes, GitLab: an act made during a live run stays pending (no marker, no re-request) for 2026-10-08-0781; in polling mode PrPendingActCheck answers 2026-10-08-9e6e."
   - "GitLabSourceProvider stays under its baseline; full suite green."

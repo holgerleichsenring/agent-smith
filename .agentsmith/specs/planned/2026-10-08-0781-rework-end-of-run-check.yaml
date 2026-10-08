@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-0781
+goal: "When a ticket's run ends, any rework act made while it ran is served right away in either trigger mode, so a refusal for a live run never asks anyone to act again."
+
+applies_to: "backend (run end, rework entry, refusal texts)"
+
+requires: [2026-10-08-f147]
+
+facts:
+  - claim: "The run releases its lease in a finally on every path out, success, cancel and throw included; the file is at its 617-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:242-251,387-392, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:7"
+  - claim: "The terminal row is written later, by the server-side projector draining the run stream; RunFinalizationProjection is the one place every terminal status lands, cancel writes included."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:9-20,28-41, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:11-41, src/backend/AgentSmith.Infrastructure.Persistence/Services/CancelTerminalWriter.cs:22-28"
+  - claim: "A run whose replica died never reaches its finally: the reaper cancels it and releases the lease."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:30-48,56-70"
+  - claim: "ReworkEntry answers WorkedOn while a lease is held, NotARework while the attempt is unfinished, AlreadyServed for an act no newer than the attempt's start plus one minute."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:26-45, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:17-20"
+  - claim: "The attempt reader ignores queued rows; a queued row's StartedAt is its enqueue time."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-30, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108"
+  - claim: "Live-run refusals tell people to request again; the ticket router comments every refusal."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkTexts.cs:9-10,22-25, src/backend/AgentSmith.Server/Services/Rework/ReworkOutcome.cs:11-13, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:45-60"
+  - claim: "A cross-process lock exists: TryAcquire with a TTL, CAS release."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRedisClaimLock.cs:8-20, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:41-56"
+
+assumptions: []
+
+scope:
+  in: >
+    IReworkPendingActs.ServeAsync(project, ticket) (contract in Contracts, implementation in Server): the
+    newest pending act — the keyword comment (ReworkActReader.Read over GetCommentsAsync) or
+    PrPendingActCheck (2026-10-08-f147) on each PR URL of the attempt — through ReworkEntry; Started answers
+    as the webhook path does, every other outcome is logged only. IRunEndRework is asked at the two ends
+    of a run: after the lease release (RunLeaseRelease, which takes ReleaseLeaseAsync out of
+    ExecutePipelineUseCase, and StaleLeaseRelease) and after a terminal transition in
+    RunFinalizationProjection; each hands ServeAsync to a background scope, fail-soft. ReworkEntry runs
+    under the lock 'agentsmith:rework:{project}:{ticket}', waiting up to 30 s, and answers AlreadyServed when
+    a queued code row was enqueued after the act. A live-run refusal reads 'picked up when run X
+    finishes' on tickets and PRs, never 'request again', and records nothing.
+  out: "The poll sweep (2026-10-08-9e6e) calls ServeAsync per candidate."
+
+decisions:
+  - key: "TWO ENDS, ONE ACTS. The lease is released in the run's process, the row is finished by the projector, in no fixed order. Each end asks after writing its own half, so at least one sees both; an earlier ask gets WorkedOn or NotARework, silently."
+  - key: "EXACTLY ONCE BY THE LOCK, THEN THE LEASE: the second asker waits, then finds the new run's lease (AlreadyServed) or its queued row; GitLab's record re-reads its marker under the lock."
+  - key: "SILENT AT THE END: only Started speaks; anything else already spoke when the act arrived."
+  - key: "ONE MINUTE OF THE RUN'S START BELONGS TO IT: an act within it was read by that run and is never served again."
+
+steps:
+  - id: entry
+    action: "Add the lock and the queued-row answer to ReworkEntry; the live-run texts and the ticket router's Busy text."
+  - id: serve
+    action: "Add IReworkPendingActs and ReworkPendingActs."
+  - id: ends
+    action: "Add IRunEndRework; add RunLeaseRelease and call it from ExecutePipelineUseCase; call IRunEndRework from StaleLeaseRelease and RunFinalizationProjection."
+
+tests:
+  - "RunEnd_ActDuringRun_ServedOnce"
+  - "RunEnd_ReleaseBeforeProjection_ProjectionServes"
+  - "RunEnd_ProjectionBeforeRelease_ReleaseServes"
+  - "RunEnd_BothEndsSeeBoth_SecondAlreadyServed"
+  - "RunEnd_ActWithinMinuteOfStart_NotServed"
+  - "RunEnd_ReapedRun_Served"
+  - "ReworkEntry_QueuedRowAfterAct_AlreadyServed"
+  - "LiveRunRefusal_Text_PromisesPickupNeverAsksAgain"
+
+done:
+  - "In both modes, on GitHub, GitLab and Azure DevOps, a keyword comment or Request changes during a live run starts one attempt when that run ends — success, failure, cancel or reaped — with no second act."
+  - "ExecutePipelineUseCase stays at 617 lines; full suite green."

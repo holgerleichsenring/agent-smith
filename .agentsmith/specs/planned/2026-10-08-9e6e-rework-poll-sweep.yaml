@@ -4,7 +4,7 @@ goal: "In polling mode each poll cycle finds the rework acts webhooks would deli
 
 applies_to: "backend (poller, previous-attempt reader, rework entry) + docs"
 
-requires: [2026-10-08-f147, 2026-10-08-101b]
+requires: [2026-10-08-f147, 2026-10-08-0781]
 
 facts:
   - claim: "The tracker poller lists claimable tickets by trigger status and claims those without a lease; it reads no comments and no pull requests."
@@ -31,11 +31,10 @@ scope:
     ReworkSweep, an IEventPoller PollerFactory builds beside each TrackerPoller (same interval). Candidates:
     IPreviousAttemptReader.RecentFinishedAsync(projects of this tracker, 72 h, 50) — per (project, ticket)
     the newest code attempt, finished, newest first, at most 50 per cycle; a ticket with a lease is skipped.
-    Per candidate: the keyword act (GetCommentsAsync, ReworkActReader.Read, the trigger's comment_keyword),
-    and PrPendingActCheck (2026-10-08-f147) on each of the attempt's PR URLs whose repo the project
-    declares; the newest act goes to ReworkEntry (GitLab with its record). Started: the same PR or ticket
-    answer as the webhook path. Refused or NotARework: logged, not commented — the act stays pending and is
-    asked again next cycle. A failing read skips that candidate. Cost per cycle: at most 50 × (1 + 3 per
+    Per candidate IReworkPendingActs.ServeAsync (2026-10-08-0781): the keyword act and PrPendingActCheck
+    on the attempt's PR URLs, through ReworkEntry under its per-ticket lock. Started answers as the webhook
+    path does; every other outcome is logged and asked again next cycle. A failing read skips that
+    candidate. Cost per cycle: at most 50 × (1 + 3 per
     PR) host calls. Docs: polling and webhooks serve the same acts; webhooks only sooner.
   out: >
     The status-back act's cause (2026-10-08-2123); its claim is the poller's today. PR review on open or
@@ -44,14 +43,14 @@ scope:
 decisions:
   - key: "CANDIDATES FROM OUR DATABASE, NOT THE TRACKER: a finished ticket left the trigger statuses the poller lists, and only our rows know its pull requests."
   - key: "72 HOURS, 50 PER CYCLE: the carry-over window already used; an act on an older attempt waits for a webhook-free path — a ticket edit or status move — or a newer attempt."
-  - key: "SILENT REFUSALS: a refusal posted every cycle is spam; the act stays pending, so polling serves after a live run what a webhook refusal asks people to repeat."
-  - key: "THE LEADER SWEEPS; exactly-once still rests on the lease insert and AlreadyServed, not on the leader."
+  - key: "SILENT REFUSALS: a refusal posted every cycle is spam; the act arrived without a webhook to answer it."
+  - key: "THE LEADER SWEEPS; exactly-once rests on 2026-10-08-0781's per-ticket lock, the lease and AlreadyServed, so a sweep and an end-of-run check on one ticket serve once."
 
 steps:
   - id: reader
     action: "Add RecentFinishedAsync to IPreviousAttemptReader (Db and null)."
   - id: sweep
-    action: "Add ReworkSweep and build it in PollerFactory; share the PR and ticket answers with the webhook path."
+    action: "Add ReworkSweep, calling IReworkPendingActs per candidate, and build it in PollerFactory."
   - id: docs
     action: "One sentence in webhooks.md, pr-comments.md and the polling docs."
 
@@ -62,11 +61,12 @@ tests:
   - "ReworkSweep_LeaseHeld_Skipped"
   - "ReworkSweep_Refused_NotCommentedAskedNextCycle"
   - "ReworkSweep_SameActTwoCycles_SecondAlreadyServed"
+  - "ReworkSweep_AndRunEnd_SameTicket_ServedOnce"
 
 done:
-  - "GitHub, polling: keyword comment and Request changes by this sweep; status-back by the poller's claim."
-  - "GitHub, webhooks: keyword comment by the comment router, Request changes by GitHubPrReviewWebhookHandler, status-back by the issue handler's claim."
+  - "GitHub, polling: keyword comment and Request changes by this sweep; status-back by the poller's claim; an act during a live run by 2026-10-08-0781 when it ends."
+  - "GitHub, webhooks: keyword comment by the comment router, Request changes by GitHubPrReviewWebhookHandler, status-back by the issue handler's claim; a live-run act by 2026-10-08-0781."
   - "GitLab, polling: as GitHub, Request changes through 2026-10-08-f147's check."
-  - "GitLab, webhooks: comment router, GitLabMrReviewWebhookHandler, the issue handler's claim."
+  - "GitLab, webhooks: comment router, GitLabMrReviewWebhookHandler, the issue handler's claim; a live-run act by 2026-10-08-0781."
   - "Azure DevOps, polling: as GitHub."
-  - "Azure DevOps, webhooks: comment router, the review-vote handler, the work-item handler's claim; full suite green."
+  - "Azure DevOps, webhooks: comment router, the review-vote handler, the work-item handler's claim; a live-run act by 2026-10-08-0781; full suite green."
