@@ -69,6 +69,7 @@ public sealed class MultiRepoEnqueueSmokeTests
             TestSupport.ApprovedSetDoubles.Carrier(),
             CapacityTestDoubles.NoNudge(),
             CapacityTestDoubles.NoStandingRefusal(),
+            Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
         var envelope = new IncomingTicketEnvelope

@@ -132,7 +132,8 @@ public sealed class NotImplementableRetryOrderTests
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
-        return new NotImplementableRetryService(_pointers, _approvals, _holds, factory.Object, _logger);
+        return new NotImplementableRetryService(
+            new AgentSmith.Server.Services.Lifecycle.TicketReopener(_pointers, _approvals, _holds), factory.Object, _logger);
     }
 
     private Task SeedHandbackAsync() => _pointers.SaveAsync(

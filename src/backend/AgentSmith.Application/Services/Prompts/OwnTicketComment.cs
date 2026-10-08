@@ -29,6 +29,8 @@ public static class OwnTicketComment
         "[agent-smith open questions]",
         "Agent Smith —",
         "Agent Smith &#8212;",
+        // 2026-10-08-e8b9b: the completed-run summary heads itself with a hyphen.
+        "Agent Smith - ",
     ];
 
     private static readonly string[] AwaitingAnswer =
@@ -41,6 +43,11 @@ public static class OwnTicketComment
     ];
 
     public static bool IsOurs(TicketComment comment) => Carries(comment, Ours);
+
+    /// <summary>2026-10-08-e8b9a: the same test on a bare body, for a webhook that has no
+    /// comment record yet — a comment of ours is never a trigger, so it cannot loop.</summary>
+    public static bool IsOurs(string? body) => Ours.Any(marker =>
+        body?.Contains(marker, StringComparison.OrdinalIgnoreCase) == true);
 
     public static bool AwaitsAnswer(TicketComment comment) => Carries(comment, AwaitingAnswer);
 

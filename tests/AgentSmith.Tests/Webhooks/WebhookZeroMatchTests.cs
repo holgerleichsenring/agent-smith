@@ -67,6 +67,22 @@ public sealed class WebhookZeroMatchTests
     }
 
     [Fact]
+    public async Task ZeroMatchComment_IsReadAsOurs()
+    {
+        var tracker = new TrackerConnection { Type = TrackerType.GitLab, ZeroMatchComment = true };
+        var config = new AgentSmithConfig { Trackers = new Dictionary<string, TrackerConnection> { ["t"] = tracker } };
+        var (sut, _, _) = BuildSut(config, supportsComments: true, out var provider);
+
+        await sut.DispatchAsync(
+            config, Array.Empty<ProjectMatch>(), new IncomingTicketEnvelope { TicketId = "42", Platform = "gitlab" },
+            ticketStatus: "opened", planAnswers: null, ct: CancellationToken.None);
+
+        provider.Verify(p => p.UpdateStatusAsync(It.IsAny<TicketId>(),
+            It.Is<string>(s => AgentSmith.Application.Services.Prompts.OwnTicketComment.IsOurs(s)),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task WebhookHandler_ZeroMatch_TrackerOptedIn_ButSupportsCommentsFalse_LogsOnlyNoCrash()
     {
         var tracker = new TrackerConnection { Type = TrackerType.GitHub, ZeroMatchComment = true };

@@ -22,7 +22,7 @@ public static class SpecPrBody
         sb.AppendLine("> 🚧 **Work in progress** — opened at the spec commit so the derivation can be");
         sb.AppendLine($"> reviewed while the run is still working. The specs live in `{SeriesPaths.Planned}/`;");
         sb.AppendLine("> a correcting comment on the ticket amends an unexecuted phase or re-cuts the");
-        sb.AppendLine("> unexecuted tail — an executed phase is never edited.");
+        sb.AppendLine("> unexecuted tail — an executed phase is never edited.").AppendLine().AppendLine(Rework.ReworkRule.PrBodyLine);
         sb.AppendLine();
         sb.AppendLine(RenderPhases(set));
         sb.AppendLine();

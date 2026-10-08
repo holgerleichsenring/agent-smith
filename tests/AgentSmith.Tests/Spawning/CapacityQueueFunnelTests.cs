@@ -329,6 +329,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),
+                Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
                 NullLogger<SpawnPipelineRunsUseCase>.Instance);
         }
 

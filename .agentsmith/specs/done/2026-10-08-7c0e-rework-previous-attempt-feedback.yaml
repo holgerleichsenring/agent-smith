@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-7c0e
+goal: "Every ticket run knows its previous code attempt, and its prompt leads with the comments written since that attempt started."
+
+applies_to: "backend (run history read, ticket context, prompt sections)"
+
+requires: []
+
+facts:
+  - claim: "Runs carry Project, TicketId, Status, StartedAt and FinishedAt, indexed on (Project, TicketId); ids are time-sortable."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:10-21, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunConfiguration.cs:27, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPriorRunLedgerReader.cs:28-32"
+  - claim: "A terminal status sets FinishedAt once; queued and waiting_for_input keep it null."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:33-41,56-63"
+  - claim: "StartedAt is the server's clock at launch; a resumed or queued row is promoted and its StartedAt overwritten; a queued row's StartedAt is its enqueue time."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:44-47, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:106-118, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-23, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108"
+  - claim: "The run fetches the whole thread with the ticket; the prompt section renders it newest-first-fitted with no notion of an attempt."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-81, src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:28-29, src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:41-56,79-84"
+  - claim: "The section is rendered by the master and by SpecPromptComposer, which sits at the 120-line limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:883,900, src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:82-87, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "Ticket context keys live in a partial."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Ticket.cs:16"
+  - claim: "IPriorRunLedgerReader has a null implementation for compositions without a database; RelationalPersistenceExtensions is 224 of a 225 baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/ResumeRegistrations.cs:30, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+  - claim: "The run's pipeline name is on the Run row; the code pipeline is PipelinePresets.CodeName."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:12, src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:41-42"
+
+assumptions:
+  - claim: "Tracker comment timestamps and the server clock agree within a minute."
+    check: "Compare a test comment's CreatedAt with the server's UtcNow on the deployed tracker; skew misfiles only comments written within that window."
+
+scope:
+  in: >
+    IPreviousAttemptReader.LatestAsync(project, ticket, excludingRunId?): the newest Run row of the code
+    pipeline for the pair, this run excluded when given, status queued ignored; returns run id, status,
+    StartedAt, Finished (FinishedAt set). TicketExtrasFetcher sets ContextKeys.PreviousAttempt.
+    TicketConversationSplit (new file) runs Relevant() over the whole ordered thread, then splits it at the
+    start plus one minute: the newer foreign comments render first under 'Since the previous attempt (run X,
+    started T)', fitted newest first with overshoot; the rest gets the MaxChars left, chronological, nothing
+    repeated. No foreign comment after the start renders the thread exactly as today.
+  out: "PR review threads (2026-10-08-e8b9d). What starts the attempt (2026-10-08-e8b9b). The progress seed."
+
+decisions:
+  - key: "THE PREVIOUS ATTEMPT IS A ROW: newest by id, code pipeline only (a scan is not an attempt at the ticket's work), queued rows excluded."
+  - key: "THE RESUME GAP IS ACCEPTED (operator default). A resumed row's StartedAt is its resume time, and the resumed leg reads the thread it read at its first leg, so comments between the first start and the resume are filed as old."
+  - key: "ONE BUDGET. The new block and the rest share MaxChars, the new block first, so the operator's latest word is the one never dropped."
+  - key: "NO GROWTH WHERE THERE IS NO ROOM. Render(PipelineContext) reads the context itself, so SpecPromptComposer shrinks; the reader is registered outside RelationalPersistenceExtensions."
+  - key: "FOLLOWS THE 2026-10-08-e8b9 REWORK SERIES: cut out of e8b9b at review, minted on its own because a series is minted in one go."
+
+steps:
+  - id: contract
+    action: "Add PreviousAttempt and IPreviousAttemptReader; ContextKeys.PreviousAttempt in ContextKeys.Ticket.cs; Db and null readers registered in their own extension."
+  - id: fetch
+    action: "Set PreviousAttempt in TicketExtrasFetcher, fail-soft, keyed on ContextKeys.ProjectName and ContextKeys.RunId."
+  - id: render
+    action: "Add TicketConversationSplit and Render(PipelineContext); call it from AgenticMasterHandler and SpecPromptComposer."
+
+tests:
+  - "PreviousAttempt_ExcludesThisRunQueuedRowsAndScans"
+  - "PreviousAttempt_ResumedRow_StartsAtResumeSoEarlierCommentsAreOld"
+  - "PreviousAttempt_ReaderThrows_RunContinues"
+  - "Conversation_PreviousAttempt_LeadsWithForeignCommentsAfterStart"
+  - "Conversation_NothingNewSinceAttempt_RendersAsBefore"
+  - "Conversation_OverCap_KeepsNewBlockFirstAndSaysDropped"
+
+done:
+  - "A ticket's second code run renders 'Since the previous attempt' with exactly the foreign comments after the first run's start plus one minute."
+  - "TicketConversationPromptSection.cs and SpecPromptComposer.cs stay at or under 120 lines; full suite green."

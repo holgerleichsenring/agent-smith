@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
@@ -18,7 +19,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -296,6 +297,15 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Found existing pull request: {Url}", BuildPrUrl(existing.PullRequestId));
         return BuildPrUrl(existing.PullRequestId);
     }
+
+    // 2026-10-08-e8b9d/e8b9c: the review and the standing votes, read by a collaborator.
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
+        Reviews().ListAsync(prUrl, cancellationToken);
+
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
+        Reviews().ChangesRequestedAsync(prUrl, cancellationToken);
+
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, _project, _repoName, _cloneUrl);
 
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{prId}";

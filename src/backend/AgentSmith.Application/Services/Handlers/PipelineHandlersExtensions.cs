@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
@@ -36,6 +37,10 @@ public static class PipelineHandlersExtensions
     {
         services.AddTransient<ICommandHandler<LoadCatalogContext>, LoadCatalogHandler>();
         services.AddTransient<ICommandHandler<FetchTicketContext>, FetchTicketHandler>();
+        // 2026-10-08-e8b9d: the review on the previous attempt's pull requests; nobody is trusted
+        // where no per-host trust is registered.
+        services.AddTransient<IPrReviewFeedbackFetcher, Rework.PrReviewFeedbackFetcher>();
+        services.TryAddSingleton<IPrReviewAuthorTrust, Rework.UntrustingReviewAuthorTrust>();
         services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>().AddTransient<SpecDialog.EpicParentReader>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
         services.AddTransient<ICommandHandler<ScopeReposContext>, ScopeReposHandler>();

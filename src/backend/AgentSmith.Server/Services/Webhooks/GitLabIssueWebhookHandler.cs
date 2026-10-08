@@ -19,7 +19,7 @@ public sealed class GitLabIssueWebhookHandler(
     ILogger<GitLabIssueWebhookHandler> logger) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
-        platform == "gitlab" && eventType == "Issue Hook";
+        platform == "gitlab" && eventType == "issue hook";
 
     public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,

@@ -50,8 +50,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
             IssueComment("/agent-smith fix #99 in my-api", association), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
-        result.Pipeline.Should().Be("code");
-        result.TriggerInput.Should().Be("code #99 pr:org/my-api#42");
+        _fixture.LaunchedAs().Should().Be("code #99 pr:org/my-api#42");
     }
 
     [Theory]
@@ -82,9 +81,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         """;
 
         var result = await CreateSut().HandleAsync(payload, EmptyHeaders);
-
-        result.Pipeline.Should().Be("security-scan");
-        result.TriggerInput.Should().Be("security-scan pr:org/my-api#7");
+        _fixture.LaunchedAs().Should().Be("security-scan pr:org/my-api#7");
     }
 
     [Theory]

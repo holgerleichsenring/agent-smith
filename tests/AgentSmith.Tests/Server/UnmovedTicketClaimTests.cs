@@ -200,7 +200,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
         var retry = new NotImplementableRetryService(
-            new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), _store, factory.Object,
+            new AgentSmith.Server.Services.Lifecycle.TicketReopener(new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), _store), factory.Object,
             NullLogger<NotImplementableRetryService>.Instance);
 
         var moved = await retry.RetryAsync(Config().Projects[Project], Ticket, CancellationToken.None);
@@ -247,7 +247,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,
-        NullLogger<SpawnPipelineRunsUseCase>.Instance);
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
     private CapacityQueuePump Pump(out Mock<IRedisJobQueue> resumeQueue)
     {

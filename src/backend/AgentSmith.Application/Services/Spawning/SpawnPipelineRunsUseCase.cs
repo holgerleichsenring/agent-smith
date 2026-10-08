@@ -44,10 +44,12 @@ public sealed class SpawnPipelineRunsUseCase(
     Specs.ApprovedSpecSetCarrier approvedSets, // 2026-09-17-0e79a: the run carries what was approved
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
     IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
+    IActiveRunLease leases, // 2026-10-08-e8b9e: a live run is answered, not queued behind
     ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
 {
-    private readonly CapacityDeferral _deferral =
-        new(capacityQueue, capacityBudget, approvedSets, runListNudge, logger);
+    private readonly SpawnLeaseDeferral _deferral = new(
+        new CapacityDeferral(capacityQueue, capacityBudget, approvedSets, runListNudge, logger),
+        unmovedTickets, leases, TimeProvider.System, logger);
 
     public async Task<SpawnResult> ExecuteAsync(
         AgentSmithConfig config,
@@ -73,22 +75,10 @@ public sealed class SpawnPipelineRunsUseCase(
             return await StartAsync(
                 config, project, pipelineName, envelope, matchedTrigger, planAnswers, runId, isHead, ct);
 
-        // 2026-09-21-77d6: IMMEDIATELY before the deferral, not at the top of the funnel — the
-        // branch above goes on to claim, which asks this same seam itself. A ticket the claim
-        // would refuse must not be queued: the pump claims the head, is refused, drops the entry
-        // as permanent, and the next poll finds no head and mints another waiting run.
-        var probe = SpawnRequestBuilder.BuildRequest(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
-        if (await new Claim.ClaimRefusal(unmovedTickets).ForAsync(probe, config, ct) is { } refusal)
-        {
-            logger.LogInformation(
-                "Spawn refused rather than queued for project={Project} ticket={Ticket}: {Rejection}",
-                project.Name, envelope.TicketId, refusal.Rejection);
-            return new SpawnResult([refusal]);
-        }
-
+        // 2026-09-21-77d6 / 2026-10-08-e8b9e: what the claim would refuse, or a live run, is answered
+        // instead of queued — the pump claims only its head and an unclaimable head blocks the FIFO.
         return await _deferral.DeferAsync(
-            project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, admission, ct);
+            config, project, pipelineName, envelope, matchedTrigger, planAnswers, footprint, head, runId, admission, ct);
     }
 
     private static void ValidateForSpawn(ResolvedProject project, IncomingTicketEnvelope envelope)

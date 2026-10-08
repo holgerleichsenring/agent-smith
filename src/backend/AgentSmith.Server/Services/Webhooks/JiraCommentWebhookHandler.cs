@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -16,7 +17,7 @@ public sealed class JiraCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
-    WebhookSpawnDispatcher dispatcher,
+    KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
     ILogger<JiraCommentWebhookHandler> logger) : IWebhookHandler
@@ -34,6 +35,8 @@ public sealed class JiraCommentWebhookHandler(
             var root = doc.RootElement;
 
             var commentBody = ExtractCommentBody(root);
+            if (OwnTicketComment.IsOurs(commentBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var planAnswers = planAnswerParser.Parse(commentBody);
             var hasAnswers = planAnswers.Count > 0;
 
@@ -52,41 +55,16 @@ public sealed class JiraCommentWebhookHandler(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
             var matches = envelopeResolver.Resolve(config, envelope);
-            var filtered = FilterByKeywordOrAnswers(config, matches, commentBody, hasAnswers);
-
-            if (filtered.Count == 0 && matches.Count > 0)
-            {
-                logger.LogDebug("Jira comment on {Key}: matched but no keyword/answers — ignoring",
-                    issueKey);
-                return WebhookResult.NotHandled();
-            }
-
-            var planAnswersDict = hasAnswers ? new Dictionary<string, string>(planAnswers) : null;
-            await dispatcher.DispatchAsync(
-                config, filtered, envelope, issueStatus, planAnswersDict, cancellationToken);
-            return WebhookResult.HandledNoRoute();
+            var act = PayloadActTime.Act(
+                PayloadActTime.Text(root, "comment", "author", "displayName"), PayloadActTime.Text(root, "comment", "created"));
+            return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueStatus, commentBody,
+                hasAnswers ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse Jira comment webhook");
             return WebhookResult.NotHandled();
         }
-    }
-
-    private static IReadOnlyList<ProjectMatch> FilterByKeywordOrAnswers(
-        AgentSmithConfig config, IReadOnlyList<ProjectMatch> matches,
-        string commentBody, bool hasAnswers)
-    {
-        if (matches.Count == 0) return matches;
-        var kept = new List<ProjectMatch>(matches.Count);
-        foreach (var match in matches)
-        {
-            var trigger = config.Projects[match.ProjectName].JiraTrigger;
-            var hasKeyword = trigger?.CommentKeyword is { } kw
-                && commentBody.Contains(kw, StringComparison.OrdinalIgnoreCase);
-            if (hasAnswers || hasKeyword) kept.Add(match);
-        }
-        return kept;
     }
 
     private static string ExtractCommentBody(JsonElement root)

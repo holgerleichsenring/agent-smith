@@ -55,6 +55,6 @@ public sealed class GitLabMrCommentWebhookHandler(
             AuthorLogin: user.GetProperty("username").GetString() ?? "");
         return new PrCommentCommand(
             attrs.GetProperty("note").GetString() ?? "", author,
-            $"{repoFullName}!{mrIid}", $"mr:{repoFullName}!{mrIid}");
+            $"{repoFullName}!{mrIid}", $"mr:{repoFullName}!{mrIid}", mrIid.ToString());
     }
 }

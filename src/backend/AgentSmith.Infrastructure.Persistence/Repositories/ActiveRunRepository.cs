@@ -102,43 +102,9 @@ public sealed class ActiveRunRepository(
         return LeaseReleaseOutcome.HeldByAnotherRun;
     }
 
-    public async Task AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken ct)
-    {
-        var now = timeProvider.GetUtcNow();
-        var updated = await unitOfWork.Set<ActiveRun>()
-            .Where(a => a.Project == project && a.TicketId == ticketId.Value)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(a => a.RunId, runId)
-                .SetProperty(a => a.JobId, jobId)
-                .SetProperty(a => a.HeartbeatAt, now), ct);
-        if (updated > 0) return;
-
-        // p0252: no lease row yet — a direct-spawn run that never went through the
-        // claim (the PR-comment / legacy-webhook path carries a TicketId but does
-        // not call TryClaim). INSERT one so EVERY in-flight run holds a lease: the
-        // DB lease is the single liveness source, and StaleJobDetector must never
-        // see a live but leaseless run as dead. A concurrent claim that inserted
-        // first surfaces a unique violation → fall back to the update.
-        var entry = unitOfWork.Add(new ActiveRun
-        {
-            Project = project, TicketId = ticketId.Value,
-            RunId = runId, JobId = jobId, ClaimedAt = now, HeartbeatAt = now,
-        });
-        try
-        {
-            await unitOfWork.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex) when (violationTranslator.IsUniqueViolation(ex))
-        {
-            entry.State = EntityState.Detached; // drop the failed insert before retrying
-            await unitOfWork.Set<ActiveRun>()
-                .Where(a => a.Project == project && a.TicketId == ticketId.Value)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(a => a.RunId, runId)
-                    .SetProperty(a => a.JobId, jobId)
-                    .SetProperty(a => a.HeartbeatAt, now), ct);
-        }
-    }
+    // 2026-10-08-e8b9e: never over a live run's lease — see ActiveRunAttach.
+    public Task<LeaseAttachOutcome> AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken ct) =>
+        new ActiveRunAttach(unitOfWork, violationTranslator, timeProvider, ReclaimStaleAfter).AttachAsync(project, ticketId, runId, jobId, ct);
 
     public Task RenewHeartbeatAsync(string project, TicketId ticketId, CancellationToken ct)
     {

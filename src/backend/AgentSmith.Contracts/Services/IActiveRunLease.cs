@@ -26,8 +26,9 @@ public interface IActiveRunLease
     Task<LeaseReleaseOutcome> ReleaseAsync(
         string project, TicketId ticketId, string? runId, CancellationToken cancellationToken);
 
-    /// <summary>Attach the run id (+ orchestrator job handle) once the run starts; renews the heartbeat.</summary>
-    Task AttachRunAsync(
+    /// <summary>Attach the run id (+ orchestrator job handle) once the run starts; renews the heartbeat.
+    /// 2026-10-08-e8b9e: never over another run whose heartbeat is fresh — that answers HeldByAnotherRun.</summary>
+    Task<LeaseAttachOutcome> AttachRunAsync(
         string project, TicketId ticketId, string runId, string? jobId, CancellationToken cancellationToken);
 
     /// <summary>Renew the lease heartbeat (liveness only — NOT the claim guard).</summary>

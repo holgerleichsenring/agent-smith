@@ -92,9 +92,15 @@ public sealed class JiraCommentWebhookHandlerTests
             spawn.Object,
             new Mock<ITicketProviderFactory>().Object,
             NullLogger<WebhookSpawnDispatcher>.Instance);
+        var rework = new Mock<AgentSmith.Server.Contracts.IReworkEntry>();
+        rework.Setup(r => r.EnterAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(),
+                It.IsAny<AgentSmith.Contracts.Runs.ReworkAct>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AgentSmith.Server.Services.Rework.ReworkOutcome.NotARework);
+        var router = new KeywordCommentRouter(
+            dispatcher, rework.Object, new Mock<ITicketProviderFactory>().Object, NullLogger<KeywordCommentRouter>.Instance);
         var handler = new JiraCommentWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
+            resolver.Object, router, ApprovedRecordProbes.None(),
             new PlanAnswerParser(NullLogger<PlanAnswerParser>.Instance),
             NullLogger<JiraCommentWebhookHandler>.Instance);
         return (handler, resolver, spawn);

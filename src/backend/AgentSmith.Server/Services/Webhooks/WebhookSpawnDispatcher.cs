@@ -19,7 +19,9 @@ public sealed class WebhookSpawnDispatcher(
     ITicketProviderFactory providerFactory,
     ILogger<WebhookSpawnDispatcher> logger)
 {
-    private const string ZeroMatchComment = "No agent-smith project matched this ticket.";
+    // 2026-10-08-e8b9a: it opens with our heading so the comment handlers read it as ours —
+    // a zero-match comment is itself a new note and must not come back as a trigger.
+    private const string ZeroMatchComment = "Agent Smith — no agent-smith project matched this ticket.";
 
     public async Task DispatchAsync(
         AgentSmithConfig config,

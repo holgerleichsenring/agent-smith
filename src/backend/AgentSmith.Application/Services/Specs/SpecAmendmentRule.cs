@@ -36,7 +36,10 @@ public static class SpecAmendmentRule
     public static bool NeedsModel(string cause, SpecSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
-        if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)) return true;
+        // 2026-10-08-f114: a full, fully executed set has no room for an appended phase.
+        if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxPhases) return false;
+        if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)
+            || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)) return true;
         if (set.Approval is not null) return false;
         return cause switch
         {
@@ -45,4 +48,11 @@ public static class SpecAmendmentRule
             _ => false,
         };
     }
+
+    /// <summary>2026-10-08-f114: an input that, on a set with nothing left to run, can only be
+    /// carried out as new phases after the executed head.</summary>
+    public static bool IsAppend(string cause, SpecSet set) =>
+        set.UnexecutedTail.Count == 0 && set.Executed.Count > 0
+        && cause is SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit
+            or SpecRevisionCause.RecutDemand or SpecRevisionCause.Rework;
 }

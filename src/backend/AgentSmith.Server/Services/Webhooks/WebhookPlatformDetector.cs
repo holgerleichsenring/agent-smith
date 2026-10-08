@@ -16,8 +16,34 @@ internal static class WebhookPlatformDetector
             "/webhook/jira" => ("jira", ExtractJiraEventType(body)),
             "/webhook/github" => DetectFromHeaders(headers),
             "/webhook/gitlab" => DetectFromHeaders(headers),
-            _ => DetectFromHeaders(headers),
+            _ => DetectFromHeaders(headers) is { Platform: not null } fromHeaders
+                ? fromHeaders
+                : DetectAzureDevOpsFromBody(body),
         };
+    }
+
+    // 2026-10-08-e8b9a: Azure DevOps service hooks send no platform header unless the
+    // subscription lists one, so on the shared /webhook route the body decides: Microsoft's
+    // envelope carries a publisherId from a fixed set and a string eventType.
+    private static readonly HashSet<string> AzureDevOpsPublishers =
+        new(StringComparer.Ordinal) { "tfs", "rm", "pipelines", "distributedtask", "advsec" };
+
+    private static (string? Platform, string? EventType) DetectAzureDevOpsFromBody(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("publisherId", out var publisher)
+                && publisher.ValueKind == JsonValueKind.String
+                && AzureDevOpsPublishers.Contains(publisher.GetString()!)
+                && root.TryGetProperty("eventType", out var evt)
+                && evt.ValueKind == JsonValueKind.String)
+                return ("azuredevops", evt.GetString());
+        }
+        catch (JsonException) { /* not JSON — no platform */ }
+        return (null, null);
     }
 
     private static (string? Platform, string? EventType) DetectFromHeaders(

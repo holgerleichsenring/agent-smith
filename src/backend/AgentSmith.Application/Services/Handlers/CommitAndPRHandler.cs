@@ -321,7 +321,7 @@ public sealed class CommitAndPRHandler(
             + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
             + $"{RunAccountSection.Build(context.Pipeline)}"
             + $"{PhaseReviewSection.Build(context.Pipeline)}"
-            + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{SiblingMarker}";
+            + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SiblingMarker}";
         try
         {
             var provider = sourceFactory.Create(repo);

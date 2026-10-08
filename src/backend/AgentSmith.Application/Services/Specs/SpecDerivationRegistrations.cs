@@ -61,6 +61,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecCutGate>();
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
+    services.AddTransient<AgentSmith.Contracts.Reviews.IFullSetPrNotice, Rework.FullSetPrNotice>();
     services.AddTransient<UnansweredQuestionPin>();
     services.AddTransient<UnansweredQuestionNotice>();
     services.AddTransient<SpecHandbackRepeat>(); // 2026-09-07-bd7a: the repeat guard reads the thread

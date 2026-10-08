@@ -13,6 +13,18 @@ public static partial class ContextKeys
     /// <summary>p0317: IReadOnlyList&lt;TicketComment&gt; — the ticket's comment thread,
     /// fetched fail-soft by FetchTicketHandler and rendered (delimited, chronological,
     /// author-attributed) into the master prompts. Absent when the ticket has none.</summary>
+    /// <summary>2026-10-08-7c0e: the ticket's newest code attempt before this run
+    /// (<see cref="Runs.PreviousAttempt"/>), set with the thread; absent on a first attempt.</summary>
+    public const string PreviousAttempt = "PreviousAttempt";
+
+    /// <summary>2026-10-08-e8b9b: the rework act this run serves (<see cref="Runs.ReworkAct"/>), read
+    /// by the run itself from the thread, whoever claimed the ticket; absent when there is none.</summary>
+    public const string ReworkAct = "ReworkAct";
+
+    /// <summary>2026-10-08-e8b9d: the review on the previous attempt's open pull requests
+    /// (IReadOnlyList&lt;Reviews.PrReviewFeedback&gt;), already filtered to what counts as feedback.</summary>
+    public const string PrReviewFeedback = "PrReviewFeedback";
+
     public const string TicketComments = "TicketComments";
 
     /// <summary>p0317: IReadOnlyList&lt;TicketDocumentAttachment&gt; — downloaded text-like

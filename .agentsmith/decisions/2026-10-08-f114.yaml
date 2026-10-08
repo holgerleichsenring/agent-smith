@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-f114
+
+decisions:
+  - category: Architecture
+    chose: "Only a pull-request act is a revision cause of its own (Rework); on the ticket Comment and RecutDemand stay"
+    over: "A Rework cause for both channels"
+    reason: |
+      A ticket keyword comment already reads as Comment, and an approved set already has its door (the
+      demand phrase). A review is neither, and without a cause it reads as a Retrigger, which amends
+      nothing executed — the gap the operator reported.
+  - category: Implementation
+    chose: "The parser refuses a reply with fewer entries than the executed head, for every cause"
+    over: "Refusing only for an append cause"
+    reason: |
+      The parser does not know the cause; the prompt asks every amendment to repeat the whole set, and a
+      shorter reply means the model dropped the structure it was asked to repeat. Refused, the deriver asks
+      again instead of publishing the head alone.
+  - category: Implementation
+    chose: "At the cap the full-set line replaces the notice's re-cut wording; the set is not re-derived"
+    over: "Asking the model and letting the parser refuse a ninth phase"
+    reason: "The refusal would cost a model call and still say nothing to the ticket."
+  - category: TradeOff
+    chose: "The cut reviewer keeps judging the set against the ticket text only"
+    over: "Handing it the pull-request review section"
+    reason: "Stated in the spec's scope: the reviewer checks coverage of the ticket; the review section reaches the deriver through the conversation render."

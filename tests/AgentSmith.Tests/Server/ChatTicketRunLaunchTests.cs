@@ -102,6 +102,7 @@ public sealed class ChatTicketRunLaunchTests : IDisposable
             CapacityTestDoubles.EmptyQueue(), CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.NoHolds(),
             CapacityTestDoubles.AlwaysAdmit(), TestSupport.ApprovedSetDoubles.Carrier(),
             CapacityTestDoubles.NoNudge(), CapacityTestDoubles.NoStandingRefusal(),
+            Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
             NullLogger<SpawnPipelineRunsUseCase>.Instance);
     }
 

@@ -21,7 +21,7 @@ public sealed class DbActiveRunLease(IServiceScopeFactory scopeFactory) : IActiv
     public Task<LeaseReleaseOutcome> ReleaseAsync(string project, TicketId ticketId, string? runId, CancellationToken ct)
         => InScope(r => r.ReleaseAsync(project, ticketId, runId, ct));
 
-    public Task AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken ct)
+    public Task<LeaseAttachOutcome> AttachRunAsync(string project, TicketId ticketId, string runId, string? jobId, CancellationToken ct)
         => InScope(r => r.AttachRunAsync(project, ticketId, runId, jobId, ct));
 
     public Task RenewHeartbeatAsync(string project, TicketId ticketId, CancellationToken ct)

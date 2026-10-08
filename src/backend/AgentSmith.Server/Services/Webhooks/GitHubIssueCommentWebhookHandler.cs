@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -17,7 +18,7 @@ public sealed class GitHubIssueCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
-    WebhookSpawnDispatcher dispatcher,
+    KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
     ILogger<GitHubIssueCommentWebhookHandler> logger) : IWebhookHandler
@@ -42,6 +43,8 @@ public sealed class GitHubIssueCommentWebhookHandler(
                 return WebhookResult.NotHandled();
 
             var commentBody = root.GetProperty("comment").GetProperty("body").GetString() ?? "";
+            if (OwnTicketComment.IsOurs(commentBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var repoUrl = root.GetProperty("repository").GetProperty("html_url").GetString() ?? "";
             var issueNumber = issueEl.GetProperty("number").GetInt32();
             var issueState = issueEl.GetProperty("state").GetString() ?? "open";
@@ -60,45 +63,16 @@ public sealed class GitHubIssueCommentWebhookHandler(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
             var matches = envelopeResolver.Resolve(config, envelope);
-            var filtered = FilterMatchesByCommentKeywordOrAnswers(
-                config, matches, commentBody, planAnswers.Count > 0);
-
-            if (filtered.Count == 0 && matches.Count > 0)
-            {
-                logger.LogDebug(
-                    "GitHub issue comment #{Issue}: matched but no keyword/answers — ignoring",
-                    issueNumber);
-                return WebhookResult.NotHandled();
-            }
-
-            var planAnswersDict = planAnswers.Count > 0
-                ? new Dictionary<string, string>(planAnswers) : null;
-            await dispatcher.DispatchAsync(
-                config, filtered, envelope, issueState, planAnswersDict, cancellationToken);
-            return WebhookResult.HandledNoRoute();
+            var comment = root.GetProperty("comment");
+            var act = PayloadActTime.Act(
+                PayloadActTime.Text(comment, "user", "login"), PayloadActTime.Text(comment, "created_at"));
+            return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, commentBody,
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitHub issue_comment webhook");
             return WebhookResult.NotHandled();
         }
-    }
-
-    private static IReadOnlyList<ProjectMatch> FilterMatchesByCommentKeywordOrAnswers(
-        AgentSmithConfig config,
-        IReadOnlyList<ProjectMatch> matches,
-        string commentBody,
-        bool hasAnswers)
-    {
-        if (matches.Count == 0) return matches;
-        var kept = new List<ProjectMatch>(matches.Count);
-        foreach (var match in matches)
-        {
-            var trigger = config.Projects[match.ProjectName].GithubTrigger;
-            var hasKeyword = trigger?.CommentKeyword is { } kw
-                && commentBody.Contains(kw, StringComparison.OrdinalIgnoreCase);
-            if (hasAnswers || hasKeyword) kept.Add(match);
-        }
-        return kept;
     }
 }

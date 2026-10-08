@@ -146,7 +146,7 @@ public sealed class DeriveSpecQuestionTests
             new SpecCoverageRefusal(
                 new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
-            new SpecSetTicketCommenter(factory.Object, NullLogger<SpecSetTicketCommenter>.Instance),
+            new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),

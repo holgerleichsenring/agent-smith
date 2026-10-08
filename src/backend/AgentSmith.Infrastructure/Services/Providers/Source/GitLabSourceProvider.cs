@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -15,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -277,6 +278,10 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider
         _logger.LogInformation("Deleted {Count} marked note(s) on MR !{MrIid}", deleted, prIdentifier);
         return deleted;
     }
+
+    // 2026-10-08-e8b9d: the review is read by a collaborator over this provider's client.
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitLabPrReviewThreadReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ListAsync(prUrl, cancellationToken);
 
     private const int NotesPageSize = 100;
 

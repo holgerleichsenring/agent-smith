@@ -56,6 +56,6 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         };
         return new PrCommentCommand(
             comment.GetProperty("content").GetString() ?? "", author,
-            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}");
+            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}", prId.ToString());
     }
 }

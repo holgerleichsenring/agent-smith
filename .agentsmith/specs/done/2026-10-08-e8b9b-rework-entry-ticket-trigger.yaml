@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9b
+goal: "A keyword comment on a finished ticket makes it claimable and starts one attempt; the run, whoever claims it, reads that comment from the thread as the rework act."
+
+applies_to: "backend (ticket-comment routing, lifecycle, ticket context)"
+
+requires: [2026-10-08-e8b9a, 2026-10-08-7c0e]
+
+facts:
+  - claim: "A comment-triggered dispatch is dropped when the status is not a trigger status; an empty trigger list accepts every status."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:50-56,106-108"
+  - claim: "Configuration refuses done_status and failed_status inside trigger_statuses; an empty list is only advisory."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectTriggerRules.cs:44-83"
+  - claim: "A success finalize records nothing about the move; a failure finalize and a park record an unmoved-ticket fact when the status did not move, and the claim refuses while it stands."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:46-52, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:164-169, src/backend/AgentSmith.Application/Services/Lifecycle/UnmovedTicketReport.cs:23-38,53-65, src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:17-32"
+  - claim: "GitHub applies a non-state status as a label, leaving the issue open."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:32-36"
+  - claim: "Retry stops with NoTriggerStatus when the list is empty, moves to the first trigger status, then clears hand-back state, the approval's SatisfiedAt and the unmoved fact."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:38-66"
+  - claim: "Jira offers no transition to the status a ticket is already in, so such a move returns false."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTransitioner.cs:33-40"
+  - claim: "Any claimer — poller, approved-ticket admission, the workitem.updated hook, the capacity head — wins the lease by the same INSERT; the loser gets AlreadyClaimed."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:161-169, src/backend/AgentSmith.Application/Services/Polling/ApprovedTicketAdmission.cs:33-47, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs:21-22,55-56, src/backend/AgentSmith.Application/Services/Claim/SingleClaimRegionExecutor.cs:37-39"
+  - claim: "A claim for a pipeline no label routes is refused unless the request is marked requested by name."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:21-25, src/backend/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs:33-38"
+  - claim: "The poller builds an envelope from a fetched ticket; SpawnPipelineRunsUseCase is at its 150-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/PolledTicketEnvelope.cs:17-32, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:96"
+  - claim: "The four comment handlers filter on the keyword and pass the status to the dispatcher."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs:54-66, src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:61-75"
+  - claim: "A demand is read in the run as the last foreign comment after our anchor that carries the phrase."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:40-57"
+  - claim: "FetchTicketHandler has room (135 of a 189 baseline) and fetches the thread before anything reads it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-81, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:55"
+  - claim: "FetchTicketContext carries only the tracker connection; its builder has the resolved project."
+    evidence: "src/backend/AgentSmith.Application/Models/FetchTicketContext.cs:12-15, src/backend/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:10-19"
+  - claim: "The completed-run summary heading uses 'Agent Smith - ' with a hyphen, which OwnTicketComment.Ours does not list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletedRunTicketSummary.cs:40-44, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:26-32"
+  - claim: "The chat ticket launcher spawns through the funnel with the tracker's platform and RequestedByName, falling back to an empty trigger."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:23-58"
+  - claim: "Webhook handlers are singletons; the ticket-fact stores are singletons; Retry is scoped; RelationalPersistenceExtensions is 224 of a 225 baseline."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:20-47, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:122-129"
+  - claim: "The comment handlers read the status from the payload."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs:41,66"
+
+assumptions:
+  - claim: "The act's own time is in each payload: Jira comment.created, GitHub comment.created_at, GitLab object_attributes.created_at, Azure DevOps resource.fields['System.ChangedDate'] of the commented revision."
+    check: "One recorded delivery per platform in the handler tests."
+  - claim: "Tracker and server clocks agree within one minute, the skew margin 2026-10-08-7c0e states."
+    check: "Compare a test comment's tracker time with the server's UtcNow on the deployed tracker."
+
+scope:
+  in: >
+    ReworkEntry(project, ticket, act), asked first for a keyword comment. It reads the newest code attempt;
+    none, or one whose ticket is not in done_status or failed_status nor held by an unmoved fact, is
+    NotARework (today's path; verdict parks keep Retry). waiting_for_input is Refused ('waiting for an
+    answer', run id). A held lease: an act no newer than the live run's start plus one minute is
+    AlreadyServed, a newer one Refused naming the run. An act no newer than the attempt's start plus one
+    minute is AlreadyServed. Otherwise read the CURRENT status with GetTicketAsync; move to the first trigger
+    status only when it is not one (empty list: no move; refused move: Refused, nothing cleared);
+    TicketReopener clears; ChatTicketRunLauncher spawns the routed match's pipeline; AlreadyClaimed counts as
+    started. A refusal is commented, opening 'Agent Smith —', never quoting the keyword. FetchTicketContext
+    carries the tracker trigger's comment_keyword; ReworkActReader sets ContextKeys.ReworkAct from the newest
+    foreign keyword comment more than one minute after the attempt's start. 'Agent Smith - ' joins Ours.
+  out: "PR acts (2026-10-08-e8b9c). ReworkAct.Channel and the executed-set effect (2026-10-08-f114)."
+
+decisions:
+  - key: "THE ACT LIVES IN THE THREAD. Moving and clearing make the ticket claimable for every claimer; the run reads the act itself."
+  - key: "HOST TIME, ONE MINUTE OF SKEW, in the entry and the reader alike; a redelivery is AlreadyServed."
+  - key: "THE POLLER CLEARS NOTHING; a standing unmoved fact there means the ticket never left."
+  - key: "PARKED MEANS done_status, failed_status or an unmoved fact (operator default); a verdict park returns only through Retry."
+  - key: "SINGLETONS, SHRINKING HANDLERS. TicketReopener, ReworkEntry and KeywordCommentRouter are singletons beside the handlers; Retry stays scoped and uses TicketReopener; the router takes over each handler's dispatcher and keyword filter; ChatTicketRunLauncher is scoped and reached through IServiceScopeFactory."
+
+steps:
+  - id: entry
+    action: "Add TicketReopener and ReworkEntry (Started(runId?), NotARework, AlreadyServed, Refused(reason, runId?)); Retry calls TicketReopener; register the singletons in WebhookEndpointsExtensions."
+  - id: route
+    action: "Add KeywordCommentRouter, replacing the four handlers' dispatcher and keyword filter, asking ReworkEntry first and posting refusals."
+  - id: run
+    action: "Add CommentKeyword to FetchTicketContext and its builder; add ContextKeys.ReworkAct and ReworkActReader; call it in FetchTicketHandler; add 'Agent Smith - ' to Ours."
+
+tests:
+  - "ReworkEntry_LiveLeaseActNewer_RefusesNamingRun"
+  - "ReworkEntry_LiveLeaseActOlder_AlreadyServed"
+  - "ReworkEntry_ParkedAttempt_RefusesVisibly"
+  - "ReworkEntry_ActWithinSkewOfStart_AlreadyServed"
+  - "ReworkEntry_VerdictPark_NotARework"
+  - "ReworkEntry_DoneJiraTicket_MovesClearsAndClaims"
+  - "ReworkEntry_CurrentStatusTrigger_DoesNotMove"
+  - "ReworkEntry_EmptyTriggerList_ClaimsWithoutMove"
+  - "ReworkEntry_RefusedMove_ClearsNothing"
+  - "Router_KeywordOnFailedStatus_StartsRework"
+  - "Refusal_Text_IsOursAndOmitsKeyword"
+  - "ReworkActReader_KeywordAfterAttempt_SetsAct"
+  - "ReworkActReader_SuccessSummaryWithKeyword_SetsNothing"
+
+done:
+  - "A keyword comment on a ticket in done_status or failed_status, or an open GitHub issue held by an unmoved fact, starts one attempt whose context carries ReworkAct even when the poller claims it."
+  - "A redelivered comment, or one during a live run older than it, starts nothing; FileLengthRatchetTests green with no baseline change; full suite green."

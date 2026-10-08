@@ -19,6 +19,7 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -114,6 +115,36 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
 
         _enqueued.Should().BeEmpty();
         _said.Should().ContainSingle().Which.Should().Contain("namespace quota full");
+    }
+
+    // 2026-10-08-e8b9e: a ticketless PR command ('/as review') launches through the same chat launcher,
+    // with the pull request's context and the admission's pipeline — no second parse, no ticket.
+    [Fact]
+    public async Task Admission_TicketlessReview_LaunchesWithoutTicket()
+    {
+        _diffs.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(Diff(new PrDiff(
+            "base-sha", "head-sha", [], HeadBranch: "feature/login", Author: "octo")));
+        var services = new ServiceCollection();
+        services.AddSingleton(new ChatPrContextResolver(_diffs.Object, new PrRunContextFactory()));
+        services.AddSingleton(new ChatTicketlessRunLauncher(Runs(), Admission(), Dispatch(), TimeProvider.System,
+            NullLogger<ChatTicketlessRunLauncher>.Instance));
+        var comments = new Mock<IPrCommentProvider>();
+        var sources = new Mock<ISourceProviderFactory>();
+        sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(comments.As<ISourceProvider>().Object);
+        var launch = new PrCommandLaunch(ConfigLoader(), new ServerContext("agentsmith.yml"),
+            new AgentSmith.Infrastructure.Services.Webhooks.ConfiguredRepoFinder(), Mock.Of<IActiveRunLease>(),
+            services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            sources.Object, NullLogger<PrCommandLaunch>.Instance);
+        var command = new PrCommentCommand("/as review", new AgentSmith.Contracts.Webhooks.PrCommentAuthor(
+            "https://github.com/o/sample-server", "o/sample-server", "octo", "octo"), "o/sample-server#42", "pr:o/sample-server#42", "42");
+
+        await launch.LaunchAsync(command, new PipelineRequest(Project, "security-scan", TicketId: null, Headless: true), CancellationToken.None);
+
+        var request = _enqueued.Should().ContainSingle().Subject;
+        request.TicketId.Should().BeNull();
+        request.PipelineName.Should().Be("security-scan");
+        request.Context![ContextKeys.PrNumber].Should().Be("42");
+        comments.Verify(c => c.PostCommentAsync("42", It.Is<string>(t => t.Contains(request.RunId!)), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private SecurityReviewIntentHandler SecurityHandler() => new(

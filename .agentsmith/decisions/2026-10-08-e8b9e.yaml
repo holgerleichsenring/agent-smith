@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9e
+
+decisions:
+  - category: Architecture
+    chose: "PR commands launch through the chat launchers (ChatTicketRunLauncher, ChatTicketlessRunLauncher) behind IPrCommandLaunch"
+    over: "A new TicketFunnelLaunch, or keeping the free-text trigger input"
+    reason: |
+      A PR command is a person naming a run, which the chat launchers already serve: the funnel and the
+      claim for a ticket, admission and a queued row for a ticketless run. The free-text path parsed the
+      command twice and attached its run to whatever lease the ticket had.
+  - category: Implementation
+    chose: "LeaseAttachOutcome is an enum whose zero value is Attached"
+    over: "A result record"
+    reason: "Compositions and test doubles without a lease answer the default; a record would default to null and fail every run started through them."
+  - category: Implementation
+    chose: "Attach compares on RunId, judging staleness on the client"
+    over: "One SQL statement with HeartbeatAt < cutoff, as the review asked"
+    reason: |
+      SQLite cannot translate a DateTimeOffset comparison (ActiveRunLivenessRepository filters client-side
+      for the same reason). RunId equality translates with EF's null semantics, so the update is a
+      compare-and-swap on what was read; a row changed in between is judged once more.
+  - category: Implementation
+    chose: "A held resume publishes nothing and stays parked"
+    over: "Ending the parked run as failed"
+    reason: "A resume claims its own lease before it is dispatched; meeting a live holder means a race the next tick resolves, not a failure of the run."
+  - category: Implementation
+    chose: "The projection keeps the taken-ticket record when the lease names a different non-null run"
+    over: "Not publishing RunFinished for a refused start"
+    reason: "A reserved run row must still be terminalized (the prologue rule) and its own reservation freed; only the record belongs to the holder."
