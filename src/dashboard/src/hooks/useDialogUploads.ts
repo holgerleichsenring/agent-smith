@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useConfirmDialog, type ConfirmDialogProps } from "@/components/dialog/ConfirmDialog";
 import { ApiResponseError, refusalIn } from "@/lib/apiResponse";
+import { deleteReferenceFile } from "@/lib/referenceFilesApi";
 import { deleteSpecDialogImage, deleteSpecDialogReference } from "@/lib/specDialogApi";
 import type { SpecDialogImage, SpecDialogReferenceSet } from "@/types/spec-dialog";
 
@@ -10,6 +11,8 @@ import type { SpecDialogImage, SpecDialogReferenceSet } from "@/types/spec-dialo
 // own dialog, because a removal cannot be undone; then the view is read again and the transcript
 // RESEEDED, so the chip of a removed set goes with it. A refusal — a turn running or waiting on an
 // approval, an upload an approval cites — is said where the Remove was pressed.
+// 2026-10-09-86e1: and one FILE of a set, asked and refused the same way; the set's last file
+// takes the set with it, which the question says.
 
 export type DialogUpload =
   | { kind: "set"; set: SpecDialogReferenceSet }
@@ -18,18 +21,22 @@ export type DialogUpload =
 export function useDialogUploads(
   dialogId: string | null,
   refresh: () => Promise<void>,
-): { remove: (upload: DialogUpload) => Promise<void>; note: string | null; dialog: ConfirmDialogProps } {
+): {
+  remove: (upload: DialogUpload) => Promise<void>;
+  removeFile: (set: SpecDialogReferenceSet, path: string) => Promise<void>;
+  note: string | null;
+  dialog: ConfirmDialogProps;
+} {
   const { ask, dialog } = useConfirmDialog();
   const [note, setNote] = useState<string | null>(null);
 
-  const remove = useCallback(
-    async (upload: DialogUpload) => {
+  const confirmed = useCallback(
+    async (question: string, act: (dialog: string) => Promise<void>) => {
       if (!dialogId) return;
-      if (!(await ask(removalQuestion(upload), { confirmLabel: "Remove", cancelLabel: "Keep" }))) return;
+      if (!(await ask(question, { confirmLabel: "Remove", cancelLabel: "Keep" }))) return;
       setNote(null);
       try {
-        if (upload.kind === "set") await deleteSpecDialogReference(dialogId, upload.set.setId);
-        else await deleteSpecDialogImage(dialogId, upload.image.id);
+        await act(dialogId);
       } catch (thrown) {
         setNote(reasonOf(thrown));
         return;
@@ -38,8 +45,19 @@ export function useDialogUploads(
     },
     [dialogId, ask, refresh],
   );
+  const remove = useCallback(
+    (upload: DialogUpload) => confirmed(removalQuestion(upload), (dialog) => upload.kind === "set"
+      ? deleteSpecDialogReference(dialog, upload.set.setId)
+      : deleteSpecDialogImage(dialog, upload.image.id)),
+    [confirmed],
+  );
+  const removeFile = useCallback(
+    (set: SpecDialogReferenceSet, path: string) =>
+      confirmed(fileRemovalQuestion(set, path), (dialog) => deleteReferenceFile(dialog, set.setId, path)),
+    [confirmed],
+  );
 
-  return { remove, note, dialog };
+  return { remove, removeFile, note, dialog };
 }
 
 /** What the confirmation asks: the upload by its name, or an image — which has none — by when it came. */
@@ -47,6 +65,14 @@ export function removalQuestion(upload: DialogUpload): string {
   const what = upload.kind === "set"
     ? `Remove '${upload.set.name}'?`
     : `Remove the image attached ${momentOf(upload.image.at)}?`;
+  return `${what}\n\nThe design partner no longer sees it from the next turn. This cannot be undone.`;
+}
+
+/** What the confirmation asks before one file goes; the last file of a set takes the set. */
+export function fileRemovalQuestion(set: SpecDialogReferenceSet, path: string): string {
+  const what = set.files <= 1
+    ? `Remove '${path}'? It is the only file of '${set.name}', so the upload goes with it.`
+    : `Remove '${path}' from '${set.name}'?`;
   return `${what}\n\nThe design partner no longer sees it from the next turn. This cannot be undone.`;
 }
 

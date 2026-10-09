@@ -1231,3 +1231,51 @@
    outline is drawn inside the panel's own edge, so it cannot be clipped by the card that
    overflows hidden around it. */
 .mock-dialog .d-panel:focus { outline: 2px solid var(--accent); outline-offset: -3px; }
+
+/* 2026-10-09-86e1: the conversation card no longer clips — the attach menu opening upward from
+   the composer was cut at the card's top edge in a short conversation. A modifier on THAT card
+   only: every other card keeps the clipping its rounded corners rely on, and nothing inside this
+   one draws past its corners. The menu also opens downward when even the page has no room above
+   (AttachMenu measures it once drawn). */
+.mock-dialog .ecard.unclipped { overflow: visible; }
+.mock-dialog .d-menu.down { top: calc(100% + 6px); bottom: auto; }
+.mock-dialog .d-menu.narrow button.d-menu-item { white-space: normal; overflow-wrap: anywhere; }
+.mock-dialog .d-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* An upload's files: a tree of folders, each opened and closed, each file opened by its name
+   and removed by the cross beside it. Indented by nesting, bounded in height so a set of five
+   hundred files scrolls inside its row instead of stretching the pane. */
+.mock-dialog .d-upload-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 12px; }
+.mock-dialog button.d-upload-toggle { font: inherit; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; flex: 1 1 14ch; min-width: 0; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+.mock-dialog .d-upload-toggle:focus-visible, .mock-dialog .d-tree button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.mock-dialog .d-tree-caret { flex: none; width: 12px; font-size: 13px; line-height: 1; color: var(--ink-2); }
+.mock-dialog .d-tree { list-style: none; margin: 0; padding: 0 0 0 14px; font-size: 12.5px; }
+.mock-dialog li > .d-tree { max-height: 360px; overflow-y: auto; padding-bottom: 8px; }
+.mock-dialog .d-tree .d-tree { max-height: none; overflow: visible; padding-bottom: 0; }
+.mock-dialog .d-tree-note { padding: 0 12px 10px; }
+.mock-dialog button.d-tree-toggle { font: inherit; display: flex; align-items: baseline; gap: 6px; width: 100%; text-align: left; background: none; border: 0; padding: 3px 12px 3px 0; cursor: pointer; color: var(--ink-2); }
+.mock-dialog .d-tree-file { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 2px 12px 2px 16px; min-width: 0; }
+.mock-dialog button.d-tree-open { font: inherit; font-family: var(--mono); font-size: 12px; flex: 1 1 10ch; min-width: 0; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; color: var(--ink); overflow-wrap: anywhere; }
+.mock-dialog .d-tree-open:hover { color: var(--accent); }
+.mock-dialog .d-tree-size { flex: none; margin-left: auto; font-size: 11.5px; color: var(--ink-3); }
+.mock-dialog button.d-tree-remove { font: inherit; flex: none; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--ink-3); cursor: pointer; font-size: 14px; line-height: 1; }
+.mock-dialog .d-tree-remove:hover { border-color: var(--bad); color: var(--bad); }
+
+/* One file opened over the page: the native modal dialog (top layer, focus kept inside), text in
+   monospace that scrolls inside the dialog, a picture fitted to it. Width follows the viewport
+   down to a phone. */
+.mock-dialog .d-preview { margin: auto; width: calc(100vw - 32px); max-width: 960px; max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink); box-shadow: 0 18px 44px rgba(32, 21, 21, 0.18); }
+.mock-dialog .d-preview[open] { display: flex; flex-direction: column; }
+.mock-dialog .d-preview::backdrop { background: rgba(32, 21, 21, 0.38); }
+.mock-dialog .d-preview-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); }
+.mock-dialog .d-preview-t { margin: 0; flex: 1 1 200px; min-width: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.mock-dialog .d-preview-body { padding: 12px 14px 14px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.mock-dialog .d-preview-text { margin: 0; font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre; overflow: auto; max-height: calc(100vh - 190px); background: var(--panel-2); border-radius: var(--r-s); padding: 10px 12px; color: var(--ink); }
+.mock-dialog .d-preview-text:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mock-dialog .d-preview-img { max-width: 100%; max-height: calc(100vh - 190px); object-fit: contain; align-self: center; }
+
+/* A picked file the conversation already holds: said beside the composer with its two answers,
+   and in the selection card under the entry it concerns. */
+.mock-dialog .d-held { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+.mock-dialog .d-held-actions { display: flex; gap: 8px; }
+.mock-dialog .d-pick-held { display: block; font-size: 11.5px; color: var(--ink-3); }

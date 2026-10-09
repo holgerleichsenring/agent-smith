@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services;
@@ -34,6 +35,8 @@ internal static class SpecDialogUploadDeletionEndpoints
     {
         app.MapDelete("/api/spec-dialog/references/{setId}", (Delegate)DeleteSetAsync)
            .Needs(Security.Permissions.DialogWrite);
+        app.MapDelete("/api/spec-dialog/references/{setId}/files", (Delegate)DeleteFileAsync)
+           .Needs(Security.Permissions.DialogWrite);
         app.MapDelete("/api/spec-dialog/images/{imageId:long}", (Delegate)DeleteImageAsync)
            .Needs(Security.Permissions.DialogWrite);
         return app;
@@ -45,6 +48,29 @@ internal static class SpecDialogUploadDeletionEndpoints
         CancellationToken cancellationToken) =>
         RemoveAsync(dialogId, user, ownership, sessions, turnGate,
             session => deletion.DeleteSetAsync(session, setId, cancellationToken), cancellationToken);
+
+    /// <summary>
+    /// 2026-10-09-86e1: one file of a set. A held container of the set is released on success —
+    /// it is never refilled, so the next turn would otherwise still read the removed file. A
+    /// removal can rename the set and shift the -2/-3 suffixes of the addresses; the next turn's
+    /// prompt lists them as they now are.
+    /// </summary>
+    internal static async Task<IResult> DeleteFileAsync(
+        string setId, string dialogId, string path, ClaimsPrincipal user, SpecDialogOwnership ownership,
+        SpecDialogSessionManager sessions, SpecDialogTurnGate turnGate, ReferenceUploadDeletion deletion,
+        IHeldSandboxRegister holds, CancellationToken cancellationToken)
+    {
+        string? removedFrom = null;
+        var result = await RemoveAsync(dialogId, user, ownership, sessions, turnGate, async session =>
+        {
+            var removal = await deletion.DeleteFileAsync(session, setId, path, cancellationToken);
+            if (removal == ReferenceUploadRemoval.Removed) removedFrom = session;
+            return removal;
+        }, cancellationToken);
+        // Walked away from, as every release is: the removal is done and the page waits on its answer.
+        if (removedFrom is not null) _ = holds.ReleaseRevisionAsync(removedFrom, setId, CancellationToken.None);
+        return result;
+    }
 
     internal static Task<IResult> DeleteImageAsync(
         long imageId, string dialogId, ClaimsPrincipal user, SpecDialogOwnership ownership,

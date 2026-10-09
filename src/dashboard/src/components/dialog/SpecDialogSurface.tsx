@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import type { SpecDialogProposalPush } from "@/types/spec-dialog";
+import type { SpecDialogHeldContent, SpecDialogProposalPush } from "@/types/spec-dialog";
+import { fetchHeldContent } from "@/lib/referenceFilesApi";
 import type { TicketProjectRead, TicketSearchFound } from "@/lib/specDialogApi";
 import {
   readTicketConversation,
@@ -251,6 +252,12 @@ export function SpecDialogSurface() {
     pane.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
     panel.current?.focus();
   };
+  // 2026-10-09-86e1: a transcript chip opens its upload in the pane — the tab, the row, its files
+  // — the way an inspect lands the reader on a proposal; at narrow widths the pane is below.
+  const openUpload = (setId: string) => {
+    setFocus({ tab: "uploads", setId });
+    pane.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  };
   // 2026-09-17-042ej: the conversation follows what it filed. A read of its own rather than a
   // field on the dialog view, which is refetched after every reply.
   const work = useFiledWork(dialog.dialogId, dialog.filed);
@@ -318,7 +325,7 @@ export function SpecDialogSurface() {
               onOpen={(sessionId, openDialogId) => void dialog.open(sessionId, openDialogId)}
               onDelete={(sessionId) => void remove(sessionId)}
             />
-            <section className="ecard inert min-w-0">
+            <section className="ecard inert unclipped min-w-0">
               <div className="d-head">
                 {/* 2026-09-17-042em: the header names the open session's PROJECT — this is
                     where a person reads what the conversation they are in is about.
@@ -378,6 +385,7 @@ export function SpecDialogSurface() {
                       entries={dialog.entries}
                       onInspect={inspect}
                       greeting={<DialogGreeting />}
+                      onOpenUpload={openUpload}
                     />
                     {/* 2026-09-18-2f8b: this page's own post OR a turn the view says is running,
                         so a page arriving mid-turn is not shown a conversation that looks over. */}
@@ -420,6 +428,7 @@ export function SpecDialogSurface() {
                   onAttachSite={(files, leftOut) => void dialog.attachSite(files, project, leftOut)}
                   note={dialog.uploadNote}
                   left={leftOf(session)}
+                  loadHeld={session && dialog.dialogId ? heldOn(dialog.dialogId) : undefined}
                 />
               )}
             </section>
@@ -446,6 +455,11 @@ export function SpecDialogSurface() {
       <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
+}
+
+/** 2026-10-09-86e1: the content hashes the conversation on this dialog holds. */
+function heldOn(dialogId: string): () => Promise<SpecDialogHeldContent[]> {
+  return () => fetchHeldContent(dialogId);
 }
 
 /** 2026-10-08-e8b9h: what the conversation may still take under its byte cap; null before a

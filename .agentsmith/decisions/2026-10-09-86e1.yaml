@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-09-86e1
+
+decisions:
+  - category: Architecture
+    chose: "ReferenceSetName.Of itself names a folderless set by its file(s); 'site' is no longer a name or the address fallback ('upload')"
+    over: "A separate view label beside an unchanged carried name (the spec's first draft)"
+    reason: |
+      Review cut C1: a run writes a carried set under a directory keyed by its id, so the name is
+      only the prompt label and the reference:<name> address, recomputed per turn. A second label
+      would have kept 'site' in front of the model. A removal can rename a set and shift -2/-3
+      suffixes; the next turn's prompt lists the addresses as they now are.
+  - category: Architecture
+    chose: "Refuse a set only when EVERY file's content is already held (path ignored); otherwise store it whole"
+    over: "Skipping held files server-side and storing the remainder"
+    reason: |
+      Review cut C2 (operator owns the risk): a second version of a folder must stay complete. The
+      browser marks held files before sending; the server check covers a bypassed browser, a page
+      without crypto.subtle, and a single .zip, which only the server unpacks.
+  - category: Implementation
+    chose: "A held loose file, or a folder whose every file is held, starts unticked but tickable; a partly held folder says 'N of M already uploaded' and goes whole; a single held pick waits behind 'Send anyway'"
+    over: "Making held files unsendable"
+    reason: |
+      Ticks are per top-level entry (referenceSelection.ts); an unsendable file would take a choice
+      that is the operator's. A fully held folder starting ticked (first screenshot) sent a pick the
+      server would refuse, so it starts unticked like a loose file.
+  - category: Architecture
+    chose: "Per-file delete in ReferenceUploadDeletion inside the same cited-before-and-after transaction; the last file takes the note; success releases the set's held container (new IHeldSandboxRegister.ReleaseRevisionAsync)"
+    over: "ReleaseConversationAsync, which also drops the repositories' holds"
+    reason: |
+      A held reference container is never refilled, so the next turn would still read the removed
+      file. The hold key ends in '@<setId>'; releasing that revision costs no repository re-clone.
+      The route lives beside the set and image deletes to reuse their gate order.
+  - category: Security
+    chose: "Preview kind by content (no NUL in 8 KB, valid UTF-8); raster images inline; everything else, SVG and HTML included, as an octet-stream attachment with nosniff and CSP sandbox"
+    over: "Kind by extension"
+    reason: |
+      ReferenceFileTypes stores .py, .yaml, Dockerfile, .env as octet-stream; by content they preview
+      as text. An uploaded .html/.svg served from the API origin as a page would run its script there.
+      The preview is a JSON read (kind, text cut at 200 KB, truncated) so no custom header needs CORS
+      exposure; the kind is decided on open, so the list never reads the bytes.
+  - category: Implementation
+    chose: "Every stored byte the page shows is fetched through apiFetch into a blob URL (useBlobUrl, AuthedImage), including the two existing <img src> sites"
+    over: "<img src> and <a href> to the API"
+    reason: |
+      With sign-in on the bearer token rides only on apiFetch; an <img src> rendered nothing — likely
+      part of 'die files kann man nicht ansehen'.
+  - category: Implementation
+    chose: "Preview in a native modal dialog (focus contained, Escape, backdrop, focus returned to the opener); tree folders collapsible with aria-expanded, all open up to 40 files, none above"
+    over: "An inline preview inside the 300 px pane; a flat list"
+    reason: |
+      Review cuts C4/C5/C6. A set may hold 500 files; a closed first level keeps the row short.
+  - category: Implementation
+    chose: "AttachMenu measures itself once drawn: downward when a clipping ancestor or the viewport cuts its top, narrowed with wrapping entries when its right edge would be cut; arrows/Home/End walk it, Tab leaves, Escape returns focus to the plus"
+    over: "Only lifting the card's clipping"
+    reason: |
+      The 390 px screenshot showed the menu running off the right edge; moving it left ran it into
+      the column beside it, so it narrows instead. The card modifier is .mock-dialog .ecard.unclipped,
+      the shape dialog-joins allows.
+  - category: Tooling
+    chose: "Verified against a locally run server (SQLite, throwaway Redis on 6390, no polling) and next dev, driven by Playwright in Chrome"
+    over: "jsdom only"
+    reason: |
+      The screenshots found three defects jsdom could not: a fully held folder started ticked, the
+      preview dialog was pinned top-left (a reset removed margin:auto), and rows crushed to one
+      character per line at 390 px. All three were fixed before commit. The app shell keeps its
+      sidebar at 390 px; that is outside this phase.
