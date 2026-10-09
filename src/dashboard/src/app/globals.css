@@ -39,7 +39,11 @@
   --topbar-h: 52px;
 }
 
+/* 2026-10-09-724c: the scroll container is also the containing block. Without it an absolute
+   descendant (every transcript row's sr-only label) is placed against the document at its
+   unscrolled position, so a long page grew the document and gave it a second scrollbar. */
 @utility shell-main {
+  position: relative;
   height: calc(100vh - var(--topbar-h));
   overflow-y: auto;
 }
