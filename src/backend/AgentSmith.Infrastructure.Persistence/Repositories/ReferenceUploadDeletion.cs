@@ -24,6 +24,21 @@ public sealed class ReferenceUploadDeletion(IUnitOfWork unitOfWork, ApprovedSeri
                 && (f.Kind == ReferenceFileKind.Site || f.Kind == ReferenceFileKind.Note))
             .ExecuteDeleteAsync(ct), ct);
 
+    /// <summary>
+    /// 2026-10-09-86e1: one file of a set by its path. Refused like the set when an approval cites
+    /// the set; the set's last file takes the set's note with it, so no note outlives its files.
+    /// </summary>
+    public async Task<ReferenceUploadRemoval> DeleteFileAsync(
+        string sessionId, string setId, string path, CancellationToken ct) =>
+        await DeleteAsync(sessionId, setId, async () =>
+        {
+            var removed = await SetRows(sessionId, setId)
+                .Where(f => f.Kind == ReferenceFileKind.Site && f.RelativePath == path).ExecuteDeleteAsync(ct);
+            if (removed > 0 && !await SetRows(sessionId, setId).AnyAsync(f => f.Kind == ReferenceFileKind.Site, ct))
+                await SetRows(sessionId, setId).Where(f => f.Kind == ReferenceFileKind.Note).ExecuteDeleteAsync(ct);
+            return removed;
+        }, ct);
+
     /// <summary>An image by the id the transcript addresses it by: its copy, its legacy row, or both.</summary>
     public async Task<ReferenceUploadRemoval> DeleteImageAsync(string sessionId, long imageId, CancellationToken ct)
     {
@@ -49,6 +64,9 @@ public sealed class ReferenceUploadDeletion(IUnitOfWork unitOfWork, ApprovedSeri
         await transaction.CommitAsync(ct);
         return ReferenceUploadRemoval.Removed;
     }
+
+    private IQueryable<ReferenceFile> SetRows(string sessionId, string setId) =>
+        unitOfWork.Set<ReferenceFile>().Where(f => f.SessionId == sessionId && f.SetId == setId);
 
     private async Task<bool> CitedAsync(string sessionId, string? setId, CancellationToken ct) =>
         setId is not null && (await approvals.CitedSetsAsync(sessionId, ct)).Contains(setId);

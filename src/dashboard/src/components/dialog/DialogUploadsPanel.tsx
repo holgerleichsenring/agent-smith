@@ -1,10 +1,13 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useDialogUploads, momentOf, type DialogUpload } from "@/hooks/useDialogUploads";
 import { specDialogImageUrl } from "@/lib/specDialogApi";
 import type { FiledWork, SpecDialogSession } from "@/types/spec-dialog";
+import { AuthedImage } from "./AuthedImage";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { sizeOf } from "./referenceSelection";
+import { UploadSetRow } from "./UploadSetRow";
 
 // 2026-10-08-e8b9h: everything the operator handed this conversation, in one place — every set
 // and image, oldest first, with what they hold against the conversation's byte cap. The
@@ -13,19 +16,23 @@ import { sizeOf } from "./referenceSelection";
 // against it — and says so instead of offering a Remove that would be refused. After an approval
 // every set is cited, so a conversation approved near the cap takes no more uploads; the usage
 // line is where the operator sees that.
+// 2026-10-09-86e1: and a set opens to its files — a tree, each file previewed or removed on its
+// own. `focusSetId` is the upload a transcript chip asked for.
 
 export function DialogUploadsPanel({
   session,
   work,
   dialogId,
   onRefresh,
+  focusSetId = null,
 }: {
   session: SpecDialogSession;
   work: FiledWork | null;
   dialogId: string | null;
   onRefresh: () => Promise<void>;
+  focusSetId?: string | null;
 }) {
-  const { remove, note, dialog } = useDialogUploads(dialogId, onRefresh);
+  const { remove, removeFile, note, dialog } = useDialogUploads(dialogId, onRefresh);
   const used = session.uploadBytes ?? 0;
   const cap = session.uploadCapBytes ?? 0;
   return (
@@ -45,6 +52,12 @@ export function DialogUploadsPanel({
             upload={upload}
             approved={!!work?.approved}
             onRemove={() => void remove(upload)}
+            body={(actions) => upload.kind === "set" ? (
+              <UploadSetRow set={upload.set} dialogId={dialogId} focused={upload.set.setId === focusSetId}
+                actions={actions} onRemoveFile={(path) => void removeFile(upload.set, path)} />
+            ) : (
+              <div className="flex items-center gap-2.5 px-3 py-2"><ImageSummary upload={upload} />{actions}</div>
+            )}
           />
         ))}
       </ul>
@@ -58,21 +71,20 @@ export function DialogUploadsPanel({
   );
 }
 
-function UploadRow({ upload, approved, onRemove }: { upload: DialogUpload; approved: boolean; onRemove: () => void }) {
+function UploadRow({ upload, approved, onRemove, body }: {
+  upload: DialogUpload; approved: boolean; onRemove: () => void; body: (actions: ReactNode) => ReactNode;
+}) {
   const cited = upload.kind === "set" ? !!upload.set.cited : !!upload.image.cited;
   const id = upload.kind === "set" ? upload.set.setId : String(upload.image.id);
   return (
     <li data-testid={`dialog-upload-${id}`} className="ecard inert">
-      <div className="flex items-center gap-2.5 px-3 py-2">
-        {upload.kind === "set" ? <SetSummary upload={upload} /> : <ImageSummary upload={upload} />}
-        {cited ? (
-          <span className="ec-sub" data-testid={`dialog-upload-cited-${id}`}>cited by an approval</span>
-        ) : (
-          <button type="button" className="btn" data-testid={`dialog-upload-remove-${id}`} onClick={onRemove}>
-            Remove
-          </button>
-        )}
-      </div>
+      {body(cited ? (
+        <span className="ec-sub" data-testid={`dialog-upload-cited-${id}`}>cited by an approval</span>
+      ) : (
+        <button type="button" className="btn" data-testid={`dialog-upload-remove-${id}`} onClick={onRemove}>
+          Remove
+        </button>
+      ))}
       {/* The approval froze the list it cites — sets and, since 2026-10-08-e8b9k, images; one
           uploaded later reaches a run only when the ticket is approved again. */}
       {!cited && approved && (
@@ -84,24 +96,11 @@ function UploadRow({ upload, approved, onRemove }: { upload: DialogUpload; appro
   );
 }
 
-function SetSummary({ upload }: { upload: Extract<DialogUpload, { kind: "set" }> }) {
-  const { set } = upload;
-  return (
-    <>
-      <span className="ec-mark">upload</span>
-      <span className="ec-name sans min-w-0 flex-1">{set.name}</span>
-      <span className="ec-sub">
-        {set.files} {set.files === 1 ? "file" : "files"} · {sizeOf(set.bytes)}
-      </span>
-    </>
-  );
-}
-
 function ImageSummary({ upload }: { upload: Extract<DialogUpload, { kind: "image" }> }) {
   const { image } = upload;
   return (
     <>
-      <img src={specDialogImageUrl(image.id)} alt="Attached by you" className="max-h-12 max-w-24" />
+      <AuthedImage path={specDialogImageUrl(image.id)} alt="Attached by you" className="max-h-12 max-w-24" />
       <span className="ec-sub min-w-0 flex-1">{momentOf(image.at)}</span>
       {image.bytes != null && <span className="ec-sub">{sizeOf(image.bytes)}</span>}
     </>

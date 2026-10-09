@@ -43,6 +43,8 @@ export function rebuildableFolderOf(path: string): string | null {
 
 /** Why a file is not sent; null for a file that is. */
 export type LeftOutReason = "rebuildable" | "over 25 MB" | ".gitignore";
+// 2026-10-09-86e1: a loose file the conversation already holds starts unticked with the reason
+// "already uploaded in '<name>'" (heldFiles.ts) — an entry reason, not a per-file one.
 
 export interface SelectionEntry {
   /** The top-level entry: a folder as "name/", a file as its name. */
@@ -57,6 +59,8 @@ export interface SelectionEntry {
   ticked: boolean;
   /** Why an entry starts unticked: the reasons of its files. */
   reason: string | null;
+  /** 2026-10-09-86e1: how many of a folder's files the conversation already holds, and where. */
+  held?: string;
 }
 
 /** What a pick left out on this side, joined to the server's answer once the set is stored. */

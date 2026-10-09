@@ -63,21 +63,25 @@ public sealed class HeldSandboxRegister(
         return 0;
     }
 
-    public Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken)
+    public Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken) =>
+        ReleaseWhereAsync(held => string.Equals(held.ConversationId, conversationId, StringComparison.Ordinal),
+            $"Conversation {conversationId} ended", cancellationToken);
+
+    public Task ReleaseRevisionAsync(string conversationId, string revision, CancellationToken cancellationToken) =>
+        ReleaseWhereAsync(held => string.Equals(held.ConversationId, conversationId, StringComparison.Ordinal)
+                && held.Key.EndsWith($"@{revision}", StringComparison.Ordinal),
+            $"Revision {revision} of conversation {conversationId} changed", cancellationToken);
+
+    private Task ReleaseWhereAsync(Func<HeldSandbox, bool> ends, string why, CancellationToken cancellationToken)
     {
         List<HeldSandbox> ending;
         lock (_gate)
         {
-            ending = [.. _entries.Values
-                .Where(entry => string.Equals(
-                    entry.Held.ConversationId, conversationId, StringComparison.Ordinal))
-                .Select(entry => entry.Held)];
+            ending = [.. _entries.Values.Select(entry => entry.Held).Where(ends)];
             foreach (var held in ending) _entries.Remove(held.Key);
         }
         if (ending.Count == 0) return Task.CompletedTask;
-        logger.LogInformation(
-            "Conversation {Conversation} ended; releasing {Count} held sandbox(es)",
-            conversationId, ending.Count);
+        logger.LogInformation("{Why}; releasing {Count} held sandbox(es)", why, ending.Count);
         return _removal.AllAsync(ending, cancellationToken);
     }
 

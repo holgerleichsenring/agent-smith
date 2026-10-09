@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DialogComposer } from "../DialogComposer";
 
@@ -77,7 +77,7 @@ describe("DialogComposer, attaching files", () => {
     expect(screen.queryByTestId("dialog-reference-selection")).not.toBeInTheDocument();
   });
 
-  it("DialogComposer_ASingleZip_UploadsAtOnce", () => {
+  it("DialogComposer_ASingleZip_UploadsAtOnce", async () => {
     const onAttachSite = vi.fn();
     render(<DialogComposer onSend={vi.fn()} onAttach={vi.fn()} onAttachSite={onAttachSite} />);
 
@@ -85,7 +85,7 @@ describe("DialogComposer, attaching files", () => {
       target: { files: [new File(["PK"], "site.zip", { type: "application/zip" })] },
     });
 
-    expect(onAttachSite).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(onAttachSite).toHaveBeenCalledTimes(1));
     expect((onAttachSite.mock.calls[0][0] as File[])[0].name).toBe("site.zip");
     expect(screen.queryByTestId("dialog-reference-selection")).not.toBeInTheDocument();
   });

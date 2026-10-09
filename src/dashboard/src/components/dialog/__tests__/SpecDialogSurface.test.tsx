@@ -116,6 +116,12 @@ const uploadSpecDialogReferences =
 // 2026-10-08-e8b9h: one upload taken back out, from the Uploads tab.
 const deleteSpecDialogReference = vi.fn<(dialogId: string, setId: string) => Promise<void>>(async () => {});
 const deleteSpecDialogImage = vi.fn<(dialogId: string, imageId: number) => Promise<void>>(async () => {});
+// 2026-10-09-86e1: stored bytes are fetched with the bearer token and drawn from an object URL.
+vi.mock("@/lib/referenceFilesApi", () => ({
+  fetchBlob: (path: string) => Promise.resolve(new Blob([path])),
+  fetchHeldContent: () => Promise.resolve([]),
+}));
+
 vi.mock("@/lib/specDialogApi", () => ({
   uploadSpecDialogReferences: (dialogId: string, project: string, files: File[]) =>
     uploadSpecDialogReferences(dialogId, project, files),
@@ -3575,6 +3581,8 @@ describe("SpecDialogSurface", () => {
   // uploaded the moment it is picked — not held until Send — and the read that follows is what
   // puts it in the transcript, which is also what makes it survive a reload.
   it("SpecDialog_TheComposer_TakesAnImageAndTheTranscriptShowsIt", async () => {
+    URL.createObjectURL = vi.fn(() => "blob:image-7");
+    URL.revokeObjectURL = vi.fn();
     await renderSurface();
     fetchSpecDialog.mockResolvedValue(view({
       session: {
@@ -3593,8 +3601,7 @@ describe("SpecDialogSurface", () => {
     expect(dialogId).toBe(heldDialogId());
     expect(project).toBe("sample");
     expect(file.name).toBe("shot.png");
-    const shown = await screen.findByTestId("dialog-image-7");
-    expect(shown).toHaveAttribute("src", "/api/spec-dialog/images/7");
+    await waitFor(() => expect(screen.getByTestId("dialog-image-7")).toHaveAttribute("src", "blob:image-7"));
   });
 
   // 2026-10-02-075da: a folder pick carries a .venv and a .env. The set is stored without the

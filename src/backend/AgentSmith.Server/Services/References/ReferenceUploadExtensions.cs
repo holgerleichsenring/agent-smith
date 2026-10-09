@@ -22,6 +22,9 @@ internal static class ReferenceUploadExtensions
         services.AddScoped<SpecDialogImageUpload>();
         services.AddScoped<ConversationUploads>();
         services.AddSingleton<DialogImageSight>(); // 2026-10-08-e8b9j
+        // 2026-10-09-86e1: the files inside the uploads, as a dialog reads and previews them.
+        services.AddScoped<ConversationReferenceFiles>();
+        services.AddSingleton<ReferenceFilePreview>();
         return services;
     }
 }

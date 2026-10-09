@@ -44,7 +44,8 @@ export interface SpecDialogImage {
 
 /**
  * 2026-10-01-283db: one website the operator uploaded — a set of files with their paths, shown
- * as one chip. Its name is the folder every file sits under, or "site" when they share none.
+ * as one chip. 2026-10-09-86e1: its name is the folder every file sits under, else the one file's
+ * name, else "<first file> + N more" — never "site".
  */
 export interface SpecDialogReferenceSet {
   setId: string;
@@ -56,6 +57,30 @@ export interface SpecDialogReferenceSet {
   note?: string | null;
   /** 2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed. */
   cited?: boolean;
+}
+
+/** 2026-10-09-86e1: one file inside an upload, as the Uploads tab lists it. */
+export interface SpecDialogReferenceFile {
+  path: string;
+  bytes: number;
+}
+
+/** 2026-10-09-86e1: how one uploaded file is shown — decided by its content on the server. Text
+ *  carries its first part (cut at 200 KB, `truncated` then says so); an image is fetched from the
+ *  content route; binary is offered as a download. */
+export interface SpecDialogFilePreview {
+  path: string;
+  kind: "text" | "image" | "binary";
+  bytes: number;
+  text: string | null;
+  truncated: boolean;
+}
+
+/** 2026-10-09-86e1: one content hash a set of the conversation holds, and that set. */
+export interface SpecDialogHeldContent {
+  sha256: string;
+  setId: string;
+  name: string;
 }
 
 /** 2026-10-02-075da: one entry an upload did not store, and why — a rebuildable folder or a file

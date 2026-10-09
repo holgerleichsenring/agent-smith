@@ -30,7 +30,6 @@ public sealed class ConversationSubjectTests : IDisposable
     private const string Platform = "dashboard";
     private const string Channel = "C1";
     private const string Thread = "th-4b0af";
-    private const string Reply = "canned design answer";
     private const string Minted = "Das Widget, das das Hauptbuch liest";
     private const string ProjectModel = "the-project-own-model";
 
@@ -47,6 +46,9 @@ public sealed class ConversationSubjectTests : IDisposable
     private readonly List<string> _order = [];
 
     private string _answer = Minted;
+
+    /// <summary>What the design turn answers.</summary>
+    private string _reply = "canned design answer";
 
     /// <summary>What the turn runner reports; null lets the outcome decide, as it normally does.</summary>
     private SpecDialogTurnKind? _turnKind;
@@ -89,9 +91,38 @@ public sealed class ConversationSubjectTests : IDisposable
         _chat.Ceilings.Should().ContainSingle().Which.Should().Be(128);
         _chat.AgentModels.Should().Equal([ProjectModel],
             "the mint runs on the project's own agent, not on a fabricated one");
-        _chat.Prompts.Should().ContainSingle()
-            .Which.Should().Contain("Write it in the SAME LANGUAGE the conversation is written in.")
-            .And.Contain("a widget that reads the ledger");
+    }
+
+    // 2026-10-09-753b: the answer is the language authority. The person's message — mixed, quoting
+    // code, naming identifiers — is not in front of the model at all, so it cannot pick a language
+    // from it; a German conversation whose opening was English context came out Spanish.
+    [Fact]
+    public async Task SpecDialogRouter_AFirstTurn_MintsFromTheAnswerAlone()
+    {
+        await OpenAsync();
+        _reply = "Der Dienst liest das Hauptbuch und blättert die Ergebnisse seitenweise.";
+
+        await SendAsync("Context: repo-a/src/LedgerReader.cs, AACA-1234, see ledger_v2 schema");
+
+        var prompt = _chat.Prompts.Should().ContainSingle().Which;
+        prompt.Should().Contain("Write the line in the language the answer is written in.")
+            .And.Contain("The answer:\n" + _reply);
+        prompt.Should().NotContain("LedgerReader.cs", "the person's message is no language source");
+        prompt.Should().NotContain("AACA-1234");
+    }
+
+    // A notice is the code's text, not the model's answer: it carries neither the subject nor the
+    // conversation's language, and the heading keeps its fallback.
+    [Fact]
+    public async Task SpecDialogRouter_ANoticeFirstTurn_MintsNothing()
+    {
+        await OpenAsync();
+        _turnKind = SpecDialogTurnKind.Notice;
+
+        await SendAsync("a widget that reads the ledger");
+
+        _chat.Prompts.Should().BeEmpty();
+        (await SubjectAsync()).Should().BeNull();
     }
 
     // The first mint here is REFUSED, so the row still has no subject when the second turn runs:
@@ -252,7 +283,7 @@ public sealed class ConversationSubjectTests : IDisposable
         var turnRunner = new Mock<ISpecDialogTurnRunner>();
         turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, Reply, new AnswerOutcome(), _turnKind));
+            .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(

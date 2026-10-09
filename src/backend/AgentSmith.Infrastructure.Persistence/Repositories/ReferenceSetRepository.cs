@@ -14,9 +14,6 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
 {
-    /// <summary>The name a set whose paths share no folder is listed under.</summary>
-    public const string UnnamedSet = ReferenceSetName.Unnamed;
-
     /// <summary>
     /// Stores <paramref name="files"/> as one new site set of the conversation, in one save. Each
     /// file carries its path, media type and bytes; the session, the set and the kind are stamped
@@ -68,6 +65,13 @@ public sealed class ReferenceSetRepository(IUnitOfWork unitOfWork)
         await unitOfWork.Set<ReferenceFile>().AsNoTracking()
             .Where(f => f.SessionId == sessionId && f.SetId == setId && f.Kind == ReferenceFileKind.Site && f.RelativePath == path)
             .Select(f => f.Content).FirstOrDefaultAsync(ct);
+
+    /// <summary>2026-10-09-86e1: one set's files with their sizes, in path order — only its own conversation's.</summary>
+    public async Task<IReadOnlyList<ReferenceSetFileEntry>> EntriesAsync(string sessionId, string setId, CancellationToken ct) =>
+        await unitOfWork.Set<ReferenceFile>().AsNoTracking()
+            .Where(f => f.SessionId == sessionId && f.SetId == setId && f.Kind == ReferenceFileKind.Site)
+            .OrderBy(f => f.RelativePath)
+            .Select(f => new ReferenceSetFileEntry(f.RelativePath, f.Length, f.MediaType)).ToListAsync(ct);
 
     private static ReferenceSetSummary Summary(
         string setId, IReadOnlyList<(string Path, long Length, DateTimeOffset At)> files) =>

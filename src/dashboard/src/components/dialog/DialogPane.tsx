@@ -34,6 +34,8 @@ export interface DialogPaneFocus {
   tab: DialogPaneTab;
   /** A card's proposal, when the operator inspected one that is not the latest. */
   proposal?: SpecDialogProposalPush;
+  /** 2026-10-09-86e1: the upload a transcript chip asked for — the Uploads tab opens on it. */
+  setId?: string;
 }
 
 export function DialogPane({
@@ -132,7 +134,7 @@ export function DialogPane({
         )}
         {tab === "uploads" && session && (
           <DialogUploadsPanel session={session} work={work} dialogId={dialogId}
-            onRefresh={onRefresh ?? (() => Promise.resolve())} />
+            onRefresh={onRefresh ?? (() => Promise.resolve())} focusSetId={focus?.setId ?? null} />
         )}
       </div>
     </aside>

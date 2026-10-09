@@ -20,6 +20,9 @@ public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreL
 {
     private const int ChunkBytes = 81920;
 
+    /// <summary>2026-10-09-86e1: the folder an archive named only ".zip" is unpacked under.</summary>
+    private const string ArchiveRoot = "archive";
+
     public static bool IsArchive(string path) =>
         path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
@@ -91,7 +94,7 @@ public sealed class ReferenceZipReader(ReferencePathRule paths, ReferenceIgnoreL
         var tops = files.Select(f => f.Path.IndexOf('/') is var slash and > 0 ? f.Path[..slash] : null).Distinct();
         if (tops.Count() == 1 && tops.Single() is not null) return files;
         var root = Path.GetFileNameWithoutExtension(archiveName.Replace('\\', '/').Split('/')[^1]);
-        if (root.Length == 0) root = Infrastructure.Persistence.Repositories.ReferenceSetRepository.UnnamedSet;
+        if (root.Length == 0) root = ArchiveRoot;
         return [.. files.Select(f => f with { Path = $"{root}/{f.Path}" })];
     }
 }

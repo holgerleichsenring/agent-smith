@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { SpecDialogHeldContent } from "@/types/spec-dialog";
+import { AttachMenu } from "./AttachMenu";
 import { DialogReferenceSelection } from "./DialogReferenceSelection";
+import { HeldFileNote } from "./HeldFileNote";
+import { heldWhere } from "./singleHeld";
 import { sizeOf, type PickLeftOut } from "./referenceSelection";
 import type { UploadNote } from "./uploadNote";
 
@@ -34,6 +38,10 @@ import type { UploadNote } from "./uploadNote";
 // 2026-10-08-e8b9h: and a pick bigger than what the conversation has LEFT under its byte cap is
 // refused here, before a byte is sent, naming both sizes — the server would refuse it anyway.
 // Before a conversation exists nothing is known to check, and the first upload opens it.
+// 2026-10-09-86e1: the menu is its own component (AttachMenu: keyboard, opens downward when there
+// is no room above); Escape gives focus back to the plus. A single picked file the conversation
+// already holds is held back with where it is and a "Send anyway"; a larger pick is marked in the
+// selection card.
 
 export function DialogComposer({
   onSend,
@@ -42,6 +50,7 @@ export function DialogComposer({
   note,
   disabled,
   left = null,
+  loadHeld,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -54,6 +63,8 @@ export function DialogComposer({
   disabled?: boolean;
   /** 2026-10-08-e8b9h: the bytes the conversation may still take; null when none is open yet. */
   left?: number | null;
+  /** 2026-10-09-86e1: the content hashes the conversation holds; absent before one is open. */
+  loadHeld?: () => Promise<SpecDialogHeldContent[]>;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -61,6 +72,14 @@ export function DialogComposer({
   const several = useRef<HTMLInputElement>(null);
   const folder = useRef<HTMLInputElement>(null);
   const attach = useRef<HTMLDivElement>(null);
+  const plus = useRef<HTMLButtonElement>(null);
+  const [heldPick, setHeldPick] = useState<{ file: File; name: string } | null>(null);
+  const sendOne = async (file: File) => {
+    setHeldPick(null);
+    const name = await heldWhere(file, loadHeld);
+    if (name) setHeldPick({ file, name });
+    else if (onAttachSite && fits([file])) onAttachSite([file]);
+  };
   const [pick, setPick] = useState<File[] | null>(null);
   const [over, setOver] = useState<string | null>(null);
 
@@ -73,6 +92,11 @@ export function DialogComposer({
     return !refused;
   };
   const shown: UploadNote | null = over ? { tone: "refused", text: over } : note ?? null;
+
+  const openPicker = (input: HTMLInputElement | null) => {
+    setAttaching(false);
+    input?.click();
+  };
 
   const send = () => {
     const said = text.trim();
@@ -97,6 +121,7 @@ export function DialogComposer({
       if (event instanceof KeyboardEvent && event.key !== "Escape") return;
       if (event.type === "mousedown" && attach.current?.contains(event.target as Node)) return;
       setAttaching(false);
+      if (event.type === "keydown") plus.current?.focus();
     };
     document.addEventListener("keydown", leave);
     document.addEventListener("mousedown", leave);
@@ -132,7 +157,7 @@ export function DialogComposer({
                 type="file"
                 multiple
                 className="hidden"
-                onChange={(event) => pickFiles(event.target, (files) => fits(files) && onAttachSite(files), setPick)}
+                onChange={(event) => pickFiles(event.target, (files) => void sendOne(files[0]), setPick)}
               />
               <input
                 ref={folder}
@@ -145,6 +170,7 @@ export function DialogComposer({
             </>
           )}
           <button
+            ref={plus}
             type="button"
             data-testid="dialog-composer-attach"
             aria-label="Attach"
@@ -158,55 +184,22 @@ export function DialogComposer({
             <PlusGlyph />
           </button>
           {attaching && (
-            <div className="d-menu" role="menu" data-testid="dialog-composer-attach-menu">
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="dialog-composer-attach-image"
-                onClick={() => {
-                  setAttaching(false);
-                  picker.current?.click();
-                }}
-                className="d-menu-item"
-              >
-                Image
-              </button>
-              {onAttachSite && (
-                <>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    data-testid="dialog-composer-attach-files"
-                    onClick={() => {
-                      setAttaching(false);
-                      several.current?.click();
-                    }}
-                    className="d-menu-item"
-                  >
-                    Files
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    data-testid="dialog-composer-attach-folder"
-                    aria-describedby="dialog-composer-folder-hint"
-                    onClick={() => {
-                      setAttaching(false);
-                      folder.current?.click();
-                    }}
-                    className="d-menu-item"
-                  >
-                    Folder
-                  </button>
-                  {/* 2026-10-08-e8b9i: the page opens the picker; the browser adds its own
-                      "upload N files?" prompt to a folder pick, which no page can restyle or
-                      suppress. Saying so beforehand keeps it from reading as this page's. */}
-                  <span id="dialog-composer-folder-hint" className="d-menu-sub" data-testid="dialog-composer-folder-hint">
-                    Your browser may ask to confirm a folder upload.
-                  </span>
-                </>
-              )}
-            </div>
+            <AttachMenu
+              onLeave={() => setAttaching(false)}
+              entries={[
+                { key: "image", label: "Image", onPick: () => openPicker(picker.current) },
+                ...(onAttachSite ? [
+                  { key: "files", label: "Files", onPick: () => openPicker(several.current) },
+                  // 2026-10-08-e8b9i: the browser adds its own "upload N files?" prompt to a folder
+                  // pick, which no page can restyle or suppress; saying so keeps it from reading as ours.
+                  { key: "folder", label: "Folder", onPick: () => openPicker(folder.current),
+                    describedBy: "dialog-composer-folder-hint" },
+                ] : []),
+              ]}
+              hint={onAttachSite
+                ? { id: "dialog-composer-folder-hint", text: "Your browser may ask to confirm a folder upload." }
+                : undefined}
+            />
           )}
         </div>
         <textarea
@@ -238,10 +231,18 @@ export function DialogComposer({
           <ArrowGlyph />
         </button>
       </div>
+      {heldPick && !pick && (
+        <HeldFileNote file={heldPick.file} name={heldPick.name} onDismiss={() => setHeldPick(null)}
+          onSendAnyway={() => {
+            setHeldPick(null);
+            if (onAttachSite && fits([heldPick.file])) onAttachSite([heldPick.file]);
+          }} />
+      )}
       {pick && onAttachSite && (
         <DialogReferenceSelection
           files={pick}
           left={left}
+          loadHeld={loadHeld}
           onCancel={() => setPick(null)}
           onSend={(files, leftOut) => {
             setPick(null);
@@ -249,7 +250,7 @@ export function DialogComposer({
           }}
         />
       )}
-      {shown && !pick && (
+      {shown && !pick && !heldPick && (
         <p
           role={shown.tone === "refused" ? "alert" : "status"}
           data-testid="dialog-composer-upload-note"

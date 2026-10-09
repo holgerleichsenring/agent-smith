@@ -22,7 +22,7 @@ public sealed class ReferenceSetRepositoryTests
 
         var listed = await sets.ListAsync("s-1", CancellationToken.None);
 
-        listed.Select(s => (s.Name, s.Files, s.Bytes)).Should().Equal(("site", 2, 7L), (ReferenceSetRepository.UnnamedSet, 2, 4L));
+        listed.Select(s => (s.Name, s.Files, s.Bytes)).Should().Equal(("site", 2, 7L), ("one.css + 1 more", 2, 4L));
         listed[0].SetId.Should().Be(added.SetId, "images are no set of a website");
     }
 

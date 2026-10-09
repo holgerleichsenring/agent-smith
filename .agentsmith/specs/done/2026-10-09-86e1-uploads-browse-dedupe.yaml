@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-86e1
+goal: "An operator sees and opens every uploaded file, removes single files, is told before re-sending a held file, reaches every attach entry, and no upload is named 'site'."
+
+applies_to: "dashboard (spec dialog composer, uploads panel, selection card) + server (reference endpoints, upload admission, set name)"
+
+requires: [2026-10-08-e8b9g, 2026-10-08-e8b9h]
+
+facts:
+  - claim: "observed: the operator's words on 2026-10-08 were 'man sieht die files, die hochgeladen wurden hinterher nicht mehr', 'doppelte werden nicht erkannt', 'hochgeladene können nicht gelöscht / deselektiert werden'; on 2026-10-09 after 0.157.0: 'das menu ist verdeckt, die files kann man nicht ansehen. ich kann immer noch doppelte auswählen und da steht immer noch site'."
+    evidence: "observed: 2026-10-09, operator conversation with three screenshots of the Work it out page"
+  - claim: "The conversation section is an .ecard, and .ecard clips its children, so the attach menu that opens upward from the composer is cut off at the card's top edge."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:321"
+  - claim: ".ecard sets overflow: hidden; the attach menu is positioned bottom: calc(100% + 6px)."
+    evidence: "src/dashboard/src/styles/mock-parity.css:512"
+  - claim: "A set whose paths share no folder was named 'site'; a single file has no folder, so every single-file upload was 'site'."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetName.cs:12-19"
+  - claim: "A run writes a carried set under a directory keyed by the set id; the name is only the prompt label and the reference:<name> address, recomputed per turn and run."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:41-42"
+  - claim: "A duplicate was refused only when the WHOLE set's sorted (path, hash) pairs equalled a stored set."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ConversationUploadAdmission.cs:23-34"
+  - claim: "A held reference container is never refilled; it is keyed by conversation, address and set id."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetSandbox.cs:15-16"
+  - claim: "Images in the transcript and panel were drawn by <img src> to the API, which carries no bearer token."
+    evidence: "src/dashboard/src/lib/apiResponse.ts:156-169"
+
+assumptions:
+  - claim: "crypto.subtle.digest('SHA-256') is available in the dashboard's browsers (secure context: https or localhost)."
+    check: "Without it the selection card says it could not check; the server still refuses a pick it holds entirely."
+
+scope:
+  in: >
+    Name: ReferenceSetName.Of is the shared folder, else the single file's name, else "<first> + N more"; "site" is gone as a
+    name and as the address fallback (now "upload"). Menu: the conversation card stops clipping (.ecard.unclipped), the menu opens
+    downward when no room is above and narrows when no room is right, arrow keys/Home/End walk it, Escape returns focus to the plus.
+    Browse: each set row in the Uploads tab expands to a collapsible folder tree (all folders open up to 40 files, none above);
+    a file opens in a modal preview over the page — text by CONTENT (no NUL, valid UTF-8; cut at 200 KB by the server, which says so),
+    raster images, anything else a download; bytes are fetched with the bearer token into blob URLs, which also fixes the two
+    existing <img src> sites. Content is served nosniff under CSP sandbox; .html/.svg never as a page. A transcript chip's "Show
+    files" opens the Uploads tab on that set. Remove single files: DELETE …/files?path=, gated and cited-checked like a set; the
+    last file takes the note; a removal releases the set's held container. Duplicates: GET …/hashes returns hash -> set id and name
+    (rows without a hash never match). The selection card marks a held loose file (or a folder whose every file is held) unticked
+    with where it is; a partly held folder says "N of M already uploaded in <name>" and goes whole when ticked. A single held pick
+    is not sent: the composer says where and offers "Send anyway". The server refuses a pick whose EVERY file is held (path
+    ignored) and otherwise stores it whole.
+  out: "Images attached through the Image entry keep their own whole-image check. A single .zip is unpacked server-side, so only the server check covers it. Editing or renaming an upload. The app shell's sidebar at phone width."
+
+decisions:
+  - key: "THE OPERATOR'S SENTENCES ARE THE ACCEPTANCE TEST; the reviewer's cuts C1-C6 override the first draft (see decisions/2026-10-09-86e1.yaml)."
+  - key: "THE NAME ITSELF CHANGES, NOT A LABEL. The name moves no file: runs write by set id."
+  - key: "THE OPERATOR OWNS THE RISK: a held file is marked, never made unsendable; a second version of a folder is stored whole."
+
+steps:
+  - id: server
+    action: "ReferenceSetName; per-file held refusal and HeldAsync in ConversationUploadAdmission; files/preview/content/hashes routes; per-file delete with hold release; ReferenceFilePreview by content."
+  - id: client
+    action: "referenceFilesApi, useBlobUrl/AuthedImage, UploadSetRow/UploadFileTree/UploadPreviewDialog, held marking (heldFiles, useSelectionEntries, HeldFileNote), chip -> Uploads focus."
+  - id: menu
+    action: "AttachMenu (keyboard, flip, narrow) and the .ecard.unclipped modifier."
+  - id: verify
+    action: "Local server + dashboard driven by Playwright in Chrome at 1440 and 390 px; screenshots outside the repo."
+
+tests:
+  - "ReferenceSetName_SingleFile_IsTheFileName"
+  - "ReferenceSetName_NoSharedFolder_FirstPlusCount"
+  - "ReferenceScopeName_SingleFileSet_AddressIsNotSite"
+  - "Upload_OnlyHeldFiles_Refused"
+  - "Upload_SecondVersionOfAFolder_IsStoredWhole"
+  - "HeldAsync_StoredSets_ListEachHashWithItsSetName"
+  - "FileContent_OtherConversation_NotFound"
+  - "FileRoutes_UploadedFolder_ListPreviewServeHashAndRemoveOne"
+  - "For_PythonFile_IsText"
+  - "DeleteFile_CitedSet_Refused"
+  - "DeleteFile_LastFile_RemovesTheSet"
+  - "DeleteFile_OneOfTwo_TheNextTurnReadsTheSetWithoutIt"
+  - "ReleaseRevisionAsync_OneSetChanged_ReleasesOnlyThatSetsHold"
+  - "SelectionCard_HeldFile_UntickedAndMarked"
+  - "SelectionCard_FolderEntirelyHeld_StartsUnticked"
+  - "Composer_SingleHeldFile_NotSentAndSaysWhere"
+  - "UploadsPanel_ExpandSet_ListsFilesAndPreviewsText"
+  - "DialogPane_FocusOnAnUpload_OpensTheUploadsTabOnIt"
+  - "AttachMenu_EmptyConversation_AllEntriesVisible"
+  - "AttachMenu_Keyboard_ArrowsWalkAndEscapeReturnsFocus"
+
+done:
+  - "'die files kann man nicht ansehen': every file of every upload is listed in a folder tree and a text file opens in a preview (screenshots 06, 07, 08)."
+  - "'doppelte': a held file, alone or in a folder, is shown as already uploaded before sending; a pick of only held files is refused by the server (screenshots 04, 05; server tests)."
+  - "'deselektiert': a single file can be removed from an upload (screenshots 09, 10)."
+  - "'menu verdeckt': all attach entries are visible in an empty and a filled conversation and at 390 px (screenshots 01, 11, 12)."
+  - "'site': a single-file upload shows the file's name (screenshot 03); no upload is named 'site' unless its folder is."
+  - "Keyboard: the menu, the tree toggles and the preview are operable by keyboard (aria-expanded, arrows, Escape, focus return)."
+  - "Full suite green (phase gate)."

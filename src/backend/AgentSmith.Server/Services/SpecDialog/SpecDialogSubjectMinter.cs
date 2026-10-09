@@ -19,7 +19,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// asked a question — and deriving a heading from the assistant's prose would be a heuristic
 /// over prose. The call is made on the summarization task type, which the model registry routes
 /// to the small model, with an explicit output ceiling of its own, and it is shown the first
-/// exchange only rather than the turn's context.
+/// answer only (2026-10-09-753b) — the text whose language the heading takes.
 /// </para>
 /// <para>
 /// It swallows everything, the way the proposal review swallows its own: a heading is not worth
@@ -42,17 +42,18 @@ public sealed class SpecDialogSubjectMinter(
     /// Mints and stores the subject when this conversation has none and has just had its first
     /// assistant turn, between persisting that turn and sending the reply. A FAILED turn mints
     /// nothing: the subject is never re-minted, so a heading named after half an exchange stands.
+    /// 2026-10-09-753b: nor does a NOTICE — its text is the code's, not the model's answer, so it
+    /// carries neither the subject nor the conversation's language.
     /// </summary>
     public async Task MintAsync(ConversationState state, SpecDialogTurnKind kind, string reply, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(state);
-        if (state.Subject is not null || state.ThreadId is null || kind is SpecDialogTurnKind.Failure) return;
+        if (state.Subject is not null || state.ThreadId is null) return;
+        if (kind is SpecDialogTurnKind.Failure or SpecDialogTurnKind.Notice) return;
         if (state.Transcript.Any(turn => turn.Role == TranscriptRole.Assistant)) return;
-        if (state.Transcript.FirstOrDefault(turn => turn.Role == TranscriptRole.User) is not { } asked)
-            return;
         try
         {
-            await MintAsync(state, asked.Text, reply, ct);
+            await MintFromAsync(state, reply, ct);
         }
         // On the caller's token, not on the exception's type: an LLM NetworkTimeout arrives as a
         // TaskCanceledException on an uncancelled token, and the reply this turn already has must
@@ -64,14 +65,13 @@ public sealed class SpecDialogSubjectMinter(
         }
     }
 
-    private async Task MintAsync(
-        ConversationState state, string asked, string reply, CancellationToken ct)
+    private async Task MintFromAsync(ConversationState state, string reply, CancellationToken ct)
     {
         var agent = Agent(state.Project);
         var response = await chatClients.Create(agent, TaskType.Summarization).GetResponseAsync(
             [
                 new ChatMessage(ChatRole.System, SpecDialogSubjectInstruction.Text),
-                new ChatMessage(ChatRole.User, $"They asked:\n{asked}\n\nThe answer began:\n{reply}"),
+                new ChatMessage(ChatRole.User, SpecDialogSubjectInstruction.Exchange(reply)),
             ],
             new ChatOptions { MaxOutputTokens = MaxOutputTokens }, ct);
         // A raw chat call outside a pipeline run is accounted by nothing else: the per-call cost

@@ -62,4 +62,10 @@ public interface IHeldSandboxRegister
     /// caller may walk away from, and every caller does.
     /// </summary>
     Task ReleaseConversationAsync(string conversationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-09-86e1: the holds of ONE revision of a conversation — an uploaded set whose files
+    /// changed. A held reference container is never refilled, so the next turn must spawn afresh.
+    /// </summary>
+    Task ReleaseRevisionAsync(string conversationId, string revision, CancellationToken cancellationToken);
 }

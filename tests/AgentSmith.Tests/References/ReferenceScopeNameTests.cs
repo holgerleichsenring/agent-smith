@@ -14,10 +14,10 @@ public sealed class ReferenceScopeNameTests
     }
 
     [Fact]
-    public void ReferenceScopeName_NothingSurvives_IsSite()
+    public void ReferenceScopeName_NothingSurvives_IsUpload()
     {
-        ReferenceScopeName.Sanitised("ÄÖÜ ///").Should().Be("site");
-        ReferenceScopeName.Sanitised(null).Should().Be("site");
+        ReferenceScopeName.Sanitised("ÄÖÜ ///").Should().Be("upload");
+        ReferenceScopeName.Sanitised(null).Should().Be("upload");
     }
 
     [Fact]

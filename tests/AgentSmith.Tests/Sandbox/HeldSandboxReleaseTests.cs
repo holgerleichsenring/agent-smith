@@ -95,6 +95,21 @@ public sealed class HeldSandboxReleaseTests
             .BeNull("the hold is out of the register either way");
     }
 
+    [Fact]
+    public async Task ReleaseRevisionAsync_OneSetChanged_ReleasesOnlyThatSetsHold()
+    {
+        var register = NewRegister();
+        var changed = Held(HeldSandbox.KeyFor("a1b2c3d4", "reference:site", "set-1"));
+        var kept = Held(HeldSandbox.KeyFor("a1b2c3d4", "reference:docs", "set-2"));
+        register.Hold(changed);
+        register.Hold(kept);
+
+        await register.ReleaseRevisionAsync("a1b2c3d4", "set-1", CancellationToken.None);
+
+        Removal(changed).ForceRemovedAt.Should().NotBeNull("a held reference container is never refilled");
+        (await register.TakeAsync(kept.Key, CancellationToken.None)).Should().NotBeNull();
+    }
+
     private static IHeldSandboxRegister NewRegister() =>
         new HeldSandboxRegister(new StubHeartbeat(alive: true), NullLogger<HeldSandboxRegister>.Instance);
 

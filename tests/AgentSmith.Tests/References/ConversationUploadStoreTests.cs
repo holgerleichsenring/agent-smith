@@ -56,14 +56,45 @@ public sealed class ConversationUploadStoreTests
     }
 
     [Fact]
-    public async Task ReferenceUpload_SameFilesOtherPath_IsStored()
+    public async Task Upload_OnlyHeldFiles_Refused()
     {
         await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
         await using var db = store.Context();
         await new ReferenceSetRepository(db).AddAsync(Session, [File("site/index.html", "<h1>")], CancellationToken.None);
+        await new ReferenceSetRepository(db).AddAsync(Session, [File("brief.md", "# brief")], CancellationToken.None);
 
-        (await TestUploads.Admission(db).RefusalForSetAsync(
-            Session, [("copy/index.html", "<h1>"u8.ToArray())], CancellationToken.None)).Should().BeNull();
+        var refusal = await TestUploads.Admission(db).RefusalForSetAsync(
+            Session, [("copy/index.html", "<h1>"u8.ToArray()), ("again.md", "# brief"u8.ToArray())], CancellationToken.None);
+
+        refusal!.Status.Should().Be(StatusCodes.Status409Conflict, "the same content under any path is held");
+        refusal.Reason.Should().Contain("'site'").And.Contain("'brief.md'");
+    }
+
+    [Fact]
+    public async Task Upload_SecondVersionOfAFolder_IsStoredWhole()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        await new ReferenceSetRepository(db).AddAsync(Session, [File("site/index.html", "<h1>"), File("site/a.css", "a{}")], CancellationToken.None);
+
+        (await TestUploads.Admission(db).RefusalForSetAsync(Session,
+            [("site/index.html", "<h1>"u8.ToArray()), ("site/a.css", "a{color:red}"u8.ToArray())], CancellationToken.None))
+            .Should().BeNull("one changed file makes a version, and a version is kept complete");
+    }
+
+    [Fact]
+    public async Task HeldAsync_StoredSets_ListEachHashWithItsSetName()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var set = await new ReferenceSetRepository(db).AddAsync(Session, [File("brief.md", "# brief")], CancellationToken.None);
+        db.Add(Row(ReferenceFileKind.Site, "old.md", "legacy"u8.ToArray(), hash: false));
+        await db.SaveChangesAsync();
+
+        var held = await TestUploads.Admission(db).HeldAsync(Session, CancellationToken.None);
+
+        held.Should().ContainSingle("a row without a hash is never matched")
+            .Which.Should().Be(new AgentSmith.Server.Models.HeldContentView("# brief"u8.ToArray().Sha256Hex(), set.SetId, "brief.md"));
     }
 
     [Fact]
@@ -128,6 +159,52 @@ public sealed class ConversationUploadStoreTests
         (await Deletion(db).DeleteSetAsync(Session, set.SetId, CancellationToken.None)).Should().Be(ReferenceUploadRemoval.Cited);
 
         (await db.Set<ReferenceFile>().AsNoTracking().CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DeleteFile_CitedSet_Refused()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var set = await new ReferenceSetRepository(db).AddAsync(Session, [File("site/index.html", "<h1>"), File("site/a.css", "a{}")], CancellationToken.None);
+        await new ApprovedSeriesRepository(db).SaveAsync(Record([set.SetId]), CancellationToken.None);
+
+        (await Deletion(db).DeleteFileAsync(Session, set.SetId, "site/a.css", CancellationToken.None))
+            .Should().Be(ReferenceUploadRemoval.Cited);
+
+        (await db.Set<ReferenceFile>().AsNoTracking().CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task DeleteFile_OneOfTwo_TheNextTurnReadsTheSetWithoutIt()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var sets = new ReferenceSetRepository(db);
+        var set = await sets.AddAsync(Session, [File("site/index.html", "<h1>"), File("site/a.css", "a{}")], CancellationToken.None);
+
+        (await Deletion(db).DeleteFileAsync(Session, set.SetId, "site/a.css", CancellationToken.None))
+            .Should().Be(ReferenceUploadRemoval.Removed);
+
+        // What a turn's reference container is filled from (DbReferenceSetReader reads FilesAsync).
+        (await sets.FilesAsync(Session, set.SetId, CancellationToken.None)).Select(f => f.Path).Should().Equal("site/index.html");
+        (await Deletion(db).DeleteFileAsync(Session, set.SetId, "site/a.css", CancellationToken.None))
+            .Should().Be(ReferenceUploadRemoval.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteFile_LastFile_RemovesTheSet()
+    {
+        await using var store = await ReferenceFileStore.OpenAsync(ReferenceFileStore.Sqlite);
+        await using var db = store.Context();
+        var set = await new ReferenceSetRepository(db).AddAsync(Session, [File("brief.md", "# brief")], CancellationToken.None);
+        await new ReferenceNoteRepository(db).SetAsync(Session, set.SetId, "a brief", CancellationToken.None);
+
+        (await Deletion(db).DeleteFileAsync(Session, set.SetId, "brief.md", CancellationToken.None))
+            .Should().Be(ReferenceUploadRemoval.Removed);
+
+        (await db.Set<ReferenceFile>().AsNoTracking().CountAsync()).Should().Be(0, "the note goes with the set's last file");
+        (await new ReferenceSetRepository(db).ListAsync(Session, CancellationToken.None)).Should().BeEmpty();
     }
 
     [Fact]

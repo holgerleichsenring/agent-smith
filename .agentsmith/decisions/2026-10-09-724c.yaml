@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-09-724c
+
+decisions:
+  - category: Architecture
+    chose: "position: relative on the shell-main utility, making the shell's scroll container the containing block of every absolute descendant"
+    over: "Removing or repositioning the dialog transcript's sr-only speaker labels"
+    reason: |
+      A Playwright probe on a 40-turn conversation found 36 sr-only spans (position: absolute)
+      whose offsetParent was BODY: each sat at its unscrolled position far below the fold and
+      extended the document to 6961 px against a 900 px viewport, so the document scrolled as a
+      second container beside main and showed only as far as the rail reached. Any absolute
+      descendant on any page leaks the same way; the containing block closes the class.
+  - category: Implementation
+    chose: "Pin the rule with a source test of globals.css"
+    over: "A jsdom layout test"
+    reason: |
+      jsdom does no layout, so scrollHeight cannot be measured there; the browser proof is the
+      before/after Playwright run (document scrollHeight 6961 -> 900 at 1440 px, 31365 -> 844 at 390 px).
+  - category: Implementation
+    chose: "No overflow: hidden on body or the shell grid"
+    over: "Hiding the document scrollbar"
+    reason: |
+      It would hide the symptom while the leaked boxes still existed, and cut off whatever they were.

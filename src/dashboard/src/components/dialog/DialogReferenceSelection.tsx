@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import {
-  entriesOf,
-  gitignoresOf,
   leftOutOf,
   megabytes,
   sentBy,
@@ -11,42 +10,38 @@ import {
   type PickLeftOut,
   type SelectionEntry,
 } from "./referenceSelection";
+import { useSelectionEntries } from "./useSelectionEntries";
 
 // 2026-10-02-075db: a picked folder or file set, shown before it is sent. Each top-level entry
 // with what it sends; rebuildable folders and what the pick's own .gitignore names start
 // unticked and say why; the operator ticks what goes, so a cache folder no rule knows is one
 // click. Send is held while the selection is over the set's bounds, saying by how much — the
 // server refuses such a body unread. Cancel drops the pick.
+// 2026-10-09-86e1: what the conversation already holds is marked before anything shows — a loose
+// file unticked with where it is, a folder with how many of its files — and stays the operator's
+// to tick: they own the risk of sending it again.
 
 export function DialogReferenceSelection({
   files,
   onSend,
   onCancel,
   left = null,
+  loadHeld,
 }: {
   files: File[];
+  /** 2026-10-09-86e1: the content hashes the conversation holds; absent before one is open. */
+  loadHeld?: () => Promise<SpecDialogHeldContent[]>;
   /** 2026-10-08-e8b9h: what the conversation has left under its byte cap; Send is held past it. */
   left?: number | null;
   onSend: (files: File[], leftOut: PickLeftOut) => void;
   onCancel: () => void;
 }) {
-  const [entries, setEntries] = useState<SelectionEntry[] | null>(null);
-  const [ticks, setTicks] = useState<boolean[]>([]);
-
-  // The .gitignore files are read before anything is shown: an entry shown ticked that then
-  // unticks itself is a card that changed under the operator's hand.
-  useEffect(() => {
-    let live = true;
-    void gitignoresOf(files).then((gitignores) => {
-      if (!live) return;
-      const read = entriesOf(files, gitignores);
-      setEntries(read);
-      setTicks(read.map((entry) => entry.ticked));
-    });
-    return () => {
-      live = false;
-    };
-  }, [files]);
+  const read = useSelectionEntries(files, loadHeld);
+  const entries = read?.entries ?? null;
+  // The operator's ticks, held against the read they were made on; a new read starts from its own.
+  const [chosen, setChosen] = useState<{ on: typeof read; ticks: boolean[] } | null>(null);
+  const ticks = chosen && chosen.on === read ? chosen.ticks : (entries ?? []).map((entry) => entry.ticked);
+  const setTicks = (next: boolean[]) => setChosen({ on: read, ticks: next });
 
   const sent = useMemo(
     () => (entries ?? []).flatMap((entry, i) => sentBy(entry, ticks[i] ?? false)),
@@ -67,6 +62,11 @@ export function DialogReferenceSelection({
           />
         ))}
       </ul>
+      {read && !read.checked && (
+        <p className="d-pick-total" data-testid="dialog-reference-selection-unchecked">
+          Could not check which of these files this conversation already holds; the server still refuses a pick it holds entirely.
+        </p>
+      )}
       <p className={`d-pick-total${totals.over ? " bad" : ""}`} data-testid="dialog-reference-selection-total">
         {`Sending ${countOf(totals.files)}, ${megabytes(totals.bytes)}`}
         {totals.over ? ` — ${totals.over}.` : "."}
@@ -107,6 +107,7 @@ function EntryRow({ entry, ticked, onTick }: { entry: SelectionEntry; ticked: bo
       </label>
       <span className="d-pick-size">
         {ticked || !entry.reason ? `${countOf(sending.length)}, ${megabytes(bytes)}` : entry.reason}
+        {entry.held && <span className="d-pick-held" data-testid={`dialog-reference-held-${entry.name}`}>{entry.held}</span>}
       </span>
     </li>
   );
