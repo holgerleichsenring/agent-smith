@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -60,7 +61,7 @@ internal sealed class AccessTestHarness : IDisposable
         _provider = services.BuildServiceProvider();
 
         using var scope = _provider.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        MigratedStoreTemplate.CopyInto(scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>());
 
         Mapping = new RoleMappingSource(
             new StoredRoleMapping(Store, NullLogger<StoredRoleMapping>.Instance), Auth);

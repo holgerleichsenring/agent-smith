@@ -18,6 +18,7 @@ namespace AgentSmith.Tests.Integration;
 /// specs/done/ with an outcome block, in one series commit with the manifest, and re-records the
 /// pointer at that commit — so the directory, not a list, says the spec ran.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class SpecDoneRecordGitTests
 {

@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// load on the day this was written, and a rig that is only fast when the machine is idle
 /// has not fixed anything.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class BootedServerRigTests : IDisposable
 {

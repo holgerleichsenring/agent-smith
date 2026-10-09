@@ -10,6 +10,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// permanent advisory on every server that has not adopted authentication yet, which is
 /// noise an operator learns to scroll past — and the next real finding scrolls past with it.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class NoAuthBlockTests(NoAuthorityFixture fixture) : IClassFixture<NoAuthorityFixture>
 {

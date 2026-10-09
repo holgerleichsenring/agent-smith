@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-09-7f48
+
+decisions:
+  - category: Architecture
+    chose: "Split AgentSmith.Tests over processes selected by a TestProcess trait: env-1..env-3 for the environment collection, serial for the DisableParallelization collections, the body as the negation of those four"
+    over: "Moving the server's environment reads into configuration; raising xUnit parallelism; keeping one process"
+    reason: "Environment variables are per process, so a shard keeps the collection's guarantee without a product change. Measured: the env collection alone was 131-200 s serial and the non-parallel tail 43-67 s; MaxParallelThreads -1/48 moved the body within noise. A positive body filter that matches nothing exits 0, so the negation keeps an untagged class running."
+  - category: Architecture
+    chose: "TestProcessTraitRuleTests reads the collection by reflection and fails a sharded-collection class without exactly one matching trait, a trait outside those collections, and any value beyond the four the gate names"
+    over: "Tagging every one of the ~1,370 classes"
+    reason: "The body needs no tag because it is the complement; what can go wrong is a fenced class landing in the body, and that is what the rule fails."
+  - category: Implementation
+    chose: "MigratedStoreTemplate.CopyInto(context) restores the migrated template into the store a context points at and refuses a store that already has tables; file stores use CopyToFile"
+    over: "Database.Migrate() in each test's constructor"
+    reason: "About 465 tests paid a CPU-bound migration each (23 tests: 7 s); the same classes ran 561 tests in 9 s after. A backup replaces its target, so a populated store is refused rather than wiped."
+  - category: Implementation
+    chose: "TestMigrationRuleTests matches any call named Migrate/MigrateAsync outside a named allowlist: the template, SQL Server stores (ScratchSqlServer, DataArchiveSqlServerTests, ConfigStudioApiSmokeTests' SQL Server branch), and the migration-subject tests RunStoreRepairTests, RunSpecsRenameMigrationTests and StepAttributionPersistenceTests"
+    over: "Matching only Database.Migrate(); allowlisting by pattern"
+    reason: "Review cut E: Migrate(dbPath) helpers and Migrator().MigrateAsync apply the set too. StepAttributionPersistenceTests migrates over existing rows to a named earlier migration, which a copy cannot serve — it is beyond the reviewer's list and named here."
+  - category: Architecture
+    chose: "The gate probes cores with getconf; at 8 or more it runs [hook tests, dashboard] beside [build, then tests, dry-runs and presets at once]; below 8 it is the previous sequence exactly"
+    over: "Always parallel; a separate fast mode"
+    reason: "The serial set beside the body puts process-spawning tests next to timing-bounded ones on one machine — what ExternalProcessCollection avoids on two cores. A small machine keeps the old gate; PHASE_GATE_CORES pins either shape for the hook tests."
+  - category: Implementation
+    chose: "Every check reports its failure to a file instead of calling fail(); lanes and jobs are waited by their own pid, output is printed in a fixed order, a missing exit-code file is a failure, and one ledger line names every failed step comma-separated"
+    over: "fail() inside background subshells"
+    reason: "Review cut B: exit inside a subshell does not end the gate, and a bare wait returns 0. The passed detail stays 'dashboard,build,tests,dry-runs,harness-presets'."
+  - category: Scope
+    chose: "CLAUDE.md step 6: run the tests of what changed while iterating; the full suite runs once, in the gate; run it by hand when the gate reports not-gated or passes the commit through"
+    over: "Run ALL tests before every commit"
+    reason: "The suite ran twice per phase. The gate blocks a red commit; the forms it cannot read (bare commit, editor amend, -F -, -m \"$(...)\", commits outside Bash) are where the hand run remains."
+  - category: TradeOff
+    chose: "Measured on a 12-core Mac: lane gate 93.0 / 83.6 / 82.5 s (median 84 s), stages build ~5 s, AgentSmith.Tests body 74-83 s, serial 67-72 s, env shards 23-47 s, PipelineHarness 51-62 s, presets and dry-runs inside that window; sequential gate 230.5 s; before 360 s warm, 530 s cold"
+    over: "Estimates"
+    reason: "Done criterion: median of three at most 150 s; test totals 8,822 in both shapes."

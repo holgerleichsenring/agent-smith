@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// <c>GET /api/config/capabilities</c>: it needs <c>config.read</c> and it answers without
 /// a Redis, which the boot deliberately does not have.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class TokenAuthorityEnforcementTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

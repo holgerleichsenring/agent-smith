@@ -7,6 +7,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Sandbox;
 
+[Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class SandboxBackendDetectionTests : IDisposable
 {

@@ -9,6 +9,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// thing that can be wrong, and the refusal has to keep saying so. Without this, "name the
 /// server" could be implemented by never naming the token again.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ReachableAuthorityChallengeTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

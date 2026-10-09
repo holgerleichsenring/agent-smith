@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Integration;
 /// neither the commit's <c>git add -A</c> nor the run record's force-stage of the whole .agentsmith
 /// directory — which ignores .git/info/exclude — puts a single one of their files in the commit.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class ReferenceCommitExclusionTests
 {

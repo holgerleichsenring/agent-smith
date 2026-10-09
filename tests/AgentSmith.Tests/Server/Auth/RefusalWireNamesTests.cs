@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// stays green under any naming policy and would let a renamed field reach a browser that
 /// then reports a refusal naming nothing.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class RefusalWireNamesTests(RoleMappingAuthorityFixture fixture)
     : IClassFixture<RoleMappingAuthorityFixture>

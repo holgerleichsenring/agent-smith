@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// self-inflicted load — and a read that failed must not turn an operator's deliberate
 /// zero into the built-in default.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class SandboxHoldWindowTests
 {

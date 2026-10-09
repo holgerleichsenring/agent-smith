@@ -51,6 +51,27 @@ internal static class MigratedStoreTemplate
         lock (Gate) Template.Value.BackupDatabase(file);
     }
 
+    /// <summary>
+    /// 2026-10-09-7f48: the migrated schema, restored into the store a context already points
+    /// at — an in-memory connection the test holds open, or a file named by its connection
+    /// string. What <c>Database.Migrate()</c> did in each test's constructor, at the price of
+    /// a page copy. A store that already has tables is refused rather than overwritten: a
+    /// backup replaces the target, and a store someone already wrote to is not a fresh one.
+    /// </summary>
+    internal static void CopyInto(DbContext context)
+    {
+        var target = (SqliteConnection)context.Database.GetDbConnection();
+        if (target.State != System.Data.ConnectionState.Open) target.Open();
+        using (var probe = target.CreateCommand())
+        {
+            probe.CommandText = "SELECT count(*) FROM sqlite_master WHERE type = 'table'";
+            if (Convert.ToInt64(probe.ExecuteScalar()) > 0)
+                throw new InvalidOperationException(
+                    "the target store already has tables; a template copy would overwrite them");
+        }
+        lock (Gate) Template.Value.BackupDatabase(target);
+    }
+
     /// <summary>How many times the migration set was applied in this process. One, or the
     /// template stopped being shared — which is the whole cost this class exists to remove.</summary>
     internal static int TimesMigrated => _timesMigrated;

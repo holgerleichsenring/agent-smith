@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Pricing;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Services;
@@ -43,7 +44,7 @@ public sealed class DbConfigTestHarness : IDisposable
         _provider = services.BuildServiceProvider();
 
         using var scope = _provider.CreateScope();
-        scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        MigratedStoreTemplate.CopyInto(scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>());
     }
 
     public IConfigDocumentStore DocStore => _provider.GetRequiredService<IConfigDocumentStore>();

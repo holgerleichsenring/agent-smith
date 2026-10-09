@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// a corpse, and the project form's inherited-value projection that has to name the window
 /// the next scan will use. One algorithm over two inputs would still be two answers.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class SandboxHoldWindowChainTests : IDisposable
 {

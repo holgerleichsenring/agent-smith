@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// auth block says.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class UnusableAuthBlockTests(UnusableAuthorityFixture fixture)
     : IClassFixture<UnusableAuthorityFixture>

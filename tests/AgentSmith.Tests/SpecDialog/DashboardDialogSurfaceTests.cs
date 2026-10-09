@@ -46,7 +46,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,

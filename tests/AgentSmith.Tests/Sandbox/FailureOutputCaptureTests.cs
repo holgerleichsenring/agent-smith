@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// one thing thrown away.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public class FailureOutputCaptureTests
 {

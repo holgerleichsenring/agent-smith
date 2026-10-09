@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// from it. The studio's forms render from the capabilities descriptor, so that is where
 /// the catalog is served — a second endpoint would be a second copy of a closed list.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class PermissionCatalogServedTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

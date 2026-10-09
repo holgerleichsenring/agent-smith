@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Server;
 /// per-request header would have meant editing every call site and could not have reached
 /// the hub at all, whose browser websocket cannot set one.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class BuildIdentityServedTests : IDisposable
 {

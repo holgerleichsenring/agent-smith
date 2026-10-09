@@ -48,6 +48,7 @@ namespace AgentSmith.Tests.Integration;
 ///   2. With the override (the same line Server's Program.cs adds) →
 ///      loaded (proves the fix wires up).
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class AgentSmithConfigCompositionTests : IDisposable
 {
@@ -127,7 +128,7 @@ public sealed class AgentSmithConfigCompositionTests : IDisposable
         var builder = new DbContextOptionsBuilder<AgentSmithDbContext>();
         builder.UseProvider(new PersistenceOptions { Provider = PersistenceProvider.Sqlite, ConnectionString = $"Data Source={dbPath}" });
         using var db = new AgentSmithDbContext(builder.Options);
-        db.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(db);
         var raw = new RawConfigYaml().Deserialize(FixtureYaml);
         var writes = new ConfigDocumentAssembler().Decompose(raw)
             .Select(d => new ConfigDocWrite(d.Type, d.Id, d.Doc, null, d.Edges, "test"))

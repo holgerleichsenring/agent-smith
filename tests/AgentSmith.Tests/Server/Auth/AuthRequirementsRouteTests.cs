@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// authority sees nothing but 401s. Booted rather than unit-tested, because the claim is
 /// that a REAL enforcing server answers a caller who has nothing to present.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class AuthRequirementsRouteTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

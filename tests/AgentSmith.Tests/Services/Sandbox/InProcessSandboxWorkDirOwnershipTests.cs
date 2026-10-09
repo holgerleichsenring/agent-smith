@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// copy). This suite asserts the ownsWorkDir contract: the sandbox only removes
 /// what it created, never what the operator handed in.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxWorkDirOwnershipTests
 {

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
@@ -40,7 +41,7 @@ public sealed class JobsBroadcasterDrainTests : IDisposable
     public JobsBroadcasterDrainTests()
     {
         using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
         ctx.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
         _publisher = new RedisEventPublisher(
             _redis.Connection, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);

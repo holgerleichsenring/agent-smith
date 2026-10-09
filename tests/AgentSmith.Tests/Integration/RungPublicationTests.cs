@@ -27,6 +27,7 @@ namespace AgentSmith.Tests.Integration;
 /// shared branch would delete every slice already merged into it.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class RungPublicationTests
 {

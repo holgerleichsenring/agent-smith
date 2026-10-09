@@ -11,6 +11,7 @@ using AgentSmith.Tests.Architecture;
 
 namespace AgentSmith.Tests.Services;
 
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class ToolRunnerTests
 {

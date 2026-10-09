@@ -26,6 +26,7 @@ namespace AgentSmith.Tests.Integration;
 /// is set. That was invisible until this test; the merge above aborts the conflict, so the
 /// two together are why no run can push a tree it could not reconcile.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class ConflictedCheckoutStopsThePushTests
 {

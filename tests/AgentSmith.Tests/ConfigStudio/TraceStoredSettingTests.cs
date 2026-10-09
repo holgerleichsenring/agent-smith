@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// store had no trace document, so tracing could be switched on only by environment; an
 /// import dropped the block and an export emitted it.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(nameof(TraceEnvironment))]
 public sealed class TraceStoredSettingTests : IDisposable
 {

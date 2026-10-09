@@ -18,6 +18,7 @@ namespace AgentSmith.Tests.Integration;
 /// Skip-pattern: each test guards on dotnet being on PATH (it is on
 /// every agent-smith CI runner; locally it's whatever the dev has).
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class CsharpSandboxExecutionTests(ITestOutputHelper output)
 {

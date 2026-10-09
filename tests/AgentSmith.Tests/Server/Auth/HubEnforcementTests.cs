@@ -10,6 +10,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// claim under test is that the dispatcher names a method the way the table does, and an
 /// argued claim is worth nothing next to one an invocation answers.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class HubEnforcementTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

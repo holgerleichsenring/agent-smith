@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// is skipped without a word — so the private feed stayed unauthenticated and every
 /// build went red.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class RegistryConfigDiscoveryTests(ITestOutputHelper output)
 {

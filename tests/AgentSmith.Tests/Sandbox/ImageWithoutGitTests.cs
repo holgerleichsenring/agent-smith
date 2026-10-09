@@ -20,6 +20,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// quietly swapped for another one. It is used, and it fails at the one step that
 /// needs git — saying so.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class ImageWithoutGitTests
 {

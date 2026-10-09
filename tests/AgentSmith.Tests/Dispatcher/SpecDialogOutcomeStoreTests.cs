@@ -44,7 +44,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
 
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         _repository = new SpecDialogSessionRepository(_context);

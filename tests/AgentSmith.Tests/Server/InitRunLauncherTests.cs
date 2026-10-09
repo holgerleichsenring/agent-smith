@@ -52,7 +52,7 @@ public sealed class InitRunLauncherTests : IDisposable
     {
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
-        using (var ctx = new AgentSmithDbContext(Options())) ctx.Database.Migrate();
+        using (var ctx = new AgentSmithDbContext(Options())) MigratedStoreTemplate.CopyInto(ctx);
 
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));

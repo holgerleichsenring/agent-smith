@@ -26,6 +26,7 @@ namespace AgentSmith.Tests.Server.Archive;
 /// would need hundreds of megabytes in the database to clear thirty on the wire.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(EnvVarCollection.Name)]
 public sealed class ArchiveUploadCeilingServedTests : IDisposable
 {
@@ -122,7 +123,7 @@ public sealed class ArchiveUploadCeilingServedTests : IDisposable
         var path = Temporary("db");
         _temporary.Add(path + "-wal");
         _temporary.Add(path + "-shm");
-        ArchiveStore.Migrate(path);
+        ArchiveStore.CopyMigratedStore(path);
         return path;
     }
 

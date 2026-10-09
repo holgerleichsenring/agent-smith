@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -45,7 +46,7 @@ public sealed class RunDeleteTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using (var ctx = new AgentSmithDbContext(Options()))
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
         _queue = BuildDbQueue(_connection);
         // The DEFAULT answer, set once here so a test that wants a throwing provider can
         // override it — Moq takes the last matching Setup, and re-stating this default at

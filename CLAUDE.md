@@ -125,7 +125,14 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
 3. **Plan first** — explore codebase, design approach, get user approval before coding.
 4. **Implement step by step** — contracts/models first, then implementation, then wiring, then tests.
 5. **Build after each step** — fix errors immediately, don't accumulate them.
-6. **Run ALL tests** — ensure zero failures before moving on.
+6. **Run the tests of what you changed** — while iterating, run the affected classes
+   (`dotnet test --no-build --filter "FullyQualifiedName~…"`, `pnpm test <path>`), zero
+   failures before moving on. The full suite runs once, in the phase gate at the phase
+   commit, and a red suite blocks that commit. When the gate cannot check the commit — it
+   reports `not-gated` or passes it through (a bare commit, an editor amend, `-F -`,
+   `-m "$(…)"`), or the commit is made outside the Bash tool — run the full
+   `dotnet test AgentSmith.sln --filter "Category!=LiveLLM"` and the dashboard tests by hand
+   before committing.
 7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
 8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/specs/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
 9. **Move to done** — move the phase file from `active/` to `done/`.
@@ -138,15 +145,32 @@ a namespace rather than an ordering. The product still mints a sentence slug fro
 tests, the backend build, the full suite, CLI dry-runs and harness presets must be green,
 or the commit is blocked. Read this before a definition of done leans on it.
 
-- **The gate proves itself first.** `.claude/hooks/test_*.py` — the command detection and
-  the message resolver — run from the tree being gated, before anything else, so a commit
+- **Two shapes, chosen by core count** (2026-10-09-7f48). On eight or more cores
+  (`getconf _NPROCESSORS_ONLN`) the checks run in two lanes: hook tests then dashboard,
+  beside build then tests, dry-runs and presets at once. The test assemblies run as
+  separate processes and AgentSmith.Tests as five, chosen by the `TestProcess` trait —
+  `env-1`..`env-3` for the environment-mutating collection (environment variables are per
+  process, so the shards keep that collection's guarantee), `serial` for the collections
+  that run alone, and the body as the NEGATION of those four, so an untagged class still
+  runs. `TestProcessTraitRuleTests` fails a class whose trait and collection disagree.
+  Every job is awaited by its own pid, output is printed in a fixed order, and ONE ledger
+  line names every failed step, comma-separated. Below eight cores the gate is the old
+  sequence — one `dotnet test` over the solution, the first failure blocks — because the
+  split puts process-spawning tests beside timing-bounded ones on the same machine.
+  `PHASE_GATE_CORES` overrides the probe. Measured on a 12-core Mac: 84 s median against
+  360-530 s before.
+
+- **The gate proves itself.** `.claude/hooks/test_*.py` — the command detection and
+  the message resolver — run from the tree being gated (first in the sequence, first in
+  the dashboard lane), so a commit
   that changes the hook is proven by the hook it ships rather than by the copy the session
   started with. They cost about ten seconds. A gate they drive skips this step instead of
   running the tests that invoked it, and their ledger is redirected, so nothing they do
   reaches `.claude/phase-gate.log`. A tree carrying no hook tests says so and moves on.
 
-- **The dashboard runs first.** `pnpm install --frozen-lockfile`, `pnpm gen:hub-events`,
-  `pnpm test` and `pnpm build` in `src/dashboard`, before any .NET check — its own CI
+- **The dashboard is always checked.** `pnpm install --frozen-lockfile`, `pnpm gen:hub-events`,
+  `pnpm test` and `pnpm build` in `src/dashboard` — before any .NET check in the sequence,
+  beside them in the lanes — its own CI
   workflow is path-filtered on `src/dashboard/**`, so a backend-only payload change never
   proved the half that renders it. A tree with no `src/dashboard/package.json` has nothing
   to check and says so; a tree that has one and no `pnpm` **blocks**, because a silent skip

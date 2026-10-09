@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Server;
 /// memory and disk. 2026-10-02-5ab2a: on the server that store is the database row — resolving it
 /// reaches neither the database nor Redis.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ConnectionDiscoveryCompositionTests
 {

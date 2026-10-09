@@ -36,4 +36,31 @@ public sealed class MigratedStoreTemplateTests
         using var other = MigratedStoreTemplate.Context(second);
         other.Runs.Should().BeEmpty("a copy is not a share");
     }
+
+    [Fact]
+    public void CopyInto_AnEmptyStore_CarriesTheCurrentSchema()
+    {
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        connection.Open();
+        using var ctx = MigratedStoreTemplate.Context(connection);
+
+        MigratedStoreTemplate.CopyInto(ctx);
+
+        ctx.Database.GetPendingMigrations().Should().BeEmpty("the copy is as migrated as the template");
+        ctx.Runs.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CopyInto_AStoreWithTables_IsRefusedAndKeepsItsRows()
+    {
+        using var connection = MigratedStoreTemplate.OpenCopy();
+        using var ctx = MigratedStoreTemplate.Context(connection);
+        ctx.Runs.Add(new Run { Id = "kept", Project = "p", Pipeline = "code" });
+        ctx.SaveChanges();
+
+        var copy = () => MigratedStoreTemplate.CopyInto(ctx);
+
+        copy.Should().Throw<InvalidOperationException>();
+        ctx.Runs.Should().ContainSingle(r => r.Id == "kept");
+    }
 }

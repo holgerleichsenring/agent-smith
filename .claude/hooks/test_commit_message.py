@@ -313,8 +313,9 @@ _MIRROR_SCRIPT = "node ../../tools/build-hub-event-types.mjs --check"
 def _dashboard_repository(dashboard_exit=0, mirror=None):
     """A throwaway repository shaped like THIS one — it carries an AgentSmith.sln, so
     the gate runs the solution checks, and a src/dashboard whose pnpm is a stub that
-    exits as told. The dashboard step runs first, so a failing stub blocks the phase
-    commit before a single .NET command is reached.
+    exits as told. In the sequential gate (fewer than eight cores, which the cases here pin)
+    the dashboard step runs first, so a failing stub blocks the phase commit before a single
+    .NET command is reached; the lane cases further down drive the other shape.
 
     `mirror` gives the tree a generated mirror to check: this repository's own generator,
     a C# event enum and a TypeScript mirror that either keeps up with it ("intact") or has
@@ -359,13 +360,19 @@ def _dashboard_repository(dashboard_exit=0, mirror=None):
         yield repo, stub_dir
 
 
-def _run_gate_with_stub_pnpm(command, repo, stub_dir, trace, ledger=None):
-    """Drive the gate with the stub pnpm ahead of anything real on PATH."""
+def _run_gate_with_stub_pnpm(command, repo, stub_dir, trace, ledger=None, cores="1", extra=None):
+    """Drive the gate with the stub pnpm ahead of anything real on PATH.
+
+    2026-10-09-7f48: `cores` pins the gate's shape. The default, one core, is the sequential
+    gate every case below was written against — first failure blocks, nothing after it runs;
+    the lane cases pass eight."""
     payload = json.dumps({"tool_input": {"command": command}, "cwd": repo})
     environment = _environment()
     environment["PHASE_GATE_LOG"] = str(ledger) if ledger else os.devnull
     environment["PATH"] = f"{stub_dir}{os.pathsep}{environment['PATH']}"
     environment["PNPM_TRACE"] = str(trace)
+    environment["PHASE_GATE_CORES"] = cores
+    environment.update(extra or {})
     return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
                           env=environment, capture_output=True, text=True)
 
@@ -470,10 +477,147 @@ def Gate_TheBlockedLedgerLine_NamesTheMirrorStep():
             ("blocked", "dashboard: pnpm gen:hub-events")], _ledger(ledger)
 
 
+# 2026-10-09-7f48: the lane shape. A stub dotnet stands in for the toolchain — it records
+# every invocation and fails the one whose arguments contain DOTNET_FAIL — and the fixture's
+# AgentSmith.sln names two test projects, so the gate splits AgentSmith.Tests and runs the
+# other assembly whole, exactly as it reads the real solution.
+_STUB_DOTNET = """#!/usr/bin/env bash
+echo "dotnet $*" >>"$DOTNET_TRACE"
+case "$*" in *"-- --list"*) printf 'alpha\\nbeta\\n'; exit 0 ;; esac
+if [ -n "${DOTNET_FAIL:-}" ] && [[ "$*" == *"$DOTNET_FAIL"* ]]; then
+  echo "stub failure for $DOTNET_FAIL"; exit "${DOTNET_FAIL_RC:-1}"
+fi
+echo "Passed!  - Failed:     0, Passed:     1, Skipped:     0, Total:     1"
+exit 0
+"""
+_STUB_SLN = (
+    'Project("{FAE04EC0}") = "AgentSmith.Tests", "tests\\AgentSmith.Tests\\AgentSmith.Tests.csproj", "{A}"\n'
+    'EndProject\n'
+    'Project("{FAE04EC0}") = "Other.Tests", "tests\\Other.Tests\\Other.Tests.csproj", "{B}"\n'
+    'EndProject\n'
+    'Project("{FAE04EC0}") = "Product", "src\\Product\\Product.csproj", "{C}"\n'
+    'EndProject\n')
+_BODY_FILTER = ("Category!=LiveLLM&TestProcess!=env-1&TestProcess!=env-2"
+                "&TestProcess!=env-3&TestProcess!=serial")
+
+
+@contextlib.contextmanager
+def _lane_repository(dashboard_exit=0):
+    with _dashboard_repository(dashboard_exit) as (repo, stub_dir):
+        root = pathlib.Path(repo)
+        (root / "AgentSmith.sln").write_text(_STUB_SLN)
+        for name in ("AgentSmith.Tests", "Other.Tests"):
+            (root / "tests" / name).mkdir(parents=True)
+            (root / "tests" / name / f"{name}.csproj").write_text(
+                "<Project><PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup></Project>\n")
+        (root / "src" / "Product").mkdir(parents=True)
+        (root / "src" / "Product" / "Product.csproj").write_text("<Project />\n")
+        dotnet = stub_dir / "dotnet"
+        dotnet.write_text(_STUB_DOTNET)
+        dotnet.chmod(0o755)
+        yield repo, stub_dir
+
+
+def _run_lanes(repo, stub_dir, scratch, cores="8", **dotnet):
+    trace = pathlib.Path(scratch) / "pnpm.trace"
+    trace.write_text("")
+    dotnet_trace = pathlib.Path(scratch) / "dotnet.trace"
+    dotnet_trace.write_text("")
+    ledger = pathlib.Path(scratch) / "phase-gate.log"
+    extra = {"DOTNET_TRACE": str(dotnet_trace)}
+    extra.update({k.upper(): v for k, v in dotnet.items()})
+    completed = _run_gate_with_stub_pnpm(f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir,
+                                         trace, ledger, cores=cores, extra=extra)
+    return completed, dotnet_trace.read_text().splitlines(), _ledger(ledger)
+
+
+def Gate_Lanes_AllGreen_PassWithTodaysLedgerDetail():
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        completed, _, ledger = _run_lanes(repo, stub_dir, scratch)
+        assert completed.returncode == 0, completed
+        assert "two lanes" in completed.stderr, completed.stderr
+        assert [(line[1], line[5]) for line in ledger] == [
+            ("passed", "dashboard,build,tests,dry-runs,harness-presets")], ledger
+
+
+def Gate_Lanes_SplitAgentSmithTestsInFiveAndRunTheOtherAssemblyWhole():
+    """The body is the NEGATION of the four trait values: a class nobody tagged still runs.
+    A positive body filter that matched nothing would exit 0 and drop it in silence."""
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        _, calls, _ = _run_lanes(repo, stub_dir, scratch)
+        tests = sorted(c for c in calls if c.startswith("dotnet test"))
+        assert tests == sorted([
+            f"dotnet test tests/AgentSmith.Tests/AgentSmith.Tests.csproj --no-build --filter {_BODY_FILTER}",
+            *[f"dotnet test tests/AgentSmith.Tests/AgentSmith.Tests.csproj --no-build --filter "
+              f"Category!=LiveLLM&TestProcess={v}" for v in ("env-1", "env-2", "env-3", "serial")],
+            "dotnet test tests/Other.Tests/Other.Tests.csproj --no-build --filter Category!=LiveLLM",
+        ]), tests
+
+
+def Gate_Lanes_BothLanesFail_OneLedgerLineNamingBoth():
+    with _lane_repository(dashboard_exit=1) as (repo, stub_dir), \
+            tempfile.TemporaryDirectory() as scratch:
+        completed, _, ledger = _run_lanes(repo, stub_dir, scratch, dotnet_fail="build AgentSmith.sln")
+        assert completed.returncode == 2, completed
+        assert [(line[1], line[5]) for line in ledger] == [
+            ("blocked", "dashboard: pnpm install,build")], ledger
+
+
+def Gate_Lanes_OneTestProcessFails_BlocksAndNamesIt():
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        completed, _, ledger = _run_lanes(repo, stub_dir, scratch, dotnet_fail="TestProcess=env-2")
+        assert completed.returncode == 2, completed
+        assert "stub failure for TestProcess=env-2" in completed.stderr, completed.stderr
+        assert [(line[1], line[5]) for line in ledger] == [
+            ("blocked", "dotnet test: env-2")], ledger
+
+
+def Gate_Lanes_TestsAndADryRunFail_NamedInAFixedOrder():
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        _, _, ledger = _run_lanes(repo, stub_dir, scratch, dotnet_fail="--help")
+        assert [(line[1], line[5]) for line in ledger] == [("blocked", ",".join(
+            f"dry-run: {c} --help" for c in ("api-scan", "security-scan", "fix", "feature")))], ledger
+
+
+def Gate_Lanes_APresetReturningOne_IsAValidOutcome():
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        completed, _, ledger = _run_lanes(repo, stub_dir, scratch,
+                                          dotnet_fail="--preset beta", dotnet_fail_rc="1")
+        assert completed.returncode == 0, completed
+        assert "preset ran: beta (rc=1)" in completed.stderr, completed.stderr
+        assert [line[1] for line in ledger] == ["passed"], ledger
+
+
+def Gate_Lanes_APresetCrashing_Blocks():
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        completed, _, ledger = _run_lanes(repo, stub_dir, scratch,
+                                          dotnet_fail="--preset beta", dotnet_fail_rc="2")
+        assert completed.returncode == 2, completed
+        assert [(line[1], line[5]) for line in ledger] == [
+            ("blocked", "harness preset crashed: beta")], ledger
+
+
+def Gate_UnderEightCores_RunsTodaysSequenceWithOneDotnetTest():
+    """Below eight cores nothing is split and nothing runs side by side: one dotnet test over
+    the solution, and the first failure blocks before anything after it starts."""
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        completed, calls, ledger = _run_lanes(repo, stub_dir, scratch, cores="4")
+        assert completed.returncode == 0, completed
+        assert "in sequence (4 cores)" in completed.stderr, completed.stderr
+        assert [c for c in calls if c.startswith("dotnet test")] == [
+            "dotnet test AgentSmith.sln --no-build --filter Category!=LiveLLM"], calls
+        assert [line[1] for line in ledger] == ["passed"], ledger
+    with _lane_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
+        _, calls, ledger = _run_lanes(repo, stub_dir, scratch, cores="4", dotnet_fail="build AgentSmith.sln")
+        assert [c for c in calls if not c.startswith("dotnet build")] == [], calls
+        assert [(line[1], line[5]) for line in ledger] == [("blocked", "build")], ledger
+
+
 # Everything the gate itself shells out to. A PATH assembled from exactly these —
 # and nothing else — is a PATH with no pnpm on it, on any machine.
 _GATE_TOOLS = ["bash", "python3", "git", "grep", "sed", "head", "tail", "tr", "date",
-               "mktemp", "base64", "cat", "dirname", "env", "uname"]
+               "mktemp", "base64", "cat", "dirname", "env", "uname", "getconf", "ls",
+               "basename"]
 
 
 @contextlib.contextmanager

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -525,7 +526,12 @@ public sealed class ConfigStudioApiSmokeTests
     {
         using var scope = app.Services.CreateScope();
         if (migrate)
-            scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>().Database.Migrate();
+        {
+            // A SQL Server store (AGENTSMITH_TEST_DB_CONNSTR) has no SQLite template to copy.
+            var db = scope.ServiceProvider.GetRequiredService<AgentSmithDbContext>();
+            if (db.Database.IsSqlite()) MigratedStoreTemplate.CopyInto(db);
+            else db.Database.Migrate();
+        }
         if (!seed) return;
         var assembler = app.Services.GetRequiredService<ConfigDocumentAssembler>();
         var raw = new RawConfigYaml().Deserialize(File.ReadAllText(configPath));

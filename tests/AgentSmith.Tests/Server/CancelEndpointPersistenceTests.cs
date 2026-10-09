@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Contracts.Events;
 using RunEvent = AgentSmith.Contracts.Events.RunEvent;
@@ -44,7 +45,7 @@ public sealed class CancelEndpointPersistenceTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using (var ctx = new AgentSmithDbContext(Options()))
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
 
         var events = new Mock<IEventPublisher>();
         events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))

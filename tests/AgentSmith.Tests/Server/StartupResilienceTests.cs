@@ -23,6 +23,7 @@ namespace AgentSmith.Tests.Server;
 /// call Program.cs makes) with a dependency broken, and asserts the server answers and
 /// names the cause. A throw reintroduced into a startup path fails these.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class StartupResilienceTests : IDisposable
 {

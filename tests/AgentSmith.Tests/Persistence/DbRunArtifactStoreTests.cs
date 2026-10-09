@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -23,7 +24,7 @@ public sealed class DbRunArtifactStoreTests : IDisposable
         _connection.Open();
         using var ctx = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

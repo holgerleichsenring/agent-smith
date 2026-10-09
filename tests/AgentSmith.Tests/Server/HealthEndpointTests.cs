@@ -10,6 +10,7 @@ namespace AgentSmith.Tests.Server;
 /// names each subsystem's state so an operator curling it sees which one is not up and why.
 /// Boots the real composition with Redis pointed at nothing — the degradation under test.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class HealthEndpointTests : IDisposable
 {

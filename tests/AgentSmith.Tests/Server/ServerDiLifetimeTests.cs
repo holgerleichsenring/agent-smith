@@ -29,6 +29,7 @@ namespace AgentSmith.Tests.Server;
 // Serialized with the other backend-env readers: SandboxBackendDetectionTests mutates
 // process-global SANDBOX_TYPE / KUBERNETES_SERVICE_HOST, and a parallel BuildServerLikeServices
 // here would otherwise pick the k8s backend and eagerly call InClusterConfig() → KubeConfigException.
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ServerDiLifetimeTests
 {

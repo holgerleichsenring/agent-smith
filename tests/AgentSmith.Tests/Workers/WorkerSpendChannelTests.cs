@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Workers;
 /// for a call that cost no money, and a flag that kills a transport promised to accept any
 /// binary reading stdin.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class WorkerSpendChannelTests
 {

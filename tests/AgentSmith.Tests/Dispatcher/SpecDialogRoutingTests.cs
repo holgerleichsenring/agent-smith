@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -47,7 +48,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         _context = NewContext();
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
 
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         var repository = new SpecDialogSessionRepository(_context);

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -49,7 +50,7 @@ public sealed class WaitingRunHarness : IDisposable
     {
         _connection = connection ?? _redis.Connection;
         using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
         ctx.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
         _publisher = new RedisEventPublisher(
             _connection, new EventEnvelopeSerializer(), NullLogger<RedisEventPublisher>.Instance);

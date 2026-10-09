@@ -29,6 +29,7 @@ namespace AgentSmith.Tests.Server;
 /// the unconditional routes alone. Hence the explicit set and the env-var collection.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(EnvVarCollection.Name)]
 public sealed class RoutePermissionGuardTests
 {

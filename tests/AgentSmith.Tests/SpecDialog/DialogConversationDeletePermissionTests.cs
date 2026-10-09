@@ -22,6 +22,7 @@ namespace AgentSmith.Tests.SpecDialog;
 /// answer a delete here, only prove that authorization stopped letting it through.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class DialogConversationDeletePermissionTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>
