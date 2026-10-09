@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-0781
+goal: "Every rework act is served on one path: webhooks and run ends enqueue a durable nudge, and one worker checks the ticket against what its last run read and serves the act once."
+
+applies_to: "backend (nudge queue, rework ledger, worker, lease release, run finalization, run row, rework entry, webhook handlers)"
+
+requires: [2026-10-08-f147]
+
+facts:
+  - claim: "Releases pass ActiveRunRepository.ReleaseAsync (one ExecuteDelete, Released when a row went); a stale lease is reclaimed and attached without a release; some releases name no run; the CLI binds NoOpActiveRunLease."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbActiveRunLease.cs:16-22, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:72-81,89-102,104-107, src/backend/AgentSmith.Application/Services/Lifecycle/RunStartGate.cs:76, src/backend/AgentSmith.Application/Services/Claim/ClaimedTicketRegistrar.cs:43, src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:95-101"
+  - claim: "The run publishes RunFinished, then releases; the row turns terminal later in the projector; a reaped run is released before CancelEnforcer finishes it; the reconciler also finishes rows; bulk delete removes terminal runs' lease rows."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:237,242-251, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:32, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:28-41, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:56-70, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:120-137, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24,35-40, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:63-66"
+  - claim: "Deleting a non-terminal run releases its lease and finalizes the ticket without cancelling the executor; an operator cancel stores reason 'operator' and a deadline of request time plus KillGrace."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:13-19,47-59, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:128-129, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:97-104"
+  - claim: "Handlers enter the rework inline; the router dispatches plan answers and NotARework inline and reads the keyword by match kind; the entry needs the pipeline; the poller builds an envelope from a fetched ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:26-50,67-69, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:31-46, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:35-67, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:26-45, src/backend/AgentSmith.Application/Services/Polling/PolledTicketEnvelope.cs:17-32"
+  - claim: "Precedes is StartedAt plus one minute at six call sites; the split prints StartedAt; TicketFetchedEvent is published after the reads, best-effort; the applier sets the title on line 50 at its 159 baseline."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:17-20, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:36,43, src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:22, src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:60, src/backend/AgentSmith.Application/Services/Rework/PrReviewSelection.cs:20, src/backend/AgentSmith.Application/Services/Prompts/TicketConversationSplit.cs:22,45, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:80-93,113-134, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:50, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:21"
+  - claim: "AgentSmithDbContext is at 120 and groups configurations; SQLite cannot compare DateTimeOffset; RelationalPersistenceExtensions has one line left; a cross-process TTL lock exists."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:61,72, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ServerStateConfigurations.cs:10-18, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunLivenessRepository.cs:20-29, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37, src/backend/AgentSmith.Contracts/Services/IRedisClaimLock.cs:8-20"
+
+  - claim: "Unique violations are translated per provider; the claim lock key is agentsmith:claim-lock:{platform}:{ticket}; finalization skips runs without a ticket; the queued-run cancel and the cancel endpoint are separate writers."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:40-48, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:42, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:50-56, src/backend/AgentSmith.Server/Extensions/QueuedRunCancel.cs:1-45, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:126-137, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:49"
+
+assumptions:
+  - claim: "Hosts and servers keep clocks within five seconds."
+    check: "Compare a test comment's host time with the server clock on each deployed host."
+
+scope:
+  in: >
+    ReworkNudge(project, ticket, prUrl?, channel?, origin, dueTicks, generation, claimToken?, claimTicks):
+    one row per ticket; merge = ExecuteUpdate (generation + 1, coalesce prUrl/channel, ticket origin wins,
+    larger due for run-end and sweep), insert on 0 rows, update again on a unique violation.
+    ReworkLedger(project, ticket, notServedThrough, spokenKeys). ServerStateConfigurations, both sets.
+    Sources: webhooks enqueue (keyword with a code attempt; plan answers and no-attempt comments stay
+    inline); ReleaseAsync enqueues and deletes in one transaction, run-less releases due ≥ now + 1 min;
+    RunFinalizationProjection on terminal statuses of runs with a ticket. Claim: CAS on generation and a
+    free or expired claim, setting claimToken and due + 5 min; finish deletes at that generation, else frees
+    the claim due now; reschedule is CAS at the generation. Lock 'agentsmith:rework-nudge:{project}:{ticket}'
+    (TTL 5 min; busy reschedules). Live lease or waiting attempt: if its run has ActsReadAt, acts after it
+    get 'picked up when run X finishes' once, then drop or reschedule (≤ 15 min); unfinished: reschedule.
+    IReworkPendingActs reads trusted acts after the cutoff and notServedThrough; none: silent. ReworkEntry
+    with PipelinePresets.CodeName and project.Tracker.Type; no run started reschedules. Texts once per
+    (run, act, kind). The cancel endpoint, QueuedRunCancel and every code-run delete with a ticket (single
+    and DeleteTerminalAsync) raise notServedThrough synchronously. NotARework on a ticket nudge:
+    PolledTicketEnvelope, resolve, the nudge project's match, ByTrackerType, current status, then
+    ISpawnPipelineRunsUseCase. Cutoff: Run.ActsReadAt (column, both sets) taken before the reads, on
+    TicketFetchedEvent, ??=; null → StartedAt; Precedes(at) = at > cutoff − 5 s; the split prints it.
+  out: "Mode gates (2026-10-08-101b). Sweep nudges (2026-10-08-9e6e)."
+
+decisions:
+  - key: "ONE SERVING PATH: sources say 'check this ticket'; the worker alone reads and starts."
+  - key: "BIAS TO SERVE AGAIN: the cutoff precedes the read and the margin subtracts."
+  - key: "SPEAK ONCE, AFTER READING; a holder without ActsReadAt reads the act itself, so nothing is said (operator default)."
+  - key: "STOP MEANS STOP: cancel or delete withholds acts up to the request; a deleted run's executor runs on unwatched; a reaped run is served."
+
+steps:
+  - id: store
+    action: "Add ReworkNudge and ReworkLedger with configurations and migrations in both sets; IReworkNudges (Db, no-op)."
+  - id: cutoff
+    action: "Add Run.ActsReadAt with migrations, TicketFetchedEvent.ActsReadAt and the dashboard mirror; move Precedes at its six call sites and the split label."
+  - id: ends
+    action: "Enqueue in ReleaseAsync and RunFinalizationProjection; the watermark in the cancel endpoint, QueuedRunCancel and both deletes."
+  - id: worker
+    action: "Add ReworkNudgeWorker and IReworkPendingActs; switch the router, PrReworkAdmission and the vote and GitLab handlers to enqueue."
+
+tests:
+  - "Worker_ReleaseBeforeProjection_ReschedulesThenServes"
+  - "Worker_ParkedRun_ServedAfterResumeEnds"
+  - "Worker_ActDuringRead_ServedAgainNotLost"
+  - "Worker_OperatorCancel_ActsBeforeRequestNotServed"
+  - "Worker_DeletedRun_ActsBeforeDeleteNotServed"
+  - "Worker_CrashedClaim_ReclaimedAfterExpiry"
+  - "Worker_MergeDuringHandling_ServedNext"
+  - "Worker_LiveRunAct_SpokenOnce"
+  - "Worker_NoRunStarted_Rescheduled"
+  - "Release_NudgeAndDelete_OneTransaction"
+  - "Webhook_PlanAnswerComment_StaysInline"
+
+done:
+  - "Webhook mode, GitHub, GitLab, Azure DevOps: a keyword comment or Request changes starts one attempt via the worker; one made during a live, parked or reaped run starts one after it ends; each text appears once."
+  - "No rework act waits on a host or lock in the request; AgentSmithDbContext and RunEventApplier stay at their limits; full suite and dashboard tests green."

@@ -9,33 +9,20 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// 2026-10-01-283dc: fills a sandbox with one uploaded website, at each file's relative path
 /// under the work root, and says which content it holds.
 /// <para>
-/// Text is written as it is; every other file is written as base64 beside its path and decoded
-/// by ONE python3 step over the work root — a constant script, the root as its argument, no path
-/// interpolated into any command — because a five-hundred-file set decoded file by file would be
-/// five hundred round trips. A marker carries the content hash, so a held sandbox that already
-/// holds the set is taken back without a single write.
-/// </para>
-/// <para>
-/// 2026-10-02-075da: TEXT IS WHAT DECODES. A set holds any type now, so the rule is no extension
-/// list but the bytes: strict UTF-8 and no NUL. The encoded suffix is one no upload carries, so an
-/// operator's own <c>*.b64</c> file is never decoded.
+/// 2026-10-08-e8b9j: TEXT IS WHAT DECODES, AND EVERYTHING ELSE GOES AS BYTES. A file that is strict
+/// UTF-8 with no NUL and fits a WriteFile is written as text, which every agent reads; any other
+/// goes through <see cref="ISandboxBinaryFileWriter"/> — WriteBytes steps decoded by the receiver
+/// in C#. It used to go as base64 decoded by one python3 step, which the in-process backend (the
+/// server's own image) does not have, and which a binary over ~7.5 MB never reached because its
+/// base64 broke WriteFile's 10 MB bound. A marker carries the content hash, so a held sandbox that
+/// already holds the set is taken back without a single write.
 /// </para>
 /// </summary>
-public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxFileReaderFactory files)
+public sealed class ReferenceSetMaterialiser(
+    IReferenceSetReader sets, ISandboxFileReaderFactory files, ISandboxBinaryFileWriter bytes)
 {
     internal const string Marker = ".agentsmith-reference";
-    internal const string EncodedSuffix = ".agentsmith-b64";
-    private const string WorkRoot = "/work";
     private static readonly UTF8Encoding StrictUtf8 = new(false, throwOnInvalidBytes: true);
-
-    internal const string DecodeScript =
-        "import base64,os,sys\n"
-        + "for d,_,names in os.walk(sys.argv[1]):\n"
-        + "    for n in names:\n"
-        + "        if n.endswith('.agentsmith-b64'):\n"
-        + "            p=os.path.join(d,n)\n"
-        + "            open(p[:-15],'wb').write(base64.b64decode(open(p,'rb').read()))\n"
-        + "            os.remove(p)\n";
 
     /// <summary>The set in the sandbox, and its content hash.</summary>
     public Task<string> PrepareAsync(ISandbox sandbox, string sessionId, string setId, CancellationToken ct) =>
@@ -65,10 +52,7 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
         ArgumentNullException.ThrowIfNull(sandbox);
         ArgumentNullException.ThrowIfNull(set);
         var io = files.Create(sandbox);
-        var encoded = 0;
-        foreach (var file in set)
-            encoded += await WriteAsync(io, Under(root, file.Path), file, ct) ? 1 : 0;
-        if (encoded > 0) await DecodeAsync(sandbox, root.Length == 0 ? WorkRoot : $"{WorkRoot}/{root}", ct);
+        foreach (var file in set) await WriteAsync(sandbox, io, root, file, ct);
         var hash = HashOf(set);
         await io.WriteAsync(Under(root, Marker), hash, ct);
         return hash;
@@ -76,32 +60,22 @@ public sealed class ReferenceSetMaterialiser(IReferenceSetReader sets, ISandboxF
 
     private static string Under(string root, string path) => root.Length == 0 ? path : $"{root}/{path}";
 
-    // True when the file went in encoded and waits for the decode step.
-    private static async Task<bool> WriteAsync(ISandboxFileReader io, string path, ReferenceSetFile file, CancellationToken ct)
+    private async Task WriteAsync(ISandbox sandbox, ISandboxFileReader io, string root, ReferenceSetFile file, CancellationToken ct)
     {
         if (AsText(file) is { } text)
         {
-            await io.WriteAsync(path, text, ct);
-            return false;
+            await io.WriteAsync(Under(root, file.Path), text, ct);
+            return;
         }
-        await io.WriteAsync(path + EncodedSuffix, Convert.ToBase64String(file.Content), ct);
-        return true;
+        if (await bytes.WriteAsync(sandbox, root, file.Path, file.Content, ct) is { } failed)
+            throw new IOException($"Writing the upload's file '{file.Path}' failed: {failed}");
     }
 
     private static string? AsText(ReferenceSetFile file)
     {
-        if (Array.IndexOf(file.Content, (byte)0) >= 0) return null;
+        if (file.Content.LongLength > SizeLimits.WriteFileMaxBytes || Array.IndexOf(file.Content, (byte)0) >= 0) return null;
         try { return StrictUtf8.GetString(file.Content); }
         catch (DecoderFallbackException) { return null; }
-    }
-
-    private static async Task DecodeAsync(ISandbox sandbox, string root, CancellationToken ct)
-    {
-        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-            Command: "python3", Args: ["-c", DecodeScript, root], WorkingDirectory: WorkRoot, TimeoutSeconds: 300);
-        var result = await sandbox.RunStepAsync(step, null, ct);
-        if (result.ExitCode != 0)
-            throw new IOException($"Decoding the upload's binary files failed: {result.ErrorMessage ?? "exit " + result.ExitCode}");
     }
 
     private static string HashOf(IReadOnlyList<ReferenceSetFile> set)

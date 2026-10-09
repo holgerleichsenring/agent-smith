@@ -18,7 +18,8 @@ public sealed class GitHubPrLabelWebhookHandler(
     PrTriggerLabelResolver triggerLabels,
     PrReviewRouteResolver routeResolver,
     PrRunContextFactory contextFactory,
-    ILogger<GitHubPrLabelWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitHubPrLabelWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private const string Pipeline = "security-scan";
 
@@ -50,6 +51,8 @@ public sealed class GitHubPrLabelWebhookHandler(
         var repository = root.GetProperty("repository");
         var repoUrl = repository.GetProperty("clone_url").GetString() ?? "";
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+        if (modeGate?.RepoRefusal(repoUrl) is { } polled) return polled;
         if (triggerLabels.Match(config, "github", repoUrl, [label]) is null)
             return WebhookResult.NotHandled();
 

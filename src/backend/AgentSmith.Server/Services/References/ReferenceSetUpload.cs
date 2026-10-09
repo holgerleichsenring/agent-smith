@@ -20,6 +20,7 @@ public sealed class ReferenceSetUpload(
     ReferenceFileTypes types,
     SpecDialogConversationResolver conversation,
     ReferenceSetRepository sets,
+    ConversationUploadAdmission admission,
     ILogger<ReferenceSetUpload> logger)
 {
     private const string NotYours =
@@ -42,9 +43,9 @@ public sealed class ReferenceSetUpload(
         var target = await conversation.ResolveOrOpenAsync(dialogId, project, user, ct);
         if (target.BelongsToAnother) return Refused(dialogId, NotYours, Results.Conflict(NotYours));
         if (target.SessionId is not { } session) return Refused(dialogId, NoConversation);
-        if ((await sets.ListAsync(session, ct)).Count >= ReferenceUploadLimits.MaxSetsPerConversation)
-            return Refused(dialogId, $"This conversation already holds "
-                + $"{ReferenceUploadLimits.MaxSetsPerConversation} uploads, the per-conversation limit.");
+        // 2026-10-08-e8b9g: the conversation's byte cap and its copies, in place of a count of three.
+        if (await admission.RefusalForSetAsync(session, [.. check.Files.Select(f => (f.Path, f.Content))], ct) is { } refusal)
+            return Refused(dialogId, refusal.Reason, refusal.Answer());
 
         var stored = await sets.AddAsync(session, [.. check.Files.Select(Row)], ct);
         return Stored(dialogId, stored, ReferenceKeepRule.Collapsed([.. unpacked.LeftOut, .. check.LeftOut]),

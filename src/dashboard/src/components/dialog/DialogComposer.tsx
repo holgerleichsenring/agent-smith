@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DialogReferenceSelection } from "./DialogReferenceSelection";
-import type { PickLeftOut } from "./referenceSelection";
+import { sizeOf, type PickLeftOut } from "./referenceSelection";
 import type { UploadNote } from "./uploadNote";
 
 // 2026-09-15-cb3e: what the operator says. One path for everything they write — a design
@@ -31,6 +31,9 @@ import type { UploadNote } from "./uploadNote";
 // oversized body unread. One file (a .zip the server unpacks, or any single file) goes at once.
 // 'Website' became 'Files': since 075da the server keeps any authored file, so the input no
 // longer narrows the dialog to website types.
+// 2026-10-08-e8b9h: and a pick bigger than what the conversation has LEFT under its byte cap is
+// refused here, before a byte is sent, naming both sizes — the server would refuse it anyway.
+// Before a conversation exists nothing is known to check, and the first upload opens it.
 
 export function DialogComposer({
   onSend,
@@ -38,6 +41,7 @@ export function DialogComposer({
   onAttachSite,
   note,
   disabled,
+  left = null,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -48,6 +52,8 @@ export function DialogComposer({
   /** What the last upload left: a refusal, or what a stored website went without. */
   note?: UploadNote | null;
   disabled?: boolean;
+  /** 2026-10-08-e8b9h: the bytes the conversation may still take; null when none is open yet. */
+  left?: number | null;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -56,6 +62,17 @@ export function DialogComposer({
   const folder = useRef<HTMLInputElement>(null);
   const attach = useRef<HTMLDivElement>(null);
   const [pick, setPick] = useState<File[] | null>(null);
+  const [over, setOver] = useState<string | null>(null);
+
+  /** Whether `files` fit what is left; says why not when they do not. */
+  const fits = (files: File[]) => {
+    const bytes = files.reduce((sum, file) => sum + file.size, 0);
+    const refused = left !== null && bytes > left;
+    setOver(refused ? `${sizeOf(bytes)} is more than the ${sizeOf(left)} this conversation has left. `
+      + "Remove an upload in the Uploads tab to make room." : null);
+    return !refused;
+  };
+  const shown: UploadNote | null = over ? { tone: "refused", text: over } : note ?? null;
 
   const send = () => {
     const said = text.trim();
@@ -104,7 +121,7 @@ export function DialogComposer({
             onChange={(event) => {
               const picked = event.target.files?.[0];
               event.target.value = "";
-              if (picked) onAttach(picked);
+              if (picked && fits([picked])) onAttach(picked);
             }}
           />
           {onAttachSite && (
@@ -115,7 +132,7 @@ export function DialogComposer({
                 type="file"
                 multiple
                 className="hidden"
-                onChange={(event) => pickFiles(event.target, onAttachSite, setPick)}
+                onChange={(event) => pickFiles(event.target, (files) => fits(files) && onAttachSite(files), setPick)}
               />
               <input
                 ref={folder}
@@ -172,6 +189,7 @@ export function DialogComposer({
                     type="button"
                     role="menuitem"
                     data-testid="dialog-composer-attach-folder"
+                    aria-describedby="dialog-composer-folder-hint"
                     onClick={() => {
                       setAttaching(false);
                       folder.current?.click();
@@ -180,6 +198,12 @@ export function DialogComposer({
                   >
                     Folder
                   </button>
+                  {/* 2026-10-08-e8b9i: the page opens the picker; the browser adds its own
+                      "upload N files?" prompt to a folder pick, which no page can restyle or
+                      suppress. Saying so beforehand keeps it from reading as this page's. */}
+                  <span id="dialog-composer-folder-hint" className="d-menu-sub" data-testid="dialog-composer-folder-hint">
+                    Your browser may ask to confirm a folder upload.
+                  </span>
                 </>
               )}
             </div>
@@ -217,6 +241,7 @@ export function DialogComposer({
       {pick && onAttachSite && (
         <DialogReferenceSelection
           files={pick}
+          left={left}
           onCancel={() => setPick(null)}
           onSend={(files, leftOut) => {
             setPick(null);
@@ -224,14 +249,14 @@ export function DialogComposer({
           }}
         />
       )}
-      {note && !pick && (
+      {shown && !pick && (
         <p
-          role={note.tone === "refused" ? "alert" : "status"}
+          role={shown.tone === "refused" ? "alert" : "status"}
           data-testid="dialog-composer-upload-note"
-          data-tone={note.tone}
-          className={`d-upload-note${note.tone === "refused" ? " bad" : ""}`}
+          data-tone={shown.tone}
+          className={`d-upload-note${shown.tone === "refused" ? " bad" : ""}`}
         >
-          {note.text}
+          {shown.text}
         </p>
       )}
     </div>
@@ -242,7 +267,7 @@ export function DialogComposer({
  *  The input is cleared so the same pick can be made again. */
 function pickFiles(
   input: HTMLInputElement,
-  onAttachSite: (files: File[]) => void,
+  onAttachSite: (files: File[]) => unknown,
   show: (files: File[]) => void,
 ) {
   const picked = Array.from(input.files ?? []);

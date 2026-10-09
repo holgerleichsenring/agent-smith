@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9b
+
+decisions:
+  - category: Architecture
+    chose: "The entry makes the ticket claimable and launches; the run reads the act from the thread (ReworkActReader in FetchTicketHandler)"
+    over: "Carrying the act on the spawning envelope"
+    reason: |
+      After the move and the approval reopen any claimer may win the lease first — the poller on any
+      replica, the workitem.updated hook the move itself fires, the capacity head. An envelope field
+      reaches only the claimer that built it; the thread reaches every run.
+  - category: Implementation
+    chose: "The entry launches through ChatTicketRunLauncher, which marks the request as named by a person; ChatLaunchResult gained TakenByAnother"
+    over: "A new launcher, or comparing the refusal text to recognise AlreadyClaimed"
+    reason: |
+      The chat launcher is the existing funnel entry for a ticket a person names. RequestedByName means
+      the claim does not ask whether a label routes the pipeline — the match's pipeline is the one a label
+      routed anyway. AlreadyClaimed is a refusal to a chat user but success for a rework (another claimer
+      serves the act), so the result says which it was instead of the caller parsing a sentence.
+  - category: Implementation
+    chose: "A payload with no parseable comment time yields no act and takes today's path"
+    over: "Falling back to the receipt time"
+    reason: "A receipt time makes every redelivery look newer than the attempt it started — the second run the entry exists to prevent."
+  - category: Implementation
+    chose: "'Agent Smith - ' (hyphen) joined OwnTicketComment.Ours"
+    over: "Changing the completed-run headings to the em dash"
+    reason: |
+      The summary's wording is read by people and by existing tests; recognising the hyphen is the
+      smaller change, and it also stops the conversation section quoting our own summary as the operator's.

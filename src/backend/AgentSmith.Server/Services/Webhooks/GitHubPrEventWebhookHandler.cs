@@ -16,7 +16,8 @@ public sealed class GitHubPrEventWebhookHandler(
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
     PrRunContextFactory contextFactory,
-    ILogger<GitHubPrEventWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitHubPrEventWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private static readonly HashSet<string> TriggerActions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -46,6 +47,8 @@ public sealed class GitHubPrEventWebhookHandler(
             var repoUrl = root.GetProperty("repository").GetProperty("clone_url").GetString() ?? "";
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return Task.FromResult(polled);
             var route = routeResolver.Resolve(config, "github", repoUrl, ExtractLabels(pr));
             if (route is null)
                 return Task.FromResult(WebhookResult.NotHandled(
@@ -59,7 +62,7 @@ public sealed class GitHubPrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoFullName}#{prNumber}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {

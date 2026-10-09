@@ -171,6 +171,34 @@ public class ExecutePipelineUseCaseTests
         released.Should().Be(attached, "the run releases only what it holds");
     }
 
+    // 2026-10-08-e8b9e: a live run holding the ticket ends this one before it starts — no pipeline,
+    // no lease release (the lease is the holder's).
+    [Fact]
+    public async Task Execute_AttachHeld_FailsBeforeFirstStepAndReleasesNothing()
+    {
+        var config = new AgentSmithConfig
+        {
+            Projects = { ["todo-list"] = new ResolvedProject
+            {
+                Pipeline = "code",
+                Repos = new[] { new RepoConnection { Name = "todo-list" } }
+            } }
+        };
+        _configMock.Setup(c => c.LoadConfig("config.yml")).Returns(config);
+        _lease.Setup(l => l.AttachRunAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(LeaseAttachOutcome.HeldByAnotherRun);
+        _lease.Setup(l => l.GetByTicketAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StaleLease("todo-list", new TicketId("123"), "run-live", null, DateTimeOffset.UtcNow));
+
+        var act = () => _sut.ExecuteAsync(new PipelineRequest("todo-list", "code", new TicketId("123")), "config.yml", CancellationToken.None);
+
+        (await act.Should().ThrowAsync<AgentSmith.Application.Services.LeaseHeldException>()).Which.HolderRunId.Should().Be("run-live");
+        _pipelineMock.Verify(p => p.ExecuteAsync(It.IsAny<IReadOnlyList<string>>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<PipelineContext>(), It.IsAny<CancellationToken>()), Times.Never);
+        _lease.Verify(l => l.ReleaseAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     [Fact]
     public async Task ExecuteAsync_SuccessfulPipeline_IncludesPrUrl()
     {

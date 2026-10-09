@@ -89,7 +89,7 @@ internal sealed class ApprovedSetHarness
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
-            new SpecSetTicketCommenter(cuts, NullLogger<SpecSetTicketCommenter>.Instance),
+            new SpecSetTicketCommenter(cuts, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             new ApprovedSetKeptNotice(
                 Notices.Factory(), Decisions, NullLogger<ApprovedSetKeptNotice>.Instance),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),

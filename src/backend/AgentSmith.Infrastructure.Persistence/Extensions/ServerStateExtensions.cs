@@ -18,6 +18,14 @@ public static class ServerStateExtensions
         services.AddScoped<ConnectionDiscoveryRepository>();
         services.AddScoped<PendingClarificationRepository>(); // 2026-10-02-5ab2d
         services.AddScoped<WebhookLastSeenRepository>(); // 2026-10-02-5ab2e
+        // 2026-10-08-0781: the rework nudge queue and its ledger.
+        services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
+        services.AddScoped<AgentSmith.Contracts.Sweep.ISweepCursors, SweepCursorStore>(); // 2026-10-08-9e6e
+        services.AddScoped<PrSweepStore>(); // 2026-10-08-10b0
+        services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
+        services.AddSingleton<DbReworkNudges>();
+        services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());
+        services.AddSingleton<IReworkWatermark>(sp => sp.GetRequiredService<DbReworkNudges>());
         services.TryAddSingleton(TimeProvider.System);
         services.RemoveAll<IConnectionRepoSnapshot>().RemoveAll<IConnectionRepoSnapshotStore>();
         services.AddSingleton<DbConnectionRepoSnapshot>();

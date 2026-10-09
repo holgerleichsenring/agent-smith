@@ -27,14 +27,24 @@ public static class SpecRecutNotice
             SpecRevisionCause.Comment => ("The ticket was commented on after", "with the comment in view"),
             SpecRevisionCause.RecutDemand =>
                 ("A re-cut was demanded on the ticket after", "from the ticket as it now reads"),
+            SpecRevisionCause.Rework =>
+                ("Changes were requested on the pull request after", "with the review in view"),
+            SpecRevisionCause.StatusBack =>
+                ("The ticket was moved back to work after", "with the feedback since in view"),
             _ => (null, null),
         };
         if (since is null) return string.Empty;
+        // 2026-10-08-f114: at the cap the model did not run, so nothing was cut again or added.
+        if (set.UnexecutedTail.Count == 0 && set.Executed.Count >= SpecSet.MaxPhases)
+            return $"{since} revision {set.Current.Number - 1} was cut, but all {SpecSet.MaxPhases} phases of this set "
+                + "have run — the most one set can hold — so nothing was added. File the feedback as a new ticket.\n\n";
         return $"{since} revision {set.Current.Number - 1} was cut: {Kept(set)} {source}.\n\n";
     }
 
     private static string Kept(SpecSet set) =>
         set.Executed.Count == 0
             ? "no phase had run yet, so the whole set was cut again"
-            : $"{string.Join(", ", set.Executed)} already ran and stayed as it was; the rest was cut again";
+            : set.UnexecutedTail.Count > 0
+                ? $"{string.Join(", ", set.Executed)} already ran and stayed as it was; the rest was cut again"
+                : $"{string.Join(", ", set.Executed)} already ran and stayed as it was";
 }

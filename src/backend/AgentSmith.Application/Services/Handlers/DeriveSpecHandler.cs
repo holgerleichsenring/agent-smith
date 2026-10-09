@@ -104,9 +104,10 @@ public sealed class DeriveSpecHandler(
             await gate.RefusedAsync(
                 context.Pipeline, context.Ticket!.Id.Value,
                 $"the derivation produced nothing usable ({error})", ct);
-            return (
-                fallback.Build(key, series, context.Ticket!, segments, [], decision.Source),
-                []);
+            // 2026-10-08-f114: the fallback is a fresh one-phase set; over an executed head it would
+            // drop the record of work already on the branch, so the set the branch carries is kept.
+            return (decision.Set is { ExecutedHead.Count: > 0 } carried ? carried
+                : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source), []);
         }
 
         // p0447: the deriver kept the least-objected cut instead of discarding it. The

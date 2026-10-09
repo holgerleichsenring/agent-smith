@@ -41,6 +41,9 @@ public sealed class PrRunContextFactory
             Number: prNumber, HeadSha: diff.HeadSha, BaseSha: diff.BaseSha,
             Author: diff.Author, HeadBranch: diff.HeadBranch), repoName);
 
+    /// <summary>2026-10-08-10b0: a pull request the PR sweep listed — its facts come from the list itself.</summary>
+    public Dictionary<string, object> FromFacts(PullRequestFacts pr, string repoName) => Build(pr, repoName);
+
     private static Dictionary<string, object> Build(PullRequestFacts pr, string repoName)
     {
         var context = new Dictionary<string, object>

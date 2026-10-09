@@ -172,7 +172,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,
-        NullLogger<SpawnPipelineRunsUseCase>.Instance);
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance);
 
     private ITicketClaimService CountingClaimService()
     {

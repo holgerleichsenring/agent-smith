@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9i
+
+decisions:
+  - category: Implementation
+    chose: "The Folder hint is a sibling span of the menu item, referenced by aria-describedby, styled by .mock-dialog .d-menu .d-menu-sub"
+    over: "A span inside the item"
+    reason: |
+      Inside the item it would join the item's accessible name and text ("Folder Your browser…"),
+      which the menu tests read and a screen reader announces as the name. As a description it is
+      announced after the name and the item stays "Folder".
+  - category: Implementation
+    chose: "ConfigStudio clears its importing flag before asking and sets it again only after Overwrite"
+    over: "Keeping the flag set across the question"
+    reason: |
+      While the person decides nothing is importing; a disabled "Importing…" button behind the
+      dialog said otherwise. Keep current leaves the button ready.
+  - category: Implementation
+    chose: "ConfigStudio's import tests keep the module mock but take importConfigYml and ConfigStoreNotEmptyError from the real module, with fetch answering 409 then 200"
+    over: "Mocking importConfigYml"
+    reason: |
+      The refusal is a 409 read by the real client into the real error class; mocking the client
+      would prove only that a mock throws.
+  - category: Implementation
+    chose: "The source scan strips block and line comments and matches /\\b(window\\.)?(confirm|alert|prompt)\\s*\\(/ over non-test sources"
+    over: "Matching window.confirm text anywhere"
+    reason: |
+      Comments name the browser's dialog on purpose; a call is what the rule is about. Strings are
+      left in, which can only over-report.

@@ -18,7 +18,8 @@ public sealed class GitLabMrEventWebhookHandler(
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
     PrRunContextFactory contextFactory,
-    ILogger<GitLabMrEventWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabMrEventWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "merge_request";
@@ -41,6 +42,8 @@ public sealed class GitLabMrEventWebhookHandler(
             var repoUrl = root.GetProperty("project").GetProperty("web_url").GetString() ?? "";
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return Task.FromResult(polled);
             var route = routeResolver.Resolve(config, "gitlab", repoUrl, ExtractLabels(root));
             if (route is null)
                 return Task.FromResult(WebhookResult.NotHandled(
@@ -54,7 +57,7 @@ public sealed class GitLabMrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoPath}#{mrIid}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {

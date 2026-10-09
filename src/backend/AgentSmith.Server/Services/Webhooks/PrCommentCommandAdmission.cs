@@ -16,10 +16,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 public sealed class PrCommentCommandAdmission(
     CommentIntentParser commentIntentParser,
     ServerContext serverContext,
+    AgentSmith.Server.Contracts.IPrCommandLaunch launch,
     ILogger<PrCommentCommandAdmission> logger)
 {
     public async Task<WebhookResult> AdmitAsync(
-        PrCommentCommand command, IPrCommentAuthorTrust trust, CancellationToken cancellationToken)
+        PrCommentCommand command, IPrCommentAuthorTrust trust, CancellationToken cancellationToken,
+        IReadOnlySet<string>? allowedProjects = null)
     {
         var match = commentIntentParser.Match(command.Body);
         if (match.Type == CommentIntentType.Unknown)
@@ -36,7 +38,7 @@ public sealed class PrCommentCommandAdmission(
 
         var request = await commentIntentParser.ResolveAsync(
             match.Tail!, serverContext.ConfigPath, cancellationToken);
-        return Route(command, request);
+        return await RouteAsync(command, request, cancellationToken, allowedProjects);
     }
 
     private WebhookResult Refuse(PrCommentCommand command)
@@ -47,7 +49,10 @@ public sealed class PrCommentCommandAdmission(
         return WebhookResult.NotHandled("comment author may not write to the repository");
     }
 
-    private WebhookResult Route(PrCommentCommand command, PipelineRequest request)
+    // 2026-10-08-e8b9e: no trigger input any more — the free-text path parsed the command a second
+    // time and attached its run to whatever lease the ticket had. The launch claims, and answers.
+    private async Task<WebhookResult> RouteAsync(
+        PrCommentCommand command, PipelineRequest request, CancellationToken ct, IReadOnlySet<string>? allowedProjects)
     {
         var pipeline = request.PipelineName;
         if (!PrCommentPipelines.Allowed.Contains(pipeline))
@@ -59,7 +64,6 @@ public sealed class PrCommentCommandAdmission(
 
         logger.LogInformation("PR comment command from {Author} on {Pr}: pipeline={Pipeline}",
             command.Author.AuthorLogin, command.PrLabel, pipeline);
-        var ticketSegment = request.TicketId is not null ? $" #{request.TicketId.Value}" : "";
-        return new WebhookResult(true, $"{pipeline}{ticketSegment} {command.PrReference}", pipeline);
+        return await launch.LaunchAsync(command, request, ct, allowedProjects);
     }
 }

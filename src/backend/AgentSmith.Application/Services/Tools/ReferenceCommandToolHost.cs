@@ -29,7 +29,8 @@ internal sealed class ReferenceCommandToolHost(
         + "command installs itself (curl a pinned release; apt only where the image runs as root). A browser upload "
         + "carries no file mode, so run a script as `sh script.sh`. Start a server detached (nohup … >/tmp/x.log 2>&1 &) "
         + "or the step waits for it until the timeout. The container may be fresh on any turn: follow the set's recipe "
-        + "again rather than assuming an earlier install. Returns exit_code, elapsed_ms, stdout and stderr.")]
+        + "again rather than assuming an earlier install. An image is not text: look at one with view_reference_image — "
+        + "no OCR program is installed, and your vision reads it. Returns exit_code, elapsed_ms, stdout and stderr.")]
     public async Task<string> RunInReference(
         [Description("The upload's address, reference:<name>, as listed under 'Material the operator uploaded'.")] string reference,
         [Description("The shell command.")] string command,

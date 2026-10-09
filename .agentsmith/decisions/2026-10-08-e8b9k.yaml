@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9k
+
+decisions:
+  - category: Architecture
+    chose: "The approval snapshot stays: sets and images are cited at approval and an amendment re-cites"
+    over: "A live list read when the run starts"
+    reason: |
+      Operator asked for a decision. 283df froze the list because what the person approved is
+      what the run builds against; a live list would let an upload made after approval change
+      what a queued or running build reads, unseen by whoever approved. Removal (e8b9g) is safe
+      only because the cited list is fixed. The uploads panel says so on every later upload.
+  - category: Architecture
+    chose: "SpecApprovalRecord.Images beside References, cited by the image's set id"
+    over: "Image set ids inside References"
+    reason: |
+      CitedSets keeps meaning sets for the set carrier and the prompt; an image is written and
+      shown, a set is written and searched. CitedSetsAsync answers both for the delete paths.
+  - category: TradeOff
+    chose: "The ticket's own images first; uploads fill what is left of the ten-picture ceiling; the rest stay files"
+    over: "Uploads first"
+    reason: |
+      The ticket's images are the requirement the run is judged against. Capping what is
+      appended also bounds the checkpoint, which carries each attachment's bytes.
+  - category: TradeOff
+    chose: "A cited image this process cannot read is a prompt note, not a failed run"
+    over: "Failing like a missing set"
+    reason: |
+      Images are shown, not built against; a process with no reference store (NoReferenceSetReader)
+      would otherwise fail every run whose approval cites a screenshot.
+  - category: Implementation
+    chose: "The carry REPLACES upload:-addressed attachments; ApprovalCitations.CiteAsync reads sets and images, SaveAsync re-reads both"
+    over: "Appending, and reading ids in the recorder"
+    reason: |
+      A resume re-runs MaterializeReferenceSets over a checkpointed context that already holds
+      them. Moving the reads into ApprovalCitations keeps the recorder within its 120 lines.
+  - category: Scope
+    chose: "Other presets carry nothing"
+    over: "Adding MaterializeReferenceSets to them"
+    reason: |
+      Only the Code preset reads an approval (ScopeRepos, DeriveSpec, MaterializeReferenceSets).
+      During a multi-replica rollout an old pod ignores Images (default JSON options) — accepted.

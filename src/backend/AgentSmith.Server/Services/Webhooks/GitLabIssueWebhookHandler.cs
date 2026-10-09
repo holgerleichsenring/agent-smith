@@ -1,6 +1,8 @@
-using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -16,10 +18,12 @@ public sealed class GitLabIssueWebhookHandler(
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
     ApprovedRecordProbe approvals,
-    ILogger<GitLabIssueWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabIssueWebhookHandler> logger,
+    StatusBackGate? statusBack = null,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
-        platform == "gitlab" && eventType == "Issue Hook";
+        platform == "gitlab" && eventType == "issue hook";
 
     public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
@@ -32,7 +36,8 @@ public sealed class GitLabIssueWebhookHandler(
 
             var attrs = root.GetProperty("object_attributes");
             var action = attrs.GetProperty("action").GetString();
-            if (action is not "update" and not "open")
+            // 2026-10-08-2123: a reopen is a person's move back of a finished ticket, or nothing.
+            if (action is not "update" and not "open" && (action != "reopen" || statusBack is null))
                 return WebhookResult.NotHandled();
 
             var issueState = attrs.GetProperty("state").GetString() ?? "";
@@ -52,11 +57,18 @@ public sealed class GitLabIssueWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
 
             logger.LogInformation(
                 "GitLab issue !{Issue} → resolved matches={Count}", issueId, matches.Count);
 
+            if (action == "reopen")
+                return await statusBack!.DispatchAsync(config, matches, envelope, issueState,
+                    PayloadActTime.Act(null, PayloadActTime.Text(attrs, "updated_at"))?.At,
+                    PayloadActTime.Text(root, "user", "username") is { } user ? new TrackerActor(user, user) : null, cancellationToken);
             await dispatcher.DispatchAsync(config, matches, envelope, issueState, null, cancellationToken);
             return WebhookResult.HandledNoRoute();
         }

@@ -1,6 +1,8 @@
-using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Models.Triggers;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
@@ -18,7 +20,9 @@ public sealed class GitHubIssueWebhookHandler(
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
     ApprovedRecordProbe approvals,
-    ILogger<GitHubIssueWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitHubIssueWebhookHandler> logger,
+    StatusBackGate? statusBack = null,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "github" && eventType == "issues";
@@ -32,7 +36,9 @@ public sealed class GitHubIssueWebhookHandler(
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
 
-            if (root.GetProperty("action").GetString() != "labeled")
+            // 2026-10-08-2123: a reopen is a person's move back of a finished ticket, or nothing.
+            var action = root.GetProperty("action").GetString();
+            if (action != "labeled" && (action != "reopened" || statusBack is null))
                 return WebhookResult.NotHandled();
 
             var issueEl = root.GetProperty("issue");
@@ -53,11 +59,18 @@ public sealed class GitHubIssueWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
 
             logger.LogInformation(
                 "GitHub issue #{Issue} → resolved matches={Count}", issueNumber, matches.Count);
 
+            if (action == "reopened")
+                return await statusBack!.DispatchAsync(config, matches, envelope, issueState,
+                    PayloadActTime.Act(null, PayloadActTime.Text(issueEl, "updated_at"))?.At,
+                    PayloadActTime.Text(root, "sender", "login") is { } login ? new TrackerActor(login, login) : null, cancellationToken);
             await dispatcher.DispatchAsync(config, matches, envelope, issueState, null, cancellationToken);
             return WebhookResult.HandledNoRoute();
         }

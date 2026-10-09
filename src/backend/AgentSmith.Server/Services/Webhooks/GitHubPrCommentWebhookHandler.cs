@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 public sealed class GitHubPrCommentWebhookHandler(
     PrCommentCommandAdmission admission,
     [FromKeyedServices("github")] IPrCommentAuthorTrust authorTrust,
-    ILogger<GitHubPrCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitHubPrCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private static readonly HashSet<string> SupportedEventTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -40,7 +41,10 @@ public sealed class GitHubPrCommentWebhookHandler(
             if (prNumber is null)
                 return WebhookResult.NotHandled();
 
-            return await admission.AdmitAsync(ReadCommand(root, prNumber.Value), authorTrust, cancellationToken);
+            var command = ReadCommand(root, prNumber.Value);
+            // 2026-10-08-101b: before the model — a polling project's repository gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(command.Author.RepositoryUrl) is { } polled) return polled;
+            return await admission.AdmitAsync(command, authorTrust, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -65,7 +69,7 @@ public sealed class GitHubPrCommentWebhookHandler(
         };
         return new PrCommentCommand(
             comment.GetProperty("body").GetString() ?? "", author,
-            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}");
+            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}", prNumber.ToString());
     }
 
     private static int? ExtractPrNumber(JsonElement root)

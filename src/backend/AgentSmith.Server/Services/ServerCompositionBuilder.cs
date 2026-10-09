@@ -56,6 +56,7 @@ public static class ServerCompositionBuilder
             .AddTeamsAdapter()
             .AddIntentHandlers()
             .AddWebhookHandlers()
+            .AddReworkNudgeWorker() // 2026-10-08-0781
             .AddLongRunningServices()
             // p0503d: role resolution is registered whether or not an authority is
             // configured — the route table is enumerated without one.

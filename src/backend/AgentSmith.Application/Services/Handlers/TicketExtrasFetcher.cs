@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -16,7 +17,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// near-identical try/catch blocks were also one rule written three times.
 /// </para>
 /// </summary>
-public sealed class TicketExtrasFetcher(ILogger<TicketExtrasFetcher> logger)
+public sealed class TicketExtrasFetcher(
+    IPreviousAttemptReader previousAttempts, ILogger<TicketExtrasFetcher> logger)
 {
     public async Task FetchAsync(
         ITicketProvider provider, TicketId ticketId, PipelineContext pipeline,
@@ -31,6 +33,26 @@ public sealed class TicketExtrasFetcher(ILogger<TicketExtrasFetcher> logger)
             () => provider.DownloadDocumentAttachmentsAsync(ticketId, cancellationToken));
         await SetAsync(ContextKeys.TicketAttachmentRefs, "attachment reference(s)", ticketId,
             pipeline, () => provider.GetAttachmentRefsAsync(ticketId, cancellationToken));
+        await SetPreviousAttemptAsync(ticketId, pipeline, cancellationToken);
+    }
+
+    // 2026-10-08-7c0e: the attempt the thread is read against, fail-soft like the rest. Keyed on
+    // the project (a tracker id is unique only within it) and leaving this run out.
+    private async Task SetPreviousAttemptAsync(
+        TicketId ticketId, PipelineContext pipeline, CancellationToken cancellationToken)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.ProjectName, out var project) || string.IsNullOrWhiteSpace(project))
+            return;
+        pipeline.TryGet<string>(ContextKeys.RunId, out var runId);
+        try
+        {
+            var attempt = await previousAttempts.LatestAsync(project!, ticketId.Value, runId, cancellationToken);
+            if (attempt is not null) pipeline.Set(ContextKeys.PreviousAttempt, attempt);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Failed to read the previous attempt of ticket {TicketId} — continuing without it", ticketId);
+        }
     }
 
     // An empty result sets nothing: every reader treats an absent key as "none", and a

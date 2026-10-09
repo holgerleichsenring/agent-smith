@@ -63,7 +63,10 @@ public sealed class SpecSourceResolver(
                 amend ? "amending it with the new input" : "using it unchanged");
             return new Decision(
                 SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause,
-                Approval: SpecRecutDemand.ApprovalFor(cause, artifact.Set, pipeline));
+                // 2026-10-08-f114: a Request changes re-derives but does not re-approve — the prior
+                // approval, conversation included, rides along; an unapproved set records none.
+                Approval: SpecRecutDemand.ApprovalFor(cause, artifact.Set, pipeline)
+                    ?? (cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack ? artifact.Set.Approval : null));
         }
 
         // ONLY when the path holds nothing. A branch this run could not read may carry an edit,

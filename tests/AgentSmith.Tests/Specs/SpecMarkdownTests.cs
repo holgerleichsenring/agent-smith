@@ -36,12 +36,52 @@ public sealed class SpecMarkdownTests
     }
 
     [Fact]
-    public void Render_PhaseWithoutDocument_NamesTheLookedUpPathInsteadOfABlankSection()
+    public void Render_DerivedPhaseWithoutDocument_NamesTheLookedUpPath()
     {
         var markdown = SpecMarkdown.Render(Set(Phase(document: "")));
 
         markdown.Should().Contain("No phase document found");
         markdown.Should().Contain(".agentsmith/specs/planned/p19106a-rename.md");
+    }
+
+    // 2026-10-08-e8b9f: a set approved in a named design conversation has no companion by construction.
+    [Fact]
+    public void Render_ApprovedPhaseWithoutDocument_SaysApprovedNotNotFound()
+    {
+        var markdown = SpecMarkdown.Render(Set(Phase()) with
+        {
+            Source = SpecSource.Approved, Approval = new SpecApproval(DateTimeOffset.UnixEpoch, "job-1", "person"),
+        });
+
+        markdown.Should().Contain("Approved in the design conversation");
+        markdown.Should().NotContain("No phase document found");
+    }
+
+    [Fact]
+    public void Render_BranchReadApprovedSet_SaysApprovedNotNotFound()
+    {
+        var markdown = SpecMarkdown.Render(Set(Phase()) with
+        {
+            Source = SpecSource.BranchArtifact, Approval = new SpecApproval(DateTimeOffset.UnixEpoch, "job-1", "person"),
+        });
+
+        markdown.Should().Contain("Approved in the design conversation");
+        markdown.Should().NotContain("No phase document found");
+    }
+
+    // A ticket-demanded re-cut records an approval with no conversation on a model-cut set,
+    // whose companions are never blank — blank there is a real failure.
+    [Fact]
+    public void Render_DemandRecutSetWithoutDocument_NamesTheLookedUpPath()
+    {
+        var markdown = SpecMarkdown.Render(Set(Phase()) with
+        {
+            Source = SpecSource.BranchArtifact, Approval = new SpecApproval(DateTimeOffset.UnixEpoch, string.Empty, "author"),
+        });
+
+        markdown.Should().Contain("No phase document found");
+        markdown.Should().Contain(".agentsmith/specs/planned/p19106a-rename.md");
+        markdown.Should().NotContain("Approved in the design conversation");
     }
 
     // 2026-09-07-c9d4: the run detail shows a question the way the ticket does — both

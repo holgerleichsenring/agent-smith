@@ -39,17 +39,23 @@ A polled ticket carries its labels and nothing else (no area path, no source rep
 
 On Jira and Azure DevOps the query also asks, by id, for tickets whose specification was approved and still expects work, even when they carry no trigger label, so an approved ticket isn't lost because nobody labelled it. That list is capped at fifty ids per query, oldest approval first, and the poller reports what didn't fit. GitHub and GitLab discovery is unchanged by this; their query doesn't carry the label guard the id list works around.
 
-The claim itself is a database lease, shared with the webhook path — webhook and poll racing on the same ticket resolve to one run.
+A tracker entry runs in one mode. When its `polling` is enabled, webhooks start nothing for the projects on it: a delivery for such a project is answered as not handled, with the reason `project <name> polls tracker <entry>; webhooks start nothing for it`, and no comment is written to the ticket. Webhooks and polling never race on one ticket.
 
 ## Polling vs webhooks
+
+Both modes start the same work; webhooks only start it sooner.
 
 | | Webhooks | Polling |
 |---|---|---|
 | Latency | Sub-second | Up to `interval_seconds` |
 | Tracker network reachability | Tracker must reach orchestrator | Orchestrator must reach tracker |
-| Tracker API rate limits | One request per ticket event | One request per `interval_seconds` |
+| Tracker API calls | One request per ticket event | Per interval: the poller's two ticket lists, the change sweep's changed-ticket read (one page usually) and one read of open pull requests per repository |
+| Rework acts (keyword comments, Request changes, Wait for author) | Delivered as they happen | Found by the change sweep from a persisted cursor; served by the same rework worker |
+| Pull-request events (review on open and push, the review label, `/agent-smith` comments) | Delivered as they happen | The PR sweep lists each repository's open pull requests every interval and starts each once per head, label added or comment; a repository is recorded first, so switching to polling replays nothing. Azure DevOps has no label scan in either mode |
 | Secret to verify | Yes (HMAC or basic auth) | Auth token only |
-| Survives orchestrator restarts | Tracker retries until it gets 200 | Yes (high-water mark in Redis) |
+| Survives orchestrator restarts | Tracker retries until it gets 200 | Yes — the sweep's cursors are rows in the database and only move forward |
+
+GitHub allows 5,000 REST requests an hour per token. At a 60-second interval with ten GitHub repositories, polling spends about 2,600 of them (the change sweep, the worker's follow-up reads and the pull-request events — three calls a repository a cycle); raise the interval past ten repositories.
 
 For most setups, **webhooks for the public trackers (GitHub Cloud, GitLab Cloud, Jira Cloud, Azure DevOps Cloud), polling for self-hosted ones behind a firewall**.
 
@@ -63,11 +69,13 @@ The `jitter_percent` field randomizes the actual interval by ±N% so multiple or
 
 If you run more than one orchestrator replica, only one polls. The polling lease is a Redis key `agentsmith:leader:poller` with a TTL; one replica wins, the others wait. If the leader dies, the lease expires and another replica takes over within 30 seconds.
 
-You don't need to configure this — it's automatic. Same model is used for the housekeeping coordinator (stale-job detection, enqueue reconciliation) on a separate lease.
+You don't need to configure this — it's automatic. Same model is used for the housekeeping coordinator (stale-job detection, enqueue reconciliation) and for the change sweep (`agentsmith:leader:change-sweep`, which finds rework acts on tickets and pull requests changed since its cursor), each on a separate lease. Both the poller and the sweep rebuild in place when the configuration changes.
 
 ## Mixed mode
 
-You can have webhooks on one tracker and polling on another in the same config. Polling state is per-tracker, so they don't interfere.
+The mode belongs to the tracker entry, so you can have webhooks on one entry and polling on another in the same config. A project's own `polling` block does not change it; the dashboard's project panel shows the mode the entry gives it (`polling every 60s` or `webhooks`).
+
+Each poller serves only the projects on its own entry. A project on a webhook entry is no longer picked up by a polling entry of the same tracker type: if it relied on that, move it to the polling entry or enable polling on its own. When two entries of different modes own projects on one repository, the configuration probe reports an advisory, and pull-request deliveries for that repository start nothing; the PR sweep serves it instead.
 
 ```yaml
 trackers:

@@ -47,6 +47,15 @@ public sealed class DefaultAzDoClientFactory : IAzDoClientFactory
     public IdentityHttpClient CreateIdentityClient(string organizationUrl, string personalAccessToken) =>
         Connect(organizationUrl, personalAccessToken).GetClient<IdentityHttpClient>();
 
+    // 2026-10-08-f147: ConnectAsync reads connectionData; AuthorizedIdentity is who the PAT is.
+    public async Task<string?> AuthorizedIdentityIdAsync(
+        string organizationUrl, string personalAccessToken, CancellationToken cancellationToken)
+    {
+        var connection = Connect(organizationUrl, personalAccessToken);
+        if (!connection.HasAuthenticated) await connection.ConnectAsync(cancellationToken);
+        return connection.AuthorizedIdentity?.Id.ToString();
+    }
+
     // 2026-10-02-5f89a: keyed by org URL AND token hash — two connections to one org, or a
     // re-pointed secret, each get their own connection. A stale entry (TTL reached) is disposed
     // and rebuilt so a refreshed federation token / rotated location cache never wedges it.

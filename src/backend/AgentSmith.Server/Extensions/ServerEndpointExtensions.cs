@@ -47,6 +47,7 @@ internal static class ServerEndpointExtensions
         app.MapSpecDialogResumeEndpoints(); // 2026-09-22-2a86: continued in the tab, by id rather than by a typed command
         app.MapSpecDialogImageEndpoints(); // 2026-09-20-3af8: what the operator is looking at
         app.MapSpecDialogReferenceEndpoints(); // 2026-10-01-283db: a website dropped into the conversation
+        app.MapSpecDialogUploadDeletionEndpoints(); // 2026-10-08-e8b9g: one upload taken back out
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)

@@ -94,11 +94,13 @@ public static class ConfigSnapshotMapper
     private static ConfigTrigger MapTrigger(ResolvedProject p)
     {
         var t = p.JiraTrigger ?? p.GithubTrigger ?? p.GitlabTrigger ?? p.AzuredevopsTrigger;
+        // 2026-10-08-101b: the mode is the tracker entry's polling — the project-level block is ignored.
+        var polling = p.Tracker.Polling;
         return t is not null
             ? new ConfigTrigger(t.TriggerStatuses, t.DoneStatus, t.FailedStatus,
-                p.Polling.Enabled, p.Polling.IntervalSeconds, t.CommentKeyword, t.NeedsClarificationStatus)
+                polling.Enabled, polling.IntervalSeconds, t.CommentKeyword, t.NeedsClarificationStatus)
             : new ConfigTrigger(p.Tracker.OpenStates, p.Tracker.DoneStatus, null,
-                p.Polling.Enabled, p.Polling.IntervalSeconds, null, p.Tracker.NeedsClarificationStatus);
+                polling.Enabled, polling.IntervalSeconds, null, p.Tracker.NeedsClarificationStatus);
     }
 
     private static ConfigGlobals MapGlobals(AgentSmithConfig config) => new(

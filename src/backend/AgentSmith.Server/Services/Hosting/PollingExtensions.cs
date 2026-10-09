@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services;
 using AgentSmith.Server.Services.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Server.Extensions;
 
@@ -26,10 +27,18 @@ internal static class PollingExtensions
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<HousekeepingLeaderHostedService>().Health);
 
+        services.AddSingleton<LeaderEpochLoop>(); // 2026-10-08-9e6e
         services.AddSingleton<PollerLeaderHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<PollerLeaderHostedService>());
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<PollerLeaderHostedService>().Health);
+
+        // 2026-10-08-9e6e: polling mode's change sweep, under its own leader lease.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp =>
+            sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>().Health);
 
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddHostedService<RepoDiscoveryRefreshHostedService>();

@@ -24,6 +24,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecSetTicketCommenter(
     ITicketProviderFactory ticketFactory,
+    AgentSmith.Contracts.Reviews.IFullSetPrNotice fullSetPrNotice,
     ILogger<SpecSetTicketCommenter> logger)
 {
     public async Task PostAsync(
@@ -43,6 +44,8 @@ public sealed class SpecSetTicketCommenter(
             logger.LogInformation(
                 "Posted the derived cut of {Key} ({Phases} phase(s)) to ticket {Ticket}",
                 set.Key, set.Phases.Count, ticket.Id.Value);
+            // 2026-10-08-e8b9c: a full set refused a pull-request act — the pull request is told too.
+            await fullSetPrNotice.PostAsync(pipeline, set, ct);
         }
         catch (Exception ex)
         {

@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
+using AgentSmith.Server.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.Lifecycle;
@@ -25,9 +26,7 @@ namespace AgentSmith.Server.Services.Lifecycle;
 /// </para>
 /// </summary>
 public sealed class NotImplementableRetryService(
-    ISpecSetPointerStore pointers,
-    ISpecApprovalStore approvals,
-    IUnmovedTicketStore unmovedTickets,
+    ITicketReopener reopener,
     ITicketProviderFactory ticketFactory,
     ILogger<NotImplementableRetryService> logger)
 {
@@ -58,30 +57,12 @@ public sealed class NotImplementableRetryService(
                 + "the ticket keeps its hold and was NOT retried", project.Name, ticketId, target);
             return RetryOutcome.TrackerRefusedTheMove;
         }
-        // 2026-09-18-c1a7: the ordinary poller claims the moved ticket — indistinguishable at
-        // the gate from any other claim, so the record the gate reads has to go with it.
-        await ClearHandbackAsync(project, ticketId, cancellationToken);
-        // 2026-10-06-03c7f: a retried ticket is new work, so discovery names it again.
-        await approvals.ReopenAsync(project.Tracker.Name, KeyOf(project, ticketId), cancellationToken);
-        await unmovedTickets.ClearAsync(project.Name, ticketId, cancellationToken);
+        // 2026-09-18-c1a7 / 2026-10-06-03c7f: the hand-back, the approval and the unmoved fact go
+        // together — 2026-10-08-e8b9b: through the one reopener the rework entry uses too.
+        await reopener.ClearAsync(project, ticketId, cancellationToken);
         logger.LogInformation(
             "Retry: {Project}/#{Ticket} moved back to '{Status}' and its hand-back state cleared",
             project.Name, ticketId, target);
         return RetryOutcome.Retried;
     }
-
-    private async Task ClearHandbackAsync(
-        ResolvedProject project, string ticketId, CancellationToken ct)
-    {
-        var pointer = await pointers.GetAsync(project.Name, KeyOf(project, ticketId), ct);
-        if (pointer is null) return;
-        await pointers.SaveAsync(project.Name, pointer with
-        {
-            LastHandbackCase = SpecHandbackCase.None,
-            RepeatedHandbackCount = 0,
-        }, ct);
-    }
-
-    private static string KeyOf(ResolvedProject project, string ticketId) =>
-        TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
 }

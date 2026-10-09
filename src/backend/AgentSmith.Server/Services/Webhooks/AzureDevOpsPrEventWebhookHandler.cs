@@ -18,7 +18,8 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     PrReviewRouteResolver routeResolver,
-    ILogger<AzureDevOpsPrEventWebhookHandler> logger) : IWebhookHandler
+    ILogger<AzureDevOpsPrEventWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private static readonly HashSet<string> TriggerEventTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -33,6 +34,10 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
         string payload, IDictionary<string, string> headers,
         CancellationToken cancellationToken = default)
     {
+        // 2026-10-08-e8b9c: a delivery from the review-vote subscription is a rework candidate only;
+        // dispatch stops at the first Handled, so this handler steps aside rather than review it.
+        if (AzureDevOpsPrReviewVoteWebhookHandler.IsVoteDelivery(headers))
+            return Task.FromResult(WebhookResult.NotHandled("a review-vote delivery never starts pr-review"));
         try
         {
             using var doc = JsonDocument.Parse(payload);
@@ -49,6 +54,8 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
             var repoUrl = repository.GetProperty("remoteUrl").GetString() ?? "";
 
             var config = configLoader.LoadConfig(serverContext.ConfigPath);
+            // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(repoUrl) is { } polled) return Task.FromResult(polled);
             var route = routeResolver.Resolve(config, "azuredevops", repoUrl, ExtractLabels(resource));
             if (route is null)
                 return Task.FromResult(WebhookResult.NotHandled(
@@ -62,7 +69,7 @@ public sealed class AzureDevOpsPrEventWebhookHandler(
                 true,
                 $"{route.PipelineName} {route.ProjectName} pr:{repoName}#{prId}",
                 route.PipelineName,
-                InitialContext: initialContext));
+                InitialContext: initialContext, ProjectName: route.ProjectName));
         }
         catch (Exception ex)
         {

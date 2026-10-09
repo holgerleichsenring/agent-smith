@@ -108,6 +108,10 @@ public static partial class ContextKeys
     /// render_reference renders them by address. Absent when the approval cites none.</summary>
     public const string ReferenceSets = "ReferenceSets";
 
+    /// <summary>2026-10-08-e8b9k: <c>IReadOnlyList&lt;CarriedReferenceImage&gt;</c> — the images the approval
+    /// cites, as MaterializeReferenceSets wrote them; the master's prompt lists them. Absent when none.</summary>
+    public const string ReferenceImages = "ReferenceImages";
+
     /// <summary>2026-10-01-283di: <c>IReadOnlyList&lt;VisualComparison&gt;</c> — the compare_reference calls a
     /// run made, for result.md's Visual comparison section. A report: nothing gates on it.</summary>
     public const string VisualComparisons = "VisualComparisons";

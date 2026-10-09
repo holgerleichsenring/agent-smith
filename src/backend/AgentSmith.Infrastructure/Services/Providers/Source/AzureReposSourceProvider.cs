@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -18,7 +20,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -228,17 +230,20 @@ public sealed class AzureReposSourceProvider(
         },
     };
 
+    // 2026-10-08-f147: only the token's own marked comments go — a marker is text anyone can paste.
     public async Task<int> DeleteCommentsByMarkerAsync(
         string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
     {
         var prId = int.Parse(prIdentifier);
+        var self = await SelfAsync(cancellationToken);
         var client = await CreateConnectionAsync(cancellationToken);
         var threads = await client.GetThreadsAsync(
             _project, _repoName, prId, cancellationToken: cancellationToken);
         var deleted = 0;
         foreach (var thread in threads.Where(t => t.IsDeleted != true))
-            foreach (var comment in (thread.Comments ?? []).Where(
-                c => c.Content?.StartsWith(markerPrefix, StringComparison.Ordinal) == true))
+            foreach (var comment in (thread.Comments ?? []).Where(c => self is not null
+                && string.Equals(c.Author?.Id, self, StringComparison.OrdinalIgnoreCase)
+                && c.Content?.StartsWith(markerPrefix, StringComparison.Ordinal) == true))
             {
                 await client.DeleteCommentAsync(
                     _project, _repoName, prId, thread.Id, comment.Id, cancellationToken: cancellationToken);
@@ -296,6 +301,15 @@ public sealed class AzureReposSourceProvider(
         logger.LogInformation("Found existing pull request: {Url}", BuildPrUrl(existing.PullRequestId));
         return BuildPrUrl(existing.PullRequestId);
     }
+
+    // 2026-10-08-e8b9d/e8b9c: the review and the standing votes, read by a collaborator.
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken ct) => Reviews().ListAsync(prUrl, ct);
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
+
+    private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
+
+    private Task<string?> SelfAsync(CancellationToken cancellationToken) =>
+        clientFactory.AuthorizedIdentityIdAsync(_organizationUrl, _personalAccessToken, cancellationToken);
 
     private string BuildPrUrl(int prId) =>
         $"{_organizationUrl}/{_project}/_git/{_repoName}/pullrequest/{prId}";
@@ -410,4 +424,8 @@ public sealed class AzureReposSourceProvider(
             return [];
         }
     }
+
+    // 2026-10-08-9e6e / 10b0: standing votes, open pull requests and their comments, read by collaborators.
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new AzureReposChangedPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl).ChangedSinceAsync(resume, maxPages, ct);
+    public IOpenPullRequestLister OpenPullRequests() => new AzureReposOpenPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl);
 }

@@ -112,7 +112,9 @@ public sealed class TrackerPoller(
             (IReadOnlyList<string>)(ticket.Labels?.ToArray() ?? Array.Empty<string>()),
             DateTimeOffset.UtcNow), ct);
 
-        var matches = envelopeResolver.Resolve(config, envelope);
+        var resolved = envelopeResolver.Resolve(config, envelope); // 2026-10-08-101b: only this entry's projects are polled here;
+        var matches = resolved.Where(m => config.Projects[m.ProjectName].Tracker.Name == tracker.Name).ToList(); // others are not zero-match
+        if (matches.Count == 0 && resolved.Count > 0) return;
         if (matches.Count == 0)
         {
             counts.ZeroMatched++;

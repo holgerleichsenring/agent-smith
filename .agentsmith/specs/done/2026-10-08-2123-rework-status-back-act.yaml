@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-2123
+goal: "A person moving a finished ticket back into a trigger status starts it through today's claim paths, and the run reads that move from the tracker's history, appending phases."
+
+applies_to: "backend (status webhooks, ticket history, rework act, revision cause)"
+
+requires: [2026-10-08-f114, 2026-10-08-0781]
+
+facts:
+  - claim: "Webhook status entries: Jira handles issue_updated only for the assignee; GitHub only labeled; GitLab update or open, not reopen; Azure DevOps workitem.updated dispatches."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/JiraAssigneeWebhookHandler.cs:24-38, src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs:33-36, src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs:33-36, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemWebhookHandler.cs:21-22,47-55"
+  - claim: "The dispatcher spawns a match after the status check and posts the zero-match comment on none; it is 111 lines; the poller claims any ticket in a trigger status."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:24-60,64-80, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:134-169"
+  - claim: "The cause order is demand, PR rework, edit, comment, then sha and retrigger; IsAppend is the empty-tail executed shape; SpecRevisionCause is 106 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:64-78, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-57"
+  - claim: "Rework carries the approval and gets the append paragraph and a notice line; acts are read in FetchTicketHandler (140 of 189); ReworkAct has Ticket and PullRequest channels."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:69, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:29-31,62, src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:26-30, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:82-86, src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-9"
+  - claim: "A ticket comment carries only author, time and body; the cut set keeps a ticket-text fingerprint."
+    evidence: "src/backend/AgentSmith.Domain/Entities/TicketComment.cs:9-12, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:80-83"
+  - claim: "JiraEndpoints templates are listed in JiraEndpointsMap.Paths, which rejects unknown keys; /myself is hard-coded in the provider and the draft check."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:15-28, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/JiraEndpointsMap.cs:16-18,40-43, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:62-63, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/JiraTrackerDraftCheck.cs:25"
+  - claim: "Jira Cloud's changelog pages by startAt/maxResults/total with author (accountType) and items; Azure DevOps updates page by $top/$skip with revisedBy and field changes."
+    evidence: "observed: 2026-10-08, https://dac-static.atlassian.com/cloud/jira/platform/swagger-v3.v3.json (GET /rest/api/3/issue/{issueIdOrKey}/changelog, PageBeanChangelog, UserDetails), https://learn.microsoft.com/en-us/rest/api/azure/devops/wit/updates/list?view=azure-devops-rest-7.1"
+  - claim: "GitHub lists issue events (reopened, actor, created_at) with Link rel=last when computable; GitLab state events use 'reopened' and send x-total-pages."
+    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/issues/events?apiVersion=2022-11-28, https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28, https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/models/resource_state_event.rb, https://docs.gitlab.com/api/rest/#pagination-response-headers"
+
+  - claim: "Payload times parse through PayloadActTime; the Jira docs list the endpoint override keys; the context builder fills FetchTicketContext from the trigger."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PayloadActTime.cs:14-33, docs/connect-your-stuff/tracker-jira.md:91, src/backend/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:10-19"
+
+assumptions:
+  - claim: "Jira Data Center returns the changelog with the issue under expand=changelog as changelog.histories."
+    check: "GET an issue with expand=changelog on the deployed Data Center."
+  - claim: "An Azure DevOps update's time is its System.ChangedDate; connectionData names the token's identity; GitHub events mark app actors."
+    check: "Read a test work item's updates, connectionData and a bot-reopened issue's events before building."
+
+scope:
+  in: >
+    Claims stay today's. New webhook entries — JiraStatusWebhookHandler (issue_updated with a status item,
+    registered after the assignee handler, which returns NotHandled for it), GitHub issues.reopened,
+    GitLab reopen — dispatch through StatusBackGate only when: trigger_statuses is non-empty and holds the
+    current status literally; the newest code attempt finished; the payload time (Jira timestamp, GitHub
+    issue.updated_at, GitLab object_attributes.updated_at) satisfies attempt.Precedes; the actor is not the
+    tracker token's identity (TrackerIdentity, cached, shared with the history). Else NotHandled, no zero-match
+    comment. The lease keeps it to one run. The run reads the move when a previous attempt exists, fail-soft:
+    ITicketStatusHistory, last page first (Jira /rest/api/3/issue/{id}/changelog by total, on 404 or by
+    config IssueFor(key)?expand=changelog; GitHub rel=last else next; GitLab x-total-pages; Azure DevOps
+    $top=200 pages), a change into a trigger status after the cutoff by neither the token's identity nor an
+    app or bot; GitHub and GitLab a reopen when open or opened triggers. FetchTicketContext carries
+    TriggerStatuses. FetchTicketHandler sets ContextKeys.StatusBackAct (ReworkChannel.Status).
+    StatusBackFeedback: a comment not ours with Precedes(CreatedAt), a review note with Precedes(At), or a
+    fingerprint change. SpecRevisionCause.StatusBack after PR rework, only in the IsAppend shape with
+    feedback; else the existing order. It carries approval as Rework; its paragraph names conversation,
+    current text and review section. Docs: changelog and myself in tracker-jira.md.
+  out: "Only code-pipeline attempts open the gate. Unmoved-held tickets and verdict parks: unchanged; Retry stays their door."
+
+decisions:
+  - key: "NO HAND-OFF: today's claims already start a moved ticket once; the run reading the move is what was missing."
+  - key: "FINISHED AND CURRENTLY TRIGGERING, OR NOTHING: a status entry never becomes a first-run trigger and never posts the zero-match comment."
+  - key: "FEEDBACK WITHOUT AUTHOR KINDS: comment mappers carry no bot flag; GitHub and GitLab have no timestamped edit, so the fingerprint stands for it."
+  - key: "KNOWN EDGE: a move during a live run can be overwritten by that run's own finalize; the keyword comment and the PR act cover it. An operator-owned token hides that operator's moves."
+
+steps:
+  - id: webhooks
+    action: "Add TrackerIdentity, StatusBackGate, JiraStatusWebhookHandler, and reopened in the GitHub and GitLab issue handlers."
+  - id: history
+    action: "Add ITicketStatusHistory and one collaborator per tracker; changelog and myself in JiraEndpoints and JiraEndpointsMap.Paths; the draft check uses Myself."
+  - id: act
+    action: "Add ReworkChannel.Status and ContextKeys.StatusBackAct; read it in FetchTicketHandler."
+  - id: cause
+    action: "Add StatusBackFeedback and SpecRevisionCause.StatusBack in For, SpecAmendmentRule, SpecSourceResolver, PreviousCutPromptSection and SpecRecutNotice."
+
+tests:
+  - "StatusBackGate_FirstRunTicket_NotHandledNoComment"
+  - "StatusBackGate_EmptyTriggerStatuses_NotHandled"
+  - "StatusBackGate_OwnReopen_NotHandled"
+  - "StatusBackGate_RedeliveryAfterAttempt_NotHandled"
+  - "JiraStatusWebhook_AssigneeAndStatusInOneEvent_OneDispatch"
+  - "Cause_MoveWithTailAndComment_IsComment"
+  - "JiraHistory_CloudAndDataCenterShapes_Read"
+  - "JiraDataCenter_OwnMove_Ignored"
+  - "GitHubHistory_AppReopen_Ignored"
+  - "GitLabHistory_Reopened_IsMove"
+  - "Cause_CommentThenMove_IsStatusBack"
+  - "Cause_MoveWithoutFeedback_KeepsExistingOrder"
+  - "NeedsModel_StatusBackWithUnexecutedTail_False"
+
+done:
+  - "In both modes, a person's move back after a fully executed attempt with feedback since starts one run (today's claim) that appends phases; a first-run status move behaves as today; a move without feedback behaves as polling does today; full suite green."

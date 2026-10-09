@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-10b0
+
+decisions:
+  - category: Architecture
+    chose: "Webhook PR route results and the PR sweep start runs through IDetachedPipelineLauncher with the named project and pipeline, ticketless"
+    over: "ExecuteLegacyAsync's free-text trigger input"
+    reason: "The legacy path parsed the input with a model under a hard-coded config path and leased the PR number as a ticket; the handler already knew project and pipeline. WebhookRequestProcessor drops from 126 to 110 lines and off its baseline."
+  - category: Implementation
+    chose: "PrSweepRepository (initialised, last swept) and PrSweepState (reviewed head, label flag, comment mark) per pull request, every launch after a compare-and-set on the value read"
+    over: "Deriving from run rows"
+    reason: "A push leaves nothing to compare with a run; two cycles that read the same pull request launch once."
+  - category: Implementation
+    chose: "A repository not initialised, or unswept for two intervals, is recorded and starts nothing; afterwards a PR without a row is new"
+    over: "Treating every first sighting as new"
+    reason: "Switching a project to polling (or back after a pause) must not review every open pull request or replay old commands, while a pull request opened later is still reviewed."
+  - category: Implementation
+    chose: "A complete open list prunes the rows of pull requests it no longer shows; a list the budget cut prunes nothing"
+    over: "A per-row closed check"
+    reason: "An uncut open list is the host saying the others are not open; it costs no extra call."
+  - category: Implementation
+    chose: "GitHub comments from the repository's issue- and review-comment feeds (since, sort=created, filtered by creation); GitLab notes only for MRs updated within a minute of the mark; Azure DevOps threads of ten PRs a cycle in rotation"
+    over: "Reading every pull request's comments every cycle"
+    reason: "Three GitHub calls a repository a cycle, a GitLab call per changed MR, and an Azure DevOps cost bounded per cycle."
+  - category: Scope
+    chose: "Azure DevOps has no label scan in either mode"
+    over: "A polling-only label scan"
+    reason: "git.pullrequest.updated carries no label change, so a webhook cannot express it; parity drops it from polling too."
+  - category: Implementation
+    chose: "PrTriggerLabelResolver finds the owner through IConfiguredRepoFinder (RepoKey equality); PrCommandLaunch takes the polling entry's projects and refuses a model-named project outside them"
+    over: "Substring matching, any owner"
+    reason: "A prefix sibling repository took another's label; a sweep may only start what its own entry routes."

@@ -23,7 +23,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 public sealed class RunFinalizationProjection(
     QueuedRunProjection queuedRuns,
     ICapacityBudget? capacityBudget = null,
-    ITakenTicketStore? takenTickets = null)
+    ITakenTicketStore? takenTickets = null,
+    IUniqueViolationTranslator? violations = null)
 {
     public async Task ApplyAsync(IUnitOfWork uow, RunFinishedEvent e, CancellationToken ct)
     {
@@ -38,18 +39,27 @@ public sealed class RunFinalizationProjection(
         await FinishAsync(uow, run, e, ct);
         // A waiting state (queued / waiting_for_input) keeps FinishedAt null, so what a
         // terminal run gives up is given up here and nowhere else.
-        if (run.FinishedAt is not null) await ReleaseWhatTheRunHeldAsync(run, e.RunId, ct);
+        if (run.FinishedAt is not null) await ReleaseWhatTheRunHeldAsync(uow, run, e.RunId, ct);
+        // 2026-10-08-0781: the second end of a run — the row is terminal now, whether the lease
+        // went before or goes later, so the worker checks the ticket either way.
+        if (run.FinishedAt is not null && violations is not null && run.TicketId is { Length: > 0 } ticket)
+            await new ReworkNudgeWriter(uow, violations).UpsertAsync(
+                new ReworkNudgeRequest(run.Project, ticket, ReworkNudgeOrigin.RunEnd), DateTimeOffset.UtcNow, ct);
     }
 
     // p0336: a terminal run stops holding compute — free its budget reservation. A waiting
     // state keeps its reservation, so the run is guaranteed its footprint when it (re)launches.
     // 2026-09-25-b4d9: and it stops owing the ticket a run, so the taken-ticket record goes
     // with it. This is the CLEAR the record's lifetime hangs on — completion, never a timer.
-    private async Task ReleaseWhatTheRunHeldAsync(Run run, string runId, CancellationToken ct)
+    // 2026-10-08-e8b9e: a run that ended because ANOTHER live run holds the ticket owed nothing — the
+    // record belongs to the holder, and clearing it would let the reconciler lose that run's work.
+    private async Task ReleaseWhatTheRunHeldAsync(IUnitOfWork uow, Run run, string runId, CancellationToken ct)
     {
         if (capacityBudget is not null) await capacityBudget.ReleaseAsync(runId, ct);
-        if (takenTickets is not null && run.TicketId is { Length: > 0 } ticketId)
-            await takenTickets.ClearAsync(run.Project, ticketId, ct);
+        if (takenTickets is null || run.TicketId is not { Length: > 0 } ticketId) return;
+        var holder = await uow.Set<ActiveRun>().AsNoTracking()
+            .Where(a => a.Project == run.Project && a.TicketId == ticketId).Select(a => a.RunId).FirstOrDefaultAsync(ct);
+        if (holder is null || holder == runId) await takenTickets.ClearAsync(run.Project, ticketId, ct);
     }
 
     private async Task FinishAsync(

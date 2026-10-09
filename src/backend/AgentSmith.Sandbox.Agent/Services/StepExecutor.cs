@@ -20,7 +20,7 @@ internal sealed class StepExecutor(
         return step.Kind switch
         {
             StepKind.Run => RunCommandAsync(step, onEvents, cancellationToken),
-            StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles
+            StepKind.ReadFile or StepKind.WriteFile or StepKind.ListFiles or StepKind.WriteBytes
                 => fileHandler.HandleAsync(step, onEvents, cancellationToken),
             StepKind.Grep => grepHandler.HandleAsync(step, onEvents, cancellationToken),
             StepKind.DirectoryTree => treeHandler.HandleAsync(step, onEvents, cancellationToken),

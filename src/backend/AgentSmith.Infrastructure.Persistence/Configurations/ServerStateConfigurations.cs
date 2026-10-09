@@ -16,5 +16,10 @@ public sealed class ServerStateConfigurations
         modelBuilder.ApplyConfiguration(new ConnectionDiscoveryConfiguration()); // 2026-10-02-5ab2a
         modelBuilder.ApplyConfiguration(new PendingClarificationConfiguration()); // 2026-10-02-5ab2d
         modelBuilder.ApplyConfiguration(new WebhookLastSeenConfiguration()); // 2026-10-02-5ab2e
+        modelBuilder.ApplyConfiguration(new ReworkNudgeConfiguration()); // 2026-10-08-0781
+        modelBuilder.ApplyConfiguration(new ReworkLedgerConfiguration()); // 2026-10-08-0781
+        modelBuilder.ApplyConfiguration(new SweepCursorConfiguration()); // 2026-10-08-9e6e
+        modelBuilder.ApplyConfiguration(new PrSweepRepositoryConfiguration()); // 2026-10-08-10b0
+        modelBuilder.ApplyConfiguration(new PrSweepStateConfiguration());
     }
 }

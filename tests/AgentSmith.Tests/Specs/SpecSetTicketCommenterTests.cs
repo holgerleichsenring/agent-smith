@@ -95,7 +95,7 @@ public sealed class SpecSetTicketCommenterTests
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             id: new TicketId("19106"), title: "upgrade", description: Ticket,
             acceptanceCriteria: null, status: "open", source: "test"));
-        var commenter = new SpecSetTicketCommenter(factory.Object, NullLogger<SpecSetTicketCommenter>.Instance);
+        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance);
 
         await commenter.PostAsync(pipeline, new TrackerConnection(), Set(), CancellationToken.None);
 

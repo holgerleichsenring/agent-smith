@@ -47,7 +47,7 @@ public sealed class RunEventApplier(
         switch (ev)
         {
             case RunStartedEvent e: await StartRunAsync(uow, e, ct); break;
-            case TicketFetchedEvent e: await UpdateRunAsync(uow, e.RunId, r => r.TicketTitle = e.Title, ct); break;
+            case TicketFetchedEvent e: await UpdateRunAsync(uow, e.RunId, r => { r.TicketTitle = e.Title; r.ActsReadAt ??= e.ActsReadAt; }, ct); break;
             case RunFinishedEvent e: await finalization.ApplyAsync(uow, e, ct); break;
             case StepStartedEvent e: await steps.StartAsync(uow, e, eventSeq, ct); break;
             case StepFinishedEvent e: await steps.FinishAsync(uow, e, eventSeq, ct); break;

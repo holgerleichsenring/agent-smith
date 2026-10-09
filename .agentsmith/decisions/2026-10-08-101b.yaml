@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-101b
+
+decisions:
+  - category: Architecture
+    chose: "TriggerModeGate reads the tracker entry's polling (config.Trackers by name, the project's own connection as fallback) and is called at the door of each of the twenty handlers"
+    over: "Gating inside the routers, resolvers or launchers"
+    reason: "The PR sweep reuses the resolvers and launchers; a gate there would starve the polling path it replaces webhooks with."
+  - category: Implementation
+    chose: "Ticket handlers drop matches whose entry polls and return NotHandled with the reason when none are left; PR handlers refuse when any FindAll owner of the repository polls"
+    over: "Letting an empty match list reach the dispatcher"
+    reason: "An empty list makes the dispatcher post the zero-match comment, which would tell the ticket it matched nothing when it is served by polling."
+  - category: Implementation
+    chose: "WebhookRequestProcessor.DispatchAsync keeps the last non-null skip reason across handlers and returns it"
+    over: "A bare NotHandled after the loop"
+    reason: "Event pairs (issue_comment, pull_request) are offered to several handlers; the refusal reason was dropped for all of them, not only the new one."
+  - category: Implementation
+    chose: "TrackerPoller filters resolved matches to its own entry and returns without counting when only another entry's projects matched"
+    over: "A separate counter for other-entry matches (the spec's 'counted apart')"
+    reason: "TrackerPoller is at 210 of 210; the requirement is that such a ticket is not a ZeroMatch, which skipping satisfies without a new PollResult field. The test pins ZeroMatched == 0 and no spawn."
+  - category: Implementation
+    chose: "TriggerModeFindings yields one Advisory per repository whose owning projects' entries differ in mode, wired into ConfigurationProbe"
+    over: "A blocking finding"
+    reason: "A mixed repository is a valid config (it is polled); only the config can say so, so the probe names it rather than refusing it."
+  - category: Implementation
+    chose: "ConfigSnapshotMapper maps the tracker entry's polling into ConfigTrigger; the dashboard panel shows 'polling every Ns' or 'webhooks'"
+    over: "Keeping the deprecated project-level block on the wire"
+    reason: "The snapshot showed a mode the pollers ignore; the field names stay, so the hand-mirrored TypeScript type needs no change."

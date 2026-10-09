@@ -19,6 +19,8 @@ public sealed class Run : EntityBase
     public string? AgentName { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? FinishedAt { get; set; }
+    // 2026-10-08-0781: when the run began reading its ticket and pull requests — set once.
+    public DateTimeOffset? ActsReadAt { get; set; }
     // p0322a: the producer's live step total (StepStartedEvent.TotalSteps),
     // persisted as the max seen — it GROWS mid-run when BootstrapDispatch
     // splices skill rounds into the command list. Null on pre-p0322a rows.

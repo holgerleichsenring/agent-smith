@@ -92,9 +92,13 @@ public sealed class JiraCommentWebhookHandlerTests
             spawn.Object,
             new Mock<ITicketProviderFactory>().Object,
             NullLogger<WebhookSpawnDispatcher>.Instance);
+        // 2026-10-08-0781: no code attempt on the ticket — the comment takes the dispatch.
+        var router = new KeywordCommentRouter(
+            dispatcher, new Mock<IPreviousAttemptReader>().Object, new Mock<IReworkNudges>().Object,
+            NullLogger<KeywordCommentRouter>.Instance);
         var handler = new JiraCommentWebhookHandler(
             loader.Object, new ServerContext(ConfigPath),
-            resolver.Object, dispatcher, ApprovedRecordProbes.None(),
+            resolver.Object, router, ApprovedRecordProbes.None(),
             new PlanAnswerParser(NullLogger<PlanAnswerParser>.Instance),
             NullLogger<JiraCommentWebhookHandler>.Instance);
         return (handler, resolver, spawn);

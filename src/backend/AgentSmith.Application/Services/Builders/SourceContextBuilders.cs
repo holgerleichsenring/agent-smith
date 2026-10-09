@@ -14,7 +14,8 @@ public sealed class FetchTicketContextBuilder : IContextBuilder
         // p0322a: ticketless runs (CLI-triggered init-project) build with a null
         // TicketId — the handler skips the fetch instead of the builder throwing.
         var ticketId = pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var id) ? id : null;
-        return new FetchTicketContext(ticketId, project.Tracker, pipeline);
+        var trigger = Triggers.TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type);
+        return new FetchTicketContext(ticketId, project.Tracker, pipeline, trigger?.CommentKeyword, trigger?.TriggerStatuses);
     }
 }
 

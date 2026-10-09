@@ -1168,19 +1168,22 @@
    The backdrop is the platform's own pseudo-element: with showModal it paints over the whole
    viewport, which is what a hand-rolled scrim inside this page's container-queried grid could
    not do without a z-index chosen against a layout it does not control. */
-.mock-dialog .d-confirm { width: calc(100vw - 48px); max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink); box-shadow: 0 18px 44px rgba(32, 21, 21, 0.18); }
-.mock-dialog .d-confirm::backdrop { background: rgba(32, 21, 21, 0.38); }
-.mock-dialog .d-confirm-body { padding: 16px 18px 2px; display: flex; flex-direction: column; gap: 9px; }
-.mock-dialog .d-confirm-body p { margin: 0; }
+.d-confirm { width: calc(100vw - 48px); max-width: 420px; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); color: var(--ink); box-shadow: 0 18px 44px rgba(32, 21, 21, 0.18); }
+.d-confirm::backdrop { background: rgba(32, 21, 21, 0.38); }
+.d-confirm-body { padding: 16px 18px 2px; display: flex; flex-direction: column; gap: 9px; }
+.d-confirm-body p { margin: 0; }
 /* the first paragraph is the question; the rest is what it does not undo */
-.mock-dialog .d-confirm-t { font-size: 15px; font-weight: 640; letter-spacing: -0.01em; }
-.mock-dialog .d-confirm-p { font-size: 13px; color: var(--ink-2); }
-.mock-dialog .d-confirm-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 18px 16px; }
+.d-confirm-t { font-size: 15px; font-weight: 640; letter-spacing: -0.01em; }
+.d-confirm-p { font-size: 13px; color: var(--ink-2); }
+.d-confirm-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 14px 18px 16px; }
 
 /* the destructive button. A modifier on the shared button, not a second button: the size,
-   the radius and the type come from the rule at :499 and only the colour is this one's. */
-.mock-dialog .btn.bad { background: var(--bad-wash); color: var(--bad); border-color: var(--bad); }
-.mock-dialog .btn.bad:hover { background: var(--bad); color: var(--panel); border-color: var(--bad); }
+   the radius and the type come from the rule at :499 and only the colour is this one's.
+   2026-10-08-e8b9i: the dialog is no longer this page's alone — the config studio and the
+   data archive ask through it too — so its rules are unscoped, and the button pair is scoped to
+   the dialog itself rather than to any page: never a bare .btn.bad. */
+.d-confirm .btn.bad { background: var(--bad-wash); color: var(--bad); border-color: var(--bad); }
+.d-confirm .btn.bad:hover { background: var(--bad); color: var(--panel); border-color: var(--bad); }
 /* 2026-09-20-4b0ac: the composer's two controls are GLYPHS — a plus at the lower left that
    opens what can be attached, and the arrow that sends. Their own class and not .btn: that
    button is sized by a label (9px 15px around a 13px word) and these carry none, and the rule
@@ -1207,6 +1210,10 @@
 .mock-dialog .d-menu { position: absolute; left: 0; bottom: calc(100% + 6px); min-width: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 20px rgba(32, 21, 21, 0.08); padding: 4px; display: flex; flex-direction: column; z-index: 40; }
 .mock-dialog button.d-menu-item { font: inherit; font-size: 12.5px; font-weight: 520; text-align: left; white-space: nowrap; color: var(--ink-2); background: none; border: 0; border-radius: 7px; padding: 8px 10px; cursor: pointer; }
 .mock-dialog .d-menu-item:hover { background: var(--panel-2); color: var(--ink); }
+/* 2026-10-08-e8b9i: a line under a menu item — what the browser will do once it is picked. It
+   sits beside the item, not in it, so the item's name stays one word; block and wrapping,
+   because the items are nowrap and this is a sentence. */
+.mock-dialog .d-menu .d-menu-sub { display: block; white-space: normal; font-size: 11px; color: var(--ink-3); padding: 0 10px 6px; max-width: 190px; }
 /* 2026-09-20-4b0ae: the pane, and what says an inspect reached it. Clicking Inspect on a card
    in the exchange usually selects the proposal the pane is ALREADY showing — the pane falls
    back to the proposal tab whenever nothing has been filed — so the act changes nothing a

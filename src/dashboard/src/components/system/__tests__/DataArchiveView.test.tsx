@@ -42,7 +42,6 @@ describe("DataArchiveView", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
-    vi.stubGlobal("confirm", () => true);
   });
 
   afterEach(() => {
@@ -114,6 +113,33 @@ describe("DataArchiveView", () => {
     expect(restored.textContent).toContain("no restart");
   });
 
+  // 2026-10-08-e8b9i: the restore is asked in the page's own dialog before anything is sent.
+  it("DataArchiveView_Restore_AsksInPageDialogBeforeUpload", async () => {
+    servingPreview();
+    await shown();
+    const input = screen.getByTestId("archive-restore-file") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [new File(["z"], "a.zip")], configurable: true });
+    fireEvent.change(input);
+
+    const asked = await screen.findByTestId("confirm-dialog");
+    expect(asked.textContent).toContain("Restore a.zip");
+    expect(screen.getByTestId("confirm-dialog-confirm").textContent).toBe("Restore");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("DataArchiveView_RestoreCancelled_SendsNothing", async () => {
+    servingPreview();
+    await shown();
+    const input = screen.getByTestId("archive-restore-file") as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [new File(["z"], "a.zip")], configurable: true });
+    fireEvent.change(input);
+
+    fireEvent.click(await screen.findByTestId("confirm-dialog-cancel"));
+
+    await waitFor(() => expect(screen.queryByTestId("confirm-dialog")).not.toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("Surface_ABrowserWithNoSaveDialog_SaysTheTabHeldTheWholeFile", async () => {
     // The honest half of the download decision: where showSaveFilePicker does not exist the
     // archive IS buffered in this tab, and the surface says so rather than claiming it was
@@ -142,4 +168,6 @@ async function pickAFile(): Promise<void> {
   });
   Object.defineProperty(input, "files", { value: [file], configurable: true });
   fireEvent.change(input);
+  // 2026-10-08-e8b9i: the warning is the page's own dialog now; the restore waits for its answer.
+  fireEvent.click(await screen.findByTestId("confirm-dialog-confirm"));
 }

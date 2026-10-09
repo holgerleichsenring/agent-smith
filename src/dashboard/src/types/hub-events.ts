@@ -260,6 +260,8 @@ export interface TicketFetchedEvent extends RunEventBase {
   labels: string[];
   attachmentCount: number;
   source: string;
+  /** 2026-10-08-0781: when the run began reading the ticket and its pull requests (the rework cutoff). */
+  actsReadAt?: string | null;
 }
 
 /**

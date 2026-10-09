@@ -12,6 +12,7 @@ import {
 } from "@/lib/archiveApi";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { ConfirmDialog, useConfirmDialog } from "@/components/dialog/ConfirmDialog";
 
 // 2026-08-28-3793: the whole database, out and back in, beside the versions and the
 // database state — where an operator already goes to find out what this installation IS.
@@ -95,6 +96,8 @@ function Actions() {
   const [refused, setRefused] = useState<string | null>(null);
   const [failure, setFailure] = useState<Error | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 2026-10-08-e8b9i: the restore warning is asked in the page's own dialog, not the browser's.
+  const confirmation = useConfirmDialog();
 
   const onDownload = async () => {
     setBusy("download");
@@ -111,7 +114,8 @@ function Actions() {
   const onFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = ""; // so the same file can be picked again after a refusal
-    if (!file || !window.confirm(restoreWarning(file))) return;
+    if (!file) return;
+    if (!(await confirmation.ask(restoreWarning(file), { confirmLabel: "Restore", cancelLabel: "Cancel" }))) return;
     setBusy("restore");
     setRefused(null);
     setFailure(null);
@@ -172,6 +176,7 @@ function Actions() {
           {failure.message}
         </p>
       )}
+      <ConfirmDialog {...confirmation.dialog} />
     </div>
   );
 }

@@ -25,4 +25,7 @@ public static class PersistenceLimits
     /// <summary>2026-10-01-283da: a reference file's path inside its set. Not indexed; the upload
     /// refuses a longer path by name rather than truncating it.</summary>
     public const int ReferencePath = 240;
+
+    /// <summary>2026-10-08-e8b9g: a SHA-256 as lower-case hex.</summary>
+    public const int Sha256Hex = 64;
 }

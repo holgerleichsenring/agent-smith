@@ -123,9 +123,10 @@ public sealed class PrCommentProviderBatchTests
     {
         var handler = new RecordingHandler(request => request.Method.Method switch
         {
+            "GET" when request.RequestUri!.AbsolutePath.EndsWith("/api/v4/user") => Json(HttpStatusCode.OK, """{"id":99}"""),
             "GET" => Json(HttpStatusCode.OK, """
-                [{"id":11,"body":"<!-- agentsmith:pr-review:src/A.cs:3 -->\nold finding"},
-                 {"id":12,"body":"human comment"}]
+                [{"id":11,"body":"<!-- agentsmith:pr-review:src/A.cs:3 -->\nold finding","author":{"id":99}},
+                 {"id":12,"body":"human comment","author":{"id":8}}]
                 """),
             _ => new HttpResponseMessage(HttpStatusCode.NoContent),
         });
@@ -135,9 +136,9 @@ public sealed class PrCommentProviderBatchTests
             "5", "<!-- agentsmith:pr-review:", CancellationToken.None);
 
         deleted.Should().Be(1);
-        handler.Requests.Should().HaveCount(2);
-        handler.Requests[1].Method.Should().Be("DELETE");
-        handler.Requests[1].Uri.Should().EndWith("/merge_requests/5/notes/11");
+        handler.Requests.Should().HaveCount(3); // GET /user, one notes page, one delete
+        handler.Requests[2].Method.Should().Be("DELETE");
+        handler.Requests[2].Uri.Should().EndWith("/merge_requests/5/notes/11");
     }
 
     private static GitLabSourceProvider CreateGitLabSut(HttpMessageHandler handler) =>

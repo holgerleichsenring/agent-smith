@@ -35,6 +35,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
             StepKind.Run => RunCommandAsync(step, progress, cancellationToken),
             StepKind.ReadFile => Task.FromResult(ReadFile(step)),
             StepKind.WriteFile => WriteFileAsync(step, cancellationToken),
+            StepKind.WriteBytes => WriteBytesAsync(step, cancellationToken), // 2026-10-08-e8b9j: no python here
             StepKind.ListFiles => Task.FromResult(ListFiles(step, progress)),
             StepKind.Grep => Task.FromResult(Grep(step, progress)),
             StepKind.DirectoryTree => Task.FromResult(DirectoryTree(step)),
@@ -243,6 +244,11 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         File.Move(tempPath, path, overwrite: true);
         return Success(step, 0, null);
     }
+
+    private async Task<StepResult> WriteBytesAsync(Step step, CancellationToken cancellationToken) =>
+        await new WriteBytesFile().WriteAsync(ResolvePath(step.Path!), step.Content!, step.Append,
+            step.RenameTo is null ? null : ResolvePath(step.RenameTo), cancellationToken) is { } refused
+            ? Failure(step, 0, refused) : Success(step, 0, null);
 
     private StepResult ListFiles(Step step, IProgress<StepEvent>? progress)
     {

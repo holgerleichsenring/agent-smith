@@ -1,7 +1,10 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.AI;
 
 namespace AgentSmith.Application.Services.Tools;
@@ -12,7 +15,9 @@ namespace AgentSmith.Application.Services.Tools;
 /// the command inside the server. 2026-10-02-075dd: and note_reference, where a store keeps notes.
 /// Nothing on a turn without an upload.
 /// </summary>
-public sealed class ReferenceDesignTools(SandboxContainerRuntime runtime, IReferenceNotes? notes = null)
+public sealed class ReferenceDesignTools(
+    SandboxContainerRuntime runtime, IReferenceNotes? notes = null,
+    IReferenceSetReader? sets = null, IToolImageDeposit? images = null)
 {
     public IReadOnlyList<AITool> For(PipelineContext pipeline)
     {
@@ -27,10 +32,29 @@ public sealed class ReferenceDesignTools(SandboxContainerRuntime runtime, IRefer
             tools.AddRange(new ReferenceCommandToolHost(references, new RunCommandTimeout(
                 pipeline.TryGet<int>(ContextKeys.RunCommandTimeoutSeconds, out var run) ? run : null,
                 pipeline.TryGet<int>(ContextKeys.StepTimeoutSeconds, out var cap) ? cap : null)).GetTools(null, null));
-        var sets = references.Where(r => r.Value is ReferenceSetSandbox)
+        var held = references.Where(r => r.Value is ReferenceSetSandbox)
             .ToDictionary(r => r.Key, r => (ReferenceSetSandbox)r.Value, StringComparer.Ordinal);
-        if (notes is not null && sets.Count > 0)
-            tools.AddRange(new ReferenceNoteToolHost(sets, notes).GetTools(null, null));
+        if (notes is not null && held.Count > 0)
+            tools.AddRange(new ReferenceNoteToolHost(held, notes).GetTools(null, null));
+        // 2026-10-08-e8b9j: an image inside an upload, shown as a picture — on any backend.
+        if (sets is not null && images is not null && held.Count > 0)
+            tools.AddRange(new ReferenceImageToolHost(held.ToDictionary(r => r.Key,
+                r => new ReferenceUploadAddress(r.Value.ConversationId, r.Value.SetId), StringComparer.Ordinal),
+                sets, images).GetTools(null, null));
         return tools;
+    }
+
+    /// <summary>
+    /// 2026-10-08-e8b9k: what a RUN's coding master gets over the sets it carries — view_reference_image,
+    /// whatever the browser flag says, because it reads the store and needs no browser.
+    /// </summary>
+    public IReadOnlyList<AITool> ForRun(PipelineContext pipeline)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        if (sets is null || images is null
+            || !pipeline.TryGet<IReadOnlyList<CarriedReferenceSet>>(ContextKeys.ReferenceSets, out var carried)
+            || carried is null || carried.Count == 0) return [];
+        return [.. new ReferenceImageToolHost(carried.ToDictionary(c => c.Address,
+            c => new ReferenceUploadAddress(c.Session, c.SetId), StringComparer.Ordinal), sets, images).GetTools(null, null)];
     }
 }

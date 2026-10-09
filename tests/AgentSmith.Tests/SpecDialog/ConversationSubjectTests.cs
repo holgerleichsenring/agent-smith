@@ -16,6 +16,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
+using AgentSmith.Tests.TestSupport;
+
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
@@ -239,8 +241,7 @@ public sealed class ConversationSubjectTests : IDisposable
             new SpecDialogLatestOutcomeStore(
                 _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
-            _turnGate, new ReferenceFileRepository(_context),
-            new SpecDialogTicketTextRepository(_context), new ReferenceSetRepository(_context));
+            _turnGate, new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
 
     private SpecDialogRouter Router()
     {

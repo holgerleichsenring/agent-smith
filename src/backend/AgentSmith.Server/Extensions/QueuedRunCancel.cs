@@ -18,7 +18,7 @@ internal static class QueuedRunCancel
     internal static async Task<bool> TryAsync(
         string runId, RunRepository runs, ICapacityQueue capacityQueue,
         IEventPublisher events, CancelledTicketFinalizer ticketFinalizer,
-        CancelTerminalWriter terminalWriter, CancellationToken cancellationToken)
+        CancelTerminalWriter terminalWriter, CancellationToken cancellationToken, IReworkWatermark? watermark = null)
     {
         var run = await runs.GetRunDetailAsync(runId, cancellationToken);
         if (run is not { Status: "queued", FinishedAt: null }) return false;
@@ -27,6 +27,8 @@ internal static class QueuedRunCancel
         // init's request sits in the job queue, not the capacity queue; the consumer's
         // pre-start gate refuses the finished row there.
         await runs.MarkCancelRequestedAsync(runId, "operator", DateTimeOffset.UtcNow, cancellationToken);
+        // 2026-10-08-0781: cancel means stop — the ticket's acts up to now are withheld.
+        if (watermark is not null) await watermark.WithholdRunAsync(runId, DateTimeOffset.UtcNow, cancellationToken);
         await capacityQueue.RemoveAsync(run.Project, run.TicketId, cancellationToken);
         // 2026-08-24-ca23: the SECOND cancel entry point, with the same undrained stream as
         // the enforcer's — see CancelTerminalWriter.

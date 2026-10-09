@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-f147
+goal: "A trusted reviewer's Request changes on a GitLab agent-smith MR starts one rework, read from the 'requested changes' system note GitLab writes for every submission."
+
+applies_to: "backend (GitLab MR webhook, GitLab act reader, review author ids, PR review selection, marker deletes) + docs"
+
+requires: [2026-10-08-e8b9c, 2026-10-08-e8b9d]
+
+facts:
+  - claim: "Every Request changes writes a system note 'requested changes' by the reviewer; the webhook fires only when GitLab has or adds a reviewer row (not on a single-reviewer MR that has one); an approval writes 'approved this merge request'."
+    evidence: "observed: 2026-10-08, https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/services/merge_requests/update_reviewer_state_service.rb (execute lines 21-40, create_requested_changes, can_add_reviewer?), https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/services/system_notes/merge_requests_service.rb (approve_mr, requested_changes), https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/workers/merge_requests/create_approval_note_worker.rb"
+  - claim: "changes.reviewers appears only when the reviewer list differs, so a repeated Request changes carries none; the top-level reviewers[] carries each state."
+    evidence: "observed: 2026-10-08, https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/models/concerns/issuable.rb (hook_reviewer_changes, to_hook_data), https://docs.gitlab.com/user/project/integrations/webhook_events/ (Reviewer state tracking)"
+  - claim: "MR notes list newest first with author.id, created_at and system; only administrators or owners set created_at; GET /user returns the token's user."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/notes/#merge-requests, https://docs.gitlab.com/api/users/#retrieve-the-current-user"
+  - claim: "The first Handled result wins and PrReworkAdmission returns Handled for every outcome; a push carries oldrev, a label edit changes.labels."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:101-105, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:45, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:66-73, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs:72-81, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:48,58"
+  - claim: "SHIPPED DEFECT: GitLab review authors carry the already-escaped project path, which the member reader escapes again (%252F), so every GitLab review note is judged untrusted; the test fixture passes 'o%2Fr'."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/SourceProviderFactory.cs:51-53, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrReviewThreadReader.cs:52-54, src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitLabMemberAccessReader.cs:23-24, tests/AgentSmith.Tests/Rework/PrReviewReaderTests.cs:68"
+  - claim: "Any note opening '<!-- agentsmith:' counts as ours, and GitLab and Azure DevOps delete marked notes by body alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrReviewSelection.cs:15,22-34, src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:75, src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:9-10, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:263-279, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:232-246"
+  - claim: "GitLab pages MR notes inside the provider (401 of 421); GitHub reads reviews in one GraphQL query; Azure DevOps gets only Git clients, no identity."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:286-303, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:12, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:19-33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/IAzDoClientFactory.cs:17-27, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:11-12"
+  - claim: "The docs say GitLab starts no rework; the trigger page and the reference page both list GitLab events."
+    evidence: "docs/reference/integrations/pr-comments.md:75, docs/trigger-it/webhooks.md:90-104, docs/reference/configuration/webhooks.md:50"
+
+assumptions:
+  - claim: "The REST notes API returns both system notes with system true, the user as author and the bodies quoted."
+    check: "Request changes twice and approve on a 19.3 test MR, then list its notes."
+
+scope:
+  in: >
+    GitLabNotesPager (extracted from the provider, shared by DeleteCommentsByMarkerAsync and the act
+    reader). GitLabMrActReader: per author, the newest system note among 'requested changes' and 'approved
+    this merge request'; an act when it is 'requested changes', not by the MR author nor the token's user
+    (GET /user once per read); returned non-system at its created_at, bot from the users API.
+    GitLabMrReviewWebhookHandler, registered after GitLabMrEventWebhookHandler: action update, no oldrev, no
+    changes.labels, a top-level reviewer in requested_changes; it reads the act and admits as the vote
+    handler does. Review and act authors carry the unescaped path. PrReviewNote.IsOurs: a marked note by the
+    token's identity (GitHub viewer in the query; GitLab GET /user; Azure DevOps connectionData through a new
+    IAzDoClientFactory call); selection, fetcher and both marker deletes use it.
+  out: "Enqueueing instead of admitting inline (2026-10-08-0781)."
+
+decisions:
+  - key: "GITLAB KEEPS THE TIME: its own note per submission, authored by the reviewer, not settable through the API."
+  - key: "THE NEWEST OF REQUEST AND APPROVAL DECIDES, as GitHub's latest review does; no reviewers API call."
+  - key: "ONE GITLAB LIMITATION: a reviewer GitLab could not add sends no webhook; the act is still read by the next run and by polling, so modes match only for listed reviewers."
+  - key: "OURS IS MARKER AND ACCOUNT, for reading and for deleting."
+
+steps:
+  - id: reader
+    action: "Extract GitLabNotesPager; add GitLabMrActReader; the provider implements IPrReviewActReader in one line."
+  - id: webhook
+    action: "Add GitLabMrReviewWebhookHandler after GitLabMrEventWebhookHandler."
+  - id: authors
+    action: "Pass the unescaped path as RepositoryId in the GitLab readers."
+  - id: identity
+    action: "Add the Azure DevOps identity call; add PrReviewNote.IsOurs in the three readers; use it in selection, fetcher and both marker deletes."
+  - id: docs
+    action: "Replace pr-comments.md:75 with the GitLab setup (19.3+, Merge request events, api scope, listed reviewers); add GitLab review events to docs/trigger-it/webhooks.md and docs/reference/configuration/webhooks.md."
+
+tests:
+  - "GitLabActReader_RequestedChangesNote_ReturnsActAtCreatedAt"
+  - "GitLabActReader_ApprovedNoteAfter_Empty"
+  - "GitLabActReader_MrAuthorOrTokenUser_Ignored"
+  - "GitLabMrReview_RepeatWithoutReviewerChanges_Enters"
+  - "GitLabMrPush_WithStandingRequestedChanges_StillReachesPrReview"
+  - "GitLabMemberAccess_ReviewAuthor_UrlNeverDoubleEscaped"
+  - "Select_MarkedNoteByStranger_IsNotOurs"
+  - "DeleteByMarker_StrangersMarkedNote_Kept"
+
+done:
+  - "Webhook mode, GitLab: Request changes by a listed reviewer on an agent-smith MR starts one attempt whose context carries the act; a repeat after that attempt starts the next; pushes and labels route as before."
+  - "GitLab review notes are trusted again; a stranger's marked note is neither ours nor deleted on any host; full suite green."

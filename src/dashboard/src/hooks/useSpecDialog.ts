@@ -121,6 +121,9 @@ export interface SpecDialogState {
     decision?: SpecDialogDecision,
     ticketId?: string,
   ) => Promise<void>;
+  /** 2026-10-08-e8b9h: reads the view again and RESEEDS the transcript from it — what a change
+   *  the page did not say itself (an upload removed) needs to show. */
+  refresh: () => Promise<void>;
   /** 2026-09-22-2a86: a fresh tab. The conversation itself is opened by the first message,
    *  which carries the picked project. */
   startNew: () => Promise<void>;
@@ -534,6 +537,12 @@ export function useSpecDialog(): SpecDialogState {
     [dialogId, load],
   );
 
+  const refresh = useCallback(async () => {
+    if (!dialogId) return;
+    reseed.current = true;
+    await load(dialogId);
+  }, [dialogId, load]);
+
   // 2026-10-01-283db: a website is stored the way an image is — before any message follows it,
   // opening the conversation when none is open — and the reseeding read puts it in the transcript.
   // 2026-10-02-075db: what the selection card left out before sending is joined to the server's
@@ -639,7 +648,7 @@ export function useSpecDialog(): SpecDialogState {
   return {
     dialogId, view, conversations, entries, question, proposal, filed, failure, uploadNote, awaiting,
     working: working.current, workingSince,
-    readings, activity, send, startNew, open, remove, attach, attachSite,
+    readings, activity, send, refresh, startNew, open, remove, attach, attachSite,
   };
 }
 

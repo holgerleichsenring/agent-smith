@@ -54,6 +54,12 @@ namespace AgentSmith.Contracts.Specs;
 /// needs a new approval. Null on a record written before this phase, which cites none. Appended
 /// LAST for the reason the two before it are.
 /// </param>
+/// <param name="Images">
+/// 2026-10-08-e8b9k: the IMAGES the conversation held at approval, by the set id each is stored
+/// under — written beside the sets into the run and shown to a vision model. Frozen like the sets.
+/// Null on a record written before this phase, which cites none; an older reader ignores it.
+/// Appended LAST for the same reason as the fields before it.
+/// </param>
 public sealed record SpecApprovalRecord(
     string Key,
     SpecSet Set,
@@ -61,11 +67,15 @@ public sealed record SpecApprovalRecord(
     string Tracker = "",
     string CarryingRepo = "",
     string TicketId = "",
-    IReadOnlyList<string>? References = null)
+    IReadOnlyList<string>? References = null,
+    IReadOnlyList<string>? Images = null)
 {
     /// <summary>The approval the set carries — null only on a record built without one.</summary>
     public SpecApproval? Approval => Set.Approval;
 
     /// <summary>2026-10-01-283df: the cited set ids, empty when the record cites none.</summary>
     public IReadOnlyList<string> CitedSets => References ?? [];
+
+    /// <summary>2026-10-08-e8b9k: the cited image set ids, empty when the record cites none.</summary>
+    public IReadOnlyList<string> CitedImages => Images ?? [];
 }

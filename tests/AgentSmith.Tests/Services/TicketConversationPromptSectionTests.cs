@@ -44,6 +44,6 @@ public sealed class TicketConversationPromptSectionTests
     public void Render_NoComments_ReturnsEmpty()
     {
         TicketConversationPromptSection.Render([]).Should().BeEmpty();
-        TicketConversationPromptSection.Render(null).Should().BeEmpty();
+        TicketConversationPromptSection.Render((IReadOnlyList<TicketComment>?)null).Should().BeEmpty();
     }
 }

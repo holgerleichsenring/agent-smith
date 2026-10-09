@@ -14,6 +14,7 @@ import { DialogProposalPanel } from "./DialogProposalPanel";
 import { DialogApprovedPanel } from "./DialogApprovedPanel";
 import { DialogPaneTabs, statusOf } from "./DialogPaneTabs";
 import { DialogScopePanel } from "./DialogScopePanel";
+import { DialogUploadsPanel } from "./DialogUploadsPanel";
 import type { DialogPaneTab } from "./DialogPaneTab";
 export type { DialogPaneTab } from "./DialogPaneTab";
 
@@ -47,6 +48,8 @@ export function DialogPane({
   paneRef,
   panelRef,
   marked = false,
+  dialogId = null,
+  onRefresh,
 }: {
   session: SpecDialogSession | null;
   projects: SpecDialogProject[];
@@ -65,6 +68,9 @@ export function DialogPane({
   panelRef?: Ref<HTMLDivElement>;
   /** Whether the pane is wearing the mark an inspect just put on it. */
   marked?: boolean;
+  /** 2026-10-08-e8b9h: the dialog an upload is removed from, and the read that shows it gone. */
+  dialogId?: string | null;
+  onRefresh?: () => Promise<void>;
 }) {
   const shownProposal = focus?.tab === "proposal" && focus.proposal ? focus.proposal : proposal;
   const offered: DialogPaneTab[] = [
@@ -76,6 +82,8 @@ export function DialogPane({
     // 2026-09-25-8e51d: a conversation BOUND to a ticket has an approved specification to show
     // even when it filed nothing itself, which is the case this tab exists for.
     ...(work?.approved ? (["approved"] as const) : []),
+    // 2026-10-08-e8b9h: offered once the conversation holds anything the operator handed it.
+    ...(hasUploads(session) ? (["uploads"] as const) : []),
   ];
   const fallback: DialogPaneTab = filed ? "filed" : proposal ? "proposal" : "scope";
   const tab = focus && offered.includes(focus.tab) ? focus.tab : fallback;
@@ -122,11 +130,19 @@ export function DialogPane({
         {tab === "approved" && work?.approved && (
           <DialogApprovedPanel approved={work.approved} />
         )}
+        {tab === "uploads" && session && (
+          <DialogUploadsPanel session={session} work={work} dialogId={dialogId}
+            onRefresh={onRefresh ?? (() => Promise.resolve())} />
+        )}
       </div>
     </aside>
   );
 }
 
+
+function hasUploads(session: SpecDialogSession | null): boolean {
+  return (session?.references?.length ?? 0) + (session?.images?.length ?? 0) > 0;
+}
 
 /** The pane's choice lasts until the outcome changes; a new proposal or filing takes over. */
 export function useDialogPaneFocus(

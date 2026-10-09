@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
@@ -14,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -222,29 +224,34 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
         return payload;
     }
 
+    // 2026-10-08-f147: only the token's own marked comments go — a marker is text anyone can paste.
     public async Task<int> DeleteCommentsByMarkerAsync(
         string prIdentifier, string markerPrefix, CancellationToken cancellationToken = default)
     {
         var prNumber = int.Parse(prIdentifier);
         var client = CreateGitHubClient();
+        var self = (await client.User.Current()).Login;
+        bool Ours(string? body, User? user) =>
+            string.Equals(user?.Login, self, StringComparison.OrdinalIgnoreCase)
+            && body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true;
         var deleted = 0;
         foreach (var comment in await client.PullRequest.ReviewComment.GetAll(_owner, _repo, prNumber))
-            if (comment.Body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true)
+            if (Ours(comment.Body, comment.User))
             {
                 await client.PullRequest.ReviewComment.Delete(_owner, _repo, comment.Id);
                 deleted++;
             }
-        deleted += await DeleteMarkedIssueCommentsAsync(client, prNumber, markerPrefix);
+        deleted += await DeleteMarkedIssueCommentsAsync(client, prNumber, Ours);
         _logger.LogInformation("Deleted {Count} marked comment(s) on PR #{PrNumber}", deleted, prNumber);
         return deleted;
     }
 
     private async Task<int> DeleteMarkedIssueCommentsAsync(
-        IGitHubClient client, int prNumber, string markerPrefix)
+        IGitHubClient client, int prNumber, Func<string?, User?, bool> ours)
     {
         var deleted = 0;
         foreach (var comment in await client.Issue.Comment.GetAllForIssue(_owner, _repo, prNumber))
-            if (comment.Body?.StartsWith(markerPrefix, StringComparison.Ordinal) == true)
+            if (ours(comment.Body, comment.User))
             {
                 await client.Issue.Comment.Delete(_owner, _repo, comment.Id);
                 deleted++;
@@ -313,6 +320,13 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 
     private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_token);
 
+    // 2026-10-08-e8b9d: the review is read by a collaborator over this provider's own connection.
+    public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitHubPrReviewThreadReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4], _logger).ListAsync(prUrl, cancellationToken);
+
+    public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitHubPrReviewActReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]).ChangesRequestedAsync(prUrl, cancellationToken);
+
     private static (string owner, string repo) ParseGitHubUrl(string url)
     {
         var uri = new Uri(url.Replace(".git", ""));
@@ -322,4 +336,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider
 
         return (segments[0], segments[1]);
     }
+
+    // 2026-10-08-9e6e / 10b0: the open pull requests that may carry a rework act, and every open one with its comments.
+    public IOpenPullRequestLister OpenPullRequests() => new GitHubOpenPullRequests(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]);
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitHubChangedPullRequests(CreateGitHubClient(), _owner, _repo).ChangedSinceAsync(since, resume, maxPages, ct);
 }

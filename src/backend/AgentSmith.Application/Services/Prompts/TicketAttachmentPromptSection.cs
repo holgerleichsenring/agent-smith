@@ -13,29 +13,49 @@ namespace AgentSmith.Application.Services.Prompts;
 /// </summary>
 public static class TicketAttachmentPromptSection
 {
+    /// <param name="images">The run's images: the ticket's own, then (2026-10-08-e8b9k) the uploaded
+    /// images the approval cites, recognised by their <c>upload:</c> address.</param>
+    /// <param name="attached">How many of them ride this message as picture parts — not the list length.</param>
     public static string Render(
-        int imageCount,
-        bool imagesAttached,
+        IReadOnlyList<TicketImageAttachment> images,
+        int attached,
         IReadOnlyList<MaterializedTicketDocument> documents,
         IReadOnlyList<AttachmentRef> otherAttachments)
     {
-        if (imageCount == 0 && documents.Count == 0 && otherAttachments.Count == 0)
+        if (images.Count == 0 && documents.Count == 0 && otherAttachments.Count == 0)
             return string.Empty;
 
+        var uploads = images.Count(UploadImageAddress.Is);
         var sb = new StringBuilder("## Ticket attachments\n");
-        AppendImageNote(sb, imageCount, imagesAttached);
+        AppendImageNote(sb, images.Count - uploads, Math.Min(attached, images.Count - uploads));
+        AppendUploadNote(sb, uploads, Math.Max(0, attached - (images.Count - uploads)), attached > 0);
         AppendDocuments(sb, documents);
         AppendOtherBinaries(sb, otherAttachments);
         return sb.ToString();
     }
 
-    private static void AppendImageNote(StringBuilder sb, int imageCount, bool imagesAttached)
+    private static void AppendImageNote(StringBuilder sb, int imageCount, int attached)
     {
         if (imageCount == 0) return;
-        sb.AppendLine(imagesAttached
+        sb.AppendLine(attached == imageCount
             ? $"{imageCount} ticket image(s) are attached to this message as image content."
-            : $"{imageCount} image attachment(s) exist on the ticket but are not viewable "
-              + "by this model. Ask the operator via ask_human if they look essential.");
+            : attached > 0
+                ? $"{attached} of the {imageCount} ticket image(s) are attached to this message as image content."
+                : $"{imageCount} image attachment(s) exist on the ticket but are not viewable "
+                  + "by this model. Ask the operator via ask_human if they look essential.");
+    }
+
+    // 2026-10-08-e8b9k: the images the approval cites, counted apart from the ticket's own. Each is
+    // also a file in the run; a model that sees no images cannot read that file either.
+    private static void AppendUploadNote(StringBuilder sb, int uploads, int attached, bool sees)
+    {
+        if (uploads == 0) return;
+        sb.AppendLine(sees || attached > 0
+            ? $"{attached} of the {uploads} image(s) the approval cites are attached to this message as image "
+              + $"content; each is also a file under {UploadImageAddress.Directory}/."
+            : $"{uploads} image(s) the approval cites lie under {UploadImageAddress.Directory}/, but this model "
+              + "cannot see images and read_file cannot read them (it refuses non-UTF-8 content). Ask the "
+              + "operator via ask_human if they look essential.");
     }
 
     private static void AppendDocuments(

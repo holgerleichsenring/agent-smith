@@ -60,7 +60,7 @@ public sealed class DataArchiveSchemaTests : IDisposable
         using var db = MigratedStoreTemplate.Context(_store);
         var ordered = new ArchiveTableOrder().Of(db.Model);
 
-        ordered.Should().HaveCount(32);
+        ordered.Should().HaveCount(37);
         var placed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var type in ordered)
         {

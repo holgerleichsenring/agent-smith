@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Specs;
 using System.Text.Json;
 using AgentSmith.Application.Services.Triage;
@@ -16,13 +17,14 @@ public sealed class GitLabIssueCommentWebhookHandler(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     IEnvelopeProjectResolver envelopeResolver,
-    WebhookSpawnDispatcher dispatcher,
+    KeywordCommentRouter router,
     ApprovedRecordProbe approvals,
     PlanAnswerParser planAnswerParser,
-    ILogger<GitLabIssueCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabIssueCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
-        platform == "gitlab" && eventType == "Note Hook";
+        platform == "gitlab" && eventType == "note hook";
 
     public async Task<WebhookResult> HandleAsync(
         string payload, IDictionary<string, string> headers,
@@ -38,6 +40,8 @@ public sealed class GitLabIssueCommentWebhookHandler(
                 return WebhookResult.NotHandled();
 
             var noteBody = noteAttrs.GetProperty("note").GetString() ?? "";
+            if (OwnTicketComment.IsOurs(noteBody))
+                return WebhookResult.NotHandled("the comment is agent-smith's own");
             var repoUrl = root.TryGetProperty("project", out var proj)
                 ? proj.GetProperty("web_url").GetString() ?? "" : "";
 
@@ -60,42 +64,19 @@ public sealed class GitLabIssueCommentWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
-            var filtered = FilterByKeywordOrAnswers(config, matches, noteBody, planAnswers.Count > 0);
-
-            if (filtered.Count == 0 && matches.Count > 0)
-            {
-                logger.LogDebug("GitLab issue note !{Issue}: matched but no keyword/answers — ignoring",
-                    issueId);
-                return WebhookResult.NotHandled();
-            }
-
-            var planAnswersDict = planAnswers.Count > 0
-                ? new Dictionary<string, string>(planAnswers) : null;
-            await dispatcher.DispatchAsync(
-                config, filtered, envelope, issueState, planAnswersDict, cancellationToken);
-            return WebhookResult.HandledNoRoute();
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            // 2026-10-08-101b: a polling entry's projects get nothing from webhooks, and the list says why.
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
+            var act = PayloadActTime.Act(
+                PayloadActTime.Text(root, "user", "username"), PayloadActTime.Text(noteAttrs, "created_at"));
+            return await router.RouteAsync(config, matches, new KeywordComment(envelope, issueState, noteBody,
+                planAnswers.Count > 0 ? new Dictionary<string, string>(planAnswers) : null, act), cancellationToken);
         }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Failed to parse GitLab Note Hook webhook");
             return WebhookResult.NotHandled();
         }
-    }
-
-    private static IReadOnlyList<ProjectMatch> FilterByKeywordOrAnswers(
-        AgentSmithConfig config, IReadOnlyList<ProjectMatch> matches,
-        string noteBody, bool hasAnswers)
-    {
-        if (matches.Count == 0) return matches;
-        var kept = new List<ProjectMatch>(matches.Count);
-        foreach (var match in matches)
-        {
-            var trigger = config.Projects[match.ProjectName].GitlabTrigger;
-            var hasKeyword = trigger?.CommentKeyword is { } kw
-                && noteBody.Contains(kw, StringComparison.OrdinalIgnoreCase);
-            if (hasAnswers || hasKeyword) kept.Add(match);
-        }
-        return kept;
     }
 }

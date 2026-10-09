@@ -17,7 +17,8 @@ public sealed class GitLabMrLabelWebhookHandler(
     PrTriggerLabelResolver triggerLabels,
     PrReviewRouteResolver routeResolver,
     PrRunContextFactory contextFactory,
-    ILogger<GitLabMrLabelWebhookHandler> logger) : IWebhookHandler
+    ILogger<GitLabMrLabelWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     private const string Pipeline = "security-scan";
 
@@ -52,6 +53,8 @@ public sealed class GitLabMrLabelWebhookHandler(
         var project = root.GetProperty("project");
         var repoUrl = project.GetProperty("web_url").GetString() ?? "";
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        // 2026-10-08-101b: a repository any polling project declares gets nothing from webhooks.
+        if (modeGate?.RepoRefusal(repoUrl) is { } polled) return polled;
         if (triggerLabels.Match(config, "gitlab", repoUrl, added) is null)
             return WebhookResult.NotHandled();
 

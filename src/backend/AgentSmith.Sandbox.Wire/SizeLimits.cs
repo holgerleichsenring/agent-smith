@@ -4,6 +4,12 @@ public static class SizeLimits
 {
     public const long ReadFileMaxBytes = 1_048_576;
     public const long WriteFileMaxBytes = 10_485_760;
+
+    // 2026-10-08-e8b9j: WriteBytes carries at most 4 MB decoded per step (a step is one Redis
+    // message, and Redis runs at 256 MB with LRU eviction), and a file assembled from chunks is
+    // at most 25 MB — the per-file bound an upload is held to (ReferenceSetLimits.MaxFileBytes).
+    public const long WriteBytesChunkMaxBytes = 4L * 1024 * 1024;
+    public const long WriteBytesMaxBytes = 25L * 1024 * 1024;
     public const int ListFilesMaxEntries = 1000;
     public const int GrepDefaultHeadLimit = 1000;
 

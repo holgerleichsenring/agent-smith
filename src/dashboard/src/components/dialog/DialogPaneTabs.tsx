@@ -56,6 +56,7 @@ const TAB_LABEL: Record<DialogPaneTab, string> = {
   scope: "Scope",
   filed: "Filed",
   approved: "Approved spec",
+  uploads: "Uploads",
 };
 
 export function statusOf(
@@ -72,6 +73,8 @@ export function statusOf(
   // 2026-09-25-8e51d: nor does the approved set — the panel names whose approval it shows and
   // when, which is the only state it has.
   if (tab === "approved") return "";
+  // 2026-10-08-e8b9h: the uploads pane states its own usage in a line of its own.
+  if (tab === "uploads") return "";
   if (shown !== latest) return "superseded";
   return filed ? "filed" : "not filed yet";
 }

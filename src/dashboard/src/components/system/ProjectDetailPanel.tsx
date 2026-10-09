@@ -146,9 +146,10 @@ function TrackerSection({
         <TriggerRow role="failed">
           {trigger.failedStatus ? <Badge tone="rose">{trigger.failedStatus}</Badge> : <Dash />}
         </TriggerRow>
-        <TriggerRow role="polling">
+        {/* 2026-10-08-101b: a tracker entry polls or takes webhooks, never both. */}
+        <TriggerRow role="mode">
           <span className="dsh-mono text-stone-700">
-            {trigger.pollingEnabled ? `every ${trigger.pollingIntervalSeconds}s` : "off"}
+            {trigger.pollingEnabled ? `polling every ${trigger.pollingIntervalSeconds}s` : "webhooks"}
           </span>
         </TriggerRow>
         <TriggerRow role="comment trigger">

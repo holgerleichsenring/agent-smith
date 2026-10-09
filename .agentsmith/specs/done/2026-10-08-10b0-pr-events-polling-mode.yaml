@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-10b0
+goal: "In polling mode a PR sweep serves what only webhooks start today — pr-review on open and push, the security-scan label, PR comment commands — once per head, label add or comment."
+
+applies_to: "backend (change sweep, source listers, persistence, launcher) + docs"
+
+requires: [2026-10-08-9e6e]
+
+facts:
+  - claim: "pr-review on open and push, the label scan and comment commands start only from webhook handlers; a label scan needs the label ADDED."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:27-28, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs:44-49, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs:43-49,72-81, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:21-40"
+  - claim: "A webhook-started run goes through ExecuteLegacyAsync, whose input is parsed by the model under a hard-coded config path and must name a ticket; WebhookRequestProcessor is at its 126 baseline."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:49-54,110-124, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:496-524, src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:78-83, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:99"
+  - claim: "ExecuteAsync also takes a PipelineRequest (project, pipeline, optional ticket, headless, context) directly."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:44-46, src/backend/AgentSmith.Contracts/Models/PipelineRequest.cs:9-16"
+  - claim: "The run context is built from PullRequestFacts; only diff and payload builders are public."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PullRequestFacts.cs:5-6, src/backend/AgentSmith.Server/Services/Webhooks/PrRunContextFactory.cs:16,26,39-54"
+  - claim: "PrTriggerLabelResolver finds the owner by substring; PrCommandLaunch picks the model-named owner or the only one; the finder normalises host and path."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrTriggerLabelResolver.cs:43-51, src/backend/AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs:28-32, src/backend/AgentSmith.Infrastructure/Services/Webhooks/ConfiguredRepoFinder.cs:16-39"
+  - claim: "Indexed strings cap at IndexedString, hashes at Sha256Hex; both migration sets exist."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:8-10, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ReferenceFileConfiguration.cs:39, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/AgentSmith.Infrastructure.Persistence.SqlServer.csproj:1"
+  - claim: "GitHub lists open PRs (head and base sha, labels, user) and repository issue and review comments by since, sortable by created."
+    evidence: "observed: 2026-10-08, https://docs.github.com/en/rest/pulls/pulls?apiVersion=2022-11-28#list-pull-requests, https://docs.github.com/en/rest/issues/comments?apiVersion=2022-11-28, https://docs.github.com/en/rest/pulls/comments?apiVersion=2022-11-28"
+  - claim: "GitLab lists MRs by updated_after and touches updated_at at most once a minute; Azure DevOps lists active PRs by $top/$skip with no updated order, and its PR webhook has no label change."
+    evidence: "observed: 2026-10-08, https://docs.gitlab.com/api/merge_requests/#list-project-merge-requests, https://gitlab.com/gitlab-org/gitlab/-/blob/master/app/models/concerns/throttled_touch.rb, https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/get-pull-requests?view=azure-devops-rest-7.1, https://learn.microsoft.com/en-us/azure/devops/service-hooks/events (git.pullrequest.updated)"
+
+assumptions: []
+
+scope:
+  in: >
+    DetachedPipelineLauncher: ExecuteAsync(new PipelineRequest(project, pipeline, TicketId: null,
+    Headless: true, Context), configPath) in a scope it disposes after the run — no intent parse, no lease;
+    the PR route handlers switch to it. PrRunContextFactory.FromFacts. PrSweep, after the rework sources of
+    ChangeSweepHostedService, per repository of this entry's projects (RepoKey.Of), routes among them only.
+    IOpenPullRequestLister per host with PullRequestFacts and PrCommentAuthor fields (GitHub
+    author_association; GitLab project and user ids; Azure DevOps ids, author createdBy.uniqueName; the MR
+    author as PR author). Comments: GitHub repo-wide issue and review comments since, sort=created (3
+    calls/repo); GitLab notes only for MRs updated after the cursor minus 60 s; Azure DevOps all active PRs,
+    threads of N a cycle in rotation. Per host 10 pages a cycle; a repository cursor resumes after a cut.
+    PrSweepRepository(repository, initialisedAt) and PrSweepState(repository, number, reviewedHead,
+    labelPresent, commentsSeenAt, commentsSeenId; keys IndexedString, reviewedHead Sha256Hex), both sets. No row, or rows older than two intervals:
+    record, start nothing. A PR without a row afterwards is new: pr-review, a scan if labelled, comments
+    from its creation. New head: pr-review; label false to true: scan; newer comment: admission. Every
+    update is compare-and-set (equality on the old value) before the launch. A row is pruned when the host
+    reports the PR closed or merged. PrCommandLaunch takes the allowed projects; owner among them only.
+  out: "Azure DevOps label scans: webhooks have no label event, so polling omits them for parity."
+
+decisions:
+  - key: "STATE, BECAUSE NO HOST KEEPS IT: a push leaves nothing to compare with a run."
+  - key: "INITIALISE, THEN TREAT AS NEW: a mode switch replays nothing; a PR opened later is reviewed."
+  - key: "COMPARE-AND-SET BEFORE LAUNCH: two cycles never launch one head twice; a failed launch waits for the next push. A reopened PR whose row was pruned is not re-reviewed."
+  - key: "SAME-SECOND COMMENTS order by id after created time."
+
+steps:
+  - id: launcher
+    action: "Extract DetachedPipelineLauncher; switch the PR route handlers; add FromFacts."
+  - id: state
+    action: "Add PrSweepRepository and PrSweepState with configurations in ServerStateConfigurations and migrations in both sets."
+  - id: list
+    action: "Add IOpenPullRequestLister and one collaborator per source host; RepoKey.Of; exact owner in PrTriggerLabelResolver; allowed projects in PrCommandLaunch."
+  - id: sweep
+    action: "Add PrSweep to ChangeSweepHostedService; docs."
+
+tests:
+  - "DetachedLauncher_PrReview_NoIntentParseNoLease"
+  - "PrSweep_FirstSighting_RecordsOnly"
+  - "PrSweep_NewPrAfterInit_Reviewed"
+  - "PrSweep_ModeSwitchBack_NoReplay"
+  - "PrSweep_NewHead_StartsPrReviewOnce"
+  - "PrSweep_LabelAdded_StartsScanOnce"
+  - "PrSweep_ConcurrentCycles_CompareAndSetLaunchesOnce"
+  - "PrSweep_BudgetCut_ResumesNextRepository"
+  - "PrSweep_MissingFromCappedList_NotPruned"
+  - "PrCommand_ModelNamedForeignProject_NotHandled"
+
+done:
+  - "GitHub and GitLab, polling: pr-review on open and push, the label scan and comment commands each start once; Azure Repos, polling: pr-review and commands."
+  - "WebhookRequestProcessor shrinks; its baseline row goes at 120 or less; full suite green."

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-f147
+
+decisions:
+  - category: Architecture
+    chose: "The GitLab act is GitLab's own 'requested changes' system note; per author the newer of it and 'approved this merge request' decides"
+    over: "A marker note agent-smith writes, or the reviewers API state"
+    reason: |
+      GitLab writes the note for every submission, authored by the reviewer, and the API cannot backdate it
+      for non-owners; the reviewers API carries only an assignment time. Reading the approval note mirrors
+      GitHub's latest review, so no reviewers API call is needed.
+  - category: Implementation
+    chose: "The review handler takes an update only when it has no oldrev and no change besides reviewers, updated_at and updated_by_id"
+    over: "The spec's narrower filter: no oldrev and no changes.labels"
+    reason: |
+      Any MR edit (title, description — our own run updates the description) carries the standing
+      top-level reviewer state. Taking those would re-admit an old act on every edit, and during a live
+      run post the live-run text each time. A repeated Request changes changes no attribute, so its
+      changes object holds at most the reviewers; it still passes.
+  - category: Implementation
+    chose: "The handler admits the newest act of a reviewer this delivery shows in requested_changes"
+    over: "Any standing act on the merge request"
+    reason: "As the Azure DevOps vote handler does: the delivery names who acted; the host's note supplies the time."
+  - category: Security
+    chose: "PrReviewNote.IsOurs is set by each reader from the marker AND the token's account; marker deletes check the account on GitHub, GitLab and Azure DevOps"
+    over: "Marker alone (e8b9d), or the account check on GitLab and Azure DevOps only"
+    reason: |
+      A pasted marker made a stranger's note 'ours' and let our re-post delete it. GitHub's delete had the
+      same hole, so it is closed too (the spec's done line says 'on any host'). An identity that cannot be
+      read deletes nothing rather than everything marked.
+  - category: Implementation
+    chose: "GitHub reads the token's login as viewer in the existing review query and via GET /user for deletes; GitLab via GET /user; Azure DevOps via the connection's AuthorizedIdentity (connectionData)"
+    over: "A separate identity service per host"
+    reason: "One extra field or call where the read already happens; the Azure DevOps connection is already cached per token."
+  - category: Implementation
+    chose: "GitLab review and act authors carry the unescaped project path"
+    over: "Unescaping inside the member reader"
+    reason: |
+      The member reader escapes its input once, which is right for a path from a payload or a numeric id;
+      the readers were the ones handing it an already-escaped path (%252F, 404, untrusted).
+  - category: Implementation
+    chose: "GitLabUsers holds the users-API reads (token user, bot) shared by the thread and act readers; GitLabNotesPager pages notes newest first for the act reader and the marker delete"
+    over: "Keeping the bot lookup inside the thread reader and the notes page loop inside the provider"
+    reason: "Two readers and the delete need the same reads; the provider drops from 401 to 391 lines."

@@ -113,6 +113,9 @@ const uploadSpecDialogImage =
 // 2026-10-02-0d72: a website upload — a folder pick's files, each under its path.
 const uploadSpecDialogReferences =
   vi.fn<(dialogId: string, project: string, files: File[]) => Promise<unknown>>();
+// 2026-10-08-e8b9h: one upload taken back out, from the Uploads tab.
+const deleteSpecDialogReference = vi.fn<(dialogId: string, setId: string) => Promise<void>>(async () => {});
+const deleteSpecDialogImage = vi.fn<(dialogId: string, imageId: number) => Promise<void>>(async () => {});
 vi.mock("@/lib/specDialogApi", () => ({
   uploadSpecDialogReferences: (dialogId: string, project: string, files: File[]) =>
     uploadSpecDialogReferences(dialogId, project, files),
@@ -137,6 +140,8 @@ vi.mock("@/lib/specDialogApi", () => ({
   uploadSpecDialogImage: (dialogId: string, project: string, file: File) =>
     uploadSpecDialogImage(dialogId, project, file),
   specDialogImageUrl: (imageId: number) => `/api/spec-dialog/images/${imageId}`,
+  deleteSpecDialogReference: (dialogId: string, setId: string) => deleteSpecDialogReference(dialogId, setId),
+  deleteSpecDialogImage: (dialogId: string, imageId: number) => deleteSpecDialogImage(dialogId, imageId),
 }));
 
 const SAMPLE_SCOPE = {
@@ -1352,8 +1357,9 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
 
-    expect(await screen.findByTestId("dialog-conversation-s-1"))
-      .toHaveTextContent("Aktualisierung aller Projektbibliotheken");
+    // The row exists before the re-read lands, so wait for its text, not for the row.
+    await waitFor(() => expect(screen.getByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("Aktualisierung aller Projektbibliotheken"));
   });
 
   // The defect this phase closes: the title of a conversation opened with a fenced block is null
@@ -3664,6 +3670,27 @@ describe("SpecDialogSurface", () => {
 
     expect((await screen.findByTestId("dialog-composer-upload-note")).textContent).toBe("too large");
     expect(screen.queryByTestId("failed-surface")).not.toBeInTheDocument();
+  });
+
+  // 2026-10-08-e8b9h: the Uploads tab removes a set after the page's own confirmation, and the
+  // read that follows RESEEDS the transcript, so the set's chip goes with it.
+  it("DialogUploadsPanel_Remove_AsksThenDeletesAndTranscriptDropsTheChip", async () => {
+    const withSet = view();
+    withSet.session!.references = [{ setId: "s1", name: "site", files: 2, bytes: 2048, at: "2026-10-08T10:00:00Z" }];
+    withSet.session!.uploadBytes = 2048;
+    withSet.session!.uploadCapBytes = 100 * 1024 * 1024;
+    fetchSpecDialog.mockResolvedValue(withSet);
+    await renderSurface();
+    expect(await screen.findByTestId("dialog-reference-s1")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /Uploads/ }));
+    fireEvent.click(await screen.findByTestId("dialog-upload-remove-s1"));
+    expect((await screen.findByTestId("confirm-dialog")).textContent).toContain("Remove 'site'?");
+    fetchSpecDialog.mockResolvedValue(view());
+    fireEvent.click(screen.getByTestId("confirm-dialog-confirm"));
+
+    await waitFor(() => expect(deleteSpecDialogReference).toHaveBeenCalledWith(heldDialogId(), "s1"));
+    await waitFor(() => expect(screen.queryByTestId("dialog-reference-s1")).not.toBeInTheDocument());
   });
 
   // Nothing ties an image to a turn: the upload is a post of its own and the durable transcript

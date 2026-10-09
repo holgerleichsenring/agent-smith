@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Services.Archive;
 using Microsoft.EntityFrameworkCore;
@@ -83,6 +84,7 @@ public sealed class LegacyAttachmentCopy(
             MediaType = row.MediaType,
             Length = content.Length,
             Content = content,
+            ContentSha256 = content.Sha256Hex(), // 2026-10-08-e8b9g: a copy is compared like an upload
             CreatedAt = row.CreatedAt,
             UpdatedAt = row.UpdatedAt,
         };

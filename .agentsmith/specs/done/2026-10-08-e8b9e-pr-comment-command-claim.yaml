@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-08-e8b9e
+goal: "A PR comment command that names a ticket goes through the ticket claim, a live run is answered on the pull request, and no run start can take over another live run's lease."
+
+applies_to: "backend (PR comment admission, spawn deferral, active-run lease, run start)"
+
+requires: [2026-10-08-e8b9b, 2026-10-08-e8b9c]
+
+facts:
+  - claim: "An admitted PR command returns a trigger input naming the pipeline and the resolved ticket, with no claim."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:37-39,50-63"
+  - claim: "A trigger input runs fire-and-forget through the free-text entry, which parses the intent again."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:49-53,110-125, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:496-525"
+  - claim: "The run attaches its lease after RunStarted and outside the guarded block; a prologue failure publishes RunFinished(failed) only for a reserved run id; ExecutePipelineUseCase sits at its 617-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:62-90,360-385, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:7"
+  - claim: "AttachRunAsync overwrites whatever row exists, naming the PR-comment path as the one that never claims; ActiveRunRepository sits at its 160-line baseline."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:105-141, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:75"
+  - claim: "Release deletes only the holder's row; a fresh lease blocks a claim and a stale one (3 minutes) is reset; SQLite cannot translate DateTimeOffset comparisons, so liveness is compared client-side."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs:31,56-102, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunLivenessRepository.cs:18-30"
+  - claim: "The reconciler re-enqueues a taken ticket whose lease is missing or stale, without a claim."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:82-93"
+  - claim: "Any terminal RunFinished frees the run's reservation and clears the ticket's taken record."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:33-52"
+  - claim: "The funnel defers after ClaimRefusal, which never reads the lease; the pump leaves an AlreadyClaimed head in place; the funnel sits at its 150-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:76-91, src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:25-34, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:101-106, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:96"
+  - claim: "A pipeline no label routes is refused unless requested by name; a project with no trigger for the platform is never label-routed."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:21-33"
+  - claim: "The PR number exists only inside the command's label and reference strings."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommand.cs:10-14, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs:66-67, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs:57-59"
+  - claim: "A comment may start code, security-scan or pr-review."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentPipelines.cs:20-27"
+  - claim: "ChatTicketRunLauncher spawns a named ticket through the funnel with RequestedByName and an empty trigger as fallback; ChatTicketlessRunLauncher admits and dispatches a ticketless run; ChatPrContextResolver builds a PR's context; all three are scoped."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:23-58, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketlessRunLauncher.cs:30-46, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatPrContextResolver.cs:19-32, src/backend/AgentSmith.Server/Extensions/ChatRunLaunchExtensions.cs:20-22"
+  - claim: "The free-text path throws when no ticket id can be extracted."
+    evidence: "src/backend/AgentSmith.Application/Services/LlmIntentParser.cs:80-83"
+  - claim: "A resume claims the lease itself before dispatching; a refused claim retries next tick."
+    evidence: "src/backend/AgentSmith.Server/Services/ResumeRunLauncher.cs:37-47"
+  - claim: "AttachRunAsync is implemented by DbActiveRunLease and NoOpActiveRunLease and faked in tests."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbActiveRunLease.cs:24-25, src/backend/AgentSmith.Application/Services/Claim/NoOpActiveRunLease.cs:22, tests/AgentSmith.Tests/Persistence/ActiveRunLeaseTests.cs:65-66"
+
+assumptions:
+  - claim: "Only an unclaimed launch can meet a row held by another fresh run."
+    check: "Read the pump's claim and ResumeRunLauncher.cs:37 before changing the attach."
+
+scope:
+  in: >
+    PrCommentCommand gains the PR number. A ticketed command goes through ChatTicketRunLauncher (shared with
+    ReworkEntry; its empty-trigger fallback is the one rule), a ticketless one through ChatTicketlessRunLauncher
+    with ChatPrContextResolver, TicketId null and the admission's pipeline — no second parse; the singleton
+    admission reaches the scoped launchers through IServiceScopeFactory; ExecuteLegacyAsync no longer serves PR
+    comments. The outcome is commented through the repo 2026-10-08-e8b9c's finder resolves: started, queued,
+    refused, the holder from GetByTicketAsync, or 'a run is starting' when the lease has no run id yet.
+    SpawnLeaseDeferral (beside CapacityDeferral) answers a fresh lease before queuing. ActiveRunAttach reads the
+    row, takes it when unattached, ours or stale, else HeldByAnotherRun; updates WHERE RunId equals what it read
+    (EF null semantics, never raw SQL); a second 0-row update answers HeldByAnotherRun with the last RunId read.
+    IActiveRunLease.AttachRunAsync returns the outcome (NoOp: Attached). The attach is the last statement in the
+    prologue's try; held: the prologue rule, no ticket finalize, its own reservation freed; a held resume
+    publishes nothing and stays parked. RunFinalizationProjection skips the taken-record clear only when the
+    lease names a different non-null RunId.
+  out: "Which pipelines a comment may start."
+
+decisions:
+  - key: "THE CLAIM, NOT A CHECK BEFORE IT, on the admitted branch; the deferral check only avoids queuing a head the pump can never claim."
+  - key: "COMPARE-AND-SWAP ON RunId, NOT TIME: SQLite cannot compare HeartbeatAt in SQL; a stale holder is dead."
+  - key: "REUSE THE CHAT LAUNCHERS: a PR command is a person naming a run, which they already serve, so the ticketless path also stops throwing or parsing twice."
+  - key: "NO GROWTH: attach and deferral move into collaborators; baselined files shrink or stay."
+
+steps:
+  - id: command
+    action: "Add the PR number to PrCommentCommand in the three handlers; route admitted commands through the two launchers; retire the PR-comment trigger input."
+  - id: deferral
+    action: "Add SpawnLeaseDeferral and call it from SpawnPipelineRunsUseCase's deferral branch."
+  - id: lease
+    action: "Add ActiveRunAttach and the AttachOutcome ripple (IActiveRunLease, DbActiveRunLease, NoOpActiveRunLease, test fakes); attach inside the prologue; guard the projection's clear."
+  - id: docs
+    action: "State in docs/reference/integrations/pr-comments.md that a ticketed command is claimed and refused while a run is live."
+
+tests:
+  - "Admission_TicketedCommandLiveLease_CommentsLiveRunAndStartsNothing"
+  - "Admission_TicketedCommandLiveLeaseUnderCapacityPressure_QueuesNothing"
+  - "Admission_TicketedCommandFree_ClaimsOnceAndCommentsRunId"
+  - "Admission_SecurityScanNotLabelRouted_StillStarts"
+  - "Admission_TicketlessReview_LaunchesWithoutTicket"
+  - "Attach_UnattachedClaim_Attaches"
+  - "Attach_FreshForeignHolder_ReturnsHeldAndKeepsRow"
+  - "Attach_StaleForeignHolder_Attaches"
+  - "Attach_TwoAttachersOnUnattachedRow_OneHeld"
+  - "Execute_AttachHeld_DoesNotClearTakenTicketOrFinalizeTicket"
+  - "Execute_PrologueFailsAfterClaim_ClearsTakenRecord"
+
+done:
+  - "Two '/agent-smith fix #N' comments while a run works #N start no second run and queue nothing; the PR names the live run."
+  - "'/as review' on a PR starts a ticketless review; no run start replaces a fresh foreign holder; no baselined file grows; full suite green."

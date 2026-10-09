@@ -18,7 +18,7 @@ public sealed class AcquireSourceHandlerTests : IDisposable
 {
     private readonly string _tempDir = Path.Combine(Path.GetTempPath(), $"ast-{Guid.NewGuid():N}");
     private readonly AcquireSourceHandler _sut = new(
-        new SandboxBinaryFileWriter(new SandboxFileReaderFactory()),
+        new SandboxBinaryFileWriter(),
         NullLogger<AcquireSourceHandler>.Instance);
 
     public AcquireSourceHandlerTests() => Directory.CreateDirectory(_tempDir);

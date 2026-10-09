@@ -183,15 +183,37 @@ public sealed class ReferenceUploadTests : IDisposable
     }
 
     [Fact]
-    public async Task ReferenceUpload_AFourthSet_IsRefusedNamingTheLimit()
+    public async Task ReferenceUpload_FourthAndFifthSmallSet_AreStored()
     {
-        for (var i = 0; i < ReferenceUploadLimits.MaxSetsPerConversation; i++)
-            StatusOf(await UploadAsync(($"s{i}/index.html", Text("<h1>")))).Should().Be(StatusCodes.Status200OK);
+        for (var i = 0; i < 5; i++)
+            StatusOf(await UploadAsync(($"s{i}/index.html", Text($"<h1>{i}")))).Should().Be(StatusCodes.Status200OK);
 
-        var fourth = await UploadAsync(("s3/index.html", Text("<h1>")));
-
-        fourth.Should().BeOfType<BadRequest<string>>().Which.Value.Should().Contain("3 uploads");
+        (await StoredAsync()).Select(f => f.SetId).Distinct().Should().HaveCount(5);
     }
+
+    [Fact]
+    public async Task DeleteUpload_GateHeld_Refused409NamingApproval()
+    {
+        var set = (await UploadAsync(("site/index.html", Text("<h1>")))).Should().BeOfType<Ok<ReferenceUploadView>>().Subject.Value!;
+        var session = (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!.JobId;
+        var gate = new SpecDialogTurnGate(TimeProvider.System);
+        gate.TryEnter(session);
+
+        var held = await DeleteSetAsync(set.SetId, Owner, gate);
+        gate.Exit(session);
+        var stranger = await DeleteSetAsync(set.SetId, "person-b", gate);
+        var removed = await DeleteSetAsync(set.SetId, Owner, gate);
+
+        held.Should().BeOfType<Conflict<string>>().Which.Value.Should().Contain("waiting on your approval");
+        StatusOf(stranger).Should().Be(StatusCodes.Status404NotFound);
+        StatusOf(removed).Should().Be(StatusCodes.Status204NoContent);
+        (await StoredAsync()).Should().BeEmpty();
+        gate.TryEnter(session).Should().BeTrue("the removal released the gate it took");
+    }
+
+    private Task<IResult> DeleteSetAsync(string setId, string caller, SpecDialogTurnGate gate) =>
+        SpecDialogUploadDeletionEndpoints.DeleteSetAsync(setId, Dialog, Principal(caller), _ownership, _sessions, gate,
+            new ReferenceUploadDeletion(_context, new ApprovedSeriesRepository(_context)), CancellationToken.None);
 
     [Fact]
     public async Task ReferenceList_TheConversationsSets_AreListedForItsOwner()
@@ -199,9 +221,9 @@ public sealed class ReferenceUploadTests : IDisposable
         await UploadAsync(("site/index.html", Text("<h1>")), ("site/a.css", Text("a{}")));
 
         var listed = await SpecDialogReferenceEndpoints.ListAsync(
-            Dialog, Principal(Owner), _ownership, _repository, new ReferenceSetRepository(_context), CancellationToken.None);
+            Dialog, Principal(Owner), _ownership, _repository, TestUploads.Over(_context), CancellationToken.None);
         var theirs = await SpecDialogReferenceEndpoints.ListAsync(
-            Dialog, Principal("person-b"), _ownership, _repository, new ReferenceSetRepository(_context), CancellationToken.None);
+            Dialog, Principal("person-b"), _ownership, _repository, TestUploads.Over(_context), CancellationToken.None);
 
         listed.Should().BeOfType<Ok<List<ReferenceSetView>>>().Which.Value!.Should().ContainSingle()
             .Which.Files.Should().Be(2);
@@ -220,7 +242,7 @@ public sealed class ReferenceUploadTests : IDisposable
             new ReferenceZipReader(paths, ignore, new ZipEntryChecksum()),
             new ReferenceSetValidator(paths, ignore), new ReferenceFileTypes(),
             new SpecDialogConversationResolver(_sessions, _ownership, Commands()),
-            new ReferenceSetRepository(_context), NullLogger<ReferenceSetUpload>.Instance);
+            new ReferenceSetRepository(_context), TestUploads.Admission(_context), NullLogger<ReferenceSetUpload>.Instance);
         return await SpecDialogReferenceEndpoints.UploadAsync(
             http, Dialog, Project, new ReferenceUploadBody(NullLogger<ReferenceUploadBody>.Instance), upload,
             CancellationToken.None);

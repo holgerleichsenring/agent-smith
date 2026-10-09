@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-0781
+
+decisions:
+  - category: Architecture
+    chose: "Every rework act is served by one ReworkNudgeWorker draining a durable ReworkNudges table; webhooks, lease releases and terminal projections only enqueue"
+    over: "Entering the rework inline in each webhook request (e8b9b/e8b9c)"
+    reason: |
+      Inline entry made the request wait on host reads and a lock, and gave an act made during a live run no
+      path at all. A nudge says only "check this ticket"; the worker reads the act itself, so every source —
+      including the sweeps of 9e6e and 10b0 — reaches the same decision.
+  - category: Implementation
+    chose: "The lease release enqueues and deletes in one transaction; the terminal projection enqueues too"
+    over: "One hook after the release"
+    reason: |
+      The run publishes RunFinished before its finally releases the lease and the projector writes the row
+      later, in either order. Two ends that each enqueue after writing their own half guarantee one of them
+      sees both; a nudge that meets an unfinished row reschedules rather than drops.
+  - category: Implementation
+    chose: "Times on the nudge row are UTC ticks; the claim is a compare-and-set on the generation a due row had"
+    over: "DateTimeOffset columns compared client-side"
+    reason: "SQLite cannot compare DateTimeOffset in SQL; a long compares on every provider, so the claim stays one statement."
+  - category: Implementation
+    chose: "The cutoff is Run.ActsReadAt, taken before the run reads its thread and pull requests, carried on TicketFetchedEvent and set once; Precedes subtracts a 5 s margin"
+    over: "StartedAt plus one minute"
+    reason: |
+      An act written between a run's start and its read was read by that run and then served again, and an
+      act within a minute after the read was lost. Taking the instant before the read and subtracting the
+      margin biases to serving twice, never to losing one.
+  - category: Implementation
+    chose: "A live or waiting holder that has read its acts is told 'picked up when run X finishes' once; one that has not read them yet says nothing (operator default)"
+    over: "Saying it from the webhook, or for every nudge"
+    reason: "The holder without ActsReadAt will read the act itself; the ledger keys every text by (run, act, kind) so a crash or a second nudge never repeats it."
+  - category: Security
+    chose: "An operator cancel (endpoint and queued cancel) and every delete of a code run raise the ticket's notServedThrough watermark synchronously"
+    over: "Deriving the boundary from CancelReason and CancelDeadlineAt"
+    reason: "Later reasons overwrite CancelReason and a queued cancel stamps the deadline at now; a watermark written at the request is the one boundary every reader agrees on. Reaped runs write none and are served."
+  - category: Implementation
+    chose: "Persistence helpers are instance classes (ReworkNudgeWriter, ReworkLedgerRepository, PrStandingAct) newed over the caller's unit of work"
+    over: "Static helpers taking the unit of work"
+    reason: "NoStaticStateRuleTests forbids statics that take collaborators; the release transaction still shares the repository's unit of work."
+  - category: Implementation
+    chose: "A NotARework keyword nudge re-reads the ticket and spawns its match through ISpawnPipelineRunsUseCase after a current-status check"
+    over: "Calling WebhookSpawnDispatcher from the worker"
+    reason: "The dispatcher would hand a ticket with an attempt back to the queue; the poller's route read from the ticket as it is now is what a comment would have started."

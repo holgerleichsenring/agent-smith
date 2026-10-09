@@ -15,7 +15,12 @@ public static class ReferenceUploadLimits
 
     public const long MaxSetBytes = ReferenceSetLimits.MaxSetBytes;
 
-    public const int MaxSetsPerConversation = 3;
+    /// <summary>
+    /// 2026-10-08-e8b9g: what one conversation's sets and images may hold together — four full
+    /// sets. It replaced a count of three, which three single files exhausted: bytes are what a
+    /// design turn opens and a run writes into its sandbox.
+    /// </summary>
+    public const long MaxConversationBytes = 100L * 1024 * 1024;
 
     /// <summary>2026-10-02-075da: how many left-out entries an upload answer lists; the count is always whole.</summary>
     public const int MaxLeftOutListed = 20;

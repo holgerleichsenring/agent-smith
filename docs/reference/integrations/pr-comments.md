@@ -60,6 +60,23 @@ On GitHub, subscribe to:
 | `issue_comment` | `created` | Comment on a PR (GitHub treats PRs as issues) |
 | `pull_request_review_comment` | `created` | Inline code comment on a PR |
 | `pull_request` | `opened`, `synchronize`, `labeled` | PR review on open and push; security scan on the review label |
+| `pull_request_review` | `submitted` | **Pull request reviews**: Request changes on an agent-smith PR starts a rework |
+
+## What a command starts
+
+A command that names a ticket (`/agent-smith fix #12`) is claimed like any other run of that ticket: it is admitted, queued for capacity or refused, and the pull request is told which — including when another run is already working on the ticket, in which case nothing new starts. A command without a ticket (`/as review`) runs against this pull request directly. Either way the command is read once; the run starts with the pipeline it resolved to.
+
+## Request changes starts a rework
+
+Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`) start nothing: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts only when a reviewer with write access chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.
+
+The pull request's own author never counts as a reviewer. If the token agent-smith uses belongs to you, you are that author, and your own Request changes is ignored.
+
+On GitLab (19.3 or later), **Request changes** on an agent-smith merge request starts a rework the same way. Enable **Merge request events** on the project webhook; the token behind the repository's `auth` secret needs the `api` scope (it reads notes, users and members and posts the answer). The act and its time are GitLab's own "requested changes" system note, so a repeated Request changes after the next attempt starts another one; an approval by the same reviewer after the request withdraws it. The webhook fires only for a reviewer listed on the merge request: a reviewer GitLab could not add (for example a second reviewer on a single-reviewer merge request) sends no delivery, and their request is read only by the ticket's next run.
+
+A comment counts as agent-smith's own only when it carries the agent-smith marker **and** was written by the account behind the repository's token, on every host; a pasted marker is a stranger's comment, never collected as ours and never deleted when a review is re-posted.
+
+On Azure DevOps, keep the **Pull request updated** subscription that starts PR reviews filtered to **Source branch updated** (`PushNotification`), and add a second **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A delivery carrying that header never starts a PR review.
 
 ## How it works
 

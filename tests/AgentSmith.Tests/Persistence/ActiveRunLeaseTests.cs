@@ -53,6 +53,54 @@ public sealed class ActiveRunLeaseTests : IDisposable
             _clock, NullLogger<ActiveRunReaper>.Instance);
     }
 
+    // 2026-10-08-e8b9e: an attach never overwrites a lease a LIVE run holds.
+    [Fact]
+    public async Task Attach_UnattachedClaim_Attaches()
+    {
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-9"), CancellationToken.None);
+
+        (await lease.AttachRunAsync("proj", new TicketId("T-9"), "run-1", null, CancellationToken.None))
+            .Should().Be(LeaseAttachOutcome.Attached);
+        (await lease.GetByTicketAsync("proj", new TicketId("T-9"), CancellationToken.None))!.RunId.Should().Be("run-1");
+    }
+
+    [Fact]
+    public async Task Attach_FreshForeignHolder_ReturnsHeldAndKeepsRow()
+    {
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-9"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-9"), "run-live", null, CancellationToken.None);
+
+        (await lease.AttachRunAsync("proj", new TicketId("T-9"), "run-intruder", "job", CancellationToken.None))
+            .Should().Be(LeaseAttachOutcome.HeldByAnotherRun);
+        (await lease.GetByTicketAsync("proj", new TicketId("T-9"), CancellationToken.None))!.RunId.Should().Be("run-live");
+    }
+
+    [Fact]
+    public async Task Attach_StaleForeignHolder_Attaches()
+    {
+        var lease = NewLease();
+        await lease.TryClaimAsync("proj", new TicketId("T-9"), CancellationToken.None);
+        await lease.AttachRunAsync("proj", new TicketId("T-9"), "run-dead", null, CancellationToken.None);
+        _clock.Now = _clock.Now.AddMinutes(10);
+
+        (await lease.AttachRunAsync("proj", new TicketId("T-9"), "run-new", null, CancellationToken.None))
+            .Should().Be(LeaseAttachOutcome.Attached);
+        (await lease.GetByTicketAsync("proj", new TicketId("T-9"), CancellationToken.None))!.RunId.Should().Be("run-new");
+    }
+
+    [Fact]
+    public async Task Attach_TwoAttachersOnUnattachedRow_OneHeld()
+    {
+        await NewLease().TryClaimAsync("proj", new TicketId("T-9"), CancellationToken.None);
+
+        var first = await NewLease().AttachRunAsync("proj", new TicketId("T-9"), "run-a", null, CancellationToken.None);
+        var second = await NewLease().AttachRunAsync("proj", new TicketId("T-9"), "run-b", null, CancellationToken.None);
+
+        new[] { first, second }.Should().BeEquivalentTo([LeaseAttachOutcome.Attached, LeaseAttachOutcome.HeldByAnotherRun]);
+    }
+
     private sealed class RepositoryLease(
         IDbContextFactory<AgentSmithDbContext> factory,
         IUniqueViolationTranslator translator,
@@ -62,7 +110,7 @@ public sealed class ActiveRunLeaseTests : IDisposable
             => InRepo(r => r.TryClaimAsync(p, t, ct));
         public Task<LeaseReleaseOutcome> ReleaseAsync(string p, TicketId t, string? runId, CancellationToken ct)
             => InRepo(r => r.ReleaseAsync(p, t, runId, ct));
-        public Task AttachRunAsync(string p, TicketId t, string runId, string? jobId, CancellationToken ct)
+        public Task<LeaseAttachOutcome> AttachRunAsync(string p, TicketId t, string runId, string? jobId, CancellationToken ct)
             => InRepo(r => r.AttachRunAsync(p, t, runId, jobId, ct));
         public Task RenewHeartbeatAsync(string p, TicketId t, CancellationToken ct)
             => InRepo(r => r.RenewHeartbeatAsync(p, t, ct));

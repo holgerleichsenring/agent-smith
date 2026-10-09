@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-08-e8b9a
+
+decisions:
+  - category: Implementation
+    chose: "Azure DevOps is recognised from the body only on the shared route, and only for Microsoft's documented publishers (tfs, rm, pipelines, distributedtask, advsec)"
+    over: "Accepting any body with a string eventType, or reading bodies on the per-platform routes too"
+    reason: |
+      A GitHub or GitLab delivery always carries its own header, so the per-platform routes stay
+      header-driven and can never be read as Azure DevOps. On /webhook the body is the only signal
+      Azure DevOps gives without a custom header; the publisher set is the one events.md lists, so
+      a stray JSON body with an eventType is still "unknown platform".
+  - category: Implementation
+    chose: "AzureDevOpsWorkItemPayload reads resource.revision when present, the flat item otherwise"
+    over: "Supporting only the 2018 WorkItemUpdate sample, or only today's flat sample"
+    reason: |
+      Microsoft documents both shapes for workitem.updated. The presence of resource.revision is a
+      property of the payload, not a guess, and in the update shape resource.id is the UPDATE number —
+      reading it as the ticket id would post a zero-match comment on the wrong work item.
+  - category: Security
+    chose: "The comment handlers skip any comment OwnTicketComment reads as ours, and the zero-match comment opens with our heading"
+    over: "Naming the zero-match loop as a follow-up"
+    reason: |
+      A zero-match comment is itself a new note (GitLab) or a workitem.commented (Azure DevOps); left
+      unguarded it re-enters the handler. One body test, shared with the run's own reading of the
+      thread, closes every loop of that kind at once.

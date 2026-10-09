@@ -38,6 +38,8 @@ public sealed class ConfigSnapshotMapperTests
             Name = "acme-jira", Type = TrackerType.Jira, Project = "OPS",
             Url = "https://acme.atlassian.net",
             Auth = SecretTrackerAuth, OpenStates = ["To Do", "In Progress"], DoneStatus = "Done",
+            // 2026-10-08-101b: the entry's polling is the mode; the project-level block below is ignored.
+            Polling = new PollingConfig { Enabled = true, IntervalSeconds = 120 },
         };
         return new AgentSmithConfig
         {
@@ -53,7 +55,7 @@ public sealed class ConfigSnapshotMapperTests
                     Name = "ops", Pipeline = "code", Agent = agent, Tracker = tracker,
                     Repos = [repo],
                     Pipelines = [new PipelineDefinition { Name = "code" }, new PipelineDefinition { Name = "security-scan" }],
-                    Polling = new PollingConfig { Enabled = true, IntervalSeconds = 120 },
+                    Polling = new PollingConfig { Enabled = false, IntervalSeconds = 999 },
                     JiraTrigger = new JiraTriggerConfig
                     {
                         TriggerStatuses = ["To Do", "In Progress"],
@@ -157,6 +159,15 @@ public sealed class ConfigSnapshotMapperTests
         repo.DefaultBranch.Should().Be("main");
         // The auth secret is still never on the wire.
         JsonSerializer.Serialize(repo).Should().NotContain(SecretRepoAuth);
+    }
+
+    [Fact]
+    public void ConfigSnapshot_EntryPolling_IsTheMode()
+    {
+        var trigger = Snap(BuildConfig()).Projects.Should().ContainSingle().Subject.Trigger;
+
+        trigger.PollingEnabled.Should().BeTrue("the tracker entry polls; the project's own block says otherwise and is ignored");
+        trigger.PollingIntervalSeconds.Should().Be(120);
     }
 
     [Fact]

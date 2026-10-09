@@ -19,7 +19,8 @@ public sealed class JiraAssigneeWebhookHandler(
     IEnvelopeProjectResolver envelopeResolver,
     WebhookSpawnDispatcher dispatcher,
     ApprovedRecordProbe approvals,
-    ILogger<JiraAssigneeWebhookHandler> logger) : IWebhookHandler
+    ILogger<JiraAssigneeWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "jira" && eventType == "issue_updated";
@@ -52,7 +53,9 @@ public sealed class JiraAssigneeWebhookHandler(
                 HasApprovedRecord = await approvals.ExistsForPlatformAsync(
                     config, envelope.Platform, envelope.TicketId, cancellationToken),
             };
-            var matches = envelopeResolver.Resolve(config, envelope);
+            IReadOnlyList<ProjectMatch> matches = envelopeResolver.Resolve(config, envelope);
+            if (modeGate?.Refusal(config, matches, modeGate.Webhook(config, matches)) is { } polled) return polled;
+            matches = modeGate?.Webhook(config, matches) ?? matches;
             var filtered = FilterByAssignee(config, matches, newAssignee);
 
             if (filtered.Count == 0 && matches.Count > 0)

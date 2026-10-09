@@ -28,6 +28,7 @@ public static class BrowserRenderExtensions
         services.AddTransient<ReferenceComparer>(); // 2026-10-01-283di
         services.AddTransient<StyleDifferenceComparer>();
         services.AddTransient<VisualComparisonRecorder>();
+        services.TryAddTransient<Sandbox.ISandboxBinaryFileWriter, Sandbox.SandboxBinaryFileWriter>(); // 2026-10-08-e8b9j
         services.AddTransient<CompareReferenceServices>();
         services.AddTransient<RenderResultText>();
         services.AddTransient<RenderReferenceServices>();

@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Application.Services.Handlers;
 
@@ -15,6 +16,9 @@ public static class ReferenceSetCarryServiceCollectionExtensions
     {
         services.AddTransient<ReferenceGitExclusion>();
         services.AddTransient<ReferenceSetCarrier>();
+        services.AddTransient<ReferenceImageCarrier>(); // 2026-10-08-e8b9k
+        services.AddTransient<UploadImageAttachments>();
+        services.TryAddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>();
         services.AddTransient<ICommandHandler<MaterializeReferenceSetsContext>, MaterializeReferenceSetsHandler>();
         return services;
     }

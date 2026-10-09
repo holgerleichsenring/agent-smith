@@ -234,6 +234,13 @@ public sealed class RunDeleteTests : IDisposable
         // lease BY TICKET, the poller found the ticket free, and two runs worked
         // the same branch. Proven against the real DB lease, not a mock.
         await SeedRunningRunAsync("run-old", jobId: "aaaa00000000");
+        // 2026-10-08-e8b9e: a newer run takes a lease only once the old holder went stale — an attach
+        // never overwrites a live one — so the old run's heartbeat is aged before the newer run attaches.
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.ActiveRuns.Single().HeartbeatAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+            await ctx.SaveChangesAsync();
+        }
         var lease = new DbActiveRunLease(LeaseScopeFactory());
         await lease.AttachRunAsync(
             "p1", new TicketId("42"), "run-new", "bbbb00000000", CancellationToken.None);

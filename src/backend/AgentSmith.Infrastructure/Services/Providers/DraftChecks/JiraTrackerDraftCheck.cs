@@ -22,7 +22,7 @@ public sealed class JiraTrackerDraftCheck(IDraftCheckHttp http) : ITrackerDraftC
         TrackerConnection tracker, string token, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var auth = AuthOf(tracker, token);
-        var me = await http.GetAsync($"{BaseOf(tracker)}/rest/api/3/myself", auth, cancellationToken);
+        var me = await http.GetAsync($"{BaseOf(tracker)}{tracker.Endpoints.Myself}", auth, cancellationToken);
         yield return me.HostStep();
         yield return me.IdentityStep(j => j.Text("displayName") ?? j.Text("emailAddress"));
 

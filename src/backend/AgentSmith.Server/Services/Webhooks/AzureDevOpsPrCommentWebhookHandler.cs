@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 public sealed class AzureDevOpsPrCommentWebhookHandler(
     PrCommentCommandAdmission admission,
     [FromKeyedServices("azuredevops")] IPrCommentAuthorTrust authorTrust,
-    ILogger<AzureDevOpsPrCommentWebhookHandler> logger) : IWebhookHandler
+    ILogger<AzureDevOpsPrCommentWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "azuredevops"
@@ -28,7 +29,10 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         {
             using var doc = JsonDocument.Parse(payload);
             var resource = doc.RootElement.GetProperty("resource");
-            return await admission.AdmitAsync(ReadCommand(resource), authorTrust, cancellationToken);
+            var command = ReadCommand(resource);
+            // 2026-10-08-101b: before the model — a polling project's repository gets nothing from webhooks.
+            if (modeGate?.RepoRefusal(command.Author.RepositoryUrl) is { } polled) return polled;
+            return await admission.AdmitAsync(command, authorTrust, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -56,6 +60,6 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         };
         return new PrCommentCommand(
             comment.GetProperty("content").GetString() ?? "", author,
-            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}");
+            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}", prId.ToString());
     }
 }

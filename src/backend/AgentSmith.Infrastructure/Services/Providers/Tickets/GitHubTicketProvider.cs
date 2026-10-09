@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
@@ -13,7 +14,7 @@ using Octokit;
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>Thin Octokit orchestrator; mapping, listing and attachments live in their own types.</summary>
-public sealed class GitHubTicketProvider : ITicketProvider
+public sealed class GitHubTicketProvider : ITicketProvider, ITicketStatusHistory, ITrackerSelf, IChangedTicketLister
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -174,4 +175,15 @@ public sealed class GitHubTicketProvider : ITicketProvider
         if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
         return (segments[0], segments[1]);
     }
+
+    // 2026-10-08-2123: reopens and who the token is, read by a collaborator.
+    public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        new GitHubStatusHistory(_client, _owner, _repo).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+
+    public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
+        new GitHubStatusHistory(_client, _owner, _repo).SelfAsync(cancellationToken);
+
+    // 2026-10-08-9e6e: the tickets changed since a cursor, read by a collaborator.
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, int maxPages, CancellationToken ct) => new GitHubChangedTickets(_client, _owner, _repo).ChangedSinceAsync(since, maxPages, ct);
 }
