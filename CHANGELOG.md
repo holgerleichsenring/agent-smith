@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.157.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.156.1...v0.157.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* a polling tracker entry ignores webhooks, and a project on a non-polling entry that a same-type polling entry served before goes silent.
+
+### Features
+
+* a keyword comment on a finished ticket starts one rework attempt that reads its act from the thread (2026-10-08-e8b9b) ([862119d](https://github.com/holgerleichsenring/agent-smith/commit/862119db851ba51916a433e11c41610c74a9f88a))
+* a person's move back of a finished ticket is read from the tracker's history and appends phases (2026-10-08-2123) ([977ea12](https://github.com/holgerleichsenring/agent-smith/commit/977ea12019e7a1a39b721a2e567851eb733083e3))
+* a rework of a fully executed spec set appends phases, and a pull-request act re-derives even an approved set (2026-10-08-f114) ([10c646a](https://github.com/holgerleichsenring/agent-smith/commit/10c646a53bab658bf969c7cb2912005f6eda1ed7))
+* a rework run reads the review on its previous attempt's pull requests (2026-10-08-e8b9d) ([004b80d](https://github.com/holgerleichsenring/agent-smith/commit/004b80d4e56e8830d17cb6dc4ecc5a7b46ad4198))
+* a ticket run knows its previous code attempt and leads its conversation with what was said since (2026-10-08-7c0e) ([c237dd4](https://github.com/holgerleichsenring/agent-smith/commit/c237dd4d9f484f9851f6834fa8096cb079f8c7d1))
+* an approval cites the conversation images and the run of the filed ticket receives them as files and pictures (2026-10-08-e8b9k) ([205973e](https://github.com/holgerleichsenring/agent-smith/commit/205973e89a7fad42ea778b1cc77182aa7cd23396))
+* config import and archive restore ask in the page's ConfirmDialog; the Folder entry names the browser's prompt (2026-10-08-e8b9i) ([a4cc84d](https://github.com/holgerleichsenring/agent-smith/commit/a4cc84dd67e524b0f56b697ebc820bb15d1ec13f))
+* conversation uploads capped by bytes, deduplicated by content hash and removable one by one (2026-10-08-e8b9g) ([a9460c3](https://github.com/holgerleichsenring/agent-smith/commit/a9460c3f8ecee3a974ef8e0b2ef69ba3494cc6c1))
+* every rework act is served once by a durable nudge queue and one worker (2026-10-08-0781) ([95a40a5](https://github.com/holgerleichsenring/agent-smith/commit/95a40a522b88b7fff07e4f96653b4db268c72f11))
+* GitLab Request changes starts a rework (2026-10-08-f147) ([d76fc3b](https://github.com/holgerleichsenring/agent-smith/commit/d76fc3b0babbd0a2774a6fef4c9c8bf765d09760))
+* in polling mode a change sweep nudges tickets and agent-smith pull requests changed since a forward-only cursor (2026-10-08-9e6e) ([63413f9](https://github.com/holgerleichsenring/agent-smith/commit/63413f9e159fd31933f671fab392578da08c83bc))
+* in polling mode a PR sweep starts pr-review, the label scan and PR comment commands once per head, label add or comment (2026-10-08-10b0) ([04e8262](https://github.com/holgerleichsenring/agent-smith/commit/04e8262cc712bbb7dae89c033869c3991520a7eb))
+* one trigger mode per tracker entry, webhooks start nothing for a polling entry (2026-10-08-101b) ([50b1cc6](https://github.com/holgerleichsenring/agent-smith/commit/50b1cc6fa243712fddf73c370ac85876d19dc4cc))
+* Request changes on a GitHub or Azure DevOps agent-smith pull request starts one rework attempt (2026-10-08-e8b9c) ([37f2785](https://github.com/holgerleichsenring/agent-smith/commit/37f278539e07c66c0d0c37628b469e420ac1faba))
+* the dialog pane's Uploads tab lists, sizes and removes a conversation's uploads (2026-10-08-e8b9h) ([4447db7](https://github.com/holgerleichsenring/agent-smith/commit/4447db7598a4cbb76e9b1ca3fd0141096cee32e5))
+* uploads reach every sandbox as bytes without python, and an image inside an upload is shown to a vision model (2026-10-08-e8b9j) ([3d9211d](https://github.com/holgerleichsenring/agent-smith/commit/3d9211d2c3f86ec5d4be0f76e8b7d77366cf96be))
+
+
+### Bug Fixes
+
+* an approved spec writes no empty markdown companion and the run viewer says it was approved instead of 'No phase document found' (2026-10-08-e8b9f) ([bb63b92](https://github.com/holgerleichsenring/agent-smith/commit/bb63b92185283dc3cab55d8a9c39c34cf9d92df4))
+* PR comment commands claim the ticket and no run start takes over a live run's lease (2026-10-08-e8b9e) ([98b7b97](https://github.com/holgerleichsenring/agent-smith/commit/98b7b979a7712c9c76efec4a69ee8b814ba0221e))
+* webhooks reach their ticket handlers and never re-trigger on our own comments (2026-10-08-e8b9a) ([1ee3c4a](https://github.com/holgerleichsenring/agent-smith/commit/1ee3c4a582560911e5bf3ff2eff2369b1cffd092))
+
 ## [0.156.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.156.0...v0.156.1) (2026-10-07)
 
 
