@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-af10
+goal: "A failed PR review never pushes onto the pull request's branch, and the PR sweep never starts a review because the head moved to a work commit agent-smith pushed."
+
+applies_to: "backend (failure persist policy, PR sweep)"
+
+requires: [2026-09-02-de87, 2026-10-08-10b0]
+
+facts:
+  - claim: "observed: from 09:46 the polling-mode PR sweep started pr-review for one Azure DevOps PR every ~90 s (21 runs); each failed at BootstrapGate, then the error handler logged 'Work branch persisted: ... 1 pushed' — a '[wip] agent-smith run <id>' commit on the PR's own branch, whose new head the sweep reviewed again."
+    evidence: "observed: 2026-10-09, operator server log, release 0.157.0"
+  - claim: "The persist policy counts AgenticMaster as a code-modifying handler and excludes only runs carrying DeliverFindings."
+    evidence: "src/backend/AgentSmith.Application/Services/WorkBranchPersistPolicy.cs:26-43"
+  - claim: "The pr-review preset carries AgenticMaster and delivers through CompilePrReviewFindings and PostPrComments, not DeliverFindings — so the policy says it meant to change code."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.PrReview.cs:29-45"
+  - claim: "legal-analysis and spec-dialog carry AgenticMaster and neither DeliverFindings nor CommitAndPR; they answer true for the same reason."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.LegalAnalysis.cs:11-22, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:19-26"
+  - claim: "A failed step persists whenever the policy says true and a Repository is in context."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:99-110"
+  - claim: "The persist pushes onto the run's current branch, which for a PR run is the PR head the trigger seeded as CheckoutBranch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:33-34, src/backend/AgentSmith.Server/Services/Webhooks/PrRunContextFactory.cs:55"
+  - claim: "The WIP commit's subject is '[wip] agent-smith run {runId}'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:150-160"
+  - claim: "The sweep moves the reviewed head by compare-and-set BEFORE launching, so a failed review on head H is not retried on H; any new head is reviewed."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:47-48"
+  - claim: "The open-PR listers carry no head-commit author or message — only the head sha and the PR author."
+    evidence: "src/backend/AgentSmith.Contracts/Sweep/OpenPullRequest.cs:5-7"
+  - claim: "The two legacy composers of hand-built command lists, skill-manager and autonomous, are removed pipeline names."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/RetiredPipelineNames.cs:30-40"
+  - claim: "Webhook PR events route to pr-review by default, the same preset."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReviewRouteResolver.cs:18-29"
+
+scope:
+  in: >
+    POLICY: a run means to change code only when it COMMITS its work (CommitAndPR) and delivers no opinion
+    (DeliverFindings, CompilePrReviewFindings, PostPrComments). The legacy handler list goes: its composers are removed
+    names, and AgenticMaster is in every master preset, opinions included. Truth table — persists on failure: code,
+    mad-discussion; never: pr-review, security-scan, api-security-scan, legal-analysis, spec-dialog, init-project
+    (init-project commits via InitCommit and never persisted; unchanged). SWEEP: on a head move the sweep reads the head
+    commit's message from the host; a '[wip] agent-smith run' subject records the head and starts nothing. The marker
+    lives in one constant both the persist handler and the sweep read.
+  out: >
+    Identity-based detection (our token as committer): the listers carry no commit identity and resolving the token's
+    identity per host is three new calls for no extra truth while the marker is ours alone. The webhook path reads no
+    commit message; the policy alone closes it there. Removing WIP commits already pushed is the operator's (PR body says how).
+
+decisions:
+  - key: "COMMITTING IS THE MARK. A preset that gains CommitAndPR gains the persist; AgenticMaster says nothing about intent."
+  - key: "MARKER, NOT IDENTITY. The listers have neither; the marker needs one call per head move only."
+  - key: "FAIL OPEN on a message read error: the review starts as before; the policy already prevents the push."
+
+steps:
+  - id: policy
+    action: "WorkBranchPersistPolicy: CommitAndPR and no opinion step; drop the legacy list."
+  - id: marker
+    action: "WipCommit constant in Contracts; PersistWorkBranchHandler builds its subject from it."
+  - id: lister
+    action: "IOpenPullRequestLister.HeadCommitMessageAsync; GitHub, GitLab and Azure Repos implementations."
+  - id: sweep
+    action: "PrSweepPass: on a head move that won the compare-and-set, skip the review when the head commit is ours."
+  - id: tests
+    action: "Red first: a failed pr-review persists nothing; a sweep cycle after a WIP head starts nothing; one test per preset; webhook default route persists nothing."
+
+tests:
+  - "FailedPrReview_PersistsNoWorkBranch"
+  - "PersistPolicy_PerPreset_MatchesTruthTable"
+  - "PrReviewRouteDefault_NeverPersists"
+  - "PrSweep_HeadMovedToOurWipCommit_StartsNothing"
+  - "PrSweep_HeadMessageUnreadable_StillReviews"
+
+done:
+  - "A failing pr-review run against a repository persists no work branch (red before, green after)."
+  - "A sweep cycle whose head moved to a '[wip] agent-smith run' commit records the head and launches nothing."
+  - "Architecture tests and the full suite pass."

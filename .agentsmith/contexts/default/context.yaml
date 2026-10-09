@@ -1092,6 +1092,7 @@ state:
     2026-10-09-753b: "A HEADING TAKES THE ANSWER'S LANGUAGE (spec-dialog subject minter). The small model condenses the design partner's first answer alone, not the operator's identifier-heavy message; a Notice first turn mints nothing; wrongly minted headings stay. -> .agentsmith/specs/done/2026-10-09-753b-subject-language-from-answer.yaml"
   active: {}
   planned:
+    2026-10-09-af10: "A PR REVIEW NEVER PUSHES AND NEVER REVIEWS ITS OWN COMMIT (persist policy, PR sweep). Only a committing run persists on failure; the sweep skips a head that is our WIP commit. -> .agentsmith/specs/planned/2026-10-09-af10-pr-review-push-loop.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/specs/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
