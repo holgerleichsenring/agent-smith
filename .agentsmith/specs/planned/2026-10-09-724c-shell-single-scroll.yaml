@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-724c
+goal: "Every dashboard page scrolls in one place: the shell's scroll container holds every positioned descendant, so a long conversation no longer grows the document and cuts the page off."
+
+applies_to: "dashboard (app shell)"
+
+requires: []
+
+facts:
+  - claim: "observed: the operator reported that once a Work it out conversation gets long, the whole page container grows, is visible only down to the lower edge of the left rail, a second scrollbar appears and the Scope pane is cut off; a new conversation does not show it."
+    evidence: "observed: 2026-10-09, operator conversation with screenshots of the Work it out page"
+  - claim: "observed: reproduced locally with a mocked 40-turn conversation at 1440x900 — document scrollHeight 6961 against a 900 px viewport while the shell's main scrolls its own 7367 px; 36 absolutely positioned sr-only spans below the fold have BODY as their offsetParent; giving main position: relative brings the document back to 900."
+    evidence: "observed: 2026-10-09, Playwright probe against next dev with a mock backend"
+  - claim: "The shell is a grid whose main is the scroll container: a fixed height of the viewport minus the header, overflow-y auto."
+    evidence: "src/dashboard/src/app/layout.tsx:58-67"
+  - claim: "The shell-main utility sets height and overflow only; it does not establish a containing block."
+    evidence: "src/dashboard/src/app/globals.css:42-45"
+  - claim: "The rail beside it is sticky, so it is positioned and contains its own absolute descendants."
+    evidence: "src/dashboard/src/styles/mock-parity.css:78-83"
+  - claim: "Every transcript row carries an sr-only span naming the speaker; Tailwind's sr-only is position: absolute."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:191"
+  - claim: "Another page uses sr-only too, so the defect is the shell's, not the dialog's."
+    evidence: "src/dashboard/src/components/system/InitOptionChip.tsx:71"
+
+assumptions:
+  - claim: "No page relies on an absolute descendant of main being placed against the viewport rather than against main."
+    check: "Screenshots of the runs list, a run detail and config before and after; fixed-position drawers and the top-layer dialogs are unaffected by a containing block for absolute."
+
+scope:
+  in: >
+    The shell's main gets position: relative, so an absolute descendant's containing block is the scroll container: it scrolls and
+    clips with the content instead of extending the document. A source test pins the rule. Verified in Chrome at 1440 and 390 px on
+    Work it out with a long conversation and a long Scope list, plus the runs list and a run detail.
+  out: "The shell's rail at phone width (the 230 px column stays; already out of 2026-10-09-86e1). The sr-only spans themselves stay: they are correct markup and the defect is the missing containing block."
+
+decisions:
+  - key: "FIX THE CONTAINER, NOT THE SPAN. Any absolute descendant on any page leaks the same way; one containing block on the shell's scroll container closes the class, while removing sr-only from the dialog closes one instance."
+  - key: "NO overflow: hidden ON BODY. It would hide the second scrollbar while the overflow still existed, and cut off whatever leaked."
+
+steps:
+  - id: shell
+    action: "Add position: relative to the shell-main utility, with a comment naming why."
+  - id: test
+    action: "Add a source test that shell-main establishes a containing block."
+  - id: verify
+    action: "Playwright in Chrome against next dev with a mock backend: before/after shots at 1440x900 and 390 px, document scrollHeight equals the viewport."
+
+tests:
+  - "ShellMain_Utility_EstablishesContainingBlock"
+
+done:
+  - "With a 40-turn conversation, document scrollHeight equals the viewport height at 1440x900 and 390x844; only main scrolls."
+  - "Runs list and run detail render as before."
+  - "pnpm test and pnpm build pass."

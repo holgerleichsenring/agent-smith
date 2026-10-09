@@ -1089,6 +1089,7 @@ state:
     2026-10-09-86e1: "UPLOADS ARE BROWSABLE, REMOVABLE PER FILE, DEDUPED PER FILE (dialog uploads, reference routes, set name). Folder tree, modal preview by content, per-file delete releasing the held container, held files marked before sending, all-held picks refused, sets named by file, attach menu unclipped. -> .agentsmith/specs/done/2026-10-09-86e1-uploads-browse-dedupe.yaml"
   active: {}
   planned:
+    2026-10-09-724c: "ONE SCROLL PER PAGE (dashboard shell). The shell's main becomes the containing block for absolute descendants, so a long conversation's sr-only spans stop growing the document. -> .agentsmith/specs/planned/2026-10-09-724c-shell-single-scroll.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/specs/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
