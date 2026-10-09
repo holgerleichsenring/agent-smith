@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-753b
+goal: "A conversation's heading is condensed from the design partner's first answer alone, so its language is the one the main model chose for the operator and is not guessed from the operator's message."
+
+applies_to: "backend (spec-dialog subject minter)"
+
+requires: [2026-09-23-35b8]
+
+facts:
+  - claim: "observed: on 2026-10-09 a conversation was headed 'Detalles y estado del desarrollo del proyecto AACA (Asset Assignment Carrier App)'; the operator writes German and English, and the first message was mostly English context with many project identifiers."
+    evidence: "observed: 2026-10-09, operator report"
+  - claim: "The minter shows the small model the operator's first message AND the reply, and asks it for the language of 'the conversation'."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:71-76, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectInstruction.cs:15-20"
+  - claim: "The call runs on the summarization task type, which the registry assigns its own (small) model."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:71, src/backend/AgentSmith.Contracts/Models/Configuration/ModelRegistryConfig.cs:31"
+  - claim: "2026-09-23-35b8 removed 'not in English' and left the outcome to 'the next conversation'; this is that conversation, headed in a language nobody wrote."
+    evidence: ".agentsmith/specs/done/2026-09-23-35b8-subject-language-is-told.yaml:32-35"
+  - claim: "The mint runs once, after the first assistant turn is persisted and before the reply is sent; only a Failure kind is skipped."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:100-106, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:46-52"
+  - claim: "A Notice reply is text the code wrote (an invalid or refused proposal), not the model's answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterOutcomes.cs:33-47, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:66-67"
+  - claim: "The existing test pins the old sentence and that the prompt contains the operator's message."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/ConversationSubjectTests.cs:91-94"
+
+assumptions:
+  - claim: "A design partner's first answer names what the conversation is about well enough to head it."
+    check: "A live conversation after deploy; the heading's fallback (the operator's first line) is unchanged when no subject is minted."
+
+scope:
+  in: >
+    The minter sends the small model the first ANSWER only, and the instruction tells it to name what that answer is about, in
+    the answer's language. The operator's message — identifier-heavy, often mixed — is no longer in front of the model at all. A
+    Notice first turn mints nothing (code-written text is no language authority); the heading then keeps its fallback. The prompt
+    text and its framing live in SpecDialogSubjectInstruction.
+  out: "Headings already minted in a wrong language stay: the subject is minted once and there is no edit surface for it; adding one (rename, or re-mint on request) is a feature of its own. A browser-language field and an outcome-block heading (skill protocol change) were not chosen — see decisions."
+
+decisions:
+  - key: "THE ANSWER IS THE LANGUAGE AUTHORITY. The main model chose the reply's language for this operator; a condensation of one single-language text keeps it. Guessing from the operator's mixed message is what produced Spanish twice."
+  - key: "NOT navigator.language / Accept-Language. It is the UI's language, not the conversation's (an English browser, a German conversation), and Slack/Teams sessions have none."
+  - key: "NOT a heading in the master's outcome block. It is the strongest source but a skill-protocol change (skills release, pin bump) for one line; the answer already carries the same authority."
+  - key: "STAYS ON THE SUMMARIZATION MODEL. With one single-language input the model no longer decides a language; 2026-09-20-4b0af's cost choice holds."
+
+steps:
+  - id: instruction
+    action: "Rewrite SpecDialogSubjectInstruction.Text to name the answer as the subject and the language source; add Exchange(reply) for the user message."
+  - id: minter
+    action: "Send only the reply; skip a Notice kind as well as Failure."
+  - id: tests
+    action: "Scripted chat client: the prompt carries the reply and not the operator's message, pins the new sentence; a Notice first turn mints nothing."
+
+tests:
+  - "SpecDialogRouter_AFirstTurn_MintsFromTheAnswerAlone"
+  - "SpecDialogRouter_ANoticeFirstTurn_MintsNothing"
+
+done:
+  - "The recorded mint prompt contains the reply, the language sentence naming the answer, and none of the operator's message."
+  - "Architecture tests and the full suite pass."
