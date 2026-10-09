@@ -17,7 +17,8 @@ export async function heldIn(files: File[], held: SpecDialogHeldContent[]): Prom
   const found: HeldLookup = new Map();
   if (byHash.size === 0) return found;
   for (const file of files) {
-    const hex = hexOf(await subtle.digest("SHA-256", await bytesOf(file)));
+    // A view made here: a buffer from another realm (jsdom's FileReader) is refused by Node's digest.
+    const hex = hexOf(await subtle.digest("SHA-256", new Uint8Array(await bytesOf(file))));
     const holder = byHash.get(hex);
     if (holder) found.set(file, holder);
   }
