@@ -1357,8 +1357,9 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(), title: "Spec dialog", text: "a reply", at: new Date().toISOString(),
     }));
 
-    expect(await screen.findByTestId("dialog-conversation-s-1"))
-      .toHaveTextContent("Aktualisierung aller Projektbibliotheken");
+    // The row exists before the re-read lands, so wait for its text, not for the row.
+    await waitFor(() => expect(screen.getByTestId("dialog-conversation-s-1"))
+      .toHaveTextContent("Aktualisierung aller Projektbibliotheken"));
   });
 
   // The defect this phase closes: the title of a conversation opened with a fenced block is null
