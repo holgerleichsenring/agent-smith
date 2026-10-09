@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-09-753b
+
+decisions:
+  - category: Architecture
+    chose: "The heading is condensed from the design partner's first answer alone; the instruction names that answer as the language"
+    over: "Rewording the 'SAME LANGUAGE the conversation is written in' instruction again"
+    reason: |
+      2026-09-23-35b8 already reworded it and left the outcome to the next conversation, which came
+      out Spanish. The small model was handed two texts — the operator's identifier-heavy, mixed
+      message and the reply — and asked which language 'the conversation' is in. The reply is the
+      main model's choice of language for this operator; with it as the only input there is no
+      language left to pick.
+  - category: Architecture
+    chose: "Not a browser/operator language field (navigator.language or Accept-Language)"
+    over: "Carrying the browser language on the message"
+    reason: |
+      It is the UI's language, not the conversation's: an English browser over a German
+      conversation would head it in English. Slack and Teams sessions carry none.
+  - category: Architecture
+    chose: "Not a heading returned in the master's outcome block"
+    over: "Having the main turn write the heading itself"
+    reason: |
+      The strongest source, but the outcome block is skill protocol: a skills release, a pin bump
+      and a resolver change for one line, when the answer the main model wrote already carries
+      the same language authority.
+  - category: Implementation
+    chose: "A Notice first turn mints nothing"
+    over: "Minting from the notice text"
+    reason: |
+      A notice (invalid or refused proposal) is text the code wrote: it is about the validation,
+      not the conversation, and its language is the code's. The heading keeps its fallback, the
+      operator's first line.
+  - category: Scope
+    chose: "Headings already minted in a wrong language are not corrected"
+    over: "A re-mint or rename path"
+    reason: |
+      The subject is minted once and nothing edits it; a correction needs an edit surface (rename,
+      or re-mint on request), which is a feature, not a cheap addition to this fix.
