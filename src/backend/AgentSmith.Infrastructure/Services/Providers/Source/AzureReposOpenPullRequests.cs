@@ -32,6 +32,12 @@ public sealed class AzureReposOpenPullRequests(
         return new OpenPullRequestsPage(items, true, skip.ToString());
     }
 
+    public async Task<string?> HeadCommitMessageAsync(string sha, CancellationToken ct)
+    {
+        var client = await connect(ct);
+        return (await client.GetCommitAsync(project, sha, repoName, cancellationToken: ct)).Comment;
+    }
+
     public async Task<IReadOnlyList<PrSweepComment>> CommentsSinceAsync(
         IReadOnlyList<OpenPullRequest> pullRequests, DateTimeOffset since, CancellationToken ct)
     {

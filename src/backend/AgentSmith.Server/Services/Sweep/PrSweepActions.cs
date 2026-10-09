@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Server.Services.Webhooks;
@@ -17,14 +18,17 @@ public sealed class PrSweepActions(
     PrRunContextFactory contexts,
     AgentSmith.Server.Contracts.IDetachedPipelineLauncher launcher,
     PrCommentCommandAdmission admission,
+    PrSweepBreaker breaker,
     IServiceProvider services)
 {
     private const string ScanPipeline = "security-scan";
 
-    public async Task ReviewAsync(SweepTarget target, OpenPullRequest pr)
+    /// <summary>2026-10-09-af10: the run's outcome goes to the breaker, which counts failures in a row.</summary>
+    public async Task ReviewAsync(SweepTarget target, string key, OpenPullRequest pr)
     {
         if (routes.Resolve(target.Config, Kind(target.Repo), target.Repo.Url!, pr.Labels) is { } route && target.Allowed.Contains(route.ProjectName))
-            await launcher.LaunchAsync(route.ProjectName, route.PipelineName, contexts.FromFacts(Facts(pr), route.RepoName));
+            await launcher.LaunchAsync(route.ProjectName, route.PipelineName, contexts.FromFacts(Facts(pr), route.RepoName),
+                breaker.Watch(target, key, pr));
     }
 
     public async Task ScanAsync(SweepTarget target, OpenPullRequest pr)
@@ -34,7 +38,7 @@ public sealed class PrSweepActions(
             await launcher.LaunchAsync(owner, ScanPipeline, contexts.FromFacts(Facts(pr), target.Repo.Name));
     }
 
-    public Task CommandAsync(SweepTarget target, PrSweepComment comment, CancellationToken ct) =>
+    public Task<WebhookResult> CommandAsync(SweepTarget target, PrSweepComment comment, CancellationToken ct) =>
         admission.AdmitAsync(new PrCommentCommand(comment.Body, comment.Author, $"{target.Repo.Name}#{comment.PrNumber}",
                 $"pr:{target.Repo.Name}#{comment.PrNumber}", comment.PrNumber),
             services.GetRequiredKeyedService<IPrCommentAuthorTrust>(Kind(target.Repo)), ct, target.Allowed);

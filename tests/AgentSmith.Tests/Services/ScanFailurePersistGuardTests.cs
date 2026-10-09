@@ -48,20 +48,55 @@ public sealed class ScanFailurePersistGuardTests
         AssertNoPersist(h);
     }
 
-    // The guard reads the COMMAND LIST, not where the run died, so failing the first
-    // step keeps the mocked collaborators out of it while the list stays the real preset.
-    // The legacy handler names, which no preset carries any more but the skill-manager and
-    // autonomous paths still compose by hand.
+    // 2026-10-09-af10: a failed pr-review pushed a WIP commit onto the PR's own branch, whose new
+    // head the PR sweep reviewed again — twenty times in half an hour.
     [Fact]
-    public void AComposedListNamingACodeModifyingHandler_StillIntendsToChangeCode() =>
+    public async Task FailedPrReview_PersistsNoWorkBranch()
+    {
+        var h = await RunFailing(PipelinePresets.PrReview, WithRepository());
+        AssertNoPersist(h);
+    }
+
+    // One row per shipped preset: only a run that COMMITS its work and delivers no opinion persists.
+    [Theory]
+    [InlineData(PipelinePresets.CodeName, true)]
+    [InlineData("mad-discussion", true)]
+    [InlineData("pr-review", false)]
+    [InlineData("security-scan", false)]
+    [InlineData("api-security-scan", false)]
+    [InlineData("legal-analysis", false)]
+    [InlineData(PipelinePresets.SpecDialogName, false)]
+    [InlineData("init-project", false)]
+    public void PersistPolicy_PerPreset_MatchesTruthTable(string preset, bool persists) =>
+        WorkBranchPersistPolicy.IntendedToChangeCode(PipelinePresets.TryResolve(preset)!).Should().Be(persists);
+
+    [Fact]
+    public void PersistPolicy_TruthTable_CoversEveryPreset() =>
+        PipelinePresets.Names.Should().BeEquivalentTo([PipelinePresets.CodeName, "mad-discussion", "pr-review", "security-scan",
+            "api-security-scan", "legal-analysis", PipelinePresets.SpecDialogName, "init-project"]);
+
+    // The webhook path: a PR push routes to the resolver's default pipeline, which must never persist.
+    [Fact]
+    public void PrReviewRouteDefault_NeverPersists() =>
         WorkBranchPersistPolicy.IntendedToChangeCode(
-            [CommandNames.AgenticExecute, CommandNames.WriteRunResult]).Should().BeTrue();
+            PipelinePresets.TryResolve(AgentSmith.Server.Services.Webhooks.PrReviewRouteResolver.DefaultPipeline)!)
+            .Should().BeFalse();
+
+    [Fact]
+    public void AMasterWithoutACommit_NeverIntendsToChangeCode() =>
+        WorkBranchPersistPolicy.IntendedToChangeCode(
+            [CommandNames.AgenticMaster, CommandNames.WriteRunResult]).Should().BeFalse();
 
     [Fact]
     public void AComposedListThatDeliversFindings_NeverIntendsToChangeCode() =>
         WorkBranchPersistPolicy.IntendedToChangeCode(
             [CommandNames.AgenticMaster, CommandNames.DeliverFindings, CommandNames.CommitAndPR])
             .Should().BeFalse();
+
+    [Fact]
+    public void AComposedListThatPostsPrComments_NeverIntendsToChangeCode() =>
+        WorkBranchPersistPolicy.IntendedToChangeCode(
+            [CommandNames.PostPrComments, CommandNames.CommitAndPR]).Should().BeFalse();
 
     private static async Task<PipelineExecutorTestBuilder> RunFailing(
         IReadOnlyList<string> preset, PipelineContext pipeline)

@@ -522,6 +522,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("FailedReviews")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("LabelPresent")
                         .HasColumnType("INTEGER");
 

@@ -21,20 +21,29 @@ public sealed class DetachedPipelineLauncher(
         new(project, pipeline, TicketId: null, Headless: true, Context: context);
 
     public Task LaunchAsync(string project, string pipeline, Dictionary<string, object>? context) =>
+        LaunchAsync(project, pipeline, context, _ => Task.CompletedTask);
+
+    public Task LaunchAsync(string project, string pipeline, Dictionary<string, object>? context, Func<bool, Task> finished) =>
         Task.Run(async () =>
         {
-            await using var scope = scopes.CreateAsyncScope();
-            try
+            var succeeded = false;
+            await using (var scope = scopes.CreateAsyncScope())
             {
-                var result = await scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
-                    RequestFor(project, pipeline, context),
-                    serverContext.ConfigPath, CancellationToken.None);
-                logger.LogInformation(result.IsSuccess ? "Run {Pipeline} for {Project} completed: {Message}"
-                    : "Run {Pipeline} for {Project} failed: {Message}", pipeline, project, result.Message);
+                try
+                {
+                    var result = await scope.ServiceProvider.GetRequiredService<ExecutePipelineUseCase>().ExecuteAsync(
+                        RequestFor(project, pipeline, context),
+                        serverContext.ConfigPath, CancellationToken.None);
+                    succeeded = result.IsSuccess;
+                    logger.LogInformation(result.IsSuccess ? "Run {Pipeline} for {Project} completed: {Message}"
+                        : "Run {Pipeline} for {Project} failed: {Message}", pipeline, project, result.Message);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Run {Pipeline} for {Project} failed to start", pipeline, project);
+                }
             }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Run {Pipeline} for {Project} failed to start", pipeline, project);
-            }
+            try { await finished(succeeded); }
+            catch (Exception ex) { logger.LogWarning(ex, "Recording the outcome of {Pipeline} for {Project} failed", pipeline, project); }
         });
 }

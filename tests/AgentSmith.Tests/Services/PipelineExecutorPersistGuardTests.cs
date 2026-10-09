@@ -46,11 +46,11 @@ public sealed class PipelineExecutorPersistGuardTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_CodeModifyingPipelineFails_AttemptsPersistWorkBranch()
+    public async Task ExecuteAsync_CommittingPipelineFails_AttemptsPersistWorkBranch()
     {
         var h = new PipelineExecutorTestBuilder();
         var pipeline = NewPipelineWithRepository();
-        var commands = new[] { CommandNames.AgenticExecute, CommandNames.WriteRunResult };
+        var commands = new[] { CommandNames.AgenticExecute, CommandNames.WriteRunResult, CommandNames.CommitAndPR };
         ArrangeFirstCommandFailure(h, commands[0]);
 
         var result = await h.Sut.ExecuteAsync(commands, NewProjectConfigWithImage(), pipeline, CancellationToken.None);

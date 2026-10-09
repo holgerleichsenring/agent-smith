@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-09-af10
-goal: "A failed PR review never pushes onto the pull request's branch, and the PR sweep never starts a review because the head moved to a work commit agent-smith pushed."
+goal: "A failed PR review never pushes onto the PR branch, and the polling-mode PR sweep never reviews its own commit nor keeps launching for a pull request whose reviews keep failing."
 
 applies_to: "backend (failure persist policy, PR sweep)"
 
 requires: [2026-09-02-de87, 2026-10-08-10b0]
 
 facts:
-  - claim: "observed: from 09:46 the polling-mode PR sweep started pr-review for one Azure DevOps PR every ~90 s (21 runs); each failed at BootstrapGate, then the error handler logged 'Work branch persisted: ... 1 pushed' — a '[wip] agent-smith run <id>' commit on the PR's own branch, whose new head the sweep reviewed again."
+  - claim: "observed: the trigger was the TRACKER (polling) mode's PR sweep, not a webhook. From 09:46 the polling-mode PR sweep started pr-review for one Azure DevOps PR every ~90 s (21 runs); each failed at BootstrapGate, then the error handler logged 'Work branch persisted: ... 1 pushed' — a '[wip] agent-smith run <id>' commit on the PR's own branch, whose new head the sweep reviewed again."
     evidence: "observed: 2026-10-09, operator server log, release 0.157.0"
-  - claim: "The persist policy counts AgenticMaster as a code-modifying handler and excludes only runs carrying DeliverFindings."
-    evidence: "src/backend/AgentSmith.Application/Services/WorkBranchPersistPolicy.cs:26-43"
+  - claim: "de87 chose DeliverFindings (excluding) and CommitAndPR (including) as the marks, weighing the scan and coding presets only; the legacy names, AgenticMaster among them, stayed behind the marks and still made a master-only preset persist."
+    evidence: ".agentsmith/specs/done/2026-09-02-de87-run-failure-path-preset-marks.yaml:25-38"
   - claim: "The pr-review preset carries AgenticMaster and delivers through CompilePrReviewFindings and PostPrComments, not DeliverFindings — so the policy says it meant to change code."
     evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.PrReview.cs:29-45"
   - claim: "legal-analysis and spec-dialog carry AgenticMaster and neither DeliverFindings nor CommitAndPR; they answer true for the same reason."
@@ -23,6 +23,12 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:150-160"
   - claim: "The sweep moves the reviewed head by compare-and-set BEFORE launching, so a failed review on head H is not retried on H; any new head is reviewed."
     evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:47-48"
+  - claim: "Tickets already have the no-repeat property: a failed run finalizes the ticket to failed_status (falling back to done_status) so it leaves its trigger status and the poller stops re-claiming it."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:38-41, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:74-83, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:143-171"
+  - claim: "A sweep-launched run is fire-and-forget: the launcher logs its outcome and nothing records it against the pull request."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/DetachedPipelineLauncher.cs:23-39"
+  - claim: "A trusted, admitted /agent-smith comment command on the pull request is the only person-initiated act the sweep sees besides a push."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepComments.cs:24-32, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:22-42"
   - claim: "The open-PR listers carry no head-commit author or message — only the head sha and the PR author."
     evidence: "src/backend/AgentSmith.Contracts/Sweep/OpenPullRequest.cs:5-7"
   - claim: "The two legacy composers of hand-built command lists, skill-manager and autonomous, are removed pipeline names."
@@ -38,16 +44,25 @@ scope:
     mad-discussion; never: pr-review, security-scan, api-security-scan, legal-analysis, spec-dialog, init-project
     (init-project commits via InitCommit and never persisted; unchanged). SWEEP: on a head move the sweep reads the head
     commit's message from the host; a '[wip] agent-smith run' subject records the head and starts nothing. The marker
-    lives in one constant both the persist handler and the sweep read.
+    lives in one constant both the persist handler and the sweep read. NO RETRY ON A HEAD: kept from 10b0 (head moved by
+    compare-and-set before launch), now pinned by a test. BREAKER: the launcher reports each sweep-launched review's
+    outcome; PrSweepState.FailedReviews (migration AddPrSweepFailedReviews in both sets) counts failures in a row, a
+    success clears it. At 3 the sweep records new heads and launches no review; the run that reaches 3 posts one
+    marked comment (<!-- agentsmith:pr-sweep-paused -->) and logs a warning. Resume: a trusted admitted /agent-smith
+    command on the pull request resets the count; closing the pull request drops its row, so a reopen starts fresh.
   out: >
     Identity-based detection (our token as committer): the listers carry no commit identity and resolving the token's
     identity per host is three new calls for no extra truth while the marker is ours alone. The webhook path reads no
-    commit message; the policy alone closes it there. Removing WIP commits already pushed is the operator's (PR body says how).
+    commit message; the policy alone closes it there. A person's PUSH does not resume a paused pull request: without commit
+    identity a person's head and a fourth failing head look alike. No dashboard event for a pause (log + PR comment only).
+    Label scans are not counted: one per label transition, they cannot loop. Removing WIP commits already pushed is the
+    operator's (PR body says how).
 
 decisions:
   - key: "COMMITTING IS THE MARK. A preset that gains CommitAndPR gains the persist; AgenticMaster says nothing about intent."
   - key: "MARKER, NOT IDENTITY. The listers have neither; the marker needs one call per head move only."
   - key: "FAIL OPEN on a message read error: the review starts as before; the policy already prevents the push."
+  - key: "BREAKER COUNTS ON THE ROW, NOT IN MEMORY: a restart or a second replica sees the same count; the CAS increment lets exactly one run announce."
 
 steps:
   - id: policy
@@ -58,6 +73,8 @@ steps:
     action: "IOpenPullRequestLister.HeadCommitMessageAsync; GitHub, GitLab and Azure Repos implementations."
   - id: sweep
     action: "PrSweepPass: on a head move that won the compare-and-set, skip the review when the head commit is ours."
+  - id: breaker
+    action: "Launcher outcome callback; PrSweepBreaker counts on the row, pauses at 3, announces once; an admitted command resets."
   - id: tests
     action: "Red first: a failed pr-review persists nothing; a sweep cycle after a WIP head starts nothing; one test per preset; webhook default route persists nothing."
 
@@ -67,8 +84,13 @@ tests:
   - "PrReviewRouteDefault_NeverPersists"
   - "PrSweep_HeadMovedToOurWipCommit_StartsNothing"
   - "PrSweep_HeadMessageUnreadable_StillReviews"
+  - "PrSweep_FailedReviewOnAHead_NotRetriedOnThatHead"
+  - "PrSweep_ThreeFailedReviews_FourthHeadStartsNothingAndSaysSoOnce"
+  - "PrSweep_PausedPr_APersonsCommandResumes"
+  - "PrSweep_SucceededReview_ClearsTheFailures"
 
 done:
   - "A failing pr-review run against a repository persists no work branch (red before, green after)."
   - "A sweep cycle whose head moved to a '[wip] agent-smith run' commit records the head and launches nothing."
+  - "Three failed reviews on three heads: the fourth head launches nothing, one marked comment; an admitted command resumes."
   - "Architecture tests and the full suite pass."

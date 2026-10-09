@@ -277,12 +277,12 @@ public sealed class PipelineErrorHandlerTests
     }
 
     [Fact]
-    public async Task HandleStepFailureAsync_CodeModifyingPipelineWithRepository_AttemptsPersistWorkBranch()
+    public async Task HandleStepFailureAsync_CommittingPipelineWithRepository_AttemptsPersistWorkBranch()
     {
         var context = new PipelineContext();
         context.Set(ContextKeys.Repository,
             new Repository(new BranchName("main"), "https://example.com/repo.git"));
-        var commands = new[] { CommandNames.AgenticExecute, CommandNames.WriteRunResult };
+        var commands = new[] { CommandNames.PhaseSequence, CommandNames.WriteRunResult, CommandNames.CommitAndPR };
 
         await _sut.HandleStepFailureAsync(
             commands, new ResolvedProject(), context, _lifecycleMock.Object,
@@ -297,15 +297,14 @@ public sealed class PipelineErrorHandlerTests
     }
 
     [Fact]
-    public async Task HandleStepFailureAsync_AgenticMasterPipelineWithRepository_AttemptsPersistWorkBranch()
+    public async Task HandleStepFailureAsync_AgenticMasterPipelineThatCommits_AttemptsPersistWorkBranch()
     {
-        // p0202c: fix-no-test / add-feature run AgenticMaster (the post-p0179b
-        // coding handler) and carry no explicit PersistWorkBranch step. The
-        // failure-recovery path must still persist the master's edits.
+        // A master run that commits its work (mad-discussion's shape) persists the master's
+        // edits; a master alone does not (2026-10-09-af10).
         var context = new PipelineContext();
         context.Set(ContextKeys.Repository,
             new Repository(new BranchName("main"), "https://example.com/repo.git"));
-        var commands = new[] { CommandNames.AgenticMaster, CommandNames.WriteRunResult };
+        var commands = new[] { CommandNames.AgenticMaster, CommandNames.WriteRunResult, CommandNames.CommitAndPR };
 
         await _sut.HandleStepFailureAsync(
             commands, new ResolvedProject(), context, _lifecycleMock.Object,
