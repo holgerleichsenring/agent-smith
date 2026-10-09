@@ -28,6 +28,9 @@ public sealed class GitHubOpenPullRequests(IGitHubClient client, string owner, s
         return new OpenPullRequestsPage(items, cut, cut ? (start + maxPages).ToString() : null);
     }
 
+    public async Task<string?> HeadCommitMessageAsync(string sha, CancellationToken ct) =>
+        (await client.Git.Commit.Get(owner, repo, sha)).Message;
+
     public async Task<IReadOnlyList<PrSweepComment>> CommentsSinceAsync(
         IReadOnlyList<OpenPullRequest> pullRequests, DateTimeOffset since, CancellationToken ct)
     {

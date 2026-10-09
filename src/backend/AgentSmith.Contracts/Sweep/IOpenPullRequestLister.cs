@@ -11,6 +11,9 @@ public interface IOpenPullRequestLister
 
     Task<OpenPullRequestsPage> ListOpenAsync(string? resume, int maxPages, CancellationToken cancellationToken);
 
+    /// <summary>2026-10-09-af10: the message of a pull request's head commit, read only when the head moved.</summary>
+    Task<string?> HeadCommitMessageAsync(string sha, CancellationToken cancellationToken);
+
     Task<IReadOnlyList<PrSweepComment>> CommentsSinceAsync(
         IReadOnlyList<OpenPullRequest> pullRequests, DateTimeOffset since, CancellationToken cancellationToken);
 }

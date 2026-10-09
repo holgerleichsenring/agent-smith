@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-09-af10
+
+decisions:
+  - category: Architecture
+    chose: "A run persists its work branch on failure only when it commits (CommitAndPR) and delivers no opinion (DeliverFindings, CompilePrReviewFindings, PostPrComments)"
+    over: "Adding CompilePrReviewFindings/PostPrComments to the exclusion and keeping the legacy handler list"
+    reason: |
+      AgenticMaster is in every master preset, opinions included, so it says nothing about intent;
+      it made pr-review, legal-analysis and spec-dialog persist. The list's other names are in no
+      preset and its composers (skill-manager, autonomous) are removed names. Committing is the
+      property that is true of a run meant to change code. Truth table: code and mad-discussion
+      persist; pr-review, security-scan, api-security-scan, legal-analysis, spec-dialog and
+      init-project do not.
+  - category: Architecture
+    chose: "The sweep recognises our own head by the WIP commit marker, read from the host on a head move"
+    over: "Recognising our token's identity as committer"
+    reason: |
+      The listers carry neither commit author nor message. Identity would need the token's own
+      identity resolved per host plus the commit's author; the marker needs one commit read per head
+      move, and only agent-smith writes it. A read error fails open: the policy already stops the push.
+  - category: Architecture
+    chose: "A breaker on PrSweepState.FailedReviews: three sweep-launched reviews failing in a row pause the pull request; one marked comment and a log warning; a trusted admitted /agent-smith command resets"
+    over: "Resuming on a person's push"
+    reason: |
+      Without commit identity a person's head and another failing head look alike, so a push cannot
+      be the resume signal. An admitted command is a person with write access asking, and the code
+      already reads it. Closing the pull request prunes its row, so a reopen starts fresh. The count
+      is on the row (restart- and replica-safe); the increment is a compare-and-set, so exactly one
+      run sees the threshold and announces.
+  - category: Implementation
+    chose: "The launcher reports the outcome through a second LaunchAsync overload taking a callback"
+    over: "An optional parameter on the existing method"
+    reason: "Moq expression trees cannot omit optional arguments; the webhook and scan callers keep the three-argument form."
+  - category: Implementation
+    chose: "ReferenceFileRouteTests gets TestProcess env-3"
+    over: "Leaving main's architecture test red"
+    reason: "86e1 and 7f48 merged into a red TestProcessTraitRuleTests; the gate runs it, so this commit carries the one-line fix."

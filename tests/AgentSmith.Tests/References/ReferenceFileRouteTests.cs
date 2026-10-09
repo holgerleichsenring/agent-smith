@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.References;
 /// served without ever running as a page, compared by hash, and removed one at a time.
 /// </summary>
 [Collection(EnvVarCollection.Name)]
+[Trait("TestProcess", "env-3")]
 public sealed class ReferenceFileRouteTests : IDisposable
 {
     private const string Dialog = "d-86e1";

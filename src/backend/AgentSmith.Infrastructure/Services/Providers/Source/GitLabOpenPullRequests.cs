@@ -30,6 +30,12 @@ public sealed class GitLabOpenPullRequests(string baseUrl, string projectPath, s
         return new OpenPullRequestsPage(items, true, (start + maxPages).ToString());
     }
 
+    public async Task<string?> HeadCommitMessageAsync(string sha, CancellationToken ct)
+    {
+        using var doc = await GetAsync($"repository/commits/{Uri.EscapeDataString(sha)}", ct);
+        return Str(doc.RootElement, "message");
+    }
+
     public async Task<IReadOnlyList<PrSweepComment>> CommentsSinceAsync(
         IReadOnlyList<OpenPullRequest> pullRequests, DateTimeOffset since, CancellationToken ct)
     {

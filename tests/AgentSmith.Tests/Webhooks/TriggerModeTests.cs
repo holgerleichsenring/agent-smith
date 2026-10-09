@@ -141,12 +141,16 @@ public sealed class TriggerModeTests
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(Mock.Of<IIntentParser>()), new ServerContext("c.yml"),
             Mock.Of<IPrCommandLaunch>(), NullLogger<PrCommentCommandAdmission>.Instance);
         var actions = new PrSweepActions(new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrTriggerLabelResolver(),
-            new PrRunContextFactory(), launcher.Object, admission, Mock.Of<IServiceProvider>());
+            new PrRunContextFactory(), launcher.Object, admission,
+            new AgentSmith.Server.Services.Sweep.PrSweepBreaker(Mock.Of<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),
+                Mock.Of<AgentSmith.Contracts.Providers.ISourceProviderFactory>(), NullLogger<AgentSmith.Server.Services.Sweep.PrSweepBreaker>.Instance),
+            Mock.Of<IServiceProvider>());
         var pr = new OpenPullRequest("4", "https://github.com/o/r/pull/4", "h", "b", "f", "alice", [], DateTimeOffset.UtcNow, DateTimeOffset.UtcNow);
 
-        await actions.ReviewAsync(new SweepTarget(Config(Project("p", polls: true)), Repo, new HashSet<string> { "p" }), pr);
+        await actions.ReviewAsync(new SweepTarget(Config(Project("p", polls: true)), Repo, new HashSet<string> { "p" }), "github.com/o/r", pr);
 
-        launcher.Verify(l => l.LaunchAsync("p", "pr-review", It.IsAny<Dictionary<string, object>?>()), Times.Once, "the resolvers are not gated");
+        launcher.Verify(l => l.LaunchAsync("p", "pr-review", It.IsAny<Dictionary<string, object>?>(), It.IsAny<Func<bool, Task>>()),
+            Times.Once, "the resolvers are not gated");
     }
 
     private static IWebhookHandler Refusing(string eventType, string? reason)

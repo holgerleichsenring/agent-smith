@@ -153,7 +153,7 @@ public sealed class PersistWorkBranchHandler(
             ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
             ? resolved.PipelineName : "unknown";
         var failedStep = pipeline.TryGet<string>(ContextKeys.FailedStepName, out var fs) ? fs : "unknown";
-        return $"[wip] agent-smith run {runId}\n\n" +
+        return $"{WipCommit.Subject(runId)}\n\n" +
                $"Run-Id: {runId}\n" +
                $"Pipeline: {pipelineName}\n" +
                $"Failed-Step: {failedStep}\n";
