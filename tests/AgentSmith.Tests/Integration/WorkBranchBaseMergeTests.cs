@@ -25,6 +25,7 @@ namespace AgentSmith.Tests.Integration;
 /// cut from a rung is a fact about the tree, not about the argument list.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class WorkBranchBaseMergeTests
 {

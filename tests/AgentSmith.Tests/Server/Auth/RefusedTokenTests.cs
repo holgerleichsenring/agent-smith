@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// empty lists. The two are fixed in different places, so the refusal is named, on the
 /// anonymous route an enforcing installation still answers.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class RefusedTokenTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Tools;
 /// way through, not refused: the prompt that asks for it ships behind a release and a pin, so
 /// a model still offering one must not be punished for it.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class ContextReadingsTests : IDisposable
 {

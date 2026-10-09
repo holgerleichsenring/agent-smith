@@ -20,6 +20,7 @@ namespace AgentSmith.Tests.Specs;
 /// byte-identical" and "no pointer without its line" are only checkable on a disk.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class PhaseIndexLineTests : IDisposable
 {

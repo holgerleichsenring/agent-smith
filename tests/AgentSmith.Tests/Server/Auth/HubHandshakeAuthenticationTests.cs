@@ -19,6 +19,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// a rebuilt copy that could be configured differently.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class HubHandshakeAuthenticationTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

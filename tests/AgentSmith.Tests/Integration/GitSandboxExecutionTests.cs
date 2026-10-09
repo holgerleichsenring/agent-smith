@@ -13,6 +13,7 @@ namespace AgentSmith.Tests.Integration;
 /// runner, so no skip is strictly needed — but we keep the guard symmetric
 /// with the dotnet/npm classes for pre-commit on dev machines without git.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class GitSandboxExecutionTests(ITestOutputHelper output)
 {

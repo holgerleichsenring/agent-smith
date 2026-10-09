@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.CommandLine;
 using AgentSmith.Cli.Commands;
 using AgentSmith.Contracts.Models.ConfigStudio;
@@ -109,7 +110,7 @@ public sealed class ConfigNameCollisionTests : IDisposable
             await File.WriteAllTextAsync(goodPath, SampleYaml);
             var collidingPath = Path.Combine(dir, "colliding.yml");
             await File.WriteAllTextAsync(collidingPath, CollidingYaml);
-            Migrate(dbPath);
+            CopyMigratedStore(dbPath);
 
             // The control: the same verb on the same store lands a config without a pair.
             var accepted = await Cli().InvokeAsync(["config", "import", goodPath, "--config", configPath]);
@@ -174,11 +175,7 @@ public sealed class ConfigNameCollisionTests : IDisposable
     private static RootCommand Cli() =>
         new() { ConfigCommand.Create(new Option<string>("--config"), new Option<bool>("--verbose")) };
 
-    private static void Migrate(string dbPath)
-    {
-        using var db = NewContext(dbPath);
-        db.Database.Migrate();
-    }
+    private static void CopyMigratedStore(string dbPath) => MigratedStoreTemplate.CopyToFile(dbPath);
 
     private static int EntityCount(string dbPath)
     {

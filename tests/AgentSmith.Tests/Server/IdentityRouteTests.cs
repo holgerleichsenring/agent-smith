@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Server;
 /// routes left with the dashboard off would become twelve, and the assertion that all of
 /// them are anonymous would be false along with its stated reason.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class IdentityRouteTests
 {

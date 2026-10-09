@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// own. The handler failing is the hub working; the filter speaking would be the defect.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class HubEnforceSwitchOffTests(PermissiveAuthorityFixture fixture)
     : IClassFixture<PermissiveAuthorityFixture>

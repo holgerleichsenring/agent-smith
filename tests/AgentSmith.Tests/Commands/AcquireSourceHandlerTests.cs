@@ -13,6 +13,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class AcquireSourceHandlerTests : IDisposable
 {

@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// separate class for that reason.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class UnreachableAuthorityChallengeTests(UnreachableAuthorityFixture fixture)
     : IClassFixture<UnreachableAuthorityFixture>

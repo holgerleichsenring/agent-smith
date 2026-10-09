@@ -26,7 +26,7 @@ internal static class ArchiveStore
         """;
 
     /// <summary>A migrated database ON DISK, which is what a booted server can be given.</summary>
-    internal static void Migrate(string path) => MigratedStoreTemplate.CopyToFile(path);
+    internal static void CopyMigratedStore(string path) => MigratedStoreTemplate.CopyToFile(path);
 
     /// <summary>A run this installation recorded — the one thing a restore collides with.</summary>
     internal static async Task RecordARunAsync(string path)

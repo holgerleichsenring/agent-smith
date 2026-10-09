@@ -10,6 +10,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// cluster's identity provider as an environment variable — a mounted ConfigMap is shared
 /// and the authority is not — so the environment wins over the file, per field.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class AuthBootstrapReadTests : IDisposable
 {

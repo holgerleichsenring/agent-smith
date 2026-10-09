@@ -24,6 +24,7 @@ namespace AgentSmith.Tests.Services;
 /// asserted against itself.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class VerifyDerivationTests : IDisposable
 {

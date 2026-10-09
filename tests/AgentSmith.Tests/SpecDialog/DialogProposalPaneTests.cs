@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
@@ -34,7 +35,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
     }
 
     public void Dispose()

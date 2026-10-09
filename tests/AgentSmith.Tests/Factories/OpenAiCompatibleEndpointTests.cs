@@ -12,6 +12,7 @@ namespace AgentSmith.Tests.Factories;
 /// and the key never falls back to OPENAI_API_KEY there, so an OpenAI key is never sent to a
 /// third party. Observed on the wire through the builder's test transport.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(nameof(OpenAiKeyEnvironment))]
 public sealed class OpenAiCompatibleEndpointTests : IDisposable
 {

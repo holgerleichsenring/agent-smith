@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Text.Json;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Runs;
@@ -37,7 +38,7 @@ public sealed class TrailReaderTests : IDisposable
         _redis.Setup(r => r.GetDatabase(It.IsAny<int>(), It.IsAny<object?>())).Returns(_db.Object);
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
-        using (var ctx = new AgentSmithDbContext(Options())) ctx.Database.Migrate();
+        using (var ctx = new AgentSmithDbContext(Options())) MigratedStoreTemplate.CopyInto(ctx);
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         _scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();

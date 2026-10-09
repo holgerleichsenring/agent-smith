@@ -41,7 +41,7 @@ public sealed class CancelEnforcementTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using (var ctx = new AgentSmithDbContext(Options()))
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
 
         var events = new Mock<IEventPublisher>();
         events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))

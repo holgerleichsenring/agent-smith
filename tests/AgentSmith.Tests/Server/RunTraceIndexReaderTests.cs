@@ -26,7 +26,7 @@ public sealed class RunTraceIndexReaderTests : IDisposable
         _connection.Open();
         using var ctx = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
     }
 
     [Fact]

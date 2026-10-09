@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Providers.Source;
 /// afterwards and about git's own refusal of a non-fast-forward — a mocked process
 /// could only restate the code.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class LocalSourceProviderCompletePrTests : IDisposable
 {

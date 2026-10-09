@@ -15,6 +15,7 @@ namespace AgentSmith.Tests.Server;
 /// EnforceSwitchOffTests and TokenAuthorityEnforcementTests boot into when they walk the
 /// anonymous routes.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class InstallationIdentityServedTests : IDisposable
 {

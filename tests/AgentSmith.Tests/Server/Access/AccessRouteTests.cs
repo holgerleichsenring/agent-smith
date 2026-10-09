@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Server.Access;
 /// settings route that used to carry the role mapping would have let such a caller grant
 /// themselves admin — and with it the secrets permissions the catalog kept separable.
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(EnvVarCollection.Name)]
 public sealed class AccessRouteTests
 {

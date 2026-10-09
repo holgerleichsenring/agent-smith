@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// the WorkingDirectory through ResolvePath so /work is translated to
 /// the sandbox's actual temp dir.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxWorkingDirectoryTests : IAsyncDisposable
 {

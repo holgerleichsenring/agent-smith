@@ -26,6 +26,7 @@ namespace AgentSmith.Tests.Integration;
 /// Cost: ~$0.02 per probe (gpt-4.1, ~1-3 round trips).
 /// </summary>
 [Trait("Category", "LiveLLM")]
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class LiveSkillProbeTests
 {

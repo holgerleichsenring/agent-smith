@@ -19,6 +19,7 @@ namespace AgentSmith.Tests.Server.Archive;
 /// bundle is what a route reusing the config permission would have let through.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ArchivePermissionTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

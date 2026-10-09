@@ -41,7 +41,7 @@ public sealed class QueuedRunCancelTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using (var ctx = new AgentSmithDbContext(Options()))
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
         _queue = BuildDbQueue(_connection);
 
         var events = new Mock<IEventPublisher>();

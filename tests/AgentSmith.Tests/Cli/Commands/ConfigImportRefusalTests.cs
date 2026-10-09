@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.CommandLine;
 using AgentSmith.Cli.Commands;
 using AgentSmith.Infrastructure.Persistence;
@@ -42,7 +43,7 @@ public sealed class ConfigImportRefusalTests
             var configPath = await WriteAsync(dir, "agentsmith.yml",
                 $"persistence:\n  provider: sqlite\n  connection_string: Data Source={dbPath}\n" + StoreYaml);
             var refusedPath = await WriteAsync(dir, "refused.yml", UndeclaredUseYaml);
-            Migrate(dbPath);
+            CopyMigratedStore(dbPath);
             var stderr = new StringWriter();
             Console.SetError(stderr);
 
@@ -70,11 +71,7 @@ public sealed class ConfigImportRefusalTests
     private static RootCommand Cli() =>
         new() { ConfigCommand.Create(new Option<string>("--config"), new Option<bool>("--verbose")) };
 
-    private static void Migrate(string dbPath)
-    {
-        using var db = NewContext(dbPath);
-        db.Database.Migrate();
-    }
+    private static void CopyMigratedStore(string dbPath) => MigratedStoreTemplate.CopyToFile(dbPath);
 
     private static int EntityCount(string dbPath)
     {

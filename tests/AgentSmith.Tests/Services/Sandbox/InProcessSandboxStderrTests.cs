@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Services.Sandbox;
 /// only emitted as a progress event and disappeared. The fix captures
 /// stderr into the StepResult so callers can surface it.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessSandboxStderrTests : IAsyncDisposable
 {

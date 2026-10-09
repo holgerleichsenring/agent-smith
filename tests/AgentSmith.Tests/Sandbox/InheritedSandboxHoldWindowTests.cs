@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// placeholder would disagree with the window in force from the moment an operator edits
 /// anything — the only moment the control matters.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class InheritedSandboxHoldWindowTests : IDisposable
 {

@@ -18,6 +18,7 @@ namespace AgentSmith.Tests.Services;
 /// runner cut off says so, an empty cut-off result is not an empty clean one, and a step
 /// that finished reports exactly what it always did.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class DynamicStepCutOffTests
 {

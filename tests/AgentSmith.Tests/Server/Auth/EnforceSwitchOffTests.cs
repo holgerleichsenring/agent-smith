@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// refused, and a token that IS presented is really validated. Either half alone would be
 /// a lie: no validation is not "not enforcing", it is "not authenticating".
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class EnforceSwitchOffTests(PermissiveAuthorityFixture fixture)
     : IClassFixture<PermissiveAuthorityFixture>

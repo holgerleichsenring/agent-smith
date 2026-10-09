@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
@@ -33,7 +34,7 @@ public sealed class RetryEndpointOutcomeTests : IDisposable
     {
         _connection.Open();
         using var ctx = new AgentSmithDbContext(Options());
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
         ctx.Runs.Add(new Run
         {
             Id = RunId, Project = "p1", Pipeline = "code", TicketId = "42",

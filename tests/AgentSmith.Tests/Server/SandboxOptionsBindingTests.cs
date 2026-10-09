@@ -9,6 +9,7 @@ namespace AgentSmith.Tests.Server;
 
 // Reads the backend-selecting env vars via AddSandbox → serialize with the env-mutating
 // SandboxBackendDetectionTests (see ServerDiLifetimeTests) to avoid the k8s-backend race.
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class SandboxOptionsBindingTests
 {

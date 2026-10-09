@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// the next ecosystem would have needed another line here instead of one catalog row.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class InProcessPackageCacheTests
 {

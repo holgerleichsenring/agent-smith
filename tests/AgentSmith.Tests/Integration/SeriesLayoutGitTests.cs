@@ -13,6 +13,7 @@ namespace AgentSmith.Tests.Integration;
 /// specs/planned/; a revision removes exactly the planned files of its own series it no longer
 /// renders, and the revision sha moves with an edit to any of them.
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class SeriesLayoutGitTests
 {

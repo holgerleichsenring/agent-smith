@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Application.Services.Persistence;
@@ -185,7 +186,7 @@ public sealed class OrphanedTicketRecordTests
         {
             _connection.Open();
             using var ctx = Context();
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
             ctx.Runs.Add(new Run
             {
                 Id = "run-1", Project = "proj", TicketId = "42", Status = "running",

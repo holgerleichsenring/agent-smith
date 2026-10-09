@@ -24,6 +24,7 @@ namespace AgentSmith.Tests.Server.Archive;
 /// mapping, a recorded run — and asserts which of them refuses a restore and which do not.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(EnvVarCollection.Name)]
 public sealed class DataArchiveServedTests : IDisposable
 {
@@ -204,7 +205,7 @@ public sealed class DataArchiveServedTests : IDisposable
         var path = Temporary("db");
         _temporary.Add(path + "-wal");
         _temporary.Add(path + "-shm");
-        ArchiveStore.Migrate(path);
+        ArchiveStore.CopyMigratedStore(path);
         return path;
     }
 

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
@@ -27,7 +28,7 @@ public sealed class TakenTicketRecordTests : IDisposable
     public TakenTicketRecordTests()
     {
         _connection.Open();
-        using (var ctx = Context()) ctx.Database.Migrate();
+        using (var ctx = Context()) MigratedStoreTemplate.CopyInto(ctx);
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => Context());
         services.AddTicketFactStores();

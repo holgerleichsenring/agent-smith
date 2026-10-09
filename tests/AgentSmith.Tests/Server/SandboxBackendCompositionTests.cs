@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Server;
 /// Every run executes in the server and creates its sandboxes through the composed backend,
 /// so nothing spawns a job, and the preflight and startup probes ask the backend that runs.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class SandboxBackendCompositionTests
 {

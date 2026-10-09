@@ -23,6 +23,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// blind they would pass alone and flake under parallelism.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ConcurrentSandboxBoundTests
 {

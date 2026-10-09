@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-7f48
+goal: "A phase commit costs one full test run, not two, and the gate runs it in under 150 s: two lanes, AgentSmith.Tests split over processes, presets side by side, no per-test migration."
+
+applies_to: "gate hook + test suite (AgentSmith.Tests) + CLAUDE.md"
+
+requires: []
+
+facts:
+  - claim: "Before: the gate ran every stage in sequence: hook tests, dashboard install/gen/test/build, build, one dotnet test over the solution with --no-build, four dry-runs, then each preset as its own dotnet run."
+    evidence: "observed: 2026-10-09, .claude/hooks/phase-gate.sh at 22dd5a2a5 lines 192-302"
+  - claim: "CLAUDE.md told the implementing agent to run ALL tests before moving on, so the full suite ran once by hand and once in the gate; no context declares verify: stages that would add a third."
+    evidence: "observed: 2026-10-09, CLAUDE.md:128 at 22dd5a2a5; grep finds no verify key in the default context"
+  - claim: "Gate stages timed as the script ran them, 12-core macOS: warm tree 360 s total (dotnet test 278, dashboard 47, hook tests 10, build 5.5, presets 16, dry-runs 2); cold tree 530 s (dotnet test 437, dashboard 43, build 18, presets 19)."
+    evidence: "observed: 2026-10-09, scratchpad time-gate.sh, two runs on /private/tmp/as-2026-10-09-7f48 at 22dd5a2a5"
+  - claim: "Of the three test assemblies, AgentSmith.Tests was the wall: 8,436 tests, 5 m 16 s alone with 405 CPU-seconds, about 1.3 cores busy; Sandbox.Agent.Tests 3 s, PipelineHarness 36-48 s."
+    evidence: "observed: 2026-10-09, /usr/bin/time + trx of AgentSmith.Tests alone"
+  - claim: "Every class mutating or reading process environment shares one collection, serial within the process; mostly booted servers that set CONFIG_PATH, REDIS_URL and the dashboard gate. Alone it took 131-200 s, the long pole of the full run."
+    evidence: "tests/AgentSmith.Tests/TestSupport/EnvVarCollection.cs:9-13, tests/AgentSmith.Tests/Server/Auth/BootedServer.cs:50-53, observed: 2026-10-09, trx timeline and filtered run"
+  - claim: "Collections with DisableParallelization run after every parallel one: the external-process set plus the trace and OpenAI-key collections took 43-67 s at the end of the run."
+    evidence: "tests/AgentSmith.Tests/Architecture/ExternalProcessCollection.cs:4-22, tests/AgentSmith.Tests/ConfigStudio/TraceEnvironment.cs:4, tests/AgentSmith.Tests/Factories/OpenAiKeyEnvironment.cs:4, observed: 2026-10-09, trx timeline"
+  - claim: "A migrated-template copy existed, but 49 converted test files (about 465 tests) called Database.Migrate() per test instance; one such class, 23 tests, took 7 s alone, CPU-bound. Converted, the same classes ran 561 tests in 9 s."
+    evidence: "tests/AgentSmith.Tests/TestSupport/MigratedStoreTemplate.cs:24-41, observed: 2026-10-09, grep + filtered runs before and after"
+  - claim: "Rejected by measurement: skipping pnpm install saves 0.4-2.9 s; xUnit MaxParallelThreads -1 or 48 moved the body 118-137 s against 128 s, within noise."
+    evidence: "observed: 2026-10-09, gate stage timings and three body runs"
+  - claim: "After: three gate-equivalent runs in lane mode took 93.0, 83.6 and 82.5 s (median 84 s; a first run 91.8 s), all green; the sequential shape (PHASE_GATE_CORES=4) took 230.5 s; one dotnet test over the solution took 133 s."
+    evidence: "observed: 2026-10-09, scratchpad gate-run.sh driving .claude/hooks/phase-gate.sh with a phase-marker payload"
+  - claim: "After: the five AgentSmith.Tests processes (8,145 + 105 + 31 + 46 + 120) plus Sandbox.Agent.Tests (132) and PipelineHarness (243) total 8,822, equal to one dotnet test AgentSmith.sln --filter Category!=LiveLLM."
+    evidence: "observed: 2026-10-09, Passed!/Total lines of the gate run and of the solution run"
+  - claim: "xUnit is 2.5.3; CI runs a single dotnet test over the solution on two-core runners."
+    evidence: "tests/AgentSmith.Tests/AgentSmith.Tests.csproj:22, .github/workflows/docker-publish.yml:62"
+
+assumptions:
+  - claim: "No two classes of the env collection share a fixed path, port or home-directory file, so separate processes may run them at once; the serial set stays in one process."
+    check: "grep of the env-shard classes found only an Origin header and an unreachable issuer URL; three lane runs green."
+
+scope:
+  in: "Gate lanes, trait-selected test processes, parallel presets and dry-runs, template copies for per-test migrations, CLAUDE.md workflow and Phase Gate text."
+  out: "Moving the server's environment reads into configuration (would end the env collection; its own spec). Slow single tests such as HealthEndpoint's 17 s Redis wait. PipelineHarness migrations. CI keeps its single invocation."
+
+decisions:
+  - key: "PROCESSES, NOT COLLECTIONS: environment is per process, so an env shard in its own process keeps the collection's guarantee while the shards run at once."
+  - key: "TRAITS SELECT THE PROCESS, BODY IS THE NEGATION: a filter sees traits, not collections; a positive body filter matching nothing exits 0, so the body takes every class without one of the four values."
+  - key: "FEWER THAN 8 CORES IS TODAY'S GATE: fully sequential, first failure blocks, one dotnet test — no lanes, no split, no parallel presets."
+  - key: "ONE LEDGER LINE: lanes and jobs report into files; the parent waits each pid, prints output in a fixed order and records once, naming every failed step."
+
+steps:
+  - id: migrations
+    action: "Add MigratedStoreTemplate.CopyInto(context); replace per-test Migrate in AgentSmith.Tests; file stores use CopyToFile; TestMigrationRuleTests with a named allowlist."
+  - id: traits
+    action: "Tag env-collection classes TestProcess=env-1..3 (balanced by time) and DisableParallelization-collection classes serial; TestProcessTraitRuleTests fails closed."
+  - id: gate
+    action: "Checks report instead of exiting; core probe; two lanes; tests per assembly from AgentSmith.sln with AgentSmith.Tests in five; parallel dry-runs and presets; hook tests for both shapes."
+  - id: docs
+    action: "CLAUDE.md step 6: targeted tests while iterating, the full suite by hand when the gate cannot check the commit; Phase Gate section describes both shapes."
+
+tests:
+  - "TestProcessTrait_EveryShardedCollectionClass_CarriesExactlyOneMatchingTrait"
+  - "TestProcessTrait_TheValuesInUse_AreExactlyTheGatesFourProcesses"
+  - "TestProcessTrait_AnUntraitedEnvironmentClass_Fails"
+  - "TestMigration_NoTestOutsideTheTemplate_CallsMigrate"
+  - "CopyInto_AStoreWithTables_IsRefusedAndKeepsItsRows"
+  - "Gate_Lanes_BothLanesFail_OneLedgerLineNamingBoth"
+  - "Gate_UnderEightCores_RunsTodaysSequenceWithOneDotnetTest"
+
+done:
+  - "The five AgentSmith.Tests processes plus the other two assemblies run exactly as many tests as one dotnet test over the solution, all green."
+  - "Median of three gate runs on this machine at most 150 s, from 360 s warm and 530 s cold."
+  - "Below 8 cores the gate runs today's sequence."
+  - "CLAUDE.md step 6 and the Phase Gate section describe the new flow."

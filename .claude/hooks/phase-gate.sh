@@ -16,27 +16,13 @@
 #   4. CLI dry-runs    — <command> --help for each pipeline
 #   5. harness presets — every preset from `--list`, stub tier, CRASH-ONLY check
 #
-# Step 1 note (2026-08-25-39ab): the dashboard's own workflow is path-filtered on
-# src/dashboard/**, so a backend-only payload change never ran a single dashboard
-# test — the half that renders the payload was proven by nothing. It runs FIRST
-# because it is the cheapest complete signal (~45s against minutes of .NET) and
-# because a phase that breaks the dashboard should hear so before the build.
-# A tree without src/dashboard/package.json has no dashboard to check and says so.
-# 2026-09-18-7b31 added the mirror check to that block: a C# event contract that
-# outgrew its TypeScript mirror passed this gate and failed on the pull request,
-# because install, test and build cannot see drift the dashboard never imports. A
-# tree whose package.json declares no gen:hub-events script predates the check and
-# is skipped with a line of its own — which is why the passed ledger line still says
-# only `dashboard`, and claims nothing about a step that may not have run.
-# A tree that HAS one and no pnpm fails the gate — a missing toolchain is an
-# unproven commit, and a silent skip is indistinguishable from a pass.
-#
-# Step 5 note: the console `--preset` runner returns the *pipeline result* as its
-# exit code — exit 1 (pipeline FAIL, e.g. fix-bug "no code changes") is a valid
-# outcome, NOT a test failure. So step 5 only fails the gate on a real crash
-# (exit >= 2 or an unhandled exception), which catches composition-root / DI
-# wiring breakage in RealCompositionHarness. The actual harness pass/fail
-# assertions live in the xUnit tests run by step 3.
+# 2026-10-09-7f48: on a machine with eight or more cores the checks run in two lanes —
+# [0, 1] beside [2, then 3, 4 and 5 at once] — with the test assemblies as separate
+# processes and AgentSmith.Tests split in five by its TestProcess trait. Every job is
+# waited for by its own pid, output is printed in a fixed order, and one ledger line names
+# every failed step. Below eight cores the gate runs 0-5 in sequence and blocks on the
+# first failure, exactly as before: the split puts process-spawning tests beside timing-
+# bounded ones on one machine, which a small machine cannot absorb.
 #
 # The --docker harness tier is intentionally NOT in the blocking gate: it needs
 # a docker daemon + redis and is too heavy/flaky for a commit hook. Run it
@@ -181,6 +167,36 @@ tmp=$(mktemp -d 2>/dev/null || echo /tmp)
 log()  { echo "[phase-gate] $*" >&2; }
 fail() { record blocked "$target_dir" "$1"; echo "" >&2; echo "PHASE GATE BLOCKED COMMIT — $1 failed. Fix it before committing the phase." >&2; exit 2; }
 
+# 2026-10-09-7f48: every check below REPORTS its failure — the step name goes to $fail_file and
+# the function returns non-zero — instead of ending the gate, so one set of checks serves both
+# shapes. Sequential (fewer than eight cores): the order and the first-failure block of every
+# earlier version. Two lanes (eight or more): the dashboard lane beside the .NET lane, the test
+# assemblies as separate processes, dry-runs and presets side by side; every lane and every job
+# is waited for by its own pid, and ONE ledger line names every step that failed.
+fail_file="$tmp/failed"
+: >"$fail_file"
+failed() { printf '%s\n' "$1" >>"$fail_file"; }
+
+# A job: a command run to its own log, its exit code to its own file. In lane mode it runs in
+# the background and is collected later; a missing exit-code file reads as a failure, so a job
+# that died without reporting cannot pass.
+job_pids=()
+spawn() {
+  local name=$1; shift
+  if [ "$parallel" = 1 ]; then
+    ( "$@" >"$tmp/job-$name.log" 2>&1; echo $? >"$tmp/job-$name.rc" ) &
+    job_pids+=($!)
+  else
+    "$@" >"$tmp/job-$name.log" 2>&1; echo $? >"$tmp/job-$name.rc"
+  fi
+}
+await_jobs() {
+  local pid
+  for pid in ${job_pids[@]+"${job_pids[@]}"}; do wait "$pid"; done
+  job_pids=()
+}
+job_rc() { cat "$tmp/job-$1.rc" 2>/dev/null || echo missing; }
+
 # 2026-09-21-9ae2: this gate's own tests, from the tree being gated — a commit that
 # changes the hook is proven by the hook it ships, not by the copy the session started
 # with. They existed for three phases with nothing running them, which is how the
@@ -189,8 +205,10 @@ fail() { record blocked "$target_dir" "$1"; echo "" >&2; echo "PHASE GATE BLOCKE
 # of this run: PHASE_GATE_LOG sends any line they write to a scratch file instead of the
 # ledger, and PHASE_GATE_SELFTEST makes the gate they invoke skip this step rather than
 # run the tests that invoked it. A tree carrying no hook tests says so and moves on.
-if [ -z "${PHASE_GATE_SELFTEST:-}" ]; then
+check_hook_tests() {
+  [ -z "${PHASE_GATE_SELFTEST:-}" ] || return 0
   log "0/5 hook tests (this gate's own detection and resolver)..."
+  local hook_tests hook_test
   hook_tests=$(ls .claude/hooks/test_*.py 2>/dev/null)
   if [ -z "$hook_tests" ]; then
     log "    no .claude/hooks/test_*.py in $target_dir — no hook tests to run"
@@ -198,18 +216,198 @@ if [ -z "${PHASE_GATE_SELFTEST:-}" ]; then
   for hook_test in $hook_tests; do
     if ! PHASE_GATE_SELFTEST=1 PHASE_GATE_LOG="$tmp/selftest-phase-gate.log" \
         python3 "$hook_test" >"$tmp/hook-tests.log" 2>&1; then
-      tail -40 "$tmp/hook-tests.log" >&2; fail "hook tests: $(basename "$hook_test")"
+      tail -40 "$tmp/hook-tests.log" >&2; failed "hook tests: $(basename "$hook_test")"; return 1
     fi
     log "    hook tests: $(basename "$hook_test") ok"
   done
-fi
+}
 
-# A phase routinely spans both repos. The checks below are the .NET solution
-# checks plus the dashboard's own build and tests. In the skills catalog the equivalent gate is its own validator
-# — it guards the live-breakage classes there (description cap, frontmatter,
-# name/directory match, principles templates), which is what a phase commit
-# touching a master can actually break.
+# Step 1 (2026-08-25-39ab): the dashboard's own workflow is path-filtered on
+# src/dashboard/**, so a backend-only payload change never ran a single dashboard test.
+# 2026-09-18-7b31 added the generated-mirror check: a C# event contract that outgrew its
+# TypeScript mirror passed this gate and failed on the pull request. It is a CONDITIONAL
+# member, read from package.json rather than inferred from pnpm's exit code — real pnpm
+# answers a missing script with an undocumented 254, which would block exactly the
+# worktree cut from before that phase. The passed ledger line still says only `dashboard`.
+check_dashboard() {
+  log "1/5 dashboard build + tests..."
+  if [ ! -f src/dashboard/package.json ]; then
+    log "    no src/dashboard/package.json in $target_dir — no dashboard to check"
+    return 0
+  fi
+  local steps step
+  steps=("install --frozen-lockfile")
+  if python3 -c '
+import json, sys
+try:
+    scripts = json.load(open("src/dashboard/package.json")).get("scripts") or {}
+except Exception:
+    scripts = {}
+sys.exit(0 if "gen:hub-events" in scripts else 1)
+' 2>/dev/null; then
+    # After install, because the step runs through pnpm and pnpm needs its modules; the
+    # check only reads, so it cannot touch the tree it gates.
+    steps+=("gen:hub-events")
+  else
+    log "    no gen:hub-events script in src/dashboard/package.json — no generated mirror, nothing to check"
+  fi
+  steps+=("test" "build")
+  for step in "${steps[@]}"; do
+    # shellcheck disable=SC2086
+    if ! (cd src/dashboard && pnpm $step) >"$tmp/dashboard.log" 2>&1; then
+      tail -40 "$tmp/dashboard.log" >&2; failed "dashboard: pnpm ${step%% *}"; return 1
+    fi
+    log "    dashboard: pnpm ${step%% *} ok"
+  done
+}
+
+check_build() {
+  log "2/5 build..."
+  if ! dotnet build AgentSmith.sln -clp:ErrorsOnly >"$tmp/build.log" 2>&1; then
+    tail -40 "$tmp/build.log" >&2; failed "build"; return 1
+  fi
+}
+
+# Category=LiveLLM is excluded in every invocation, the same way CI excludes it. Those suites
+# drive a real model or a real agent CLI: they cost money or quota on every phase commit, need
+# a binary the gate cannot require, and flaked here under contention. A gate that charges for
+# a commit and flakes is not a gate.
+live="Category!=LiveLLM"
+
+# 2026-10-09-7f48: AgentSmith.Tests as five processes, selected by the TestProcess trait
+# (TestProcessTraitRuleTests ties each value to its collection). Environment variables are per
+# process, so the three env shards keep the guarantee the environment collection gives while
+# running at once, and the collections that run alone get a process of their own. The body is
+# the NEGATION of the four values — a class nobody tagged still runs there, because a positive
+# filter that matches nothing exits 0 and would drop it in silence. Every other test project in
+# the solution runs as its own process, read from AgentSmith.sln so a new one is not missed.
+test_projects() {
+  python3 - <<'PY' 2>/dev/null
+import re
+try:
+    sln = open("AgentSmith.sln").read()
+except Exception:
+    sln = ""
+for path in re.findall(r'"([^"]+\.csproj)"', sln):
+    path = path.replace("\\", "/")
+    try:
+        if "<IsTestProject>true</IsTestProject>" in open(path).read():
+            print(path)
+    except Exception:
+        pass
+PY
+}
+
+check_tests() {
+  if [ "$parallel" != 1 ]; then
+    log "3/5 unit + harness xUnit tests..."
+    if ! dotnet test AgentSmith.sln --no-build --filter "$live" >"$tmp/test.log" 2>&1; then
+      tail -50 "$tmp/test.log" >&2; failed "dotnet test"; return 1
+    fi
+    return 0
+  fi
+  log "3/5 unit + harness xUnit tests, one process per assembly and AgentSmith.Tests in five..."
+  local names=() name project rc
+  for project in $(test_projects); do
+    if [ "$(basename "$project")" = "AgentSmith.Tests.csproj" ]; then
+      spawn test-body dotnet test "$project" --no-build --filter \
+        "$live&TestProcess!=env-1&TestProcess!=env-2&TestProcess!=env-3&TestProcess!=serial"
+      names+=(test-body)
+      for name in env-1 env-2 env-3 serial; do
+        spawn "test-$name" dotnet test "$project" --no-build --filter "$live&TestProcess=$name"
+        names+=("test-$name")
+      done
+    else
+      name="test-$(basename "$project" .csproj)"
+      spawn "$name" dotnet test "$project" --no-build --filter "$live"
+      names+=("$name")
+    fi
+  done
+  if [ ${#names[@]} -eq 0 ]; then
+    failed "dotnet test: no test project found in AgentSmith.sln"; return 1
+  fi
+  await_jobs
+  local status=0
+  for name in "${names[@]}"; do
+    rc=$(job_rc "$name")
+    log "    ${name#test-}: $(grep -hE 'Passed!|Failed!' "$tmp/job-$name.log" 2>/dev/null | tail -1 | sed 's/^ *//') (rc=$rc)"
+    if [ "$rc" != 0 ]; then
+      tail -50 "$tmp/job-$name.log" >&2; failed "dotnet test: ${name#test-}"; status=1
+    fi
+  done
+  return $status
+}
+
+check_dry_runs() {
+  log "4/5 CLI dry-runs..."
+  local c status=0
+  for c in api-scan security-scan fix feature; do
+    spawn "dry-$c" dotnet run --no-build --project src/backend/AgentSmith.Cli -- "$c" --help
+    if [ "$parallel" != 1 ] && [ "$(job_rc "dry-$c")" != 0 ]; then
+      cat "$tmp/job-dry-$c.log" >&2; failed "dry-run: $c --help"; return 1
+    fi
+  done
+  await_jobs
+  for c in api-scan security-scan fix feature; do
+    if [ "$(job_rc "dry-$c")" != 0 ]; then
+      cat "$tmp/job-dry-$c.log" >&2; failed "dry-run: $c --help"; status=1
+    fi
+  done
+  return $status
+}
+
+# The console `--preset` runner returns the *pipeline result* as its exit code — exit 1
+# (pipeline FAIL, e.g. fix-bug "no code changes") is a valid outcome, NOT a test failure. So
+# this step only fails on a real crash (exit >= 2 or an unhandled exception), which catches
+# composition-root / DI wiring breakage in RealCompositionHarness. The actual harness
+# pass/fail assertions live in the xUnit tests.
+preset_crashed() {
+  local rc
+  rc=$(job_rc "preset-$1")
+  [ "$rc" = missing ] && return 0
+  [ "$rc" -ge 2 ] || grep -qiE 'unhandled exception|System\.[A-Za-z.]+Exception' "$tmp/job-preset-$1.log"
+}
+
+check_presets() {
+  log "5/5 harness presets (stub tier, crash-only)..."
+  local presets p status=0
+  if ! presets=$(dotnet run --no-build --project tests/AgentSmith.PipelineHarness -- --list 2>"$tmp/harness-list.log"); then
+    cat "$tmp/harness-list.log" >&2; failed "harness --list"; return 1
+  fi
+  for p in $presets; do
+    spawn "preset-$p" dotnet run --no-build --project tests/AgentSmith.PipelineHarness -- --preset "$p"
+    if [ "$parallel" != 1 ]; then
+      if preset_crashed "$p"; then
+        tail -30 "$tmp/job-preset-$p.log" >&2; failed "harness preset crashed: $p"; return 1
+      fi
+      log "    preset ran: $p (rc=$(job_rc "preset-$p"))"
+    fi
+  done
+  await_jobs
+  [ "$parallel" = 1 ] || return 0
+  for p in $presets; do
+    if preset_crashed "$p"; then
+      tail -30 "$tmp/job-preset-$p.log" >&2; failed "harness preset crashed: $p"; status=1
+    else
+      log "    preset ran: $p (rc=$(job_rc "preset-$p"))"
+    fi
+  done
+  return $status
+}
+
+verdict() {
+  if [ -s "$fail_file" ]; then
+    fail "$(tr '\n' ',' <"$fail_file" | sed 's/,$//')"
+  fi
+}
+
+# A phase routinely spans both repos. In the skills catalog the equivalent gate is its own
+# validator — it guards the live-breakage classes there (description cap, frontmatter,
+# name/directory match, principles templates), which is what a phase commit touching a
+# master can actually break. The hook tests run first there, as they always have.
 if [ ! -f AgentSmith.sln ]; then
+  parallel=0
+  check_hook_tests; verdict
   if [ -x scripts/validate-skills.sh ] || [ -f scripts/validate-skills.sh ]; then
     log "phase commit in the skills catalog — gating $target_dir (validate-skills)"
     bash scripts/validate-skills.sh >"$tmp/validate.log" 2>&1 || {
@@ -223,83 +421,61 @@ if [ ! -f AgentSmith.sln ]; then
   exit 0
 fi
 
-log "phase commit detected — gating $target_dir (dashboard, build, tests, dry-runs, harness presets)"
+# A tree that HAS a dashboard and no pnpm fails the gate — a missing toolchain is an
+# unproven commit, and a silent skip is indistinguishable from a pass.
+if [ -f src/dashboard/package.json ] && ! command -v pnpm >/dev/null 2>&1; then
+  fail "dashboard checks need pnpm on PATH (corepack enable, or install pnpm)"
+fi
 
-log "1/5 dashboard build + tests..."
-if [ -f src/dashboard/package.json ]; then
-  command -v pnpm >/dev/null 2>&1 \
-    || fail "dashboard checks need pnpm on PATH (corepack enable, or install pnpm)"
-  # 2026-09-18-7b31: the generated-mirror check is a CONDITIONAL member, so the step
-  # list stops being a literal word list in the for statement and becomes an array —
-  # iterated with the same unquoted expansion inside, which is what splits the install
-  # step from its flag. Whether the member is there is READ from package.json, not
-  # inferred from pnpm's exit code: real pnpm answers a missing script with an
-  # undocumented 254 that this gate treats as any other failure, which would block
-  # exactly the worktree cut from before this phase that the skip exists to protect.
-  steps=("install --frozen-lockfile")
-  if python3 -c '
-import json, sys
-try:
-    scripts = json.load(open("src/dashboard/package.json")).get("scripts") or {}
-except Exception:
-    scripts = {}
-sys.exit(0 if "gen:hub-events" in scripts else 1)
-' 2>/dev/null; then
-    # After install, because the step runs through pnpm and pnpm needs its modules; the
-    # check itself only reads — it compares the C# event contracts against the dashboard's
-    # TypeScript mirror and writes nothing — so it cannot touch the tree it gates.
-    steps+=("gen:hub-events")
-  else
-    log "    no gen:hub-events script in src/dashboard/package.json — no generated mirror, nothing to check"
-  fi
-  steps+=("test" "build")
-  for step in "${steps[@]}"; do
-    # shellcheck disable=SC2086
-    if ! (cd src/dashboard && pnpm $step) >"$tmp/dashboard.log" 2>&1; then
-      tail -40 "$tmp/dashboard.log" >&2; fail "dashboard: pnpm ${step%% *}"
-    fi
-    log "    dashboard: pnpm ${step%% *} ok"
-  done
+# PHASE_GATE_CORES overrides the probe, for the hook tests that pin either shape.
+cores=${PHASE_GATE_CORES:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}
+case "$cores" in ''|*[!0-9]*) cores=1 ;; esac
+if [ "$cores" -ge 8 ]; then parallel=1; else parallel=0; fi
+
+if [ "$parallel" != 1 ]; then
+  log "phase commit detected — gating $target_dir in sequence ($cores cores): dashboard, build, tests, dry-runs, harness presets"
+  check_hook_tests; verdict
+  check_dashboard; verdict
+  check_build; verdict
+  check_tests; verdict
+  check_dry_runs; verdict
+  check_presets; verdict
 else
-  log "    no src/dashboard/package.json in $target_dir — no dashboard to check"
+  log "phase commit detected — gating $target_dir in two lanes ($cores cores): [hook tests, dashboard] beside [build, tests, dry-runs, harness presets]"
+  # Each lane writes its own failures and its own output; the gate prints the output in a
+  # fixed order once both are done, so a report never interleaves two lanes.
+  ( fail_file="$tmp/failed-lane1"; : >"$fail_file"
+    check_hook_tests && check_dashboard ) >"$tmp/lane1.out" 2>&1 &
+  lane1=$!
+  ( fail_file="$tmp/failed-lane2"; : >"$fail_file"
+    if check_build; then
+      # Tests, dry-runs and presets each need only the build, so they share the wait; each
+      # keeps its own output and failures, gathered in this fixed order afterwards.
+      ( fail_file="$tmp/failed-tests"; : >"$fail_file"; check_tests ) >"$tmp/tests.out" 2>&1 &
+      tests_pid=$!
+      ( fail_file="$tmp/failed-dry"; : >"$fail_file"; check_dry_runs ) >"$tmp/dry.out" 2>&1 &
+      dry_pid=$!
+      ( fail_file="$tmp/failed-presets"; : >"$fail_file"; check_presets ) >"$tmp/presets.out" 2>&1 &
+      presets_pid=$!
+      s=0
+      wait "$tests_pid" || s=1
+      wait "$dry_pid" || s=1
+      wait "$presets_pid" || s=1
+      cat "$tmp/tests.out" "$tmp/dry.out" "$tmp/presets.out" >&2
+      cat "$tmp/failed-tests" "$tmp/failed-dry" "$tmp/failed-presets" >>"$fail_file" 2>/dev/null
+      exit $s
+    fi
+    exit 1 ) >"$tmp/lane2.out" 2>&1 &
+  lane2=$!
+  lane1_rc=0; wait "$lane1" || lane1_rc=$?
+  lane2_rc=0; wait "$lane2" || lane2_rc=$?
+  cat "$tmp/lane1.out" "$tmp/lane2.out" >&2
+  cat "$tmp/failed-lane1" "$tmp/failed-lane2" >>"$fail_file" 2>/dev/null
+  # A lane that failed without naming a step still blocks — under its own name.
+  if [ "$lane1_rc" != 0 ] && [ ! -s "$tmp/failed-lane1" ]; then failed "lane: hook tests + dashboard"; fi
+  if [ "$lane2_rc" != 0 ] && [ ! -s "$tmp/failed-lane2" ]; then failed "lane: build + tests"; fi
+  verdict
 fi
-
-log "2/5 build..."
-if ! dotnet build AgentSmith.sln -clp:ErrorsOnly >"$tmp/build.log" 2>&1; then
-  tail -40 "$tmp/build.log" >&2; fail "build"
-fi
-
-log "3/5 unit + harness xUnit tests..."
-# Category=LiveLLM is excluded, the same way CI excludes it. Those suites drive a real
-# model or a real agent CLI: they cost money or subscription quota on every phase commit,
-# they need a binary the gate cannot require, and the gate runs the three test assemblies
-# at once — a scan eval spawning CLI subprocesses under that contention failed once here
-# and passed alone. A gate that charges for a commit and flakes is not a gate.
-if ! dotnet test AgentSmith.sln --no-build --filter "Category!=LiveLLM" >"$tmp/test.log" 2>&1; then
-  tail -50 "$tmp/test.log" >&2; fail "dotnet test"
-fi
-
-log "4/5 CLI dry-runs..."
-for c in api-scan security-scan fix feature; do
-  if ! dotnet run --no-build --project src/backend/AgentSmith.Cli -- "$c" --help >/dev/null 2>"$tmp/dry-$c.log"; then
-    cat "$tmp/dry-$c.log" >&2; fail "dry-run: $c --help"
-  fi
-done
-
-log "5/5 harness presets (stub tier, crash-only)..."
-if ! presets=$(dotnet run --no-build --project tests/AgentSmith.PipelineHarness -- --list 2>"$tmp/harness-list.log"); then
-  cat "$tmp/harness-list.log" >&2; fail "harness --list"
-fi
-while IFS= read -r p; do
-  [ -z "$p" ] && continue
-  out=$(dotnet run --no-build --project tests/AgentSmith.PipelineHarness -- --preset "$p" 2>&1); rc=$?
-  # exit 1 = pipeline returned FAIL (valid outcome); >=2 or an unhandled
-  # exception = a real crash in the harness composition.
-  if [ "$rc" -ge 2 ] || printf '%s' "$out" | grep -qiE 'unhandled exception|System\.[A-Za-z.]+Exception'; then
-    printf '%s\n' "$out" | tail -30 >&2; fail "harness preset crashed: $p"
-  fi
-  log "    preset ran: $p (rc=$rc)"
-done <<< "$presets"
 
 record passed "$target_dir" "dashboard,build,tests,dry-runs,harness-presets"
 log "all green — commit allowed (recorded in $ledger)"

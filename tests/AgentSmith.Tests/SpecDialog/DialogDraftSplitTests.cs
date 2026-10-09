@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Runtime.CompilerServices;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.SpecDialog;
@@ -57,7 +58,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
         var repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
             repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,

@@ -14,6 +14,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// hand-built ClaimsPrincipal cannot make — the claims go through the real JwtBearer
 /// handler, which is where the inbound claim map would have eaten the role claim.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class IdentityEndpointTests(RoleMappingAuthorityFixture fixture)
     : IClassFixture<RoleMappingAuthorityFixture>

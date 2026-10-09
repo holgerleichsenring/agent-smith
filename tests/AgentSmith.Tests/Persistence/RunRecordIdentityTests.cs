@@ -33,7 +33,7 @@ public sealed class RunRecordIdentityTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using var ctx = Context();
-        ctx.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(ctx);
     }
 
     [Fact]

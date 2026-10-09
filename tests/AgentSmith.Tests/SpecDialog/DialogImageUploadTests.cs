@@ -62,7 +62,7 @@ public sealed class DialogImageUploadTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
         _repository = new SpecDialogSessionRepository(_context);
         _attachments = new ReferenceFileRepository(_context);
         _ticketText = new SpecDialogTicketTextRepository(_context);

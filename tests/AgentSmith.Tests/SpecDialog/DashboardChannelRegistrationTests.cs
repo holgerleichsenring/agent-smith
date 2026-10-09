@@ -24,6 +24,7 @@ namespace AgentSmith.Tests.SpecDialog;
 /// reply names its platform through PlatformAdapters, and no class takes a bare one.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-3")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class DashboardChannelRegistrationTests
 {

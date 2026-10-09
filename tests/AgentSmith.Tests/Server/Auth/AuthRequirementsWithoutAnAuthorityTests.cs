@@ -9,6 +9,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// at all. Nothing about it is a defect, and the answer has to say so plainly, or a
 /// dashboard reading it raises a banner about a server that demands nothing.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class AuthRequirementsWithoutAnAuthorityTests(NoAuthorityFixture fixture)
     : IClassFixture<NoAuthorityFixture>

@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Sandbox;
 /// whole judgement rests on the liveness store answering "is this run alive?", so it
 /// runs where a durable lease can answer and stands down — loudly — where it cannot.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(EnvVarCollection.Name)]
 public sealed class SandboxReaperActivationTests : IDisposable
 {

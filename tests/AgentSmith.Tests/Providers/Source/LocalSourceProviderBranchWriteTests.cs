@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.Providers.Source;
 /// is read by every later run as somebody else's edit.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "serial")]
 [Collection(ExternalProcessCollection.Name)]
 public sealed class LocalSourceProviderBranchWriteTests : IDisposable
 {

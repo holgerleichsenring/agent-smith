@@ -17,6 +17,7 @@ namespace AgentSmith.Tests.References;
 /// the page showed "HTTP 400" and the server wrote nothing. Such files are now skipped and named,
 /// and a refusal that remains is logged once.
 /// </summary>
+[Trait("TestProcess", "env-2")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class ReferenceUploadRouteTests : IDisposable
 {

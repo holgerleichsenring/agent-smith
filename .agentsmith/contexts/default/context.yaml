@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-09-7f48: "THE PHASE GATE RUNS IN 84 S, NOT 360-530 S (gate hook, AgentSmith.Tests, CLAUDE.md). Two lanes on 8+ cores, AgentSmith.Tests in five TestProcess-trait processes (body is the negation), parallel presets; template copies replace per-test migrations; agents run targeted tests. -> .agentsmith/specs/done/2026-10-09-7f48-test-suite-wall-time.yaml"
     2026-10-08-e8b9f: "AN APPROVED SPEC HAS NO COMPANION, AND THE VIEWER SAYS SO (spec viewer, series files). A set approved in a named design conversation shows an approved note instead of 'No phase document found', which stays for derived and demand re-cut sets; no empty .md is written to planned/ or done/. -> .agentsmith/specs/done/2026-10-08-e8b9f-spec-companion-notice.yaml"
     2026-10-08-e8b9e: "PR COMMANDS CLAIM THE TICKET (PR comments, lease attach, deferral). Ticketed commands go through ChatTicketRunLauncher and ticketless ones through the ticketless chat launcher, answered on the PR; an attach never takes a fresh foreign lease; a live run is answered instead of queued. -> .agentsmith/specs/done/2026-10-08-e8b9e-pr-comment-command-claim.yaml"
     2026-10-08-e8b9c: "REQUEST CHANGES STARTS A REWORK (PR webhooks, repo finder, PR readers, PR body). GitHub reviews and header-marked Azure DevOps -5 votes on an agent-smith branch reach the rework entry; the run reads the standing act from the PR; the repo finder matches by equality. -> .agentsmith/specs/done/2026-10-08-e8b9c-rework-pr-review-trigger.yaml"

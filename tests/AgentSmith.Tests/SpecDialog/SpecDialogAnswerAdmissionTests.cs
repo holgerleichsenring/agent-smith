@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence;
@@ -34,7 +35,7 @@ public sealed class SpecDialogAnswerAdmissionTests : IDisposable
         _connection.Open();
         _context = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        _context.Database.Migrate();
+        MigratedStoreTemplate.CopyInto(_context);
         _sessions = new SpecDialogSessionManager(
             new SpecDialogSessionRepository(_context), AgentSmith.Tests.Sandbox.Holds.None(), _clock,
             NullLogger<SpecDialogSessionManager>.Instance);

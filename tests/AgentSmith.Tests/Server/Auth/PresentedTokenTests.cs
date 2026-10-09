@@ -16,6 +16,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// expected — read from the caller's own request, unverified, and only where a refusal was
 /// recorded.
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class PresentedTokenRouteTests(EnforcingAuthorityFixture fixture)
     : IClassFixture<EnforcingAuthorityFixture>

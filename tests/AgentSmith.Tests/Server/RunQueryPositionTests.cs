@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
@@ -28,7 +29,7 @@ public sealed class RunQueryPositionTests : IDisposable
         _connection = new SqliteConnection("Data Source=:memory:");
         _connection.Open();
         using (var ctx = new AgentSmithDbContext(Options()))
-            ctx.Database.Migrate();
+            MigratedStoreTemplate.CopyInto(ctx);
         _queue = BuildDbQueue(_connection);
     }
 

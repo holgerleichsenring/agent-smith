@@ -21,6 +21,7 @@ namespace AgentSmith.Tests.Configuration;
 /// the server never opens, and a separate test per reader would be green while it happened.
 /// </para>
 /// </summary>
+[Trait("TestProcess", "env-1")]
 [Collection(TestSupport.EnvVarCollection.Name)]
 public sealed class PersistenceEnvironmentTests : IDisposable
 {
