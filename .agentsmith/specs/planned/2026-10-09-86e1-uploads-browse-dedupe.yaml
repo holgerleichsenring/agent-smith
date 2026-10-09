@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-09-86e1
+goal: "An operator sees every uploaded file, opens it, removes single files, never re-uploads one the conversation holds, and reaches every attach entry; uploads are named by their files, not 'site'."
+
+applies_to: "dashboard (spec dialog composer, uploads panel, selection card) + server (reference endpoints, upload admission)"
+
+requires: [2026-10-08-e8b9g, 2026-10-08-e8b9h]
+
+facts:
+  - claim: "observed: the operator's words on 2026-10-08 were 'man sieht die files, die hochgeladen wurden hinterher nicht mehr', 'doppelte werden nicht erkannt', 'hochgeladene können nicht gelöscht / deselektiert werden'; on 2026-10-09 after 0.157.0: 'das menu ist verdeckt, die files kann man nicht ansehen. ich kann immer noch doppelte auswählen und da steht immer noch site'."
+    evidence: "observed: 2026-10-09, operator conversation with three screenshots of the Work it out page"
+  - claim: "The conversation section is an .ecard, and .ecard clips its children, so the attach menu that opens upward from the composer is cut off at the card's top edge."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:321"
+  - claim: ".ecard sets overflow: hidden; the attach menu is positioned bottom: calc(100% + 6px)."
+    evidence: "src/dashboard/src/styles/mock-parity.css:512"
+  - claim: "The attach menu's position rule."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1210"
+  - claim: "The uploads panel shows a set as name, file count and size only; no file of a set is listed or opened."
+    evidence: "src/dashboard/src/components/dialog/DialogUploadsPanel.tsx:87-98"
+  - claim: "A set whose paths share no folder is named 'site'; a single file has no folder, so every single-file upload is 'site'."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetName.cs:12-19"
+  - claim: "The set name is also the carried set's name in a run, so changing it would move what a run writes."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:35-43"
+  - claim: "A duplicate is refused only when the WHOLE set's sorted (path, hash) pairs equal a stored set; a file already held inside another set is stored again."
+    evidence: "src/backend/AgentSmith.Server/Services/References/ConversationUploadAdmission.cs:23-34"
+  - claim: "A single picked file is sent at once, without the selection card, so nothing can warn before sending."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:275"
+  - claim: "The repository already reads one file of a set by path."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:67-70"
+  - claim: "Sets and images are removed whole today; there is no file-level route."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogUploadDeletionEndpoints.cs:35-37"
+  - claim: "ReferenceSetView carries SetId, Name, Files, Bytes, At, Note, Cited."
+    evidence: "src/backend/AgentSmith.Server/Models/ReferenceSetView.cs:10-11"
+
+assumptions:
+  - claim: "crypto.subtle.digest('SHA-256') is available in the dashboard's browsers (secure context: https or localhost)."
+    check: "Open the dashboard over its deployed URL and run crypto.subtle in the console; plain http on a non-localhost host has no crypto.subtle — then the server-side skip still applies and the card says hashes could not be checked."
+
+scope:
+  in: >
+    Menu: the conversation card stops clipping (a modifier class with overflow: visible on that section only), and the menu
+    opens downward when there is no room above (measured against the viewport). Browse: each upload row in the Uploads tab
+    expands to its files (path, size, kind); a text file opens in a read-only preview (monospace, first 200 KB, says when cut),
+    an image opens as a picture, anything else offers a download. A transcript upload chip opens the Uploads tab on that
+    upload. Remove single files: a Remove per file (ConfirmDialog), refused like a set when an approval cites the set;
+    removing the last file removes the set. Duplicates per file: the server returns the content hashes the conversation's sets
+    hold; the selection card hashes every picked file in the browser, marks one already held as "already uploaded in <name>"
+    and leaves it unticked and unsendable; a single picked file that is already held is not sent and the composer says where it
+    is; the server skips any incoming file whose hash a set of the conversation already holds, stores the rest, and the answer
+    names what it skipped; a pick that is only duplicates is refused as today. Name: a display label — the shared folder, else
+    the single file's name, else "<first file> + N more" — on the view, the chip, the panel and every message; the carried
+    set name a run uses stays as it is.
+  out: "Images attached through the Image entry keep their own whole-image duplicate check and are not compared with files inside sets. Editing an uploaded file. Renaming an upload by hand. Two identical files at different paths inside ONE pick are both kept (a tree may legitimately repeat a file)."
+
+decisions:
+  - key: "THE OPERATOR'S SENTENCES ARE THE ACCEPTANCE TEST. The previous cut (e8b9g/h) turned 'see the files' into 'list the uploads' and 'detect duplicates' into 'whole identical set'; both were narrower than asked. Every done line below quotes what the operator would check."
+  - key: "DISPLAY LABEL, NOT A NEW SET NAME. The set name is the carried folder in a run and the reference sandbox address; renaming it would move files approved runs read. The label is a view concern."
+  - key: "DUPLICATE = SAME CONTENT ANYWHERE IN THE CONVERSATION'S SETS, PATH IGNORED. That is what 'ich kann immer noch doppelte auswählen' means: the same file picked again under any folder. Checked twice: in the browser before sending (so the operator sees it while choosing) and on the server (the browser can be bypassed or lack crypto.subtle)."
+  - key: "THE MENU KEEPS OPENING UPWARD WHERE IT FITS; the card stops clipping. Flipping only when there is no room keeps today's look in a filled conversation."
+
+steps:
+  - id: server
+    action: "Add GET /api/spec-dialog/references/{setId}/files (path, bytes, kind), GET …/files/content?path= (text/plain for text, the image type for images, attachment otherwise, owner-checked like the list), DELETE …/files?path= (turn gate + cited refusal as DeleteSetAsync), GET /api/spec-dialog/references/hashes (the conversation's set file hashes); add Label to ReferenceSetView; skip held hashes in ReferenceSetUpload and report them."
+    new:
+      - "ReferenceSetLabel: shared folder, single file name, or '<first> + N more'"
+      - "ReferenceFileEndpoints (files, content, delete-file, hashes) in its own file"
+    modify:
+      - "ConversationUploadAdmission: per-file held-hash skip; whole-duplicate refusal names the label"
+      - "ReferenceSetRepository: delete one file; list a set's files with lengths"
+  - id: client
+    action: "Add the API functions, hash picked files in referenceSelection, mark held files in DialogReferenceSelection, stop the single-file send for a held file, expand rows and preview files in DialogUploadsPanel, per-file Remove, chip → Uploads tab."
+  - id: menu
+    action: "Add the non-clipping modifier to the conversation section and a downward flip to the attach menu."
+  - id: verify
+    action: "Run the dashboard against a local server and capture screenshots: empty conversation with the menu open, an upload expanded, a text preview, a duplicate marked in the selection card, a single-file upload labelled by its name."
+
+tests:
+  - "ReferenceSetLabel_SingleFile_IsTheFileName"
+  - "ReferenceSetLabel_NoSharedFolder_FirstPlusCount"
+  - "Upload_FileHeldInAnotherSet_SkippedAndNamed"
+  - "Upload_OnlyHeldFiles_Refused"
+  - "FileContent_OtherConversation_NotFound"
+  - "DeleteFile_CitedSet_Refused"
+  - "DeleteFile_LastFile_RemovesTheSet"
+  - "SelectionCard_HeldFile_UntickedAndMarked"
+  - "Composer_SingleHeldFile_NotSentAndSaysWhere"
+  - "UploadsPanel_ExpandSet_ListsFilesAndPreviewsText"
+  - "AttachMenu_EmptyConversation_AllEntriesVisible"
+
+done:
+  - "'die files kann man nicht ansehen': every file of every upload is listed in the Uploads tab and a text file opens in a preview (screenshot)."
+  - "'doppelte': picking a file the conversation already holds, under any folder or alone, shows it as already uploaded before sending and it is not stored again (screenshot + server test)."
+  - "'deselektiert': a single file can be removed from an upload."
+  - "'menu verdeckt': all attach entries are visible in an empty and a filled conversation (screenshots)."
+  - "'site': a single-file upload shows the file's name; no upload is labelled 'site'."
+  - "Full suite green; the screenshots are attached to the PR."

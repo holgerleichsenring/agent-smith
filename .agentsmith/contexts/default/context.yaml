@@ -1088,6 +1088,7 @@ state:
     2026-10-08-e8b9k: "A RUN RECEIVES THE CITED IMAGES (approval record, run carry, run prompt). Approvals cite images beside sets; the carry writes them under .agentsmith/reference/images/ and puts them after the ticket's own within ten pictures, replacing on resume; an unreadable one is a note; the snapshot stays. -> .agentsmith/specs/done/2026-10-08-e8b9k-material-reaches-runs.yaml"
   active: {}
   planned:
+    2026-10-09-86e1: "UPLOADS ARE BROWSABLE AND DEDUPED PER FILE (spec dialog uploads, reference endpoints). Every file listed and opened, single files removed, held files marked before sending and skipped on the server, labels from file names, an attach menu that is never clipped. -> .agentsmith/specs/planned/2026-10-09-86e1-uploads-browse-dedupe.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT HAS A SOURCE (skills catalog). Unsourced numbers in csharp, rust and typescript are replaced by cited or operator-ratified ones, or removed. -> .agentsmith/specs/planned/2026-10-03-24d4-principles-size-evidence.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
