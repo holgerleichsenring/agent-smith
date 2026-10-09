@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.158.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.157.0...v0.158.0) (2026-10-09)
+
+
+### Features
+
+* uploads are browsable, removable per file and deduped per file (2026-10-09-86e1) ([9113fb9](https://github.com/holgerleichsenring/agent-smith/commit/9113fb9e4c106f40ce724044ce73367d3b7f58cf))
+* uploads are browsable, removable per file and deduped per file (2026-10-09-86e1) ([752aaa4](https://github.com/holgerleichsenring/agent-smith/commit/752aaa479bda0f1611f03f766c0896d4be96ebb6))
+
+
+### Bug Fixes
+
+* a conversation heading is condensed from the first answer alone, in its language (2026-10-09-753b) ([82a6859](https://github.com/holgerleichsenring/agent-smith/commit/82a685980aee84f2f3141d1db2233fc4acea3ecf))
+* a PR review never pushes and never reviews its own commit (2026-10-09-af10) ([7761773](https://github.com/holgerleichsenring/agent-smith/commit/776177365d2d0445f322a98b41e2189ad86c07c2))
+* a PR review never pushes and never reviews its own commit (2026-10-09-af10) ([2988ad6](https://github.com/holgerleichsenring/agent-smith/commit/2988ad68a399a8f38fffea80135290c2c95f52d7))
+* hash a picked file through a view of this realm ([17738cc](https://github.com/holgerleichsenring/agent-smith/commit/17738cc31479eec5651c1d0a08620a9c1b3f05b3))
+* the shell's scroll container holds its absolute descendants, one scroll per page (2026-10-09-724c) ([dd5fa14](https://github.com/holgerleichsenring/agent-smith/commit/dd5fa14b1a733be06618b50cf7ac5c66dc36492b))
+
+
+### Performance Improvements
+
+* the phase gate runs in 84 s instead of 360-530 s (2026-10-09-7f48) ([9a12978](https://github.com/holgerleichsenring/agent-smith/commit/9a129782259335f26e646fe99de199addf1b8aed))
+* the phase gate runs in 84 s instead of 360-530 s (2026-10-09-7f48) ([7362e6e](https://github.com/holgerleichsenring/agent-smith/commit/7362e6e6a5b7ee797718cdeb5540506fd22db190))
+
 ## [0.157.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.156.1...v0.157.0) (2026-10-09)
 
 
