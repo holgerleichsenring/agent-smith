@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-006d
+goal: "The sandbox cpu/memory a project inherits is explained per run pipeline — a code run's sizing and the light profile side by side — never inferred from the project's own pipeline field."
+
+applies_to: "backend (inherited sandbox projection, config resolution pass) + dashboard (sandbox resource group, project detail)"
+
+requires: [2026-09-22-6c46]
+
+facts:
+  - claim: "observed: a project with no default pipeline, whose runs come from tickets with pipeline `code`, shows under Sandbox → cpu & memory the light-profile sentence 'this project's pipeline changes no code … (cpu 100m/500m, memory 256Mi/1Gi)'."
+    evidence: "observed: 2026-10-12, operator Config Studio"
+  - claim: "The dashboard sentence is chosen by the layer the server sends; 'light-profile' renders the 'changes no code' sentence."
+    evidence: "src/dashboard/src/components/config/SandboxResourceGroup.tsx:24-32, src/dashboard/src/components/config/SandboxResourceGroup.tsx:62-66"
+  - claim: "The projection resolves resources with the project's `Pipeline` field."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/InheritedSandboxProjection.cs:67, src/backend/AgentSmith.Application/Services/Configuration/InheritedSandboxProjection.cs:78-80"
+  - claim: "`ResolvedProject.Pipeline` defaults to the empty string."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:31"
+  - claim: "The resolver holds a null or non-code pipeline to the light profile; only `code` is code-changing."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxResourceResolver.cs:53-54, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:64-79"
+  - claim: "A ticket's pipeline comes from the trigger's label map; with no map, the trigger's default else `code`; a map with no matching label drops the ticket. The project's `Pipeline` field is not consulted."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/PipelineResolver.cs:47-67, src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:72-82"
+  - claim: "`Pipeline` is the legacy field: the normaliser fills `DefaultPipeline` from it, never the reverse — so even `default_pipeline: code` leaves `Pipeline` empty."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectConfigNormalizer.cs:72"
+  - claim: "At run time the run's own pipeline name is put in context and every build-sandbox spec is sized with it."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:290, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:66, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:99-101, src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs:49"
+  - claim: "Admission sizes the footprint with the ticket's pipeline too."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:64, src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:93-94"
+  - claim: "The pod carries the spec's request and limit verbatim."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:105-116"
+  - claim: "The process-wide default is request 250m/1Gi, limit 1000m/4Gi; the light profile is 100m/500m, 256Mi/1Gi."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ResourceLimits.cs:16-32, src/backend/AgentSmith.Contracts/Sandbox/ResourceLimits.cs:60, src/backend/AgentSmith.Application/Models/SandboxOptions.cs:16-25"
+  - claim: "The effective snapshot sizes with the project's `Pipeline` field too, and the project detail panel shows it with a global-default badge."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs:95-98, src/dashboard/src/components/system/ProjectDetailPanel.tsx:173"
+  - claim: "The snapshot's cost-cap row has the same defect: it reads the project's `Pipeline` field while a run reads its own pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/ConfigResolutionPass.cs:43, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:303, src/dashboard/src/components/system/ProjectDetailPanel.tsx:176"
+  - claim: "The only specs sized with a null pipeline are a source scope's and the browser's — neither is a build sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:52, src/backend/AgentSmith.Application/Services/Browser/BrowserSandboxOpener.cs:54"
+
+assumptions:
+  - "The 1Gi the operator saw is the default's memory REQUEST (limit 4Gi) or a context document naming 1Gi, not the light profile (request 256Mi). Not provable from code; the pod's requests/limits settle it (open item for the operator — this phase does not touch the cluster)."
+
+scope:
+  in: >
+    Projection: size the inherited answer for a code run (`PipelinePresets.CodeName`) and add the no-code answer beside it
+    (resolver with a null pipeline), both from the one resolver; `project.Pipeline` is no longer read. Contract
+    `InheritedSandboxResources` gains `NoCodeValues`; wire `ConfigInheritedResources` gains `NoCodeValues`. Dashboard:
+    the sentence names what a code run gets and, beside it, the light profile a no-code run is held to, saying the
+    pipeline is decided per run. Effective snapshot: size resources and the cost cap for a code run; both detail-panel
+    rows say so. The "size this project myself" seed becomes the code-run values (default, not light profile).
+  out: >
+    Run-time sizing (correct). Raising defaults or making the light profile configurable. The sandbox image chain,
+    language resolver, registry trust, verify wording, model picker (series 2026-10-12-6bfa).
+
+decisions:
+  - key: "ASK THE RESOLVER BOTH QUESTIONS rather than guess the project's pipeline: a project's runs can take any pipeline (labels, CLI), so its own field can never decide one answer."
+  - key: "KEEP THE LAYER on the wire (the resolver's answer for a code run: global-default here); the light-profile sentence is reworded so it no longer claims the project's pipeline changes no code."
+  - key: "SEED FROM THE CODE-RUN VALUES: an override wins for every pipeline, so the build sizing is the only sensible seed."
+
+steps:
+  - id: contract
+    action: "InheritedSandboxResources(Values, Layer, NoCodeValues); ConfigInheritedResources + mapper; configApi.ts type."
+  - id: projection
+    action: "InheritedSandboxProjection sizes for CodeName and null; ConfigResolutionPass sizes resources and cost cap for CodeName."
+  - id: dashboard
+    action: "SandboxResourceGroup sentence names both; ProjectDetailPanel labels."
+  - id: tests
+    action: "Red first: a project with no pipeline field projects the global-default layer and a light-profile NoCodeValues; the tab sentence names both. Rewrite the tests that pin the old reading: InheritedSandboxStructuredTests (non-code pipeline, draft with no pipeline, wire layer) and ProjectSandboxStructured.test.tsx (light-profile sentence); add noCodeValues to the fixtures in ProjectSandboxTab.test.tsx and mock-parity.test.tsx; the snapshot test uses a stub recording the pipeline and a PerPipeline code cap. Rewrite the doc comments that say the configured pipeline decides (projection, resolution pass, contract)."
+
+tests:
+  - "ResourceProjection_AProjectWithNoPipelineField_ReportsWhatACodeRunGets"
+  - "ResourceProjection_ANonCodePipelineField_DoesNotDecideTheAnswer"
+  - "ResourceProjection_CarriesTheLightProfileForANoCodeRun"
+  - "ResourceProjection_OnTheWire_CarriesTheNoCodeValues"
+  - "ConfigResolutionPass_SizesResourcesAndCostCapForACodeRun"
+  - "ProjectForm_SizeItMyself_SeedsTheCodeRunValues"
+  - "ProjectForm_TheResourceGroup_NamesWhatACodeRunAndANoCodeRunGet"
+
+done:
+  - "A project with no pipeline field no longer shows the light-profile sentence; the tab names the code-run sizing and the light profile, and says the pipeline is decided per run."
+  - "Run-time resource resolution is untouched (no change under Services/Sandbox or Builders)."
+  - "Backend + dashboard suites pass."

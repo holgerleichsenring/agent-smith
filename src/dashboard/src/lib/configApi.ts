@@ -181,9 +181,12 @@ export type SandboxResourceLayer =
   | "context-document"
   | "global-default";
 
+/** 2026-10-12-006d: a project's runs choose their pipeline per run, so the answer is two —
+ *  `values`/`layer` for a run that changes code, `noCodeValues` for a run that changes none. */
 export interface InheritedResources {
   values: ResourceSummary;
   layer: SandboxResourceLayer;
+  noCodeValues: ResourceSummary;
 }
 
 /** Keyed by the name of a project the RUNNING configuration holds, so a project being
