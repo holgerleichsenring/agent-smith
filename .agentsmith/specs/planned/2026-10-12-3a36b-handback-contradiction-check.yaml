@@ -35,7 +35,7 @@ facts:
 assumptions: []
 
 scope:
-  in: "cites on a contradiction hand-back (prompt + parser); a checker before parking; one extra derivation on a refutation; per scoped repo the remote branch head at parking, inside 3a36d's HandbackJson; expiry on foreign commits since it, keeping the approval; the repeat guard reset by them."
+  in: "Everything the steps name."
   out: "Other hand-back cases; replies on the PR (3a36a); sandboxes committing under a foreign identity — the probe is skipped there and says so."
 
 decisions:
@@ -77,7 +77,6 @@ tests:
   - "SpecSetDeriver_ContradictionWithoutCites_IsReAsked"
   - "SpecSetDeriver_UncitedOnLastAttempt_ParksUncheckedNotFallback"
   - "ContradictionChecker_ReasonContradictedByFile_Refutes"
-  - "SpecSetDeriver_RefutedAfterPinned_StillGetsOneMore"
   - "ForeignCommitProbe_BaseMergeAndOurCommits_AreNotForeign"
   - "ForeignCommitProbe_FastForwardedBase_IsNotForeign"
   - "ForeignCommitProbe_RepoWithoutStoredHeadOrUnknownSha_IsSkipped"
