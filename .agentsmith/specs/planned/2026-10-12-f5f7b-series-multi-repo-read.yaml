@@ -1,63 +1,58 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7b
-goal: "A series whose specs lie in several repositories is read as one: manifests found in every run repository, specs read from their own, edits detected per repository — today's series read unchanged."
+goal: "A ticket's specs are read as one set from the self-contained sub-series every run repository holds, joined by the newest manifest's member list — today's single-repo series read unchanged."
 
-applies_to: "backend (series reader, pointer, scope, persistence)"
+applies_to: "backend (series reader, pointer, persistence)"
 
 requires: [2026-10-12-f5f7a]
 
 facts:
-  - claim: "The reader reads one carrier's first sandbox, finds the manifest by ticket key, reads one spec per listed id from that same sandbox, and returns Unreadable without a sandbox."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:38-94, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:30-31"
-  - claim: "The manifest lists spec ids only; series-wide fields (key, goal, order, revisions, accounting, hand-back, fingerprint, approval) are mapped from it into the SpecSet."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:13-43, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:26-110, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:102-110"
-  - claim: "A reviewer's edit is found by the last commit over the manifest and the series' spec paths in that one checkout, compared with the pointer's single RevisionSha; no pointer reads as an edit."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:63-73, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:79-81, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:22-38"
-  - claim: "The pointer is one TicketSeries row per (project, ticket) with one CarryingRepo and one RevisionSha, written by SpecSetPointerRecorder; the publish target is resolved from pointer.CarryingRepo first."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TicketSeriesRepository.cs:38-49, src/backend/AgentSmith.Application/Services/Specs/SpecSetPointerRecorder.cs:34-48, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:63"
-  - claim: "Each finder returns Found, NothingAtThePath or Unreadable; a broken manifest naming the ticket is an edit gone wrong; the reader port takes one carrying repo; a repo may have several sandboxes."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:11-46, src/backend/AgentSmith.Contracts/Specs/SpecSetPorts.cs:50-55, src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:39-42"
-  - claim: "The carrier is the pointer's, else the approval's, else scopedRepos[0]; nothing makes a later run's checkout include it, and scoping can narrow it out; an approved scope comes from the approval and --repo intersects it."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:23-34, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:63-95, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:50-80"
+  - claim: "Today's reader reads one repository: the manifest found by ticket key lists its spec ids, each read from the same checkout; it returns Found, NothingAtThePath or Unreadable; a broken manifest naming the ticket is an edit gone wrong."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:38-94, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:11-46"
+  - claim: "Series-wide fields are mapped from the manifest; executed is a spec file's place in done/; revisions carry a timestamp."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:13-43, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:26-110, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:76-110"
+  - claim: "A reviewer's edit is the last series commit in the checkout against the pointer's one RevisionSha; no pointer reads as an edit; the reader port takes one carrying repo."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:63-73, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:79-81, src/backend/AgentSmith.Contracts/Specs/SpecSetPorts.cs:50-55"
+  - claim: "The pointer is one TicketSeries row with one CarryingRepo and one RevisionSha; a repository may have several sandboxes."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TicketSeriesRepository.cs:38-49, src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:39-42"
+  - claim: "observed: three review rounds refused a manifest shared across repositories — without a cross-repository transaction its copies diverge on a partial push."
+    evidence: "observed: 2026-10-12, spec reviews of 3a36d-h and f5f7d"
 
 assumptions: []
 
 scope:
-  in: "Manifest specs entries {id, repo} or a bare id; the reader joins one sandbox per run repository; per-repo shas with a back-fill from today's single sha; per-repo edit detection with defined edges."
-  out: "Scope widening and every write into a second repository (2026-10-12-f5f7d) — until then a series has one manifest and one sha, and reads exactly as today."
+  in: "An optional series_repos list in the manifest; per run repository (one sandbox each) today's read of its sub-series; the join; per-repository shas with a back-fill; ReviewerEdit when any repository moved."
+  out: "Writing sub-series into several repositories, scope (2026-10-12-f5f7d). Until then every ticket has one sub-series and reads exactly as today."
 
 decisions:
-  - key: "CAPABILITY FIRST: read many before writing many; CarryingRepo is still written in this slice."
-  - key: "THE JOIN: any Unreadable → Unreadable; else any Found → Found; else NothingAtThePath. Manifests with different series bases → Unreadable. One sandbox per repository in context.Repos."
-  - key: "SERIES-WIDE FIELDS FROM THE HIGHEST REVISION; on a tie, from the repository whose last series commit moved against the pointer; refuse only when both moved differently."
-  - key: "A BARE ID MEANS HERE: legacy manifests read their specs from the manifest's repository."
-  - key: "BACK-FILL, NO FALSE EDIT: a row without a sha map reads {CarryingRepo: RevisionSha}; the migration writes it."
-  - key: "MOVED, AT THE EDGES: a repository read now but absent from the map counts as moved; one in the map but not checked out is not compared and is logged."
+  - key: "SELF-CONTAINED SUB-SERIES: each repository's manifest lists only its own specs, in today's format; nothing has to agree across repositories for a read to be correct."
+  - key: "MEMBERSHIP FROM THE NEWEST MANIFEST: the sub-series whose current revision has the latest timestamp names series_repos; sub-series in other repositories are stale and ignored. No series_repos (legacy) means a one-repository series."
+  - key: "THE JOIN: specs of member sub-series in requires: order across repositories, manifest order within one; series-wide fields from the newest manifest; any Unreadable member → Unreadable."
+  - key: "BACK-FILL, NO FALSE EDIT: a row without a sha map reads {CarryingRepo: RevisionSha}; the migration writes it; CarryingRepo is still written in this slice."
+  - key: "MOVED, AT THE EDGES: a member read now but absent from the map counts as moved; one in the map but not checked out is not compared and is logged."
 
 steps:
   - id: manifest
-    action: "Let manifest specs entries be {id, repo} or a bare id; render {id, repo} for specs that name one."
+    action: "Add optional series_repos to the manifest document and mapping."
     modify:
-      - "SeriesManifestDocument, SeriesManifest, SeriesFiles"
+      - "SeriesManifestDocument, SeriesManifest"
   - id: reader
-    action: "Join manifests from one sandbox per run repository by the rule above, read each spec from its repository, compute LastCommitSha per repository."
+    action: "Read each run repository's sub-series with today's reader (one sandbox per repository), join by the rules above, compute LastCommitSha per repository."
     modify:
-      - "SeriesReader, SeriesManifestFinder, SeriesSpecFileReader, SpecSetReadResult, SpecSetPorts"
+      - "SeriesReader, SpecSetReadResult, SpecSetPorts"
   - id: pointer
-    action: "Store RevisionShas per repository (JSON column, migrations in both assemblies, back-filled); SpecRevisionCause reads ReviewerEdit by the edge rules; the recorder writes the map beside CarryingRepo."
+    action: "Store RevisionShas per repository (JSON column, migrations in both assemblies, back-filled); SpecRevisionCause reads ReviewerEdit by the edge rules."
     modify:
       - "TicketSeries, TicketSeriesRepository, SpecSetPointer, both pointer stores, SpecSetPointerRecorder, SpecRevisionCause"
 
 tests:
-  - "SeriesReader_SpecsInTwoRepos_ReadsOneSeries"
-  - "SeriesReader_TwoManifests_HighestRevisionWins"
-  - "SeriesReader_TieOneMoved_TakesMovedRepo"
-  - "SeriesReader_FoundAndUnreadable_IsUnreadable"
-  - "SeriesReader_DifferentBases_IsUnreadable"
-  - "SeriesReader_LegacyBareIds_ReadFromManifestRepo"
+  - "SeriesReader_SubSeriesInTwoRepos_JoinsInRequiresOrder"
+  - "SeriesReader_StaleSubSeriesOutsideNewestMembers_Ignored"
+  - "SeriesReader_MemberUnreadable_IsUnreadable"
+  - "SeriesReader_LegacyManifestWithoutSeriesRepos_ReadsAsToday"
   - "SpecRevisionCause_LegacyRowUnchangedBranch_IsRetrigger"
-  - "SpecRevisionCause_MergedBranchInOneRepo_FollowsEdgeRule"
+  - "SpecRevisionCause_OneRepoMoved_IsReviewerEdit"
 
 done:
-  - "A series whose two specs lie in Server and Client (hand-placed in the harness) is read as one, in order (RealCompositionHarness)."
+  - "Two hand-placed sub-series in Server and Client are read as one set in requires: order (RealCompositionHarness)."
   - "Every existing series test is green unchanged; migrations in both assemblies."
