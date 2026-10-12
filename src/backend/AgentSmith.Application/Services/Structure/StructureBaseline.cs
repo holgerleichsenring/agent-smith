@@ -16,11 +16,12 @@ namespace AgentSmith.Application.Services.Structure;
 /// 2026-10-13-2d0c: "a changed limit" is measured against the Limits the baseline records in its
 /// header; a baseline that records none leaves the old limits unknown, so every unit over its
 /// band that it does not list is added.
+/// 2026-10-13-ee83: the sources are read in batched steps; the gate keeps its per-file reads.
 /// </summary>
 public sealed class StructureBaseline(
     StructureSourceListing listing, IStructureEngine engine, StructureLimits limits,
     StructureJudge judge, StructureBaselineFile baselineFile, ISandboxFileReaderFactory files,
-    ILogger<StructureBaseline> logger)
+    StructureBatchedReader batched, ILogger<StructureBaseline> logger)
 {
     public async Task<StructureBaselineResult> ApplyAsync(
         ISandbox sandbox, StructureBaselineScope scope, CancellationToken cancellationToken)
@@ -55,7 +56,7 @@ public sealed class StructureBaseline(
         var (claimed, refusal) = await ClaimedAsync(sandbox, scope, workdir, ct);
         return refusal is not null
             ? StructureBaselineResult.Skipped(refusal, present)
-            : await RecordAsync(reader, scope, existing, claimed, limitSet, ct);
+            : await RecordAsync(sandbox, reader, scope, existing, claimed, limitSet, ct);
     }
 
     // The tracked files this context owns that a language measures; a sibling's are its own.
@@ -69,10 +70,12 @@ public sealed class StructureBaseline(
         return claimed.Count == 0 ? ([], "no tracked file under the workdir is in a measured language") : (claimed, null);
     }
 
-    private async Task<StructureBaselineResult> RecordAsync(ISandboxFileReader reader, StructureBaselineScope scope,
-        string? existing, IReadOnlyList<string> claimed, StructureLimitSet limitSet, CancellationToken ct)
+    private async Task<StructureBaselineResult> RecordAsync(ISandbox sandbox, ISandboxFileReader reader,
+        StructureBaselineScope scope, string? existing, IReadOnlyList<string> claimed, StructureLimitSet limitSet,
+        CancellationToken ct)
     {
-        var (findings, unreadable, unavailable) = await MeasureAsync(reader, claimed, limitSet, ct);
+        var contents = await batched.ReadAsync(sandbox, reader, claimed, ct);
+        var (findings, unreadable, unavailable) = Measure(contents, claimed, limitSet);
         if (unavailable is not null) return StructureBaselineResult.Skipped(unavailable, existing is not null);
         var entries = existing is not null
             ? baselineFile.Refresh(baselineFile.Parse(existing), findings, baselineFile.MeasuredWith(existing))
@@ -81,14 +84,14 @@ public sealed class StructureBaseline(
         return new StructureBaselineResult(true, entries.Count, unreadable, existing is not null);
     }
 
-    private async Task<(IReadOnlyList<StructureFinding>, int, string?)> MeasureAsync(
-        ISandboxFileReader reader, IReadOnlyList<string> paths, StructureLimitSet limitSet, CancellationToken ct)
+    private (IReadOnlyList<StructureFinding>, int, string?) Measure(
+        IReadOnlyDictionary<string, string?> contents, IReadOnlyList<string> paths, StructureLimitSet limitSet)
     {
         var findings = new List<StructureFinding>();
         var unreadable = 0;
         foreach (var path in paths)
         {
-            if (await reader.TryReadAsync(path, ct) is not { } content) { unreadable++; continue; }
+            if (contents.GetValueOrDefault(path) is not { } content) { unreadable++; continue; }
             var measurement = engine.Measure(path, content);
             if (measurement.Outcome == StructureOutcome.Unavailable) return ([], unreadable, measurement.Reason);
             // 2026-10-12-fbbda: a divergence is inside the band and needs no tolerating.

@@ -55,6 +55,7 @@ internal sealed class RepoSandbox : ISandbox
                 && Files.TryGetValue(Relative(step.Path!), out var content)
                 ? Result(step, 0, content) : Result(step, 1, null),
             StepKind.WriteFile => Write(step),
+            StepKind.Run when step.Command == "sh" => Batch(step),
             StepKind.Run => Git(step),
             _ => Result(step, 0, string.Empty),
         });
@@ -84,6 +85,15 @@ internal sealed class RepoSandbox : ISandbox
     private IEnumerable<string> Matching(string[] specs) => Files.Keys.Order().Where(path => specs.Any(spec =>
         spec.Split('*', 2) is [var prefix, var suffix]
         && path.StartsWith(prefix, StringComparison.Ordinal) && path.EndsWith(suffix, StringComparison.Ordinal)));
+
+    // 2026-10-13-ee83: the batched read as the script prints it; an unreadable file gets no line.
+    private StepResult Batch(Step step)
+    {
+        var paths = step.Args!.Skip(3).ToList();
+        var lines = paths.Select((path, i) => !Unreadable.Contains(path) && Files.TryGetValue(path, out var content)
+            ? $"{i} {Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content))}\n" : string.Empty);
+        return Result(step, 0, string.Concat(lines) + $"end {paths.Count}\n");
+    }
 
     private StepResult Write(Step step)
     {

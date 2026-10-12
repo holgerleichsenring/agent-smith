@@ -20,5 +20,8 @@ internal static class StructureBaselineStubs
 
     public static StructureBaseline Real(IStructureEngine? engine = null) => new(
         Listing(), engine ?? StructureEngineFixture.Engine(), new StructureLimits(),
-        new StructureJudge(), File, new SandboxFileReaderFactory(), NullLogger<StructureBaseline>.Instance);
+        new StructureJudge(), File, new SandboxFileReaderFactory(), Batched(), NullLogger<StructureBaseline>.Instance);
+
+    /// <summary>2026-10-13-ee83: the baseline's batched source reader.</summary>
+    public static StructureBatchedReader Batched() => new(new StructureBatchScript(), new StructureBatchOutput());
 }

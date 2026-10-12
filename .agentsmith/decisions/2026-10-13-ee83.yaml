@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-ee83
+
+decisions:
+  - category: Scope
+    chose: "GO: build the batched reader. Per-file ReadFile in a container sandbox costs ~265 ms a file: 100 files 26.1 s, 400 files 106.4 s (rerun 103.9 s), far over the 20 s threshold"
+    over: "Closing the spec on the measurement without a reader"
+    reason: |
+      Measured 2026-10-13 on a 12-core Mac, Docker via OrbStack: the sandbox agent image built from this tree
+      (src/backend/AgentSmith.Sandbox.Agent/Dockerfile), one agent container on its own network with its own
+      redis:7 container, /work holding 400 tracked src/backend/*.cs files (1.9 MB on disk, 840k chars read).
+      The host side was the production SandboxRedisChannel, ReadFile steps shaped as SandboxFileReader sends
+      them, sequential as StructureBaseline read them. The cost is not the read but the channel: the server
+      polls the results list every 250 ms (SandboxRedisChannel.ResultPollTick), so every step pays about one
+      tick. A batch step pays it once.
+  - category: TradeOff
+    chose: "The stdout events a batch adds are one per file plus four per step (Started, Completed, end, and a skip line per budget overrun) and are accepted"
+    over: "A new wire step kind that returns the files in the result body without events"
+    reason: |
+      Measured on the same rig: one Run step over 100 files printed 101 stdout lines, 103 progress events,
+      0.40 s; over 400 files the capture hit the 1,000,000-char cap (377 of 401 lines kept), which is what the
+      script-side byte budget prevents. The finished reader over the 400 files took 2 steps, 451 events (each
+      an XADD and a live output event, bounded by the 10,000-entry stream trim), 1.07 s, and returned content
+      identical to the per-file read for all 400 files. Per-file reading added no events at all, so the batch
+      trades ~450 small stream entries per 400 files for ~100 s; a new step kind is out of scope.
+  - category: Implementation
+    chose: "Three services: StructureBatchScript (the Run step), StructureBatchOutput (parser + decoder), StructureBatchedReader (chunks, requeue, fallback)"
+    over: "One reader class holding script, parsing and orchestration"
+    reason: |
+      Each has one reason to change and stays well under the method and class limits. The baseline reads all
+      claimed sources first, then measures in path order, so findings keep their order.
+  - category: Implementation
+    chose: "Budget = capture cap - 100,000 chars, charged in the script per file as 4*ceil(n/3)+16 and 16 per skip line; 500 paths per step"
+    over: "A budget parameter or a byte budget counted on the host"
+    reason: |
+      Only the script knows the sizes before printing. The agent keeps a line whole once it starts it, so the
+      margin keeps the end marker inside the capture. 500 paths of a deep tree stay far under macOS's 1 MB
+      ARG_MAX, the strictest of the hosts the in-process sandbox runs on.
+  - category: Implementation
+    chose: "A skipped file goes to the next batch step; a step that answered no file sends its skipped files to per-file ReadFile"
+    over: "Every skipped file read on its own"
+    reason: |
+      A skip means the budget was spent, not that the file is unreadable; the next step reads it in bulk. A
+      file whose base64 alone overruns the budget (over ~675 kB) is skipped by every step and lands on
+      ReadFile, which reads up to 1 MB or refuses it — so the batch never answers differently from per-file.
+  - category: Implementation
+    chose: "No 'end <count>' for the whole chunk, a non-zero exit, or a line that is not base64 means per-file reads; a decoded file over 1 MB or not strict UTF-8 is unreadable without a ReadFile; a UTF-8 BOM is stripped"
+    over: "Trusting the lines before a missing marker"
+    reason: |
+      A capture cut at the cap can end on a line that is valid base64 of a prefix. The refusal rules are the
+      container's FileStepHandler.HandleRead rules, so a batch-read file and a ReadFile-read file measure alike.
+  - category: Implementation
+    chose: "RepoSandbox answers the batch step from its in-memory files; the real script runs in StructureBatchedReaderScriptTests through InProcessSandbox, in the external-process collection"
+    over: "Leaving RepoSandbox to answer the batch with empty output (every baseline test would run the fallback only)"
+    reason: |
+      The existing baseline tests now exercise the batched path; the fallback has its own tests. The real
+      script ran under macOS's BSD base64/wc in the test and GNU coreutils in the container measurement;
+      busybox was not run.
