@@ -2,7 +2,7 @@
 spec: 2026-10-13-50c7
 goal: "A context names the directories its component is built and tested from, so the structure baseline, gate and formatter cover a component's libraries and tests, not only its entry project."
 
-applies_to: "backend (context.yaml contract, structure ownership) and skills catalog (project-bootstrap)"
+applies_to: "backend (context.yaml contract, structure ownership, structure baseline) and skills catalog (project-bootstrap)"
 
 requires: [2026-10-13-2d0c, 2026-10-13-e237]
 
@@ -11,38 +11,55 @@ facts:
     evidence: "observed: 2026-10-13, end-to-end init --refresh-principles on a sample repository"
   - claim: "observed: the repository behind the 2026-10-12 incident has the same shape — workdir is the API project, the persistence adapters live in a sibling project."
     evidence: "observed: 2026-10-13, the target repository's .agentsmith/contexts/default/context.yaml on its develop branch"
-  - claim: "Structure ownership is the longest workdir prefix holding a path."
-    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureWorkdir.cs:20-26"
-  - claim: "The bootstrap master receives a component's workdir from discovery and reads source under it."
-    evidence: "observed: 2026-10-13, agent-smith-skills origin/main, skills/_masters/project-bootstrap/SKILL.md:44-63"
+  - claim: "Ownership is the longest workdir prefix; on a shared workdir the gate keeps the last context's rules and the format plan runs every sharing context; all three key by directory string."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureWorkdir.cs:20-26, src/backend/AgentSmith.Application/Services/Structure/StructureGateContexts.cs:32-34, src/backend/AgentSmith.Application/Services/SpecExecution/SpecFormatPlan.cs:35-37, src/backend/AgentSmith.Application/Services/Structure/StructureBaseline.cs:67-68"
+  - claim: "A preserved baseline is left untouched, and a refresh adds an unlisted unit only when its limit changed."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureBaseline.cs:47-48, src/backend/AgentSmith.Application/Services/Structure/StructureBaselineFile.cs:41-58"
+  - claim: "The baseline listing builds one '<workdir>/*<ext>' pathspec per extension."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureSourceListing.cs:26-28"
+  - claim: "The context schema is closed at the root and is what the writer validates against."
+    evidence: ".agentsmith/context.schema.json:11, src/backend/AgentSmith.Application/AgentSmith.Application.csproj:66"
 
 scope:
   in: >
-    context.yaml gains optional 'sources': a list of repository-root-relative directories the component is built and
-    tested from beyond its workdir (referenced projects, test projects). Read shape, serializer, summary,
-    RemoteContextDiscovery (by name), schema (no '..', not rooted) and writer description carry it. Structure
-    ownership (baseline listing, gate, formatter plan) uses workdir plus sources; the longest matching directory
-    across all contexts wins, a tie goes to the context whose workdir holds it. SKILLS: project-bootstrap declares
-    sources from what the component's build and test files reference (read, never guessed); none, nothing. Release, pin.
+    context.yaml gains an optional top-level 'sources': repository-root-relative directories beyond workdir the component is
+    built and tested from (not rooted, no '..', never '.' or empty), carried by read shape, serializer, summary,
+    RemoteContextDiscovery (by name), schema and writer description. OWNERSHIP maps a path to a CONTEXT: the longest
+    owned directory (workdir or a source) across all contexts; on equal directories a context's workdir beats another's
+    source, and the ordinal-smallest name breaks ties among sources. The gate, format plan and baseline key rules by context, not by directory. BASELINE: lists one pathspec per
+    owned directory; measures every file it owns or ties on, so a later round's claim on the same directory finds the
+    entry; reads the round's own sources from the context.yaml just written and earlier rounds' from what they recorded in
+    the pipeline. Its header records the directories it owned; a baseline without that line owned exactly the workdir
+    of the context.yaml before the round. A refreshed baseline adds every excess under a newly owned directory; a
+    preserved one is untouched when nothing is newly owned, else keeps its entries and measured-with line and only
+    appends the newly owned excess and the owned line. SKILLS: project-bootstrap declares sources as the transitive project-reference closure of
+    the component plus the test projects that reference it, read from the manifests with its repository tools
+    (the ProjectMap covers the workdir only), never guessed.
+    Backend first, then the skills release and pin.
   out: "Changing discovery's workdir or what scoping and verify read from it."
 
 decisions:
-  - key: "THE FIELD IS THE FIX. Inferring a component's libraries from layout is a heuristic; the bootstrap reads the project references and writes them down."
-  - key: "WORKDIR KEEPS ITS MEANING. Scoping, sandboxes and verify read workdir; only structure ownership widens."
+  - key: "THE FIELD IS THE FIX. Inferring libraries from layout is a heuristic; the bootstrap reads the references and writes them down."
+  - key: "A NEWLY OWNED DIRECTORY IS GREEN ON THE DAY IT IS OWNED. Its existing excess is baselined, as a new limit's is."
 
 steps:
   - id: contract
     action: "ContextYaml sources through read shape, serializer, summary, discovery, schema, writer description."
   - id: ownership
-    action: "StructureWorkdir ownership over workdir plus sources; baseline listing, gate and formatter plan use it."
+    action: "StructureOwnership (path → context, tie by name) used by gate, format plan and baseline; rules keyed by context."
+  - id: baseline
+    action: "Pathspecs per owned directory, sources read back, owned-directory header, newly owned excess added."
   - id: skills
     action: "project-bootstrap declares sources; release; pin."
 
 tests:
   - "RemoteContextDiscovery_SourcesDeclared_CarriesThem"
-  - "StructureOwnership_SourceDirectory_BelongsToItsContext"
+  - "StructureOwnership_SharedSource_OwnedByTheSmallestName"
   - "StructureBaseline_Sources_AreListedAndMeasured"
+  - "StructureBaseline_ReinitWithNewSources_AddsTheNewlyOwnedExcess"
   - "SpecFormatPlan_FileUnderSources_IsFormatted"
+  - "ContextSchema_SourceDot_IsRefused"
 
 done:
-  - "A harness init over an API project with a sibling library and sources declared baselines the library's oversized method; full suite green."
+  - "A harness re-init over an API project whose existing baseline did not own its sibling library, now declaring that library in sources, baselines the library's oversized method; a later spec touching the library passes the gate."
+  - "Full suite green."
