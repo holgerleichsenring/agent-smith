@@ -13,7 +13,7 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:76-82"
 
 scope:
-  in: "Judge every sandbox of a repository at the spec commit, each against the contexts it owns, or bring its edits into the pushed sandbox first."
+  in: "At the spec commit judge every sandbox of a repository against all of its contexts (Limits and baseline read once at the base), findings de-duplicated by path, key and metric; the PR-time divergence judgement stays on the primary, which already holds the consolidated edits."
   out: "Changing how the checkpoint pushes."
 
 steps:
@@ -22,6 +22,7 @@ steps:
 
 tests:
   - "StructureGate_SecondarySandboxExcess_IsFound"
+  - "StructureGate_SingleSandboxOrCleanSecondary_BehavesAsBefore"
 
 done:
   - "An excess written in a secondary sandbox is sent back at the spec commit; full suite green."
