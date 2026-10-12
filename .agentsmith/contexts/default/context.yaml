@@ -1108,6 +1108,7 @@ state:
     2026-10-12-f5f7b: "A SERIES IS READ ACROSS REPOSITORIES (series reader, pointer). Every run repo's sub-series is read and joined by the newest manifest's series_repos: id order, requires and done/ prefix checked, lagging members named not joined; per-repo shas on TicketSeries with legacy back-fill; one-repo series read unchanged. -> .agentsmith/specs/done/2026-10-12-f5f7b-series-multi-repo-read.yaml"
   active: {}
   planned:
+    2026-10-12-d142: "A TICKET THAT CANNOT BE SPLIT BY REPOSITORY PARKS AS ITS OWN CASE (spec hand-back). ScopeUnassigned with its own comment instead of the contradiction text. -> .agentsmith/specs/planned/2026-10-12-d142-handback-scope-unassigned.yaml"
     2026-10-12-f5f7d: "EACH SPEC IS WRITTEN WHERE IT WORKS (spec placement, filing, record). Own sub-series per repo in one stamped write, record rewrites its manifest, executed by id, no positional pick. -> .agentsmith/specs/planned/2026-10-12-f5f7d-series-per-repo-write.yaml"
     2026-10-12-f5f7e: "EVERY SERIES REPO GETS A SPEC PR (spec PRs, cross-link, references). Draft spec PR per repo, URL map with legacy key, cross-linked, reference sets carried once. -> .agentsmith/specs/planned/2026-10-12-f5f7e-series-spec-prs.yaml"
     2026-10-12-f5f7f: "A SPEC WRITE LANDS EVERYWHERE OR NOWHERE (publish, hand-back). Failed member push reverts the others; a series still out of step is handed back as its own case with real exits. -> .agentsmith/specs/planned/2026-10-12-f5f7f-series-out-of-step.yaml"

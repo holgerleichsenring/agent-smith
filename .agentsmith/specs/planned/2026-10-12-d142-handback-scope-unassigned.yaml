@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-d142
+goal: "A ticket handed back because its work cannot be assigned to one repository per spec parks as its own case, with a comment that says so — not as a contradiction with the repository."
+
+applies_to: "backend (spec hand-back)"
+
+requires: [2026-10-12-f5f7a, 2026-10-12-3a36b]
+
+facts:
+  - claim: "f5f7a hands a multi-repository ticket back when no cut names one repository per spec, as RequirementsContradictRepository with its own reason text."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecScopeHandback.cs:5-29"
+  - claim: "The comment for that case is headed 'the requirement contradicts what is in the repository' and doubles as the marker the repeat guard and the next run's conversation look for."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:8, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:37-77"
+  - claim: "3a36b treats the contradiction case specially: cites, a checker, stored branch heads and expiry on foreign commits; the repeat guard covers only that case."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:83-92, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:37"
+  - claim: "Every case but NotImplementable parks in the clarification status; the dashboard lists hand-backs by case number."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:27, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkHandbacks.cs:38"
+  - claim: "The cases are numbered explicitly, 0 to 5."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:50-86"
+
+assumptions: []
+
+scope:
+  in: "SpecHandbackCase.ScopeUnassigned appended as the next free number; SpecScopeHandback uses it; its own comment arm and the handler's result text; clarification park."
+  out: "Changing when the hand-back happens (f5f7a's rule stands)."
+
+decisions:
+  - key: "SAY WHAT HAPPENED: the work could not be divided between the repositories — nothing contradicts the code."
+  - key: "OUTSIDE THE CONTRADICTION MACHINERY: no cites, no checker, no stored heads, no repeat guard — a re-trigger after the person's answer simply cuts again."
+  - key: "APPENDED, NEVER RENUMBERED: the case is stored as an int; the next free value is taken when this is built (2026-10-12-f5f7f appends its own)."
+
+steps:
+  - id: case
+    action: "Append SpecHandbackCase.ScopeUnassigned; use it in SpecScopeHandback."
+    modify:
+      - "SpecHandback, SpecScopeHandback"
+  - id: texts
+    action: "Add its comment arm (heading 'the work could not be assigned to one repository per spec', the reason, how to answer) and its result line in SpecHandbackHandler."
+    modify:
+      - "SpecHandbackComment, SpecHandbackHandler"
+
+tests:
+  - "SpecScopeHandback_MultiRepo_IsScopeUnassigned"
+  - "SpecHandbackComment_ScopeUnassigned_NotTheContradictionText"
+  - "SpecHandbackRepeat_ScopeUnassigned_NeverARepeat"
+  - "SpecParkStatusResolver_ScopeUnassigned_Clarification"
+
+done:
+  - "A failed cut over two repositories posts the scope-unassigned comment and parks for clarification (RealCompositionHarness)."
