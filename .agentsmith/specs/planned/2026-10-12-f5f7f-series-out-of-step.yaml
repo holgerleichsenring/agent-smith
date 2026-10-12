@@ -22,13 +22,15 @@ assumptions: []
 
 scope:
   in: "In a series of more than one repository: a failed member push reverts the members already pushed (non-forcing push, lease pinned to our sha), records the revert shas, and fails the run with the reason; a lagging read becomes the SeriesOutOfStep hand-back; a named member not checked out fails the run naming it; a re-cut demand on an out-of-step series gets every member's done/ phases as an executed prefix."
-  out: "Single-repository series keep today's continue-from-memory on a failed write."
+  out: "Single-repository series: unchanged."
 
 decisions:
-  - key: "A FAILED SPEC WRITE STOPS A MULTI-REPOSITORY RUN: nothing later can re-stamp or push the half; the sandboxes are discarded with their local commits."
-  - key: "THE ROLLBACK NEVER FORCES: a revert pushed with a lease pinned to the sha this write pushed; a person's commit in between makes the rollback fail and the read later out of step — never overwritten."
-  - key: "REVERT SHAS ARE RECORDED, so the next run's sha comparison sees our own revert, not a reviewer's edit."
+  - key: "A FAILED SPEC WRITE STOPS A MULTI-REPOSITORY RUN: nothing later re-stamps or pushes the half."
+  - key: "NOTHING FORCES IN A MULTI-REPOSITORY WRITE: member pushes and reverts use a plain push (as CreateOnlyBranchPush does); a person's commit in between refuses ours — never overwritten. Only members actually pushed in this write (a pushed flag per member) are reverted; a member whose push created the branch keeps the branch with spec and revert, and reads as nothing at the series path."
+  - key: "EVERY MEMBER'S TREE IS RESET to its pre-write HEAD on rollback, so the failure tail's persist has nothing to push."
+  - key: "REVERT SHAS ARE RECORDED through a sha-map-only merge that keeps the stored revision, so the next run sees our own revert, not a reviewer's edit."
   - key: "SERIESOUTOFSTEP IS ITS OWN CASE with its own comment: name the lagging repositories; the way out is to write the re-cut demand phrase AND move the ticket back to a trigger status, or re-approve and re-file. It parks in the clarification status."
+  - key: "A RESUME ON A LAGGING READ HANDS BACK TOO: nothing works from a mixed state; only a re-cut demand ranks above."
   - key: "A PR COMMAND ON IT costs one run that hands back again before any model call — no loop runs by itself."
   - key: "NOT CHECKED OUT IS NOT OUT OF STEP: a named member outside the run's checkout fails the run naming it; widen the scope."
   - key: "NO TRACKER, NO CONTINUE: in the CLI without a tracker the case fails the run, as Refused does."
@@ -36,17 +38,17 @@ decisions:
 
 steps:
   - id: rollback
-    action: "On a failed member push in a multi-repository write, revert-push the members pushed in this write with a pinned lease, return the revert shas, record them, fail the publish step with the reason."
+    action: "In a multi-repository write push plainly; on a failed member, revert-push the members pushed in this write, reset every member's tree to its pre-write HEAD, record the revert shas through a sha-map-only merge, fail the publish step with the reason."
     modify:
-      - "SeriesWriter, SpecSetWriteResult, SpecSetPublisher, GitBranchPusher, SpecSetPointerRecorder"
+      - "SeriesWriter, SpecSetWriteResult (pushed flag per member), SpecSetPublisher, SandboxGitOperations (plain push + revert), SpecSetPointerRecorder (RecordShasAsync)"
   - id: case
-    action: "Add SpecHandbackCase.SeriesOutOfStep with its comment arm and clarification park; fail without a tracker."
+    action: "Append SpecHandbackCase.SeriesOutOfStep = 6 with its comment arm, clarification park and a NoTracker arm that fails."
     modify:
       - "SpecHandback, SpecHandbackComment, SpecParkStatusResolver, SpecHandbackHandler"
   - id: route
-    action: "Replace f5f7d's DeriveSpec failure: a lagging read hands back SeriesOutOfStep, ranked below a demand and a resume; a named member not checked out fails the run naming it."
+    action: "Replace f5f7d's DeriveSpec failure: a lagging read hands back SeriesOutOfStep (resume included), ranked below a demand; a named member not checked out is a typed SpecSetOnBranch state that fails the run naming it."
     modify:
-      - "SpecSourceResolver, SpecRevisionCause, DeriveSpecHandler"
+      - "SpecSourceResolver, SpecRevisionCause, DeriveSpecHandler, SpecSetOnBranch"
   - id: demand
     action: "On a demand for an out-of-step series, read every member's done/ phases and build the previous set as that executed prefix followed by the newest members' unexecuted specs."
     modify:
@@ -55,6 +57,8 @@ steps:
 tests:
   - "SeriesWriter_PushFailsInB_RevertsA_RecordsRevertSha_FailsRun"
   - "SeriesWriter_Rollback_PersonCommitInBetween_NotForced"
+  - "SeriesWriter_FailsBeforeCommitInB_TreeRestored_NothingPersisted"
+  - "SeriesWriter_UnchangedMember_NotReverted"
   - "SpecSourceResolver_LaggingRead_HandsBackOutOfStep_NoModel"
   - "SpecSourceResolver_NamedMemberNotCheckedOut_FailsRunNamingIt"
   - "SpecHandbackComment_OutOfStep_NamesReposAndBothExits"
