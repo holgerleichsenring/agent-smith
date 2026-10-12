@@ -85,12 +85,12 @@ public static partial class CommandNames
     /// spec, in order. The sequence is where termination comes from: each spec ends at
     /// its own done-list and its own VerifySpec, so stopping is structural instead of a
     /// judgement the model has to reach.</summary>
-    public const string SpecSequence = "PhaseSequenceCommand";
+    public const string SpecSequence = "SpecSequenceCommand";
 
     /// <summary>p0393a: makes one spec of the derived sequence the current one. Everything
     /// downstream reads ContextKeys.CurrentSpec, so this is the only wiring the sequence
     /// needs and no other handler learns that sequences exist.</summary>
-    public const string SelectSpec = "SelectPhaseCommand";
+    public const string SelectSpec = "SelectSpecCommand";
 
     /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.
     /// Emits agent_smith_pipeline_skipped_as_irrelevant_total with reason='empty_plan' and
@@ -124,7 +124,7 @@ public static partial class CommandNames
     /// <summary>p0315d, p0393a: asserts a validated spec set exists and publishes the
     /// first spec as ContextKeys.CurrentSpec. Fails loud when the run carries no valid
     /// spec — before any master tokens are spent.</summary>
-    public const string SpecGate = "PhaseSpecGateCommand";
+    public const string SpecGate = "SpecGateCommand";
 
     /// <summary>p0315d: posts a question the master captured mid-run (ask_human
     /// on a ticket-triggered run) as a p0318 open-questions ticket comment and

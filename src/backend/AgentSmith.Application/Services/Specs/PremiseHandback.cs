@@ -38,14 +38,14 @@ public static class PremiseHandback
     /// is made. <paramref name="hasPullRequest"/> decides which of the two true wordings for
     /// that last part is used — a first-spec hand-back has opened none.</summary>
     public static string Notice(
-        PhaseDraft draft, IReadOnlyList<PremiseFinding> findings, bool hasPullRequest)
+        SpecDraft draft, IReadOnlyList<PremiseFinding> findings, bool hasPullRequest)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(findings);
         var sb = new StringBuilder().AppendLine(Heading).AppendLine();
-        sb.AppendLine($"<!-- {Marker(draft.PhaseId)} -->").AppendLine();
+        sb.AppendLine($"<!-- {Marker(draft.SpecId)} -->").AppendLine();
         sb.AppendLine(
-            $"Spec {draft.PhaseId} ({draft.Goal}) was not built. Before its work started, a "
+            $"Spec {draft.SpecId} ({draft.Goal}) was not built. Before its work started, a "
             + "fresh instance checked what the specification says it rests on against the "
             + "repositories as they are now, and read otherwise:").AppendLine();
         foreach (var finding in findings)

@@ -78,9 +78,9 @@ public sealed class TicketEditNoticeTests
         SpecAccounting.Empty,
         [.. causes.Select((cause, i) => new SpecRevision(i + 1, cause, DateTimeOffset.UtcNow))],
         SpecSource.BranchArtifact,
-        ExecutedPhaseIds: ["p1a"]);
+        ExecutedSpecIds: ["p1a"]);
 
-    private static SpecPhase Spec(string id, string goal) => new(
-        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
+    private static DerivedSpec Spec(string id, string goal) => new(
+        new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
         id, string.Empty, []);
 }

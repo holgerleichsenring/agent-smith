@@ -108,7 +108,7 @@ public sealed class TicketLabelNoteFilingTests
         report.Error.Should().BeNull();
     }
 
-    private static PhaseDraft Draft(string id) =>
+    private static SpecDraft Draft(string id) =>
         new(id, $"spec {id}",
             $"spec: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
             []) { Done = [$"{id} is finished"] };

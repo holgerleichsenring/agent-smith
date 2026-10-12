@@ -20,7 +20,7 @@ public static class AcceptanceCriteria
     public static IReadOnlyList<string> For(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft)
+        if (pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft)
             && draft is { Done.Count: > 0 })
             return draft.Done;
         // p0429: a scan states its targets before it looks, and they are ratified the
@@ -37,6 +37,6 @@ public static class AcceptanceCriteria
     /// the ticket" are different promises to a reviewer.
     /// </summary>
     public static bool FromSpec(PipelineContext pipeline) =>
-        pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft)
+        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft)
         && draft is { Done.Count: > 0 };
 }

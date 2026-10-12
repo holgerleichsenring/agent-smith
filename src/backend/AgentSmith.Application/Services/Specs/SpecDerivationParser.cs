@@ -36,7 +36,7 @@ public sealed class SpecDerivationParser(
     /// <param name="taken">2026-10-12-f5f7d: ids a new spec must not take; see <see cref="SeriesTakenIds"/>.</param>
     public Parsed Parse(
         string? reply, string key, string series, string ticketId, IReadOnlyList<TicketSegment> segments,
-        SpecSource source, IReadOnlyList<SpecPhase>? executedHead = null,
+        SpecSource source, IReadOnlyList<DerivedSpec>? executedHead = null,
         IReadOnlyList<string>? evidence = null, IReadOnlyList<string>? scope = null,
         IReadOnlyList<string>? taken = null)
     {
@@ -65,7 +65,7 @@ public sealed class SpecDerivationParser(
     private Parsed Build(
         JsonElement root, SeriesOf owner, string ticketId,
         IReadOnlyList<TicketSegment> segments, SpecSource source,
-        IReadOnlyList<SpecPhase> executedHead, SpecInputs inputs)
+        IReadOnlyList<DerivedSpec> executedHead, SpecInputs inputs)
     {
         var handback = envelope.Handback(root);
         if (handback is not null)
@@ -102,7 +102,7 @@ public sealed class SpecDerivationParser(
             new SpecDerivation(
                 new SpecSet(
                     owner.Key, built, accounting, [Initial()], source,
-                    ExecutedPhaseIds: [.. executedHead.Select(p => p.PhaseId)],
+                    ExecutedSpecIds: [.. executedHead.Select(p => p.SpecId)],
                     Series: owner.Series),
                 envelope.IgnoredInstructions(root)),
             null);

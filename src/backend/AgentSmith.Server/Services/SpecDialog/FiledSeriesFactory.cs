@@ -13,10 +13,10 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class FiledSeriesFactory(SeriesIdFactory ids, SeriesDraftIds draftIds)
 {
     /// <summary>A freshly minted series of <paramref name="ordered"/>.</summary>
-    public FiledSeries Mint(IReadOnlyList<PhaseDraft> ordered) => Under(ids.Mint(), ordered);
+    public FiledSeries Mint(IReadOnlyList<SpecDraft> ordered) => Under(ids.Mint(), ordered);
 
     /// <summary>The drafts re-id'd under a known base.</summary>
-    public FiledSeries Under(string series, IReadOnlyList<PhaseDraft> ordered) =>
+    public FiledSeries Under(string series, IReadOnlyList<SpecDraft> ordered) =>
         new(series, draftIds.Assign(series, ordered));
 
     /// <summary>The base the ticket's approval record carries, or a fresh one for a record made

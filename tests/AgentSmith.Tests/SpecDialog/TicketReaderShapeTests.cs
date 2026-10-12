@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
 /// 2026-10-01-f5c3b: a filed spec or epic ticket reads goal, Why, What changes, Acceptance
-/// criteria, Out of scope, Preconditions — and its criteria read back as PhaseDraft.Done from
+/// criteria, Out of scope, Preconditions — and its criteria read back as SpecDraft.Done from
 /// every encoding a tracker hands a body back in. A bug's criteria are list items too.
 /// </summary>
 public sealed class TicketReaderShapeTests
@@ -36,7 +36,7 @@ public sealed class TicketReaderShapeTests
             then: the same widget is returned
         """;
 
-    private static readonly PhaseDraft Draft = new SpecDraftReader().Read(Yaml);
+    private static readonly SpecDraft Draft = new SpecDraftReader().Read(Yaml);
 
     [Fact]
     public void RequirementBody_LeadsWithTheGoalThenWhyWhatChangesCriteriaOutOfScope()

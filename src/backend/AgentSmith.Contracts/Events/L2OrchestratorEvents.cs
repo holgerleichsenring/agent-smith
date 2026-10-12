@@ -3,7 +3,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
-/// p0466: <see cref="DecisionLoggedEvent.PhaseId"/> is the spec the decision was taken
+/// p0466: <see cref="DecisionLoggedEvent.SpecId"/> is the spec the decision was taken
 /// in, read from the ambient step frame the runner opens. Null outside any spec and on
 /// pre-p0466 payloads — a decision with no spec is unattributed, never guessed.
 /// </summary>
@@ -14,7 +14,7 @@ public sealed record DecisionLoggedEvent(
     string? Over,
     string Reason,
     DateTimeOffset Timestamp,
-    [property: AcceptedName("SpecId")] string? PhaseId = null)
+    [property: AcceptedName("PhaseId")] string? SpecId = null)
     : RunEvent(RunId, EventType.DecisionLogged, Timestamp);
 
 public sealed record GateCheckedEvent(

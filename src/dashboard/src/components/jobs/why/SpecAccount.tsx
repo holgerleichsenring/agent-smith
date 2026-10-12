@@ -19,9 +19,9 @@ export interface SpecAccountProps {
 export function SpecAccount({ spec, calls, commands }: SpecAccountProps) {
   const failed = spec.failedCommands > 0 || spec.calls.failedCalls > 0;
   return (
-    <section className="card" data-testid="spec-account" data-spec={spec.phaseId ?? ""}>
+    <section className="card" data-testid="spec-account" data-spec={spec.specId ?? ""}>
       <div className="card-h">
-        <h3>{spec.phaseId ? `Spec ${spec.phaseId}` : "Steps outside any spec"}</h3>
+        <h3>{spec.specId ? `Spec ${spec.specId}` : "Steps outside any spec"}</h3>
         <span className={failed ? "badge bad" : "badge neu"} data-testid="spec-verdict">
           {failed ? "something did not pass" : "nothing failed"}
         </span>

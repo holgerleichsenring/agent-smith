@@ -70,7 +70,7 @@ internal static class AcceptanceSnapshot
 
     private static IReadOnlyList<DeclinedCriterionView>? DeclinedViews(IReadOnlyList<DeclinedCriterion>? declined) =>
         declined is not { Count: > 0 } ? null
-            : [.. declined.Select(d => new DeclinedCriterionView(d.Criterion, d.Reason, d.PhaseId))];
+            : [.. declined.Select(d => new DeclinedCriterionView(d.Criterion, d.Reason, d.SpecId))];
 
     /// <summary>The spec IS the contract on this path — nobody edited it into one, so
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>

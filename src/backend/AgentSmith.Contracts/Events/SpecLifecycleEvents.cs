@@ -20,15 +20,15 @@ namespace AgentSmith.Contracts.Events;
 /// <param name="Verdict">Why the standing is what it is — the failing command of a
 /// stopped spec, or the note explaining a spec that was through before it started.
 /// Null while the spec is simply running.</param>
-public sealed record PhaseStateChangedEvent(
+public sealed record SpecStateChangedEvent(
     string RunId,
-    [property: AcceptedName("SpecId")] string PhaseId,
+    [property: AcceptedName("PhaseId")] string SpecId,
     int Ordinal,
     string Title,
-    PhaseRunState State,
+    SpecRunState State,
     string? Verdict,
     DateTimeOffset Timestamp)
-    : RunEvent(RunId, EventType.PhaseStateChanged, Timestamp);
+    : RunEvent(RunId, EventType.SpecStateChanged, Timestamp);
 
 /// <summary>
 /// p0466: the spec a spec actually executed, verbatim, as WriteSpecRecord wrote it
@@ -36,23 +36,23 @@ public sealed record PhaseStateChangedEvent(
 /// reaches the server, so a finished spec can be opened after the branch is merged and
 /// the sandbox is gone.
 /// </summary>
-public sealed record PhaseRecordedEvent(
+public sealed record SpecRecordedEvent(
     string RunId,
-    [property: AcceptedName("SpecId")] string PhaseId,
+    [property: AcceptedName("PhaseId")] string SpecId,
     string Body,
     DateTimeOffset Timestamp)
-    : RunEvent(RunId, EventType.PhaseRecorded, Timestamp);
+    : RunEvent(RunId, EventType.SpecRecorded, Timestamp);
 
 /// <summary>
 /// 2026-09-17-042eh: what a fresh instance reported against the spec's own diff, as JSON.
 /// The record body states it in prose for whoever opens the spec; this row is what a reader
 /// asks for it BY SPEC, without parsing a markdown body back apart.
 /// </summary>
-/// <param name="ReportJson">A serialised PhaseReviewReport. An OBJECT, not a bare array:
+/// <param name="ReportJson">A serialised SpecReviewReport. An OBJECT, not a bare array:
 /// `reviewed` false says nobody was asked and `why` names which reason it was.</param>
-public sealed record PhaseReviewedEvent(
+public sealed record SpecReviewedEvent(
     string RunId,
-    [property: AcceptedName("SpecId")] string PhaseId,
+    [property: AcceptedName("PhaseId")] string SpecId,
     string ReportJson,
     DateTimeOffset Timestamp)
-    : RunEvent(RunId, EventType.PhaseReviewed, Timestamp);
+    : RunEvent(RunId, EventType.SpecReviewed, Timestamp);

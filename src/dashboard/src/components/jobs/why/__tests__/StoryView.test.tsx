@@ -22,24 +22,24 @@ function stats(over: Partial<RunStatistics["totals"]> = {}): RunStatistics["tota
 }
 
 const SPEC: RunSpecStatistics = {
-  phaseId: "p1", steps: 4, durationMs: 1_980_000,
+  specId: "p1", steps: 4, durationMs: 1_980_000,
   calls: stats(), commands: 3, failedCommands: 1,
 };
 
 function call(index: number, promptChars: number, answerChars: number): RunCallPoint {
   return {
-    index, phaseId: "p1", stepIndex: 2, role: "agentic-executor", model: "sonnet",
+    index, specId: "p1", stepIndex: 2, role: "agentic-executor", model: "sonnet",
     promptChars, answerChars, durationMs: 9_300, throttleWaitMs: 0, outcome: "Ok", attempt: 1,
   };
 }
 
 const COMMANDS: RunCommandPoint[] = [
   {
-    index: 1, phaseId: "p1", stepIndex: 2, repo: "server", command: "dotnet build",
+    index: 1, specId: "p1", stepIndex: 2, repo: "server", command: "dotnet build",
     exitCode: 0, durationMs: 41_000, outputChars: 12_400, deliveredChars: 12_400, attempt: 1,
   },
   {
-    index: 2, phaseId: "p1", stepIndex: 3, repo: "server", command: "dotnet test",
+    index: 2, specId: "p1", stepIndex: 3, repo: "server", command: "dotnet test",
     exitCode: 1, durationMs: 96_000, outputChars: 412_000, deliveredChars: 100_048, attempt: 1,
   },
 ];
@@ -100,7 +100,7 @@ describe("The story view", () => {
   it("TicketStatistics_ComeFromTheTrail_NotFromCounters", () => {
     const statistics: RunStatistics = {
       totals: stats(), totalDurationMs: 2_040_000,
-      phases: [SPEC, { ...SPEC, phaseId: "p2" }],
+      specs: [SPEC, { ...SPEC, specId: "p2" }],
       calls: [], commands: [], truncated: false,
     };
 
@@ -121,7 +121,7 @@ describe("The story view", () => {
     render(
       <TicketStatistics
         statistics={{
-          totals: stats(), totalDurationMs: 1, phases: [], calls: [], commands: [], truncated: false,
+          totals: stats(), totalDurationMs: 1, specs: [], calls: [], commands: [], truncated: false,
         }}
         acceptance={{
           criteria: [], outcome: "verbatim", ratifiedBy: "spec", source: "delivery_account",
@@ -140,7 +140,7 @@ describe("The story view", () => {
     render(
       <TicketStatistics
         statistics={{
-          totals: stats(), totalDurationMs: 1, phases: [], calls: [], commands: [], truncated: true,
+          totals: stats(), totalDurationMs: 1, specs: [], calls: [], commands: [], truncated: true,
         }}
         acceptance={null}
       />,

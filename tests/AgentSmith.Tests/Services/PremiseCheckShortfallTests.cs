@@ -31,8 +31,8 @@ public sealed class PremiseCheckShortfallTests
             .Returns(() =>
             {
                 new RunShortfall(
-                    [new PhaseProgress("p0001a", "a", PhaseRunState.Done)],
-                    [new PhaseProgress("p0001b", "b", PhaseRunState.HandedBack)],
+                    [new SpecProgress("p0001a", "a", SpecRunState.Done)],
+                    [new SpecProgress("p0001b", "b", SpecRunState.HandedBack)],
                     "a premise of p0001b no longer holds").MarkDelivered(pipeline);
                 return Task.FromResult(CommandResult.Ok("delivered"));
             });

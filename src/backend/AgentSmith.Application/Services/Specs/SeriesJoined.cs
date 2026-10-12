@@ -11,14 +11,14 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed record SeriesJoined(SpecSetOnBranch? Otherwise)
 {
     public SubSeriesRead? Newest { get; init; }
-    public IReadOnlyList<SpecPhase> Specs { get; init; } = [];
+    public IReadOnlyList<DerivedSpec> Specs { get; init; } = [];
     public IReadOnlyList<string> Executed { get; init; } = [];
     public IReadOnlyDictionary<string, string> Shas { get; init; } = new Dictionary<string, string>();
     public IReadOnlyList<string> Lagging { get; init; } = [];
 
     /// <summary>2026-10-12-f5f7f: with lagging members, every member's executed specs by id followed by
     /// the newest members' unexecuted ones, and the executed ids; null when nothing lags.</summary>
-    public (IReadOnlyList<SpecPhase> Phases, IReadOnlyList<string> Executed)? OutOfStep { get; init; }
+    public (IReadOnlyList<DerivedSpec> Phases, IReadOnlyList<string> Executed)? OutOfStep { get; init; }
 
     public static SeriesJoined Unreadable(string why) => new(SpecSetOnBranch.Unreadable(why));
 

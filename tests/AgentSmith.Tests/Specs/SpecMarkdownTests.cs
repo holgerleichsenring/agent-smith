@@ -91,7 +91,7 @@ public sealed class SpecMarkdownTests
     {
         var set = Set(Spec()) with
         {
-            Phases = [],
+            Specs = [],
             Handback = new SpecHandback(
                 SpecHandbackCase.Question, "reads two ways",
                 Readings: ["only where an advisory forces it", "everywhere"], Taken: 1),
@@ -104,15 +104,15 @@ public sealed class SpecMarkdownTests
         markdown.Should().Contain("- (b) everywhere _(taken if nobody answers)_");
     }
 
-    private static SpecPhase Spec(IReadOnlyList<string>? done = null, string document = "")
+    private static DerivedSpec Spec(IReadOnlyList<string>? done = null, string document = "")
         => new(
-            new PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
+            new SpecDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = done ?? [],
             },
             "rename", document, []);
 
-    private static SpecSet Set(SpecPhase spec) => new(
+    private static SpecSet Set(DerivedSpec spec) => new(
         "azdo-19106", [spec], SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],
         SpecSource.Derived, TicketPinnedWhole: true);

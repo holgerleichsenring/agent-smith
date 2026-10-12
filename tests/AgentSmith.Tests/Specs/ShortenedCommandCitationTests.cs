@@ -24,7 +24,7 @@ public sealed class ShortenedCommandCitationTests
     /// </summary>
     private static string EvidenceLine()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("Sample.Server", Scan, "exit_code: 0\n\nstdout:\nNo MassTransit references found");
         return log.Evidence().Single();
     }
@@ -74,7 +74,7 @@ public sealed class ShortenedCommandCitationTests
     [Fact]
     public void Citation_TwoSearchesDifferingOnlyInTheirPath_AreNotBothNamedByTheirSharedHead()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         var flags = new string('f', 200); // enough that the command is shortened, which is the case at issue
         log.Record("Sample.Server", $"grep -RIn 'LocalQueue' {flags} /work/Sample.Server/src", "exit_code: 1");
         log.Record("Sample.Worker", $"grep -RIn 'LocalQueue' {flags} /work/Sample.Worker/src", "exit_code: 1");

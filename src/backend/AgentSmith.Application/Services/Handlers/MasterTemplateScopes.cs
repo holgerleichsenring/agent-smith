@@ -36,7 +36,7 @@ public sealed class MasterTemplateScopes(
     /// the same gate the toolchain probe uses, so neither surface pays for a clone.
     /// </param>
     public async Task<MasterTemplateAttachment> OpenAsync(
-        PipelineContext pipeline, PhaseDraft? draft, bool readOnlySurface,
+        PipelineContext pipeline, SpecDraft? draft, bool readOnlySurface,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

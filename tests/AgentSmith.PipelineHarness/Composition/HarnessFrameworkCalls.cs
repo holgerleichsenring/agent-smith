@@ -45,7 +45,7 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
     }
 
     public Task<SpecCutReview> ReviewAsync(
-        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
         AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(drafts);
@@ -53,7 +53,7 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
         List<CutFinding> against;
         lock (_findings)
             against = [.. _findings.Where(f => drafts.Any(d =>
-                string.Equals(d.PhaseId, f.SpecId, StringComparison.OrdinalIgnoreCase)))];
+                string.Equals(d.SpecId, f.SpecId, StringComparison.OrdinalIgnoreCase)))];
         return Task.FromResult(against.Count == 0 ? SpecCutReview.Clean : new SpecCutReview(against));
     }
 }
@@ -61,7 +61,7 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
 /// <summary>One review the framework asked for: the drafts, the key it was charged under, the
 /// ticket behind them (none, for a design turn) and the repositories its look could name.</summary>
 internal sealed record ReviewAsked(
-    IReadOnlyList<PhaseDraft> Drafts, string Key, string? TicketText, IReadOnlyList<string> Repositories);
+    IReadOnlyList<SpecDraft> Drafts, string Key, string? TicketText, IReadOnlyList<string> Repositories);
 
 /// <summary>
 /// 2026-09-17-0e79c: the premise check is the same kind of call and gets the same treatment —
@@ -88,8 +88,8 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
     }
 
     public Task<PremiseCheck> CheckAsync(
-        PhaseDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
+        SpecDraft draft, SpecPremises premises, DerivationLook look,
+        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -99,7 +99,7 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
         lock (Asked)
         {
             Asked.Add(new PremiseAsked(
-                draft.PhaseId, premises.Claims, [.. alreadyRan.Select(p => p.PhaseId)],
+                draft.SpecId, premises.Claims, [.. alreadyRan.Select(p => p.SpecId)],
                 look?.Repositories ?? []));
             call = Asked.Count;
         }

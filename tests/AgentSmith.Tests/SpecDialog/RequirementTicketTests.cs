@@ -40,7 +40,7 @@ public sealed class RequirementTicketTests
 
     // 2026-10-01-f5c3a: read, not constructed — the body lists the draft's done list, which
     // only the reader fills.
-    private static readonly PhaseDraft Draft =
+    private static readonly SpecDraft Draft =
         new SpecDraftReader().Read(Yaml) with { Requires = ["p9000", "2026-09-17-042ea"] };
 
     [Fact]
@@ -86,7 +86,7 @@ public sealed class RequirementTicketTests
     [Fact]
     public void RequirementTicket_EpicParent_KeepsAnOutsideSpecIdRequirement()
     {
-        var parent = new PhaseDraft("p9000", "Widget platform", "spec: p9000\ngoal: Widget platform", ["p8000"]);
+        var parent = new SpecDraft("p9000", "Widget platform", "spec: p9000\ngoal: Widget platform", ["p8000"]);
 
         var body = new SpecTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
 

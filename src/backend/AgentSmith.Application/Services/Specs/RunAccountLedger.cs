@@ -18,8 +18,8 @@ public static class RunAccountLedger
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (accounts is not { Count: > 0 }) return;
-        var specId = pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
-            ? draft.PhaseId
+        var specId = pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
+            ? draft.SpecId
             : "run";
         pipeline.Set(ContextKeys.RunAccounts, Current(pipeline).With(specId, accounts));
     }

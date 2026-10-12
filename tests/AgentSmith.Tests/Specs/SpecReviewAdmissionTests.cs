@@ -104,13 +104,13 @@ public sealed class SpecReviewAdmissionTests
         Admit(Finding(cites: null), Look()).Should().BeEmpty();
     }
 
-    private static IReadOnlyList<PhaseFinding> Admit(PhaseFinding finding, DerivationLook look) =>
+    private static IReadOnlyList<SpecFinding> Admit(SpecFinding finding, DerivationLook look) =>
         new SpecReviewAdmission(NullLogger.Instance).Admit([finding], [Diff()], look);
 
     private static SpecDiff Diff() =>
         new(Repo, "diff --git a/" + Path + " b/" + Path, [Path], [], "the commit this spec started at");
 
-    private static PhaseFinding Finding(string? path = null, int line = 4, string? cites = "P1") =>
+    private static SpecFinding Finding(string? path = null, int line = 4, string? cites = "P1") =>
         new(Repo, path ?? Path, line, "files stay under 120 lines", "this one is 400", cites);
 
     private static EvidenceRecord Read(string path, int lines) =>

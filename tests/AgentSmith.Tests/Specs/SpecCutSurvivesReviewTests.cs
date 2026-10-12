@@ -50,7 +50,7 @@ public sealed class SpecCutSurvivesReviewTests
 
         derivation.Should().NotBeNull(
             "two specs with one objection beat one spec carrying the whole ticket");
-        derivation!.Set.Phases.Should().HaveCount(2);
+        derivation!.Set.Specs.Should().HaveCount(2);
         error.Should().Contain("p19106b").And.Contain("not-in-ticket",
             "keeping the cut does not mean hiding what was found against it");
     }
@@ -123,7 +123,7 @@ public sealed class SpecCutSurvivesReviewTests
     private sealed class FixedReviewer(SpecCutReview verdict) : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(verdict);
     }

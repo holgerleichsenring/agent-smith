@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Specs;
 public interface ISpecPremiseChecker
 {
     Task<PremiseCheck> CheckAsync(
-        PhaseDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
+        SpecDraft draft, SpecPremises premises, DerivationLook look,
+        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken);
 }

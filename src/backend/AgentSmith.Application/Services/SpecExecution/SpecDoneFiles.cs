@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.SpecExecution;
 public sealed class SpecDoneFiles
 {
     public async Task<SpecDoneMove> WriteAsync(
-        ISandboxFileReader files, SpecPhase spec, string body, CancellationToken cancellationToken)
+        ISandboxFileReader files, DerivedSpec spec, string body, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(files);
         ArgumentNullException.ThrowIfNull(spec);
@@ -31,11 +31,11 @@ public sealed class SpecDoneFiles
         return new SpecDoneMove(written, Planned(spec));
     }
 
-    private static IReadOnlyList<string> Planned(SpecPhase spec) =>
+    private static IReadOnlyList<string> Planned(DerivedSpec spec) =>
         [SeriesPaths.Spec(SeriesPaths.Planned, spec.FileStem),
             SeriesPaths.Companion(SeriesPaths.Planned, spec.FileStem), .. PlannedMocks(spec)];
 
-    private static IEnumerable<string> PlannedMocks(SpecPhase spec) =>
+    private static IEnumerable<string> PlannedMocks(DerivedSpec spec) =>
         (spec.MockPaths ?? []).Where(p => p.StartsWith(SeriesPaths.Planned + "/", StringComparison.Ordinal));
 
     private static async Task<string> WriteAsync(

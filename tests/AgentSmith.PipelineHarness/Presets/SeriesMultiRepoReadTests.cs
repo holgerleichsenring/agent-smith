@@ -33,7 +33,7 @@ public sealed class SeriesMultiRepoReadTests
             harness.Services.GetRequiredService<ISpecSetReader>(), "Server", both);
 
         result.State.Should().Be(SpecSetBranchState.Answered);
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal(
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal(
             SeriesRepoBranches.Id('a'), SeriesRepoBranches.Id('b'), SeriesRepoBranches.Id('c'));
         result.Read!.RevisionShas.Keys.Should().BeEquivalentTo(both);
         result.Read.Lagging.Should().BeEmpty();

@@ -25,13 +25,13 @@ public sealed class RunStatisticsFoldTests
 
         view.Totals.Calls.Should().Be(3);
         view.TotalDurationMs.Should().Be(210_000, "the ticket lasts as long as its specs did");
-        view.Phases.Should().HaveCount(2);
-        view.Phases[0].PhaseId.Should().Be("p1");
-        view.Phases[0].Steps.Should().Be(2);
-        view.Phases[0].DurationMs.Should().Be(90_000);
-        view.Phases[0].Calls.Calls.Should().Be(2);
-        view.Phases[1].PhaseId.Should().Be("p2");
-        view.Phases[1].Calls.Calls.Should().Be(1);
+        view.Specs.Should().HaveCount(2);
+        view.Specs[0].SpecId.Should().Be("p1");
+        view.Specs[0].Steps.Should().Be(2);
+        view.Specs[0].DurationMs.Should().Be(90_000);
+        view.Specs[0].Calls.Calls.Should().Be(2);
+        view.Specs[1].SpecId.Should().Be("p2");
+        view.Specs[1].Calls.Calls.Should().Be(1);
     }
 
     [Fact]
@@ -39,10 +39,10 @@ public sealed class RunStatisticsFoldTests
     {
         var view = RunStatisticsFold.Fold(Trail(), TwoSpecs);
 
-        view.Phases[0].Commands.Should().Be(1);
-        view.Phases[0].FailedCommands.Should().Be(0);
-        view.Phases[1].Commands.Should().Be(1);
-        view.Phases[1].FailedCommands.Should().Be(1, "exit code 1 is the evidence, not the summary");
+        view.Specs[0].Commands.Should().Be(1);
+        view.Specs[0].FailedCommands.Should().Be(0);
+        view.Specs[1].Commands.Should().Be(1);
+        view.Specs[1].FailedCommands.Should().Be(1, "exit code 1 is the evidence, not the summary");
         view.Commands.Select(c => c.ExitCode).Should().Equal(0, 1);
     }
 
@@ -58,7 +58,7 @@ public sealed class RunStatisticsFoldTests
         view.Calls.Select(c => c.Index).Should().Equal(1, 2, 3);
         view.Calls.Select(c => c.PromptChars).Should().Equal(151_040, 216_004, 356_632);
         view.Calls.Select(c => c.AnswerChars).Should().Equal(3_886, 969, 0);
-        view.Calls.Select(c => c.PhaseId).Should().Equal("p1", "p1", "p2");
+        view.Calls.Select(c => c.SpecId).Should().Equal("p1", "p1", "p2");
         view.Calls[2].Outcome.Should().Be(nameof(WorkOutcome.Cancelled));
         view.Truncated.Should().BeFalse();
     }
@@ -83,9 +83,9 @@ public sealed class RunStatisticsFoldTests
         var view = RunStatisticsFold.Fold(
             [Call(1, 10, 10, 1)], [new RunStepFacts(1, null, 5_000)]);
 
-        view.Phases.Should().HaveCount(1);
-        view.Phases[0].PhaseId.Should().BeNull();
-        view.Phases[0].Calls.Calls.Should().Be(1);
+        view.Specs.Should().HaveCount(1);
+        view.Specs[0].SpecId.Should().BeNull();
+        view.Specs[0].Calls.Calls.Should().Be(1);
     }
 
     /// <summary>

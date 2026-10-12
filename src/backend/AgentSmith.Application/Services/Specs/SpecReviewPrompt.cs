@@ -20,7 +20,7 @@ public static class SpecReviewPrompt
     public const int MaxPrinciplesChars = 40_000;
 
     public static string For(
-        PhaseDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look)
+        SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);

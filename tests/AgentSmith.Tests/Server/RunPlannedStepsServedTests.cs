@@ -54,8 +54,8 @@ public sealed class RunPlannedStepsServedTests : IDisposable
         rail.Take(2).Should().OnlyContain(s => !s.Planned);
         rail.Skip(2).Should().OnlyContain(s => s.Planned);
         rail[2].DisplayName.Should().Be(CommandDisplayNames.Get(CommandNames.AgenticMaster));
-        rail[2].PhaseId.Should().Be("p19106a", "planned rows are grouped by spec like executed ones");
-        rail.Last().PhaseId.Should().Be("p19106b");
+        rail[2].SpecId.Should().Be("p19106a", "planned rows are grouped by spec like executed ones");
+        rail.Last().SpecId.Should().Be("p19106b");
     }
 
     [Fact]

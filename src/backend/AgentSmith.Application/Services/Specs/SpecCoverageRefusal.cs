@@ -33,7 +33,7 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
             + " were neither carried by a spec nor discarded with a reason", cancellationToken);
         return fallback.Build(
             key, series, ticket, segments,
-            [.. refused.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
+            [.. refused.Specs.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
             source, scope);
     }
 }

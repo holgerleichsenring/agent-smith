@@ -79,8 +79,8 @@ public sealed class SpecEntryAccountTests
         result.Message.Should().Contain("already satisfied by the branch");
         result.Message.Should().Contain("src/Handler.cs", "an operator must see WHAT satisfied it");
         var progress = pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
-        progress.Phases.Single(p => p.PhaseId == "p1").State.Should().Be(PhaseRunState.Done);
-        progress.Phases.Single(p => p.PhaseId == "p1").Note
+        progress.Specs.Single(p => p.SpecId == "p1").State.Should().Be(SpecRunState.Done);
+        progress.Specs.Single(p => p.SpecId == "p1").Note
             .Should().Be(SelectSpecHandler.AlreadySatisfiedNote);
         pipeline.Get<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts).Should().ContainSingle(
             "the spec record renders the account it was skipped on");
@@ -97,7 +97,7 @@ public sealed class SpecEntryAccountTests
 
         result.DropAhead.Should().BeNull("one outstanding criterion is a spec with work left");
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == "p1").State.Should().Be(PhaseRunState.InProgress);
+            .Specs.Single(p => p.SpecId == "p1").State.Should().Be(SpecRunState.InProgress);
     }
 
     [Fact]
@@ -189,8 +189,8 @@ public sealed class SpecEntryAccountTests
 
     private static SpecSet Set(IReadOnlyList<string> done) => new(
         "azdo-1",
-        [new SpecPhase(
-            new PhaseDraft("p1", "Migrate the handler", "spec: p1", []) { Done = done },
+        [new DerivedSpec(
+            new SpecDraft("p1", "Migrate the handler", "spec: p1", []) { Done = done },
             "p1", string.Empty, [])],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

@@ -143,7 +143,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
             "code", new AgentConfig(), SkillsPath: string.Empty, CodingPrinciplesPath: null));
         // The criteria come from the RATIFIED spec, never from the caller — the accounting
         // measures what was agreed before the work, which is the whole point.
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft(
             "p1", "localise the greeting", "goal: localise the greeting", [])
             { Done = criteria });
         var accounts = await accounting.TakeAsync(

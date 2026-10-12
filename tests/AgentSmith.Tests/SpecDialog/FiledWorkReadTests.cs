@@ -298,10 +298,10 @@ public sealed class FiledWorkReadTests : IDisposable
         review.Findings.Single().Why.Should().Be("the catch body logs nothing");
     }
 
-    /// <summary>2026-10-12-967aa: a review a later release stored under <c>spec_review:</c> reads
-    /// exactly as one stored under <c>phase_review:</c>.</summary>
+    /// <summary>2026-10-12-967aa/967ab: a review the release before the rename stored under the old
+    /// kind reads exactly as one stored under <c>spec_review:</c>.</summary>
     [Fact]
-    public async Task FiledWork_SpecReviewArtifactKind_CarriesItsFindings()
+    public async Task FiledWork_OldReviewArtifactKind_CarriesItsFindings()
     {
         await ReviewedAsync(
             """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4,"rule":"r","why":"w"}]}""",
@@ -388,7 +388,7 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     /// <summary>
-    /// PhaseReviewReport.None is publishable, so "why is non-null exactly when not reviewed"
+    /// SpecReviewReport.None is publishable, so "why is non-null exactly when not reviewed"
     /// is the producer's intent and not a guarantee. The reader states a reason either way,
     /// and findings recorded beside a not-taken review are still carried.
     /// </summary>
@@ -416,14 +416,14 @@ public sealed class FiledWorkReadTests : IDisposable
     [Fact]
     public async Task FiledWork_SpecReviewWrittenByThePublisher_IsReadBackAsItWasRecorded()
     {
-        var recorded = PhaseReviewReport.Taken(
-            [new PhaseFinding("api", "src/A.cs", 4, "no silent catch", "logs nothing", "P1", "reverted")]);
+        var recorded = SpecReviewReport.Taken(
+            [new SpecFinding("api", "src/A.cs", 4, "no silent catch", "logs nothing", "P1", "reverted")]);
         var events = new RecordingEventPublisher();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "r-1");
         await new SpecReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
 
-        await ReviewedAsync(events.Published.OfType<PhaseReviewedEvent>().Single().ReportJson);
+        await ReviewedAsync(events.Published.OfType<SpecReviewedEvent>().Single().ReportJson);
 
         var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
         review!.Reviewed.Should().BeTrue();

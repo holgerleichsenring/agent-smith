@@ -63,8 +63,8 @@ public sealed class SpecReposTests
     {
         var set = await DeriveAsync(ServerOnlyDerivation);
 
-        set.Phases.Should().ContainSingle().Which.Draft.Repos.Should().Equal("Server");
-        set.Phases[0].Draft.Yaml.Should().Contain("repos:");
+        set.Specs.Should().ContainSingle().Which.Draft.Repos.Should().Equal("Server");
+        set.Specs[0].Draft.Yaml.Should().Contain("repos:");
     }
 
     [Fact]
@@ -72,10 +72,10 @@ public sealed class SpecReposTests
     {
         var set = await DeriveAsync(BothReposDerivation);
 
-        set.Phases.Should().HaveCount(2);
-        set.Phases[0].Draft.Repos.Should().Equal("BackgroundWorker");
-        set.Phases[1].Draft.Repos.Should().Equal("Server");
-        set.Phases[1].Draft.Requires.Should().Equal([set.Phases[0].PhaseId], "the dependent spec comes second");
+        set.Specs.Should().HaveCount(2);
+        set.Specs[0].Draft.Repos.Should().Equal("BackgroundWorker");
+        set.Specs[1].Draft.Repos.Should().Equal("Server");
+        set.Specs[1].Draft.Requires.Should().Equal([set.Specs[0].SpecId], "the dependent spec comes second");
     }
 
     [Fact]

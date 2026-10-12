@@ -90,7 +90,7 @@ public sealed class OutcomeTicketFiler(
         FiledSeries series, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
         CancellationToken ct) =>
         sets.FileAsync(
-            provider, state, project, TicketFilingRole.Phase,
+            provider, state, project, TicketFilingRole.Spec,
             note => renderer.RenderSpec(series.Drafts[0], state.JobId, note), series, series.Drafts[0].Goal,
             filed, notes, mayStartRuns, ct);
 

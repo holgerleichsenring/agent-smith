@@ -20,7 +20,7 @@ internal static class SpecPremisesReader
     /// identifies nothing and would admit a finding against almost any wording.</summary>
     private const int MinClaimWords = 4;
 
-    public static SpecPremises Read(PhaseDraft draft)
+    public static SpecPremises Read(SpecDraft draft)
     {
         ArgumentNullException.ThrowIfNull(draft);
         var facts = draft.Facts.Where(f => !string.IsNullOrWhiteSpace(f.Claim)).ToList();

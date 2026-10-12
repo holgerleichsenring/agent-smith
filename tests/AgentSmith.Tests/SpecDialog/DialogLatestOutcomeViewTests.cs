@@ -89,8 +89,8 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await Flow("approve").HandleAsync(state, Proposal(), false, CancellationToken.None);
 
         var view = await ReadAsync();
-        view.Proposal!.Phase!.PhaseId.Should().Be("p9999");
-        view.Proposal.Phase.Yaml.Should().Be(DraftYaml, "the pane can disclose the raw form");
+        view.Proposal!.Spec!.SpecId.Should().Be("p9999");
+        view.Proposal.Spec.Yaml.Should().Be(DraftYaml, "the pane can disclose the raw form");
         view.Filing!.Error.Should().BeNull();
         view.Filing.Filed.Single().Reference.Should().Be("https://tracker.test/1");
         view.Filing.At.Should().BeOnOrAfter(view.Proposal.At, "the filing is of this proposal");
@@ -232,7 +232,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         await Flow("split it").HandleAsync(state, Reviewed(), false, CancellationToken.None);
 
         var finding = (await ReadAsync()).Proposal!.Findings.Should().ContainSingle().Subject;
-        finding.PhaseId.Should().Be("p9999");
+        finding.SpecId.Should().Be("p9999");
         finding.Evidence.Should().Contain("the proposal review ran");
         finding.Quote.Should().BeNull("a false premise cites a look, it quotes nothing");
     }
@@ -279,7 +279,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
                 new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
-    private static SpecOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
+    private static SpecOutcome Proposal() => new(new SpecDraft("p9999", "widget goal", DraftYaml, []));
 
     private SpecDialogOutcomeFlow Flow(string answer = "", bool timeout = false)
     {

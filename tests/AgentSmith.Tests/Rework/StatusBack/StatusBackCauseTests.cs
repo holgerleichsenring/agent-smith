@@ -14,12 +14,12 @@ public sealed class StatusBackCauseTests
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 8, 10, 0, 0, TimeSpan.Zero);
 
-    private static SpecPhase Spec(string id) => new(
-        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
+    private static DerivedSpec Spec(string id) => new(
+        new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
 
     private static SpecSet Set(int specs, int executed) => new("k", [.. Enumerable.Range(0, specs).Select(i => Spec($"p{i}"))],
         SpecAccounting.Empty, [new SpecRevision(1, SpecRevisionCause.Initial, Start)], SpecSource.BranchArtifact,
-        ExecutedPhaseIds: [.. Enumerable.Range(0, executed).Select(i => $"p{i}")]);
+        ExecutedSpecIds: [.. Enumerable.Range(0, executed).Select(i => $"p{i}")]);
 
     private static Ticket Ticket() => new(new TicketId("1"), "t", "text", null, "To Do", "jira", []);
 

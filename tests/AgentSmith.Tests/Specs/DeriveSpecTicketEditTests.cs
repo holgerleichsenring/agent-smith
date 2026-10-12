@@ -56,7 +56,7 @@ public sealed class DeriveSpecTicketEditTests
         deriver.Calls.Should().Be(1, "the edited text is new input the model has not seen");
         deriver.PreviousSeen!.Executed.Should().Equal("p19106a");
         deriver.CauseSeen.Should().Be(SpecRevisionCause.TicketEdit);
-        published.Set!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
+        published.Set!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
         published.Set.Executed.Should().Equal(["p19106a"], "the executed spec is carried, never edited");
         published.Set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
     }
@@ -71,7 +71,7 @@ public sealed class DeriveSpecTicketEditTests
         await Handler(files, deriver, published).ExecuteAsync(Context(), default);
 
         deriver.Calls.Should().Be(0, "a set cut before the fingerprint existed compares as unchanged");
-        published.Set!.Phases.Select(p => p.Draft.Goal).Should().Equal("Goal p19106a", "Goal p19106b");
+        published.Set!.Specs.Select(p => p.Draft.Goal).Should().Equal("Goal p19106a", "Goal p19106b");
     }
 
     [Fact]
@@ -196,15 +196,15 @@ public sealed class DeriveSpecTicketEditTests
     {
         var segments = TicketSegmenter.Segment(EditedTicket);
         var carries = segments.Select(s => s.Id).ToList();
-        SpecPhase Spec(string id, string goal) => new(
-            new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+        DerivedSpec Spec(string id, string goal) => new(
+            new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
         var specs = new[] { Spec("p19106a", "Goal p19106a"), Spec("p19106b", "Cut again from the edited text") };
         return new SpecDerivation(
             new SpecSet(
                 Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, ExecutedPhaseIds: ["p19106a"]),
+                SpecSource.BranchArtifact, ExecutedSpecIds: ["p19106a"]),
             []);
     }
 

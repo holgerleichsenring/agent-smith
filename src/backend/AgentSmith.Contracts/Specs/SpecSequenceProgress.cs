@@ -12,19 +12,19 @@ namespace AgentSmith.Contracts.Specs;
 /// prevent, and it produces it in a form that looks finished.
 /// </para>
 /// </summary>
-public sealed record SpecSequenceProgress([property: AcceptedName("Specs")] IReadOnlyList<PhaseProgress> Phases)
+public sealed record SpecSequenceProgress([property: AcceptedName("Phases")] IReadOnlyList<SpecProgress> Specs)
 {
     /// <summary>2026-10-06-03c7e: a spec already in done/ is seeded Done — it ran in an earlier run.</summary>
     public static SpecSequenceProgress ForSet(SpecSet set) =>
-        new([.. set.Phases.Select(p => new PhaseProgress(p.PhaseId, p.Draft.Goal,
-            set.Executed.Contains(p.PhaseId, StringComparer.Ordinal) ? PhaseRunState.Done : PhaseRunState.NotStarted))]);
+        new([.. set.Specs.Select(p => new SpecProgress(p.SpecId, p.Draft.Goal,
+            set.Executed.Contains(p.SpecId, StringComparer.Ordinal) ? SpecRunState.Done : SpecRunState.NotStarted))]);
 
     /// <summary>True while any spec is anything other than done — the half-migrated state.</summary>
-    public bool IsPartial => Phases.Any(p => p.State != PhaseRunState.Done);
+    public bool IsPartial => Specs.Any(p => p.State != SpecRunState.Done);
 
     public SpecSequenceProgress With(
-        string specId, PhaseRunState state, string? failingCommand = null, string? note = null) =>
-        new([.. Phases.Select(p => p.PhaseId == specId
+        string specId, SpecRunState state, string? failingCommand = null, string? note = null) =>
+        new([.. Specs.Select(p => p.SpecId == specId
             ? p with
             {
                 State = state,
@@ -38,15 +38,15 @@ public sealed record SpecSequenceProgress([property: AcceptedName("Specs")] IRea
 /// <param name="Note">p0460: why the standing is what it is, where the state alone would
 /// mislead — a spec found already satisfied on entry is DONE and did no work, and a
 /// reader of the table has to be able to tell that from a spec that ran.</param>
-public sealed record PhaseProgress(
-    [property: AcceptedName("SpecId")] string PhaseId,
+public sealed record SpecProgress(
+    [property: AcceptedName("PhaseId")] string SpecId,
     string Goal,
-    PhaseRunState State,
+    SpecRunState State,
     string? FailingCommand = null,
     string? Note = null);
 
 /// <summary>p0393a: the states a reviewer must be able to tell apart.</summary>
-public enum PhaseRunState
+public enum SpecRunState
 {
     NotStarted = 0,
     InProgress = 1,

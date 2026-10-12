@@ -75,7 +75,7 @@ public sealed class SeriesPerRepoWriteTests
         var placement = new SeriesRepos().Place(set, new SeriesScope([Worker, Server], "BackgroundWorker", [], "BackgroundWorker"));
 
         placement.Refusal.Should().BeNull();
-        placement.Set.Phases.Select(p => p.Draft.Repos.Single()).Should().Equal("BackgroundWorker", "Server");
+        placement.Set.Specs.Select(p => p.Draft.Repos.Single()).Should().Equal("BackgroundWorker", "Server");
         placement.Names.Should().Equal("BackgroundWorker", "Server");
         placement.Carrier!.Name.Should().Be("BackgroundWorker", "the earliest spec's repository, in series order");
     }
@@ -84,7 +84,7 @@ public sealed class SeriesPerRepoWriteTests
     public void SeriesRepos_SpecNamingSeveral_IsRefusedWithItsId()
     {
         var set = Set(("a", "Server"));
-        set = set with { Phases = [set.Phases[0] with { Draft = set.Phases[0].Draft with { Repos = ["Server", "Client"] } }] };
+        set = set with { Specs = [set.Specs[0] with { Draft = set.Specs[0].Draft with { Repos = ["Server", "Client"] } }] };
 
         var placement = new SeriesRepos().Place(set, new SeriesScope([Server, Client], null, [], null));
 
@@ -117,7 +117,7 @@ public sealed class SeriesPerRepoWriteTests
     public void SeriesRepos_CarrierOf_IsTheEarliestDraftsRepositoryElseTheOnlyOne()
     {
         var repos = new SeriesRepos();
-        PhaseDraft[] drafts = [Draft("a", null), Draft("b", "Client"), Draft("c", "Server")];
+        SpecDraft[] drafts = [Draft("a", null), Draft("b", "Client"), Draft("c", "Server")];
 
         repos.CarrierOf(drafts, ["Server", "Client"]).Should().Be("Client");
         repos.CarrierOf([Draft("a", null)], ["Server"]).Should().Be("Server");
@@ -131,7 +131,7 @@ public sealed class SeriesPerRepoWriteTests
 
         var server = set.OfRepository("server");
 
-        server.Phases.Select(p => p.PhaseId).Should().Equal(Id('a'));
+        server.Specs.Select(p => p.SpecId).Should().Equal(Id('a'));
         server.Executed.Should().Equal(Id('a'));
         set.OfRepository("Client").Executed.Should().BeEmpty();
     }
@@ -149,7 +149,7 @@ public sealed class SeriesPerRepoWriteTests
 
     private static string Id(char letter) => SeriesRepoBranches.Id(letter);
 
-    private static PhaseDraft Draft(string letter, string? repo) =>
+    private static SpecDraft Draft(string letter, string? repo) =>
         new(Id(letter[0]), $"Goal {letter}", $"spec: {Id(letter[0])}\ngoal: g\n", [])
         {
             Done = ["Done."], Repos = repo is null ? [] : [repo],
@@ -157,7 +157,7 @@ public sealed class SeriesPerRepoWriteTests
 
     internal static SpecSet Set(params (string Letter, string? Repo)[] specs) => new(
         SeriesRepoBranches.Key,
-        [.. specs.Select(s => new SpecPhase(Draft(s.Letter, s.Repo), s.Letter, string.Empty, []))],
+        [.. specs.Select(s => new DerivedSpec(Draft(s.Letter, s.Repo), s.Letter, string.Empty, []))],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
         SpecSource.Derived,

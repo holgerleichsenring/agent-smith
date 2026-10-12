@@ -23,7 +23,7 @@ describe("The deletion warning", () => {
   // conversation, so the warning says that sentence stops resolving.
   it("DeletionWarning_ASpecFiling_SaysWhatSurvivesInTheTracker", () => {
     const said = deletionWarning(
-      conversation({ outcome: { kind: "phase", tickets: 1, partial: false } }));
+      conversation({ outcome: { kind: "spec", tickets: 1, partial: false } }));
 
     expect(said).not.toBeNull();
     expect(said!).toContain("Delete “a widget that reads the ledger”?");
@@ -35,6 +35,9 @@ describe("The deletion warning", () => {
 
     // The epic parent carries the same sentence, for the same reason.
     expect(deletionWarning(conversation({ outcome: { kind: "epic", tickets: 3, partial: false } })))
+      .toBe(said);
+    // 2026-10-12-967ab: a replica still on 967aa serves a spec filing's kind as "phase".
+    expect(deletionWarning(conversation({ outcome: { kind: "phase", tickets: 1, partial: false } })))
       .toBe(said);
   });
 

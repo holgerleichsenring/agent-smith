@@ -39,7 +39,7 @@ public sealed class SeriesPerRepoWriteTests
 
         var published = await harness.Services.GetRequiredService<ISpecSetPublisher>().PublishAsync(
             pipeline, "p", new SeriesScope([Worker, Server], null, [], null), set, [], default);
-        pipeline.Set(ContextKeys.CurrentSpec, set.Phases[0].Draft);
+        pipeline.Set(ContextKeys.CurrentSpec, set.Specs[0].Draft);
         var recorded = await harness.Services.GetRequiredService<ICommandHandler<WriteSpecRecordContext>>().ExecuteAsync(
             new WriteSpecRecordContext(pipeline.Get<Domain.Entities.Repository>(ContextKeys.Repository), pipeline,
                 [Worker, Server]), default);

@@ -1109,6 +1109,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("SpecId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("StepIndex")
                         .HasColumnType("INTEGER");
 
@@ -1470,6 +1473,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<long>("SandboxMs")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("SpecId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
                         .IsRequired()

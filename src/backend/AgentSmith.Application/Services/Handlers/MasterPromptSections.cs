@@ -74,7 +74,7 @@ internal static class MasterPromptSections
     // same artifact the ledger seeded from and the keystone verifies. Empty when
     // the run carries no spec (scan / spec-dialog surfaces) — the skill
     // omits the section then.
-    internal static string BuildPlanSection(PhaseDraft? draft)
+    internal static string BuildPlanSection(SpecDraft? draft)
     {
         if (draft is null) return string.Empty;
         var sb = new System.Text.StringBuilder();

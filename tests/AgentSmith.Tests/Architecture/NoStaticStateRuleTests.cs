@@ -96,7 +96,7 @@ public sealed class NoStaticStateRuleTests
         // 2026-10-12-967aa: the context keys and type names a checkpoint may carry under the spec
         // rename, as fixed (spec, spec) literal pairs, plus the set of declared ContextKeys values
         // read off the constants once. Nothing routes through it but a restore.
-        typeof(AgentSmith.Application.Services.Resume.CheckpointRenames),
+        typeof(AgentSmith.Contracts.Json.CheckpointRenames),
     ];
 
     private static readonly string[] TargetAssemblies =

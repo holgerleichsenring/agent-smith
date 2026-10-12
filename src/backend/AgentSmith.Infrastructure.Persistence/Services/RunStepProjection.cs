@@ -55,7 +55,8 @@ public sealed class RunStepProjection(ProjectedEventRecords records)
             DisplayName = e.DisplayName, Status = "running",
             // p0344b: the typed command name feeds the run-story beat derivation.
             CommandName = e.CommandName,
-            PhaseId = e.PhaseId, // p0466: stated by the producer, never parsed back out
+            SpecId = e.SpecId, // p0466: stated by the producer, never parsed back out
+            PhaseId = e.SpecId, // 2026-10-12-967ab: both columns until 967ah
             EventSeq = eventSeq,
         };
 }

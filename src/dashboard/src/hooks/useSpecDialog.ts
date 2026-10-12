@@ -742,7 +742,7 @@ function withoutCard(held: DialogEntry[], proposal: SpecDialogProposalPush): Dia
 
 /** The same draft, whichever moment it was stamped with — a push and a read stamp it differently. */
 function sameDraft(a: SpecDialogProposalPush, b: SpecDialogProposalPush): boolean {
-  const draft = ({ kind, bug, phase: spec, parent, children }: SpecDialogProposalPush) =>
+  const draft = ({ kind, bug, spec, parent, children }: SpecDialogProposalPush) =>
     JSON.stringify({ kind, bug, spec, parent, children });
   return draft(a) === draft(b);
 }

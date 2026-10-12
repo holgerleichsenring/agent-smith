@@ -10,7 +10,7 @@ import type { RunStepRow } from "@/lib/runStepsApi";
 const STEP_ID_PREFIX = "step-";
 
 // p0395: the shape the server splices for spec steps (p0393a) — "p19106a:
-// Generate plan". Current servers split it into RunStepView.PhaseId before it
+// Generate plan". Current servers split it into RunStepView.SpecId before it
 // reaches the client; this is the defensive split for payloads from servers
 // that predate that, so old runs still render the real step name.
 // p0507: both id shapes — the counter namespace and a date-minted id. This mirrors
@@ -33,7 +33,7 @@ export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
     return {
       id: stepNodeId(s.stepIndex),
       label: split.label,
-      specId: s.phaseId ?? split.specId,
+      specId: s.specId ?? split.specId,
       status: railStatus(s.status),
       depth: 0,
       startSeconds,

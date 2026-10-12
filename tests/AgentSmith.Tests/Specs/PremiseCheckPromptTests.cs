@@ -114,7 +114,7 @@ public sealed class PremiseCheckPromptTests
         var h = For(
             Draft(fact: "the bus client is a singleton") with
             {
-                Facts = [new Contracts.Models.PhaseFact(
+                Facts = [new Contracts.Models.SpecFact(
                     "the bus client is a singleton",
                     "[L7] Sample.Server: the derivation ran 'grep -n Singleton' exited 0")],
             },
@@ -204,25 +204,25 @@ public sealed class PremiseCheckPromptTests
 
     /// <summary>A two-spec set whose FIRST spec is done, as the sequence leaves it.</summary>
     private static void SetWithAnExecutedPredecessor(
-        Contracts.Commands.PipelineContext pipeline, Contracts.Models.PhaseDraft current)
+        Contracts.Commands.PipelineContext pipeline, Contracts.Models.SpecDraft current)
     {
-        var first = new Contracts.Models.PhaseDraft(
+        var first = new Contracts.Models.SpecDraft(
             "2026-09-17-0000", "split the sender out", "spec: 2026-09-17-0000", []);
         pipeline.Set(Contracts.Commands.ContextKeys.SpecSet, new Contracts.Specs.SpecSet(
             "azdo-1",
             [
-                new Contracts.Specs.SpecPhase(first, first.PhaseId, string.Empty, []),
-                new Contracts.Specs.SpecPhase(current, current.PhaseId, string.Empty, []),
+                new Contracts.Specs.DerivedSpec(first, first.SpecId, string.Empty, []),
+                new Contracts.Specs.DerivedSpec(current, current.SpecId, string.Empty, []),
             ],
             Contracts.Specs.SpecAccounting.Empty, [], Contracts.Specs.SpecSource.Derived));
         pipeline.Set(
             Contracts.Commands.ContextKeys.SpecSequenceProgress,
             new Contracts.Specs.SpecSequenceProgress(
             [
-                new Contracts.Specs.PhaseProgress(
-                    first.PhaseId, first.Goal, Contracts.Specs.PhaseRunState.Done),
-                new Contracts.Specs.PhaseProgress(
-                    current.PhaseId, current.Goal, Contracts.Specs.PhaseRunState.InProgress),
+                new Contracts.Specs.SpecProgress(
+                    first.SpecId, first.Goal, Contracts.Specs.SpecRunState.Done),
+                new Contracts.Specs.SpecProgress(
+                    current.SpecId, current.Goal, Contracts.Specs.SpecRunState.InProgress),
             ]));
     }
 

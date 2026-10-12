@@ -20,7 +20,7 @@ public sealed record CheckpointCommand(
     string? RepoName = null,
     string? ContextName = null,
     string? Workdir = null,
-    [property: AcceptedName("SpecId")] string? PhaseId = null)
+    [property: AcceptedName("PhaseId")] string? SpecId = null)
 {
     public static CheckpointCommand From(PipelineCommand command) => new(
         command.Name, command.SkillName, command.Round,
@@ -34,6 +34,6 @@ public sealed record CheckpointCommand(
         RepoName = RepoName,
         ContextName = ContextName,
         Workdir = Workdir,
-        SpecId = PhaseId,
+        SpecId = SpecId,
     };
 }

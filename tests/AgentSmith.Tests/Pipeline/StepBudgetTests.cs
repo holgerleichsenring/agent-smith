@@ -133,8 +133,8 @@ public sealed class StepBudgetTests
     private static SpecSet EightSpecSet() => new(
         "azdo-1",
         [.. new[] { "a", "b", "c", "d", "e", "f", "g", "h" }.Select(letter =>
-            new SpecPhase(
-                new PhaseDraft($"p0001{letter}", $"Goal of {letter}", $"spec: p0001{letter}", [])
+            new DerivedSpec(
+                new SpecDraft($"p0001{letter}", $"Goal of {letter}", $"spec: p0001{letter}", [])
                 {
                     Done = [$"p0001{letter} is done."],
                 },

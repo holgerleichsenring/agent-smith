@@ -1,4 +1,5 @@
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Repair;
 using AgentSmith.Tests.TestSupport;
@@ -7,7 +8,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Persistence;
 
@@ -129,7 +130,8 @@ public sealed class RunStoreRepairTests : IDisposable
     public void Dispose() => _connection.Dispose();
 
     private static RunStoreMigrator Migrator() =>
-        new(new RunDuplicateRepair(new(), new(), new(), new()), NullLogger<RunStoreMigrator>.Instance);
+        new ServiceCollection().AddLogging().AddRunStoreRepair().BuildServiceProvider()
+            .GetRequiredService<RunStoreMigrator>();
 
     // Reads through the connection, not the model — the store may still be on the schema
     // that predates this spec, where the entity's new column does not exist yet.

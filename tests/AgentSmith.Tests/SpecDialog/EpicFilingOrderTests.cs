@@ -173,10 +173,10 @@ public sealed class EpicFilingOrderTests
         return await filer.FileAsync(State(), epic, false, CancellationToken.None);
     }
 
-    private static EpicOutcome Epic(params PhaseDraft[] children) =>
-        new(new PhaseDraft("p9000", "Widget platform", "spec: p9000", []), children);
+    private static EpicOutcome Epic(params SpecDraft[] children) =>
+        new(new SpecDraft("p9000", "Widget platform", "spec: p9000", []), children);
 
-    private static PhaseDraft Child(string id, IReadOnlyList<string>? requires = null) =>
+    private static SpecDraft Child(string id, IReadOnlyList<string>? requires = null) =>
         new(id, $"slice {id}", $"spec: {id}", requires ?? []);
 
     private static ConversationState State() => new()

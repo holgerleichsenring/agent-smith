@@ -105,8 +105,8 @@ public sealed class PremiseCheckSpecBlockTests
 
         var stopped = runner.LastContext!
             .Get<Contracts.Specs.SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == shortfall.NotDelivered[0].PhaseId);
-        stopped.State.Should().Be(Contracts.Specs.PhaseRunState.HandedBack,
+            .Specs.Single(p => p.SpecId == shortfall.NotDelivered[0].SpecId);
+        stopped.State.Should().Be(Contracts.Specs.SpecRunState.HandedBack,
             "never built, rather than built and found red");
         stopped.FailingCommand.Should().Contain("False premise")
             .And.Contain("three callers build their own empty-payload check")

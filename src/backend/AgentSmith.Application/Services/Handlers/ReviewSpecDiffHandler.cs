@@ -38,7 +38,7 @@ public sealed class ReviewSpecDiffHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         var pipeline = context.Pipeline;
-        if (!pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
+        if (!pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return CommandResult.Ok("No spec is current; there is no diff to review.");
 
         // A fix pass that was reverted is NOT reviewed again: the branch carries the state the
@@ -73,21 +73,21 @@ public sealed class ReviewSpecDiffHandler(
     /// objected to nothing".
     /// </summary>
     private Task<CommandResult> NotTakenAsync(
-        PipelineContext pipeline, PhaseDraft draft, string why, CancellationToken ct) =>
+        PipelineContext pipeline, SpecDraft draft, string why, CancellationToken ct) =>
         RecordAsync(
-            pipeline, draft, PhaseReviewReport.NotTaken(why),
+            pipeline, draft, SpecReviewReport.NotTaken(why),
             $"The spec review was not taken: {why}.", sandboxes: null, ct);
 
     /// <summary>
     /// The findings reach three places and then decide whether a pass follows: the spec
-    /// record's body, the phase_review artifact, and the run ledger the pull request reads.
+    /// record's body, the spec_review artifact, and the run ledger the pull request reads.
     /// </summary>
     private async Task<CommandResult> RecordAsync(
-        PipelineContext pipeline, PhaseDraft draft, PhaseReviewReport report,
+        PipelineContext pipeline, SpecDraft draft, SpecReviewReport report,
         string message, IReadOnlyDictionary<string, ISandbox>? sandboxes, CancellationToken ct)
     {
         SpecReviewLedger.Record(pipeline, report);
-        await publisher.PublishAsync(pipeline, draft.PhaseId, report, ct);
+        await publisher.PublishAsync(pipeline, draft.SpecId, report, ct);
         var decision = SpecReviewFixPass.Decide(pipeline, report, sandboxes);
         var said = decision.Note is null ? message : $"{message} {decision.Note}.";
         logger.LogInformation("{Message}", said);
@@ -96,7 +96,7 @@ public sealed class ReviewSpecDiffHandler(
             : CommandResult.Ok(said);
     }
 
-    private static string Summary(PhaseReviewReport report, IReadOnlyList<SpecDiff> diffs)
+    private static string Summary(SpecReviewReport report, IReadOnlyList<SpecDiff> diffs)
     {
         if (!report.Reviewed) return $"The spec review was {report.NotReviewedNote}.";
         var files = diffs.Sum(d => d.Paths.Count);

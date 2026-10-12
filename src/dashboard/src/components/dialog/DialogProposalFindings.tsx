@@ -20,9 +20,9 @@ export function DialogProposalFindings({ findings }: { findings?: SpecDialogProp
       </div>
       <ul className="ml-4 flex list-disc flex-col gap-1">
         {findings.map((finding, index) => (
-          <li key={`${finding.phaseId}-${index}`} data-testid="dialog-proposal-finding">
+          <li key={`${finding.specId}-${index}`} data-testid="dialog-proposal-finding">
             <span className="dsh-body font-semibold text-ink">
-              {finding.phaseId} — {finding.problem}
+              {finding.specId} — {finding.problem}
             </span>
             <span className="dsh-body text-ink">: {finding.why}</span>
             {finding.evidence ? (

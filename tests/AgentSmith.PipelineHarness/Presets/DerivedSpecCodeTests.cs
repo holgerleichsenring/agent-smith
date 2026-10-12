@@ -36,9 +36,9 @@ public sealed class DerivedSpecCodeTests
 
         result.Should().NotBeNull("an ordinary ticket must reach a terminal result");
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
-        set.Phases.Should().ContainSingle();
+        set.Specs.Should().ContainSingle();
         set.Source.Should().Be(SpecSource.Derived, "the ticket carried no spec of its own");
-        runner.LastContext!.Get<PhaseDraft>(ContextKeys.CurrentSpec).Done
+        runner.LastContext!.Get<SpecDraft>(ContextKeys.CurrentSpec).Done
             .Should().NotBeEmpty("the spec's done-list is the run's acceptance contract");
     }
 
@@ -67,8 +67,8 @@ public sealed class DerivedSpecCodeTests
         await runner.RunAsync("code");
 
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
-        progress.Phases.Should().HaveCount(2);
-        progress.Phases.Should().OnlyContain(p => p.State == PhaseRunState.Done,
+        progress.Specs.Should().HaveCount(2);
+        progress.Specs.Should().OnlyContain(p => p.State == SpecRunState.Done,
             "each spec ends at its own VerifySpec — that is where termination comes from");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
     }

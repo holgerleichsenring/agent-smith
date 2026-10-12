@@ -96,11 +96,11 @@ public sealed class SeriesWriteRollbackGitTests
         (await WriteAsync(repos, first)).Written.Should().BeTrue();
         var server = await repos.RemoteHeadAsync("Server");
         repos.Hook("Client", "pre-receive", Reject);
-        var b = first.Phases[1];
+        var b = first.Specs[1];
 
         var write = await WriteAsync(repos, first with
         {
-            Phases = [first.Phases[0], b with { Draft = b.Draft with { Yaml = b.Draft.Yaml + "# edited\n" } }],
+            Specs = [first.Specs[0], b with { Draft = b.Draft with { Yaml = b.Draft.Yaml + "# edited\n" } }],
         });
 
         write.IsRolledBack.Should().BeTrue();

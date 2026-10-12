@@ -556,7 +556,7 @@ export interface StudioTracker {
   // fallback — which is what the advisory finding on this field says.
   defaultPipeline?: string;
   // 2026-09-18-b4f0: Azure DevOps and Jira only — which native work-item/issue type each filed
-  // role (work | record | bug | phase | chat) is created as. Rendered from the capabilities
+  // role (work | bug | spec | chat; phase still read) is created as. Rendered from the capabilities
   // descriptor as a generic map, so the keys are free text until a capability field can declare
   // a key set. Absent means every role is created as what the provider created before.
   workItemKinds?: Record<string, string>;

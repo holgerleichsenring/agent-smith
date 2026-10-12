@@ -6,4 +6,4 @@ namespace AgentSmith.Contracts.Models;
 /// exited 0</c>. A fact carries its evidence so a reader who sees "one direct package is
 /// affected" can ask "which look said so?" and be answered.
 /// </summary>
-public sealed record PhaseFact(string Claim, string Evidence);
+public sealed record SpecFact(string Claim, string Evidence);

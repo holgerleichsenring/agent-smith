@@ -32,7 +32,7 @@ public sealed class SpecDoneOutcomeTests
     {
         var progress = SpecSequenceProgress.ForSet(Set() with { Executed = [A] });
 
-        progress.Phases.Select(p => p.State).Should().Equal(PhaseRunState.Done, PhaseRunState.NotStarted);
+        progress.Specs.Select(p => p.State).Should().Equal(SpecRunState.Done, SpecRunState.NotStarted);
     }
 
     [Fact]
@@ -52,9 +52,9 @@ public sealed class SpecDoneOutcomeTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-2");
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.NotTaken("the review call failed"));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.NotTaken("the review call failed"));
 
-        var body = SpecRecordBody.For(Set().Phases[0].Draft, pipeline);
+        var body = SpecRecordBody.For(Set().Specs[0].Draft, pipeline);
 
         var doc = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(body);
         doc["spec"].Should().Be(A);
@@ -69,7 +69,7 @@ public sealed class SpecDoneOutcomeTests
         var mock = $"{SeriesPaths.Planned}/{A}-screen.html";
         var files = new Mock<ISandboxFileReader>();
         files.Setup(f => f.TryReadAsync(mock, It.IsAny<CancellationToken>())).ReturnsAsync("<html/>");
-        var spec = Set().Phases[0] with { MockPaths = [mock] };
+        var spec = Set().Specs[0] with { MockPaths = [mock] };
 
         var move = await new SpecDoneFiles().WriteAsync(files.Object, spec, "spec: x\n", default);
 
@@ -118,7 +118,7 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SeriesFiles_BlankCompanion_RendersNoMarkdownFile()
     {
-        var set = Set() with { Phases = [Set().Phases[0] with { Markdown = string.Empty }, Set().Phases[1]] };
+        var set = Set() with { Specs = [Set().Specs[0] with { Markdown = string.Empty }, Set().Specs[1]] };
 
         new SeriesFiles(new SeriesManifest()).Render(set).Select(f => f.Path).Should().Equal(
             SeriesPaths.Manifest(Base), $"{SeriesPaths.Planned}/{A}-first.yaml",
@@ -128,7 +128,7 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SeriesStaleFiles_EmptyCompanionFromEarlierFiling_IsStale()
     {
-        var set = Set() with { Phases = [Set().Phases[0] with { Markdown = string.Empty }] };
+        var set = Set() with { Specs = [Set().Specs[0] with { Markdown = string.Empty }] };
         var rendered = new SeriesFiles(new SeriesManifest()).Render(set);
 
         new SeriesStaleFiles().Select([$"{A}-first.yaml", $"{A}-first.md"], set, rendered)
@@ -139,7 +139,7 @@ public sealed class SpecDoneOutcomeTests
     public async Task SpecDoneFiles_BlankCompanion_WritesNoDoneMarkdownAndNamesThePlannedOne()
     {
         var files = new Mock<ISandboxFileReader>();
-        var spec = Set().Phases[0] with { Markdown = string.Empty };
+        var spec = Set().Specs[0] with { Markdown = string.Empty };
 
         var move = await new SpecDoneFiles().WriteAsync(files.Object, spec, "spec: x\n", default);
 
@@ -152,7 +152,7 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SeriesRecordCommit_Message_NamesTheSeriesTicketAndSpec()
     {
-        SeriesRecordCommit.MessageFor(Set(), Set().Phases[0]).Should().Be($"spec: {Base} (azdo-8) {A} executed");
+        SeriesRecordCommit.MessageFor(Set(), Set().Specs[0]).Should().Be($"spec: {Base} (azdo-8) {A} executed");
     }
 
     [Fact]
@@ -180,6 +180,6 @@ public sealed class SpecDoneOutcomeTests
         SpecSource.Derived,
         Series: Base);
 
-    private static SpecPhase Spec(string id, string label) => new(
-        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"\n", []), label, $"# {label}\n", []);
+    private static DerivedSpec Spec(string id, string label) => new(
+        new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"\n", []), label, $"# {label}\n", []);
 }

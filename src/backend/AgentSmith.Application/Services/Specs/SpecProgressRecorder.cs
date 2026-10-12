@@ -14,7 +14,7 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
     public async Task RecordAsync(
         PipelineContext pipeline,
         string specId,
-        PhaseRunState state,
+        SpecRunState state,
         string? failingCommand = null,
         string? note = null,
         CancellationToken cancellationToken = default)
@@ -34,15 +34,15 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
     // The ordinal and the title come from the SET, which is the only place that knows
     // where a spec sits in the sequence and what it was asked to do.
     private Task PublishAsync(
-        PipelineContext pipeline, SpecSet set, string specId, PhaseRunState state,
+        PipelineContext pipeline, SpecSet set, string specId, SpecRunState state,
         string? verdict, CancellationToken ct)
     {
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
-        var ordinal = set.Phases.ToList().FindIndex(x => x.PhaseId == specId) + 1;
-        var title = set.Phases.FirstOrDefault(x => x.PhaseId == specId)?.Draft.Goal ?? specId;
+        var ordinal = set.Specs.ToList().FindIndex(x => x.SpecId == specId) + 1;
+        var title = set.Specs.FirstOrDefault(x => x.SpecId == specId)?.Draft.Goal ?? specId;
         return eventPublisher.PublishAsync(
-            new PhaseStateChangedEvent(
+            new SpecStateChangedEvent(
                 runId, specId, ordinal, title, state, verdict, DateTimeOffset.UtcNow), ct);
     }
 }

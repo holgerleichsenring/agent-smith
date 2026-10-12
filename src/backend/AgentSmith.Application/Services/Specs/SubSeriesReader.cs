@@ -45,18 +45,18 @@ public sealed class SubSeriesReader(
         };
     }
 
-    private async Task<(IReadOnlyList<SpecPhase> Read, IReadOnlyList<string> Executed, string? Why)> ReadSpecsAsync(
+    private async Task<(IReadOnlyList<DerivedSpec> Read, IReadOnlyList<string> Executed, string? Why)> ReadSpecsAsync(
         ISandboxFileReader files, SeriesManifestDocument doc, CancellationToken ct)
     {
         var listed = await ListStatesAsync(files, ct);
-        var read = new List<SpecPhase>(doc.Specs.Count);
+        var read = new List<DerivedSpec>(doc.Specs.Count);
         var executed = new List<string>();
         foreach (var id in doc.Specs)
         {
             var spec = await specs.ReadAsync(files, listed, id, doc, ct);
             if (spec.Spec is null) return ([], [], spec.Why);
             read.Add(spec.Spec);
-            if (spec.Executed) executed.Add(spec.Spec.PhaseId);
+            if (spec.Executed) executed.Add(spec.Spec.SpecId);
         }
         return (read, executed, null);
     }

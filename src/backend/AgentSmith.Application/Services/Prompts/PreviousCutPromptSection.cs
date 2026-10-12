@@ -31,11 +31,11 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
         if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
         if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
-        foreach (var spec in previous.Phases)
+        foreach (var spec in previous.Specs)
         {
-            var executed = previous.Executed.Contains(spec.PhaseId, StringComparer.Ordinal);
+            var executed = previous.Executed.Contains(spec.SpecId, StringComparer.Ordinal);
             sb.AppendLine(
-                $"- {spec.PhaseId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
+                $"- {spec.SpecId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
                 + spec.Draft.Goal);
         }
         sb.AppendLine();

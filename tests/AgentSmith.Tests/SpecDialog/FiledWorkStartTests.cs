@@ -714,12 +714,12 @@ public sealed class FiledWorkStartTests
         new(new BugTicketDraft("the widget throws", "it throws on save", null));
 
     private static EpicOutcome Epic() =>
-        new(new PhaseDraft("p9000", "Widget platform",
+        new(new SpecDraft("p9000", "Widget platform",
                 "spec: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"reachable\"", [])
             { Done = ["reachable"] },
             [Draft("p9000a"), Draft("p9000b")]);
 
-    private static PhaseDraft Draft(string id) =>
+    private static SpecDraft Draft(string id) =>
         new(id, $"slice {id}", $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"{id} done\"", [])
         { Done = [$"{id} done"] };
 

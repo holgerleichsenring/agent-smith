@@ -41,7 +41,7 @@ describe("The conversations page", () => {
       conversation({
         sessionId: "s-1", title: "Ich brauche alle libraries aktualisiert",
         subject: "Aktualisierung aller Projektbibliotheken", turns: 4,
-        outcome: { kind: "phase", tickets: 2, partial: false },
+        outcome: { kind: "spec", tickets: 2, partial: false },
       }),
     ]));
 

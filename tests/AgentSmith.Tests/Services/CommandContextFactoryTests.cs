@@ -32,6 +32,7 @@ public class CommandContextFactoryTests
         new(CommandNames.CompileFindings, new CompileFindingsContextBuilder()),
         new(CommandNames.LoadSkills, new LoadSkillsContextBuilder()),
         new(CommandNames.DeliverFindings, new DeliverFindingsContextBuilder()),
+        new(CommandNames.SelectSpec, new SelectSpecContextBuilder()),
     ];
 
     private readonly CommandContextFactory _sut = new(Builders);
@@ -77,6 +78,18 @@ public class CommandContextFactoryTests
 
         act.Should().Throw<ConfigurationException>()
             .WithMessage("*Unknown command*");
+    }
+
+    /// <summary>2026-10-12-967ab: an operator preset written before the rename still names the
+    /// spec-block command by its old name; it resolves to the builder of the declared one.</summary>
+    [Fact]
+    public void Create_AnOldSpecBlockCommandNameInAPreset_ResolvesTheDeclaredBuilder()
+    {
+        var command = new PipelineCommand("SelectPhaseCommand") { SpecId = "s1" };
+
+        var result = _sut.Create(command, CreateProjectConfig(), new PipelineContext());
+
+        result.Should().BeOfType<SelectSpecContext>().Which.SpecId.Should().Be("s1");
     }
 
     private static ResolvedProject CreateProjectConfig()

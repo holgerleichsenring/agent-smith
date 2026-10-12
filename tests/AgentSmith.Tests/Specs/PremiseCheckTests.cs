@@ -231,7 +231,7 @@ public sealed class PremiseCheckTests
         result.IsSuccess.Should().BeTrue();
         result.InsertNext.Should().BeNullOrEmpty("the check reports; it never splices work");
         result.DropAhead.Should().BeNullOrEmpty();
-        h.Events.Events.OfType<Contracts.Events.PhaseStateChangedEvent>().Should().BeEmpty(
+        h.Events.Events.OfType<Contracts.Events.SpecStateChangedEvent>().Should().BeEmpty(
             "a spec whose premises hold keeps the standing SelectSpec gave it");
     }
 

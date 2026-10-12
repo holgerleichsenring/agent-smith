@@ -1,39 +1,40 @@
 import { describe, it, expect } from "vitest";
 import { acceptSpecNames } from "../acceptedNames";
 
-// 2026-10-12-967aa: a body in the spec vocabulary reads exactly as the phase one this bundle
-// renders, and a body in the phase vocabulary is untouched.
+// 2026-10-12-967aa/967ab: a body in the phase vocabulary — served by a replica still on 967aa, or
+// read back from a stored trail — reads exactly as the spec one this bundle renders, and a body in
+// the spec vocabulary is untouched.
 describe("acceptSpecNames", () => {
-  it("reads a spec-named step event as the phase-named one", () => {
-    const event = acceptSpecNames<unknown>({ type: 4, runId: "r1", specId: "s1" }) as Record<string, unknown>;
-    expect(event.phaseId).toBe("s1");
+  it("reads an old-named step event as the spec-named one", () => {
+    const event = acceptSpecNames<unknown>({ type: 4, runId: "r1", phaseId: "s1" }) as Record<string, unknown>;
+    expect(event.specId).toBe("s1");
   });
 
-  it("reads a spec-named proposal push, nested, with its kind", () => {
+  it("reads an old-named proposal push, nested, with its kind", () => {
     const push = acceptSpecNames<unknown>({
-      kind: "spec",
-      spec: { specId: "2026-10-12-967aa", goal: "g", findings: [{ specId: "x" }] },
-    }) as { kind: string; phase: { phaseId: string; findings: Array<{ phaseId: string }> } };
-    expect(push.kind).toBe("phase");
-    expect(push.phase.phaseId).toBe("2026-10-12-967aa");
-    expect(push.phase.findings[0].phaseId).toBe("x");
+      kind: "phase",
+      phase: { phaseId: "2026-10-12-967ab", goal: "g", findings: [{ phaseId: "x" }] },
+    }) as { kind: string; spec: { specId: string; findings: Array<{ specId: string }> } };
+    expect(push.kind).toBe("spec");
+    expect(push.spec.specId).toBe("2026-10-12-967ab");
+    expect(push.spec.findings[0].specId).toBe("x");
   });
 
-  it("reads specs and executedSpecIds as phases and executedPhaseIds", () => {
-    const set = acceptSpecNames<unknown>({ specs: [{ specId: "a" }], executedSpecIds: ["a"] }) as {
-      phases: Array<{ phaseId: string }>; executedPhaseIds: string[];
+  it("reads the old set members as specs and executedSpecIds", () => {
+    const set = acceptSpecNames<unknown>({ phases: [{ phaseId: "a" }], executedPhaseIds: ["a"] }) as {
+      specs: Array<{ specId: string }>; executedSpecIds: string[];
     };
-    expect(set.phases[0].phaseId).toBe("a");
-    expect(set.executedPhaseIds).toEqual(["a"]);
+    expect(set.specs[0].specId).toBe("a");
+    expect(set.executedSpecIds).toEqual(["a"]);
   });
 
-  it("leaves a phase-named body and every current name as they were", () => {
-    const body = { phaseId: "p", specId: "other", kind: "bug", phase: "Primary" };
+  it("leaves a spec-named body as it was", () => {
+    const body = { specId: "s", specs: [], kind: "bug", spec: null };
     expect(acceptSpecNames({ ...body })).toEqual(body);
   });
 
   it("passes primitives and null through", () => {
     expect(acceptSpecNames(null)).toBeNull();
-    expect(acceptSpecNames("spec")).toBe("spec");
+    expect(acceptSpecNames("phase")).toBe("phase");
   });
 });

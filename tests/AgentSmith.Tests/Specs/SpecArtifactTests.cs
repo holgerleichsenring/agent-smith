@@ -109,7 +109,7 @@ public sealed class SpecArtifactTests
         var question = new SpecHandback(
             SpecHandbackCase.Question, "reads two ways",
             Readings: ["only where an advisory forces it", "everywhere"], Taken: 1);
-        var set = TwoSpecSet() with { Phases = [], Handback = question };
+        var set = TwoSpecSet() with { Specs = [], Handback = question };
 
         var manifest = new SeriesManifest();
         var read = manifest.HandbackOf(manifest.Parse(manifest.Serialize(set))!)!;
@@ -203,8 +203,8 @@ public sealed class SpecArtifactTests
         SpecSource.Derived,
         Series: Base);
 
-    private static SpecPhase Spec(string id, string slug) => new(
-        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []),
+    private static DerivedSpec Spec(string id, string slug) => new(
+        new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []),
         slug,
         $"# {id}\n\nverbatim from segment one\n",
         [1]);

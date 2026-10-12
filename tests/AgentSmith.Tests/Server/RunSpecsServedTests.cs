@@ -108,7 +108,7 @@ public sealed class RunSpecsServedTests : IDisposable
 
         var rail = await ReadRailAsync();
 
-        rail.Single().PhaseId.Should().Be("p19213a");
+        rail.Single().SpecId.Should().Be("p19213a");
         rail.Single().StepName.Should().Be("Implement");
     }
 
@@ -123,7 +123,7 @@ public sealed class RunSpecsServedTests : IDisposable
             RunId, 0, "p00000z: Implement", 1, T, "p00000z: Implement",
             CommandNames.AgenticMaster, "p19213a"));
 
-        (await ReadRailAsync()).Single().PhaseId.Should().Be("p19213a");
+        (await ReadRailAsync()).Single().SpecId.Should().Be("p19213a");
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public sealed class RunSpecsServedTests : IDisposable
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
-            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\ngoal: \"Make it exist\"\n", T));
+            new SpecRecordedEvent(RunId, "p19213a", "spec: p19213a\ngoal: \"Make it exist\"\n", T));
 
         var detail = await ReadSpecAsync("p19213a");
 
@@ -141,7 +141,7 @@ public sealed class RunSpecsServedTests : IDisposable
 
     /// <summary>
     /// 2026-09-17-042eh: the spec review's own artifact row, on the real engine and through
-    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per spec,
+    /// the real applier — upserted under <c>spec_review:&lt;id&gt;</c>, one row per spec,
     /// replaced when a second review of the same spec reports.
     /// </summary>
     [Fact]
@@ -149,18 +149,18 @@ public sealed class RunSpecsServedTests : IDisposable
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
-            new PhaseReviewedEvent(
+            new SpecReviewedEvent(
                 RunId, "p19213a",
                 """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4}]}""", T),
-            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":true,"findings":[]}""", T.AddMinutes(3)));
+            new SpecReviewedEvent(RunId, "p19213a", """{"reviewed":true,"findings":[]}""", T.AddMinutes(3)));
 
         await using var ctx = new AgentSmithDbContext(Options());
         var rows = ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
-            .Where(a => a.RunId == RunId && a.Kind.StartsWith("phase_review:"))
+            .Where(a => a.RunId == RunId && a.Kind.StartsWith("spec_review:"))
             .ToList();
 
         rows.Should().ContainSingle("a spec has one review row, replaced and never appended")
-            .Which.Kind.Should().Be("phase_review:p19213a");
+            .Which.Kind.Should().Be("spec_review:p19213a");
         rows[0].Content.Should().Be("""{"reviewed":true,"findings":[]}""",
             "the second review of a spec replaces the first, as the record artifact does");
     }
@@ -172,19 +172,19 @@ public sealed class RunSpecsServedTests : IDisposable
     {
         await ApplyAsync(
             Selected("p19213a", 1, "Make the thing exist"),
-            new PhaseRecordedEvent(RunId, "p19213a", "spec: p19213a\n", T),
-            new PhaseReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
+            new SpecRecordedEvent(RunId, "p19213a", "spec: p19213a\n", T),
+            new SpecReviewedEvent(RunId, "p19213a", """{"reviewed":false,"findings":[],"why":"x"}""", T));
 
         await using var ctx = new AgentSmithDbContext(Options());
         ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
             .Where(a => a.RunId == RunId).Select(a => a.Kind).ToList()
-            .Should().BeEquivalentTo(["phase_record:p19213a", "phase_review:p19213a"]);
+            .Should().BeEquivalentTo(["spec_record:p19213a", "spec_review:p19213a"]);
     }
 
-    /// <summary>2026-10-12-967aa: a record a later release stored under <c>spec_record:</c>, and
-    /// the spec-named event names it was replayed from, serve exactly as the spec-named ones.</summary>
+    /// <summary>2026-10-12-967aa/967ab: a record the release before the rename stored under
+    /// <c>phase_record:</c> serves exactly as one stored under the declared kind.</summary>
     [Fact]
-    public async Task SpecRecord_StoredUnderTheSpecKind_IsServed()
+    public async Task SpecRecord_StoredUnderTheOldKind_IsServed()
     {
         await ApplyAsync(Selected("p19213a", 1, "Make the thing exist"));
         await using (var ctx = new AgentSmithDbContext(Options()))
@@ -200,13 +200,13 @@ public sealed class RunSpecsServedTests : IDisposable
         (await ReadSpecAsync("p19213a"))!.Record.Should().Be("spec: p19213a\n");
     }
 
-    /// <summary>2026-10-12-967aa: a step row whose command carries the spec-block name a later
-    /// release writes is classified and labelled as the declared command.</summary>
+    /// <summary>2026-10-12-967aa/967ab: a step row whose command carries the spec-block name it had
+    /// before the rename is classified and labelled as the declared command.</summary>
     [Fact]
-    public async Task RunStepsReader_SpecNamedCommand_ClassifiesAsTheDeclaredOne()
+    public async Task RunStepsReader_OldCommandName_ClassifiesAsTheDeclaredOne()
     {
         await ApplyAsync(
-            new StepStartedEvent(RunId, 0, "Select", 2, T, null, "SelectSpecCommand", "p19213a"),
+            new StepStartedEvent(RunId, 0, "Select", 2, T, null, "SelectPhaseCommand", "p19213a"),
             new StepStartedEvent(RunId, 1, "Select", 2, T, null, CommandNames.SelectSpec, "p19213a"));
 
         var rail = await ReadRailAsync();
@@ -275,17 +275,17 @@ public sealed class RunSpecsServedTests : IDisposable
         specs[1].Verdict.Should().Contain("False premise");
     }
 
-    private static PhaseStateChangedEvent Selected(string specId, int ordinal, string title) =>
-        new(RunId, specId, ordinal, title, PhaseRunState.InProgress, null, T);
+    private static SpecStateChangedEvent Selected(string specId, int ordinal, string title) =>
+        new(RunId, specId, ordinal, title, SpecRunState.InProgress, null, T);
 
-    private static PhaseStateChangedEvent Done(string specId, string title) =>
-        new(RunId, specId, 1, title, PhaseRunState.Done, null, T.AddMinutes(5));
+    private static SpecStateChangedEvent Done(string specId, string title) =>
+        new(RunId, specId, 1, title, SpecRunState.Done, null, T.AddMinutes(5));
 
-    private static PhaseStateChangedEvent Failed(string specId, string title, string verdict) =>
-        new(RunId, specId, 2, title, PhaseRunState.Failed, verdict, T.AddMinutes(9));
+    private static SpecStateChangedEvent Failed(string specId, string title, string verdict) =>
+        new(RunId, specId, 2, title, SpecRunState.Failed, verdict, T.AddMinutes(9));
 
-    private static PhaseStateChangedEvent HandedBack(string specId, string title, string verdict) =>
-        new(RunId, specId, 2, title, PhaseRunState.HandedBack, verdict, T.AddMinutes(9));
+    private static SpecStateChangedEvent HandedBack(string specId, string title, string verdict) =>
+        new(RunId, specId, 2, title, SpecRunState.HandedBack, verdict, T.AddMinutes(9));
 
     private DbContextOptions<AgentSmithDbContext> Options() =>
         new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options;

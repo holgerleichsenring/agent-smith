@@ -558,8 +558,8 @@ public class CommitAndPRHandlerTests
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
         pipeline.Set(ContextKeys.SpecSequenceProgress, new Contracts.Specs.SpecSequenceProgress(
         [
-            new Contracts.Specs.PhaseProgress("p0001a", "Introduce the guard", Contracts.Specs.PhaseRunState.Done),
-            new Contracts.Specs.PhaseProgress("p0001b", "Move the callers", Contracts.Specs.PhaseRunState.InProgress),
+            new Contracts.Specs.SpecProgress("p0001a", "Introduce the guard", Contracts.Specs.SpecRunState.Done),
+            new Contracts.Specs.SpecProgress("p0001b", "Move the callers", Contracts.Specs.SpecRunState.InProgress),
         ]));
         if (withVerifiedHead)
             pipeline.Set<IReadOnlyDictionary<string, string>>(
@@ -733,6 +733,6 @@ public class CommitAndPRHandlerTests
 
     // p0421: the gate judges what was RATIFIED. A run that ratified nothing is not judged
     // at all — which is why these tests state a contract before expecting a verdict.
-    private static PhaseDraft SpecWithOneCriterion() =>
+    private static SpecDraft SpecWithOneCriterion() =>
         new("p0001", "the bug", "spec: p0001\n", []) { Done = ["the bug is fixed"] };
 }

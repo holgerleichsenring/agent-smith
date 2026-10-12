@@ -10,6 +10,6 @@ namespace AgentSmith.Domain.Models;
 /// learns which of their sentences no work could satisfy.
 /// </para>
 /// </summary>
-/// <param name="PhaseId">The spec whose master declined it; null on a run that has no
+/// <param name="SpecId">The spec whose master declined it; null on a run that has no
 /// spec and is judged by a negotiated expectation.</param>
-public sealed record DeclinedCriterion(string Criterion, string Reason, [property: AcceptedName("SpecId")] string? PhaseId = null);
+public sealed record DeclinedCriterion(string Criterion, string Reason, [property: AcceptedName("PhaseId")] string? SpecId = null);

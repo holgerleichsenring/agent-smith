@@ -36,7 +36,7 @@ public sealed class SpecCutReviewer(
     public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
     public async Task<SpecCutReview> ReviewAsync(
-        IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+        IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
         AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(drafts);

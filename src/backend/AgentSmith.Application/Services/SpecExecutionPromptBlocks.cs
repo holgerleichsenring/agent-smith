@@ -53,7 +53,7 @@ public static class SpecExecutionPromptBlocks
     /// 2026-10-01-f5c3a: the draft's done list, already in its line form — the yaml is not
     /// re-read here, where a scenario entry would print as a dictionary's type name.
     /// </summary>
-    public static string DoneCriteria(PhaseDraft draft)
+    public static string DoneCriteria(SpecDraft draft)
     {
         var done = draft.Done.Where(d => !string.IsNullOrWhiteSpace(d)).ToList();
         if (done.Count == 0) return string.Empty;

@@ -49,7 +49,7 @@ public sealed class OutcomeProposalResolverTests
 
         var spec = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<SpecOutcome>().Subject;
-        spec.Draft.PhaseId.Should().Be("p9999");
+        spec.Draft.SpecId.Should().Be("p9999");
         spec.Draft.Goal.Should().Be("Add the widget endpoint");
         spec.Draft.Requires.Should().Equal("p0100");
     }
@@ -130,8 +130,8 @@ public sealed class OutcomeProposalResolverTests
 
         var epic = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
-        epic.Parent.PhaseId.Should().Be("p9000");
-        epic.Children.Select(c => c.PhaseId).Should().Equal("p9000a", "p9000b");
+        epic.Parent.SpecId.Should().Be("p9000");
+        epic.Children.Select(c => c.SpecId).Should().Equal("p9000a", "p9000b");
         epic.Children[1].Requires.Should().Equal("p9000a");
     }
 

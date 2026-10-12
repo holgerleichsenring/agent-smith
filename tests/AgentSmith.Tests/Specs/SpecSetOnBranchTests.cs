@@ -77,7 +77,7 @@ public sealed class SpecSetOnBranchTests
         result.State.Should().Be(SpecSetBranchState.Answered);
         result.Set!.Series.Should().Be(Base, "the base is the manifest's file name");
         result.Set.Key.Should().Be(Key);
-        result.Set.Phases.Should().ContainSingle().Which.FileStem.Should().Be($"{Base}a-first",
+        result.Set.Specs.Should().ContainSingle().Which.FileStem.Should().Be($"{Base}a-first",
             "the label is read off the file name");
     }
 

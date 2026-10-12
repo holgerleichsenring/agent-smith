@@ -31,7 +31,7 @@ internal static class ApprovedSetDoubles
     internal static FiledSeriesFactory SeriesFiling() => new(SeriesIds(), DraftIds());
 
     /// <summary>2026-10-06-03c7c: a filed series of the given drafts under a fixed base.</summary>
-    internal static FiledSeries Series(params PhaseDraft[] drafts) => new("2026-10-06-0a0a", drafts);
+    internal static FiledSeries Series(params SpecDraft[] drafts) => new("2026-10-06-0a0a", drafts);
 
     internal static ApprovedSpecSetCarrier Carrier(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), NullLogger<ApprovedSpecSetCarrier>.Instance);

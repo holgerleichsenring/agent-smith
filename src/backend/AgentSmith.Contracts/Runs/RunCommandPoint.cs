@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 public sealed record RunCommandPoint(
     int Index,
-    string? PhaseId,
+    string? SpecId,
     int? StepIndex,
     string Repo,
     string Command,

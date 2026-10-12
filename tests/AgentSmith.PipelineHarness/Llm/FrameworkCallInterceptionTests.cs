@@ -51,6 +51,6 @@ public sealed class FrameworkCallInterceptionTests
                 + "shifts the whole sequence by one");
     }
 
-    private static IReadOnlyList<PhaseDraft> Set() =>
-        [new PhaseDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] }];
+    private static IReadOnlyList<SpecDraft> Set() =>
+        [new SpecDraft("p1", "goal", "goal: g", []) { Done = ["a criterion"] }];
 }

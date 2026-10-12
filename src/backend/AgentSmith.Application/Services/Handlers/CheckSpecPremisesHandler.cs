@@ -35,7 +35,7 @@ public sealed class CheckSpecPremisesHandler(
         CheckSpecPremisesContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
+        if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return Skipped("no spec is current, so there are no premises to check");
 
         var premises = SpecPremises.For(draft);
@@ -45,9 +45,9 @@ public sealed class CheckSpecPremisesHandler(
         // (DerivedSpecDecision) — so a derived spec that states nothing of its own lands here
         // and costs no call at all.
         if (premises.None)
-            return Skipped($"spec {draft.PhaseId} states no premises of its own");
+            return Skipped($"spec {draft.SpecId} states no premises of its own");
         if (PipelineCostTracker.GetOrCreate(context.Pipeline) is { IsBudgetExhausted: true } capped)
-            return Skipped($"{CostCapStop.Describe(capped)} — spec {draft.PhaseId} is UNCHECKED");
+            return Skipped($"{CostCapStop.Describe(capped)} — spec {draft.SpecId} is UNCHECKED");
 
         await using var look = looks.ForPremiseCheck(context.Pipeline);
         // Every verdict this check can reach rests on a look that ran, so with no repository to
@@ -55,8 +55,8 @@ public sealed class CheckSpecPremisesHandler(
         if (look is null) return Skipped("the run has no repository sandbox to check against");
 
         var check = await checker.CheckAsync(
-            draft, premises, look, PrecedingSpecs.Of(context.Pipeline, draft.PhaseId),
-            draft.PhaseId, context.AgentConfig,
+            draft, premises, look, PrecedingSpecs.Of(context.Pipeline, draft.SpecId),
+            draft.SpecId, context.AgentConfig,
             PipelineCostTracker.GetOrCreate(context.Pipeline), cancellationToken);
         return check.False.Count == 0
             ? Held(draft, check)
@@ -79,11 +79,11 @@ public sealed class CheckSpecPremisesHandler(
         return CommandResult.Ok(message);
     }
 
-    private CommandResult Held(PhaseDraft draft, PremiseCheck check)
+    private CommandResult Held(SpecDraft draft, PremiseCheck check)
     {
         if (check.Skipped is not null) return Skipped(check.Skipped);
         if (check.NotTaken is not null) return NotTaken(check.NotTaken);
-        var message = $"Spec {draft.PhaseId}: every stated premise still holds"
+        var message = $"Spec {draft.SpecId}: every stated premise still holds"
             + (check.Unproven.Count == 0
                 ? "."
                 : $"; {check.Unproven.Count} reported premise(s) could not be proven either way "
@@ -98,19 +98,19 @@ public sealed class CheckSpecPremisesHandler(
     /// The premise, the finding and its evidence go as ONE argument, because the recorder
     /// publishes failingCommand ?? note and a second argument would be dropped silently.
     /// <para>
-    /// The standing is <see cref="PhaseRunState.HandedBack"/>, never <c>Failed</c>: a red build
+    /// The standing is <see cref="SpecRunState.HandedBack"/>, never <c>Failed</c>: a red build
     /// is fixed by working the code and a false premise by amending the specification, and a
     /// reader that had to tell the two apart by parsing this verdict string would be deriving
     /// what the producer already knows.
     /// </para>
     /// </summary>
     private async Task<CommandResult> HandBackAsync(
-        CheckSpecPremisesContext context, PhaseDraft draft, PremiseCheck check, CancellationToken ct)
+        CheckSpecPremisesContext context, SpecDraft draft, PremiseCheck check, CancellationToken ct)
     {
         var verdict = string.Join(
-            " | ", check.False.Select(f => PremiseHandback.Verdict(draft.PhaseId, f)));
+            " | ", check.False.Select(f => PremiseHandback.Verdict(draft.SpecId, f)));
         await progress.RecordAsync(
-            context.Pipeline, draft.PhaseId, PhaseRunState.HandedBack, verdict, cancellationToken: ct);
+            context.Pipeline, draft.SpecId, SpecRunState.HandedBack, verdict, cancellationToken: ct);
         await notice.PostAsync(context.Pipeline, context.Tracker, draft, check.False, ct);
         logger.LogWarning("{Verdict}", verdict);
         return CommandResult.Fail(verdict);

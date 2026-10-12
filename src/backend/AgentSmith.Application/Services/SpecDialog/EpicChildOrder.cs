@@ -7,4 +7,4 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// order exists. <see cref="Error"/> non-null means the epic is refused — the children
 /// are returned unchanged so a caller can name them in the refusal.
 /// </summary>
-public sealed record EpicChildOrder(IReadOnlyList<PhaseDraft> Children, string? Error);
+public sealed record EpicChildOrder(IReadOnlyList<SpecDraft> Children, string? Error);

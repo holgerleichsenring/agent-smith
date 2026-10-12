@@ -32,7 +32,7 @@ public sealed class PipelineExecutor(
         IReadOnlyList<string> commandNames, ResolvedProject projectConfig,
         PipelineContext context, CancellationToken cancellationToken) =>
         ExecuteCoreAsync(
-            commandNames.Select(PipelineCommand.Simple).ToList(), projectConfig,
+            commandNames.Select(name => PipelineCommand.Simple(CommandNames.Declared(name))).ToList(), projectConfig,
             context, startExecutionCount: 0, cancellationToken);
 
     // p0327: resume entry — same loop, but starting at the checkpointed cursor

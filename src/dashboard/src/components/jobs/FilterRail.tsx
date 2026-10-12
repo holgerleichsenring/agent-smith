@@ -43,9 +43,9 @@ const LABELS: Record<EventType, string> = {
   [EventType.RunWorkShapeResolved]: "RunWorkShapeResolved", // p0413
   [EventType.LedgerTransitionsRecorded]: "LedgerTransitionsRecorded", // p0374a
   [EventType.PipelineStepsPlanned]: "PipelineStepsPlanned", // p0405
-  [EventType.PhaseStateChanged]: "PhaseStateChanged", // p0466
-  [EventType.PhaseRecorded]: "PhaseRecorded", // p0466
-  [EventType.PhaseReviewed]: "PhaseReviewed", // 2026-09-17-042eh
+  [EventType.SpecStateChanged]: "SpecStateChanged", // p0466
+  [EventType.SpecRecorded]: "SpecRecorded", // p0466
+  [EventType.SpecReviewed]: "SpecReviewed", // 2026-09-17-042eh
   [EventType.DesignRead]: "DesignRead", // 2026-10-01-7f7ae
 };
 

@@ -224,7 +224,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ConversationState state, CancellationToken _) =>
                 SpecDialogTurnResult.On(state.Platform, "drafted", new SpecOutcome(
-                    new PhaseDraft("p9000a", "a slice",
+                    new SpecDraft("p9000a", "a slice",
                         "spec: p9000a\ngoal: \"a slice\"\ndone:\n  - \"done\"", [])
                     { Done = ["done"] })));
         var flow = new SpecDialogOutcomeFlow(

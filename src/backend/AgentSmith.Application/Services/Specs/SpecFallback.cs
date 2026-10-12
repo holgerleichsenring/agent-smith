@@ -56,7 +56,7 @@ public sealed class SpecFallback(
         var markdown = SegmentExtractor.BuildWholeTicketMarkdown(specId, goal, segments);
         return new SpecSet(
             key,
-            [new SpecPhase(draftReader.Read(yaml), slug, markdown, [.. segments.Select(s => s.Id)])],
+            [new DerivedSpec(draftReader.Read(yaml), slug, markdown, [.. segments.Select(s => s.Id)])],
             SpecAccounting.Empty,
             [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
             source,

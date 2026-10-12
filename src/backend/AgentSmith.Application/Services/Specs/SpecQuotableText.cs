@@ -26,15 +26,15 @@ public static class SpecQuotableText
     public const int MinWords = 2;
 
     /// <summary>True when the spec states a done-list.</summary>
-    public static bool StatesCriteria(PhaseDraft draft) =>
+    public static bool StatesCriteria(SpecDraft draft) =>
         draft.Done.Any(d => !string.IsNullOrWhiteSpace(d));
 
     /// <summary>The goal, then the done entries — or the step actions of a spec that states none.</summary>
-    public static IReadOnlyList<string> Of(PhaseDraft draft) =>
+    public static IReadOnlyList<string> Of(SpecDraft draft) =>
         [draft.Goal, .. Statements(draft)];
 
     /// <summary>True when the quote is, or is most of, one of the spec's quotable texts.</summary>
-    public static bool Contains(PhaseDraft draft, string? quoted) => IsOneOf(Of(draft), quoted);
+    public static bool Contains(SpecDraft draft, string? quoted) => IsOneOf(Of(draft), quoted);
 
     /// <summary>
     /// 2026-09-17-0e79c: the same match against ANY corpus of stated texts. The premise check
@@ -70,16 +70,16 @@ public static class SpecQuotableText
     }
 
     /// <summary>The spec as the reviewer is shown it, with no heading over nothing.</summary>
-    public static string Render(PhaseDraft draft)
+    public static string Render(SpecDraft draft)
     {
-        var head = $"spec_id: {draft.PhaseId}\ngoal: {draft.Goal}";
+        var head = $"spec_id: {draft.SpecId}\ngoal: {draft.Goal}";
         var statements = Statements(draft);
         if (statements.Count == 0) return head;
         return head + (StatesCriteria(draft) ? "\ndone:\n" : "\nsteps:\n")
             + string.Join("\n", statements.Select(line => "  - " + line));
     }
 
-    private static IReadOnlyList<string> Statements(PhaseDraft draft) =>
+    private static IReadOnlyList<string> Statements(SpecDraft draft) =>
         StatesCriteria(draft)
             ? [.. draft.Done.Where(d => !string.IsNullOrWhiteSpace(d))]
             : [.. draft.Steps.Where(s => !string.Equals(s.Action, s.Id, StringComparison.Ordinal))

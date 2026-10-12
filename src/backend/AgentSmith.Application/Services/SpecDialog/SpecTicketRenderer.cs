@@ -5,7 +5,7 @@ using AgentSmith.Contracts.Tickets;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// p0315c: composes a spec ticket from a schema-valid PhaseDraft. The body leads with a
+/// p0315c: composes a spec ticket from a schema-valid SpecDraft. The body leads with a
 /// human-first markdown summary (goal / why / scope, read from the draft's own yaml).
 /// 2026-09-22-766b: the ticket carries ONE framework label, the approved-set stamp, and it is
 /// that stamp which binds a FILED ticket to spec execution.
@@ -25,7 +25,7 @@ public sealed class SpecTicketRenderer
     /// dropping it would take away a way of starting a run that nobody asked to lose. The
     /// objection this spec answers is about words this framework WRITES; this is the opposite.
     /// </summary>
-    public const string SpecLabel = "phase";
+    public const string SpecLabel = "spec";
 
     /// <summary>
     /// 2026-09-13-a3f1: a RECORD, not work. It was filed with the phase label, which hard-binds
@@ -38,9 +38,9 @@ public sealed class SpecTicketRenderer
     /// ALREADY carry it, and there are two generations of them: the epic PARENT SUMMARIES filed
     /// before 2026-09-17-0e79d widened the label's meaning, and the SLICE RECORDS filed from then
     /// until this spec. Neither is deleted by this spec, both sit on a live board, and each is
-    /// refused by the incoming path on this label alone — so dropping the constant, renaming its
-    /// value or removing the reader would make every one of them an ordinary ticket overnight,
-    /// routable by tag, by area path or by repository, and then run.
+    /// refused by the incoming path on this label alone — so dropping the constant or the reader of
+    /// its historical value (TicketLabels.AcceptedSpecEpicLabel, since 2026-10-12-967ab spec-named
+    /// it) would make every one of them an ordinary ticket overnight, routable and then run.
     /// </para>
     /// <para>
     /// 2026-09-22-766b: SO THIS READER IS PERMANENT. It has no writer and will get none back, and
@@ -49,7 +49,7 @@ public sealed class SpecTicketRenderer
     /// RECORDS. Both carry this label and nothing else, so the reader must outlive every writer.
     /// </para>
     /// </summary>
-    public const string EpicLabel = "phase-epic";
+    public const string EpicLabel = "spec-epic";
 
     /// <summary>
     /// A filed spec: the requirement, plus the link back to the approved specification the run
@@ -58,8 +58,8 @@ public sealed class SpecTicketRenderer
     /// <param name="conversation">The design conversation the set was approved in.</param>
     /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
     public SpecTicketContent RenderSpec(
-        PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
-        new(Title(draft.PhaseId, draft.Goal), SpecTicketBody.Requirement(
+        SpecDraft draft, string? conversation = null, string? labelNote = null) =>
+        new(Title(draft.SpecId, draft.Goal), SpecTicketBody.Requirement(
             draft, sb => AppendSpecification(sb, conversation), labelNote));
 
     /// <summary>The heading the specification pointer is filed under.</summary>
@@ -99,14 +99,14 @@ public sealed class SpecTicketRenderer
     /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
     /// <param name="series">2026-10-06-03c7c: the series' base id the title names; absent in a preview.</param>
     public SpecTicketContent RenderEpicParent(
-        PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
+        SpecDraft parent, IReadOnlyList<SpecDraft> children,
         IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
         string? labelNote = null, string? series = null) =>
-        new(Title(series ?? parent.PhaseId, parent.Goal), SpecTicketBody.Requirement(parent, sb =>
+        new(Title(series ?? parent.SpecId, parent.Goal), SpecTicketBody.Requirement(parent, sb =>
         {
             sb.AppendLine("## Slices");
             foreach (var child in children)
-                sb.AppendLine($"- `{child.PhaseId}` {child.Goal}{FormatRequires(child)}");
+                sb.AppendLine($"- `{child.SpecId}` {child.Goal}{FormatRequires(child)}");
             sb.AppendLine();
             TemplateProvenanceLines.Append(sb, templates);
             AppendSpecification(sb, conversation);
@@ -115,6 +115,6 @@ public sealed class SpecTicketRenderer
     // 2026-09-17-042eb: the goal is whole in the body; the title only has to be accepted.
     private static string Title(string id, string goal) => TicketTitle.Fit($"{id}: {goal}");
 
-    private static string FormatRequires(PhaseDraft draft) =>
+    private static string FormatRequires(SpecDraft draft) =>
         draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";
 }

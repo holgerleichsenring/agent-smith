@@ -47,7 +47,7 @@ internal static class SpecTicketBody
     /// </para>
     /// </summary>
     public static string Requirement(
-        PhaseDraft draft, Action<StringBuilder> extraSections, string? labelNote = null)
+        SpecDraft draft, Action<StringBuilder> extraSections, string? labelNote = null)
     {
         var map = OutcomeYamlReader.ReadMap(draft.Yaml);
         var sb = new StringBuilder();
@@ -65,7 +65,7 @@ internal static class SpecTicketBody
 
     // 2026-10-01-f5c3a: the draft's done list, never the raw yaml — a scenario entry is a
     // mapping there and would print as its type name.
-    private static IEnumerable<string> DoneLines(PhaseDraft draft) =>
+    private static IEnumerable<string> DoneLines(SpecDraft draft) =>
         draft.Done.Select(CriterionLine.Collapse);
 
     private static void AppendItems(StringBuilder sb, string heading, IEnumerable<string> items)

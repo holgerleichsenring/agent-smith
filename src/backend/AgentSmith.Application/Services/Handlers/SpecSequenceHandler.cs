@@ -31,7 +31,7 @@ public sealed class SpecSequenceHandler(ILogger<SpecSequenceHandler> logger)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set)
-            || set is null || set.Phases.Count == 0)
+            || set is null || set.Specs.Count == 0)
             return Task.FromResult(CommandResult.Ok(
                 "No derived specs to execute — the run has no spec set"));
 
@@ -47,17 +47,17 @@ public sealed class SpecSequenceHandler(ILogger<SpecSequenceHandler> logger)
         context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(pending.Count));
         var commands = pending
             .SelectMany(spec => PerSpec.Select(
-                name => new PipelineCommand(name) { SpecId = spec.PhaseId }))
+                name => new PipelineCommand(name) { SpecId = spec.SpecId }))
             .ToArray();
 
         logger.LogInformation(
             "Spec set {Key}: {Pending} spec(s) to execute — {Steps} spliced steps ({Specs})",
             set.Key, pending.Count, commands.Length,
-            string.Join(", ", pending.Select(p => p.PhaseId)));
+            string.Join(", ", pending.Select(p => p.SpecId)));
 
         return Task.FromResult(CommandResult.OkAndContinueWith(
             $"{pending.Count} spec(s) to work through: "
-            + string.Join(", ", pending.Select(p => $"{p.PhaseId} ({p.Draft.Goal})")),
+            + string.Join(", ", pending.Select(p => $"{p.SpecId} ({p.Draft.Goal})")),
             commands));
     }
 }

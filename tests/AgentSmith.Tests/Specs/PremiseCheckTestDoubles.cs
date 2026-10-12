@@ -25,7 +25,7 @@ internal static class PremiseCheckTestDoubles
 
     /// <summary>A spec stating one fact, one assumption and one decision, as the design
     /// partner's contract now drafts them.</summary>
-    public static PhaseDraft Draft(
+    public static SpecDraft Draft(
         string fact = "OrderHandler validates the payload before dispatch",
         string assumption = "the bus client is registered as a singleton",
         string decision = "The sender stays in Api.Orders because OrderHandler.cs:34-41 already owns dispatch.",
@@ -40,13 +40,13 @@ internal static class PremiseCheckTestDoubles
              """, [])
         {
             Done = done.Length == 0 ? ["the dispatch no longer runs inside the handler"] : done,
-            Facts = fact.Length == 0 ? [] : [new PhaseFact(fact, "[L2] Sample.Server: …")],
+            Facts = fact.Length == 0 ? [] : [new SpecFact(fact, "[L2] Sample.Server: …")],
             Assumptions = assumption.Length == 0 ? [] : [assumption],
         };
 
     /// <summary>A draft with no facts, no assumptions and no decisions — every spec the
     /// conversation drafted before the pinned master stated them.</summary>
-    public static PhaseDraft DraftWithoutPremises() =>
+    public static SpecDraft DraftWithoutPremises() =>
         new(SpecId, "move the dispatch out of the handler", $"spec: {SpecId}", [])
         {
             Done = ["the dispatch no longer runs inside the handler"],
@@ -55,7 +55,7 @@ internal static class PremiseCheckTestDoubles
     /// <summary>A spec as the DERIVER renders it: no facts, no assumptions, and the one
     /// decision the framework writes on every derived spec — which names a run artifact that
     /// exists in no sandbox.</summary>
-    public static PhaseDraft DerivedDraft() =>
+    public static SpecDraft DerivedDraft() =>
         new(SpecId, "move the dispatch out of the handler",
             $"""
              spec: {SpecId}
@@ -80,13 +80,13 @@ internal static class PremiseCheckTestDoubles
         public Task<CommandResult> RunAsync() => Handler.ExecuteAsync(Context, CancellationToken.None);
 
         public string? Verdict => Events.Events
-            .OfType<Contracts.Events.PhaseStateChangedEvent>()
-            .LastOrDefault(e => e.State == PhaseRunState.HandedBack)?.Verdict;
+            .OfType<Contracts.Events.SpecStateChangedEvent>()
+            .LastOrDefault(e => e.State == SpecRunState.HandedBack)?.Verdict;
     }
 
     /// <summary>The handler with everything real but the model and the sandbox.</summary>
     public static Harness For(
-        PhaseDraft draft, string answer, int exitCode = 0,
+        SpecDraft draft, string answer, int exitCode = 0,
         params (string Repository, string Pattern)[] searches)
     {
         var provider = new SearchingProvider(answer, searches);
@@ -122,7 +122,7 @@ internal static class PremiseCheckTestDoubles
             (IReadOnlyList<AgentSmith.Domain.Entities.TicketComment>)existing);
     }
 
-    public static PipelineContext Pipeline(PhaseDraft draft, ISandbox sandbox)
+    public static PipelineContext Pipeline(SpecDraft draft, ISandbox sandbox)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "2026-09-17T09-00-00-0001");
@@ -135,7 +135,7 @@ internal static class PremiseCheckTestDoubles
         pipeline.Set(ContextKeys.Ticket, new AgentSmith.Domain.Entities.Ticket(
             new TicketId("42"), "A ticket", "Its description", null, "Open", "Stub"));
         pipeline.Set(ContextKeys.SpecSet, new SpecSet(
-            "azdo-1", [new SpecPhase(draft, draft.PhaseId, string.Empty, [])],
+            "azdo-1", [new DerivedSpec(draft, draft.SpecId, string.Empty, [])],
             SpecAccounting.Empty, [], SpecSource.Derived));
         return pipeline;
     }

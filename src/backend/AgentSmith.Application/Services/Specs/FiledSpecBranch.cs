@@ -59,7 +59,7 @@ public sealed class FiledSpecBranch(
             return BranchWriteResult.Failed(
                 "the ticket could not be read back, so the set would carry no ticket fingerprint");
         var pointer = await stored.GetAsync(project.Name, record.Set.Key, cancellationToken);
-        var placement = placer.Place(Published(record, ticket, pointer?.ExecutedIdsOf(record.Set.Phases) ?? []),
+        var placement = placer.Place(Published(record, ticket, pointer?.ExecutedIdsOf(record.Set.Specs) ?? []),
             new SeriesScope(project.Repos, SeriesScope.LegacyOf(pointer, record.CarryingRepo, project.Repos), [],
                 pointer?.CarryingRepo));
         if (placement.Refusal is { } refused) return BranchWriteResult.Failed(refused);
@@ -88,7 +88,7 @@ public sealed class FiledSpecBranch(
         await pointers.RecordAsync(project.Name, placement.Carrier?.Name, set, written.Shas, ct);
         logger.LogInformation(
             "The approved set {Key} ({Specs} spec(s)) was written to the ticket branch of {Repos} as {Shas}",
-            set.Key, set.Phases.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
+            set.Key, set.Specs.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
         return BranchWriteResult.Ok(written.CommitSha!);
     }
 

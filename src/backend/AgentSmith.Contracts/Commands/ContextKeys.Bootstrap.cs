@@ -32,7 +32,7 @@ public static partial class ContextKeys
     /// "Applies to: ..." prefix line so the LLM knows which stack(s) the work
     /// targets. Optional — falls back silently to the existing per-context
     /// language annotation when absent (p0161a D4 fallback chain).</summary>
-    public const string SpecAppliesTo = "PhaseAppliesTo";
+    public const string SpecAppliesTo = "SpecAppliesTo";
 
     /// <summary>p0161d: per-(repo, context) bootstrap-skill markdown summaries
     /// accumulated by BootstrapRoundHandler across all rounds. Dictionary

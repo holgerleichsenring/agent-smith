@@ -14,5 +14,5 @@ public sealed record DeclinedCriteria(IReadOnlyList<DeclinedCriterion> All)
     public static DeclinedCriteria Empty { get; } = new([]);
 
     public DeclinedCriteria With(string? specId, IReadOnlyList<DeclinedCriterion> declined) =>
-        new([.. All.Where(d => !string.Equals(d.PhaseId, specId, StringComparison.Ordinal)), .. declined]);
+        new([.. All.Where(d => !string.Equals(d.SpecId, specId, StringComparison.Ordinal)), .. declined]);
 }

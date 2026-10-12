@@ -47,7 +47,7 @@ public sealed class ShortfallDelivery(UnverifiedWorkReverter reverter, ILogger<S
     public string PullRequestBanner(RunShortfall shortfall)
     {
         ArgumentNullException.ThrowIfNull(shortfall);
-        return $"> ✅ **Delivered with a shortfall** — {shortfall.Delivered.Count} of {shortfall.PhaseCount} "
+        return $"> ✅ **Delivered with a shortfall** — {shortfall.Delivered.Count} of {shortfall.SpecCount} "
             + "spec(s) built and verified; the rest is listed under \"Not delivered\" below.\n"
             + $"> The run stopped: {shortfall.Reason}\n\n";
     }

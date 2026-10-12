@@ -10,9 +10,9 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// <para>
 /// The record body states them in prose for whoever opens the spec; that copy is markdown
 /// inside a YAML body and cannot be read back as data without parsing it apart again. This
-/// event carries the same answer structurally — a <see cref="PhaseReviewReport"/> OBJECT, not
+/// event carries the same answer structurally — a <see cref="SpecReviewReport"/> OBJECT, not
 /// a bare array, so a review that was skipped or failed says so instead of reading as a review
-/// that found nothing — upserted as artifact <c>phase_review:&lt;phase id&gt;</c> beside the
+/// that found nothing — upserted as artifact <c>spec_review:&lt;spec id&gt;</c> beside the
 /// record, which is what 2026-09-17-042ej reads.
 /// </para>
 /// </summary>
@@ -22,14 +22,14 @@ public sealed class SpecReviewPublisher(IEventPublisher eventPublisher)
         new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
     public Task PublishAsync(
-        PipelineContext pipeline, string specId, PhaseReviewReport report, CancellationToken ct)
+        PipelineContext pipeline, string specId, SpecReviewReport report, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(report);
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new PhaseReviewedEvent(
+            new SpecReviewedEvent(
                 runId, specId, JsonSerializer.Serialize(report, Options), DateTimeOffset.UtcNow),
             ct);
     }

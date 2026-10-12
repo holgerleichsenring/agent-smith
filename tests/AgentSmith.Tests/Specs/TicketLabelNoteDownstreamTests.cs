@@ -78,7 +78,7 @@ public sealed class TicketLabelNoteDownstreamTests
         var set = fallback.Build(
             "key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(ticket.Description), [], SpecSource.Derived, []);
 
-        var markdown = set.Phases.Single().Markdown;
+        var markdown = set.Specs.Single().Markdown;
         markdown.Should().Contain("Make the widget storable")
             .And.NotContain(TicketLabelNote.BeginIdentifier)
             .And.NotContain(TicketLabelNote.Heading);
@@ -135,7 +135,7 @@ public sealed class TicketLabelNoteDownstreamTests
         return string.Join("\n", chat.LastMessages.Select(m => m.Text));
     }
 
-    private static PhaseDraft Draft() =>
+    private static SpecDraft Draft() =>
         new("p9000a", "Widget storage",
             "spec: p9000a\ngoal: \"Widget storage\"\ndone:\n  - \"the widget is stored\"",
             []) { Done = ["the widget is stored"] };

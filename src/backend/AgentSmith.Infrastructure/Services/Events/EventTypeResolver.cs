@@ -50,9 +50,9 @@ public static class EventTypeResolver
         EventType.LedgerTransitionsRecorded => typeof(LedgerTransitionsRecordedEvent), // p0374a
         EventType.PipelineStepsPlanned => typeof(PipelineStepsPlannedEvent), // p0405
         EventType.RunWorkShapeResolved => typeof(RunWorkShapeResolvedEvent), // p0413
-        EventType.PhaseStateChanged => typeof(PhaseStateChangedEvent), // p0466
-        EventType.PhaseRecorded => typeof(PhaseRecordedEvent), // p0466
-        EventType.PhaseReviewed => typeof(PhaseReviewedEvent), // 2026-09-17-042eh
+        EventType.SpecStateChanged => typeof(SpecStateChangedEvent), // p0466
+        EventType.SpecRecorded => typeof(SpecRecordedEvent), // p0466
+        EventType.SpecReviewed => typeof(SpecReviewedEvent), // 2026-09-17-042eh
         EventType.DesignRead => typeof(DesignReadEvent), // 2026-10-01-7f7ae
         _ => null
     };

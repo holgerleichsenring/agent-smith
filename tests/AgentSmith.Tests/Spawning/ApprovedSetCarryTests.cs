@@ -33,7 +33,7 @@ public sealed class ApprovedSetCarryTests
             (string)request.InitialContext![ContextKeys.ApprovedSpecSet]);
         carried!.Key.Should().Be(Key);
         carried.Approval!.At.Should().Be(ApprovedSets.Noon);
-        carried.Set.Phases.Should().ContainSingle("the whole record travels, not a pointer at it");
+        carried.Set.Specs.Should().ContainSingle("the whole record travels, not a pointer at it");
 
         JsonSerializer.Deserialize<Dictionary<string, object>>(candidate.InitialContextJson!)
             .Should().ContainKey(ContextKeys.ApprovedSpecSet);

@@ -104,7 +104,7 @@ public sealed class SpecSourceTests
     public void SpecSource_ARetriggerOfASetInFlight_ContinuesWithoutTheModel()
     {
         var cut = SetOnBranch();
-        var inFlight = Read(cut with { Executed = [cut.Phases[0].PhaseId] });
+        var inFlight = Read(cut with { Executed = [cut.Specs[0].SpecId] });
 
         var decision = _sut.Decide(
             inFlight, Ticket("The endpoint returns 500."), Pointer(), new PipelineContext(), "azdo-1", TicketLabelVocabulary.Default);
@@ -141,8 +141,8 @@ public sealed class SpecSourceTests
 
     private static SpecSet SetOnBranch() => new(
         "azdo-1",
-        [new SpecPhase(
-            new Contracts.Models.PhaseDraft("p0001a", "On the branch", "spec: p0001a", []),
+        [new DerivedSpec(
+            new Contracts.Models.SpecDraft("p0001a", "On the branch", "spec: p0001a", []),
             "on-the-branch", string.Empty, [])],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],

@@ -66,13 +66,13 @@ public sealed class ApprovedSeriesTests : IDisposable
             new SpecDialogSessionRepository(_context), Store()).ForAsync(Dialog, default);
 
         view.Should().NotBeNull("the binding computes the key the filing stored under");
-        view!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be($"{Series}a");
+        view!.Specs.Should().ContainSingle().Which.SpecId.Should().Be($"{Series}a");
     }
 
     private Task<SpecApprovalRecord> FileAsync() =>
         ApprovedSetDoubles.Recorder(Store()).RecordAsync(
             State(), Project(), TicketId,
-            new FiledSeries(Series, [new PhaseDraft($"{Series}a", "Do it", $"spec: {Series}a", [])]),
+            new FiledSeries(Series, [new SpecDraft($"{Series}a", "Do it", $"spec: {Series}a", [])]),
             "The epic's goal", default);
 
     private DbSpecApprovalStore Store()

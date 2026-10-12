@@ -29,9 +29,9 @@ public sealed class SeriesIdentityTests
         var github = Parse(TicketKey.For("github", "1"), "2026-10-06-0b0b", segments);
 
         jira.Key.Should().NotBe(github.Key, "the ticket key names the tracker");
-        jira.Phases[0].PhaseId.Should().NotBe(github.Phases[0].PhaseId,
+        jira.Specs[0].SpecId.Should().NotBe(github.Specs[0].SpecId,
             "ticket 1 on two trackers is two series, and a number both share is not an identity");
-        jira.Phases[0].PhaseId.Should().NotStartWith("p", "no id is derived from the ticket number any more");
+        jira.Specs[0].SpecId.Should().NotStartWith("p", "no id is derived from the ticket number any more");
     }
 
     [Fact]
@@ -66,13 +66,13 @@ public sealed class SeriesIdentityTests
     {
         var drafts = new[]
         {
-            new PhaseDraft("p7b", "second", "spec: p7b\ngoal: second", []),
-            new PhaseDraft("p7a", "first", "spec: p7a\ngoal: first\nrequires:\n- p7b", ["p7b"]),
+            new SpecDraft("p7b", "second", "spec: p7b\ngoal: second", []),
+            new SpecDraft("p7a", "first", "spec: p7a\ngoal: first\nrequires:\n- p7b", ["p7b"]),
         };
 
         var assigned = ApprovedSetDoubles.DraftIds().Assign("2026-10-06-0a0a", drafts);
 
-        assigned.Select(d => d.PhaseId).Should().Equal("2026-10-06-0a0aa", "2026-10-06-0a0ab");
+        assigned.Select(d => d.SpecId).Should().Equal("2026-10-06-0a0aa", "2026-10-06-0a0ab");
         assigned[1].Requires.Should().Equal("2026-10-06-0a0aa");
         assigned[1].Yaml.Should().Contain("spec: 2026-10-06-0a0ab").And.Contain("- 2026-10-06-0a0aa");
     }
@@ -85,7 +85,7 @@ public sealed class SeriesIdentityTests
 
         factory.KeptOrMinted(record).Should().Be("2026-10-06-0001");
         factory.KeptOrMinted(null).Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
-        factory.Under("2026-10-06-0001", [new PhaseDraft("x", "g", "spec: x", [])]).Drafts[0].PhaseId
+        factory.Under("2026-10-06-0001", [new SpecDraft("x", "g", "spec: x", [])]).Drafts[0].SpecId
             .Should().Be("2026-10-06-0001a");
     }
 

@@ -13,11 +13,11 @@ public sealed class SpecDialogProposalComposer(
     EpicChildOrderer orderer, BugTicketRenderer bugRenderer)
 {
     public const string BugKind = "bug";
-    public const string SpecKind = "phase";
+    public const string SpecKind = "spec";
     public const string EpicKind = "epic";
 
-    /// <summary>2026-10-12-967aa: the kind a later release writes for a spec, read as <see cref="SpecKind"/>.</summary>
-    public const string AcceptedSpecKind = "spec";
+    /// <summary>2026-10-12-967ab: the kind written for a spec before the rename, read as <see cref="SpecKind"/>.</summary>
+    public const string AcceptedSpecKind = "phase";
 
     /// <summary>A stored kind in the vocabulary this release writes.</summary>
     public static string? Declared(string? kind) => kind == AcceptedSpecKind ? SpecKind : kind;
@@ -51,12 +51,12 @@ public sealed class SpecDialogProposalComposer(
         BugOutcome bug => new(
             dialogId, BugKind,
             new SpecDialogBugView(bug.Ticket.Title, bugRenderer.RenderBody(bug.Ticket)),
-            Phase: null, Parent: null, Children: [], at),
+            Spec: null, Parent: null, Children: [], at),
         SpecOutcome spec => new(
             dialogId, SpecKind, Bug: null, View(spec.Draft),
             Parent: null, Children: [], at),
         EpicOutcome epic => new(
-            dialogId, EpicKind, Bug: null, Phase: null, View(epic.Parent), Order(epic), at),
+            dialogId, EpicKind, Bug: null, Spec: null, View(epic.Parent), Order(epic), at),
         _ => null,
     };
 
@@ -66,13 +66,13 @@ public sealed class SpecDialogProposalComposer(
     /// own order — the filer refuses it, and showing the operator the shape they are about
     /// to be refused beats showing them nothing.
     /// </summary>
-    private IReadOnlyList<SpecDialogPhaseView> Order(EpicOutcome epic) =>
+    private IReadOnlyList<SpecDialogDraftView> Order(EpicOutcome epic) =>
         [.. orderer.Order(epic.Children).Children.Select(View)];
 
     /// <summary>2026-09-25-8e51d: shared, because the approved set is drawn in the same shape the
     /// proposal is — one spec view, one TypeScript mirror, one thing to keep in step.</summary>
-    internal static SpecDialogPhaseView View(PhaseDraft draft) => new(
-        draft.PhaseId, draft.Goal,
+    internal static SpecDialogDraftView View(SpecDraft draft) => new(
+        draft.SpecId, draft.Goal,
         [.. draft.Steps.Select(step => step.Action)],
         draft.Tests, draft.Done, draft.Requires, draft.Yaml)
     {

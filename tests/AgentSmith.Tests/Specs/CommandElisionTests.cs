@@ -62,7 +62,7 @@ public sealed class CommandElisionTests
     [Fact]
     public void SpecCommandLog_TheSameSearchInTwoRepositories_NamesEachRepositoryItRanIn()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("Sample.Distribution.Server", WolverineSearch, "exit_code: 1\n\nstdout:\n");
         log.Record("Sample.Distribution.Worker", WolverineSearch, "exit_code: 1\n\nstdout:\n");
 

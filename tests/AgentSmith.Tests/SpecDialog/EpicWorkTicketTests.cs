@@ -135,8 +135,8 @@ public sealed class EpicWorkTicketTests
             .And.Contain($"`{second}` slice p9000a (requires: {first})");
         body.IndexOf(first, StringComparison.Ordinal).Should().BeLessThan(
             body.IndexOf(second, StringComparison.Ordinal), "the listing is the order the one run works them in");
-        set.Phases[1].Draft.Requires.Should().Equal(first);
-        set.Phases[1].Draft.Yaml.Should().Contain($"spec: {second}").And.Contain($"- {first}")
+        set.Specs[1].Draft.Requires.Should().Equal(first);
+        set.Specs[1].Draft.Yaml.Should().Contain($"spec: {second}").And.Contain($"- {first}")
             .And.NotContain("p9000b", "the stored text says what the stored fields say");
     }
 
@@ -151,9 +151,9 @@ public sealed class EpicWorkTicketTests
         var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default);
         record.Should().NotBeNull("the run computes this key from the WORK ticket it was spawned on");
         record!.Set.Source.Should().Be(SpecSource.Approved);
-        record.Set.Phases.Select(p => p.Draft.Goal).Should().Equal(["slice p9000b", "slice p9000a"],
+        record.Set.Specs.Select(p => p.Draft.Goal).Should().Equal(["slice p9000b", "slice p9000a"],
             "the set is stored in the order the sequence will splice it");
-        record.Set.Phases.Select(p => p.PhaseId).Should().Equal(
+        record.Set.Specs.Select(p => p.SpecId).Should().Equal(
             SeriesIdFactory.Member(record.Set.Series!, 0), SeriesIdFactory.Member(record.Set.Series!, 1));
         record.Approval!.Conversation.Should().Be("job-1");
     }
@@ -294,15 +294,16 @@ public sealed class EpicWorkTicketTests
     }
 
     /// <summary>
-    /// The value is what the refusal reads, and every record already on a tracker carries it —
-    /// the epic parent summaries filed before 2026-09-17-0e79d and the slice records filed until
-    /// 2026-09-22-b3d7. Renaming the constant would make each of them routable overnight.
+    /// The old value is what every record already on a tracker carries — the epic parent summaries
+    /// filed before 2026-09-17-0e79d and the slice records filed until 2026-09-22-b3d7. 2026-10-12-967ab
+    /// renamed the constant's value, so the old one must stay refused or each record turns routable.
     /// </summary>
     [Fact]
-    public void RecordLabel_KeepsItsValue_SoTheRecordsAlreadyFiledStayUnroutable()
+    public void RecordLabel_BothValuesRefused_SoTheRecordsAlreadyFiledStayUnroutable()
     {
-        SpecTicketRenderer.EpicLabel.Should().Be("phase-epic");
+        SpecTicketRenderer.EpicLabel.Should().Be("spec-epic");
         Resolve(["phase-epic"]).Should().BeEmpty();
+        Resolve(["spec-epic"]).Should().BeEmpty();
     }
 
     /// <summary>
@@ -421,7 +422,7 @@ public sealed class EpicWorkTicketTests
                 "a single approved spec is stamped exactly as an epic's work ticket is");
         provider.Comments.Should().BeEmpty("a filing posts no comment of its own");
         var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default);
-        record!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(
+        record!.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be(
             SeriesIdFactory.Member(record.Set.Series!, 0), "a lone spec is the first member of its own series");
     }
 
@@ -466,12 +467,12 @@ public sealed class EpicWorkTicketTests
         },
     };
 
-    private static EpicOutcome Epic(params PhaseDraft[] slices) =>
-        new(new PhaseDraft("p9000", "Widget platform",
+    private static EpicOutcome Epic(params SpecDraft[] slices) =>
+        new(new SpecDraft("p9000", "Widget platform",
             "spec: p9000\ngoal: \"Widget platform\"\ndone:\n  - \"the whole platform is reachable\"",
             []) { Done = ["the whole platform is reachable"] }, slices);
 
-    private static PhaseDraft Slice(string id, IReadOnlyList<string>? requires = null) =>
+    private static SpecDraft Slice(string id, IReadOnlyList<string>? requires = null) =>
         new(id, $"slice {id}",
             $"spec: {id}\ngoal: \"slice {id}\"\ndone:\n  - \"slice {id} is finished\""
             + string.Concat((requires ?? []).Select((r, i) => (i == 0 ? "\nrequires:" : string.Empty) + $"\n- {r}")),

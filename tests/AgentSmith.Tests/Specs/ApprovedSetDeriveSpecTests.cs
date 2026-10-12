@@ -37,7 +37,7 @@ public sealed class ApprovedSetDeriveSpecTests
 
         result.IsSuccess.Should().BeTrue();
         harness.Deriver.Calls.Should().Be(0, "an approved set is worked, never re-derived");
-        harness.Writer.Written!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
+        harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
         harness.Writer.Written.Source.Should().Be(SpecSource.Approved);
         harness.PullRequests.Opened.Should().Be(1, "the reviewer needs the draft pull request at the spec commit");
         (await harness.Pointers.GetAsync(string.Empty, Key, default))!.RevisionSha
@@ -98,7 +98,7 @@ public sealed class ApprovedSetDeriveSpecTests
         await harness.Handler().ExecuteAsync(harness.Context(Ticket(EmbeddedSpec)), default);
 
         harness.Writer.Written!.Source.Should().Be(SpecSource.Approved);
-        harness.Writer.Written.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a",
+        harness.Writer.Written.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a",
             "a description anyone can edit does not outrank the set a person approved");
     }
 
@@ -308,7 +308,7 @@ public sealed class ApprovedSetDeriveSpecTests
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
-        harness.Writer.Written!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a",
+        harness.Writer.Written!.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a",
             "the branch answered, so the record is not consulted at all");
     }
 
@@ -351,7 +351,7 @@ public sealed class ApprovedSetDeriveSpecTests
     private static SpecDerivation Derivation()
     {
         var segments = TicketSegmenter.Segment("Migrate the client.");
-        var spec = new SpecPhase(
+        var spec = new DerivedSpec(
             ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(
             new SpecSet(

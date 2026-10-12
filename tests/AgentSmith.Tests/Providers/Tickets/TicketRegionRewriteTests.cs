@@ -137,7 +137,7 @@ public sealed class TicketRegionRewriteTests
     public void Filing_TheBodyItWrites_IsMarkedAsTheFrameworksOwnRegion()
     {
         var body = new AgentSmith.Application.Services.SpecDialog.SpecTicketRenderer()
-            .RenderSpec(new Contracts.Models.PhaseDraft(
+            .RenderSpec(new Contracts.Models.SpecDraft(
                 "p9001", "the widget stops dropping", "spec: p9001", [])).Body;
 
         FramedTicketRegion.Marked(body).Should().BeTrue();
@@ -151,7 +151,7 @@ public sealed class TicketRegionRewriteTests
     {
         var body = new AgentSmith.Application.Services.SpecDialog.SpecTicketRenderer()
             .RenderSpec(
-                new Contracts.Models.PhaseDraft("p9001", "goal", "spec: p9001", []), "job-1",
+                new Contracts.Models.SpecDraft("p9001", "goal", "spec: p9001", []), "job-1",
                 AgentSmith.Application.Services.SpecDialog.TicketLabelNote.For(
                     [AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp],
                     AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp)).Body;

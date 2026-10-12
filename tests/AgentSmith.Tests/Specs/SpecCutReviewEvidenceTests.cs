@@ -57,8 +57,8 @@ public sealed class SpecCutReviewEvidenceTests
         prompt.Should().Contain("NOT IN THE TICKET");
     }
 
-    private static IReadOnlyList<PhaseDraft> Cut() =>
-        [new PhaseDraft("p1a", "migrate the senders", "spec: p1a", [])
+    private static IReadOnlyList<SpecDraft> Cut() =>
+        [new SpecDraft("p1a", "migrate the senders", "spec: p1a", [])
         {
             Done = ["every sender uses the new bus"],
         }];

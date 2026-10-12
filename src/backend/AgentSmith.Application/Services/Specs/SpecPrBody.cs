@@ -40,13 +40,13 @@ public static class SpecPrBody
         var sb = new StringBuilder();
         sb.AppendLine("## Derived specs");
         sb.AppendLine();
-        if (set.Phases.Count == 0)
+        if (set.Specs.Count == 0)
         {
             sb.AppendLine("_No spec was derived._");
             return sb.ToString();
         }
-        foreach (var spec in set.Phases)
-            sb.AppendLine($"1. **{spec.PhaseId}** — {spec.Draft.Goal}");
+        foreach (var spec in set.Specs)
+            sb.AppendLine($"1. **{spec.SpecId}** — {spec.Draft.Goal}");
         return sb.ToString();
     }
 
@@ -102,18 +102,18 @@ public static class SpecPrBody
         }
         sb.AppendLine("| Spec | Goal | Status |");
         sb.AppendLine("| --- | --- | --- |");
-        foreach (var spec in progress.Phases)
-            sb.AppendLine($"| {spec.PhaseId} | {spec.Goal} | {Describe(spec)} |");
+        foreach (var spec in progress.Specs)
+            sb.AppendLine($"| {spec.SpecId} | {spec.Goal} | {Describe(spec)} |");
         return sb.ToString();
     }
 
-    private static string Describe(PhaseProgress spec) => spec.State switch
+    private static string Describe(SpecProgress spec) => spec.State switch
     {
-        PhaseRunState.Done => spec.Note is null ? "✅ done" : $"✅ done — {spec.Note}",
-        PhaseRunState.Failed => $"❌ failed — {spec.FailingCommand ?? "verification red"}",
-        PhaseRunState.HandedBack =>
+        SpecRunState.Done => spec.Note is null ? "✅ done" : $"✅ done — {spec.Note}",
+        SpecRunState.Failed => $"❌ failed — {spec.FailingCommand ?? "verification red"}",
+        SpecRunState.HandedBack =>
             $"↩️ handed back, never built — {spec.FailingCommand ?? "a premise no longer holds"}",
-        PhaseRunState.InProgress => "⏳ started, not finished",
+        SpecRunState.InProgress => "⏳ started, not finished",
         _ => "⬜ not started",
     };
 }

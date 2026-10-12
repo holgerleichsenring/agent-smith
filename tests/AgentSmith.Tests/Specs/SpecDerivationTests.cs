@@ -44,12 +44,12 @@ public sealed class SpecDerivationTests
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
-        set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one spec");
-        set.Phases[0].PhaseId.Should().Be("2026-10-06-9106a");
-        set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
-        set.Phases[1].Draft.Requires.Should().Contain(
+        set.Specs.Should().HaveCount(2, "an 800-line manual is a sequence, not one spec");
+        set.Specs[0].SpecId.Should().Be("2026-10-06-9106a");
+        set.Specs[1].SpecId.Should().Be("2026-10-06-9106b");
+        set.Specs[1].Draft.Requires.Should().Contain(
             "2026-10-06-9106a", "the sequence IS the requires-chain");
-        set.Phases.Should().OnlyContain(
+        set.Specs.Should().OnlyContain(
             p => p.Draft.Done.Count > 0, "a spec that cannot end is not a spec");
     }
 
@@ -82,7 +82,7 @@ public sealed class SpecDerivationTests
         var parsed = _parser.Parse(
             TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
-        var markdown = parsed.Derivation!.Set.Phases[0].Markdown;
+        var markdown = parsed.Derivation!.Set.Specs[0].Markdown;
         markdown.Should().Contain(template.Text,
             "the model returns anchors and CODE cuts the span — a retyped template is a "
             + "plausible copy, and a plausible copy of a naming contract is a broken one");
@@ -142,14 +142,14 @@ public sealed class SpecDerivationTests
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
-        set.Phases[0].Draft.Contexts.Should().Equal("backend", "frontend");
-        set.Phases[0].Draft.Yaml.Should().Contain("contexts:").And.Contain("- backend");
-        set.Phases[1].Draft.Contexts.Should().BeEmpty("a spec that declares none has none");
-        set.Phases[1].Draft.Yaml.Should().NotContain("contexts:");
+        set.Specs[0].Draft.Contexts.Should().Equal("backend", "frontend");
+        set.Specs[0].Draft.Yaml.Should().Contain("contexts:").And.Contain("- backend");
+        set.Specs[1].Draft.Contexts.Should().BeEmpty("a spec that declares none has none");
+        set.Specs[1].Draft.Yaml.Should().NotContain("contexts:");
         set.Accounting.DiscardedContexts.Should().ContainSingle()
             .Which.Should().Be(new DiscardedContext("worker", "no client there"));
-        set.Phases[0].Markdown.Should().NotContain("backend", "the companion carries the ticket's bytes only");
-        new SpecDraftReader().Read(set.Phases[0].Draft.Yaml).Contexts.Should().Equal("backend", "frontend");
+        set.Specs[0].Markdown.Should().NotContain("backend", "the companion carries the ticket's bytes only");
+        new SpecDraftReader().Read(set.Specs[0].Draft.Yaml).Contexts.Should().Equal("backend", "frontend");
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class SpecDerivationTests
         set.IsHandedBack.Should().BeTrue();
         set.Handback!.Case.Should().Be(SpecHandbackCase.NotImplementable);
         set.Handback.IsVerdict.Should().BeTrue("a verdict does not auto-retry on a comment");
-        set.Phases.Should().BeEmpty("a hand-back replaces the spec, it does not accompany it");
+        set.Specs.Should().BeEmpty("a hand-back replaces the spec, it does not accompany it");
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public sealed class SpecDerivationTests
             "a major only where nothing lower clears the advisory",
             "the newest major everywhere, breaking changes included");
         handback.TakenReading.Should().Be("the newest major everywhere, breaking changes included");
-        parsed.Derivation.Set.Phases.Should().BeEmpty("a hand-back replaces the spec, it does not accompany it");
+        parsed.Derivation.Set.Specs.Should().BeEmpty("a hand-back replaces the spec, it does not accompany it");
     }
 
     [Theory]
@@ -246,7 +246,7 @@ public sealed class SpecDerivationTests
             var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
             parsed.Derivation!.Set.IsHandedBack.Should().BeTrue(name);
-            parsed.Derivation.Set.Phases.Should().BeEmpty(name);
+            parsed.Derivation.Set.Specs.Should().BeEmpty(name);
         }
     }
 
@@ -260,7 +260,7 @@ public sealed class SpecDerivationTests
 
         parsed.Derivation!.Set.IsHandedBack.Should().BeFalse();
         parsed.Derivation.Set.Handback.Should().BeNull();
-        parsed.Derivation.Set.Phases.Should().HaveCount(2);
+        parsed.Derivation.Set.Specs.Should().HaveCount(2);
     }
 
     private static string QuestionReply(int taken) => $$$"""
@@ -292,7 +292,7 @@ public sealed class SpecDerivationTests
         var original = _parser.Parse(
             TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived)
             .Derivation!.Set;
-        var executedHead = new[] { original.Phases[0] };
+        var executedHead = new[] { original.Specs[0] };
 
         // The correction says "the cut is wrong" and re-writes BOTH entries. The first is
         // executed, so what the model said about it is discarded.
@@ -312,11 +312,11 @@ public sealed class SpecDerivationTests
             "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, executedHead);
 
         var set = recut.Derivation!.Set;
-        set.Phases[0].Should().BeSameAs(original.Phases[0],
+        set.Specs[0].Should().BeSameAs(original.Specs[0],
             "an executed spec is APPEND-ONLY — a correction to it is a new spec, never an edit");
-        set.Phases.Should().HaveCount(3, "the unexecuted tail was re-partitioned into two");
-        set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
-        set.Phases[2].PhaseId.Should().Be("2026-10-06-9106c");
+        set.Specs.Should().HaveCount(3, "the unexecuted tail was re-partitioned into two");
+        set.Specs[1].SpecId.Should().Be("2026-10-06-9106b");
+        set.Specs[2].SpecId.Should().Be("2026-10-06-9106c");
         set.Executed.Should().ContainSingle().Which.Should().Be("2026-10-06-9106a");
     }
 

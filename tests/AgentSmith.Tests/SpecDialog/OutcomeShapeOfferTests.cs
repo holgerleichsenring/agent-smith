@@ -378,6 +378,6 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         Mode = ConversationMode.SpecDialog,
     };
 
-    private static PhaseDraft Draft(string specId) =>
+    private static SpecDraft Draft(string specId) =>
         new(specId, $"goal of {specId}", $"spec: {specId}", []);
 }

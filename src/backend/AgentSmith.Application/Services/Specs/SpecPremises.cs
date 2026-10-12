@@ -21,7 +21,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed record SpecPremises(
-    IReadOnlyList<PhaseFact> Facts,
+    IReadOnlyList<SpecFact> Facts,
     IReadOnlyList<string> Assumptions,
     string Decisions,
     IReadOnlyList<string> Claims)
@@ -30,7 +30,7 @@ public sealed record SpecPremises(
     /// whose only decision is the deriver's boilerplate lands here, and costs no call.</summary>
     public bool None => Claims.Count == 0;
 
-    public static SpecPremises For(PhaseDraft draft) => SpecPremisesReader.Read(draft);
+    public static SpecPremises For(SpecDraft draft) => SpecPremisesReader.Read(draft);
 
     /// <summary>The three lists as the checker is shown them, each headed by what it is.</summary>
     public string Render()

@@ -171,7 +171,7 @@ public sealed class BaseRefSearchTests
     {
         var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
         pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.CurrentSpec,
-            new AgentSmith.Contracts.Models.PhaseDraft("p1", "goal", "spec: p1", [])
+            new AgentSmith.Contracts.Models.SpecDraft("p1", "goal", "spec: p1", [])
             { Done = ["a criterion"] });
         pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.ResolvedPipeline,
             new AgentSmith.Contracts.Models.Configuration.ResolvedPipelineConfig(

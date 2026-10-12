@@ -7,7 +7,7 @@ import type { SpecDraftProposal, SpecDialogProposalPush } from "@/types/spec-dia
 // and what it states without having looked — so a finding against a citation can be read beside it.
 describe("DialogProposalPanel", () => {
   const spec: SpecDraftProposal = {
-    phaseId: "p9001",
+    specId: "p9001",
     goal: "Open the seam",
     steps: ["open it"],
     tests: [],
@@ -18,9 +18,9 @@ describe("DialogProposalPanel", () => {
 
   const push = (shown: SpecDraftProposal): SpecDialogProposalPush => ({
     dialogId: "d-1",
-    kind: "phase",
+    kind: "spec",
     bug: null,
-    phase: shown,
+    spec: shown,
     parent: null,
     children: [],
     at: "2026-10-02T10:00:00Z",

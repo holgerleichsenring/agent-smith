@@ -49,9 +49,9 @@ public sealed class DeriveSpecHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         var set = published.Set!;
-        set.Phases.Should().ContainSingle("an unaccounted split does not split at all");
+        set.Specs.Should().ContainSingle("an unaccounted split does not split at all");
         set.TicketPinnedWhole.Should().BeTrue();
-        set.Phases[0].Markdown.Should().Contain("`<Domain>ServiceClient`",
+        set.Specs[0].Markdown.Should().Contain("`<Domain>ServiceClient`",
             "the whole ticket is carried, verbatim, by the one spec");
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
             "an unaccounted ticket that quietly becomes one spec reads like a ticket that had one");
@@ -66,7 +66,7 @@ public sealed class DeriveSpecHandlerTests
         await Handler(new RecordingEventPublisher(), published, incomplete)
             .ExecuteAsync(Context(), default);
 
-        published.Set!.Phases[0].Draft.Done.Should().Contain("Every call site is renamed.",
+        published.Set!.Specs[0].Draft.Done.Should().Contain("Every call site is renamed.",
             "the cut was refused for its COVERAGE, not for its criteria — the acceptance "
             + "contract must not silently empty");
     }
@@ -81,7 +81,7 @@ public sealed class DeriveSpecHandlerTests
             .ExecuteAsync(Context(), default);
 
         result.IsSuccess.Should().BeTrue();
-        published.Set!.Phases.Should().ContainSingle();
+        published.Set!.Specs.Should().ContainSingle();
         published.Set.TicketPinnedWhole.Should().BeTrue();
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting");
     }
@@ -109,7 +109,7 @@ public sealed class DeriveSpecHandlerTests
 
         await Handler(events, published, derivation: null).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
 
-        published.Set!.Phases.Should().BeEmpty();
+        published.Set!.Specs.Should().BeEmpty();
         published.Set.Handback!.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
         published.Set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
@@ -235,8 +235,8 @@ public sealed class DeriveSpecHandlerTests
         IReadOnlyList<int> carries, IReadOnlyList<DiscardedSegment> discarded)
     {
         var segments = TicketSegmenter.Segment(Ticket);
-        var spec = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
+        var spec = new DerivedSpec(
+            new Contracts.Models.SpecDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = ["Every call site is renamed."],
             },

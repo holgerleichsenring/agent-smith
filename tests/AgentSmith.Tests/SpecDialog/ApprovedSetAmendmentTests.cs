@@ -34,7 +34,7 @@ public sealed class ApprovedSetAmendmentTests
 
         record.Should().NotBeNull("the conversation edits the record, never the branch");
         record!.Key.Should().Be(TicketKey.For("azuredevops", "19106").Value);
-        record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a");
+        record.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a");
     }
 
     [Fact]
@@ -59,14 +59,14 @@ public sealed class ApprovedSetAmendmentTests
         var again = (await recorder.LoadAsync(Project(), "19106", default))!;
         again.Approval!.IsNewerThan(first).Should().BeTrue(
             "the newer instant is what the run compares against the branch's own");
-        again.Set.Phases.Should().HaveCount(2, "the record is upserted in place, never duplicated");
+        again.Set.Specs.Should().HaveCount(2, "the record is upserted in place, never duplicated");
     }
 
     private static ApprovedSpecSetRecorder Recorder(
         ISpecApprovalStore store, TimeProvider? time = null) =>
         new(store, new NoReferenceSetReader(), new SeriesRepos(), time ?? TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
-    private static PhaseDraft Draft(string id) =>
+    private static SpecDraft Draft(string id) =>
         new(id, $"Do {id}", $"spec: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
 
     private static ConversationState State() => new()

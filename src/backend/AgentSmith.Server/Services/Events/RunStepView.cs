@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Services.Events;
 /// <para>
 /// p0395: a spliced spec step (p0393a) is projected with the spec id composed
 /// into its names ("p19106a: Generate plan"). The read path splits that back
-/// apart: <see cref="PhaseId"/> carries the spec, and StepName/DisplayName are
+/// apart: <see cref="SpecId"/> carries the spec, and StepName/DisplayName are
 /// served clean — for old prefixed rows and new ones alike — so the dashboard
 /// can group by spec instead of truncating every row on the same prefix.
 /// </para>
@@ -50,7 +50,7 @@ public sealed record RunStepView(
     decimal? CostUsd,
     int? SandboxCommands,
     int? SubAgents,
-    string? PhaseId = null,
+    string? SpecId = null,
     string StepClass = CommandStepClasses.Milestone,
     bool HasFinding = false,
     RunTimeSplitView? Time = null,
@@ -64,6 +64,6 @@ public sealed record RunStepView(
         new(planned.StepIndex, planned.DisplayName, planned.DisplayName, planned.CommandName,
             Status: null, DurationSeconds: null, ResultMessage: null,
             LlmCalls: null, CostUsd: null, SandboxCommands: null, SubAgents: null,
-            planned.PhaseId, CommandStepClasses.Get(planned.CommandName), HasFinding: false,
+            planned.SpecId, CommandStepClasses.Get(planned.CommandName), HasFinding: false,
             Time: null, Planned: true);
 }

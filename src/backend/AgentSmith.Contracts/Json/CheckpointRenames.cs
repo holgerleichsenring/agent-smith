@@ -2,20 +2,21 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Commands;
 
-namespace AgentSmith.Application.Services.Resume;
+namespace AgentSmith.Contracts.Json;
 
 /// <summary>
 /// 2026-10-12-967aa: the context keys and type names a checkpoint entry may carry under the
 /// spec rename, as pairs of (phase name, spec name). Consulted in BOTH directions: whichever side
 /// this build declares is the one an entry is restored under, so the same table serves the release
-/// that still declares the phase names and the one that declares the spec names.
+/// that still declares the phase names and the one that declares the spec names (967ab on), and
+/// the store rewrite (<c>StoredSpecNameRewrite</c>) reads it through <see cref="Rewrite"/>.
 /// <para>
 /// A checkpoint names its entries by <see cref="ContextKeys"/> value and its values by
 /// assembly-qualified type name, and an entry whose type does not resolve is skipped. A parked run
 /// written by a newer replica and resumed by an older one would otherwise lose its spec silently.
 /// </para>
 /// </summary>
-internal static partial class CheckpointRenames
+public static partial class CheckpointRenames
 {
     private static readonly (string Phase, string Spec)[] ContextKeyPairs =
     [
@@ -68,6 +69,17 @@ internal static partial class CheckpointRenames
         Type.GetType(assemblyQualifiedName, throwOnError: false)
         ?? Type.GetType(Swap(assemblyQualifiedName, toSpec: true), throwOnError: false)
         ?? Type.GetType(Swap(assemblyQualifiedName, toSpec: false), throwOnError: false);
+
+    /// <summary>
+    /// The spec-side name for a stored key or assembly-qualified type name, or null when it
+    /// carries no phase name — the store rewrite's view of the same table.
+    /// </summary>
+    public static (string? Key, string? TypeName) Rewrite(string key, string typeName)
+    {
+        var newKey = ContextKeyPairs.FirstOrDefault(p => p.Phase == key).Spec;
+        var newType = Swap(typeName, toSpec: true);
+        return (newKey, newType == typeName ? null : newType);
+    }
 
     private static string? Counterpart((string Phase, string Spec)[] pairs, string name)
     {

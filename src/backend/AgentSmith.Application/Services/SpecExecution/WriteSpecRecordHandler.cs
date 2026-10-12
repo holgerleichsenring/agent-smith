@@ -34,7 +34,7 @@ public sealed class WriteSpecRecordHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         // p0393: an ordinary ticket carries no spec — there is nothing to record.
-        if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
+        if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return CommandResult.Ok("No spec on this run; nothing to record");
 
         var body = SpecRecordBody.For(draft, context.Pipeline);
@@ -43,16 +43,16 @@ public sealed class WriteSpecRecordHandler(
     }
 
     private async Task<CommandResult> RecordAsync(
-        WriteSpecRecordContext context, PhaseDraft draft, string body, CancellationToken cancellationToken)
+        WriteSpecRecordContext context, SpecDraft draft, string body, CancellationToken cancellationToken)
     {
-        if (!TrySpec(context.Pipeline, draft.PhaseId, out var set, out _))
-            return CommandResult.Fail($"Spec {draft.PhaseId} is in no series on this run, so nothing can carry its record");
+        if (!TrySpec(context.Pipeline, draft.SpecId, out var set, out _))
+            return CommandResult.Fail($"Spec {draft.SpecId} is in no series on this run, so nothing can carry its record");
         var carrying = CarrierName(context.Pipeline);
         var placement = placer.Place(set,
             new SeriesScope(context.Repos, SeriesScope.LegacyOf(null, carrying, context.Repos), [], carrying));
         if (placement.Refusal is { } refused)
-            return CommandResult.Fail($"Spec {draft.PhaseId} ran but its record has no repository: {refused}");
-        var spec = placement.Set.Phases.First(p => p.PhaseId == draft.PhaseId);
+            return CommandResult.Fail($"Spec {draft.SpecId} ran but its record has no repository: {refused}");
+        var spec = placement.Set.Specs.First(p => p.SpecId == draft.SpecId);
         var carrier = placement.Members.First(m => m.Name == spec.Draft.Repos[0]);
 
         var path = SeriesPaths.Spec(SeriesPaths.Done, spec.FileStem);
@@ -64,10 +64,10 @@ public sealed class WriteSpecRecordHandler(
             new SpecDoneRecord(carrier, placement.Set, spec, body, line, context.Repos.Count > 1), cancellationToken);
     }
 
-    private static bool TrySpec(PipelineContext pipeline, string specId, out SpecSet set, out SpecPhase spec)
+    private static bool TrySpec(PipelineContext pipeline, string specId, out SpecSet set, out DerivedSpec spec)
     {
         set = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var s) ? s! : null!;
-        spec = set?.Phases.FirstOrDefault(p => p.PhaseId == specId)!;
+        spec = set?.Specs.FirstOrDefault(p => p.SpecId == specId)!;
         return set is not null && spec is not null;
     }
 

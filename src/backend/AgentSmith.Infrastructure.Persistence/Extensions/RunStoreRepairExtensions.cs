@@ -1,5 +1,7 @@
 using AgentSmith.Infrastructure.Persistence.Services;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Services.Repair;
+using AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure.Persistence.Extensions;
@@ -20,6 +22,29 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<RunCostRecomputer>();
         services.AddSingleton<RunDuplicateRepair>();
         services.AddSingleton<RunStoreMigrator>();
+        return services.AddStoredSpecNameRewrite();
+    }
+
+    // 2026-10-12-967ab: the one-time rewrite of rows stored in the pre-rename names, run by the migrator.
+    private static IServiceCollection AddStoredSpecNameRewrite(this IServiceCollection services)
+    {
+        services.AddSingleton<SpecRenameJson>();
+        services.AddSingleton<SpecApprovalJsonRewriter>();
+        services.AddSingleton<CheckpointJsonRewriter>();
+        services.AddSingleton<RequestContextJsonRewriter>();
+        services.AddSingleton<EventPayloadRewriter>();
+        services.AddSingleton<SpecDialogJsonRewriter>();
+        services.AddSingleton<RowPages>();
+        services.AddSingleton<IStoredSpecNameSurface, RunEventSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, RunCheckpointSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, RunArtifactSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, RunSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, QueuedTicketSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, ApprovedSeriesSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, SpecDialogSessionSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, RunStepSpecNames>();
+        services.AddSingleton<IStoredSpecNameSurface, RunDecisionSpecNames>();
+        services.AddSingleton<StoredSpecNameRewrite>();
         return services;
     }
 }

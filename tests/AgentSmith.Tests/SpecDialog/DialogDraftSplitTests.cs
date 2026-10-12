@@ -102,7 +102,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     [Fact]
     public async Task EditNote_ReRun_TheMasterStillSeesItsDraft()
     {
-        Replies((ReplyWithDraft, new SpecOutcome(new PhaseDraft("p9999", "widget goal", Draft, []))),
+        Replies((ReplyWithDraft, new SpecOutcome(new SpecDraft("p9999", "widget goal", Draft, []))),
             ("A smaller cut.", new AnswerOutcome()));
         _transport.Setup(transport => transport.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
@@ -121,7 +121,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     [Fact]
     public async Task EditTurn_AfterAReviewedProposal_IsShownItsFindings()
     {
-        var reviewed = new SpecOutcome(new PhaseDraft("p9999", "widget goal", Draft, [])) with
+        var reviewed = new SpecOutcome(new SpecDraft("p9999", "widget goal", Draft, [])) with
         {
             Findings =
             [
@@ -146,7 +146,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     [Fact]
     public async Task Turn_AfterAFiledProposal_IsShownNoFindings()
     {
-        var reviewed = new SpecOutcome(new PhaseDraft("p9999", "widget goal", Draft, [])) with
+        var reviewed = new SpecOutcome(new SpecDraft("p9999", "widget goal", Draft, [])) with
         {
             Findings = [new ProposalFinding("p9999", "false premise", "already there")],
         };

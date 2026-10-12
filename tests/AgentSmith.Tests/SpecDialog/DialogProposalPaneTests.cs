@@ -53,14 +53,14 @@ public sealed class DialogProposalPaneTests : IDisposable
 
         var push = Proposals().Single();
         push.Kind.Should().Be(SpecDialogProposalComposer.SpecKind);
-        push.Phase!.PhaseId.Should().Be("p9001");
-        push.Phase.Goal.Should().Be("goal of p9001");
-        push.Phase.Steps.Should().Equal("open the seam");
-        push.Phase.Tests.Should().Equal("Flow_Scenario_Expected");
-        push.Phase.Done.Should().Equal("the pane shows it");
+        push.Spec!.SpecId.Should().Be("p9001");
+        push.Spec.Goal.Should().Be("goal of p9001");
+        push.Spec.Steps.Should().Equal("open the seam");
+        push.Spec.Tests.Should().Equal("Flow_Scenario_Expected");
+        push.Spec.Done.Should().Equal("the pane shows it");
         // 2026-10-02-3f06c: and what it rests on.
-        push.Phase.Facts.Should().Equal(new PhaseFact("the seam exists", "repo/src/Seam.cs:3"));
-        push.Phase.Assumptions.Should().Equal("nobody calls it yet");
+        push.Spec.Facts.Should().Equal(new SpecFact("the seam exists", "repo/src/Seam.cs:3"));
+        push.Spec.Assumptions.Should().Equal("nobody calls it yet");
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         await flow.HandleAsync(state, new SpecOutcome(Draft("p9002")), false, CancellationToken.None);
 
         first.Should().BeOfType<OutcomeFlowEditRequested>();
-        Proposals().Select(push => push.Phase!.PhaseId).Should().Equal(["p9001", "p9002"],
+        Proposals().Select(push => push.Spec!.SpecId).Should().Equal(["p9001", "p9002"],
             "the edit round sends the design turn round again and the pane follows it");
     }
 
@@ -123,8 +123,8 @@ public sealed class DialogProposalPaneTests : IDisposable
         var push = Composer().Compose(Dialog, epic, DateTimeOffset.UnixEpoch)!;
 
         push.Kind.Should().Be(SpecDialogProposalComposer.EpicKind);
-        push.Parent!.PhaseId.Should().Be("p9000");
-        push.Children.Select(child => child.PhaseId).Should().Equal(["p9000b", "p9000a"],
+        push.Parent!.SpecId.Should().Be("p9000");
+        push.Children.Select(child => child.SpecId).Should().Equal(["p9000b", "p9000a"],
             "the cut listed them the other way round; the filer follows the edges, and a "
             + "pane listing them differently shows a plan that is not the one about to be created");
     }
@@ -172,7 +172,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         await Channel().FiledAsync(State(), report, CancellationToken.None);
 
         Filings().Single().Notes.Should().Equal(report.Notes);
-        new SpecDialogOutcomeComposer().ComposeFiled(new SpecOutcome(new PhaseDraft("p9000a", "slice", "spec: p9000a", [])), report)
+        new SpecDialogOutcomeComposer().ComposeFiled(new SpecOutcome(new SpecDraft("p9000a", "slice", "spec: p9000a", [])), report)
             .In(SpecDialogMarkup.For("slack")).Should().Contain("is not linked to its parent");
     }
 
@@ -267,13 +267,13 @@ public sealed class DialogProposalPaneTests : IDisposable
         Mode = ConversationMode.SpecDialog,
     };
 
-    private static PhaseDraft Draft(string specId, IReadOnlyList<string>? requires = null) =>
+    private static SpecDraft Draft(string specId, IReadOnlyList<string>? requires = null) =>
         new(specId, $"goal of {specId}", $"spec: {specId}", requires ?? [])
         {
-            Steps = [new PhaseStep("seam", "open the seam", null)],
+            Steps = [new SpecStep("seam", "open the seam", null)],
             Tests = ["Flow_Scenario_Expected"],
             Done = ["the pane shows it"],
-            Facts = [new PhaseFact("the seam exists", "repo/src/Seam.cs:3")],
+            Facts = [new SpecFact("the seam exists", "repo/src/Seam.cs:3")],
             Assumptions = ["nobody calls it yet"],
         };
 }

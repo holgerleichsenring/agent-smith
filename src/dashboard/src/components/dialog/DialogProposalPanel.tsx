@@ -28,7 +28,7 @@ import type {
 // its panel card, so the local eyebrow this file declared is gone.
 
 export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposalPush }) {
-  const specs = [proposal.parent, proposal.phase, ...proposal.children].filter(
+  const specs = [proposal.parent, proposal.spec, ...proposal.children].filter(
     (spec): spec is SpecDraftProposal => spec !== null,
   );
   return (
@@ -40,14 +40,14 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>
       )}
-      {proposal.phase && <Spec spec={proposal.phase} label="One spec" />}
+      {proposal.spec && <Spec spec={proposal.spec} label="One spec" />}
       {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" />}
       {proposal.children.length > 0 && (
         <div>
           <Label>Slices, in the order they will be filed</Label>
           <ol data-testid="dialog-proposal-children" className="ml-5 flex list-decimal flex-col gap-2 marker:font-mono marker:text-body">
             {proposal.children.map((child, index) => (
-              <li key={child.phaseId}>
+              <li key={child.specId}>
                 <Slice slice={child} siblings={proposal.children} open={index === 0} />
               </li>
             ))}
@@ -61,8 +61,8 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
           </summary>
           {specs.filter((spec) => spec.yaml).map((spec) => (
             <pre
-              key={spec.phaseId}
-              data-testid={`dialog-proposal-raw-${spec.phaseId}`}
+              key={spec.specId}
+              data-testid={`dialog-proposal-raw-${spec.specId}`}
               className="card-terminal-panel mt-1.5 overflow-x-auto whitespace-pre px-3 py-2.5 dsh-mono"
             >
               {spec.yaml}
@@ -76,10 +76,10 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
 
 function Spec({ spec, label }: { spec: SpecDraftProposal; label: string }) {
   return (
-    <div data-testid={`dialog-proposal-spec-${spec.phaseId}`}>
+    <div data-testid={`dialog-proposal-spec-${spec.specId}`}>
       <Label>{label}</Label>
       <h3 className="dsh-h3 font-semibold text-ink">{spec.goal}</h3>
-      <div className="fv">{spec.phaseId}</div>
+      <div className="fv">{spec.specId}</div>
       <Sections spec={spec} />
     </div>
   );
@@ -96,19 +96,19 @@ function Slice({
 }) {
   return (
     <details
-      data-testid={`dialog-proposal-spec-${slice.phaseId}`}
+      data-testid={`dialog-proposal-spec-${slice.specId}`}
       open={open}
       className="ecard inert"
     >
       <summary className="flex cursor-pointer items-baseline gap-2 px-2.5 py-2">
-        <span className="ec-mark">{slice.phaseId}</span>
+        <span className="ec-mark">{slice.specId}</span>
         <span className="flex-1 dsh-body font-medium text-ink">{slice.goal}</span>
       </summary>
       <div className="px-2.5 pb-2.5">
         <Lines
           label="Waits for"
           items={slice.requires.map((id) => {
-            const at = siblings.findIndex((sibling) => sibling.phaseId === id);
+            const at = siblings.findIndex((sibling) => sibling.specId === id);
             return at < 0 ? id : `Slice ${at + 1} · ${id}`;
           })}
         />
@@ -135,7 +135,7 @@ function RestsOn({ spec }: { spec: SpecDraftProposal }) {
   const facts = spec.facts ?? [];
   if (facts.length === 0) return null;
   return (
-    <div className="mt-2" data-testid={`dialog-proposal-facts-${spec.phaseId}`}>
+    <div className="mt-2" data-testid={`dialog-proposal-facts-${spec.specId}`}>
       <Label>Rests on</Label>
       <ul className="ml-4 list-disc dsh-body text-ink">
         {facts.map((fact) => (

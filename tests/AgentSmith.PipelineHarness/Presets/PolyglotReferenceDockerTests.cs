@@ -167,8 +167,8 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
         if (!context.TryGet<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress, out var progress)
             || progress is null)
             return string.Empty;
-        var failing = progress.Phases
-            .FirstOrDefault(spec => spec.State == PhaseRunState.Failed)?.FailingCommand
+        var failing = progress.Specs
+            .FirstOrDefault(spec => spec.State == SpecRunState.Failed)?.FailingCommand
             ?? string.Empty;
         if (failing.Length > 0) output.WriteLine("failing command: " + failing);
         return failing;

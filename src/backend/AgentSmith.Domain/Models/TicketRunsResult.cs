@@ -1,12 +1,12 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>One run THIS FRAMEWORK made against a ticket.</summary>
-/// <param name="Phases">The specs it worked, in the order it worked them.</param>
+/// <param name="Specs">The specs it worked, in the order it worked them.</param>
 /// <param name="PullRequests">What it opened, as the run recorded it — which is not the same as
 /// what the board shows: a pull request opened by hand is invisible here.</param>
 public sealed record TicketRun(
     string RunId, string Project, string Status, DateTimeOffset StartedAt,
-    IReadOnlyList<string> Phases, IReadOnlyList<string> PullRequests);
+    IReadOnlyList<string> Specs, IReadOnlyList<string> PullRequests);
 
 /// <summary>
 /// 2026-09-28-1da5d: what this framework did about a ticket, kept apart from what the tracker

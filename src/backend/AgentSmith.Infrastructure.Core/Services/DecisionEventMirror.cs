@@ -33,7 +33,7 @@ public sealed class DecisionEventMirror(
                 // p0466: the spec the decision was taken in, from the ambient step
                 // frame. The alternative — attributing decisions to a spec by the
                 // step index they share — would be the parser again, one join down.
-                PhaseId: runContext.CurrentSpecId),
+                SpecId: runContext.CurrentSpecId),
             cancellationToken);
     }
 }

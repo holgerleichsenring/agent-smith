@@ -14,13 +14,13 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAccountingBuilder
 {
     public static SpecAccounting Build(
-        IReadOnlyList<SpecPhase> specs,
+        IReadOnlyList<DerivedSpec> specs,
         IReadOnlyList<DiscardedSegment> discarded,
         IReadOnlyList<TicketSegment> segments,
         IReadOnlyList<DiscardedContext>? discardedContexts = null)
     {
         var carried = specs
-            .SelectMany(p => p.CarriedSegments.Select(id => new CarriedSegment(id, p.PhaseId)))
+            .SelectMany(p => p.CarriedSegments.Select(id => new CarriedSegment(id, p.SpecId)))
             .Where(c => segments.Any(s => s.Id == c.SegmentId))
             .OrderBy(c => c.SegmentId)
             .ToList();

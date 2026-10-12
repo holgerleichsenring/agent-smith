@@ -52,7 +52,7 @@ public sealed class ProposalEvidenceReviewTests
 
         var findings = await Findings(proposal);
 
-        findings.Select(f => f.PhaseId).Should().Equal(["p9000a"],
+        findings.Select(f => f.SpecId).Should().Equal(["p9000a"],
             "the first child in filing order describes today; the one after it what 'a' leaves");
     }
 
@@ -75,9 +75,9 @@ public sealed class ProposalEvidenceReviewTests
         return await ProposalEvidenceTestReview.Create().FindingsAsync(pipeline, proposal, CancellationToken.None);
     }
 
-    private static PhaseDraft Draft(string specId, params (string Claim, string Evidence)[] facts) =>
+    private static SpecDraft Draft(string specId, params (string Claim, string Evidence)[] facts) =>
         new(specId, $"goal of {specId}", $"spec: {specId}", [])
         {
-            Facts = [.. facts.Select(f => new PhaseFact(f.Claim, f.Evidence))],
+            Facts = [.. facts.Select(f => new SpecFact(f.Claim, f.Evidence))],
         };
 }

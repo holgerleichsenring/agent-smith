@@ -186,7 +186,7 @@ public sealed class ContradictionHandbackDerivationTests
     private sealed class CleanReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
     }

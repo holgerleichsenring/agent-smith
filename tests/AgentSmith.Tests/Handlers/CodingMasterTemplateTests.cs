@@ -255,7 +255,7 @@ public sealed class CodingMasterTemplateTests
                 new FixedScopeFactory(scope), NullLogger<ProjectTemplateScopes>.Instance),
             NullLogger<MasterTemplateScopes>.Instance);
 
-    private static PhaseDraft Draft(string context = "default") =>
+    private static SpecDraft Draft(string context = "default") =>
         new("2026-09-13-6f35", "goal", "yaml", []) { Contexts = [context] };
 
     private static PipelineContext PipelineWithTemplate(out RecordingScope scope)

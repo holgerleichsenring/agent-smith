@@ -59,7 +59,7 @@ public sealed class SpecDialogProposalReview(
     }
 
     private async Task<IReadOnlyList<ProposalFinding>> ModelFindingsAsync(
-        PipelineContext pipeline, IReadOnlyList<PhaseDraft> drafts, AgentConfig agent,
+        PipelineContext pipeline, IReadOnlyList<SpecDraft> drafts, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken ct)
     {
         // The look is over the turn's repositories and owns none of them — the runner disposes
@@ -86,7 +86,7 @@ public sealed class SpecDialogProposalReview(
 
     /// <summary>The specs a proposal states. An answer states none, and a bug is not a plan —
     /// neither is reviewed against the code.</summary>
-    private static IReadOnlyList<PhaseDraft> DraftsOf(OutcomeProposal proposal) => proposal switch
+    private static IReadOnlyList<SpecDraft> DraftsOf(OutcomeProposal proposal) => proposal switch
     {
         SpecOutcome spec => [spec.Draft],
         EpicOutcome epic => [epic.Parent, .. epic.Children],

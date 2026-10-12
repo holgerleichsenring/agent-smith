@@ -27,7 +27,7 @@ public sealed class ApprovedSpecSetStoredTests
         var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "19106").Value, default);
         record.Should().NotBeNull("the run computes exactly this key from the tracker type and the ticket id");
         record!.Set.Source.Should().Be(SpecSource.Approved);
-        record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p19106a");
+        record.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p19106a");
         record.Approval!.Conversation.Should().Be("session-1");
         record.Approval.Principal.Should().Be("sample.user");
         record.Repositories.Should().Equal(["sample-api"], "the scope's repositories are the approval's");
@@ -138,7 +138,7 @@ public sealed class ApprovedSpecSetStoredTests
         """;
     }
 
-    private static PhaseDraft Draft(string id) =>
+    private static SpecDraft Draft(string id) =>
         new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", []) { Done = ["It is done."] };
 
     private static ConversationState State() => new()

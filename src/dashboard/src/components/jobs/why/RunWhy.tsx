@@ -61,18 +61,18 @@ export function RunWhy({ runId }: { runId: string }) {
               </p>
             )}
 
-            {statistics.phases.length === 0 ? (
+            {statistics.specs.length === 0 ? (
               <p className="hint" data-testid="run-why-no-specs">
                 This run recorded no step, so there is no spec to account for. Runs older
                 than the durable record can look like this.
               </p>
             ) : (
-              statistics.phases.map((spec) => (
+              statistics.specs.map((spec) => (
                 <SpecAccount
-                  key={spec.phaseId ?? "outside-any-spec"}
+                  key={spec.specId ?? "outside-any-spec"}
                   spec={spec}
-                  calls={statistics.calls.filter((c) => c.phaseId === spec.phaseId)}
-                  commands={statistics.commands.filter((c) => c.phaseId === spec.phaseId)}
+                  calls={statistics.calls.filter((c) => c.specId === spec.specId)}
+                  commands={statistics.commands.filter((c) => c.specId === spec.specId)}
                 />
               ))
             )}

@@ -33,7 +33,7 @@ public sealed class ApprovedSpecSetCarrier(
             if (record is null) return null;
             logger.LogInformation(
                 "Carrying the approved spec set {Key} ({Specs} spec(s)) onto the run's initial context",
-                record.Key, record.Set.Phases.Count);
+                record.Key, record.Set.Specs.Count);
             return SpecApprovalJson.Write(record);
         }
         // A store this process cannot reach carries nothing; the run then resolves its own.

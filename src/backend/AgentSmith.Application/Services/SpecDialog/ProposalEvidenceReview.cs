@@ -38,11 +38,11 @@ public sealed class ProposalEvidenceReview(
                 foreach (var problem in await check.CheckAsync(fact.Evidence, EvidencePolicy.Product, probe, ct))
                     // Evidence stays null: that slot names a minted look line, and this finding
                     // rests on a read the check made, which the reason already states.
-                    findings.Add(new ProposalFinding(draft.PhaseId, Problem, problem.ToString(), fact.Claim));
+                    findings.Add(new ProposalFinding(draft.SpecId, Problem, problem.ToString(), fact.Claim));
         return findings;
     }
 
-    private IReadOnlyList<PhaseDraft> Checked(OutcomeProposal proposal) => proposal switch
+    private IReadOnlyList<SpecDraft> Checked(OutcomeProposal proposal) => proposal switch
     {
         SpecOutcome spec when !spec.Draft.Requires.Any(RequiresEdgeChecker.SpecIdRegex().IsMatch) =>
             [spec.Draft],

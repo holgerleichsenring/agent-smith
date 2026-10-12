@@ -31,7 +31,7 @@ public sealed class PlannedStepsAnnouncerTests
         steps.Select(s => s.StepIndex).Should().Equal(1, 2, 3);
         steps.Select(s => s.CommandName).Should().Equal(
             CommandNames.FetchTicket, CommandNames.AgenticMaster, CommandNames.VerifySpec);
-        steps[1].PhaseId.Should().Be("p19106a");
+        steps[1].SpecId.Should().Be("p19106a");
         steps[1].DisplayName.Should().NotStartWith("p19106a:",
             "the spec rides in its own field, so the label does not repeat it");
     }

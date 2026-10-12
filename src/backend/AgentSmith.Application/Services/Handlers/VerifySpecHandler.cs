@@ -192,8 +192,8 @@ public sealed class VerifySpecHandler(
 
         // p0341g: stamped with the spec they repair — a repeated step belongs to the same
         // spec as the step it repeats, in the rail and in every per-spec rollup.
-        var specId = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var d)
-            ? d?.PhaseId : null;
+        var specId = context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var d)
+            ? d?.SpecId : null;
         return CommandResult.OkAndContinueWith(
             $"{outstanding.Count} criterion(s) outstanding; one repair pass follows",
             [.. SpecVerdict.RepairSteps(specId)]);
@@ -212,14 +212,14 @@ public sealed class VerifySpecHandler(
         // its first verification left it — or, where the undo fails, fails saying which tree.
         if (await reviewRevert.TryRevertAsync(context.Pipeline, result, ct) is { } reverted)
             result = reverted;
-        if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
+        if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return result;
         if (result.IsSuccess)
             await progress.RecordAsync(
-                context.Pipeline, draft.PhaseId, PhaseRunState.Done, cancellationToken: ct);
+                context.Pipeline, draft.SpecId, SpecRunState.Done, cancellationToken: ct);
         else
             await progress.RecordAsync(
-                context.Pipeline, draft.PhaseId, PhaseRunState.Failed, FailingCommandOf(result),
+                context.Pipeline, draft.SpecId, SpecRunState.Failed, FailingCommandOf(result),
                 cancellationToken: ct);
         return result;
     }

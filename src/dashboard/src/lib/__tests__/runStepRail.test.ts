@@ -3,7 +3,7 @@ import { composeTimeBadge, splitSpecPrefix, toRailNodes } from "../runStepRail";
 import type { RunStepRow } from "../runStepsApi";
 
 // p0395: spliced spec steps carry their spec as structured data, never as a
-// per-row label prefix. Current servers send RunStepView.phaseId with clean
+// per-row label prefix. Current servers send RunStepView.specId with clean
 // names; payloads from older servers still carry the composed "p<id>: <label>"
 // names, so the rail splits the known prefix defensively.
 
@@ -52,7 +52,7 @@ describe("splitSpecPrefix", () => {
 describe("toRailNodes spec handling", () => {
   it("prefers the server's structured spec id and shows the clean label", () => {
     const nodes = toRailNodes([
-      row({ stepIndex: 0, displayName: "Generate plan", phaseId: "p19106a" }),
+      row({ stepIndex: 0, displayName: "Generate plan", specId: "p19106a" }),
     ]);
 
     expect(nodes[0].label).toBe("Generate plan");
@@ -152,7 +152,7 @@ describe("toRailNodes planned steps", () => {
   it("carries the planned marker through and reads the absent status as not-yet-run", () => {
     const nodes = toRailNodes([
       row({ stepIndex: 1, status: "success" }),
-      plannedRow({ stepIndex: 2, displayName: "Execute the spec", phaseId: "p19106a" }),
+      plannedRow({ stepIndex: 2, displayName: "Execute the spec", specId: "p19106a" }),
     ]);
 
     expect(nodes[0].planned).toBe(false);

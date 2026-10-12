@@ -27,7 +27,7 @@ public static class SpecCutReviewPrompt
     // in part and the coverage verdict is withdrawn rather than guessed.
     private const int MaxTicketChars = 200_000;
 
-    public static string For(IReadOnlyList<PhaseDraft> drafts, string? ticketText, DerivationLook? look)
+    public static string For(IReadOnlyList<SpecDraft> drafts, string? ticketText, DerivationLook? look)
     {
         ArgumentNullException.ThrowIfNull(drafts);
         var specs = string.Join("\n\n", drafts.Select(SpecQuotableText.Render));
@@ -66,7 +66,7 @@ public static class SpecCutReviewPrompt
         : CutReviewTicket.Truncated;
 
     /// <summary>How the specs will be judged — against criteria only when every spec states them.</summary>
-    private static string Judged(IReadOnlyList<PhaseDraft> drafts) => drafts.All(SpecQuotableText.StatesCriteria)
+    private static string Judged(IReadOnlyList<SpecDraft> drafts) => drafts.All(SpecQuotableText.StatesCriteria)
         ? "Each spec will be built by an agent and then\n"
           + "judged against its completion criteria: after it runs, a reader is given those\n"
           + "criteria and the branch diff and has to tie each one to a file or to a command\n"

@@ -35,7 +35,7 @@ public sealed class SpecPullRequestOpener(
         foreach (var member in placement.Members)
         {
             var own = placement.Set.OfRepository(member.Name ?? string.Empty);
-            var url = await OpenOneAsync(pipeline, repository, member, own, own.Phases.Count > 0, cancellationToken);
+            var url = await OpenOneAsync(pipeline, repository, member, own, own.Specs.Count > 0, cancellationToken);
             await RecordAsync(pipeline, member.Name, url, cancellationToken);
         }
         // A dropped repository's pull request is only listed — it is no outcome of this run.

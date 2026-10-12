@@ -74,7 +74,7 @@ public sealed class SpecNamedTrackerReadTests
             Tracker = new TrackerConnection { Name = "t1", WorkItemKinds = new Dictionary<string, string> { [key] = "User Story" } },
         };
 
-        new TicketKindResolver(NullLogger<TicketKindResolver>.Instance).For(project, TicketFilingRole.Phase)
+        new TicketKindResolver(NullLogger<TicketKindResolver>.Instance).For(project, TicketFilingRole.Spec)
             .Should().Be("User Story");
     }
 

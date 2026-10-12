@@ -28,7 +28,7 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
         string conversationSection, string attachmentsSection)
     {
         // Absent spec is a composition bug — SpecGate runs before the master.
-        var draft = pipeline.Get<PhaseDraft>(ContextKeys.CurrentSpec);
+        var draft = pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec);
         var answers = pipeline.TryGet<Dictionary<string, string>>(ContextKeys.PlanAnswers, out var a)
             ? a : null;
 
@@ -60,7 +60,7 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
 
             ## Spec contract
-            You are implementing SPEC {draft.PhaseId} — this spec and nothing after it.
+            You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
             The spec above is the plan of record: its steps are your checklist (the progress
             ledger is seeded from them) and you own how each step lands in this codebase.
             Log every non-obvious choice via log_decision as you go. Where the spec names

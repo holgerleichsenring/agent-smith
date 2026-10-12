@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// </summary>
 public static class ProgressLedgerSeeder
 {
-    public static IReadOnlyList<ProgressLedgerEntry> Seed(PhaseDraft? draft)
+    public static IReadOnlyList<ProgressLedgerEntry> Seed(SpecDraft? draft)
     {
         if (draft is null || draft.Steps.Count == 0)
             return Array.Empty<ProgressLedgerEntry>();

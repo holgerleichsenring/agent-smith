@@ -21,20 +21,20 @@ public static class SpecPromptSection
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return string.Empty;
-        if (!pipeline.TryGet<Contracts.Models.PhaseDraft>(ContextKeys.CurrentSpec, out var draft)
+        if (!pipeline.TryGet<Contracts.Models.SpecDraft>(ContextKeys.CurrentSpec, out var draft)
             || draft is null)
             return string.Empty;
-        var spec = set.Phases.FirstOrDefault(p => p.PhaseId == draft.PhaseId);
+        var spec = set.Specs.FirstOrDefault(p => p.SpecId == draft.SpecId);
         return spec is null ? string.Empty : Build(set, spec);
     }
 
-    public static string Build(SpecSet set, SpecPhase spec)
+    public static string Build(SpecSet set, DerivedSpec spec)
     {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(spec);
         var sb = new StringBuilder();
-        var index = set.Phases.ToList().FindIndex(p => p.PhaseId == spec.PhaseId) + 1;
-        sb.AppendLine($"## Spec {index} of {set.Phases.Count}: {spec.PhaseId}");
+        var index = set.Specs.ToList().FindIndex(p => p.SpecId == spec.SpecId) + 1;
+        sb.AppendLine($"## Spec {index} of {set.Specs.Count}: {spec.SpecId}");
         sb.AppendLine(
             "This run works through an ordered sequence derived from the ticket. You are "
             + "responsible for THIS spec only — the specs after it are separate work with "

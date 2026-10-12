@@ -30,7 +30,7 @@ public sealed class DerivationFactsTests
     {
         var set = Parse(Reply("""{"claim": "one direct package is affected", "cites": "L1"}"""), [Minted]);
 
-        var draft = set.Phases[0].Draft;
+        var draft = set.Specs[0].Draft;
         draft.Facts.Should().ContainSingle().Which.Should().BeEquivalentTo(
             new { Claim = "one direct package is affected", Evidence = Minted });
         draft.Assumptions.Should().BeEmpty();
@@ -46,7 +46,7 @@ public sealed class DerivationFactsTests
     {
         var set = Parse(Reply($$"""{"claim": "every finding is transitive", "cites": "{{cites}}"}"""), [Minted]);
 
-        var draft = set.Phases[0].Draft;
+        var draft = set.Specs[0].Draft;
         draft.Facts.Should().BeEmpty();
         draft.Assumptions.Should().ContainSingle().Which.Should().Be("every finding is transitive");
         draft.Yaml.Should().Contain("assumptions:").And.NotContain("facts:");
@@ -57,7 +57,7 @@ public sealed class DerivationFactsTests
     {
         var set = Parse(Reply("""{"claim": "one direct package is affected", "cites": "[l1]"}"""), [Minted]);
 
-        set.Phases[0].Draft.Facts.Should().ContainSingle();
+        set.Specs[0].Draft.Facts.Should().ContainSingle();
     }
 
     [Fact]
@@ -67,10 +67,10 @@ public sealed class DerivationFactsTests
         var without = Parse(Reply(facts: null), [Minted]);
         var with = Parse(Reply("""{"claim": "one direct package is affected", "cites": "L1"}"""), [Minted]);
 
-        with.Phases[0].Markdown.Should().Be(without.Phases[0].Markdown,
+        with.Specs[0].Markdown.Should().Be(without.Specs[0].Markdown,
             "the companion is the ticket's own bytes; facts live in the yaml");
-        with.Phases[0].Markdown.Should().Contain("<PackageReference Include=\"Sample.Messaging\" Version=\"1.0.0\" />");
-        with.Phases[0].Markdown.Should().NotContain("one direct package is affected");
+        with.Specs[0].Markdown.Should().Contain("<PackageReference Include=\"Sample.Messaging\" Version=\"1.0.0\" />");
+        with.Specs[0].Markdown.Should().NotContain("one direct package is affected");
         segments.Should().HaveCountGreaterThan(1);
     }
 
@@ -84,11 +84,11 @@ public sealed class DerivationFactsTests
         var after = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, [Minted]);
 
         after.Error.Should().BeNull();
-        after.Derivation!.Set.Phases[0].Draft.Yaml.Should().Be(before.Derivation!.Set.Phases[0].Draft.Yaml,
+        after.Derivation!.Set.Specs[0].Draft.Yaml.Should().Be(before.Derivation!.Set.Specs[0].Draft.Yaml,
             "an old catalog that never writes facts renders exactly the set it rendered before");
-        after.Derivation.Set.Phases[0].Draft.Yaml.Should().NotContain("facts").And.NotContain("assumptions");
-        after.Derivation.Set.Phases[0].Draft.Facts.Should().BeEmpty();
-        after.Derivation.Set.Phases[0].Draft.Assumptions.Should().BeEmpty();
+        after.Derivation.Set.Specs[0].Draft.Yaml.Should().NotContain("facts").And.NotContain("assumptions");
+        after.Derivation.Set.Specs[0].Draft.Facts.Should().BeEmpty();
+        after.Derivation.Set.Specs[0].Draft.Assumptions.Should().BeEmpty();
     }
 
     [Fact]
@@ -98,9 +98,9 @@ public sealed class DerivationFactsTests
             """{"claim": "one direct package is affected", "cites": "L1"}, {"claim": "the rest are transitive", "cites": ""}"""),
             [Minted]);
 
-        var reread = new SpecDraftReader().Read(set.Phases[0].Draft.Yaml);
+        var reread = new SpecDraftReader().Read(set.Specs[0].Draft.Yaml);
 
-        reread.Facts.Should().BeEquivalentTo(set.Phases[0].Draft.Facts);
+        reread.Facts.Should().BeEquivalentTo(set.Specs[0].Draft.Facts);
         reread.Assumptions.Should().Equal("the rest are transitive");
         reread.Done.Should().Equal("The manifests carry versions the audit no longer flags.");
     }

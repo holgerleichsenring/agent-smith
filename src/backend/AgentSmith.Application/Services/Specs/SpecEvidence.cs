@@ -24,7 +24,7 @@ public static class SpecEvidence
             .Where(o => !o.Skipped)
             .Select(o => $"{o.Key}: {o.Stage} '{o.Command}' exited {o.ExitCode}")
             .ToList();
-        if (pipeline.TryGet<PhaseCommandLog>(ContextKeys.SpecRunCommands, out var agentRan)
+        if (pipeline.TryGet<SpecRunCommandLog>(ContextKeys.SpecRunCommands, out var agentRan)
             && agentRan is not null)
             evidence.AddRange(agentRan.Evidence());
         return evidence;

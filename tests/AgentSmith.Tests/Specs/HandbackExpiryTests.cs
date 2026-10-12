@@ -45,7 +45,7 @@ public sealed class HandbackExpiryTests
 
         deriver.Calls.Should().Be(1, "a foreign commit expires the stored hand-back");
         published.Set!.IsHandedBack.Should().BeFalse();
-        published.Set.Phases.Should().ContainSingle();
+        published.Set.Specs.Should().ContainSingle();
         published.Set.Approval.Should().Be(Approval, "the approval rides onto the set derived again");
     }
 
@@ -59,7 +59,7 @@ public sealed class HandbackExpiryTests
 
         deriver.Calls.Should().Be(1);
         published.Set!.IsHandedBack.Should().BeTrue("expiry never approves a guess");
-        published.Set.Phases.Should().BeEmpty("no one-spec fallback is created");
+        published.Set.Specs.Should().BeEmpty("no one-spec fallback is created");
     }
 
     [Fact]
@@ -129,9 +129,9 @@ public sealed class HandbackExpiryTests
     {
         var segments = TicketSegmenter.Segment(Ticket().Description);
         var id = SeriesIdFactory.Member(Series, 0);
-        SpecPhase[] specs =
+        DerivedSpec[] specs =
         [
-            new(new PhaseDraft(id, "Send the id", $"spec: {id}", []) { Done = ["The id is sent."] },
+            new(new SpecDraft(id, "Send the id", $"spec: {id}", []) { Done = ["The id is sent."] },
                 id, string.Empty, [.. segments.Select(s => s.Id)]),
         ];
         return new SpecDerivation(

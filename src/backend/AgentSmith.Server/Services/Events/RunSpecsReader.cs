@@ -55,7 +55,7 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
         new(spec.SpecId, spec.Ordinal, spec.Title, spec.Status,
             spec.StartedAt, spec.EndedAt, spec.Verdict,
             [.. decisions[spec.SpecId]],
-            [.. rail.Where(s => s.PhaseId == spec.SpecId)]);
+            [.. rail.Where(s => s.SpecId == spec.SpecId)]);
 
     // A decision that names no spec belongs to no spec — it stays on the run's own
     // decision list rather than being attached to whichever spec shares its step.
@@ -63,11 +63,11 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
         IUnitOfWork uow, string runId, CancellationToken ct)
     {
         var rows = await uow.Set<RunDecision>().AsNoTracking()
-            .Where(d => d.RunId == runId && d.PhaseId != null)
+            .Where(d => d.RunId == runId && (d.SpecId != null || d.PhaseId != null))
             .OrderBy(d => d.Id)
             .ToListAsync(ct);
         return rows.ToLookup(
-            d => d.PhaseId!,
+            d => (d.SpecId ?? d.PhaseId)!, // 2026-10-12-967ab: a row no backfill reached
             d => new RunDecisionView(d.StepIndex, d.Name, d.Reason, d.Category, d.CreatedAt),
             StringComparer.Ordinal);
     }

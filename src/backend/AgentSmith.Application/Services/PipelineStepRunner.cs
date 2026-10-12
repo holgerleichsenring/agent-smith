@@ -153,7 +153,7 @@ public sealed class PipelineStepRunner(
 
     // p0344b: commandName carries the TYPED command name onto the event (and the
     // persisted RunStep row) so the server derives run-story beats from command
-    // types, never from the display-label strings above. p0466: phaseId likewise.
+    // types, never from the display-label strings above. p0466: the spec id likewise.
     private Task PublishStepStartedAsync(
         PipelineContext context, int stepIndex, string stepName, int totalSteps,
         string? displayName, string commandName, string? specId, CancellationToken ct)

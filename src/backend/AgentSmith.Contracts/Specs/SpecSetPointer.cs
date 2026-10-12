@@ -52,8 +52,8 @@ public sealed record SpecSetPointer(
     /// 2026-10-12-f5f7d: the ids the record step moved to done/. A row that stored none but counts
     /// executed specs reads as that many leading specs of <paramref name="stored"/>.
     /// </summary>
-    public IReadOnlyList<string> ExecutedIdsOf(IReadOnlyList<SpecPhase> stored) =>
-        ExecutedIds is { Count: > 0 } ids ? ids : [.. (stored ?? []).Take(ExecutedThrough).Select(p => p.PhaseId)];
+    public IReadOnlyList<string> ExecutedIdsOf(IReadOnlyList<DerivedSpec> stored) =>
+        ExecutedIds is { Count: > 0 } ids ? ids : [.. (stored ?? []).Take(ExecutedThrough).Select(p => p.SpecId)];
 
     /// <summary>The per-repository shas, back-filled from the one carrying repository when absent.</summary>
     public IReadOnlyDictionary<string, string> ShaByRepo =>

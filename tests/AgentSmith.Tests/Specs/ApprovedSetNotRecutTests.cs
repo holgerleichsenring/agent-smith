@@ -30,7 +30,7 @@ public sealed class ApprovedSetNotRecutTests
         result.IsSuccess.Should().BeTrue();
         harness.Deriver.Calls.Should().Be(0,
             "a person ratified this set; a comment must not re-cut it behind their back");
-        harness.Writer.Written!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
+        harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed class ApprovedSetNotRecutTests
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         harness.Deriver.Calls.Should().Be(0);
-        harness.Writer.Written!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
+        harness.Writer.Written!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
     }
 
     /// <summary>
@@ -281,7 +281,7 @@ public sealed class ApprovedSetNotRecutTests
 
         harness.Deriver.Calls.Should().Be(0, "an approved set is read, never generated");
         harness.Writer.Written!.Source.Should().Be(SpecSource.BranchArtifact);
-        harness.Writer.Written.Phases[0].Draft.Goal.Should().Be("Goal p19106a",
+        harness.Writer.Written.Specs[0].Draft.Goal.Should().Be("Goal p19106a",
             "the branch answered, so the record's edit never reached the set");
     }
 
@@ -376,7 +376,7 @@ public sealed class ApprovedSetNotRecutTests
     private static SpecDerivation Derivation()
     {
         var segments = TicketSegmenter.Segment(Text);
-        var spec = new SpecPhase(
+        var spec = new DerivedSpec(
             ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(
             new SpecSet(

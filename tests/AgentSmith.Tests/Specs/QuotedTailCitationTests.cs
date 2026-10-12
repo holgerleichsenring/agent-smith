@@ -33,7 +33,7 @@ public sealed class QuotedTailCitationTests
     /// that pinned a rendering the code no longer produces would prove nothing.</summary>
     private static string EvidenceLine()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("Sample.Server", Verify, "exit_code: 0\n\nstdout:\nPassed! - Failed: 0, Passed: 226");
         return log.Evidence().Single();
     }

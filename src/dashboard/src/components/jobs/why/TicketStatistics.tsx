@@ -57,7 +57,7 @@ export function TicketStatistics({ statistics, acceptance, running }: TicketStat
           </>
         )}
         <div className="health health-plain">
-          <Metric label="Specs" value={String(statistics.phases.length)} />
+          <Metric label="Specs" value={String(statistics.specs.length)} />
           <Metric
             label="Criteria"
             value={criteria.length > 0 ? `${met}/${criteria.length}` : "—"}

@@ -35,22 +35,22 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
                 $"The derivation handed ticket {context.Ticket.Id.Value} back "
                 + $"({set.Handback!.Case}) — nothing to gate"));
 
-        if (set.Phases.Count == 0)
+        if (set.Specs.Count == 0)
             return Task.FromResult(CommandResult.Fail(
                 $"Spec set {set.Key} carries no spec — there is nothing to build."));
 
         // The first spec is current until the sequence selects the next one. Publishing it
         // here keeps every downstream reader (planner, master, keystone, spec record)
         // working off one key whether or not a sequence is involved.
-        var first = set.Phases[0];
+        var first = set.Specs[0];
         context.Pipeline.Set(ContextKeys.CurrentSpec, first.Draft);
         logger.LogInformation(
             "Spec set {Key} validated: {Count} spec(s), first is {SpecId} ({Goal})",
-            set.Key, set.Phases.Count, first.PhaseId, first.Draft.Goal);
+            set.Key, set.Specs.Count, first.SpecId, first.Draft.Goal);
         return Task.FromResult(CommandResult.Ok(
-            set.Phases.Count == 1
-                ? $"Spec {first.PhaseId} validated: {first.Draft.Goal}"
-                : $"{set.Phases.Count} specs validated, starting at {first.PhaseId}: "
+            set.Specs.Count == 1
+                ? $"Spec {first.SpecId} validated: {first.Draft.Goal}"
+                : $"{set.Specs.Count} specs validated, starting at {first.SpecId}: "
                   + first.Draft.Goal));
     }
 }

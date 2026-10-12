@@ -29,7 +29,7 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         var asked = reviewer.Asked.Should().ContainSingle().Subject;
-        asked.Drafts.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
+        asked.Drafts.Should().ContainSingle().Which.SpecId.Should().Be("p9999");
         asked.TicketText.Should().BeNull("a design turn has no ticket behind it");
         asked.Repositories.Should().Equal([Repo], "the review reads the turn's own repositories");
         var finding = result.Outcome.Should().BeOfType<SpecOutcome>()
@@ -49,7 +49,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         var result = await RunTurnAsync(harness, Discussed("plan the widget platform"));
 
-        reviewer.Asked.Should().ContainSingle().Which.Drafts.Select(d => d.PhaseId)
+        reviewer.Asked.Should().ContainSingle().Which.Drafts.Select(d => d.SpecId)
             .Should().Equal("p9000", "p9000a", "p9000b");
         result.Outcome.Should().BeOfType<EpicOutcome>().Which.Findings.Should().BeEmpty(
             "a clean review leaves the proposal exactly as the turn wrote it");
@@ -93,10 +93,10 @@ public sealed partial class SpecDialogOutcomeTests
             new AgentSmith.Contracts.Commands.PipelineContext());
 
         var asked = await reviewer.ReviewAsync(
-            [new PhaseDraft("p9999", "the widget spec", "spec: p9999", [])], "k", null, null,
+            [new SpecDraft("p9999", "the widget spec", "spec: p9999", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
         var other = await reviewer.ReviewAsync(
-            [new PhaseDraft("p8888", "another spec", "spec: p8888", [])], "k", null, null,
+            [new SpecDraft("p8888", "another spec", "spec: p8888", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
 
         asked.Findings.Should().ContainSingle().Which.SpecId.Should().Be("p9999");

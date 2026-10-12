@@ -56,7 +56,7 @@ public sealed class SpecAttributionTests
                 DecisionCategory.Tooling, "sqlite over postgres", "smallest footprint",
                 CancellationToken.None);
 
-        publisher.Events.OfType<DecisionLoggedEvent>().Single().PhaseId.Should().Be("p19213a");
+        publisher.Events.OfType<DecisionLoggedEvent>().Single().SpecId.Should().Be("p19213a");
     }
 
     [Fact]
@@ -68,6 +68,6 @@ public sealed class SpecAttributionTests
                 DecisionCategory.Tooling, "sqlite over postgres", "smallest footprint",
                 CancellationToken.None);
 
-        publisher.Events.OfType<DecisionLoggedEvent>().Single().PhaseId.Should().BeNull();
+        publisher.Events.OfType<DecisionLoggedEvent>().Single().SpecId.Should().BeNull();
     }
 }

@@ -27,7 +27,7 @@ public sealed class SeriesTakenIds(ISandboxFileReaderFactory readerFactory, Sand
             var listed = await readerFactory.Create(matches[0].Value).ListAsync(SeriesPaths.Done, maxDepth: 1, cancellationToken);
             taken.UnionWith(listed.Select(SeriesPaths.FileName).Where(SeriesPaths.IsSpecFile));
         }
-        taken.UnionWith(pointer?.ExecutedIdsOf(stored?.Phases ?? []) ?? []);
+        taken.UnionWith(pointer?.ExecutedIdsOf(stored?.Specs ?? []) ?? []);
         return [.. taken];
     }
 }

@@ -16,5 +16,5 @@ namespace AgentSmith.Application.Services.Specs;
 /// keep the command itself. It is not the same as a command that printed nothing, and the
 /// account is shown the difference — otherwise the trimming would recreate, one level down,
 /// the silence it exists to end.</param>
-public sealed record PhaseCommandEntry(
+public sealed record SpecRunCommandEntry(
     string Repo, string Command, string Tail, int? ExitCode, bool OutputTrimmed = false);

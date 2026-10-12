@@ -101,8 +101,8 @@ public sealed class SpecCutReviewTests
             new AsyncLocalRunContextAccessor(),
             NullLogger<SpecCutReviewer>.Instance);
 
-    private static IReadOnlyList<PhaseDraft> Drafts() =>
-        [new PhaseDraft("p19106a", "migrate the libraries", "goal: migrate", [])
+    private static IReadOnlyList<SpecDraft> Drafts() =>
+        [new SpecDraft("p19106a", "migrate the libraries", "goal: migrate", [])
         {
             Done = [
                 "No production source file has been modified",

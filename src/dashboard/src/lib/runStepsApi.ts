@@ -16,7 +16,7 @@ export interface RunStepRow {
   /** p0395: the spliced spec (p0393a) this step belongs to, split off the step
    *  names server-side. Absent on payloads from servers that predate it — the
    *  rail then splits the known "p<id>: " prefix off the labels itself. */
-  phaseId?: string | null;
+  specId?: string | null;
   /** p0398: the command's static display class — "milestone" | "gate" |
    *  "internal". Absent on payloads from servers that predate it; the rail
    *  then treats every row as a milestone (nothing condenses, nothing hides). */

@@ -74,7 +74,7 @@ public sealed class SpecDeliveryAccountingResilienceTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.CurrentSpec,
-            new PhaseDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
+            new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
         pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
         return pipeline;

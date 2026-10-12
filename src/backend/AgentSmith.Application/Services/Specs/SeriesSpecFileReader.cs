@@ -62,8 +62,8 @@ public sealed class SeriesSpecFileReader(
         {
             var draft = draftReader.Read(yaml);
             var inDirectory = listed.Where(p => p.StartsWith(directory + "/", StringComparison.Ordinal)).ToList();
-            return SeriesSpecRead.Read(new SpecPhase(draft, LabelOf(stem, id), markdown, Carried(doc, draft.PhaseId),
-                SpecMocks.Of(inDirectory, directory, draft.PhaseId)), IsDone(path));
+            return SeriesSpecRead.Read(new DerivedSpec(draft, LabelOf(stem, id), markdown, Carried(doc, draft.SpecId),
+                SpecMocks.Of(inDirectory, directory, draft.SpecId)), IsDone(path));
         }
         catch (Exception ex) when (ex is InvalidOperationException or YamlDotNet.Core.YamlException)
         {

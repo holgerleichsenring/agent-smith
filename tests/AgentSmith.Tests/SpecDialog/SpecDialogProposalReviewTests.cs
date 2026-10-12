@@ -37,7 +37,7 @@ public sealed class SpecDialogProposalReviewTests
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
-        reviewer.Drafts.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
+        reviewer.Drafts.Should().ContainSingle().Which.SpecId.Should().Be("p9999");
         reviewer.TicketText.Should().BeNull("a design turn has no ticket behind it");
         reviewer.Look!.Repositories.Should().Equal([Repo]);
         var finding = Outcome(pipeline).Findings.Should().ContainSingle().Subject;
@@ -53,7 +53,7 @@ public sealed class SpecDialogProposalReviewTests
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
-        reviewer.Drafts.Select(d => d.PhaseId).Should().Equal("p9000", "p9000a", "p9000b");
+        reviewer.Drafts.Select(d => d.SpecId).Should().Equal("p9000", "p9000a", "p9000b");
         Outcome(pipeline).Findings.Should().BeEmpty("a clean review leaves the proposal as it was");
     }
 
@@ -208,8 +208,8 @@ public sealed class SpecDialogProposalReviewTests
         finding.Evidence.Should().BeNull("it rests on the check's own read, not on a minted look");
     }
 
-    private static PhaseDraft CitingAMissingFile(string specId) =>
-        Draft(specId) with { Facts = [new PhaseFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
+    private static SpecDraft CitingAMissingFile(string specId) =>
+        Draft(specId) with { Facts = [new SpecFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
 
     private static ISandbox MissingTree() => new EvidenceTreeSandbox(new Dictionary<string, string>());
 
@@ -248,7 +248,7 @@ public sealed class SpecDialogProposalReviewTests
                 CancellationToken.None)
             .AsTask();
 
-    private static PhaseDraft Draft(string specId) =>
+    private static SpecDraft Draft(string specId) =>
         new(specId, $"goal of {specId}", $"spec: {specId}", []);
 
     private static PipelineCostTracker Tracker(PipelineContext pipeline) =>
@@ -271,14 +271,14 @@ public sealed class SpecDialogProposalReviewTests
         Func<DerivationLook?, SpecCutReview> answer, bool spends = false) : ISpecCutReviewer
     {
         public int Calls { get; private set; }
-        public IReadOnlyList<PhaseDraft> Drafts { get; private set; } = [];
+        public IReadOnlyList<SpecDraft> Drafts { get; private set; } = [];
         public string? Key { get; private set; }
         public string? TicketText { get; private set; }
         public DerivationLook? Look { get; private set; }
         public PipelineCostTracker? Tracker { get; private set; }
 
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             Calls++;

@@ -17,13 +17,13 @@ public static class SpecRunCommandScope
 {
     /// <summary>The spec's log, created on first use. Published immediately, so the
     /// account is handed what the agent ran however the master pass ends.</summary>
-    public static PhaseCommandLog Open(PipelineContext pipeline)
+    public static SpecRunCommandLog Open(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (pipeline.TryGet<PhaseCommandLog>(ContextKeys.SpecRunCommands, out var open)
+        if (pipeline.TryGet<SpecRunCommandLog>(ContextKeys.SpecRunCommands, out var open)
             && open is not null)
             return open;
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         pipeline.Set(ContextKeys.SpecRunCommands, log);
         return log;
     }

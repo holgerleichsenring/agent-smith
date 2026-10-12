@@ -62,9 +62,9 @@ public sealed class SeriesPerRepoRecordTests
             reply, SeriesRepoBranches.Key, SeriesRepoBranches.Base, "4711", segments, SpecSource.Derived,
             taken: [$"{Id('a')}-ran-elsewhere.yaml", Id('c')]);
 
-        parsed.Derivation!.Set.Phases.Select(p => p.PhaseId).Should().Equal([Id('b'), Id('d')],
+        parsed.Derivation!.Set.Specs.Select(p => p.SpecId).Should().Equal([Id('b'), Id('d')],
             "a done/ file and a stored executed id are skipped to the next free letter");
-        parsed.Derivation.Set.Phases[1].Draft.Requires.Should().Equal(Id('b'));
+        parsed.Derivation.Set.Specs[1].Draft.Requires.Should().Equal(Id('b'));
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class SeriesPerRepoRecordTests
         pipeline.Set(ContextKeys.ProjectName, "p");
         pipeline.Set(ContextKeys.SpecRepo, Server.Name);
         pipeline.Set(ContextKeys.SpecSet, set);
-        pipeline.Set(ContextKeys.CurrentSpec, set.Phases[0].Draft);
+        pipeline.Set(ContextKeys.CurrentSpec, set.Specs[0].Draft);
         return pipeline;
     }
 

@@ -28,8 +28,8 @@ public static class PremiseCheckPrompt
     public const string Unproven = "unproven";
 
     public static string For(
-        PhaseDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<PhaseProgress> alreadyRan)
+        SpecDraft draft, SpecPremises premises, DerivationLook look,
+        IReadOnlyList<SpecProgress> alreadyRan)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(premises);
@@ -91,11 +91,11 @@ public static class PremiseCheckPrompt
     /// against the state the earlier ones leave — and a reader who is not told this reports every
     /// one of them as broken.
     /// </summary>
-    private static string AlreadyRan(IReadOnlyList<PhaseProgress> alreadyRan)
+    private static string AlreadyRan(IReadOnlyList<SpecProgress> alreadyRan)
     {
         if (alreadyRan.Count == 0) return string.Empty;
         return "\n## Specs of this series that have already run\n"
-            + string.Join("\n", alreadyRan.Select(p => $"- {p.PhaseId}: {p.Goal}"))
+            + string.Join("\n", alreadyRan.Select(p => $"- {p.SpecId}: {p.Goal}"))
             + "\nTheir work is COMMITTED in the repositories you are looking at, and the spec "
             + "below was written against the state they leave. A premise is not broken merely "
             + "because one of them changed what it describes — that is the sequence working. "

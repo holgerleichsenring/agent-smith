@@ -21,7 +21,8 @@ public sealed class RunDecisionProjection(ProjectedEventRecords records)
             RunId = e.RunId, Name = e.Chose, Reason = e.Reason,
             StepIndex = e.OriginStepIndex, // p0388a
             Category = e.Category, // p0388c
-            PhaseId = e.PhaseId, // p0466
+            SpecId = e.SpecId, // p0466
+            PhaseId = e.SpecId, // 2026-10-12-967ab: both columns until 967ah
             EventSeq = eventSeq,
         });
         await uow.SaveChangesAsync(ct);

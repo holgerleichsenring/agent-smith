@@ -26,8 +26,8 @@ public sealed class RunTerminalStatusTests
     {
         var pipeline = new PipelineContext();
         new RunShortfall(
-            [new PhaseProgress("p0001a", "a", PhaseRunState.Done)],
-            [new PhaseProgress("p0001b", "b", PhaseRunState.NotStarted)],
+            [new SpecProgress("p0001a", "a", SpecRunState.Done)],
+            [new SpecProgress("p0001b", "b", SpecRunState.NotStarted)],
             "budget").MarkDelivered(pipeline);
 
         RunTerminalStatus.Of(CommandResult.Ok("delivered"), pipeline).Should().Be(RunStatuses.Shortfall);

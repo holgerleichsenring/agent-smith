@@ -17,10 +17,10 @@ public sealed class ShortfallSectionTests
     public void Build_NamesEveryOpenSpecInTheDerivationsWordsAndTheReason()
     {
         var shortfall = new RunShortfall(
-            [new PhaseProgress("p0001a", "Introduce the guard", PhaseRunState.Done)],
+            [new SpecProgress("p0001a", "Introduce the guard", SpecRunState.Done)],
             [
-                new PhaseProgress("p0001b", "Move the callers", PhaseRunState.Failed, "dotnet test exited 1"),
-                new PhaseProgress("p0001c", "Retire the old check", PhaseRunState.NotStarted),
+                new SpecProgress("p0001b", "Move the callers", SpecRunState.Failed, "dotnet test exited 1"),
+                new SpecProgress("p0001c", "Retire the old check", SpecRunState.NotStarted),
             ],
             "per-pipeline cost budget exhausted");
 
@@ -41,8 +41,8 @@ public sealed class ShortfallSectionTests
         // "not started" — which of a spec the run stopped on would be plainly false.
         var shortfall = new RunShortfall(
             [],
-            [new PhaseProgress(
-                "p0001b", "Move the callers", PhaseRunState.HandedBack,
+            [new SpecProgress(
+                "p0001b", "Move the callers", SpecRunState.HandedBack,
                 "False premise in p0001b: \"three callers build their own check\" — [M1] …")],
             "a premise of p0001b no longer holds");
 

@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Contracts.Specs;
@@ -14,15 +15,16 @@ namespace AgentSmith.Contracts.Specs;
 /// '.' or '-'. Matched by id, never by stem, because a goal edit re-slugs the stem. Null when
 /// the spec has none or was not read back off a branch. Appended last: the record is positional.
 /// </param>
-public sealed record SpecPhase(
-    PhaseDraft Draft,
+public sealed record DerivedSpec(
+    SpecDraft Draft,
     string Slug,
     string Markdown,
     IReadOnlyList<int> CarriedSegments,
     IReadOnlyList<string>? MockPaths = null)
 {
     /// <summary>Shared stem of the yaml and its markdown companion.</summary>
-    public string FileStem => $"{Draft.PhaseId}-{Slug}";
+    public string FileStem => $"{Draft.SpecId}-{Slug}";
 
-    public string PhaseId => Draft.PhaseId;
+    [AcceptedName("PhaseId")]
+    public string SpecId => Draft.SpecId;
 }

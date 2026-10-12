@@ -30,9 +30,9 @@ public sealed class SpecRecordPublishedTests
 
         await Handler(publisher).ExecuteAsync(Context(pipeline), CancellationToken.None);
 
-        var announced = publisher.Events.OfType<PhaseRecordedEvent>().Single();
+        var announced = publisher.Events.OfType<SpecRecordedEvent>().Single();
         announced.RunId.Should().Be(RunId);
-        announced.PhaseId.Should().Be("p19213a");
+        announced.SpecId.Should().Be("p19213a");
         announced.Body.Should().Contain("spec: p19213a")
             .And.Contain("outcome:", "2026-10-06-03c7e: the server holds the done file's text")
             .And.Contain(RunId);
@@ -67,7 +67,7 @@ public sealed class SpecRecordPublishedTests
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, RunId);
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft(
             "p19213a", "Make the thing exist", "spec: p19213a\ngoal: \"Make the thing exist\"\n", []));
         pipeline.Set(ContextKeys.Sandbox, Mock.Of<ISandbox>());
         return pipeline;

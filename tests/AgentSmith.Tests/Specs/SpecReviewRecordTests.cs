@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-17-042eh: where a remaining finding — and the ABSENCE of a review — is readable:
-/// the spec record's body, the phase_review artifact and the pull-request body. Three places
+/// the spec record's body, the spec_review artifact and the pull-request body. Three places
 /// because three readers: the person who opens the spec, the reader that wants the answer as
 /// data (2026-09-17-042ej), and the reviewer of the pull request who opens neither.
 /// </summary>
@@ -24,7 +24,7 @@ public sealed class SpecReviewRecordTests
     {
         var pipeline = WithSpec();
         pipeline.Set<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts, [Delivered()]);
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([Finding()]));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([Finding()]));
 
         var body = SpecRecordBody.For(Draft(), pipeline);
 
@@ -41,7 +41,7 @@ public sealed class SpecReviewRecordTests
         var pipeline = WithSpec();
         pipeline.Set<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts, [Delivered()]);
         SpecReviewLedger.Record(
-            pipeline, PhaseReviewReport.NotTaken("the run's configured cost cap is exhausted"));
+            pipeline, SpecReviewReport.NotTaken("the run's configured cost cap is exhausted"));
 
         SpecRecordBody.For(Draft(), pipeline).Should()
             .Contain("not reviewed: the run's configured cost cap is exhausted");
@@ -52,7 +52,7 @@ public sealed class SpecReviewRecordTests
     {
         var pipeline = WithSpec();
         pipeline.Set<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts, [Delivered()]);
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([]));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([]));
 
         SpecRecordBody.For(Draft(), pipeline).Should().NotContain("spec review still finds",
             "a clean review is the quiet case; only its ABSENCE has to be stated");
@@ -66,13 +66,13 @@ public sealed class SpecReviewRecordTests
         pipeline.Set(ContextKeys.RunId, "2026-09-17T09-00-00-0001");
 
         await new SpecReviewPublisher(events).PublishAsync(
-            pipeline, SpecId, PhaseReviewReport.NotTaken("the review call failed"), default);
+            pipeline, SpecId, SpecReviewReport.NotTaken("the review call failed"), default);
         await new SpecReviewPublisher(events).PublishAsync(
-            pipeline, SpecId, PhaseReviewReport.Taken([Finding()]), default);
+            pipeline, SpecId, SpecReviewReport.Taken([Finding()]), default);
 
-        var published = events.Events.OfType<PhaseReviewedEvent>().ToList();
+        var published = events.Events.OfType<SpecReviewedEvent>().ToList();
         published.Should().HaveCount(2);
-        published[0].PhaseId.Should().Be(SpecId);
+        published[0].SpecId.Should().Be(SpecId);
         var skipped = Read(published[0].ReportJson);
         skipped.Reviewed.Should().BeFalse();
         skipped.Why.Should().Be("the review call failed");
@@ -90,7 +90,7 @@ public sealed class SpecReviewRecordTests
         var events = new CapturingEventPublisher();
 
         await new SpecReviewPublisher(events).PublishAsync(
-            WithSpec(), SpecId, PhaseReviewReport.Taken([]), default);
+            WithSpec(), SpecId, SpecReviewReport.Taken([]), default);
 
         events.Events.Should().BeEmpty("there is no run to file the artifact under");
     }
@@ -99,10 +99,10 @@ public sealed class SpecReviewRecordTests
     public void PullRequestBody_FindingsOfEverySpec_AreRendered()
     {
         var pipeline = WithSpec();
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([Finding()]));
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft("spec-b", "goal", "spec: b\n", []));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([Finding()]));
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("spec-b", "goal", "spec: b\n", []));
         SpecReviewLedger.Record(
-            pipeline, PhaseReviewReport.Taken([Finding() with { Path = "src/Api/Other.cs" }]));
+            pipeline, SpecReviewReport.Taken([Finding() with { Path = "src/Api/Other.cs" }]));
 
         var section = SpecReviewSection.Build(pipeline);
 
@@ -114,7 +114,7 @@ public sealed class SpecReviewRecordTests
     public void PullRequestBody_SpecNobodyReviewed_IsNamedWithItsReason()
     {
         var pipeline = WithSpec();
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.NotTaken("no sandbox was in the pipeline context"));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.NotTaken("no sandbox was in the pipeline context"));
 
         SpecReviewSection.Build(pipeline).Should()
             .Contain(SpecId).And.Contain("not reviewed: no sandbox was in the pipeline context");
@@ -124,7 +124,7 @@ public sealed class SpecReviewRecordTests
     public void PullRequestBody_EverySpecReviewedAndClean_RendersNothing()
     {
         var pipeline = WithSpec();
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([]));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([]));
 
         SpecReviewSection.Build(pipeline).Should().BeEmpty(
             "an empty heading reads as a section somebody forgot to fill");
@@ -135,26 +135,26 @@ public sealed class SpecReviewRecordTests
     {
         var pipeline = WithSpec();
         SpecReviewLedger.Record(pipeline,
-            PhaseReviewReport.Taken([Finding() with { Reverted = "fix pass reverted: build red" }]));
+            SpecReviewReport.Taken([Finding() with { Reverted = "fix pass reverted: build red" }]));
 
         SpecReviewSection.Build(pipeline).Should().Contain("fix pass reverted: build red");
     }
 
-    private static PhaseReviewReport Read(string json) =>
-        JsonSerializer.Deserialize<PhaseReviewReport>(json, new JsonSerializerOptions
+    private static SpecReviewReport Read(string json) =>
+        JsonSerializer.Deserialize<SpecReviewReport>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         })!;
 
-    private static PhaseFinding Finding() =>
+    private static SpecFinding Finding() =>
         new("api", "src/Api/Handler.cs", 4, "files stay under 120 lines", "this one is 400", "P1");
 
     private static SpecAccount Delivered() =>
         new("api", [new CriterionAccount(
             "the guard is in place", AccountDisposition.Satisfied, "src/Api/Handler.cs")]);
 
-    private static PhaseDraft Draft() => new(SpecId, "goal", "spec: " + SpecId + "\n", []);
+    private static SpecDraft Draft() => new(SpecId, "goal", "spec: " + SpecId + "\n", []);
 
     private static PipelineContext WithSpec()
     {

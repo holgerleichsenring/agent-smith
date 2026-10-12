@@ -8,4 +8,4 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// 2026-10-12-f5f7d: <see cref="Carrier"/> is the spec's OWN repository, and
 /// <see cref="MultiRepo"/> says the run holds several — where no run-wide sandbox stands in for it.</summary>
 public sealed record SpecDoneRecord(
-    RepoConnection Carrier, SpecSet Set, SpecPhase Spec, string Body, string IndexLine, bool MultiRepo = false);
+    RepoConnection Carrier, SpecSet Set, DerivedSpec Spec, string Body, string IndexLine, bool MultiRepo = false);

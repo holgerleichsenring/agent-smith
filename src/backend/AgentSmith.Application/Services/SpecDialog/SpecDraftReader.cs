@@ -5,20 +5,20 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// p0315e: extracts the display/linking fields (spec id, goal, requires)
-/// from a SCHEMA-VALID spec yaml document into a PhaseDraft. The
+/// from a SCHEMA-VALID spec yaml document into a SpecDraft. The
 /// caller validates first; a document that slips through without the
 /// required fields fails loudly here.
 /// </summary>
 public sealed class SpecDraftReader
 {
-    public PhaseDraft Read(string yaml)
+    public SpecDraft Read(string yaml)
     {
         var map = OutcomeYamlReader.ReadMap(yaml);
         var specId = OutcomeYamlReader.GetString(map, "spec")
             ?? throw new InvalidOperationException("Schema-valid spec draft has no 'spec' field.");
         var goal = OutcomeYamlReader.GetString(map, "goal")
             ?? throw new InvalidOperationException("Schema-valid spec draft has no 'goal' field.");
-        return new PhaseDraft(specId, goal, yaml.Trim(), SpecDraftLists.Strings(map, "requires"))
+        return new SpecDraft(specId, goal, yaml.Trim(), SpecDraftLists.Strings(map, "requires"))
         {
             // p0393a: the done-list is the run's acceptance contract, so it is read
             // here rather than re-parsed by every consumer of the draft.
@@ -44,10 +44,10 @@ public sealed class SpecDraftReader
     // The schema requires an id per step and allows action as a single line or an
     // array of lines; the optional `path` is the step's target hint, passed through
     // verbatim (repo-qualified exactly as the spec wrote it).
-    private static IReadOnlyList<PhaseStep> ReadSteps(IReadOnlyDictionary<string, object?> map)
+    private static IReadOnlyList<SpecStep> ReadSteps(IReadOnlyDictionary<string, object?> map)
     {
         if (!map.TryGetValue("steps", out var value) || value is not List<object?> list) return [];
-        var steps = new List<PhaseStep>();
+        var steps = new List<SpecStep>();
         foreach (var entry in list)
         {
             var step = Read(entry, fallbackId: (steps.Count + 1).ToString());
@@ -56,17 +56,17 @@ public sealed class SpecDraftReader
         return steps;
     }
 
-    private static PhaseStep? Read(object? entry, string fallbackId)
+    private static SpecStep? Read(object? entry, string fallbackId)
     {
         if (entry is not Dictionary<object, object?> step)
         {
             var line = entry?.ToString();
-            return string.IsNullOrWhiteSpace(line) ? null : new PhaseStep(fallbackId, line, null);
+            return string.IsNullOrWhiteSpace(line) ? null : new SpecStep(fallbackId, line, null);
         }
         var id = SpecDraftLists.GetString(step, "id");
         var action = ReadAction(step);
         if (string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(action)) return null;
-        return new PhaseStep(
+        return new SpecStep(
             string.IsNullOrWhiteSpace(id) ? fallbackId : id!,
             string.IsNullOrWhiteSpace(action) ? id! : action!,
             SpecDraftLists.GetString(step, "path"));

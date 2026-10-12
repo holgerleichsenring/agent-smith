@@ -16,13 +16,13 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// </summary>
 public sealed class SpecRecordPublisher(IEventPublisher eventPublisher)
 {
-    public Task PublishAsync(PipelineContext pipeline, PhaseDraft draft, string body, CancellationToken ct)
+    public Task PublishAsync(PipelineContext pipeline, SpecDraft draft, string body, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(draft);
         if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
             return Task.CompletedTask;
         return eventPublisher.PublishAsync(
-            new PhaseRecordedEvent(runId, draft.PhaseId, body, DateTimeOffset.UtcNow), ct);
+            new SpecRecordedEvent(runId, draft.SpecId, body, DateTimeOffset.UtcNow), ct);
     }
 }

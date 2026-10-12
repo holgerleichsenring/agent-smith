@@ -58,7 +58,7 @@ public sealed partial class RunStepsReader(
             calls.Calls, calls.Cost,
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SandboxCommand))),
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
-            step.PhaseId ?? parsedSpecId ?? displaySpecId,
+            step.SpecId ?? step.PhaseId ?? parsedSpecId ?? displaySpecId,
             stepClass,
             stepClass == CommandStepClasses.Gate && GateHasFinding(step),
             // p0404: where this step's wall-clock went, from the time the applier

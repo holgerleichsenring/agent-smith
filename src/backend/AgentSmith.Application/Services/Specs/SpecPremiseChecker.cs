@@ -35,8 +35,8 @@ public sealed class SpecPremiseChecker(
     public const int MaxIterations = DerivationLookTerms.CutReviewAllowance + 2;
 
     public async Task<PremiseCheck> CheckAsync(
-        PhaseDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
+        SpecDraft draft, SpecPremises premises, DerivationLook look,
+        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -54,7 +54,7 @@ public sealed class SpecPremiseChecker(
         foreach (var finding in admitted.False)
             logger.LogWarning(
                 "Premise check — {Spec} rests on something that is no longer so: {Premise} — {Why}",
-                draft.PhaseId, finding.Premise, finding.Why);
+                draft.SpecId, finding.Premise, finding.Why);
         return admitted;
     }
 

@@ -20,8 +20,8 @@ public sealed class ShortfallDeliveryTests
 {
     private static readonly SpecSequenceProgress OneDoneOneOpen = new(
     [
-        new PhaseProgress("p0001a", "Introduce the guard", PhaseRunState.Done),
-        new PhaseProgress("p0001b", "Move the callers", PhaseRunState.InProgress),
+        new SpecProgress("p0001a", "Introduce the guard", SpecRunState.Done),
+        new SpecProgress("p0001b", "Move the callers", SpecRunState.InProgress),
     ]);
 
     private readonly ShortfallDelivery _sut = new(
@@ -51,8 +51,8 @@ public sealed class ShortfallDeliveryTests
         var shortfall = await _sut.PrepareAsync(pipeline, [("server", new StubSandbox())], CancellationToken.None);
 
         shortfall.Should().NotBeNull();
-        shortfall!.Delivered.Single().PhaseId.Should().Be("p0001a");
-        shortfall.NotDelivered.Single().PhaseId.Should().Be("p0001b");
+        shortfall!.Delivered.Single().SpecId.Should().Be("p0001a");
+        shortfall.NotDelivered.Single().SpecId.Should().Be("p0001b");
     }
 
     [Fact]

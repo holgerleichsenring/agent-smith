@@ -1,24 +1,25 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// 2026-10-12-967aa: the command names a later release writes for the spec block, read as the
-/// names this release declares. A renamed command is NOT retired — <see cref="RetiredCommands"/>
-/// throws — so a stored step row, a planned step or a checkpoint carrying the new name resolves
-/// to the same command here, while every name this release writes stays the declared one.
+/// 2026-10-12-967aa / 967ab: the command names the spec block was written under before the
+/// rename, read as the names this release declares. A renamed command is NOT retired —
+/// <see cref="RetiredCommands"/> throws — so a stored step row, a planned step, a checkpoint or an
+/// operator's preset carrying the old name resolves to the same command, while every name this
+/// release writes is the declared one. 967ah removes the table once every store is rewritten.
 /// </summary>
 public static partial class CommandNames
 {
     private static readonly IReadOnlyDictionary<string, string> AcceptedCommandNames =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["WriteSpecRecordCommand"] = WriteSpecRecord,
-            ["VerifySpecCommand"] = VerifySpec,
-            ["CommitSpecWorkCommand"] = CommitSpecWork,
-            ["CheckSpecPremisesCommand"] = CheckSpecPremises,
-            ["ReviewSpecDiffCommand"] = ReviewSpecDiff,
-            ["SpecSequenceCommand"] = SpecSequence,
-            ["SelectSpecCommand"] = SelectSpec,
-            ["SpecGateCommand"] = SpecGate,
+            ["WritePhaseRecordCommand"] = WriteSpecRecord,
+            ["VerifyPhaseCommand"] = VerifySpec,
+            ["CommitPhaseWorkCommand"] = CommitSpecWork,
+            ["CheckPhasePremisesCommand"] = CheckSpecPremises,
+            ["ReviewPhaseDiffCommand"] = ReviewSpecDiff,
+            ["PhaseSequenceCommand"] = SpecSequence,
+            ["SelectPhaseCommand"] = SelectSpec,
+            ["PhaseSpecGateCommand"] = SpecGate,
         };
 
     /// <summary>

@@ -32,7 +32,7 @@ public sealed class SpecReposDerivationTests
         var parsed = Parse(Reply("""["Elsewhere"]""", """["Elsewhere"]"""), ["Server"]);
 
         parsed.Error.Should().BeNull("one repository in scope leaves the model nothing to decide");
-        parsed.Derivation!.Set.Phases.Should().OnlyContain(p => p.Draft.Repos.SequenceEqual(new[] { "Server" }));
+        parsed.Derivation!.Set.Specs.Should().OnlyContain(p => p.Draft.Repos.SequenceEqual(new[] { "Server" }));
     }
 
     [Fact]
@@ -50,10 +50,10 @@ public sealed class SpecReposDerivationTests
         var parsed = Parse(Reply("""["server"]""", """["BackgroundWorker"]"""), TwoRepos);
 
         parsed.Error.Should().BeNull();
-        parsed.Derivation!.Set.Phases[0].Draft.Repos.Should().Equal("Server");
-        parsed.Derivation.Set.Phases[1].Draft.Repos.Should().Equal("BackgroundWorker");
-        parsed.Derivation.Set.Phases[1].Draft.Requires.Should().Equal(
-            [parsed.Derivation.Set.Phases[0].PhaseId], "requires: follows position — the dependent spec comes second");
+        parsed.Derivation!.Set.Specs[0].Draft.Repos.Should().Equal("Server");
+        parsed.Derivation.Set.Specs[1].Draft.Repos.Should().Equal("BackgroundWorker");
+        parsed.Derivation.Set.Specs[1].Draft.Requires.Should().Equal(
+            [parsed.Derivation.Set.Specs[0].SpecId], "requires: follows position — the dependent spec comes second");
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class SpecReposDerivationTests
         using var doc = System.Text.Json.JsonDocument.Parse("""{"repos": "Server"}""");
 
         new SpecDerivationEnvelope().Repos(doc.RootElement).Should().Equal("Server");
-        Parse(Reply("\"Server\"", "\"BackgroundWorker\""), TwoRepos).Derivation!.Set.Phases[1].Draft.Repos
+        Parse(Reply("\"Server\"", "\"BackgroundWorker\""), TwoRepos).Derivation!.Set.Specs[1].Draft.Repos
             .Should().Equal(new[] { "BackgroundWorker" }, "the shape the rule asks for is not read as nothing stated");
     }
 
@@ -109,7 +109,7 @@ public sealed class SpecReposDerivationTests
         var parsed = Parse(Reply(null, null), []);
 
         parsed.Error.Should().BeNull();
-        parsed.Derivation!.Set.Phases.Should().OnlyContain(p => p.Draft.Repos.Count == 0);
+        parsed.Derivation!.Set.Specs.Should().OnlyContain(p => p.Draft.Repos.Count == 0);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public sealed class SpecReposDerivationTests
     {
         var set = Fallback(TwoRepos);
 
-        set.Phases.Should().BeEmpty("the whole ticket in one repository's spec would be a guess");
+        set.Specs.Should().BeEmpty("the whole ticket in one repository's spec would be a guess");
         set.IsHandedBack.Should().BeTrue();
         set.Handback!.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
         set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
@@ -147,7 +147,7 @@ public sealed class SpecReposDerivationTests
     {
         var set = Fallback(["Server"]);
 
-        set.Phases.Single().Draft.Repos.Should().Equal("Server");
+        set.Specs.Single().Draft.Repos.Should().Equal("Server");
         set.TicketPinnedWhole.Should().BeTrue();
     }
 

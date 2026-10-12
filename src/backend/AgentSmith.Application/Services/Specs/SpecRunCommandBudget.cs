@@ -49,7 +49,7 @@ internal static class SpecRunCommandBudget
 
     /// <summary>Shrinks what is already stored until it fits — the oldest output first, and a
     /// whole entry only once no output is left to give.</summary>
-    internal static void Fit(List<PhaseCommandEntry> entries)
+    internal static void Fit(List<SpecRunCommandEntry> entries)
     {
         ArgumentNullException.ThrowIfNull(entries);
         var total = entries.Sum(Cost);
@@ -72,7 +72,7 @@ internal static class SpecRunCommandBudget
     /// complete one. It carries no colon before its first words on purpose: the citation
     /// check reads a leading "name:" as a pipeline step, and a notice is not evidence to be
     /// cited for anything.</summary>
-    internal static string? Notice(IReadOnlyList<PhaseCommandEntry> entries, int ran)
+    internal static string? Notice(IReadOnlyList<SpecRunCommandEntry> entries, int ran)
     {
         ArgumentNullException.ThrowIfNull(entries);
         var whole = entries.Count(e => !e.OutputTrimmed);
@@ -94,6 +94,6 @@ internal static class SpecRunCommandBudget
     }
 
 
-    private static int Cost(PhaseCommandEntry entry) =>
+    private static int Cost(SpecRunCommandEntry entry) =>
         entry.Repo.Length + entry.Command.Length + entry.Tail.Length + LineOverhead;
 }

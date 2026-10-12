@@ -59,9 +59,9 @@ public sealed class CommentRecutTests
         result.IsSuccess.Should().BeTrue(result.Message);
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
-        set.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
-        set.Phases[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again with the comment in view");
+        set.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId);
+        set.Specs[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
+        set.Specs[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again with the comment in view");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().ContainSingle(c => c.Comment.Contains(
             $"The ticket was commented on after revision 1 was cut: {HeadId} already ran and stayed as it was"));
@@ -84,7 +84,7 @@ public sealed class CommentRecutTests
         result.IsSuccess.Should().BeTrue(result.Message);
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.Retrigger, "the marker's commit is this system's own");
-        set.Phases[1].Draft.Goal.Should().Be(TailAsCut, "nothing was derived");
+        set.Specs[1].Draft.Goal.Should().Be(TailAsCut, "nothing was derived");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().NotContain(c => c.Comment.Contains("was commented on"));
     }
@@ -102,12 +102,12 @@ public sealed class CommentRecutTests
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-3))],
         SpecSource.BranchArtifact,
-        ExecutedPhaseIds: [HeadId],
+        ExecutedSpecIds: [HeadId],
         TicketFingerprint: fingerprint,
         Series: Series);
 
-    private static SpecPhase Spec(string id, string goal) => new(
-        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
+    private static DerivedSpec Spec(string id, string goal) => new(
+        new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
         {
             Done = ["criterion 1"],
         },

@@ -18,14 +18,14 @@ public sealed class ReworkAppendRuleTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private static readonly SpecApproval Prior = new(Now.AddDays(-1), "conv-7", "alice");
 
-    private static SpecPhase Spec(string id) => new(
-        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
+    private static DerivedSpec Spec(string id) => new(
+        new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
 
     private static SpecSet Executed(int specs, SpecApproval? approval = null, string cause = SpecRevisionCause.Initial)
     {
         var ids = Enumerable.Range(0, specs).Select(i => $"p{i}").ToList();
         return new SpecSet("k", [.. ids.Select(Spec)], SpecAccounting.Empty, [new SpecRevision(1, cause, Now)],
-            SpecSource.BranchArtifact, ExecutedPhaseIds: ids) { Approval = approval };
+            SpecSource.BranchArtifact, ExecutedSpecIds: ids) { Approval = approval };
     }
 
     private static Ticket Ticket() => new(new TicketId("1"), "t", "text", null, "open", "azdo", []);
@@ -105,7 +105,7 @@ public sealed class ReworkAppendRuleTests
         const string reply = """{ "phases": [ { "goal": "only one", "done": ["x"], "carries": [] } ] }""";
 
         var parsed = AgentSmith.Tests.Specs.DerivationTestParsers.Real().Parse(
-            reply, "k", "2026-10-06-0a0a", "1", [], SpecSource.Derived, Executed(2).Phases);
+            reply, "k", "2026-10-06-0a0a", "1", [], SpecSource.Derived, Executed(2).Specs);
 
         parsed.Derivation.Should().BeNull();
         parsed.Error.Should().Contain("2 already ran");
