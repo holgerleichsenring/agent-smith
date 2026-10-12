@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36e
+goal: "Every spec a derivation or design dialog cuts names the repositories it changes in repos:, checked against the scope and its contexts, so placement can read it."
+
+applies_to: "backend (spec parsing and rendering) + skills (derivation and dialog masters)"
+
+requires: []
+
+facts:
+  - claim: "A phase has no repository field; PhaseDraft carries id, goal, yaml, requires, done and contexts."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:9-21, src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:59"
+  - claim: "contexts: names 'repo/context' only with more than one repository in scope and only for repositories with more than one context, so it cannot name a phase's repository."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ScopeNamedContexts.cs:10-20, src/backend/AgentSmith.Application/Services/Specs/ScopedContextCoverage.cs:20-28"
+  - claim: "The model replies with a JSON envelope; the builder reads contexts from it and the renderer writes the YAML; the fallback renders through the same renderer."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:8-13, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationEnvelope.cs:47-52, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:62, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseYamlRenderer.cs:1, src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-41"
+  - claim: "The deriver re-asks a reply it rejects."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:45, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:62"
+  - claim: "spec.schema.json declares contexts as optional and is embedded as the product's validator."
+    evidence: ".agentsmith/spec.schema.json:47-51, src/backend/AgentSmith.Application/AgentSmith.Application.csproj:61-63"
+  - claim: "The prompts come from the pinned skills catalog v5.11.0."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "observed: the spec-derivation-master envelope shows contexts per phase and no repository; the local skills checkout is at v5.6.1, behind the pin."
+    evidence: "observed: 2026-10-12, agent-smith-skills skills/_masters/spec-derivation-master/SKILL.md:30 and git describe"
+
+assumptions:
+  - claim: "The design-partner master emits phases through the same envelope shape."
+    check: "Open design-partner-master SKILL.md and the dialog's parser before editing."
+
+scope:
+  in: "repos: on PhaseDraft, envelope, builder, renderer and schema (optional there); required in new derivation and dialog output; fallbacks set the run's scope; both master prompts; skills release and pin bump."
+  out: "Using repos: for placement (3a36f, 3a36h)."
+
+decisions:
+  - key: "OPTIONAL IN THE SCHEMA, REQUIRED IN NEW OUTPUT: this repository's specs and every series on a branch stay valid; only what the model cuts from now on must name repositories."
+  - key: "CONTEXTS AGREE WITH REPOS: a 'repo/context' whose repo is not in repos: is refused; repos: names repositories in scope only."
+  - key: "THE WHOLE-TICKET FALLBACK NAMES THE SCOPE: it covers the ticket, so it names every scoped repository — stated, not guessed."
+  - key: "PULL BEFORE EDITING THE SKILLS: the local checkout is behind the pin; edit on its main, release, then bump."
+
+steps:
+  - id: field
+    action: "Add Repos to PhaseDraft, read it in SpecDerivationEnvelope/DerivedPhaseBuilder, write it in DerivedPhaseYamlRenderer, declare it in spec.schema.json."
+  - id: rules
+    action: "Re-ask a new reply whose phase lacks repos:, names a repository outside the scope, or declares a context of another repository; SpecFallback sets the scope."
+    modify:
+      - "SpecDerivationParser, SpecFallback, the dialog's phase parser"
+  - id: prompts
+    action: "Add repos: to the phase shape of spec-derivation-master and design-partner-master; release agent-smith-skills; bump SkillsCatalogVersion and its SHA."
+
+tests:
+  - "SpecDerivationParser_PhaseWithoutRepos_IsReAsked"
+  - "SpecDerivationParser_RepoOutsideScope_IsReAsked"
+  - "SpecDerivationParser_ContextOfOtherRepo_IsReAsked"
+  - "DerivedPhaseYamlRenderer_Repos_RoundTrips"
+  - "SpecFallback_WholeTicket_NamesScope"
+  - "SeriesReader_LegacySpecWithoutRepos_StillReads"
+
+done:
+  - "A derivation over BackgroundWorker+Server for a Server-only change yields specs with repos: [Server] (RealCompositionHarness, scripted reply)."
+  - "Every existing spec in this repository still validates; the skills release with repos: is pinned."
