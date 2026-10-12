@@ -4,7 +4,7 @@ goal: "Stored, queued and served data is written with spec names, and every row 
 
 applies_to: "backend (persistence, events, contracts on the reachability list) and dashboard (hub-event mirror, API types)"
 
-requires: [2026-10-12-967aa]
+requires: [2026-10-12-967aa, 2026-10-12-967ac]
 
 facts:
   - claim: "The default migration assembly serves Sqlite, PostgreSQL and MySQL; SQL Server has its own."

@@ -4,7 +4,7 @@ goal: "The dashboard calls a spec a spec in its code, test ids and visible text;
 
 applies_to: "dashboard"
 
-requires: [2026-10-12-967ab]
+requires: [2026-10-12-967aa]
 
 facts:
   - claim: "About 611 of 706 dashboard matches mean the spec; the rest are the LLM call stage, StoryPhase and max_skills_per_phase."
@@ -17,7 +17,7 @@ scope:
     PhaseAccount.tsx→SpecAccount.tsx, NavRail PhaseHeader, DialogProposalPanel, DialogApprovedPanel; test ids
     phase-*/data-phase; splitPhasePrefix, PHASE_STATUS and helpers; visible strings (One phase, File this phase?,
     This phase ran no sandbox command, …); test names, fixtures and comments meaning the spec.
-  out: "Wire names (967aa/967ab). G2: llm-call phase, StoryPhase, maxSkillsPerPhase, retired pipeline name phase-execution."
+  out: "Property names of served JSON and hub payloads (967ab, a later release). G2: llm-call phase, StoryPhase, maxSkillsPerPhase, retired pipeline name phase-execution."
 
 steps:
   - id: rename

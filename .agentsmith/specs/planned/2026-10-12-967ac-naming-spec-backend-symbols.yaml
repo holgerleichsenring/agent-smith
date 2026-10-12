@@ -4,7 +4,7 @@ goal: "Backend and test types, members, files, folders and log templates that sa
 
 applies_to: "backend (Contracts, Domain, Application, Infrastructure, Server) and tests"
 
-requires: [2026-10-12-967ab]
+requires: [2026-10-12-967aa]
 
 facts:
   - claim: "About 150 declared types and the folder Services/PhaseExecution use phase for a spec; the list and the name collisions are in the inventory note."
@@ -26,7 +26,7 @@ scope:
     placeholders, test method names, architecture baselines and AGENTSMITH_WRITE_PHASE_BASELINE,
     file-length-baseline paths. Delete PipelinePhase, PhaseAssignment, ContextKeys.CurrentPhase. *PhaseDataFlow*
     (phase = pipeline step) → *StepDataFlow*.
-  out: "Anything on 967aa's reachability list (967ab). Prompt string content (967ad). G2 symbols."
+  out: "Anything on 967aa's reachability list and the served DTO members (967ab, a later release). Prompt string content (967ad). G2 symbols."
 
 decisions:
   - key: "COLLISIONS RESOLVED BY NAME: each new name says what it is beside its existing neighbour."

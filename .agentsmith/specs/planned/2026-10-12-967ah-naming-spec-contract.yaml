@@ -4,7 +4,7 @@ goal: "The phase readers for data we own are removed once every replica has rewr
 
 applies_to: "backend (readers added in 967aa), dashboard, .claude hooks"
 
-requires: [2026-10-12-967ab, 2026-10-12-967af]
+requires: [2026-10-12-967ab, 2026-10-12-967ag]
 
 facts:
   - claim: "The dual readers and the gate forwarder are listed by 967aa's reachability list and 967af."
