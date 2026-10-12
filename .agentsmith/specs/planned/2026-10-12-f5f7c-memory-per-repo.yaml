@@ -1,59 +1,61 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7c
-goal: "Memory and decisions live in the repository they are about: recall spans every run repository, remember and log_decision name theirs, the narrative goes to each changed one."
+goal: "Memory and decision files live in the repository they are about: recall spans every run repository, remember and log_decision name theirs, the narrative goes to each changed one."
 
-applies_to: "backend (master tools, run record)"
+applies_to: "backend (master tools, run record) + skills (tool texts)"
 
 requires: []
 
 facts:
-  - claim: "The master's recall, remember and log_decision tools are backed by sandboxes.Keys.First(), whatever repository a fact or decision concerns."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:72, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:242-251, src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:15-29, src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:1, src/backend/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs:1, src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionLogger.cs:46-67"
-  - claim: "MemoryStore reads and writes .agentsmith/memory under one repo root through one sandbox reader."
-    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:14-37"
-  - claim: "The memory index is loaded from every sandbox and concatenated per sandbox key."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadMemoryIndexHandler.cs:33-66"
-  - claim: "The green-run narrative memory is written once, into the first repository's store, with all of the run's changes."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:168, src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:177-208, src/backend/AgentSmith.Application/Services/Memory/RunNarrativeMemoryWriter.cs:18-42"
-  - claim: "The master addresses sandboxes by repository name through keyToRepo."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:236-240"
+  - claim: "The master's recall, remember and log_decision are backed by sandboxes.Keys.First(); one LogDecisionToolHost instance also feeds the loop hooks and the run's decision list."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:72, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:242-251, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:373-411, src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:15-29, src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionLogger.cs:46-67"
+  - claim: "Sandbox keys are not repositories: a mixed-stack repository has several keys, aliased to one repository name; the dialog adds template sandboxes to the same map; ensure_repo_sandbox grows only the filesystem host."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:80-82, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:93-103, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:28-62, src/backend/AgentSmith.Application/Services/Tools/EnsureRepoSandboxToolHost.cs:135-152"
+  - claim: "MemoryStore reads and writes .agentsmith/memory under one root through one reader; the index is loaded from every sandbox and labelled by sandbox key."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:14-37, src/backend/AgentSmith.Application/Services/Handlers/LoadMemoryIndexHandler.cs:33-66"
+  - claim: "The narrative is written once into the first repository with all changes; a per-repository change filter already exists; PlanDecision carries no repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:160-208, src/backend/AgentSmith.Application/Services/Memory/RunNarrativeMemoryWriter.cs:18-42, src/backend/AgentSmith.Domain/Entities/PlanDecision.cs:6"
+  - claim: "Every .agentsmith path is run record, so a repository whose only change is memory opens no PR on a green run; post-execute decisions pick the first changed sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/RunRecordPaths.cs:39-41, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:88-133, src/backend/AgentSmith.Application/Services/Handlers/PostExecutePassTools.cs:30-35"
   - claim: "observed: operator decision — memory is repository-specific; it is there to help that repository."
     evidence: "observed: 2026-10-12, session with the operator"
 
 assumptions: []
 
 scope:
-  in: "One MemoryStore per run repository; recall over all, labelled by repository; remember and log_decision take a repository argument, required with more than one sandbox, defaulted with one; the narrative per changed repository with that repository's changes."
-  out: "Moving existing memory; project-wide memory (operator: none)."
+  in: "Per repository (distinct repository names, templates excluded, resolved per call so a repository added mid-run counts): memory store and decision file target; recall over all, labelled by repository; remember and log_decision take an optional trailing repository, required with more than one repository; index aggregated by repository; narrative per changed repository; post-execute decisions into the changed repository they concern; skills texts."
+  out: "Splitting the run record, dashboard and narrative decision lists by repository (PlanDecision stays run-wide); memory into a repository that gets no PR this run — remember says so instead of writing."
 
 decisions:
-  - key: "THE FACT NAMES ITS HOME: the model says which repository a memory or decision is about; nothing picks the first sandbox."
-  - key: "ONE SANDBOX, NO QUESTION: a single-repository run keeps today's calls unchanged."
-  - key: "AN UNKNOWN REPOSITORY IS A TOOL ERROR the model can correct, naming the run's repositories."
-  - key: "THE NARRATIVE FOLLOWS THE CHANGE: one entry per repository the run changed, written from that repository's changes only."
+  - key: "REPOSITORIES, NOT SANDBOX KEYS: one repository with two toolchain sandboxes needs no name; templates are never a target."
+  - key: "ONE DECISION HOST, A REPOSITORY MAP: the run-wide decision list stays; only the file copy is routed."
+  - key: "A FACT ONLY WHERE IT LANDS: remember into a repository that will get no PR this run is a tool answer naming the repositories that will, not a silent write that never reaches git."
+  - key: "OPTIONAL TRAILING PARAMETER: today's pinned prompts keep working; the C# description carries the rule until the skills texts follow."
 
 steps:
   - id: stores
-    action: "Build one MemoryStore and one decision log per run repository in AgenticMasterHandler; drop the defaultKey backing for both."
+    action: "Replace the defaultKey backing with a per-call repository→sandbox resolver (CommitAndPR's sandbox per repository, templates excluded); one LogDecisionToolHost with a repository map."
     modify:
-      - "AgenticMasterHandler"
-  - id: tools
-    action: "Add a repository parameter to remember and log_decision (required when more than one); recall lists entries from every store with their repository."
+      - "AgenticMasterHandler, MemoryRecallToolHost, MemoryWriteToolHost, LogDecisionToolHost, PostExecutePassTools"
+  - id: landing
+    action: "Before remember writes, check the repository has a code change or a PR this run; otherwise answer with the repositories that do."
+  - id: index-narrative
+    action: "Aggregate the memory index by repository name; write the narrative per changed repository with the existing change filter."
     modify:
-      - "MemoryWriteToolHost, MemoryRecallToolHost, LogDecisionToolHost"
-  - id: narrative
-    action: "Write the run narrative once per changed repository with that repository's changes."
-    modify:
-      - "WriteRunResultHandler, RunNarrativeMemoryWriter"
+      - "LoadMemoryIndexHandler, WriteRunResultHandler, RunNarrativeMemoryWriter"
+  - id: skills
+    action: "Update references/memory-discipline.md and coding-agent-master's memory text in agent-smith-skills on the 3a36e branch; no release."
 
 tests:
   - "MemoryWriteToolHost_TwoRepos_WritesIntoNamedRepo"
   - "MemoryWriteToolHost_TwoReposNoneNamed_IsToolError"
-  - "MemoryWriteToolHost_OneRepo_NeedsNoName"
+  - "MemoryWriteToolHost_OneRepoTwoToolchainSandboxes_NeedsNoName"
+  - "MemoryWriteToolHost_RepoAddedMidRun_WritesThere"
+  - "MemoryWriteToolHost_RepoWithoutPrThisRun_AnswersInstead"
   - "MemoryRecallToolHost_TwoRepos_ListsBothLabelled"
-  - "LogDecisionToolHost_TwoRepos_LogsIntoNamedRepo"
+  - "LogDecisionToolHost_TwoRepos_FileCopyInNamedRepo"
   - "WriteRunResult_TwoChangedRepos_NarrativeInEachWithOwnChanges"
 
 done:
-  - "In a two-repository run a remembered Server fact lands in Server's .agentsmith/memory and nowhere else (RealCompositionHarness)."
-  - "No memory or decision code path uses sandboxes.Keys.First()."
+  - "In a two-repository run a remembered Server fact is committed on Server's ticket branch and nowhere else (RealCompositionHarness)."
+  - "No memory or decision path picks a repository by position."

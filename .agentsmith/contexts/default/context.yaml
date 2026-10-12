@@ -1104,7 +1104,7 @@ state:
     2026-10-12-3a36e: "EVERY NEW SPEC NAMES ITS REPOSITORIES (spec parsing, design dialog). repos: read, rendered, in the schema; a reply that states it is checked against the scope and its repo/context names, one that does not is filled from the scope; fallbacks name the scope. Skills release + pin pending. -> .agentsmith/specs/done/2026-10-12-3a36e-spec-repos-field.yaml"
   active: {}
   planned:
-    2026-10-12-f5f7a: "ONE REPOSITORY PER SPEC (spec derivation, dialog). Multi-repo scope: each new spec names one repo, work in two is cut as two, the fallbacks cut one per repo. -> .agentsmith/specs/planned/2026-10-12-f5f7a-spec-single-repo.yaml"
+    2026-10-12-f5f7a: "ONE REPOSITORY PER SPEC (spec derivation, dialog). Multi-repo scope: each new spec names one repo, work in two is cut as two, a cut that cannot name one is handed back. -> .agentsmith/specs/planned/2026-10-12-f5f7a-spec-single-repo.yaml"
     2026-10-12-f5f7b: "A SERIES IS READ ACROSS REPOSITORIES (series reader, pointer, scope). Manifests found in every run repo, specs read from their own, sha per repo, the series keeps its repos in scope. -> .agentsmith/specs/planned/2026-10-12-f5f7b-series-multi-repo-read.yaml"
     2026-10-12-f5f7c: "MEMORY LIVES IN ITS REPOSITORY (master tools, run record). recall over all repos, remember and log_decision name theirs, narrative per changed repo. -> .agentsmith/specs/planned/2026-10-12-f5f7c-memory-per-repo.yaml"
     2026-10-12-f5f7d: "EACH SPEC IS WRITTEN WHERE IT WORKS (spec placement). Spec, done record and index line in its repo, manifest and spec PR in every series repo, positional pickers deleted. -> .agentsmith/specs/planned/2026-10-12-f5f7d-series-per-repo-write.yaml"
