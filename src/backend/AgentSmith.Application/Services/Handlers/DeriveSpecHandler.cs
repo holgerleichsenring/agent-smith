@@ -43,7 +43,7 @@ public sealed class DeriveSpecHandler(
     ApprovedSetKeptNotice keptNotice,
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
-    UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf,
+    UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf, ForeignCommitProbe expiry,
     ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
@@ -69,8 +69,9 @@ public sealed class DeriveSpecHandler(
 
         var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
         var previous = onBranch.Read;
+        var foreign = await expiry.ProbeAsync(context.Pipeline, context.Repos, previous?.Set, pointer, cancellationToken);
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
-            Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
+            Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval, foreign);
         if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
@@ -105,8 +106,9 @@ public sealed class DeriveSpecHandler(
                 context.Pipeline, context.Ticket!.Id.Value,
                 $"the derivation produced nothing usable ({error})", ct);
             // 2026-10-08-f114: the fallback is a fresh one-phase set; over an executed head it would
-            // drop the record of work already on the branch, so the set the branch carries is kept.
-            return (decision.Set is { ExecutedHead.Count: > 0 } carried ? carried
+            // drop the record of work already on the branch, so the set the branch carries is kept —
+            // as is an expired hand-back (3a36b): expiry never approves a guess.
+            return (decision.Set is { } carried && (decision.Expired || carried.ExecutedHead.Count > 0) ? carried
                 : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source), []);
         }
 

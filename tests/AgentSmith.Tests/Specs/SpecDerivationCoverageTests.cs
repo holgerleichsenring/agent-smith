@@ -125,7 +125,7 @@ public sealed class SpecDerivationCoverageTests
             new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ScopeNamedContexts, named);
         var ticket = new Ticket(

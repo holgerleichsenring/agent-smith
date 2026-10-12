@@ -27,11 +27,22 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecHandbackRepeat(ILogger<SpecHandbackRepeat> logger)
 {
     /// <summary>True when this hand-back repeats the previous one and nobody replied since.</summary>
-    public bool IsRepeat(SpecSetPointer? pointer, SpecHandbackCase current, PipelineContext pipeline)
+    /// <param name="foreignCommitSinceHandback">2026-10-12-3a36b: somebody committed to a scoped
+    /// branch since the last park — that changes the picture as a reply does, so the count resets.</param>
+    public bool IsRepeat(
+        SpecSetPointer? pointer, SpecHandbackCase current, PipelineContext pipeline,
+        bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (current is not SpecHandbackCase.RequirementsContradictRepository) return false;
         if (pointer is null || pointer.LastHandbackCase != current) return false;
+        if (foreignCommitSinceHandback)
+        {
+            logger.LogInformation(
+                "Spec {Key}: a scoped branch got a foreign commit since the last '{Case}' hand-back — parking again",
+                pointer.Key, current);
+            return false;
+        }
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
         if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.ContradictionMarker, OwnTicketComment.PrNotes(pipeline)))

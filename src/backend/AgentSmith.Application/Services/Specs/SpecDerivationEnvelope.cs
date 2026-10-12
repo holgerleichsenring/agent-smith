@@ -68,6 +68,22 @@ public sealed class SpecDerivationEnvelope
             parsed, SpecJsonReader.ReadString(el, "reason"), Readings: readings, Taken: taken);
     }
 
+    /// <summary>2026-10-12-3a36b: the evidence ids a hand-back cites, as written — a string
+    /// (<c>"L2, L5"</c>) or a list; each folded to the id as minted. Empty when it cites nothing.</summary>
+    public IReadOnlyList<string> HandbackCites(JsonElement root)
+    {
+        if (!TryReadCase(root, out var el, out _) || !SpecJsonReader.TryGet(el, "cites", out var cites))
+            return [];
+        return cites.ValueKind switch
+        {
+            JsonValueKind.String => DerivationEvidence.CitationsIn(cites.GetString()),
+            JsonValueKind.Array => [.. cites.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .SelectMany(e => DerivationEvidence.CitationsIn(e.GetString()))],
+            _ => [],
+        };
+    }
+
     /// <summary>Why a present hand-back object was refused; null when it was usable or absent.</summary>
     public string? HandbackRejection(JsonElement root) =>
         TryReadCase(root, out var el, out var parsed) && parsed == SpecHandbackCase.Question

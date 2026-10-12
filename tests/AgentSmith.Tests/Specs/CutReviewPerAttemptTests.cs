@@ -34,7 +34,7 @@ public sealed class CutReviewPerAttemptTests
             new SpecDerivationCall(
                 new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
@@ -54,7 +54,7 @@ public sealed class CutReviewPerAttemptTests
             new CitingReviewer(),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
@@ -75,7 +75,7 @@ public sealed class CutReviewPerAttemptTests
             reviewer,
             new SpecDerivationCall(new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "Raise the package floors", Ticket, "The audit is clean", "open", "test"),

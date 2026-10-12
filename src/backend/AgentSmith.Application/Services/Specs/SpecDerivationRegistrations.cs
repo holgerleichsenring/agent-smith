@@ -20,6 +20,11 @@ public static class SpecDerivationRegistrations
         // 2026-09-17-0e79c: and each phase's stated premises are checked before it is worked
         services.AddTransient<IPhasePremiseChecker, PhasePremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
+        // 2026-10-12-3a36b: a contradiction hand-back is read a second time before it parks
+        services.AddTransient<IContradictionChecker, ContradictionChecker>();
+        services.AddTransient<ContradictionHandbackGate>();
+        services.AddTransient<ForeignCommitProbe>();
+        services.AddTransient<HandbackHeadsReader>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
     services.AddTransient<ISpecSetReader, SeriesReader>();

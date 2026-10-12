@@ -90,6 +90,44 @@ public sealed class ContradictionHandbackTests
             "a person replied and the model still sees a contradiction, so the ticket parks again");
     }
 
+    /// <summary>
+    /// 2026-10-12-3a36b, the shape of the run that started it: the derivation greps once and hands
+    /// back a contradiction citing that grep; a second reading refutes it, so the derivation is asked
+    /// again and cuts phases — the ticket is never parked on the false claim.
+    /// </summary>
+    [Fact]
+    public async Task Contradiction_RefutedBySecondReading_IsDerivedAgainNotParked()
+    {
+        var tickets = new RecordingTicketProvider();
+        await using var harness = BuildHarness(tickets);
+        var checker = harness.Services.GetRequiredService<HarnessContradictionChecker>()
+            .Refutes("the request also declares ShipmentId", "[C1] primary: the contradiction check ran 'read Request.cs' exited 0");
+        harness.ChatClient
+            .EnqueueToolCall(Application.Services.Specs.RepositorySearchTool.Name,
+                """{"repository":"default","pattern":"SubmitAssetsRequest"}""")
+            .EnqueueText("""
+                {"phases": [], "handback": {"case": "requirements_contradict_repository",
+                 "reason": "SubmitAssetsRequest contains only TruckPlate and TrailerPlate", "cites": ["L1"]}}
+                """)
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
+            .EnqueueText("Planning: I will patch the file.")
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
+            .EnqueueText(GreenVerdict);
+
+        var runner = new PipelineRunner(harness.Services) { NeedsClarificationStatus = "needs-info" };
+        await runner.RunAsync("code");
+
+        checker.Asked.Should().ContainSingle().Which.Cited.Should().ContainSingle()
+            .Which.Should().StartWith("[L1] default:");
+        harness.ChatClient.CallMessages.Should().Contain(call => call.Any(m => m.Text.Contains("refutes it")),
+            "the derivation is answered with the refutation");
+        runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Phases.Should().ContainSingle();
+        tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "nothing parks on a refuted claim");
+    }
+
+    private const string GreenVerdict =
+        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
+
     private static SpecHandback Handback() => new(
         SpecHandbackCase.RequirementsContradictRepository,
         "The ticket renames a client this repository does not contain.");

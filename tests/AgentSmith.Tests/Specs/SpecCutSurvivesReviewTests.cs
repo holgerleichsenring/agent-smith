@@ -85,7 +85,7 @@ public sealed class SpecCutSurvivesReviewTests
             new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         var ticket = new Ticket(
             id: new TicketId("19106"), title: "migrate", description: Ticket,

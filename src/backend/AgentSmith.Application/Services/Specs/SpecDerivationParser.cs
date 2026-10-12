@@ -16,7 +16,9 @@ public sealed class SpecDerivationParser(
     DerivedPhaseBuilder phaseBuilder,
     SpecDerivationEnvelope envelope)
 {
-    public sealed record Parsed(SpecDerivation? Derivation, string? Error);
+    /// <param name="Uncited">2026-10-12-3a36b: why a contradiction hand-back cites no look this derivation
+    /// took; it is still parsed, and whether it is asked again or parks is the deriver's call.</param>
+    public sealed record Parsed(SpecDerivation? Derivation, string? Error, string? Uncited = null);
 
     /// <param name="series">2026-10-06-03c7c: the series' base id; phase ids are it plus a letter.</param>
     /// <param name="executedHead">
@@ -65,12 +67,15 @@ public sealed class SpecDerivationParser(
     {
         var handback = envelope.Handback(root);
         if (handback is not null)
+        {
+            var cited = ContradictionCitations.Resolve(handback, envelope.HandbackCites(root), evidence);
             return new Parsed(
                 new SpecDerivation(
-                    new SpecSet(owner.Key, [], SpecAccounting.Empty, [Initial()], source, handback,
-                        Series: owner.Series),
+                    new SpecSet(owner.Key, [], SpecAccounting.Empty, [Initial()], source,
+                        handback with { Cites = cited.Lines }, Series: owner.Series),
                     envelope.IgnoredInstructions(root)),
-                null);
+                null, cited.Problem);
+        }
 
         var phaseElements = SpecJsonReader.ReadObjects(root, "phases").ToList();
         if (phaseElements.Count == 0)

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -41,10 +42,19 @@ public sealed class TicketSeriesRepository(IUnitOfWork unitOfWork)
         row.LastHandbackCase = (int)pointer.LastHandbackCase;
         row.RepeatedHandbackCount = pointer.RepeatedHandbackCount;
         row.ExecutedThrough = pointer.ExecutedThrough;
+        row.HandbackHeads = pointer.HandbackHeads is { Count: > 0 } heads
+            ? JsonSerializer.Serialize(heads)
+            : null;
     }
 
     private static SpecSetPointer ToPointer(TicketSeries row) => new(
         row.TicketKey, row.CarryingRepo, row.RevisionSha, row.RevisionNumber,
         (SpecHandbackCase)row.LastHandbackCase, row.RepeatedHandbackCount,
-        row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough);
+        row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough,
+        HeadsOf(row.HandbackHeads));
+
+    private static IReadOnlyDictionary<string, string>? HeadsOf(string? json) =>
+        string.IsNullOrWhiteSpace(json)
+            ? null
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(json);
 }

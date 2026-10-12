@@ -41,4 +41,9 @@ public static partial class ContextKeys
     /// the ticket (images, documents, other binaries). Lets the prompt list
     /// non-viewable binaries by name + size without ever inlining them.</summary>
     public const string TicketAttachmentRefs = "TicketAttachmentRefs";
+
+    /// <summary>2026-10-12-3a36b: <c>bool</c> — a scoped repository's branch got a commit by
+    /// somebody other than us since the stored hand-back parked. DeriveSpec's probe writes it; the
+    /// hand-back step reads it, because a park on a branch somebody has since changed is no repeat.</summary>
+    public const string ForeignCommitSinceHandback = "ForeignCommitSinceHandback";
 }

@@ -18,6 +18,12 @@ namespace AgentSmith.Contracts.Specs;
 /// record step moved to done/ — what filing, which never reads the branch, needs so an amendment
 /// never writes an executed spec back into planned/.
 /// </para>
+/// <para>
+/// 2026-10-12-3a36b: <see cref="HandbackHeads"/> is <c>origin/&lt;branch&gt;</c> per scoped
+/// repository when a contradiction parked — the reference a later run compares the branch
+/// against to tell whether somebody else committed since. Null once a revision that is not a
+/// hand-back is recorded.
+/// </para>
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -27,7 +33,8 @@ public sealed record SpecSetPointer(
     SpecHandbackCase LastHandbackCase = SpecHandbackCase.None,
     int RepeatedHandbackCount = 0,
     string? SeriesId = null,
-    int ExecutedThrough = 0);
+    int ExecutedThrough = 0,
+    IReadOnlyDictionary<string, string>? HandbackHeads = null);
 
 /// <summary>
 /// p0393a: a set found on the ticket branch, with the sha of the last commit that
