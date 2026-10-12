@@ -1,8 +1,12 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.PipelineHarness.Composition;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.PipelineHarness.Presets;
 
@@ -11,6 +15,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// specs that name the repositories they change. 2026-10-12-f5f7a: exactly one each — work in
 /// both is cut as two specs, and a reply that names none (a catalog released before the field
 /// existed) is asked again and, still naming none, hands the ticket back rather than guessing.
+/// 2026-10-12-d142: as its own case, with its own comment, parked for clarification.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
 public sealed class SpecReposTests
@@ -76,27 +81,37 @@ public sealed class SpecReposTests
     [Fact]
     public async Task Harness_ReplyWithoutReposOverTwoRepos_HandsBack()
     {
-        var context = await RunAsync(SpecDerivationFixture.DerivationJson);
+        var tickets = new RecordingTicketProvider();
+        var context = await RunAsync(SpecDerivationFixture.DerivationJson, tickets);
 
         var handback = context.Get<SpecHandback>(ContextKeys.SpecHandback);
-        handback.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
+        handback.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
         handback.Reason.Should().Contain("BackgroundWorker, Server",
             "a cut that cannot name one repository is handed back, not copied whole into a guessed one");
+        var park = tickets.Finalized.Should().ContainSingle().Subject;
+        park.Status.Should().Be("needs-info");
+        park.Comment.Should().Contain(SpecHandbackComment.ScopeUnassignedMarker)
+            .And.NotContain(SpecHandbackComment.ContradictionMarker);
     }
 
     private static async Task<SpecSet> DeriveAsync(string derivation) =>
         (await RunAsync(derivation)).Get<SpecSet>(ContextKeys.SpecSet);
 
-    private static async Task<PipelineContext> RunAsync(string derivation)
+    private static async Task<PipelineContext> RunAsync(string derivation, RecordingTicketProvider? tickets = null)
     {
-        await using var harness = RealCompositionHarness.Build(
-            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        await using var harness = RealCompositionHarness.Build(FixturePaths.For(FixturePaths.Default), services =>
+        {
+            HarnessProjectAnalyzerStub.Register(services);
+            if (tickets is null) return;
+            services.RemoveAll<ITicketProviderFactory>();
+            services.AddSingleton<ITicketProviderFactory>(new RecordingTicketProviderFactory(tickets));
+        });
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable classification keeps both repositories
             .EnqueueText(derivation)
             .EnqueueText("No changes needed.");
 
-        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos() };
+        var runner = new PipelineRunner(harness.Services) { ReposOverride = TwoRepos(), NeedsClarificationStatus = "needs-info" };
         await runner.RunAsync("code");
         return runner.LastContext!;
     }

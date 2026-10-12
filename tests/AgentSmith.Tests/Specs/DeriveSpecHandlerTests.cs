@@ -110,7 +110,7 @@ public sealed class DeriveSpecHandlerTests
         await Handler(events, published, derivation: null).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
 
         published.Set!.Phases.Should().BeEmpty();
-        published.Set.Handback!.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
+        published.Set.Handback!.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
         published.Set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
             "the failed derivation is still reported");

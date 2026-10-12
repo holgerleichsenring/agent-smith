@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-d142
+
+decisions:
+  - category: Architecture
+    chose: "SpecHandbackCase.ScopeUnassigned = 6, appended; SpecScopeHandback raises it instead of RequirementsContradictRepository"
+    over: "Keeping f5f7a's choice of the contradiction case for a ticket no cut could divide between repositories"
+    reason: |
+      SUPERSEDES F5F7A'S REASONING for that choice. f5f7a picked the contradiction case for its park,
+      its re-cut on a re-trigger and its repeat guard, and judged a new case to be behaviourally
+      identical. Since 3a36b the contradiction case is not neutral: cites, a checker, stored branch
+      heads and expiry on a foreign commit, and its comment says the requirement contradicts the
+      repository — which nothing here does. The guard is not needed either: the clarification park
+      leaves the trigger status, so every re-entry needs a person. The park status needs no mapping
+      (every case but NotImplementable parks in clarification); the persisted integer is appended,
+      never renumbered.
+  - category: Architecture
+    chose: "Only the code raises it: SpecDerivationEnvelope.Handback returns null for the case (by name or number) and HandbackRejection names why, so a reply carrying no phases is re-asked"
+    over: "Accepting the case from a model reply like the other cases"
+    reason: "The case states a fact the framework checked (no cut names one repository per spec); a model naming it would park a ticket on a claim nobody checked, outside the contradiction gate."
+  - category: Implementation
+    chose: "SpecHandbackComment.ScopeUnassignedMarker in its own comment arm's heading and in OwnTicketComment's awaiting-answer markers; the arm says nothing was derived and how to answer"
+    over: "Falling through to the default (contradiction) arm"
+    reason: "The next run's conversation keeps only our comments that await an answer; without the marker the unanswered hand-back would be dropped as our own echo."
+  - category: Implementation
+    chose: "SpecHandbackHandler.NoTracker fails for ScopeUnassigned as it does for Refused"
+    over: "Returning Ok as for the other cases"
+    reason: "A hand-back carries no phases; continuing without a tracker to park on would run checkout with no spec to work."
+  - category: Scope
+    chose: "No repeat guard and no heads for the case — already true by construction (SpecHandbackRepeat and HeadsAsync test for the contradiction case only); pinned by tests rather than changed"
+    over: "Code changes in SpecHandbackRepeat or HandbackHeadsReader"
+    reason: "The spec's 'outside the contradiction machinery' is the current behaviour for any non-contradiction case; tests keep it so."

@@ -90,4 +90,12 @@ public enum SpecHandbackCase
     /// they are there is the answer.
     /// </summary>
     SpecificationMissingFromBranch = 5,
+
+    /// <summary>
+    /// 2026-10-12-d142: the work could not be divided between the repositories in scope — no cut
+    /// names exactly one repository per spec. Nothing contradicts the code; only a person can say
+    /// where each part belongs. Raised by the framework only, never accepted from a model reply;
+    /// parks where a person can answer, and a re-trigger after the answer cuts again.
+    /// </summary>
+    ScopeUnassigned = 6,
 }

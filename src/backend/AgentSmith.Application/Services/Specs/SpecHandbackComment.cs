@@ -27,6 +27,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// would be a contradiction that does not exist. It carries no anchor and no spec link: nothing
 /// was derived, and the answer is a push to the branch rather than a reply.
 /// </para>
+/// <para>
+/// 2026-10-12-d142: the SCOPE-UNASSIGNED case says the work could not be divided between the
+/// repositories — not that anything contradicts the code. Its heading carries
+/// <see cref="ScopeUnassignedMarker"/>, so the next run keeps it in view while it is unanswered.
+/// </para>
 /// </summary>
 public static class SpecHandbackComment
 {
@@ -35,6 +40,9 @@ public static class SpecHandbackComment
 
     /// <summary>The phrase that marks a contradiction comment as still awaiting a reply.</summary>
     public const string ContradictionMarker = "the requirement contradicts what is in the repository";
+
+    /// <summary>The phrase that marks a scope-unassigned comment as still awaiting an answer.</summary>
+    public const string ScopeUnassignedMarker = "the work could not be divided between the repositories";
 
     /// <param name="waitingLine">
     /// p0454: who the hand-back waits for, in the platform's mention form. Every case
@@ -54,6 +62,7 @@ public static class SpecHandbackComment
             SpecHandbackCase.Refused => Refused(handback) + waiting,
             SpecHandbackCase.Question => Question(handback) + spec + waiting,
             SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
+            SpecHandbackCase.ScopeUnassigned => ScopeUnassigned(handback) + waiting,
             _ => Contradiction(handback) + spec + waiting,
         };
     }
@@ -72,6 +81,12 @@ public static class SpecHandbackComment
         + handback.Reason
         + "\n\nNothing was derived and nothing ran. Put the specification on the ticket branch "
         + "and move the ticket back to a trigger status; the next run works it from there.";
+
+    private static string ScopeUnassigned(SpecHandback handback) =>
+        $"## Agent Smith — {ScopeUnassignedMarker}\n\n"
+        + handback.Reason
+        + "\n\nNothing was derived. Reply with the repository each part belongs to, or split the "
+        + "ticket per repository, and move it back to a trigger status; the next run cuts again.";
 
     private static string Contradiction(SpecHandback handback) =>
         $"## Agent Smith — {ContradictionMarker}\n\n"
