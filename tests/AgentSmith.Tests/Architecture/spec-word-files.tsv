@@ -479,6 +479,8 @@ tests/AgentSmith.Tests/SpecDialog/TicketKindFilingTests.cs	phase	2
 tests/AgentSmith.Tests/SpecDialog/TicketLabelNoteFilingTests.cs	phase	1
 tests/AgentSmith.Tests/SpecDialog/WithdrawnFilingRecordTests.cs	phase	2
 tests/AgentSmith.Tests/SpecNaming/SpecNamedCheckpointReadTests.cs	PhaseId	4
+tests/AgentSmith.Tests/SpecNaming/SpecNamedCheckpointMembersReadTests.cs	PhaseId	2
+tests/AgentSmith.Tests/SpecNaming/SpecNamedCheckpointMembersReadTests.cs	Phases	2
 tests/AgentSmith.Tests/SpecNaming/SpecNamedCheckpointReadTests.cs	Phases	2
 tests/AgentSmith.Tests/SpecNaming/SpecNamedDerivationReadTests.cs	PhaseId	1
 tests/AgentSmith.Tests/SpecNaming/SpecNamedDerivationReadTests.cs	Phases	1

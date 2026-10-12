@@ -30,6 +30,7 @@ internal static partial class CheckpointRenames
         ("PhaseAccounts", "SpecAccounts"),
         ("PhaseRepairAttempted", "SpecRepairAttempted"),
         ("PhaseAppliesTo", "SpecAppliesTo"),
+        ("ActivePhaseStep", "ActiveStep"),
     ];
 
     private static readonly (string Phase, string Spec)[] TypeNamePairs =
