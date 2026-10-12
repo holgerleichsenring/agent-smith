@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Services.Repair;
+using AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,13 +16,19 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// on, and only then does the migration run. Every caller that migrates goes through here, so
 /// the ordering is a property of the code rather than of a runbook.
 /// </para>
+/// <para>
+/// 2026-10-12-967ab: and the stored-name rewrite last, because it reads and writes the columns
+/// the migration adds — rows written in the pre-rename names are rewritten in the spec names.
+/// </para>
 /// </summary>
-public sealed class RunStoreMigrator(RunDuplicateRepair repair, ILogger<RunStoreMigrator> logger)
+public sealed class RunStoreMigrator(
+    RunDuplicateRepair repair, StoredSpecNameRewrite specNames, ILogger<RunStoreMigrator> logger)
 {
     public async Task MigrateAsync(AgentSmithDbContext db, CancellationToken ct)
     {
         await RepairAsync(db, ct);
         await db.Database.MigrateAsync(ct);
+        await specNames.RewriteAsync(db, ct);
     }
 
     public async Task<RunRepairReport> RepairAsync(AgentSmithDbContext db, CancellationToken ct)

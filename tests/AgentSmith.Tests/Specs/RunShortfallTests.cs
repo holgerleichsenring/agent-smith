@@ -12,29 +12,29 @@ public sealed class RunShortfallTests
 {
     private static readonly SpecSequenceProgress TwoSpecs = new(
     [
-        new PhaseProgress("p0001a", "Introduce the guard", PhaseRunState.NotStarted),
-        new PhaseProgress("p0001b", "Move the callers", PhaseRunState.NotStarted),
+        new SpecProgress("p0001a", "Introduce the guard", SpecRunState.NotStarted),
+        new SpecProgress("p0001b", "Move the callers", SpecRunState.NotStarted),
     ]);
 
     [Fact]
     public void Of_AVerifiedSpecAndAnOpenOne_SplitsThemAndCarriesTheReason()
     {
-        var progress = TwoSpecs.With("p0001a", PhaseRunState.Done).With("p0001b", PhaseRunState.InProgress);
+        var progress = TwoSpecs.With("p0001a", SpecRunState.Done).With("p0001b", SpecRunState.InProgress);
 
         var shortfall = RunShortfall.Of(progress, " per-pipeline cost budget exhausted ");
 
         shortfall.Should().NotBeNull();
-        shortfall!.Delivered.Select(p => p.PhaseId).Should().Equal("p0001a");
-        shortfall.NotDelivered.Select(p => p.PhaseId).Should().Equal("p0001b");
+        shortfall!.Delivered.Select(p => p.SpecId).Should().Equal("p0001a");
+        shortfall.NotDelivered.Select(p => p.SpecId).Should().Equal("p0001b");
         shortfall.Reason.Should().Be("per-pipeline cost budget exhausted");
-        shortfall.PhaseCount.Should().Be(2);
+        shortfall.SpecCount.Should().Be(2);
         shortfall.Summary.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b").And.Contain("cost budget");
     }
 
     [Fact]
     public void Of_ARunWhoseFirstSpecFailed_IsNotAShortfall()
     {
-        var progress = TwoSpecs.With("p0001a", PhaseRunState.Failed, "dotnet build exited 1");
+        var progress = TwoSpecs.With("p0001a", SpecRunState.Failed, "dotnet build exited 1");
 
         RunShortfall.Of(progress, "dotnet build exited 1").Should().BeNull(
             "nothing verified means nothing to deliver — the run stays failed");
@@ -43,7 +43,7 @@ public sealed class RunShortfallTests
     [Fact]
     public void Of_ARunWhoseEverySpecIsDone_IsNotAShortfall()
     {
-        var progress = TwoSpecs.With("p0001a", PhaseRunState.Done).With("p0001b", PhaseRunState.Done);
+        var progress = TwoSpecs.With("p0001a", SpecRunState.Done).With("p0001b", SpecRunState.Done);
 
         RunShortfall.Of(progress, "PR open failed").Should().BeNull(
             "the contract was met; whatever failed afterwards is not a shortfall of it");
@@ -52,7 +52,7 @@ public sealed class RunShortfallTests
     [Fact]
     public void Of_NoFailureAndNoProgress_IsNull()
     {
-        var progress = TwoSpecs.With("p0001a", PhaseRunState.Done);
+        var progress = TwoSpecs.With("p0001a", SpecRunState.Done);
 
         RunShortfall.Of(progress, null).Should().BeNull();
         RunShortfall.Of(progress, "  ").Should().BeNull();
@@ -63,7 +63,7 @@ public sealed class RunShortfallTests
     public void Of_ThePipeline_ReadsTheFailureAndTheTable()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.SpecSequenceProgress, TwoSpecs.With("p0001a", PhaseRunState.Done));
+        pipeline.Set(ContextKeys.SpecSequenceProgress, TwoSpecs.With("p0001a", SpecRunState.Done));
         pipeline.Set(ContextKeys.FailureReason, "budget");
 
         RunShortfall.Of(pipeline).Should().NotBeNull();
@@ -74,7 +74,7 @@ public sealed class RunShortfallTests
     public void DeliveredOn_OnlyAfterMarkDelivered()
     {
         var pipeline = new PipelineContext();
-        var shortfall = RunShortfall.Of(TwoSpecs.With("p0001a", PhaseRunState.Done), "budget")!;
+        var shortfall = RunShortfall.Of(TwoSpecs.With("p0001a", SpecRunState.Done), "budget")!;
 
         RunShortfall.DeliveredOn(pipeline).Should().BeNull("a shortfall that was not delivered is a failed run");
         shortfall.MarkDelivered(pipeline);

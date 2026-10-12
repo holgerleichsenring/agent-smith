@@ -91,9 +91,9 @@ public sealed class RunEventApplier(
             case RunWorkShapeResolvedEvent e: await classification.ApplyShapeAsync(uow, e, ct); break;
             // p0466: the spec's own row, the spec it executed and (2026-09-17-042eh) its
             // review — the spec used to survive only as a prefix on a step name.
-            case PhaseStateChangedEvent e: await specs.ApplyStateAsync(uow, e, ct); break;
-            case PhaseRecordedEvent e: await specs.ApplyRecordAsync(uow, e, ct); break;
-            case PhaseReviewedEvent e: await specs.ApplyReviewAsync(uow, e, ct); break;
+            case SpecStateChangedEvent e: await specs.ApplyStateAsync(uow, e, ct); break;
+            case SpecRecordedEvent e: await specs.ApplyRecordAsync(uow, e, ct); break;
+            case SpecReviewedEvent e: await specs.ApplyReviewAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

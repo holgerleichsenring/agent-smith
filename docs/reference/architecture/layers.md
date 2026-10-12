@@ -11,7 +11,7 @@ The innermost layer: entities, value objects and exceptions, with no framework o
 | Kind | Examples |
 |------|----------|
 | Entities (`Entities/`) | `Ticket`, `TicketComment`, `Repository`, `Plan`, `PlanStep`, `PlanDecision`, `CodeChange`, `Diff`, `AttachmentRef` |
-| Value objects and results (`Models/`) | `TicketId`, `BranchName`, `FilePath`, `ProjectName`, `CommandResult`, `PipelineCommand`, the run and spec accounts (`RunAccounts`, `PhaseAccounts`, `SpecAccount`), the scan contract (`ScanContract`, `ScanCriterion`), PR-review models (`PrDiffAnalysis`, `PrReviewInlineComment`) |
+| Value objects and results (`Models/`) | `TicketId`, `BranchName`, `FilePath`, `ProjectName`, `CommandResult`, `PipelineCommand`, the run and spec accounts (`RunAccounts`, `SpecAccounts`, `SpecAccount`), the scan contract (`ScanContract`, `ScanCriterion`), PR-review models (`PrDiffAnalysis`, `PrReviewInlineComment`) |
 | Exceptions (`Exceptions/`) | `AgentSmithException` (base), `ConfigurationException`, `ProviderException`, `TicketNotFoundException`, `CapacityExhaustedException`, `StaleConfigVersionException`, `DataArchiveException` |
 
 ---

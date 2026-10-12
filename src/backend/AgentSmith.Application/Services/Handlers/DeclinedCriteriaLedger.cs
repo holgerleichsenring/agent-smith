@@ -39,7 +39,7 @@ public static class DeclinedCriteriaLedger
     }
 
     private static string? SpecIdOf(PipelineContext pipeline) =>
-        pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
-            ? draft.PhaseId
+        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
+            ? draft.SpecId
             : null;
 }

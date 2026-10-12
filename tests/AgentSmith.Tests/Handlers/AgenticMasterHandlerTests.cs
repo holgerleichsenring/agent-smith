@@ -412,7 +412,7 @@ public sealed class AgenticMasterHandlerTests
 
         public Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
         {
-            pipeline.Get<AgentSmith.Application.Services.Specs.PhaseCommandLog>(ContextKeys.SpecRunCommands)
+            pipeline.Get<AgentSmith.Application.Services.Specs.SpecRunCommandLog>(ContextKeys.SpecRunCommands)
                 .Record("api", commands[System.Math.Min(_call++, commands.Length - 1)], "exit_code: 1\n\nstdout:\n");
             var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
             {

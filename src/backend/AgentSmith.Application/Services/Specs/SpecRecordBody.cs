@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecRecordBody
 {
-    public static string For(PhaseDraft draft, PipelineContext pipeline)
+    public static string For(SpecDraft draft, PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(pipeline);

@@ -5,27 +5,27 @@ using FluentAssertions;
 namespace AgentSmith.Tests.SpecNaming;
 
 /// <summary>
-/// 2026-10-12-967aa: a stored step, planned step or checkpoint naming a spec-block command by the
-/// name a later release writes is labelled, classified and placed on the storybar as the command
-/// this release declares — renamed, not retired.
+/// 2026-10-12-967aa/967ab: a stored step, planned step, checkpoint or operator preset naming a
+/// spec-block command by the name it had before the rename is labelled, classified and placed on
+/// the storybar as the command this release declares — renamed, not retired.
 /// </summary>
 public sealed class SpecNamedCommandReadTests
 {
     public static TheoryData<string, string> Renamed => new()
     {
-        { "WriteSpecRecordCommand", CommandNames.WriteSpecRecord },
-        { "VerifySpecCommand", CommandNames.VerifySpec },
-        { "CommitSpecWorkCommand", CommandNames.CommitSpecWork },
-        { "CheckSpecPremisesCommand", CommandNames.CheckSpecPremises },
-        { "ReviewSpecDiffCommand", CommandNames.ReviewSpecDiff },
-        { "SpecSequenceCommand", CommandNames.SpecSequence },
-        { "SelectSpecCommand", CommandNames.SelectSpec },
-        { "SpecGateCommand", CommandNames.SpecGate },
+        { "WritePhaseRecordCommand", CommandNames.WriteSpecRecord },
+        { "VerifyPhaseCommand", CommandNames.VerifySpec },
+        { "CommitPhaseWorkCommand", CommandNames.CommitSpecWork },
+        { "CheckPhasePremisesCommand", CommandNames.CheckSpecPremises },
+        { "ReviewPhaseDiffCommand", CommandNames.ReviewSpecDiff },
+        { "PhaseSequenceCommand", CommandNames.SpecSequence },
+        { "SelectPhaseCommand", CommandNames.SelectSpec },
+        { "PhaseSpecGateCommand", CommandNames.SpecGate },
     };
 
     [Theory]
     [MemberData(nameof(Renamed))]
-    public void StoredCommandName_SpecNamed_ReadsAsTheDeclaredCommand(string accepted, string declared)
+    public void StoredCommandName_OldName_ReadsAsTheDeclaredCommand(string accepted, string declared)
     {
         CommandNames.Declared(accepted).Should().Be(declared);
         CommandDisplayNames.Get(accepted).Should().Be(CommandDisplayNames.Get(declared));
@@ -40,16 +40,16 @@ public sealed class SpecNamedCommandReadTests
     [Fact]
     public void Declared_KeepsAParameterSuffix_AndLeavesOtherNamesAlone()
     {
-        CommandNames.Declared("VerifySpecCommand:api").Should().Be(CommandNames.VerifySpec + ":api");
+        CommandNames.Declared("VerifyPhaseCommand:api").Should().Be(CommandNames.VerifySpec + ":api");
         CommandNames.Declared(CommandNames.AgenticMaster).Should().Be(CommandNames.AgenticMaster);
         CommandNames.Declared(CommandNames.RunVerifyPhase).Should().Be(CommandNames.RunVerifyPhase,
             "the execution-stage verify keeps its name");
     }
 
     [Fact]
-    public void GateSilence_SpecNamedGate_KnowsItsNoOpSentence()
+    public void GateSilence_OldGateName_KnowsItsNoOpSentence()
     {
-        GateSilence.IsNoOpSummary("SpecGateCommand", "x").Should()
+        GateSilence.IsNoOpSummary("PhaseSpecGateCommand", "x").Should()
             .Be(GateSilence.IsNoOpSummary(CommandNames.SpecGate, "x"));
     }
 }

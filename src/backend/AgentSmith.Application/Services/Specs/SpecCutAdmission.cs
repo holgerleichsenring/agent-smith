@@ -24,7 +24,7 @@ namespace AgentSmith.Application.Services.Specs;
 internal sealed class SpecCutAdmission(ILogger logger)
 {
     public IReadOnlyList<CutFinding> Admit(
-        IReadOnlyList<PhaseDraft> drafts, IReadOnlyList<CutFinding> answer, DerivationLook? look)
+        IReadOnlyList<SpecDraft> drafts, IReadOnlyList<CutFinding> answer, DerivationLook? look)
     {
         // Only a look that reached a verdict can prove a premise false; one that could not run
         // keeps its id and its line, and proves nothing.
@@ -34,10 +34,10 @@ internal sealed class SpecCutAdmission(ILogger logger)
     }
 
     private bool Admitted(
-        IReadOnlyList<PhaseDraft> drafts, CutFinding finding, IReadOnlySet<string> ran)
+        IReadOnlyList<SpecDraft> drafts, CutFinding finding, IReadOnlySet<string> ran)
     {
         var spec = drafts.FirstOrDefault(d =>
-            string.Equals(d.PhaseId, finding.SpecId, StringComparison.OrdinalIgnoreCase));
+            string.Equals(d.SpecId, finding.SpecId, StringComparison.OrdinalIgnoreCase));
         if (IsFalsePremise(finding)) return Cited(finding, spec, ran);
         if (spec is not null && SpecQuotableText.Contains(spec, finding.Criterion)) return true;
 
@@ -47,7 +47,7 @@ internal sealed class SpecCutAdmission(ILogger logger)
         return false;
     }
 
-    private bool Cited(CutFinding finding, PhaseDraft? spec, IReadOnlySet<string> ran)
+    private bool Cited(CutFinding finding, SpecDraft? spec, IReadOnlySet<string> ran)
     {
         if (spec is not null && DerivationEvidence.CitationsIn(finding.Cites).Any(ran.Contains))
             return true;

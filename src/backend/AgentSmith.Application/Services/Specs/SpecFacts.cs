@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// what does not — as the renderer writes them and the reader reads them back.
 /// </summary>
 public sealed record SpecFacts(
-    IReadOnlyList<PhaseFact> Facts,
+    IReadOnlyList<SpecFact> Facts,
     IReadOnlyList<string> Assumptions)
 {
     public static readonly SpecFacts None = new([], []);

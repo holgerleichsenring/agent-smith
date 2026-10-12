@@ -19,8 +19,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 internal sealed class SpecReviewAdmission(ILogger logger)
 {
-    public IReadOnlyList<PhaseFinding> Admit(
-        IReadOnlyList<PhaseFinding> answer, IReadOnlyList<SpecDiff> diffs, DerivationLook? look)
+    public IReadOnlyList<SpecFinding> Admit(
+        IReadOnlyList<SpecFinding> answer, IReadOnlyList<SpecDiff> diffs, DerivationLook? look)
     {
         ArgumentNullException.ThrowIfNull(answer);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -31,7 +31,7 @@ internal sealed class SpecReviewAdmission(ILogger logger)
     }
 
     private bool Admitted(
-        PhaseFinding finding, IReadOnlyList<SpecDiff> diffs, IReadOnlyDictionary<string, EvidenceLook> reads)
+        SpecFinding finding, IReadOnlyList<SpecDiff> diffs, IReadOnlyDictionary<string, EvidenceLook> reads)
     {
         if (Read(finding, reads) is not { } read)
             return Discard(finding, $"no read of its own that ran minted {finding.Cites ?? "nothing"}");
@@ -42,16 +42,16 @@ internal sealed class SpecReviewAdmission(ILogger logger)
         return true;
     }
 
-    private static EvidenceLook? Read(PhaseFinding finding, IReadOnlyDictionary<string, EvidenceLook> reads) =>
+    private static EvidenceLook? Read(SpecFinding finding, IReadOnlyDictionary<string, EvidenceLook> reads) =>
         DerivationEvidence.CitationsIn(finding.Cites)
             .Select(id => reads.TryGetValue(id, out var read) ? read : null)
             .FirstOrDefault(read => read is not null && Same(read, finding));
 
-    private static bool Same(EvidenceLook read, PhaseFinding finding) =>
+    private static bool Same(EvidenceLook read, SpecFinding finding) =>
         string.Equals(read.Repository, finding.Repository, StringComparison.Ordinal)
         && string.Equals(Normalize(read.Path), Normalize(finding.Path), StringComparison.Ordinal);
 
-    private static bool InTheDiff(PhaseFinding finding, IReadOnlyList<SpecDiff> diffs) =>
+    private static bool InTheDiff(SpecFinding finding, IReadOnlyList<SpecDiff> diffs) =>
         diffs.Any(d => string.Equals(d.SandboxKey, finding.Repository, StringComparison.Ordinal)
             && d.Paths.Any(p => string.Equals(Normalize(p), Normalize(finding.Path), StringComparison.Ordinal)));
 
@@ -64,7 +64,7 @@ internal sealed class SpecReviewAdmission(ILogger logger)
         return text.TrimStart('/');
     }
 
-    private bool Discard(PhaseFinding finding, string why)
+    private bool Discard(SpecFinding finding, string why)
     {
         logger.LogWarning(
             "Spec review reported {Repo}/{Path}:{Line} and {Why} — discarding the finding",

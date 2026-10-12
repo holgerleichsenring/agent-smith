@@ -18,30 +18,30 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 public sealed class RunSpecProjection
 {
     /// <summary>The artifact kind a spec record is stored under, one row per spec.</summary>
-    public const string RecordKindPrefix = "phase_record:";
+    public const string RecordKindPrefix = "spec_record:";
 
     /// <summary>2026-09-17-042eh: the artifact kind the spec's review findings are stored
     /// under, one row per spec, in the same table and read the same way.</summary>
-    public const string ReviewKindPrefix = "phase_review:";
+    public const string ReviewKindPrefix = "spec_review:";
 
-    /// <summary>2026-10-12-967aa: the record kind prefix a later release writes, read beside
-    /// <see cref="RecordKindPrefix"/> so a replica that still writes the old one serves both.</summary>
-    public const string AcceptedRecordKindPrefix = "spec_record:";
+    /// <summary>2026-10-12-967ab: the record kind prefix written before the rename, read beside
+    /// <see cref="RecordKindPrefix"/> until the store rewrite has renamed every row (967ah).</summary>
+    public const string AcceptedRecordKindPrefix = "phase_record:";
 
-    /// <summary>2026-10-12-967aa: the review kind prefix a later release writes.</summary>
-    public const string AcceptedReviewKindPrefix = "spec_review:";
+    /// <summary>2026-10-12-967ab: the review kind prefix written before the rename.</summary>
+    public const string AcceptedReviewKindPrefix = "phase_review:";
 
     /// <summary>The kinds a spec's review may be stored under, the declared one first.</summary>
     public static IReadOnlyList<string> ReviewKinds(string specId) =>
         [ReviewKindPrefix + specId, AcceptedReviewKindPrefix + specId];
 
-    public async Task ApplyStateAsync(IUnitOfWork uow, PhaseStateChangedEvent e, CancellationToken ct)
+    public async Task ApplyStateAsync(IUnitOfWork uow, SpecStateChangedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
-        var row = await FindAsync(uow, e.RunId, e.PhaseId, ct);
+        var row = await FindAsync(uow, e.RunId, e.SpecId, ct);
         if (row is null)
         {
-            row = new RunSpec { RunId = e.RunId, SpecId = e.PhaseId, StartedAt = e.Timestamp };
+            row = new RunSpec { RunId = e.RunId, SpecId = e.SpecId, StartedAt = e.Timestamp };
             uow.Add(row);
         }
         row.Ordinal = e.Ordinal;
@@ -59,10 +59,10 @@ public sealed class RunSpecProjection
     /// WriteSpecRecord puts in the working tree travels to the pull request and dies
     /// with the sandbox; this one is what an operator opens afterwards.
     /// </summary>
-    public async Task ApplyRecordAsync(IUnitOfWork uow, PhaseRecordedEvent e, CancellationToken ct)
+    public async Task ApplyRecordAsync(IUnitOfWork uow, SpecRecordedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
-        var kind = RecordKindPrefix + e.PhaseId;
+        var kind = RecordKindPrefix + e.SpecId;
         var row = await uow.Set<RunArtifact>()
             .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
         if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.Body });
@@ -76,10 +76,10 @@ public sealed class RunSpecProjection
     /// prose for a person, and a reader that wants the findings AS DATA would otherwise have to
     /// parse markdown back out of a YAML body.
     /// </summary>
-    public async Task ApplyReviewAsync(IUnitOfWork uow, PhaseReviewedEvent e, CancellationToken ct)
+    public async Task ApplyReviewAsync(IUnitOfWork uow, SpecReviewedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);
-        var kind = ReviewKindPrefix + e.PhaseId;
+        var kind = ReviewKindPrefix + e.SpecId;
         var row = await uow.Set<RunArtifact>()
             .FirstOrDefaultAsync(a => a.RunId == e.RunId && a.Kind == kind, ct);
         if (row is null) uow.Add(new RunArtifact { RunId = e.RunId, Kind = kind, Content = e.ReportJson });
@@ -91,17 +91,17 @@ public sealed class RunSpecProjection
         IUnitOfWork uow, string runId, string specId, CancellationToken ct) =>
         uow.Set<RunSpec>().FirstOrDefaultAsync(p => p.RunId == runId && p.SpecId == specId, ct);
 
-    private static bool IsTerminal(PhaseRunState state) =>
-        state is PhaseRunState.Done or PhaseRunState.Failed or PhaseRunState.HandedBack;
+    private static bool IsTerminal(SpecRunState state) =>
+        state is SpecRunState.Done or SpecRunState.Failed or SpecRunState.HandedBack;
 
-    private static string StatusOf(PhaseRunState state) => state switch
+    private static string StatusOf(SpecRunState state) => state switch
     {
-        PhaseRunState.InProgress => "in_progress",
-        PhaseRunState.Done => "done",
-        PhaseRunState.Failed => "failed",
+        SpecRunState.InProgress => "in_progress",
+        SpecRunState.Done => "done",
+        SpecRunState.Failed => "failed",
         // 2026-09-17-0e79c: its own status, so a reader can tell a spec that was never built
         // from one whose build went red without parsing the verdict.
-        PhaseRunState.HandedBack => "handed_back",
+        SpecRunState.HandedBack => "handed_back",
         _ => "not_started",
     };
 }

@@ -190,8 +190,8 @@ public sealed class SpecExecutionTests
         steps.Count(s => IsWrite(s, ".agentsmith/contexts/") && s.Content!.Contains(First, StringComparison.Ordinal))
             .Should().Be(1, "one index line, written once, in the carrying repository");
         steps.Should().NotContain(s => IsWrite(s, ".agentsmith/contexts/") && s.Content!.Contains($"{Second}:", StringComparison.Ordinal));
-        runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Phases
-            .Select(p => p.State).Should().Equal(PhaseRunState.Done, PhaseRunState.Failed);
+        runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Specs
+            .Select(p => p.State).Should().Equal(SpecRunState.Done, SpecRunState.Failed);
     }
 
     /// <summary>2026-10-06-03c7e: re-triggered after that, the branch reads a as executed (it lies
@@ -211,8 +211,8 @@ public sealed class SpecExecutionTests
         var steps = Steps(harness);
         steps.Should().NotContain(s => IsWrite(s, $"{SeriesPaths.Done}/{First}-"), "a's record is already on the branch");
         steps.Should().Contain(s => IsWrite(s, $"{SeriesPaths.Done}/{Second}-"));
-        runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Phases
-            .Select(p => p.State).Should().Equal(PhaseRunState.Done, PhaseRunState.Done);
+        runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Specs
+            .Select(p => p.State).Should().Equal(SpecRunState.Done, SpecRunState.Done);
     }
 
     private const string First = "2026-10-06-5e5ea";
@@ -254,7 +254,7 @@ public sealed class SpecExecutionTests
     // the run works it unamended.
     private static SpecSet SeededSet() => new(
         TicketKey.For("recording", "1").Value,
-        [new SpecPhase(new SpecDraftReader().Read(ValidYaml), "add-a-widget-endpoint-to-the-sample-service",
+        [new DerivedSpec(new SpecDraftReader().Read(ValidYaml), "add-a-widget-endpoint-to-the-sample-service",
             string.Empty, [])],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow.AddHours(-1))],
@@ -263,10 +263,10 @@ public sealed class SpecExecutionTests
 
     private static SpecSet TwoSpecSet() => SeededSet() with
     {
-        Phases =
+        Specs =
         [
-            SeededSet().Phases[0],
-            new SpecPhase(new SpecDraftReader().Read(SecondYaml), "store-posted-widgets", string.Empty, []),
+            SeededSet().Specs[0],
+            new DerivedSpec(new SpecDraftReader().Read(SecondYaml), "store-posted-widgets", string.Empty, []),
         ],
     };
 

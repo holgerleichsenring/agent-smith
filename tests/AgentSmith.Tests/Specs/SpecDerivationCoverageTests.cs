@@ -39,7 +39,7 @@ public sealed class SpecDerivationCoverageTests
 
         error.Should().BeNull();
         derivation!.Set.IsHandedBack.Should().BeFalse("the second cut carried the gap");
-        derivation.Set.Phases.Should().ContainSingle().Which.Draft.Contexts.Should().Equal("frontend", "backend");
+        derivation.Set.Specs.Should().ContainSingle().Which.Draft.Contexts.Should().Equal("frontend", "backend");
         client.Calls.Should().Be(2, "one extra call, not a fresh derivation");
         var pin = client.MessagesOfCall(1).Last(m => m.Role == ChatRole.User).Text;
         pin.Should().Contain("## Your cut does not cover every context the scope call named");
@@ -59,7 +59,7 @@ public sealed class SpecDerivationCoverageTests
         handback.Readings.Should().Equal("carry backend as well", "backend is out of scope for this ticket");
         handback.TakenReading.Should().Be("carry backend as well");
         handback.Reason.Should().Contain("both contexts need dependency auditing", "the reason names the scope call's rationale");
-        derivation.Set.Phases.Should().BeEmpty("a hand-back replaces the spec");
+        derivation.Set.Specs.Should().BeEmpty("a hand-back replaces the spec");
         client.Calls.Should().Be(2);
     }
 
@@ -204,7 +204,7 @@ public sealed class SpecDerivationCoverageTests
     private sealed class CleanReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
     }

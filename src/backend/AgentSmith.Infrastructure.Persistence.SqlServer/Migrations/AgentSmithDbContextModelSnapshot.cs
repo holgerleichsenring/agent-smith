@@ -1144,6 +1144,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("SpecId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("StepIndex")
                         .HasColumnType("int");
 
@@ -1522,6 +1525,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<long>("SandboxMs")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("SpecId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")
                         .IsRequired()

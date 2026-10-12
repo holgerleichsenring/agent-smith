@@ -36,8 +36,9 @@ function named(conversation: SpecDialogSessionSummary): string {
 
 function survives(conversation: SpecDialogSessionSummary): string {
   const kind = conversation.outcome?.kind ?? null;
-  // "phase" is the served kind of a filed spec until 2026-10-12-967ab.
-  if (kind === "phase" || kind === "epic") {
+  // 2026-10-12-967ab: "spec" is the served kind of a filed spec; a 967aa replica or a stored
+  // record may still serve "phase" until 2026-10-12-967ah.
+  if (kind === "spec" || kind === "phase" || kind === "epic") {
     return "The tickets it filed stay in the tracker, and the specification approved here stays"
       + " with them — but the sentence in the ticket that names this conversation will stop"
       + " resolving.";

@@ -31,7 +31,7 @@ public sealed class DeclinedCriterionReportTests
     private static PipelineContext InSpec(string specId)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(specId, "goal", "spec: " + specId, []) { Done = [Lint] });
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft(specId, "goal", "spec: " + specId, []) { Done = [Lint] });
         return pipeline;
     }
 
@@ -79,13 +79,13 @@ public sealed class DeclinedCriterionReportTests
         var pipeline = InSpec("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)));
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft("p2", "goal", "spec: p2", []) { Done = ["callers moved"] });
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft("p2", "goal", "spec: p2", []) { Done = ["callers moved"] });
 
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition("callers moved", AcceptanceStatus.Met, "Callers.cs")));
 
         DeclinedCriteriaLedger.Current(pipeline).All.Should().ContainSingle()
-            .Which.PhaseId.Should().Be("p1", "the verdict is overwritten per pass; the ledger is not");
+            .Which.SpecId.Should().Be("p1", "the verdict is overwritten per pass; the ledger is not");
     }
 
     [Fact]

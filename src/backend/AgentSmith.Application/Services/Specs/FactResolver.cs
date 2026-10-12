@@ -24,13 +24,13 @@ public sealed class FactResolver
     {
         ArgumentNullException.ThrowIfNull(lines);
         var byId = DerivationEvidence.IndexById(evidence);
-        var facts = new List<PhaseFact>();
+        var facts = new List<SpecFact>();
         var assumptions = new List<string>();
         foreach (var line in lines)
         {
             if (line.Claim.Length == 0) continue;
             if (byId.TryGetValue(DerivationEvidence.NormalizeCitation(line.Cites), out var minted))
-                facts.Add(new PhaseFact(line.Claim, minted));
+                facts.Add(new SpecFact(line.Claim, minted));
             else
                 assumptions.Add(line.Claim);
         }

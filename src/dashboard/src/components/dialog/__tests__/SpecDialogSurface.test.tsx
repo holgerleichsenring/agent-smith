@@ -196,7 +196,7 @@ function draftSpec(
   overrides: Partial<SpecDraftProposal> = {},
 ): SpecDraftProposal {
   return {
-    phaseId: specId,
+    specId: specId,
     goal: `goal of ${specId}`,
     steps: [`step of ${specId}`],
     tests: [`Test_Of_${specId}`],
@@ -212,9 +212,9 @@ function draftSpec(
 function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogProposalPush {
   return {
     dialogId: heldDialogId(),
-    kind: "phase",
+    kind: "spec",
     bug: null,
-    phase: draftSpec("p9001"),
+    spec: draftSpec("p9001"),
     parent: null,
     children: [],
     at: "2026-09-15T10:03:00Z",
@@ -1501,7 +1501,7 @@ describe("SpecDialogSurface", () => {
   // stops resolving, a bug is not given a sentence it never had, and a filing whose kind is
   // gone falls back to the one true of every filing.
   it("SpecDialog_TheAsk_CarriesTheWarningForWhatThatConversationFiled", async () => {
-    const spec = await askedAbout({ kind: "phase", tickets: 1, partial: false });
+    const spec = await askedAbout({ kind: "spec", tickets: 1, partial: false });
     expect(spec).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
     expect(spec).toContain("This cannot be undone");
     expect(spec).toContain("The tickets it filed stay in the tracker");
@@ -2255,7 +2255,7 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
 
     const pane = await screen.findByTestId("dialog-proposal");
-    expect(pane).toHaveAttribute("data-kind", "phase");
+    expect(pane).toHaveAttribute("data-kind", "spec");
     expect(pane).toHaveTextContent("goal of p9001");
     expect(pane).toHaveTextContent("step of p9001");
     expect(pane).toHaveTextContent("Test_Of_p9001");
@@ -2268,7 +2268,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => proposals.emit(proposal({
       kind: "bug",
-      phase: null,
+      spec: null,
       bug: { title: "Widget drops", body: "It drops.\n\n## Acceptance criteria\nIt stops." },
     })));
 
@@ -2283,7 +2283,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => proposals.emit(proposal({
       kind: "epic",
-      phase: null,
+      spec: null,
       parent: draftSpec("p9000"),
       // As the backend ordered them: the orderer the filer itself runs put b before a.
       children: [draftSpec("p9000b"), draftSpec("p9000a", { requires: ["p9000b"] })],
@@ -2327,7 +2327,7 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
     await screen.findByTestId("dialog-proposal");
 
-    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
+    act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
 
     const pane = await screen.findByTestId("dialog-proposal");
     expect(pane).toHaveTextContent("goal of p9002");
@@ -2503,7 +2503,7 @@ describe("SpecDialogSurface", () => {
     act(() => filings.emit(filing()));
     await screen.findByTestId("dialog-filed");
 
-    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
+    act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
 
     expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9002");
     expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
@@ -2527,7 +2527,7 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialog_AReloadWithAProposal_OffersItsRawForm", async () => {
-    reloadedWith({ proposal: proposal({ phase: draftSpec("p9001", { yaml: "spec: p9001\ngoal: g" }) }) });
+    reloadedWith({ proposal: proposal({ spec: draftSpec("p9001", { yaml: "spec: p9001\ngoal: g" }) }) });
 
     render(<SpecDialogSurface />);
 
@@ -2536,7 +2536,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_AReloadWithAProposalNewerThanTheFiling_ShowsTheProposal", async () => {
     reloadedWith({
-      proposal: proposal({ phase: draftSpec("p9002"), at: "2026-09-15T10:05:00Z" }),
+      proposal: proposal({ spec: draftSpec("p9002"), at: "2026-09-15T10:05:00Z" }),
       filing: filing({ at: "2026-09-15T10:04:00Z" }),
     });
 
@@ -2571,7 +2571,7 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString(),
     }));
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: draftSpec("p9000"), children: [draftSpec("p9000a"), draftSpec("p9000b")],
+      kind: "epic", spec: null, parent: draftSpec("p9000"), children: [draftSpec("p9000a"), draftSpec("p9000b")],
     })));
 
     const live = await screen.findByTestId("dialog-turn-card");
@@ -2591,7 +2591,7 @@ describe("SpecDialogSurface", () => {
         { role: "user", text: "then draft it", at: "2026-09-15T10:03:00Z" },
         { role: "assistant", text: "", at: "2026-09-15T10:04:00Z" },
       ],
-      proposal: proposal({ phase: draftSpec("p9001") }),
+      proposal: proposal({ spec: draftSpec("p9001") }),
       proposalTurn: 3,
     });
     render(<SpecDialogSurface />);
@@ -2686,7 +2686,7 @@ describe("SpecDialogSurface", () => {
   it("ApprovalCard_ACutProposal_SaysOneTicketAndCountsNoRecords", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      kind: "epic", spec: null, parent: draftSpec("p9000"),
       children: [draftSpec("p9000a"), draftSpec("p9000b"), draftSpec("p9000c")],
     })));
 
@@ -2700,7 +2700,7 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      kind: "epic", spec: null, parent: draftSpec("p9000"),
       children: [draftSpec("p9000a"), draftSpec("p9000b", { requires: ["p9000a"] })],
     })));
 
@@ -2798,11 +2798,11 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal({
       findings: [
         {
-          phaseId: "p9001", problem: "false premise", why: "the endpoint already exists",
+          specId: "p9001", problem: "false premise", why: "the endpoint already exists",
           quote: null, evidence: "[P2] repo-a: the proposal review ran 'read src/Api.cs' exited 0",
         },
         {
-          phaseId: "p9001", problem: "contradiction", why: "it also forbids touching source",
+          specId: "p9001", problem: "contradiction", why: "it also forbids touching source",
           quote: "done of p9001", evidence: null,
         },
       ],
@@ -2851,10 +2851,10 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_AnApprovalWithNoServerText_StillSaysWhatIsBeingApproved", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      kind: "epic", spec: null, parent: draftSpec("p9000"),
       children: [draftSpec("p9000a"), draftSpec("p9000b")],
       findings: [{
-        phaseId: "p9000a", problem: "false premise", why: "the endpoint already exists",
+        specId: "p9000a", problem: "false premise", why: "the endpoint already exists",
         quote: null, evidence: "[P2] repo-a: read src/Api.cs exited 0",
       }],
     })));
@@ -2904,9 +2904,9 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_AnApprovalWhoseProposalCannotBeCounted_SaysSoWithoutClaimingItIsLost", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "phase", phase: null, bug: null, parent: null, children: [],
+      kind: "spec", spec: null, bug: null, parent: null, children: [],
       findings: [{
-        phaseId: "p9001", problem: "contradiction", why: "it also forbids touching source",
+        specId: "p9001", problem: "contradiction", why: "it also forbids touching source",
         quote: "done of p9001", evidence: null,
       }],
     })));
@@ -2996,7 +2996,7 @@ describe("SpecDialogSurface", () => {
     const dialogId = heldDialogId();
 
     act(() => proposals.emit(proposal({
-      dialogId, kind: "epic", phase: null, parent: draftSpec("p9000"),
+      dialogId, kind: "epic", spec: null, parent: draftSpec("p9000"),
       children: [draftSpec("p9000a"), draftSpec("p9000b")],
     })));
     act(() => questions.emit(question({ dialogId })));
@@ -3006,7 +3006,7 @@ describe("SpecDialogSurface", () => {
       session: {
         ...base.session!,
         transcript: [{ role: "user", text: "draft it", at: "2026-09-15T10:01:00Z" }],
-        proposal: proposal({ dialogId, phase: draftSpec("p8000") }),
+        proposal: proposal({ dialogId, spec: draftSpec("p8000") }),
         proposalTurn: null,
       },
     }));
@@ -3070,7 +3070,7 @@ describe("SpecDialogSurface", () => {
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
-    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
+    act(() => proposals.emit(proposal({ spec: draftSpec("p9002") })));
 
     await waitFor(() => expect(screen.getAllByTestId("dialog-card-inspect")).toHaveLength(2));
     expect(screen.getByTestId("dialog-pane")).toHaveTextContent("not filed yet");

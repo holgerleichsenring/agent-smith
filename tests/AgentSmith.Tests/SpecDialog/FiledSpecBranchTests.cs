@@ -81,7 +81,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
-        var parent = new PhaseDraft("p9000", "Move the billing stack", "spec: p9000", []);
+        var parent = new SpecDraft("p9000", "Move the billing stack", "spec: p9000", []);
 
         await FileAsync(sources: sources, store: store,
             specs: [Draft("p9000a"), Draft("p9000b")], parent: parent);
@@ -311,7 +311,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var record = Record("sample-api");
-        record = record with { Set = record.Set with { Phases = [Spec("p9000a", "sample-web")] } };
+        record = record with { Set = record.Set with { Specs = [Spec("p9000a", "sample-web")] } };
 
         var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
             Project(), record, new TicketId("1"), Stored(), default);
@@ -326,7 +326,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var record = Record(carrier: string.Empty, repositories: ["sample-web"]);
-        record = record with { Set = record.Set with { Phases = [Spec("p9000a", null)] } };
+        record = record with { Set = record.Set with { Specs = [Spec("p9000a", null)] } };
 
         var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
             Project(), record, new TicketId("1"), Stored(), default);
@@ -345,7 +345,7 @@ public sealed class FiledSpecBranchTests
         var record = Record("sample-api");
         record = record with
         {
-            Set = record.Set with { Phases = [Spec("2026-10-06-3d3da", "sample-web"), Spec("2026-10-06-3d3db", "sample-api")] },
+            Set = record.Set with { Specs = [Spec("2026-10-06-3d3da", "sample-web"), Spec("2026-10-06-3d3db", "sample-api")] },
         };
 
         var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
@@ -423,7 +423,7 @@ public sealed class FiledSpecBranchTests
 
         read.Should().NotBeNull("filing wrote a directory the run's own reader can open");
         var (first, second) = await MembersAsync(store);
-        read!.Set.Phases.Select(p => p.PhaseId).Should().Equal(first, second);
+        read!.Set.Specs.Select(p => p.SpecId).Should().Equal(first, second);
         read.Set.Series.Should().Be((await store.GetAsync("sample-tracker", Key, default))!.Set.Series,
             "the branch carries the series the filing minted");
         read.Set.Current.Number.Should().Be(1);
@@ -471,8 +471,8 @@ public sealed class FiledSpecBranchTests
         {
             Set = Record("sample-api").Set with
             {
-                Phases = [new SpecPhase(Draft("2026-10-06-3d3da"), "first", string.Empty, []),
-                    new SpecPhase(Draft("2026-10-06-3d3db"), "second", string.Empty, [])],
+                Specs = [new DerivedSpec(Draft("2026-10-06-3d3da"), "first", string.Empty, []),
+                    new DerivedSpec(Draft("2026-10-06-3d3db"), "second", string.Empty, [])],
             },
         };
 
@@ -497,7 +497,7 @@ public sealed class FiledSpecBranchTests
         var record = Record("sample-api");
         record = record with
         {
-            Set = record.Set with { Phases = [Spec("2026-10-06-3d3da", "sample-api"), Spec("2026-10-06-3d3db", "sample-web")] },
+            Set = record.Set with { Specs = [Spec("2026-10-06-3d3da", "sample-api"), Spec("2026-10-06-3d3db", "sample-web")] },
         };
 
         var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
@@ -530,8 +530,8 @@ public sealed class FiledSpecBranchTests
         RecordingBranchSources? sources = null, ISpecApprovalStore? store = null,
         ISpecSetPointerStore? pointers = null, JournallingProvider? provider = null,
         FiledWorkStarter? starter = null, bool mayStartRuns = false,
-        IReadOnlyList<PhaseDraft>? specs = null, IReadOnlyList<string>? scoped = null,
-        AgentSmithConfig? config = null, PhaseDraft? parent = null)
+        IReadOnlyList<SpecDraft>? specs = null, IReadOnlyList<string>? scoped = null,
+        AgentSmithConfig? config = null, SpecDraft? parent = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
@@ -560,18 +560,18 @@ public sealed class FiledSpecBranchTests
         string carrier, IReadOnlyList<string>? repositories = null) =>
         new(Key,
             new SpecSet(
-                Key, [new SpecPhase(Draft("p9000a"), "do-the-thing", string.Empty, [])],
+                Key, [new DerivedSpec(Draft("p9000a"), "do-the-thing", string.Empty, [])],
                 SpecAccounting.Empty, [], SpecSource.Approved,
                 Approval: new SpecApproval(DateTimeOffset.UnixEpoch, "job-1", "sample.user"),
                 Series: "2026-10-06-3d3d"),
             repositories ?? ["sample-api", "sample-web"], "sample-tracker", carrier);
 
     // 2026-10-12-f5f7d: a spec names its repository, as f5f7a requires over two.
-    private static PhaseDraft Draft(string id) =>
+    private static SpecDraft Draft(string id) =>
         new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", [])
         { Done = ["It is done."], Repos = ["sample-api"] };
 
-    private static SpecPhase Spec(string id, string? repo) =>
+    private static DerivedSpec Spec(string id, string? repo) =>
         new(Draft(id) with { Repos = repo is null ? [] : [repo] }, id, string.Empty, []);
 
     private static AgentSmithConfig Config() => new()

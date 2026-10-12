@@ -34,7 +34,7 @@ public sealed class SpecDialogProposalRuleTests
     [InlineData(SpecDialogTurnKind.Failure)]
     [InlineData(SpecDialogTurnKind.Notice)]
     [InlineData(SpecDialogTurnKind.Filing)]
-    [InlineData(SpecDialogTurnKind.PhaseProposal)]
+    [InlineData(SpecDialogTurnKind.SpecProposal)]
     public void ProposalRule_FailedTurnOrNotice_DoesNotCountAsDiscussion(SpecDialogTurnKind kind) =>
         SpecDialogProposalRule.MayPropose([User(), Assistant(kind), User()]).Should().BeFalse();
 
@@ -48,7 +48,7 @@ public sealed class SpecDialogProposalRuleTests
     public void ProposalRule_EditNoteAfterAProposal_MayPropose() =>
         SpecDialogProposalRule.MayPropose(
             [User(), Assistant(SpecDialogTurnKind.Answer), User(),
-                Assistant(SpecDialogTurnKind.PhaseProposal), User("split it in two")])
+                Assistant(SpecDialogTurnKind.SpecProposal), User("split it in two")])
             .Should().BeTrue();
 
     [Fact]

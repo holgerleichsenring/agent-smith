@@ -50,7 +50,7 @@ public sealed class RequirementCriteriaDerivationTests
 
         var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(Body), [], SpecSource.Derived, []);
 
-        set.Phases.Single().Draft.Done.Should().Equal("the table exists", "the repository reads it back");
+        set.Specs.Single().Draft.Done.Should().Equal("the table exists", "the repository reads it back");
     }
 
     [Fact]

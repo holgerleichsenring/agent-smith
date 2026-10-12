@@ -13,7 +13,7 @@ internal sealed record SpecFindingWire(
     string? Repository, string? Path, JsonElement? Line, string? Rule, string? Why,
     JsonElement? Cites = null)
 {
-    public PhaseFinding ToFinding() =>
+    public SpecFinding ToFinding() =>
         new(Repository ?? string.Empty, Path ?? string.Empty, LineNumber(Line),
             Rule ?? string.Empty, Why ?? string.Empty, CitationText(Cites));
 

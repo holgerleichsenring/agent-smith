@@ -19,7 +19,7 @@ namespace AgentSmith.Domain.Models;
 /// <param name="Cites">The evidence id of the reviewer's own read of that file.</param>
 /// <param name="Reverted">Set when the fix pass that was meant to close this was reverted;
 /// the finding stands, and the record and the pull request say why.</param>
-public sealed record PhaseFinding(
+public sealed record SpecFinding(
     string Repository,
     string Path,
     int Line,

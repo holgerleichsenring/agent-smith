@@ -32,7 +32,7 @@ namespace AgentSmith.Application.Services.Specs;
 internal sealed class PremiseCheckAdmission(ILogger logger)
 {
     public PremiseCheck Admit(
-        PhaseDraft draft, SpecPremises premises, IReadOnlyList<PremiseFinding> answer,
+        SpecDraft draft, SpecPremises premises, IReadOnlyList<PremiseFinding> answer,
         DerivationLook look)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -55,14 +55,14 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
         return new PremiseCheck(falsified, unproven);
     }
 
-    private bool RestatesAClaim(PhaseDraft draft, PremiseFinding finding)
+    private bool RestatesAClaim(SpecDraft draft, PremiseFinding finding)
     {
         if (!IsContradiction(finding)
             || !SpecQuotableText.IsVerbatim(SpecQuotableText.Of(draft), finding.Premise)) return false;
         logger.LogInformation(
             "The premise check quoted what {Spec} CLAIMS rather than what it rests on — that is "
             + "the account's question, not this one; discarding: {Premise}",
-            draft.PhaseId, finding.Premise);
+            draft.SpecId, finding.Premise);
         return true;
     }
 

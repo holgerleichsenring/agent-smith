@@ -91,5 +91,5 @@ public sealed class SeriesWriter(
     /// <summary>The commit message of a series revision.</summary>
     public static string MessageFor(SpecSet set) =>
         $"spec: {set.Series} ({set.Key}) revision {set.Current.Number} ({set.Current.Cause}), "
-        + $"{set.Phases.Count} spec(s)";
+        + $"{set.Specs.Count} spec(s)";
 }

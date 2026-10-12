@@ -40,8 +40,8 @@ public sealed class SpecAlreadySatisfiedTests
         await runner.RunAsync("code");
 
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
-        var second = progress.Phases[1];
-        second.State.Should().Be(PhaseRunState.Done);
+        var second = progress.Specs[1];
+        second.State.Should().Be(SpecRunState.Done);
         second.Note.Should().Be(SelectSpecHandler.AlreadySatisfiedNote,
             "only the entry account writes this note — the second spec was REACHED and "
             + "accounted for, not silently dropped");
@@ -69,8 +69,8 @@ public sealed class SpecAlreadySatisfiedTests
         await runner.RunAsync("code");
 
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
-        progress.Phases.Should().ContainSingle();
-        progress.Phases[0].Note.Should().BeNull("nothing on the branch could have satisfied it");
+        progress.Specs.Should().ContainSingle();
+        progress.Specs[0].Note.Should().BeNull("nothing on the branch could have satisfied it");
         harness.ChatClient.ToolCalls.Should().ContainSingle("the spec was worked");
     }
 }

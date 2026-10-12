@@ -18,8 +18,8 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
     /// <param name="scope">The scope's repository names; empty when none is known.</param>
     /// <param name="taken">2026-10-12-f5f7d: ids (or done/ spec file names) a new spec must not take;
     /// a taken position's letter skips to the next free one.</param>
-    public (IReadOnlyList<SpecPhase>? Phases, string? Error) Build(
-        IReadOnlyList<JsonElement> specElements, IReadOnlyList<SpecPhase> executedHead, string series,
+    public (IReadOnlyList<DerivedSpec>? Phases, string? Error) Build(
+        IReadOnlyList<JsonElement> specElements, IReadOnlyList<DerivedSpec> executedHead, string series,
         string ticketId, IReadOnlyList<TicketSegment> segments, IReadOnlyList<string>? evidence,
         IReadOnlyList<string> scope, IReadOnlyCollection<string>? taken = null)
     {
@@ -27,9 +27,9 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
         ArgumentNullException.ThrowIfNull(executedHead);
         var repos = specRepos.Decide([.. specElements.Skip(executedHead.Count)], scope);
         if (repos.Error is not null) return (null, repos.Error);
-        var built = new List<SpecPhase>(executedHead);
+        var built = new List<DerivedSpec>(executedHead);
         var letter = executedHead.Count;
-        IReadOnlyCollection<string> skip = [.. taken ?? [], .. executedHead.Select(p => p.PhaseId)];
+        IReadOnlyCollection<string> skip = [.. taken ?? [], .. executedHead.Select(p => p.SpecId)];
         for (var i = executedHead.Count; i < specElements.Count; i++)
         {
             var (specId, at) = SeriesIdFactory.NextFree(series, letter, skip);

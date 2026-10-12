@@ -29,7 +29,7 @@ internal static class SpecDialogRevisionSection
             + "your reply, by correcting the draft or by saying why it stands.");
         foreach (var finding in proposal.Findings)
             sb.AppendLine(
-                $"- {finding.PhaseId} — {finding.Problem}: {finding.Why}"
+                $"- {finding.SpecId} — {finding.Problem}: {finding.Why}"
                 + (finding.Quote is null ? string.Empty : $" (it states: \"{finding.Quote}\")")
                 + (finding.Evidence is null ? string.Empty : $" (evidence: {finding.Evidence})"));
         return sb.ToString().TrimEnd();

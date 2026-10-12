@@ -14,9 +14,9 @@ describe("DialogApprovedPanel", () => {
     approvedBy: "someone",
     approvedInConversation: "s-42",
     repositories: ["repo-a"],
-    phases: [
+    specs: [
       {
-        phaseId: "p0001a",
+        specId: "p0001a",
         goal: "Make the thing work",
         steps: [],
         tests: [],

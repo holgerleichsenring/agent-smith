@@ -51,7 +51,7 @@ public sealed class EpicOutcomeParser(
         }
         if (draftRepos.ForChildren(childNodes, scope) is { } reposError) return new OutcomeInvalid(reposError);
 
-        var children = new List<PhaseDraft>(childNodes.Count);
+        var children = new List<SpecDraft>(childNodes.Count);
         for (var i = 0; i < childNodes.Count; i++)
         {
             var (child, error) = ReadDraft(childNodes[i], $"child #{i + 1}");
@@ -63,7 +63,7 @@ public sealed class EpicOutcomeParser(
         // when it is finished, so a child without one is refused here, not discovered on the ticket.
         if (children.FindIndex(c => c.Done.Count == 0) is var missing and >= 0)
             return new OutcomeInvalid(
-                $"epic child #{missing + 1} ('{children[missing].PhaseId}') has no 'done' list — every epic "
+                $"epic child #{missing + 1} ('{children[missing].SpecId}') has no 'done' list — every epic "
                 + "child needs 'done:' with at least one outcome that is true once the slice is finished");
 
         var edgeError = edgeChecker.Check(parent, children);
@@ -72,7 +72,7 @@ public sealed class EpicOutcomeParser(
             : new OutcomeInvalid(edgeError);
     }
 
-    private (PhaseDraft? Draft, string? Error) ReadDraft(object node, string role)
+    private (SpecDraft? Draft, string? Error) ReadDraft(object node, string role)
     {
         var yaml = OutcomeYamlReader.ToYaml(node);
         return draftValidator.ValidateYaml(yaml) switch

@@ -20,7 +20,7 @@ public static class SpecReviewSection
         ArgumentNullException.ThrowIfNull(pipeline);
         // A review that ran and kept nothing is the quiet case and says nothing. A review that
         // did NOT run is the loud one — it is the absence of an answer, not an answer.
-        var shown = SpecReviewLedger.Current(pipeline).Phases
+        var shown = SpecReviewLedger.Current(pipeline).Specs
             .Where(p => p.Report.Findings.Count > 0 || !p.Report.Reviewed)
             .ToList();
         if (shown.Count == 0) return string.Empty;
@@ -31,7 +31,7 @@ public static class SpecReviewSection
         };
         foreach (var spec in shown)
         {
-            lines.Add($"**{spec.PhaseId}**");
+            lines.Add($"**{spec.SpecId}**");
             lines.Add(spec.Report.Reviewed
                 ? string.Join("\n", spec.Report.Findings.Select(Row))
                 : $"- {spec.Report.NotReviewedNote}");
@@ -41,7 +41,7 @@ public static class SpecReviewSection
     }
 
     /// <summary>Also the record's own wording, so the two never drift apart.</summary>
-    public static string Row(PhaseFinding finding)
+    public static string Row(SpecFinding finding)
     {
         ArgumentNullException.ThrowIfNull(finding);
         var reverted = finding.Reverted is null ? string.Empty : $" — {finding.Reverted}";
@@ -50,7 +50,7 @@ public static class SpecReviewSection
     }
 
     /// <summary>The body of the record's own review block, or empty when nothing is recorded.</summary>
-    public static string ForTheRecord(PhaseReviewReport report)
+    public static string ForTheRecord(SpecReviewReport report)
     {
         ArgumentNullException.ThrowIfNull(report);
         if (!report.Reviewed)

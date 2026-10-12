@@ -27,7 +27,7 @@ There is one coding pipeline, `code`. Its shape is simple to say: the ticket bec
 
 **Verification the master doesn't grade.** `VerifySpec` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-spec accounts and from nothing else.
 
-**A review after green.** A fresh reviewer reads the spec's diff against it and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the spec record, the `phase_review` artifact and the PR. The review never fails a spec that verified.
+**A review after green.** A fresh reviewer reads the spec's diff against it and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the spec record, the `spec_review` artifact and the PR. The review never fails a spec that verified.
 
 A run that stops half way still delivers honestly: verified specs ship on a ready PR with a "Not delivered" section, unverified work is reset, and a run that verified nothing leaves a draft PR with a failure banner. See [Lifecycle](lifecycle.md#when-it-goes-wrong).
 

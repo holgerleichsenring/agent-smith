@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecReviewLedger
 {
     /// <summary>Records the spec's report, replacing what a first review left.</summary>
-    public static void Record(PipelineContext pipeline, PhaseReviewReport report)
+    public static void Record(PipelineContext pipeline, SpecReviewReport report)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(report);
@@ -25,25 +25,25 @@ public static class SpecReviewLedger
         pipeline.Set(ContextKeys.RunSpecReviews, Current(pipeline).With(SpecIdOf(pipeline), report));
     }
 
-    /// <summary>The report of the spec now current, or <see cref="PhaseReviewReport.None"/>.</summary>
-    public static PhaseReviewReport ForThisSpec(PipelineContext pipeline)
+    /// <summary>The report of the spec now current, or <see cref="SpecReviewReport.None"/>.</summary>
+    public static SpecReviewReport ForThisSpec(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        return pipeline.TryGet<PhaseReviewReport>(
+        return pipeline.TryGet<SpecReviewReport>(
             ContextKeys.SpecReviewFindings, out var report) && report is not null
             ? report
-            : PhaseReviewReport.None;
+            : SpecReviewReport.None;
     }
 
-    public static RunPhaseReviews Current(PipelineContext pipeline)
+    public static RunSpecReviews Current(PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        return pipeline.TryGet<RunPhaseReviews>(ContextKeys.RunSpecReviews, out var reviews)
-            && reviews is not null ? reviews : RunPhaseReviews.Empty;
+        return pipeline.TryGet<RunSpecReviews>(ContextKeys.RunSpecReviews, out var reviews)
+            && reviews is not null ? reviews : RunSpecReviews.Empty;
     }
 
     private static string SpecIdOf(PipelineContext pipeline) =>
-        pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
-            ? draft.PhaseId
+        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
+            ? draft.SpecId
             : "run";
 }

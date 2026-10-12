@@ -38,8 +38,8 @@ export function DialogProposalCard({
       {proposal.children.length > 0 && (
         <div className="d-strip flex flex-col gap-0.5 dsh-body">
           {proposal.children.map((child) => (
-            <div key={child.phaseId}>
-              <b className="font-mono dsh-label font-medium text-ink">{child.phaseId}</b>{" "}
+            <div key={child.specId}>
+              <b className="font-mono dsh-label font-medium text-ink">{child.specId}</b>{" "}
               <span className="text-body">{child.goal}</span>
             </div>
           ))}
@@ -50,5 +50,5 @@ export function DialogProposalCard({
 }
 
 function titleOf(proposal: SpecDialogProposalPush): string {
-  return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.phase?.goal ?? outcomeKindWord(proposal.kind);
+  return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.spec?.goal ?? outcomeKindWord(proposal.kind);
 }

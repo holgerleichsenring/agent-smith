@@ -76,12 +76,12 @@ public sealed class SeriesOutOfStepTests
         var previous = SpecRecutDemand.PreviousOf(read.Read!);
         var decision = Decide(read, demanded);
 
-        previous.Phases.Select(p => p.PhaseId).Should().Equal(Id('a'), Id('b'), Id('c'));
+        previous.Specs.Select(p => p.SpecId).Should().Equal(Id('a'), Id('b'), Id('c'));
         previous.Executed.Should().Equal(Id('a'), Id('b'));
-        previous.ExecutedHead.Select(p => p.PhaseId).Should().Equal(Id('a'), Id('b'));
+        previous.ExecutedHead.Select(p => p.SpecId).Should().Equal(Id('a'), Id('b'));
         decision.Cause.Should().Be(SpecRevisionCause.RecutDemand, "a demand outranks the hand-back");
         decision.NeedsModel.Should().BeTrue();
-        decision.Set!.Phases.Select(p => p.PhaseId).Should().Equal(Id('a'), Id('b'), Id('c'));
+        decision.Set!.Specs.Select(p => p.SpecId).Should().Equal(Id('a'), Id('b'), Id('c'));
     }
 
     [Fact]

@@ -97,5 +97,5 @@ public sealed class SpecSetPublisher(
         set.IsHandedBack
             ? $"Spec {set.Key} handed back: {set.Handback!.Case}"
             : $"Spec {set.Key} revision {set.Current.Number} ({set.Current.Cause}): "
-              + $"{set.Phases.Count} spec(s), {set.Accounting.Discarded.Count} segment(s) discarded";
+              + $"{set.Specs.Count} spec(s), {set.Accounting.Discarded.Count} segment(s) discarded";
 }

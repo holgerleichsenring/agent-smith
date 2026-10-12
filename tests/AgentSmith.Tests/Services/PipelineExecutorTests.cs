@@ -173,8 +173,8 @@ public class PipelineExecutorTests
             .Returns(() =>
             {
                 new Contracts.Specs.RunShortfall(
-                    [new Contracts.Specs.PhaseProgress("p0001a", "a", Contracts.Specs.PhaseRunState.Done)],
-                    [new Contracts.Specs.PhaseProgress("p0001b", "b", Contracts.Specs.PhaseRunState.NotStarted)],
+                    [new Contracts.Specs.SpecProgress("p0001a", "a", Contracts.Specs.SpecRunState.Done)],
+                    [new Contracts.Specs.SpecProgress("p0001b", "b", Contracts.Specs.SpecRunState.NotStarted)],
                     "per-pipeline cost budget exhausted").MarkDelivered(pipeline);
                 return Task.FromResult(CommandResult.Ok("delivered"));
             });

@@ -109,16 +109,16 @@ public sealed class CutReviewWithoutTicketTests
         SpecCutReviewPrompt.StateOf(SpecCutReviewTicketText.Of(ticket)).Should().Be(expected);
     }
 
-    internal static PhaseDraft DoneLess() =>
+    internal static SpecDraft DoneLess() =>
         new("e1", "Move every sender onto the new bus", "spec: e1", [])
         {
             Steps =
             [
-                new PhaseStep("register", "Replace the sender registration in the host", null),
-                new PhaseStep("remove", "Remove the legacy client package", null),
+                new SpecStep("register", "Replace the sender registration in the host", null),
+                new SpecStep("remove", "Remove the legacy client package", null),
             ],
         };
 
-    private static IReadOnlyList<PhaseDraft> Criteria() =>
-        [new PhaseDraft("p1a", "migrate the senders", "spec: p1a", []) { Done = ["every sender uses the new bus"] }];
+    private static IReadOnlyList<SpecDraft> Criteria() =>
+        [new SpecDraft("p1a", "migrate the senders", "spec: p1a", []) { Done = ["every sender uses the new bus"] }];
 }

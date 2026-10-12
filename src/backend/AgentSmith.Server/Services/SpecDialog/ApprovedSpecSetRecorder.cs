@@ -72,7 +72,7 @@ public sealed class ApprovedSpecSetRecorder(
         var approval = new SpecApproval(time.GetUtcNow(), state.JobId, state.UserId);
         var previous = await store.GetAsync(project.Tracker.Name, key.Value, cancellationToken);
         var set = new SpecSet(
-            key.Value, [.. series.Drafts.Select(d => new SpecPhase(d, LabelOf(d, previous), string.Empty, []))],
+            key.Value, [.. series.Drafts.Select(d => new DerivedSpec(d, LabelOf(d, previous), string.Empty, []))],
             SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
         var repositories = Repositories(state, project);
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
@@ -83,7 +83,7 @@ public sealed class ApprovedSpecSetRecorder(
             await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Specs} spec(s) approved by {Principal} in conversation "
-            + "{Conversation}, carried by {Repo}, citing {Sets} set(s) and {Images} image(s)", key.Value, set.Phases.Count,
+            + "{Conversation}, carried by {Repo}, citing {Sets} set(s) and {Images} image(s)", key.Value, set.Specs.Count,
             approval.Principal, approval.Conversation, record.CarryingRepo, record.CitedSets.Count, record.CitedImages.Count);
         return record;
     }
@@ -107,8 +107,8 @@ public sealed class ApprovedSpecSetRecorder(
 
     // 2026-10-06-03c7d: a filed spec keeps its label through an amendment — a relabel leaves a
     // second file for one id, which the reader refuses.
-    private static string LabelOf(PhaseDraft draft, SpecApprovalRecord? previous) =>
-        previous?.Set.Phases.FirstOrDefault(p => p.PhaseId == draft.PhaseId)?.Slug ?? SpecIdFactory.Slug(draft.Goal);
+    private static string LabelOf(SpecDraft draft, SpecApprovalRecord? previous) =>
+        previous?.Set.Specs.FirstOrDefault(p => p.SpecId == draft.SpecId)?.Slug ?? SpecIdFactory.Slug(draft.Goal);
 
     private static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
         TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);

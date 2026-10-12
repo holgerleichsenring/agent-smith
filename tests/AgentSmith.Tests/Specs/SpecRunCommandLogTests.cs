@@ -12,12 +12,12 @@ namespace AgentSmith.Tests.Specs;
 /// reader asked to judge it was never shown it.
 /// </para>
 /// </summary>
-public sealed class PhaseCommandLogTests
+public sealed class SpecRunCommandLogTests
 {
     [Fact]
     public void ACommandTheAgentRan_IsEvidenceTheAccountCanRead()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("worker", "grep -RIn 'Legacy' --include='*.cs' .", "no matches");
 
         log.Evidence().Should().ContainSingle()
@@ -31,7 +31,7 @@ public sealed class PhaseCommandLogTests
     [Fact]
     public void ACommandThatPrintedNothing_StillSaysItRan()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("worker", "grep -RIn 'Legacy' .", "");
 
         log.Evidence().Single().Should().Contain("grep").And.Contain("no output");
@@ -44,7 +44,7 @@ public sealed class PhaseCommandLogTests
     [Fact]
     public void ALongOutput_KeepsItsEnd()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("api", "dotnet build", new string('x', 5_000) + " Build succeeded. 0 Error(s)");
 
         var line = log.Evidence().Single();
@@ -59,9 +59,9 @@ public sealed class PhaseCommandLogTests
     /// is output.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_MoreCommandsThanBudget_KeepsEveryCommandLine()
+    public void SpecRunCommandLog_MoreCommandsThanBudget_KeepsEveryCommandLine()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 200; i++)
             log.Record("api", $"grep -RIn 'Legacy' --include='*.cs' src/module-{i}", Output(i));
 
@@ -77,9 +77,9 @@ public sealed class PhaseCommandLogTests
     /// and the oldest tail goes before a newer one.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_UnderPressure_ShortensOlderOutputBeforeNewer()
+    public void SpecRunCommandLog_UnderPressure_ShortensOlderOutputBeforeNewer()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 200; i++)
             log.Record("api", $"grep -RIn 'Legacy' src/module-{i}", Output(i));
 
@@ -92,9 +92,9 @@ public sealed class PhaseCommandLogTests
     /// <summary>A notice on a complete list would teach the reader to discount a complete
     /// one, so a record that lost nothing says nothing.</summary>
     [Fact]
-    public void PhaseCommandLog_NothingLost_LeadsWithNoNotice()
+    public void SpecRunCommandLog_NothingLost_LeadsWithNoNotice()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 5; i++) log.Record("api", $"grep -RIn 'Legacy' src/module-{i}", Output(i));
 
         var evidence = log.Evidence();
@@ -108,9 +108,9 @@ public sealed class PhaseCommandLogTests
     /// partial record; it may not do so without knowing the record is partial.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_SomethingLost_LeadsWithRanAndShownCounts()
+    public void SpecRunCommandLog_SomethingLost_LeadsWithRanAndShownCounts()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 200; i++) log.Record("api", $"grep -RIn 'Legacy' src/module-{i}", Output(i));
 
         var evidence = log.Evidence();
@@ -127,9 +127,9 @@ public sealed class PhaseCommandLogTests
     /// job is to say the list degraded.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_RanCount_SurvivesTheTrimmingItDescribes()
+    public void SpecRunCommandLog_RanCount_SurvivesTheTrimmingItDescribes()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 400; i++) log.Record("api", new string('x', 300) + $" module-{i}", Output(i));
 
         log.Ran.Should().Be(400);
@@ -144,9 +144,9 @@ public sealed class PhaseCommandLogTests
     /// command found nothing, which is this spec's defect one level down.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput()
+    public void SpecRunCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 200; i++) log.Record("api", $"grep -RIn 'Legacy' src/module-{i}", Output(i));
         log.Record("api", "grep -RIn 'Legacy' src/module-final", "");
 
@@ -159,9 +159,9 @@ public sealed class PhaseCommandLogTests
     /// <summary>run_command takes arbitrary shell, and a heredoc patch is tens of kilobytes
     /// in one command. The retired entry count bounded that by accident.</summary>
     [Fact]
-    public void PhaseCommandLog_AHeredocSizedCommand_IsStoredCapped()
+    public void SpecRunCommandLog_AHeredocSizedCommand_IsStoredCapped()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("api", "cat > src/Sample.cs <<'EOF'\n" + new string('y', 40_000) + "\nEOF", "ok");
 
         log.Entries.Single().Command.Length.Should().BeLessThanOrEqualTo(SpecRunCommandBudget.CommandChars + 1);
@@ -174,9 +174,9 @@ public sealed class PhaseCommandLogTests
     /// strings this test would pass at any budget, so the sizes here are the real ones.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_RealisticPhase_TheEarlySearchIsStillPresent()
+    public void SpecRunCommandLog_RealisticSpec_TheEarlySearchIsStillPresent()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("worker", "grep -RIn 'LegacyAuth' --include='*.cs' src/backend",
             "exit_code: 1\nelapsed_ms: 240\n\nstdout:\n\nstderr:");
         for (var i = 0; i < 156; i++)
@@ -193,9 +193,9 @@ public sealed class PhaseCommandLogTests
     /// <summary>Record trims under the same lock the reader takes, so a spec recording while
     /// the account is being assembled cannot hand over a half-trimmed list.</summary>
     [Fact]
-    public async Task PhaseCommandLog_ConcurrentRecordAndEvidence_DoNotTear()
+    public async Task SpecRunCommandLog_ConcurrentRecordAndEvidence_DoNotTear()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         var reads = new List<int>();
 
         var writing = Task.Run(() =>
@@ -219,9 +219,9 @@ public sealed class PhaseCommandLogTests
     /// absence is proved, and which exits non-zero — from one that never ran at all.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_Evidence_CarriesTheExitStatus()
+    public void SpecRunCommandLog_Evidence_CarriesTheExitStatus()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("api", "grep -rn 'Sample' src",
             "exit_code: 1\nelapsed_ms: 12\ntruncated: false\n\nstdout:\n\nstderr:");
         log.Record("api", "dotnet build", "exit_code: 0\nelapsed_ms: 900\n\nstdout:\nBuild succeeded.");
@@ -236,7 +236,7 @@ public sealed class PhaseCommandLogTests
     [Fact]
     public void ACommandWithoutAStatusHeader_SaysTheStatusIsNotRecorded()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("api", "grep -rn 'Sample' src", "some output");
 
         log.Evidence().Single().Should().Contain("exit status not recorded");
@@ -247,7 +247,7 @@ public sealed class PhaseCommandLogTests
     [Fact]
     public void ABlankCommand_IsNotEvidence()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         log.Record("api", "   ", "ok");
 
         log.Evidence().Should().BeEmpty();

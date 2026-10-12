@@ -49,7 +49,7 @@ public sealed class SpecDerivationLoopTests
             .Select(r => r.Result?.ToString() ?? string.Empty)
             .Should().Contain(t => t == new DerivationLookBudget(DerivationLookTerms.Derivation).Exhausted,
                 "the refusal reaches the model as a tool result it can decide on");
-        var draft = derivation!.Set.Phases[0].Draft;
+        var draft = derivation!.Set.Specs[0].Draft;
         draft.Facts.Should().ContainSingle().Which.Evidence.Should().StartWith("[L1] ");
         draft.Assumptions.Should().Equal("the rest are transitive");
     }
@@ -165,7 +165,7 @@ public sealed class SpecDerivationLoopTests
     private sealed class CleanReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
     }

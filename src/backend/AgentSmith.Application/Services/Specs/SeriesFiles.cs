@@ -21,7 +21,7 @@ public sealed class SeriesFiles(SeriesManifest manifest)
     /// <summary>Repo-relative path and whole content, in the order a writer may commit them.</summary>
     public IReadOnlyList<SpecSetFile> Render(SpecSet set)
     {
-        var files = new List<SpecSetFile>(1 + (set.Phases.Count * 2)) { Manifest(set) };
+        var files = new List<SpecSetFile>(1 + (set.Specs.Count * 2)) { Manifest(set) };
         foreach (var spec in set.UnexecutedTail)
         {
             files.Add(new SpecSetFile(

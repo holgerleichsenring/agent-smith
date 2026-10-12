@@ -10,20 +10,21 @@ namespace AgentSmith.Contracts.Tickets;
 /// </summary>
 public static class TicketLabels
 {
-    /// <summary>The stamp a filing writes: an approved specification exists for this ticket.</summary>
-    public const string ApprovedSetStamp = "phase-spec:approved";
+    /// <summary>The stamp a filing writes: an approved specification exists for this ticket.
+    /// 2026-10-12-967ab: spec-named; <see cref="AcceptedApprovedSetStamp"/> is what filings wrote before.</summary>
+    public const string ApprovedSetStamp = "spec:approved";
 
-    /// <summary>2026-10-12-967aa: the stamp's spec-named spelling, recognised beside the historical
-    /// one so a filing by a later release routes on every replica.</summary>
-    public const string AcceptedApprovedSetStamp = "spec:approved";
+    /// <summary>2026-10-12-967ab: the stamp's historical spelling, recognised for good — tickets carrying
+    /// it sit on boards this framework does not own.</summary>
+    public const string AcceptedApprovedSetStamp = "phase-spec:approved";
 
-    /// <summary>2026-10-12-967aa: the spec-named word a person types to bind a ticket to spec
-    /// execution, read beside "phase" for good — both sit on boards this framework does not own.</summary>
-    public const string AcceptedSpecLabel = "spec";
+    /// <summary>2026-10-12-967ab: the historical word a person typed to bind a ticket to spec execution,
+    /// read beside "spec" for good — both sit on boards this framework does not own.</summary>
+    public const string AcceptedSpecLabel = "phase";
 
-    /// <summary>2026-10-12-967aa: the spec-named record label, refused beside "phase-epic".</summary>
-    public const string AcceptedSpecEpicLabel = "spec-epic";
+    /// <summary>2026-10-12-967ab: the historical record label, refused beside "spec-epic" for good.</summary>
+    public const string AcceptedSpecEpicLabel = "phase-epic";
 
-    /// <summary>2026-10-12-967aa: the spec-named parent stamp, read beside "phase-parent:".</summary>
-    public const string AcceptedParentPrefix = "spec-parent:";
+    /// <summary>2026-10-12-967ab: the historical parent stamp, read beside "spec-parent:" for good.</summary>
+    public const string AcceptedParentPrefix = "phase-parent:";
 }

@@ -35,7 +35,7 @@ public sealed class ApprovedSetRecutOnDemandTests
         harness.Deriver.Calls.Should().Be(1, "a person asked for this set to be cut again");
         harness.Writer.Written!.Current.Cause.Should().Be(SpecRevisionCause.RecutDemand,
             "the history must say why an approved set changed");
-        harness.Writer.Written.Phases.Select(p => p.PhaseId).Should().Equal("p19106z");
+        harness.Writer.Written.Specs.Select(p => p.SpecId).Should().Equal("p19106z");
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public sealed class ApprovedSetRecutOnDemandTests
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
         harness.Deriver.CauseSeen.Should().Be(SpecRevisionCause.RecutDemand);
-        harness.Deriver.PreviousSeen!.ExecutedHead.Select(p => p.PhaseId).Should().Equal(
+        harness.Deriver.PreviousSeen!.ExecutedHead.Select(p => p.SpecId).Should().Equal(
             ["p19106a"],
             "the parser re-uses that head verbatim — a demand can only reach the unstarted tail");
     }
@@ -266,7 +266,7 @@ public sealed class ApprovedSetRecutOnDemandTests
     private static SpecDerivation Recut(SpecHandback? handback = null)
     {
         var segments = TicketSegmenter.Segment(Text);
-        var spec = new SpecPhase(
+        var spec = new DerivedSpec(
             ApprovedSets.Spec("p19106z", "Cut again on demand").Draft, "p19106z", string.Empty,
             [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(

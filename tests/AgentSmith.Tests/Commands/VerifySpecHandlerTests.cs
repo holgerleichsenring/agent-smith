@@ -52,7 +52,7 @@ public sealed class VerifySpecHandlerTests
         language, [], [], [], [], new Conventions(null, null, null), ci);
 
     private static (VerifySpecContext Context, ScriptedSandbox Sandbox) Setup(
-        ProjectMap? map, PhaseDraft? draft = null, string workdir = ".",
+        ProjectMap? map, SpecDraft? draft = null, string workdir = ".",
         params RemoteContextDiscovery[] contexts)
     {
         var pipeline = new PipelineContext();
@@ -286,7 +286,7 @@ public sealed class VerifySpecHandlerTests
     {
         var (context, _) = Setup(
             Map("generic", new CiConfig(false, null, null, null)),
-            new PhaseDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
+            new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] });
         context.Pipeline.Set(ContextKeys.ResolvedPipeline,
             new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
 

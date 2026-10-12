@@ -91,7 +91,7 @@ public sealed class TicketAmendmentTests : IDisposable
 
         var record = await store.GetAsync(Tracker, Key, default);
         record.Should().NotBeNull();
-        record!.Set.Phases.Should().ContainSingle()
+        record!.Set.Specs.Should().ContainSingle()
             .Which.Draft.Goal.Should().Be("the widget stops dropping");
         record.Approval!.Conversation.Should().Be(Session);
     }
@@ -114,7 +114,7 @@ public sealed class TicketAmendmentTests : IDisposable
         var record = (await store.GetAsync(Tracker, Key, default))!;
         first.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
         record.Set.Series.Should().Be(first, "the amendment reuses the base the ticket already carries");
-        record.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(SeriesIdFactory.Member(first!, 0));
+        record.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be(SeriesIdFactory.Member(first!, 0));
         tracker.Description.Should().Contain("the widget never drops");
     }
 
@@ -129,19 +129,19 @@ public sealed class TicketAmendmentTests : IDisposable
         var store = ApprovedSetDoubles.Store();
         var sources = new RecordingBranchSources();
         var epic = new EpicOutcome(
-            new PhaseDraft("p9001", "the widget is reliable", "spec: p9001", []),
+            new SpecDraft("p9001", "the widget is reliable", "spec: p9001", []),
             [Child("p9001a", "the widget stops dropping"), Child("p9001b", "the widget reports drops")]);
 
         await Amendment(tracker, sources, store).ApplyAsync(State(), epic, default);
 
         var record = (await store.GetAsync(Tracker, Key, default))!;
         record.Set.Goal.Should().Be("the widget is reliable", "the parent's goal is the series' goal");
-        record.Set.Phases.Should().HaveCount(2);
+        record.Set.Specs.Should().HaveCount(2);
         new SeriesManifest().Parse(sources.Writes[0].ContentOf(SeriesPaths.Manifest(record.Set.Series!)))!
             .Goal.Should().Be("the widget is reliable");
     }
 
-    private static PhaseDraft Child(string id, string goal) =>
+    private static SpecDraft Child(string id, string goal) =>
         new(id, goal, $"spec: {id}\ngoal: {goal}", []) { Done = ["It is done."] };
 
     /// <summary>
@@ -154,11 +154,11 @@ public sealed class TicketAmendmentTests : IDisposable
         var tracker = await BoundAsync();
         var store = ApprovedSetDoubles.Store();
         await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
-        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem;
+        var first = (await store.GetAsync(Tracker, Key, default))!.Set.Specs[0].FileStem;
 
         await Amendment(tracker, store: store).ApplyAsync(State(), Proposal("the widget never drops"), default);
 
-        (await store.GetAsync(Tracker, Key, default))!.Set.Phases[0].FileStem.Should().Be(first);
+        (await store.GetAsync(Tracker, Key, default))!.Set.Specs[0].FileStem.Should().Be(first);
     }
 
     /// <summary>
@@ -291,7 +291,7 @@ public sealed class TicketAmendmentTests : IDisposable
             ["the widget stops dropping", "the widget reports why it dropped"]);
 
         divergence.Should().NotBeNull();
-        divergence!.Phases.Should().Be(2);
+        divergence!.Specs.Should().Be(2);
         divergence.Unsaid.Should().Equal("the widget reports why it dropped");
         var rendered = Section(divergence);
         rendered.Should().Contain("the widget reports why it dropped")
@@ -322,7 +322,7 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     private static OutcomeProposal Proposal(string goal) =>
-        new SpecOutcome(new PhaseDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
+        new SpecOutcome(new SpecDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
 
     /// <summary>The conversation as 8e51c leaves it: bound, with the ticket's text recorded.</summary>
     private async Task<FakeTracker> BoundAsync()

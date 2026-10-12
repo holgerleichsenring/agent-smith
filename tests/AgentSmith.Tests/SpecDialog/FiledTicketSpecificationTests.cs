@@ -32,7 +32,7 @@ public sealed class FiledTicketSpecificationTests
           - "the table exists and the repository reads it"
         """;
 
-    private static readonly PhaseDraft Draft = new("p9000a", "Widget storage layer", Yaml, []);
+    private static readonly SpecDraft Draft = new("p9000a", "Widget storage layer", Yaml, []);
 
     [Fact]
     public void FiledTicket_AnApprovedCut_StillRecordsTheConversationItWasApprovedIn() =>

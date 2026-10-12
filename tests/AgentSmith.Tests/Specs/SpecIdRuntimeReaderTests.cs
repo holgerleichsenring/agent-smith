@@ -102,6 +102,6 @@ public sealed class SpecIdRuntimeReaderTests
             .Should().BeNull();
     }
 
-    private static PhaseDraft Draft(string specId, string? requires = null) =>
+    private static SpecDraft Draft(string specId, string? requires = null) =>
         new(specId, "anything", Yaml: string.Empty, requires is null ? [] : [requires]);
 }

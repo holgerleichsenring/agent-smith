@@ -23,8 +23,8 @@ public sealed class ScopedContextCoverage
     {
         ArgumentNullException.ThrowIfNull(set);
         if (named is null || named.Contexts.Count == 0) return [];
-        if (!set.Phases.Any(p => p.Draft.Contexts.Count > 0)) return [];
-        var spokenFor = set.Phases.SelectMany(p => p.Draft.Contexts)
+        if (!set.Specs.Any(p => p.Draft.Contexts.Count > 0)) return [];
+        var spokenFor = set.Specs.SelectMany(p => p.Draft.Contexts)
             .Concat(set.Accounting.DiscardedContexts.Select(d => d.Context))
             .ToList();
         return [.. named.Contexts.Where(n => !spokenFor.Any(s => ScopeNamedContexts.Matches(n, s)))];
@@ -32,5 +32,5 @@ public sealed class ScopedContextCoverage
 
     /// <summary>The contexts the specs declare, in the order they first appear.</summary>
     public static IReadOnlyList<string> Carried(SpecSet set) =>
-        [.. set.Phases.SelectMany(p => p.Draft.Contexts).Distinct(StringComparer.OrdinalIgnoreCase)];
+        [.. set.Specs.SelectMany(p => p.Draft.Contexts).Distinct(StringComparer.OrdinalIgnoreCase)];
 }

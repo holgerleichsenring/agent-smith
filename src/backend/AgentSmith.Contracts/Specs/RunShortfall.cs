@@ -14,16 +14,17 @@ namespace AgentSmith.Contracts.Specs;
 /// <param name="NotDelivered">The specs that never reached done, in sequence order.</param>
 /// <param name="Reason">Why the run stopped — the failed step's own words.</param>
 public sealed record RunShortfall(
-    IReadOnlyList<PhaseProgress> Delivered,
-    IReadOnlyList<PhaseProgress> NotDelivered,
+    IReadOnlyList<SpecProgress> Delivered,
+    IReadOnlyList<SpecProgress> NotDelivered,
     string Reason)
 {
-    public int PhaseCount => Delivered.Count + NotDelivered.Count;
+    [AcceptedName("PhaseCount")]
+    public int SpecCount => Delivered.Count + NotDelivered.Count;
 
     /// <summary>One line for the run's own result and log.</summary>
     public string Summary =>
-        $"Delivered {Delivered.Count} of {PhaseCount} spec(s); not delivered: "
-        + $"{string.Join(", ", NotDelivered.Select(p => p.PhaseId))} — {Reason}";
+        $"Delivered {Delivered.Count} of {SpecCount} spec(s); not delivered: "
+        + $"{string.Join(", ", NotDelivered.Select(p => p.SpecId))} — {Reason}";
 
     /// <summary>
     /// The shortfall a stopped run WOULD deliver: null unless the run stopped for a reason,
@@ -34,8 +35,8 @@ public sealed record RunShortfall(
     public static RunShortfall? Of(SpecSequenceProgress? progress, string? reason)
     {
         if (progress is null || string.IsNullOrWhiteSpace(reason)) return null;
-        var delivered = progress.Phases.Where(p => p.State == PhaseRunState.Done).ToList();
-        var notDelivered = progress.Phases.Where(p => p.State != PhaseRunState.Done).ToList();
+        var delivered = progress.Specs.Where(p => p.State == SpecRunState.Done).ToList();
+        var notDelivered = progress.Specs.Where(p => p.State != SpecRunState.Done).ToList();
         return delivered.Count == 0 || notDelivered.Count == 0
             ? null
             : new RunShortfall(delivered, notDelivered, reason.Trim());

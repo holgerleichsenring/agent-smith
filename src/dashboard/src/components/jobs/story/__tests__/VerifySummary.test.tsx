@@ -279,7 +279,7 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
             {
               text: "`npm run lint` exits 0",
               reason: "the lint config is a shared package this repository cannot change",
-              phase: "p1",
+              spec: "p1",
             },
           ],
         }}

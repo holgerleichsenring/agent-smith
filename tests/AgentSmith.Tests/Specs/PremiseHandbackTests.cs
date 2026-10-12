@@ -45,8 +45,8 @@ public sealed class PremiseHandbackTests
         await h.RunAsync();
 
         var row = h.Pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == SpecId);
-        row.State.Should().Be(PhaseRunState.HandedBack,
+            .Specs.Single(p => p.SpecId == SpecId);
+        row.State.Should().Be(SpecRunState.HandedBack,
             "a step failing between SelectSpec and verification would leave it in progress forever");
         row.FailingCommand.Should().Contain("False premise in " + SpecId);
     }

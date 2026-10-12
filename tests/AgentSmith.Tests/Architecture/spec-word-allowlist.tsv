@@ -4,28 +4,63 @@
 #            listed   = the token cannot tell its meanings apart and may stand only where
 #                       spec-word-files.tsv lists it, at most as often as it says.
 #   category G2 another meaning (execution stage, triage stage, skill workflow step, pod phase,
-#               UI state) and stays; STORED-967ab a stored or served name 967ab renames;
+#               UI state) and stays; STORED-967ab a stored or served name 967ab renames (none left);
 #               ALIAS-967ah a reader of the old name 967ah removes; LABEL a tracker word or
 #               config key read for good; HISTORY a name that records history and never
 #               changes; MIXED a bare word whose meaning the file decides.
 # A row whose token occurs nowhere fails as stale: delete it.
-CutReviewAnswer_SpecIdKey_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-Envelope_DecisionLoggedWithSpecId_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-Envelope_StepStartedWithSpecId_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-LatestFiling_SpecKind_ReadsAsPhaseKind	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+ActivePhaseStep	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+CheckPhasePremisesCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+CommitPhaseWorkCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+ExecutedPhaseIds	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
 MaxPhases	anywhere	ALIAS-967ah	derivation template token filled beside MaxSpecs until 967ah
-OutcomeKindWord_TheServedPhaseKind_ReadsAsSpec	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
 PHASE_GATE_	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
 PHASE_GATE_CORES	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
 PHASE_GATE_LOG	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
 PHASE_GATE_SELFTEST	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
-Serialize_StillWritesThePhaseNames	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-Transcript_SpecProposalTurnKind_ReadsAsPhaseProposal	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+PhaseAccounts	anywhere	ALIAS-967ah	old type name and context-key value a checkpoint stored; CheckpointRenames maps both and the store rewrite renames them until 967ah
+PhaseAccountsSnapshot	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseAppliesTo	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseCommandEntry	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseCommandLog	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseCommands	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseCount	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
+PhaseDraft	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseFact	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseFinding	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseId	listed	ALIAS-967ah	the spec id under its old name: the RunSteps/RunDecisions.PhaseId column (dropped in 967ah), [AcceptedName] aliases and the store rewrite
+PhaseProgress	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseProposal	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
+PhaseRecorded	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
+PhaseRepairAttempted	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseReviewEntry	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseReviewFindings	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseReviewFixPass	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseReviewReport	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseReviewReverted	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseReviewed	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
+PhaseRunState	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+PhaseSequenceCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+PhaseSpec	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseSpecGateCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+PhaseStartHeads	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
+PhaseStateChanged	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
+PhaseStep	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+ReviewPhaseDiffCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+RunPhaseReviews	anywhere	ALIAS-967ah	old type name and context-key value a checkpoint stored; CheckpointRenames maps both and the store rewrite renames them until 967ah
+SelectPhaseCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+SpecPhase	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
+VerifyPhaseCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+WritePhaseRecordCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
+executedPhaseIds	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
 fromPhases	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
 phase-gate	anywhere	ALIAS-967ah	the old gate path, kept as a forwarder until 967ah
 phase-named	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+phaseId	listed	ALIAS-967ah	the spec id under its old name: the RunSteps/RunDecisions.PhaseId column (dropped in 967ah), [AcceptedName] aliases and the store rewrite
 phaseProposal	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
 phase_id	listed	ALIAS-967ah	cut-review answer key the reader still accepts beside spec_id until 967ah
+phase_record	anywhere	ALIAS-967ah	old artifact kind prefix read beside spec_record:/spec_review: and renamed by the store rewrite until 967ah
+phase_review	anywhere	ALIAS-967ah	old artifact kind prefix read beside spec_record:/spec_review: and renamed by the store rewrite until 967ah
 AggregatePhase	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
 AppendPhaseRows	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
 AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk	anywhere	G2	test name about the execution stage of a model call
@@ -75,6 +110,7 @@ RunVerifyPhaseContext	anywhere	G2	triage / verify / final stage commands of the 
 RunVerifyPhaseContextBuilder	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
 SetPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
 SkillExecutionPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+StoreRewrite_LlmEventPhase_Untouched	anywhere	G2	test name about the execution stage an LLM event carries, which the store rewrite must leave alone
 StoryPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
 Track_CompactionPhase_AttributesInputAndOutputSeparately	anywhere	G2	test name about the execution stage of a model call
 Verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
@@ -128,61 +164,3 @@ Phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow 
 Phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
-ActivePhaseStep	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-CheckPhasePremisesCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-CommitPhaseWorkCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-ExecutedPhaseIds	anywhere	STORED-967ab	served view and stored member names until 967ab
-PhaseAccounts	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseAccountsSnapshot	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseAppliesTo	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseCommandEntry	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseCommandLog	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseCommandLogTests	anywhere	STORED-967ab	tests of the class that keeps its stored name until 967ab
-PhaseCommandLog_AHeredocSizedCommand_IsStoredCapped	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_ConcurrentRecordAndEvidence_DoNotTear	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_Evidence_CarriesTheExitStatus	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_MoreCommandsThanBudget_KeepsEveryCommandLine	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_NothingLost_LeadsWithNoNotice	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_RanCount_SurvivesTheTrimmingItDescribes	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_RealisticPhase_TheEarlySearchIsStillPresent	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_SomethingLost_LeadsWithRanAndShownCounts	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommandLog_UnderPressure_ShortensOlderOutputBeforeNewer	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
-PhaseCommands	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseCount	anywhere	STORED-967ab	served view and stored member names until 967ab
-PhaseDraft	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseFact	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseFinding	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseId	listed	STORED-967ab	the spec id under its stored and served name (columns RunSteps/RunDecisions.PhaseId, event and JSON members) until 967ab
-PhaseLifecycleEvents	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseProgress	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseProposal	anywhere	STORED-967ab	served view and stored member names until 967ab
-PhaseRecorded	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseRecordedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseRepairAttempted	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseReviewEntry	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseReviewFindings	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseReviewFixPass	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseReviewReport	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseReviewReverted	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseReviewed	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseReviewedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseRunState	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-PhaseSequenceCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-PhaseSpec	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseSpecGateCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-PhaseStartHeads	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
-PhaseStateChanged	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseStateChangedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
-PhaseStep	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-ReviewPhaseDiffCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-RunPhaseReviews	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-SelectPhaseCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-SpecDialogPhaseView	anywhere	STORED-967ab	served view and stored member names until 967ab
-SpecPhase	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
-VerifyPhaseCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-WritePhaseRecordCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
-executedPhaseIds	anywhere	STORED-967ab	served view and stored member names until 967ab
-phaseId	listed	STORED-967ab	the spec id under its stored and served name (columns RunSteps/RunDecisions.PhaseId, event and JSON members) until 967ab
-phase_record	anywhere	STORED-967ab	artifact kind prefixes stored in RunArtifacts.Kind until 967ab
-phase_review	anywhere	STORED-967ab	artifact kind prefixes stored in RunArtifacts.Kind until 967ab

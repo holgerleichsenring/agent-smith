@@ -8,8 +8,8 @@ namespace AgentSmith.Contracts.Models;
 /// PhaseId / Goal / Requires are extracted for display and requires-edge
 /// consistency checks.
 /// </summary>
-public sealed record PhaseDraft(
-    [property: AcceptedName("SpecId")] string PhaseId,
+public sealed record SpecDraft(
+    [property: AcceptedName("PhaseId")] string SpecId,
     string Goal,
     string Yaml,
     IReadOnlyList<string> Requires)
@@ -28,7 +28,7 @@ public sealed record PhaseDraft(
     /// and render as the master's plan section, so they are parsed once here instead
     /// of re-parsed by every consumer of the draft.
     /// </summary>
-    public IReadOnlyList<PhaseStep> Steps { get; init; } = [];
+    public IReadOnlyList<SpecStep> Steps { get; init; } = [];
 
     /// <summary>
     /// 2026-09-15-6d9c: the test names the spec names, read from the same yaml. The design
@@ -43,7 +43,7 @@ public sealed record PhaseDraft(
     /// evidence it cites. Read from the spec's own <c>facts</c> key, admitted by the
     /// schema's open top level; a spec written before this spec has none.
     /// </summary>
-    public IReadOnlyList<PhaseFact> Facts { get; init; } = [];
+    public IReadOnlyList<SpecFact> Facts { get; init; } = [];
 
     /// <summary>
     /// 2026-09-07-b7e2: what the derivation stated WITHOUT a look behind it — a fact line
@@ -73,4 +73,4 @@ public sealed record PhaseDraft(
 /// action, and the spec's target hint (the step's <c>path</c> field, repo-qualified
 /// exactly as the spec wrote it) when one is provided.
 /// </summary>
-public sealed record PhaseStep(string Id, string Action, string? Target);
+public sealed record SpecStep(string Id, string Action, string? Target);

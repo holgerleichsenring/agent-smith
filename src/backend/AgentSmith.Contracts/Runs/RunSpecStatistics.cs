@@ -8,9 +8,9 @@ namespace AgentSmith.Contracts.Runs;
 /// counter: a counter and the events it counts are two answers to one question.
 /// </para>
 /// </summary>
-/// <param name="PhaseId">The spliced spec id; null for the steps that belong to no spec.</param>
+/// <param name="SpecId">The spliced spec id; null for the steps that belong to no spec.</param>
 public sealed record RunSpecStatistics(
-    string? PhaseId,
+    string? SpecId,
     int Steps,
     long DurationMs,
     RunCallStatistics Calls,

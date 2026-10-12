@@ -12,7 +12,7 @@ namespace AgentSmith.Contracts.Models;
 /// gone by the time anyone reads this, and an id nobody can resolve is not evidence.
 /// </para>
 /// </summary>
-/// <param name="PhaseId">The spec of the proposal the finding is against.</param>
+/// <param name="SpecId">The spec of the proposal the finding is against.</param>
 /// <param name="Problem">The verdict, in the reviewer's own vocabulary.</param>
 /// <param name="Why">What is wrong with it.</param>
 /// <param name="Quote">What the spec states, quoted by the reviewer; absent findings quote nothing.</param>
@@ -21,7 +21,7 @@ namespace AgentSmith.Contracts.Models;
 /// Null where the finding cites nothing — only a false premise does.
 /// </param>
 public sealed record ProposalFinding(
-    [property: AcceptedName("SpecId")] string PhaseId,
+    [property: AcceptedName("PhaseId")] string SpecId,
     string Problem,
     string Why,
     string? Quote = null,

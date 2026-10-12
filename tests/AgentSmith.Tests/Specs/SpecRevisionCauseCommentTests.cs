@@ -89,12 +89,12 @@ public sealed class SpecRevisionCauseCommentTests
         new SpecSet(
             "azdo-1", [Spec("p1a"), Spec("p1b")], SpecAccounting.Empty,
             [new SpecRevision(1, SpecRevisionCause.Initial, Now.AddHours(-3))],
-            SpecSource.BranchArtifact, ExecutedPhaseIds: ["p1a"],
+            SpecSource.BranchArtifact, ExecutedSpecIds: ["p1a"],
             TicketFingerprint: TicketTextFingerprint.Of(Ticket(Text))),
         MarkerSha);
 
-    private static SpecPhase Spec(string id) => new(
-        new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
+    private static DerivedSpec Spec(string id) => new(
+        new SpecDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
         id, string.Empty, []);
 
     private static SpecSetPointer Pointer(string sha) => new("azdo-1", "primary", sha, 1);

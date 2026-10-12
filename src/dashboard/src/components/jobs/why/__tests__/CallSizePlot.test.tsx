@@ -11,7 +11,7 @@ import type { RunCallPoint } from "@/lib/runStoryApi";
 function call(index: number, promptChars: number, answerChars: number, outcome = "Ok"): RunCallPoint {
   return {
     index,
-    phaseId: "p1",
+    specId: "p1",
     stepIndex: 1,
     role: "agentic-executor",
     model: "sonnet",

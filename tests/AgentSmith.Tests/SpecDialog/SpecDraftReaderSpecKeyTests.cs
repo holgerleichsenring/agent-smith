@@ -24,5 +24,5 @@ public sealed class SpecDraftReaderSpecKeyTests
 
     [Fact]
     public void SpecDraftReader_SpecKey_ReadsTheId() =>
-        new SpecDraftReader().Read("spec: p9999\ngoal: \"g\"\n").PhaseId.Should().Be("p9999");
+        new SpecDraftReader().Read("spec: p9999\ngoal: \"g\"\n").SpecId.Should().Be("p9999");
 }

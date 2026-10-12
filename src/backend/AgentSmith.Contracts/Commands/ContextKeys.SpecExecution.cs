@@ -2,10 +2,10 @@ namespace AgentSmith.Contracts.Commands;
 
 public static partial class ContextKeys
 {
-    /// <summary>p0315d: the validated spec (PhaseDraft) extracted from the
+    /// <summary>p0315d: the validated spec (SpecDraft) extracted from the
     /// spec ticket by SpecGate — the requirement record the master
     /// executes and the artifact WriteSpecRecord commits to specs/done/.</summary>
-    public const string CurrentSpec = "PhaseSpec";
+    public const string CurrentSpec = "CurrentSpec";
 
     /// <summary>p0315d: questions the master raised mid-run via ask_human on a
     /// ticket-triggered run (IReadOnlyList&lt;PlanOpenQuestion&gt;) — captured by

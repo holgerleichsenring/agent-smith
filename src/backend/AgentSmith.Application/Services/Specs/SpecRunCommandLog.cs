@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// account must still say so — the point is that it can see it at all.
 /// </para>
 /// </summary>
-public sealed class PhaseCommandLog
+public sealed class SpecRunCommandLog
 {
     private readonly Lock _sync = new();
     private int _ran;
@@ -24,7 +24,7 @@ public sealed class PhaseCommandLog
     /// <summary>p0469: public and settable so the checkpoint can carry the log through a park
     /// and give it back on resume. Recorded through <see cref="Record"/>, which is what keeps
     /// it inside <see cref="SpecRunCommandBudget"/>.</summary>
-    public List<PhaseCommandEntry> Entries { get; init; } = [];
+    public List<SpecRunCommandEntry> Entries { get; init; } = [];
 
     /// <summary>p0470: how many commands ran, counted where they are recorded and never
     /// derived from <see cref="Entries"/> — a count taken from the list it describes would
@@ -47,7 +47,7 @@ public sealed class PhaseCommandLog
         lock (_sync)
         {
             _ran++;
-            Entries.Add(new PhaseCommandEntry(repo ?? string.Empty,
+            Entries.Add(new SpecRunCommandEntry(repo ?? string.Empty,
                 SpecRunCommandBudget.Capped(command.Trim()),
                 SpecRunCommandBudget.Tail(output), ExitCode(output)));
             SpecRunCommandBudget.Fit(Entries);
@@ -71,7 +71,7 @@ public sealed class PhaseCommandLog
     /// A search that proves an absence exits non-zero BECAUSE it found nothing, and a
     /// reader that cannot see the status cannot tell that from a search that never ran.
     /// </summary>
-    private static string Line(PhaseCommandEntry entry) =>
+    private static string Line(SpecRunCommandEntry entry) =>
         (entry.Repo.Length > 0 ? $"{entry.Repo}: " : string.Empty)
         + $"the agent ran '{entry.Command}' "
         + (entry.ExitCode is { } code ? $"exited {code}" : "exit status not recorded")
@@ -81,7 +81,7 @@ public sealed class PhaseCommandLog
     /// "no output" is the proof a search found nothing, pinned by p0452's own test, so a
     /// trimmed tail borrowing that wording would make this spec's defect one level down.
     /// </summary>
-    private static string Output(PhaseCommandEntry entry) =>
+    private static string Output(SpecRunCommandEntry entry) =>
         entry.OutputTrimmed ? " — output not shown (trimmed to fit)"
         : entry.Tail.Length > 0 ? $" — output: {entry.Tail}" : " — no output";
 

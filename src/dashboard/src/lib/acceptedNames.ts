@@ -1,24 +1,25 @@
-// 2026-10-12-967aa: served JSON in the spec vocabulary, read as the phase vocabulary this
-// dashboard renders. A later server release writes `specId`, `specs`, `spec` and the kind
-// "spec"; during a rolling deploy this bundle may be served by either release, so every body
-// and hub payload passes through here once, at the seam where it arrives.
+// 2026-10-12-967aa/967ab: served JSON in the phase vocabulary, read as the spec vocabulary this
+// dashboard renders. The server writes `specId`, `specs`, `spec` and the kind "spec" since 967ab;
+// during a rolling deploy this bundle may be served by a 967aa replica, and a stored trail or
+// record may still carry the old names, so every body and hub payload passes through here once,
+// at the seam where it arrives. 967ah removes it.
 //
 // ADDITIVE for property names: the declared name is filled from the accepted one and nothing
-// is removed, because `specId` and `specs` are ALSO current names on other shapes (a run's
-// spec row, a filed-work run) that must keep reading as they do. Only the outcome kind is
-// rewritten, and only the one value "spec", which nothing else serves.
+// is removed, so a shape that carries the old word for another meaning (an LLM call's `phase`,
+// the execution stage) keeps it. Only the outcome kind is rewritten, and only the one value
+// "phase", which nothing else serves.
 
 const ACCEPTED_PROPERTIES: ReadonlyArray<readonly [accepted: string, declared: string]> = [
-  ["specId", "phaseId"],
-  ["specs", "phases"],
-  ["spec", "phase"],
-  ["executedSpecIds", "executedPhaseIds"],
+  ["phaseId", "specId"],
+  ["phases", "specs"],
+  ["phase", "spec"],
+  ["executedPhaseIds", "executedSpecIds"],
 ];
 
-const ACCEPTED_SPEC_KIND = "spec";
-const DECLARED_SPEC_KIND = "phase";
+const ACCEPTED_SPEC_KIND = "phase";
+const DECLARED_SPEC_KIND = "spec";
 
-/** The value with every accepted spec name readable under its phase name. Mutates in place. */
+/** The value with every accepted phase name readable under its spec name. Mutates in place. */
 export function acceptSpecNames<T>(value: T): T {
   visit(value);
   return value;

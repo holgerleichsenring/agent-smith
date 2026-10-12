@@ -105,7 +105,7 @@ public sealed class ReviewSpecDiffHandlerTests
     {
         var factory = new ScriptedChatClientFactory();
         var pipeline = Verified();
-        SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([Finding()]));
+        SpecReviewLedger.Record(pipeline, SpecReviewReport.Taken([Finding()]));
         pipeline.Set(ContextKeys.SpecReviewReverted, "fix pass reverted: build red");
 
         var result = await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
@@ -144,7 +144,7 @@ public sealed class ReviewSpecDiffHandlerTests
     private static string Answer() =>
         """[{"repository":"api","path":"src/Api/Handler.cs","line":4,"rule":"r","why":"w","cites":"P1"}]""";
 
-    private static PhaseFinding Finding() =>
+    private static SpecFinding Finding() =>
         new(Key, "src/Api/Handler.cs", 4, "files stay under 120 lines", "this one is 400", "P1");
 
     private static ReviewSpecDiffContext Context(PipelineContext pipeline) =>
@@ -193,7 +193,7 @@ public sealed class ReviewSpecDiffHandlerTests
     private static PipelineContext Verified()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(SpecId, "goal", "spec: x\n", []));
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft(SpecId, "goal", "spec: x\n", []));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [Key] = new DiffingSandbox() });

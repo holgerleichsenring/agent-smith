@@ -28,9 +28,9 @@ public sealed class DerivedSpecBuilder(
 
     /// <param name="specId">2026-10-12-f5f7d: the id the sequence chose — the position's letter, or
     /// the next free one when that id is taken (<see cref="SeriesIdFactory.NextFree"/>).</param>
-    public (SpecPhase? Phase, string? Error) Build(
+    public (DerivedSpec? Phase, string? Error) Build(
         JsonElement element, int index, string specId, string ticketId,
-        IReadOnlyList<TicketSegment> segments, IReadOnlyList<SpecPhase> previous,
+        IReadOnlyList<TicketSegment> segments, IReadOnlyList<DerivedSpec> previous,
         IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null)
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
@@ -47,18 +47,18 @@ public sealed class DerivedSpecBuilder(
 
         // The companion stays the ticket's own bytes: facts live in the yaml, never here.
         var markdown = SegmentExtractor.BuildMarkdown(specId, goal, carried, segments);
-        return (new SpecPhase(draftReader.Read(yaml), slug, markdown, carried), null);
+        return (new DerivedSpec(draftReader.Read(yaml), slug, markdown, carried), null);
     }
 
     private string Render(
         JsonElement element, string specId, string slug, string goal, IReadOnlyList<string> done,
-        IReadOnlyList<int> carried, string ticketId, IReadOnlyList<SpecPhase> previous,
+        IReadOnlyList<int> carried, string ticketId, IReadOnlyList<DerivedSpec> previous,
         IReadOnlyList<string>? evidence, IReadOnlyList<string> repos) =>
         yamlRenderer.Render(
             specId, goal,
             // The sequence IS the requires-chain: each spec depends on the one before
             // it, because the repository it edits is the previous spec's output.
-            previous.Count > 0 ? [previous[^1].PhaseId] : [],
+            previous.Count > 0 ? [previous[^1].SpecId] : [],
             ReadSteps(element), done, $"{specId}-{slug}.md", carried, ticketId,
             factResolver.Resolve(envelope.Facts(element), evidence), envelope.Contexts(element), repos);
 

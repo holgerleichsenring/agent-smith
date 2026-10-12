@@ -86,10 +86,10 @@ public sealed class ScopedContextCoverageTests
         var pipeline = runner.LastContext!;
         pipeline.Get<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts).Contexts.Should().Equal("frontend", "backend");
         var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
-        set.Phases.Should().HaveCount(2, "the frontend-only cut was pinned back and re-derived");
-        set.Phases.SelectMany(p => p.Draft.Contexts).Should().BeEquivalentTo(["frontend", "backend"]);
-        pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Phases
-            .Should().OnlyContain(p => p.State == PhaseRunState.Done);
+        set.Specs.Should().HaveCount(2, "the frontend-only cut was pinned back and re-derived");
+        set.Specs.SelectMany(p => p.Draft.Contexts).Should().BeEquivalentTo(["frontend", "backend"]);
+        pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress).Specs
+            .Should().OnlyContain(p => p.State == SpecRunState.Done);
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info");
         tickets.Commented.Should().Contain(c => c.Comment.Contains("**Contexts:** backend"),

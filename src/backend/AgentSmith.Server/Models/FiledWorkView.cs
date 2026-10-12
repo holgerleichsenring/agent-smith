@@ -61,7 +61,7 @@ public sealed record FiledWorkRunView(
 /// <para>
 /// There is deliberately NO "awaiting an amendment" flag here. A hand-back has a status of its
 /// own — <c>handed_back</c>, written by RunSpecProjection.StatusOf for
-/// PhaseRunState.HandedBack (2026-09-17-0e79c) — so <paramref name="Status"/> IS the
+/// SpecRunState.HandedBack (2026-09-17-0e79c) — so <paramref name="Status"/> IS the
 /// discriminator and the page maps it, once, where the affordance lives. Inferring it from
 /// "failed with a verdict" would tell an operator whose build went red to approve the set
 /// again, which changes nothing: the only producer of a <c>failed</c> row is the spec's own
@@ -91,7 +91,7 @@ public sealed record FiledWorkSpecView(
 /// </summary>
 /// <param name="Why">Why the review was not taken, or why the row could not be read. The
 /// producer's contract is "non-null exactly when not reviewed", and
-/// <see cref="PhaseReviewReport.None"/> is publishable, so the reader supplies
+/// <see cref="SpecReviewReport.None"/> is publishable, so the reader supplies
 /// <see cref="NoReasonRecorded"/> rather than rendering an empty sentence.</param>
 /// <param name="Findings">What the review kept — shown whether or not the review was taken,
 /// because a report can carry both. A finding carrying <c>Reverted</c> means the branch
@@ -100,7 +100,7 @@ public sealed record FiledWorkSpecView(
 /// its own: read as "never reviewed" it would turn a spec whose review kept three findings
 /// into a spec nobody read.</param>
 public sealed record FiledWorkReviewView(
-    bool Reviewed, string? Why, IReadOnlyList<PhaseFinding> Findings, bool Unreadable = false)
+    bool Reviewed, string? Why, IReadOnlyList<SpecFinding> Findings, bool Unreadable = false)
 {
     /// <summary>What a review that was not taken says when the producer recorded no reason.</summary>
     public const string NoReasonRecorded = "no reason was recorded";

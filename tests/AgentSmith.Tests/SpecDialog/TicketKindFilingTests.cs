@@ -38,11 +38,11 @@ public sealed class TicketKindFilingTests
             ["phaze"] = "Task",
         });
 
-        var kind = new TicketKindResolver(logger).For(project, TicketFilingRole.Phase);
+        var kind = new TicketKindResolver(logger).For(project, TicketFilingRole.Spec);
 
         kind.Should().BeNull("an unmapped role sends no kind, so the provider sends its literal");
         logger.Warnings.Should().ContainSingle()
-            .Which.Should().Contain("phaze").And.Contain("work_item_kinds").And.Contain("phase");
+            .Which.Should().Contain("phaze").And.Contain("work_item_kinds").And.Contain("spec");
     }
 
     /// <summary>
@@ -155,7 +155,7 @@ public sealed class TicketKindFilingTests
         var logger = new KindLogger();
         var project = ProjectWithKinds(new Dictionary<string, string>());
 
-        new TicketKindResolver(logger).For(project, TicketFilingRole.Phase).Should().BeNull();
+        new TicketKindResolver(logger).For(project, TicketFilingRole.Spec).Should().BeNull();
 
         string.Join("\n", logger.Lines).Should()
             .Contain("configures no work_item_kinds").And.Contain("default type");
@@ -167,7 +167,7 @@ public sealed class TicketKindFilingTests
         var logger = new KindLogger();
         var project = ProjectWithKinds(new Dictionary<string, string> { ["phase"] = "User Story" });
 
-        new TicketKindResolver(logger).For(project, TicketFilingRole.Phase).Should().Be("User Story");
+        new TicketKindResolver(logger).For(project, TicketFilingRole.Spec).Should().Be("User Story");
 
         string.Join("\n", logger.Lines).Should().Contain("User Story");
     }

@@ -3,18 +3,18 @@ using System.Text.Json.Nodes;
 namespace AgentSmith.Tests.SpecNaming;
 
 /// <summary>
-/// 2026-10-12-967aa: what a later release writes — the JSON this release writes, with the named
-/// properties renamed. The tests read that back under this release's readers and compare it with
-/// what this release reads from its own JSON.
+/// 2026-10-12-967aa/967ab: what the release before the rename wrote — the JSON this release writes,
+/// with the spec-named properties put back under their phase names. The tests read that back under
+/// this release's readers and compare it with what this release reads from its own JSON.
 /// </summary>
 internal static class SpecShape
 {
-    /// <summary>The usual spec-block renames, in both casings.</summary>
+    /// <summary>The usual spec-block renames, in both casings, spec name to the old phase name.</summary>
     public static readonly IReadOnlyDictionary<string, string> Ids = new Dictionary<string, string>
     {
-        ["PhaseId"] = "SpecId", ["phaseId"] = "specId",
-        ["Phases"] = "Specs", ["phases"] = "specs",
-        ["ExecutedPhaseIds"] = "ExecutedSpecIds", ["executedPhaseIds"] = "executedSpecIds",
+        ["SpecId"] = "PhaseId", ["specId"] = "phaseId",
+        ["Specs"] = "Phases", ["specs"] = "phases",
+        ["ExecutedSpecIds"] = "ExecutedPhaseIds", ["executedSpecIds"] = "executedPhaseIds",
     };
 
     public static string Of(string json, IReadOnlyDictionary<string, string>? renames = null)

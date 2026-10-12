@@ -26,7 +26,7 @@ export interface RunCallStatistics {
 /** One model call, in call order. The pair (promptChars, answerChars) IS the plot. */
 export interface RunCallPoint {
   index: number;
-  phaseId: string | null;
+  specId: string | null;
   stepIndex: number | null;
   role: string | null;
   model: string | null;
@@ -41,7 +41,7 @@ export interface RunCallPoint {
 /** One command a spec ran, with the exit code it ended on. */
 export interface RunCommandPoint {
   index: number;
-  phaseId: string | null;
+  specId: string | null;
   stepIndex: number | null;
   repo: string;
   command: string;
@@ -52,9 +52,9 @@ export interface RunCommandPoint {
   attempt: number;
 }
 
-/** One spec's account. The served member names still say phase until 2026-10-12-967ab. */
+/** One spec's account. */
 export interface RunSpecStatistics {
-  phaseId: string | null;
+  specId: string | null;
   steps: number;
   durationMs: number;
   calls: RunCallStatistics;
@@ -65,7 +65,7 @@ export interface RunSpecStatistics {
 export interface RunStatistics {
   totals: RunCallStatistics;
   totalDurationMs: number;
-  phases: RunSpecStatistics[];
+  specs: RunSpecStatistics[];
   calls: RunCallPoint[];
   commands: RunCommandPoint[];
   truncated: boolean;

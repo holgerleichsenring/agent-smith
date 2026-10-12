@@ -10,8 +10,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="Steps">The step ACTIONS, in spec order; the pane has no use for a step id.</param>
 /// <param name="Yaml">The spec as the master wrote it — the raw form the pane can disclose,
 /// since the reply shown beside it on the dashboard no longer carries it.</param>
-public sealed record SpecDialogPhaseView(
-    string PhaseId,
+public sealed record SpecDialogDraftView(
+    string SpecId,
     string Goal,
     IReadOnlyList<string> Steps,
     IReadOnlyList<string> Tests,
@@ -21,7 +21,7 @@ public sealed record SpecDialogPhaseView(
 {
     /// <summary>2026-10-02-3f06c: what the spec rests on — each fact with the evidence it cites.
     /// Not a constructor parameter, so the dashboard type gains an optional field.</summary>
-    public IReadOnlyList<PhaseFact> Facts { get; init; } = [];
+    public IReadOnlyList<SpecFact> Facts { get; init; } = [];
 
     /// <summary>2026-10-02-3f06c: what the spec states without having looked.</summary>
     public IReadOnlyList<string> Assumptions { get; init; } = [];

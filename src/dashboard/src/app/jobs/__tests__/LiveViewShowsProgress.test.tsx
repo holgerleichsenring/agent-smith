@@ -39,12 +39,12 @@ vi.mock("@/hooks/useRunDetailSnapshot", () => ({
 const STEPS = [
   {
     stepIndex: 0, stepName: "FetchTicket", displayName: "Fetch ticket", commandName: "FetchTicket",
-    phaseId: "p19106a", status: "success", durationSeconds: 1.5, resultMessage: "T-1 fetched",
+    specId: "p19106a", status: "success", durationSeconds: 1.5, resultMessage: "T-1 fetched",
     llmCalls: 0, costUsd: 0, sandboxCommands: 0, subAgents: 0,
   },
   {
     stepIndex: 1, stepName: "SkillRound", displayName: "Implement", commandName: "SkillRound",
-    phaseId: "p19106a", status: "running", durationSeconds: null, resultMessage: null,
+    specId: "p19106a", status: "running", durationSeconds: null, resultMessage: null,
     llmCalls: 9, costUsd: 1.5, sandboxCommands: 40, subAgents: 0,
   },
 ];

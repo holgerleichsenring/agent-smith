@@ -35,7 +35,7 @@ public sealed class CutReviewQuotableTests
     [InlineData("we verify that the moon is a balloon")]
     public async Task Finding_QuotingABareStepId_IsDiscarded(string quote)
     {
-        var draft = DoneLess() with { Steps = [new PhaseStep("verify", "verify", null)] };
+        var draft = DoneLess() with { Steps = [new SpecStep("verify", "verify", null)] };
 
         var review = await Review([draft], Uncheckable("e1", quote));
 
@@ -45,7 +45,7 @@ public sealed class CutReviewQuotableTests
     [Fact]
     public async Task Finding_AgainstASpecWithABlankDoneEntry_IsDiscarded()
     {
-        var draft = new PhaseDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus", ""] };
+        var draft = new SpecDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus", ""] };
 
         var review = await Review([draft], Uncheckable("p1a", "the moon is a balloon"));
 
@@ -63,7 +63,7 @@ public sealed class CutReviewQuotableTests
     [Fact]
     public async Task Finding_QuotingACriterion_IsKeptAsBefore()
     {
-        var draft = new PhaseDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus"] };
+        var draft = new SpecDraft("p1a", "goal", "spec: p1a", []) { Done = ["every sender uses the new bus"] };
 
         var review = await Review([draft], Uncheckable("p1a", "every sender uses the new bus"));
 
@@ -150,15 +150,15 @@ public sealed class CutReviewQuotableTests
         review.Findings.Should().ContainSingle().Which.SpecId.Should().Be("e1");
     }
 
-    private static async Task<SpecCutReview> Review(IReadOnlyList<PhaseDraft> drafts, string answer) =>
+    private static async Task<SpecCutReview> Review(IReadOnlyList<SpecDraft> drafts, string answer) =>
         await Reviewer(new CappingFactory(new LookingProvider(answer))).ReviewAsync(
             drafts, Key, "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
 
     private static string Uncheckable(string spec, string quote) =>
         $$"""[{"phase_id":"{{spec}}","criterion":"{{quote}}","problem":"uncheckable","why":"no command shows it"}]""";
 
-    private static PhaseDraft Criterion(string done) =>
+    private static SpecDraft Criterion(string done) =>
         new("p1a", "goal", "spec: p1a", []) { Done = [done] };
 
-    private static PhaseDraft DoneLess() => CutReviewWithoutTicketTests.DoneLess();
+    private static SpecDraft DoneLess() => CutReviewWithoutTicketTests.DoneLess();
 }

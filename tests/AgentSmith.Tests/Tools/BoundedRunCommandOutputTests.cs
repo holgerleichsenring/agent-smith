@@ -99,7 +99,7 @@ public sealed class BoundedRunCommandOutputTests
     {
         var stderr = Lines("noise", 300_000, "last noise");
         var text = await Run(new FakeSandbox(body: "git git version 2.43.0\n", stderr: stderr, exitCode: 2));
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
 
         log.Record("api", "probe", text);
 

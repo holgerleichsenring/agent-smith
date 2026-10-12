@@ -118,7 +118,7 @@ public sealed class CutReviewPerAttemptTests
         public List<string?> Tickets { get; } = [];
 
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             Looks.Add(look!);
@@ -127,7 +127,7 @@ public sealed class CutReviewPerAttemptTests
             while (look!.Budget.TryTake()) taken++;
             Taken.Add(taken);
             return Task.FromResult(new SpecCutReview([new CutFinding(
-                drafts[0].PhaseId, drafts[0].Done[0], SpecCutVerdicts.Uncheckable, "objection")]));
+                drafts[0].SpecId, drafts[0].Done[0], SpecCutVerdicts.Uncheckable, "objection")]));
         }
     }
 
@@ -135,12 +135,12 @@ public sealed class CutReviewPerAttemptTests
     private sealed class CitingReviewer : ISpecCutReviewer
     {
         public Task<SpecCutReview> ReviewAsync(
-            IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
         {
             var id = look!.Evidence.Remember(new EvidenceRecord(Repo, EvidenceRecord.Read, "read src/Bus.cs", 1, Ran: true));
             return Task.FromResult(new SpecCutReview([new CutFinding(
-                drafts[0].PhaseId, "the bus is registered", SpecCutVerdicts.FalsePremise, "it is not", Cites: id)]));
+                drafts[0].SpecId, "the bus is registered", SpecCutVerdicts.FalsePremise, "it is not", Cites: id)]));
         }
     }
 

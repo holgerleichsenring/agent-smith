@@ -50,7 +50,7 @@ public sealed class ApprovedSetInThePaneTests : IDisposable
         var view = await Sut().ForAsync(Dialog, default);
 
         view.Should().NotBeNull();
-        view!.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p0001a");
+        view!.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p0001a");
         view.ApprovedAt.Should().Be(ApprovedSets.Noon,
             "the pane says whose approval it shows and when — the branch is what a run reads, and "
             + "for a worked ticket the two can differ");

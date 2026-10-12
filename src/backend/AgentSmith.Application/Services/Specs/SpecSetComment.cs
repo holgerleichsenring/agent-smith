@@ -63,12 +63,12 @@ public static class SpecSetComment
         var sb = new StringBuilder();
         sb.AppendLine("## Derived specs");
         sb.AppendLine();
-        if (set.Phases.Count == 0)
+        if (set.Specs.Count == 0)
         {
             sb.AppendLine("_No spec was derived._");
             return sb.ToString();
         }
-        foreach (var spec in set.Phases) RenderSpec(sb, spec);
+        foreach (var spec in set.Specs) RenderSpec(sb, spec);
         return sb.ToString();
     }
 
@@ -76,7 +76,7 @@ public static class SpecSetComment
     // cut declared contexts at all, so an author sees a context missing from every spec.
     private static string RenderContextsLeftOut(SpecSet set)
     {
-        var declared = set.Phases.Any(p => p.Draft.Contexts.Count > 0);
+        var declared = set.Specs.Any(p => p.Draft.Contexts.Count > 0);
         if (!declared && set.Accounting.DiscardedContexts.Count == 0) return string.Empty;
         var sb = new StringBuilder();
         sb.AppendLine();
@@ -88,9 +88,9 @@ public static class SpecSetComment
         return sb.ToString();
     }
 
-    private static void RenderSpec(StringBuilder sb, SpecPhase spec)
+    private static void RenderSpec(StringBuilder sb, DerivedSpec spec)
     {
-        sb.AppendLine($"### {spec.PhaseId} — {spec.Draft.Goal}");
+        sb.AppendLine($"### {spec.SpecId} — {spec.Draft.Goal}");
         sb.AppendLine();
         if (spec.Draft.Contexts.Count > 0)
         {

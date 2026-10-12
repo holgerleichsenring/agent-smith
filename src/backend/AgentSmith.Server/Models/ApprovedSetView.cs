@@ -20,4 +20,4 @@ public sealed record ApprovedSetView(
     string? ApprovedBy,
     string? ApprovedInConversation,
     IReadOnlyList<string> Repositories,
-    IReadOnlyList<SpecDialogPhaseView> Phases);
+    IReadOnlyList<SpecDialogDraftView> Specs);

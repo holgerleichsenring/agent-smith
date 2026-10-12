@@ -89,7 +89,7 @@ public static partial class ContextKeys
     // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
     // this before each step and clears it after; the gated context wrapper reads it
     // to decide whether a Get<T>/TryGet<T> is permitted under the active IStepDataFlow.
-    public const string ActiveStep = "ActivePhaseStep";
+    public const string ActiveStep = "ActiveStep";
 
     /// <summary>2026-09-13-a284: Dictionary&lt;string,string&gt; of repo name → the base
     /// branch that repository's work branch was actually cut from — 2026-09-13-5cdf's

@@ -60,8 +60,8 @@ public sealed class CompletedRunTicketSummaryTests
     {
         // p0439: a delivered shortfall is a completed run that says so.
         var shortfall = new Contracts.Specs.RunShortfall(
-            [new Contracts.Specs.PhaseProgress("p0001a", "Introduce the guard", Contracts.Specs.PhaseRunState.Done)],
-            [new Contracts.Specs.PhaseProgress("p0001b", "Move the callers", Contracts.Specs.PhaseRunState.NotStarted)],
+            [new Contracts.Specs.SpecProgress("p0001a", "Introduce the guard", Contracts.Specs.SpecRunState.Done)],
+            [new Contracts.Specs.SpecProgress("p0001b", "Move the callers", Contracts.Specs.SpecRunState.NotStarted)],
             "per-pipeline cost budget exhausted");
         var opened = new List<OpenedPullRequest> { new("api", "https://stub.test/pulls/1", OpenStatus.Opened) };
 

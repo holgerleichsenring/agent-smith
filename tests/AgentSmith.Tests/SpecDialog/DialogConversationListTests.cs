@@ -276,7 +276,7 @@ public sealed class DialogConversationListTests : IDisposable
 
         await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
 
-        before.Should().Be(new SpecDialogConversationOutcome("phase", Tickets: 1, Partial: false));
+        before.Should().Be(new SpecDialogConversationOutcome("spec", Tickets: 1, Partial: false));
         (await ListAsync()).Single().Outcome.Should().Be(before);
     }
 
@@ -396,11 +396,11 @@ public sealed class DialogConversationListTests : IDisposable
             store, NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
-    private static SpecOutcome Spec() => new(new PhaseDraft("p1", "the spec", "spec: p1", []));
+    private static SpecOutcome Spec() => new(new SpecDraft("p1", "the spec", "spec: p1", []));
 
     private static EpicOutcome Epic() => new(
-        new PhaseDraft("p1", "parent", "spec: p1", []),
-        [new PhaseDraft("p1a", "first", "spec: p1a", []), new PhaseDraft("p1b", "second", "spec: p1b", [])]);
+        new SpecDraft("p1", "parent", "spec: p1", []),
+        [new SpecDraft("p1a", "first", "spec: p1a", []), new SpecDraft("p1b", "second", "spec: p1b", [])]);
 
     private async Task<string> OpenAsync(string dialogId, string owner = Owner) =>
         (await StateAsync(dialogId, owner)).JobId;

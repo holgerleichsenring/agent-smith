@@ -48,7 +48,7 @@ public sealed class SpecDialogDiscussionPromptTests
     {
         var pipeline = With(new SpecDialogTurn("user", "cut it in two"));
         pipeline.Set<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal,
-            new SpecOutcome(new PhaseDraft("p9999", "widget goal", "spec: p9999", [])) with
+            new SpecOutcome(new SpecDraft("p9999", "widget goal", "spec: p9999", [])) with
             {
                 Findings =
                 [
@@ -69,7 +69,7 @@ public sealed class SpecDialogDiscussionPromptTests
     {
         var reviewedClean = With(new SpecDialogTurn("user", "and now the next one"));
         reviewedClean.Set<OutcomeProposal>(ContextKeys.SpecDialogRevisedProposal,
-            new SpecOutcome(new PhaseDraft("p9999", "widget goal", "spec: p9999", [])));
+            new SpecOutcome(new SpecDraft("p9999", "widget goal", "spec: p9999", [])));
 
         new SpecDialogPromptFactory().Build(With(new SpecDialogTurn("user", "and now the next one")), 0, 0)
             .Should().NotContain("the review of your last proposal",
@@ -101,12 +101,12 @@ public sealed class SpecDialogDiscussionPromptTests
 
     [Theory]
     [InlineData(typeof(AnswerOutcome), SpecDialogTurnKind.Answer)]
-    [InlineData(typeof(SpecOutcome), SpecDialogTurnKind.PhaseProposal)]
+    [InlineData(typeof(SpecOutcome), SpecDialogTurnKind.SpecProposal)]
     [InlineData(typeof(BugOutcome), SpecDialogTurnKind.BugProposal)]
     [InlineData(typeof(EpicOutcome), SpecDialogTurnKind.EpicProposal)]
     public void TurnResult_KindOf_FollowsTheOutcome(Type outcomeType, SpecDialogTurnKind expected)
     {
-        var draft = new PhaseDraft("p1", "g", "spec: p1", []);
+        var draft = new SpecDraft("p1", "g", "spec: p1", []);
         OutcomeProposal outcome = outcomeType.Name switch
         {
             nameof(SpecOutcome) => new SpecOutcome(draft),

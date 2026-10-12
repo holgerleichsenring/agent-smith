@@ -35,10 +35,10 @@ public sealed record AnswerOutcome : OutcomeProposal;
 public sealed record BugOutcome(BugTicketDraft Ticket) : OutcomeProposal;
 
 /// <summary>One schema-valid spec draft.</summary>
-public sealed record SpecOutcome(PhaseDraft Draft) : OutcomeProposal;
+public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 
 /// <summary>
 /// A feature too big for one spec: a parent spec plus ordered child specs
 /// linked by requires: edges, each schema-valid on its own.
 /// </summary>
-public sealed record EpicOutcome(PhaseDraft Parent, IReadOnlyList<PhaseDraft> Children) : OutcomeProposal;
+public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children) : OutcomeProposal;

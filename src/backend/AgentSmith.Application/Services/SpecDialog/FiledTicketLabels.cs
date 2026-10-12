@@ -44,7 +44,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public static class FiledTicketLabels
 {
-    public const string ParentPrefix = "phase-parent:";
+    public const string ParentPrefix = "spec-parent:";
 
     /// <summary>
     /// 2026-09-17-0e79a: the stamp that says THIS FRAMEWORK FILED THIS TICKET FROM AN APPROVED

@@ -31,7 +31,7 @@ public sealed class SeriesManifest
             Ticket = set.Key,
             Goal = set.Goal,
             TicketPinnedWhole = set.TicketPinnedWhole,
-            Specs = [.. set.Phases.Select(p => p.PhaseId)],
+            Specs = [.. set.Specs.Select(p => p.SpecId)],
             SeriesRepos = set.SeriesRepos is { Count: > 0 } members ? [.. members] : null, // 2026-10-12-f5f7d
             Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
             {
@@ -97,7 +97,7 @@ public sealed class SeriesManifest
     private static void WriteAccounting(SeriesManifestDocument doc, SpecAccounting accounting)
     {
         doc.Carried = [.. accounting.Carried.Select(
-            c => new SeriesCarriedEntry { Segment = c.SegmentId, Spec = c.PhaseId })];
+            c => new SeriesCarriedEntry { Segment = c.SegmentId, Spec = c.SpecId })];
         doc.Discarded = [.. accounting.Discarded.Select(
             d => new SeriesDiscardedEntry { Segment = d.SegmentId, Reason = d.Reason })];
         doc.Unaccounted = [.. accounting.Unaccounted];

@@ -94,8 +94,8 @@ public sealed class SeriesLayoutGitTests
 
     private static SpecSet Set(params (string Letter, string Label)[] specs) => new(
         Ticket,
-        [.. specs.Select(s => new SpecPhase(
-            new PhaseDraft($"{Base}{s.Letter}", $"Goal {s.Letter}",
+        [.. specs.Select(s => new DerivedSpec(
+            new SpecDraft($"{Base}{s.Letter}", $"Goal {s.Letter}",
                 $"spec: {Base}{s.Letter}\ngoal: \"Goal {s.Letter} {s.Label}\"\ndone:\n  - \"Done.\"\n", [])
             { Done = ["Done."] },
             s.Label, $"# {s.Label}\n", []))],

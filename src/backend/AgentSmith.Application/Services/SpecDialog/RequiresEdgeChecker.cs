@@ -17,50 +17,50 @@ public sealed partial class RequiresEdgeChecker
     [GeneratedRegex(@"^(?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(-[a-z][a-z0-9-]*)?$")]
     public static partial Regex SpecIdRegex();
 
-    public string? Check(PhaseDraft parent, IReadOnlyList<PhaseDraft> children) =>
+    public string? Check(SpecDraft parent, IReadOnlyList<SpecDraft> children) =>
         CheckIdsUnique(parent, children)
         ?? CheckEdgesPointAtSiblings(parent, children)
         ?? CheckNoCycles(children);
 
-    private static string? CheckIdsUnique(PhaseDraft parent, IReadOnlyList<PhaseDraft> children)
+    private static string? CheckIdsUnique(SpecDraft parent, IReadOnlyList<SpecDraft> children)
     {
-        var duplicate = children.Select(c => c.PhaseId)
-            .Append(parent.PhaseId)
+        var duplicate = children.Select(c => c.SpecId)
+            .Append(parent.SpecId)
             .GroupBy(id => id, StringComparer.Ordinal)
             .FirstOrDefault(g => g.Count() > 1);
         return duplicate is null ? null : $"epic spec id '{duplicate.Key}' is used more than once";
     }
 
     private static string? CheckEdgesPointAtSiblings(
-        PhaseDraft parent, IReadOnlyList<PhaseDraft> children)
+        SpecDraft parent, IReadOnlyList<SpecDraft> children)
     {
-        var siblingIds = children.Select(c => c.PhaseId).ToHashSet(StringComparer.Ordinal);
+        var siblingIds = children.Select(c => c.SpecId).ToHashSet(StringComparer.Ordinal);
         foreach (var child in children)
         {
             foreach (var requirement in child.Requires.Where(r => SpecIdRegex().IsMatch(r)))
             {
-                if (requirement == parent.PhaseId)
-                    return $"child '{child.PhaseId}' requires the parent '{parent.PhaseId}' — "
+                if (requirement == parent.SpecId)
+                    return $"child '{child.SpecId}' requires the parent '{parent.SpecId}' — "
                         + "the parent aggregates the children, it is not a dependency";
                 if (!siblingIds.Contains(requirement))
-                    return $"child '{child.PhaseId}' requires '{requirement}', which is not a "
+                    return $"child '{child.SpecId}' requires '{requirement}', which is not a "
                         + "sibling in this epic — express external preconditions as free text";
             }
         }
         return null;
     }
 
-    private static string? CheckNoCycles(IReadOnlyList<PhaseDraft> children)
+    private static string? CheckNoCycles(IReadOnlyList<SpecDraft> children)
     {
         var edges = children.ToDictionary(
-            c => c.PhaseId,
+            c => c.SpecId,
             c => c.Requires.Where(r => SpecIdRegex().IsMatch(r)).ToList(),
             StringComparer.Ordinal);
         var visited = new HashSet<string>(StringComparer.Ordinal);
         foreach (var child in children)
         {
-            if (HasCycle(child.PhaseId, edges, visited, new HashSet<string>(StringComparer.Ordinal)))
-                return $"the requires: edges form a cycle through '{child.PhaseId}'";
+            if (HasCycle(child.SpecId, edges, visited, new HashSet<string>(StringComparer.Ordinal)))
+                return $"the requires: edges form a cycle through '{child.SpecId}'";
         }
         return null;
     }

@@ -72,8 +72,8 @@ public sealed class ShortfallDeliveryTests
 
         var shortfall = Contracts.Specs.RunShortfall.DeliveredOn(runner.LastContext!);
         shortfall.Should().NotBeNull("the executor and the use case read the delivery off the context");
-        shortfall!.Delivered.Select(p => p.PhaseId).Should().HaveCount(1);
-        shortfall.NotDelivered.Select(p => p.PhaseId).Should().HaveCount(1);
+        shortfall!.Delivered.Select(p => p.SpecId).Should().HaveCount(1);
+        shortfall.NotDelivered.Select(p => p.SpecId).Should().HaveCount(1);
         shortfall.Reason.Should().Contain("cost budget");
         runner.LastContext!.Has(ContextKeys.FailedStepName).Should().BeFalse(
             "the error path never ran: no failure comment, no failed status, no WIP persist");

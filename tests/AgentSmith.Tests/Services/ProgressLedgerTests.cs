@@ -351,11 +351,11 @@ public sealed class ProgressLedgerTests
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
-    private static PhaseDraft DraftWith(params (string Action, string? Target)[] steps) =>
+    private static SpecDraft DraftWith(params (string Action, string? Target)[] steps) =>
         new("p0001", "goal", "spec: p0001", Array.Empty<string>())
         {
             Steps = steps
-                .Select((s, i) => new PhaseStep((i + 1).ToString(), s.Action, s.Target))
+                .Select((s, i) => new SpecStep((i + 1).ToString(), s.Action, s.Target))
                 .ToList(),
         };
 

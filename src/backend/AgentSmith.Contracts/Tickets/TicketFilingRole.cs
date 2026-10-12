@@ -29,7 +29,7 @@ public enum TicketFilingRole
 
     /// <summary>A lone approved spec. Its own role because an installation may map a single
     /// spec and a cut's work ticket to different native types.</summary>
-    [AcceptedName("Spec")] Phase,
+    [AcceptedName("Phase")] Spec,
 
     /// <summary>A ticket a chat request asked for.</summary>
     Chat,

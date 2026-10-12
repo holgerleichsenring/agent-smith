@@ -78,7 +78,7 @@ public sealed class MaterializeReferenceSetsHandler(
     // The master reads every sandbox by repository prefix, so one copy serves the whole series.
     private static string? EarliestSpecRepo(PipelineContext pipeline) =>
         pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) && set is not null
-            ? set.Phases.Select(p => p.Draft.Repos).FirstOrDefault(r => r.Count == 1)?[0]
+            ? set.Specs.Select(p => p.Draft.Repos).FirstOrDefault(r => r.Count == 1)?[0]
             : null;
 
     // The first sandbox of that repository, which the master's path tools alias its name to. None named

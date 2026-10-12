@@ -33,7 +33,7 @@ public sealed class PremiseHandbackNotice(
 {
     /// <summary>True when the ticket was actually told by THIS call.</summary>
     public async Task<bool> PostAsync(
-        PipelineContext pipeline, TrackerConnection? tracker, PhaseDraft draft,
+        PipelineContext pipeline, TrackerConnection? tracker, SpecDraft draft,
         IReadOnlyList<PremiseFinding> findings, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -48,12 +48,12 @@ public sealed class PremiseHandbackNotice(
         if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return false;
         // An inline ticket exists only on this run — there is nothing to comment on.
         if (pipeline.Has(ContextKeys.InlineTicket)) return false;
-        if (AlreadyTold(pipeline, draft.PhaseId))
+        if (AlreadyTold(pipeline, draft.SpecId))
         {
             logger.LogInformation(
                 "Ticket {Ticket} was already told that spec {Spec} rests on a premise that no "
                 + "longer holds, and nobody has replied — not saying it again",
-                ticket.Id.Value, draft.PhaseId);
+                ticket.Id.Value, draft.SpecId);
             return false;
         }
 
@@ -62,7 +62,7 @@ public sealed class PremiseHandbackNotice(
             await ticketFactory.Create(tracker).UpdateStatusAsync(ticket.Id, body, ct);
             logger.LogInformation(
                 "Told ticket {Ticket} that spec {Spec} rests on a premise that no longer holds",
-                ticket.Id.Value, draft.PhaseId);
+                ticket.Id.Value, draft.SpecId);
             return true;
         }
         catch (Exception ex)

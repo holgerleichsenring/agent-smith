@@ -119,7 +119,7 @@ public sealed class DialogDraftReposTests
         written.Should().Be("spec: p1\ngoal: g # kept\nrepos:\n- Server\n");
     }
 
-    private static PhaseDraft Spec(OutcomeResolution resolution) =>
+    private static SpecDraft Spec(OutcomeResolution resolution) =>
         resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<SpecOutcome>().Subject.Draft;
 

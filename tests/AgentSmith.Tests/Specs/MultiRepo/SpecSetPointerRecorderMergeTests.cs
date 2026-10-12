@@ -41,7 +41,7 @@ public sealed class SpecSetPointerRecorderMergeTests
     }
 
     private static SpecSet Set() => new(
-        "azdo-1", [new SpecPhase(new PhaseDraft("x1a", "g", "spec: x1a", []), "x1a", string.Empty, [])],
+        "azdo-1", [new DerivedSpec(new SpecDraft("x1a", "g", "spec: x1a", []), "x1a", string.Empty, [])],
         SpecAccounting.Empty, [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
         SpecSource.BranchArtifact, Series: "x1");
 }

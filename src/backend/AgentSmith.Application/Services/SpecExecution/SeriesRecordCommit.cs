@@ -38,8 +38,8 @@ public sealed class SeriesRecordCommit(
     }
 
     /// <summary>The commit message of a record.</summary>
-    public static string MessageFor(SpecSet set, SpecPhase spec) =>
-        $"spec: {set.Series} ({set.Key}) {spec.PhaseId} executed";
+    public static string MessageFor(SpecSet set, DerivedSpec spec) =>
+        $"spec: {set.Series} ({set.Key}) {spec.SpecId} executed";
 
     // An untracked planned file is staged first, so git rm takes it out of the tree as well.
     private async Task RemoveAsync(ISandbox sandbox, IReadOnlyList<string> planned, CancellationToken ct)

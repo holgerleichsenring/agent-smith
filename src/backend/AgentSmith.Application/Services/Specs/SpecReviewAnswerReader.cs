@@ -17,7 +17,7 @@ internal static class SpecReviewAnswerReader
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
-    public static IReadOnlyList<PhaseFinding>? Read(string? text)
+    public static IReadOnlyList<SpecFinding>? Read(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         var ends = Positions(text, ']').Reverse().ToList();
@@ -29,7 +29,7 @@ internal static class SpecReviewAnswerReader
         return null;
     }
 
-    private static List<PhaseFinding>? TryParse(string candidate, JsonSerializerOptions options)
+    private static List<SpecFinding>? TryParse(string candidate, JsonSerializerOptions options)
     {
         try
         {

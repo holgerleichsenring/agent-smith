@@ -6,8 +6,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-042ej: reads back the <c>phase_review:&lt;phase id&gt;</c> artifact
-/// 2026-09-17-042eh stores — one <see cref="PhaseReviewReport"/> per spec, written by
+/// 2026-09-17-042ej: reads back the <c>spec_review:&lt;spec id&gt;</c> artifact
+/// 2026-09-17-042eh stores — one <see cref="SpecReviewReport"/> per spec, written by
 /// <c>SpecReviewPublisher</c>. The naming policy mirrors the publisher's so a member added
 /// later stays readable; every member today is a single word, so what makes this work is the
 /// round-trip the tests take through the publisher, not the policy.
@@ -34,7 +34,7 @@ public sealed class FiledWorkSpecReviews(ILogger<FiledWorkSpecReviews> logger)
         if (string.IsNullOrWhiteSpace(json)) return null;
         try
         {
-            var report = JsonSerializer.Deserialize<PhaseReviewReport>(json, Options);
+            var report = JsonSerializer.Deserialize<SpecReviewReport>(json, Options);
             return report is null ? Unreadable(specId, null) : Taken(report);
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException)
@@ -46,9 +46,9 @@ public sealed class FiledWorkSpecReviews(ILogger<FiledWorkSpecReviews> logger)
     /// <summary>
     /// The report as the page needs it. The findings travel whether or not the review was
     /// taken, and a "not taken" that recorded no reason still says something: the producer's
-    /// own <c>PhaseReviewReport.None</c> is publishable and carries none.
+    /// own <c>SpecReviewReport.None</c> is publishable and carries none.
     /// </summary>
-    private static FiledWorkReviewView Taken(PhaseReviewReport report) =>
+    private static FiledWorkReviewView Taken(SpecReviewReport report) =>
         new(report.Reviewed,
             report.Reviewed ? null : report.Why ?? FiledWorkReviewView.NoReasonRecorded,
             report.Findings ?? []);

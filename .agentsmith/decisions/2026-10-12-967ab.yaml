@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ab
+
+decisions:
+  - category: Tooling
+    chose: "The 967ac Roslyn pass, with its keep rules inverted: rename every stored, served and checkpointed symbol it had kept"
+    over: "Renaming the kept symbols by hand or by text"
+    reason: |
+      The pass binds every identifier token to its symbol, so PhaseDraft.PhaseId (stored, renamed) is told
+      from LlmCallFinishedEvent.Phase (G2, kept) by the type that owns it, not by spelling. Kept: G2
+      containers and types (CallScope, LLM/tool events, WorkerRequest/WorkerCallIdentity, RunEvent/RunLlmCall
+      entities, cost types), the dual-reader tests (SpecNaming, AcceptedNamesTests), the label-word test
+      names, and the RunStep/RunDecision entities (columns, done by hand). 97 symbols, 334 files, 0 binding
+      changes, 0 compile errors before writing. Types: PhaseDraft->SpecDraft, PhaseStep->SpecStep,
+      PhaseFact->SpecFact, SpecPhase->DerivedSpec, PhaseProgress->SpecProgress, PhaseRunState->SpecRunState,
+      PhaseCommandLog->SpecRunCommandLog, PhaseCommandEntry->SpecRunCommandEntry, RunPhaseReviews->RunSpecReviews,
+      PhaseReviewEntry->SpecReviewEntry, PhaseReviewReport->SpecReviewReport, PhaseFinding->SpecFinding,
+      PhaseAccounts->SpecAccounts, SpecDialogPhaseView->SpecDialogDraftView, Phase*Event->Spec*Event (file
+      SpecLifecycleEvents.cs), EventType members SpecStateChanged/SpecRecorded/SpecReviewed (codes 79-81 kept),
+      SpecDialogTurnKind.SpecProposal, TicketFilingRole.Spec. Members PhaseId->SpecId, Phases->Specs,
+      Phase->Spec, ExecutedPhaseIds->ExecutedSpecIds, PhaseCount->SpecCount on every stored and served
+      record (RunStepView, PlannedStepView, RunStatisticsView, RunSpecStatistics, RunCommandPoint,
+      RunCallPoint, ApprovedSetView, DeclinedCriterion(View), SpecDialogProposalPush, OutcomeProposalJson.Dto,
+      CutFindingWire, ProposalFinding, CheckpointCommand, CarriedSegment, SpecSet, SpecSequenceProgress,
+      SetDivergence, RunAccounts, TicketRun, the three lifecycle events, StepStarted, DecisionLogged).
+
+  - category: Implementation
+    chose: "Each [AcceptedName] flipped to the old name; stored members 967aa had no alias for got one now"
+    reason: |
+      DeclinedCriterion.SpecId, SpecAccounts.SpecId, RunAccounts.Specs and SetDivergence.Specs are checkpointed
+      context values that 967aa did not alias, so old checkpoints read through the new [AcceptedName("Phase…")].
+      Two computed members (DerivedSpec.SpecId, RunShortfall.SpecCount) carry the attribute for the store
+      rewrite only: AcceptedNames now skips a member without a setter, because an alias setter on a get-only
+      property would throw. TicketRun.Specs (tool output the model reads) has no reader and no alias.
+      RISK, rolling window: a 967aa replica resuming a checkpoint a 967ab replica wrote loses those four
+      members (967aa has no alias for the spec names there) — a declined criterion's spec, a delivered
+      account's spec. Every name on 967aa's reachability list reads both ways; these four were outside it.
+
+  - category: Implementation
+    chose: "Context-key and command-name values written in the spec names; old command names resolve at the factory and the executor"
+    reason: |
+      ContextKeys values follow the pairs 967aa fixed (PhaseSpec->CurrentSpec … PhaseAppliesTo->SpecAppliesTo)
+      plus ActivePhaseStep->ActiveStep, added to CheckpointRenames so a checkpoint written before its exclusion
+      is still dropped. Command values become WriteSpecRecordCommand, VerifySpecCommand, CommitSpecWorkCommand,
+      CheckSpecPremisesCommand, ReviewSpecDiffCommand, SpecSequenceCommand, SelectSpecCommand, SpecGateCommand;
+      CommandNames.Accepted now maps the old values to them. CommandContextFactory looks a command up by
+      CommandNames.Declared, and PipelineExecutor.ExecuteAsync declares each preset name before it runs, so an
+      operator preset naming VerifyPhaseCommand runs and its step row is written under the new name.
+
+  - category: Architecture
+    chose: "RunSteps.SpecId and RunDecisions.SpecId added beside PhaseId (AddRunSpecIdColumns, both assemblies), written both, read SpecId ?? PhaseId"
+    over: "Renaming the columns in place"
+    reason: |
+      EF maps one column per property and 967aa replicas query PhaseId, so an in-place rename breaks them
+      mid-deploy. The migration backfills SpecId from PhaseId with provider-quoted SQL (backticks for Pomelo
+      MySQL, double quotes for SQLite/PostgreSQL, brackets on SQL Server); the store rewrite backfills again,
+      through EF's ExecuteUpdate, for rows a 967aa replica wrote after the migration. PhaseId stays a plain
+      property (not a shadow one) so writers set it explicitly; 967ah drops it.
+
+  - category: Architecture
+    chose: "The stored rewrite walks each JSON document beside the CLR type that reads it (AcceptedNameRewriter), run by RunStoreMigrator after MigrateAsync"
+    over: "A name-to-name JsonNode rewrite per column; SQL REPLACE"
+    reason: |
+      The rename is type-scoped (967aa's finding): Phase is the execution stage on LLM events and a member of
+      several G2 records that can sit inside a checkpoint. AcceptedNameRewriter (Contracts.Json, beside
+      AcceptedNames) renames an alias only where the type owning it declares it, recursing through records,
+      lists and dictionaries, enum values by their accepted names (keeping the stored casing) — the reader's
+      own table, so read and rewrite cannot disagree. Checkpoint V values are walked as the type their T
+      names, resolved through CheckpointRenames (moved to Contracts.Json, public, so Persistence can read it).
+      Surfaces (IStoredSpecNameSurface, one class each): RunEvents (type names 79-81 by ExecuteUpdate; payloads
+      of SpecStateChanged/Recorded/Reviewed, StepStarted, DecisionLogged, and the escaped RemainingCommandsJson/
+      ContextJson of RunCheckpointed and AcceptanceJson of RunStoryRecorded), RunCheckpoints, RunArtifacts
+      (phase_record:/phase_review: -> spec_*, the older twin removed when both exist), Runs (PlannedStepsJson
+      with command names, QueuedRequestJson, AcceptanceJson), QueuedTickets (InitialContextJson: the approved
+      set and the resume payload nested as strings), ApprovedSeries, SpecDialogSessions (proposal, confirmed
+      outcome, filing kind, transcript turn kind), RunSteps (command names + SpecId), RunDecisions (SpecId).
+      Keyset paging (200 rows), filtered by Contains("hase"), so a second pass opens almost nothing.
+    alternatives:
+      - "Round-trip each document through its reader and writer — the cleanest agreement, but rewrites every unrelated member and drops anything a reader ignores."
+
+  - category: TradeOff
+    chose: "Three roots spelled in Persistence and pinned to their owners by tests"
+    over: "Moving CheckpointCommand, ResumePayload, TranscriptTurn and OutcomeProposalJson.Dto into Contracts"
+    reason: |
+      Migrations run from the CLI (agentsmith database migrate), which references Application but not Server,
+      so the Dto and TranscriptTurn cannot be walked by type there. The rewrite spells the command shape
+      (PhaseId, Name) and the dialog roots (kind, the accepted "phase" member, then SpecDraft/ProposalFinding/
+      SpecDialogTurnKind walked as Contracts types). StoreRewrite_OldShapeRows_ReadBackAsSpec reads every
+      rewritten row through the real Server/Application readers, and SpecRenameTableTests pins the kind
+      constants to SpecDialogProposalComposer.
+
+  - category: Implementation
+    chose: "Written labels, kinds and artifact prefixes say spec; the old ones stay read"
+    reason: |
+      TicketLabels.ApprovedSetStamp = spec:approved (default vocabulary, so a board that configures nothing
+      gains spec:approved on its next filing), SpecTicketRenderer.SpecLabel = spec, EpicLabel = spec-epic,
+      FiledTicketLabels.ParentPrefix = spec-parent:; the Accepted* constants now hold phase, phase-epic,
+      phase-parent: and phase-spec:approved, read for good. Outcome/filing kind "spec" (SpecDialogProposalComposer.
+      SpecKind), "phase" accepted and normalised on read. RunSpecProjection writes spec_record:/spec_review: and
+      reads phase_* beside them. Docs that named the written stamp (labels, spec-dialogue, expectations) follow.
+
+  - category: Implementation
+    chose: "Dashboard reads the new served names; acceptedNames copies the old ones forward"
+    reason: |
+      hub-events.ts SpecStateChanged/Recorded/Reviewed and specId (gen:hub-events clean), RunStepRow.specId,
+      RunStatistics.specs/specId, SpecDraftProposal.specId, SpecDialogProposalPush.spec, ApprovedSetView.specs,
+      DeclinedCriterion.spec. acceptedNames.ts flipped: phaseId->specId, phases->specs, phase->spec,
+      executedPhaseIds->executedSpecIds, kind "phase"->"spec", additive, because a 967aa replica or a stored
+      trail still serves the old names; an LLM event's phase gains an unread spec copy, nothing more.
+      conversationDelete and outcomeKind accept both kinds until 967ah.
+
+  - category: Scope
+    chose: "Guard lists shrunk: STORED-967ab gone (23 rows removed, the rest recategorised ALIAS-967ah), file rows 592 -> 328"
+    reason: |
+      Every token still standing is an old-name reader 967ah removes (CheckpointRenames pairs, CommandNames.
+      Accepted, [AcceptedName] arguments, the PhaseId column, accepted prefixes, the rewrite and its tests),
+      a label read for good, or G2 (StoreRewrite_LlmEventPhase_Untouched). Left in src: G2; the old-name readers
+      for 967ah; label and config-key read aliases (TicketFilingRole [AcceptedName("Phase")], TicketLabels.Accepted*);
+      the PhaseId columns and their write.

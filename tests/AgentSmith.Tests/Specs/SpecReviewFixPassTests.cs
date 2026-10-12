@@ -254,9 +254,9 @@ public sealed class SpecReviewFixPassTests
             "the record states what came of the spec, findings included");
     }
 
-    private static PhaseReviewReport Found() => PhaseReviewReport.Taken([Finding()]);
+    private static SpecReviewReport Found() => SpecReviewReport.Taken([Finding()]);
 
-    private static PhaseFinding Finding() =>
+    private static SpecFinding Finding() =>
         new(Key, "src/Api/Handler.cs", 4, "files stay under 120 lines", "this one is 400", "P1");
 
     private static SpecAccount Account(string problem) => new(Key, [], problem);
@@ -272,7 +272,7 @@ public sealed class SpecReviewFixPassTests
     private static PipelineContext Verified()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(SpecId, "goal", "spec: x\n", []));
+        pipeline.Set(ContextKeys.CurrentSpec, new SpecDraft(SpecId, "goal", "spec: x\n", []));
         pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.VerifiedHeads,
             new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "verified-sha" });

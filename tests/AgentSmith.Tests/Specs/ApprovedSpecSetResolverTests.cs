@@ -31,7 +31,7 @@ public sealed class ApprovedSpecSetResolverTests
         resolved.Should().NotBeNull();
         resolved!.Key.Should().Be(Key);
         resolved.Approval!.At.Should().Be(ApprovedSets.Noon);
-        resolved.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p0001a");
+        resolved.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p0001a");
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class ApprovedSpecSetResolverTests
             .ResolveAsync(pipeline, new TicketKey(Key), default);
 
         resolved.Should().NotBeNull("the queue round-trip is the normal shape, not an edge case");
-        resolved!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be("p0001a");
+        resolved!.Set.Specs.Should().ContainSingle().Which.SpecId.Should().Be("p0001a");
     }
 
     /// <summary>
@@ -159,10 +159,10 @@ public sealed class ApprovedSpecSetResolverTests
         var second = await resolver.ResolveAsync(Run("project-b", ApprovedSets.Tracker), new TicketKey(Key), default);
         var elsewhere = await resolver.ResolveAsync(Run("project-c", "a-second-azdo"), new TicketKey(Key), default);
 
-        first!.Set.Phases[0].PhaseId.Should().Be("p0001a");
-        second!.Set.Phases[0].PhaseId.Should().Be("p0001a",
+        first!.Set.Specs[0].SpecId.Should().Be("p0001a");
+        second!.Set.Specs[0].SpecId.Should().Be("p0001a",
             "the record is keyed by the ticket, never by the project");
-        elsewhere!.Set.Phases[0].PhaseId.Should().Be("p0009z",
+        elsewhere!.Set.Specs[0].SpecId.Should().Be("p0009z",
             "a second instance of the same tracker type holds its own ticket 19106");
     }
 
@@ -186,7 +186,7 @@ public sealed class ApprovedSpecSetResolverTests
 
         read!.Key.Should().Be(Key);
         read.Repositories.Should().Equal("sample-api", "sample-web");
-        read.Set.Phases.Select(p => p.PhaseId).Should().Equal("p0001a", "p0001b");
+        read.Set.Specs.Select(p => p.SpecId).Should().Equal("p0001a", "p0001b");
         read.Approval.Should().Be(record.Approval);
     }
 

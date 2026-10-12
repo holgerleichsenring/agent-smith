@@ -164,7 +164,7 @@ public sealed class SpecDialogTurnLivenessTests
         waiting.SessionId = state.JobId;
         await scope.ServiceProvider.GetRequiredService<SpecDialogOutcomeConfirmer>()
             .ConfirmAsync(
-                state, new SpecOutcome(new PhaseDraft("p9001", "a goal", "spec: p9001", [])),
+                state, new SpecOutcome(new SpecDraft("p9001", "a goal", "spec: p9001", [])),
                 CancellationToken.None);
     }
 

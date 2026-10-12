@@ -24,7 +24,7 @@ public sealed class SeriesMultiRepoReadTests
         var result = await _branches.ReadAsync("Server", Both);
 
         result.State.Should().Be(SpecSetBranchState.Answered);
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal(Id('a'), Id('b'), Id('c'));
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal(Id('a'), Id('b'), Id('c'));
         result.Read!.RevisionShas.Should().BeEquivalentTo(
             new Dictionary<string, string> { ["Server"] = "sha-Server", ["Client"] = "sha-Client" });
         result.Read.LastCommitSha.Should().Be("sha-Server", "the carrying repository's sha stays the one sha");
@@ -65,7 +65,7 @@ public sealed class SeriesMultiRepoReadTests
         var result = await _branches.ReadAsync("Server", Both);
 
         result.Set!.Executed.Should().Equal(Id('a'));
-        result.Set.ExecutedHead.Select(p => p.PhaseId).Should().Equal(Id('a'));
+        result.Set.ExecutedHead.Select(p => p.SpecId).Should().Equal(Id('a'));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public sealed class SeriesMultiRepoReadTests
         var result = await _branches.ReadAsync("Client", Both);
 
         result.State.Should().Be(SpecSetBranchState.Answered);
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal([Id('a')],
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal([Id('a')],
             "an unparsed time is no claim to be newest, even in the carrying repository");
     }
 
@@ -113,7 +113,7 @@ public sealed class SeriesMultiRepoReadTests
 
         var result = await _branches.ReadAsync("Server", Both);
 
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal([Id('a')]);
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal([Id('a')]);
         result.Read!.Lagging.Should().BeEmpty("a repository the newest manifest does not name is no member");
         result.Read.RevisionShas.Keys.Should().Equal("Server");
     }
@@ -127,7 +127,7 @@ public sealed class SeriesMultiRepoReadTests
         var result = await _branches.ReadAsync("Server", Both);
 
         result.State.Should().Be(SpecSetBranchState.Answered);
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal([Id('a')], "a lagging member is never mixed in");
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal([Id('a')], "a lagging member is never mixed in");
         result.Read!.Lagging.Should().Equal("Client");
         result.Read.RevisionShas.Keys.Should().Equal("Server");
     }
@@ -187,7 +187,7 @@ public sealed class SeriesMultiRepoReadTests
 
         var result = await _branches.ReadAsync("Server", Both);
 
-        result.Set!.Phases.Select(p => p.PhaseId).Should().Equal([Id('b'), Id('a')],
+        result.Set!.Specs.Select(p => p.SpecId).Should().Equal([Id('b'), Id('a')],
             "a single sub-series keeps its manifest's order, as it always read");
         result.Read!.LastCommitSha.Should().Be("sha-Server");
     }

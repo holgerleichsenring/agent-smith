@@ -134,7 +134,7 @@ export interface SpecDialogSession {
 
 /** What a conversation's latest filing created. Only a filing produces one. */
 export interface SpecDialogConversationOutcome {
-  /** "bug", "phase" (a spec, until 2026-10-12-967ab) or "epic" from the latest proposal; null once that was rejected. */
+  /** "bug", "spec" or "epic" from the latest proposal; null once that was rejected. */
   kind: string | null;
   tickets: number;
   /** The filing stopped with an error after creating some of the tickets. */
@@ -295,10 +295,9 @@ export interface SpecDialogTurnLiveness {
 // event-type generator scans the events namespace by base type, and these derive from
 // neither base.
 
-/** One drafted spec as the proposal pane renders it. The served member names (`phaseId`, and
- *  `phase`/`phases` where it is carried) still say phase until 2026-10-12-967ab. */
+/** One drafted spec as the proposal pane renders it. */
 export interface SpecDraftProposal {
-  phaseId: string;
+  specId: string;
   goal: string;
   /** The step actions, in spec order. */
   steps: string[];
@@ -332,7 +331,7 @@ export interface SpecDialogBugProposal {
  * what the spec states, for a finding that cites nothing. Hand-written, as the push it rides on is.
  */
 export interface SpecDialogProposalFinding {
-  phaseId: string;
+  specId: string;
   problem: string;
   why: string;
   quote: string | null;
@@ -345,10 +344,10 @@ export interface SpecDialogProposalFinding {
  */
 export interface SpecDialogProposalPush {
   dialogId: string;
-  /** "bug", "phase" (a spec, until 2026-10-12-967ab) or "epic" — the pane renders by it. */
+  /** "bug", "spec" or "epic" — the pane renders by it. */
   kind: string;
   bug: SpecDialogBugProposal | null;
-  phase: SpecDraftProposal | null;
+  spec: SpecDraftProposal | null;
   parent: SpecDraftProposal | null;
   /** An epic's children IN THE ORDER THEY WILL BE FILED. */
   children: SpecDraftProposal[];
@@ -417,7 +416,7 @@ export interface ApprovedSetView {
   approvedBy: string | null;
   approvedInConversation: string | null;
   repositories: string[];
-  phases: SpecDraftProposal[];
+  specs: SpecDraftProposal[];
 }
 
 export interface FiledWorkFinding {

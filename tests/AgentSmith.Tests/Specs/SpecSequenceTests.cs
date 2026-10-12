@@ -58,10 +58,10 @@ public sealed class SpecSequenceTests
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
         result.IsSuccess.Should().BeTrue();
-        pipeline.Get<PhaseDraft>(ContextKeys.CurrentSpec).PhaseId.Should().Be("p0001b");
+        pipeline.Get<SpecDraft>(ContextKeys.CurrentSpec).SpecId.Should().Be("p0001b");
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == "p0001b").State
-            .Should().Be(PhaseRunState.InProgress);
+            .Specs.Single(p => p.SpecId == "p0001b").State
+            .Should().Be(SpecRunState.InProgress);
     }
 
     /// <summary>
@@ -90,8 +90,8 @@ public sealed class SpecSequenceTests
     public void SpecSequence_StoppedMidway_ProgressReportsDoneFailedAndNotStarted()
     {
         var progress = SpecSequenceProgress.ForSet(ThreeSpecSet())
-            .With("p0001a", PhaseRunState.Done)
-            .With("p0001b", PhaseRunState.Failed, "dotnet build exited 1");
+            .With("p0001a", SpecRunState.Done)
+            .With("p0001b", SpecRunState.Failed, "dotnet build exited 1");
 
         progress.IsPartial.Should().BeTrue("a half-migrated repository is the dangerous state");
         var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
@@ -107,8 +107,8 @@ public sealed class SpecSequenceTests
         // p0439: the branch carries exactly the done specs, so the reader is pointed at
         // "Not delivered" instead of told not to merge.
         var progress = SpecSequenceProgress.ForSet(ThreeSpecSet())
-            .With("p0001a", PhaseRunState.Done)
-            .With("p0001b", PhaseRunState.Failed, "dotnet build exited 1");
+            .With("p0001a", SpecRunState.Done)
+            .With("p0001b", SpecRunState.Failed, "dotnet build exited 1");
 
         var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress, delivered: true);
 
@@ -123,8 +123,8 @@ public sealed class SpecSequenceTests
         // 2026-09-17-0e79c: this switch's default arm is "⬜ not started", so a standing it does
         // not name is rendered as a spec nobody entered.
         var progress = SpecSequenceProgress.ForSet(ThreeSpecSet())
-            .With("p0001a", PhaseRunState.Failed, "dotnet build exited 1")
-            .With("p0001b", PhaseRunState.HandedBack, "False premise in p0001b: \"…\" — [M1] …");
+            .With("p0001a", SpecRunState.Failed, "dotnet build exited 1")
+            .With("p0001b", SpecRunState.HandedBack, "False premise in p0001b: \"…\" — [M1] …");
 
         var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
 
@@ -137,8 +137,8 @@ public sealed class SpecSequenceTests
     public void SpecSequence_EverySpecDone_IsNotPartial()
     {
         var progress = SpecSequenceProgress.ForSet(TwoSpecSet())
-            .With("p0001a", PhaseRunState.Done)
-            .With("p0001b", PhaseRunState.Done);
+            .With("p0001a", SpecRunState.Done)
+            .With("p0001b", SpecRunState.Done);
 
         progress.IsPartial.Should().BeFalse(
             "only a complete sequence may take its pull request out of draft");
@@ -164,8 +164,8 @@ public sealed class SpecSequenceTests
 
     private static SpecSet Set(IReadOnlyList<string> specIds) => new(
         "azdo-1",
-        [.. specIds.Select(id => new SpecPhase(
-            new PhaseDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
+        [.. specIds.Select(id => new DerivedSpec(
+            new SpecDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
             id, string.Empty, []))],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

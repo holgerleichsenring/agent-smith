@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// "GIVEN … WHEN … THEN …" in plain keywords — no markup, because the ticket, the prompt and the
 /// read-back of a filed body must all equal the same string, and markup survives one tracker
 /// encoding and not the next. Flattened here, where the yaml is read, so every consumer of
-/// <c>PhaseDraft.Done</c> keeps taking a string.
+/// <c>SpecDraft.Done</c> keeps taking a string.
 /// </summary>
 public static class DoneCriterion
 {

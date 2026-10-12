@@ -94,7 +94,7 @@ public sealed class SpecSetDeriver(
             await using var reviewLook = looks.ForCutReview(pipeline);
             var set = parsed.Derivation.Set;
             var review = await reviewer.ReviewAsync(
-                [.. set.Phases.Select(p => p.Draft)], set.Key, SpecCutReviewTicketText.Of(ticket), reviewLook,
+                [.. set.Specs.Select(p => p.Draft)], set.Key, SpecCutReviewTicketText.Of(ticket), reviewLook,
                 agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
             if (!review.Deliverable)
             {

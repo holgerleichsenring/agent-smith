@@ -43,7 +43,7 @@ Both work. Default-on gives you the volume but you'll see more `agent-smith:fail
 
 A ticket that carries an approved specification runs the `code` pipeline and works that specification, whatever `pipeline_from_label` says. The check runs before the map. A ticket counts as one when any of these is true:
 
-- It carries `phase-spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes (`spec:approved` is read the same way), or the name the tracker gives that stamp (see [Renaming them](#renaming-them)).
+- It carries `spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes (`phase-spec:approved`, written before, is read the same way), or the name the tracker gives that stamp (see [Renaming them](#renaming-them)).
 - The server holds an approval record for it. This still routes the ticket after someone removes the stamp; the stamp is a hint for people scanning the board, and the record is what binds. On Jira and Azure DevOps the poller also finds approved tickets by id, so a ticket whose stamp was removed is still picked up (up to 50 outstanding approvals per tracker; the rest wait, with a warning, until older ones are done or the stamp is put back).
 - A person typed the `spec` label onto it (`phase` is still accepted).
 
@@ -66,7 +66,7 @@ In addition to the trigger labels you set, Agent Smith writes a lifecycle label 
 | `agent-smith:shortfall` | The run delivered the specs it verified and fell short of the rest. The ticket counts as done, not failed. |
 | `agent-smith:failed` | Pipeline failed. Error posted as a comment on the ticket. |
 
-Filed spec tickets also carry the approved-set stamp, `phase-spec:approved` unless the tracker renames it (above).
+Filed spec tickets also carry the approved-set stamp, `spec:approved` unless the tracker renames it (above).
 
 The framework owns these; don't set them by hand. Lifecycle labels are removed before the `pipeline_from_label` match runs, so an `agent-smith:done` label doesn't accidentally re-trigger. Other `agent-smith:` labels, like your trigger labels, are left alone.
 

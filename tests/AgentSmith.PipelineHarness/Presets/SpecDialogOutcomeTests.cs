@@ -151,7 +151,7 @@ public sealed partial class SpecDialogOutcomeTests
         await RunFlowAsync(harness, state, result.Outcome);
 
         var spec = result.Outcome.Should().BeOfType<SpecOutcome>().Subject;
-        spec.Draft.PhaseId.Should().Be("p9999");
+        spec.Draft.SpecId.Should().Be("p9999");
         spec.Draft.Yaml.Should().Contain("goal:", "the full schema-valid spec travels with the proposal");
         sink.Accepted.Should().ContainSingle().Which.Should().BeOfType<SpecOutcome>();
     }
@@ -184,8 +184,8 @@ public sealed partial class SpecDialogOutcomeTests
         await RunFlowAsync(harness, state, result.Outcome);
 
         var epic = result.Outcome.Should().BeOfType<EpicOutcome>().Subject;
-        epic.Parent.PhaseId.Should().Be("p9000");
-        epic.Children.Select(c => c.PhaseId).Should().Equal("p9000a", "p9000b");
+        epic.Parent.SpecId.Should().Be("p9000");
+        epic.Children.Select(c => c.SpecId).Should().Equal("p9000a", "p9000b");
         epic.Children[1].Requires.Should().ContainSingle("the slices are linked by requires: edges")
             .Which.Should().Be("p9000a");
         adapter.Questions.Should().ContainSingle().Which.Text.Should()
@@ -265,7 +265,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-spec");
-        var draft = new PhaseDraft(
+        var draft = new SpecDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
         await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
@@ -286,7 +286,7 @@ public sealed partial class SpecDialogOutcomeTests
         // 2026-10-06-03c7c: the id is the code-minted series' first member, in the title and the text.
         var id = SeriesIdFactory.Member(record!.Set.Series!, 0);
         created.Title.Should().Be($"{id}: Add a widget endpoint to the sample service");
-        record.Set.Phases.Should().ContainSingle().Which.Draft.Yaml.Should().Be(
+        record.Set.Specs.Should().ContainSingle().Which.Draft.Yaml.Should().Be(
             ValidDraftYaml.Trim().Replace("spec: p9999", $"spec: {id}", StringComparison.Ordinal),
             "the stored set carries the schema-valid spec verbatim, under the minted id");
         record.Approval.Should().NotBeNull();
@@ -305,13 +305,13 @@ public sealed partial class SpecDialogOutcomeTests
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-epic");
         var epic = new EpicOutcome(
-            new PhaseDraft("p9000", "Widget platform end to end",
+            new SpecDraft("p9000", "Widget platform end to end",
                 "spec: p9000\ngoal: \"Widget platform end to end\"", []),
             [
-                new PhaseDraft("p9000a", "Widget storage layer",
+                new SpecDraft("p9000a", "Widget storage layer",
                     "spec: p9000a\ngoal: \"Widget storage layer\"\nsteps:\n  - id: store\n    action: \"Add the widget store\"\ndone:\n  - \"a widget is stored and read back\"",
                     []),
-                new PhaseDraft("p9000b", "Widget API on top of the storage layer",
+                new SpecDraft("p9000b", "Widget API on top of the storage layer",
                     "spec: p9000b\ngoal: \"Widget API on top of the storage layer\"\nrequires: [p9000a]\nsteps:\n  - id: api\n    action: \"Add the widget endpoint\"",
                     ["p9000a"]),
             ]);
@@ -345,8 +345,8 @@ public sealed partial class SpecDialogOutcomeTests
         work.Body.Should().Contain("## Slices")
             .And.Contain($"`{first}` Widget storage layer")
             .And.Contain($"`{second}` Widget API on top of the storage layer (requires: {first})");
-        record.Set.Phases.Select(p => p.PhaseId).Should().Equal(first, second);
-        record.Set.Phases[1].Draft.Yaml.Should().Contain($"requires: [{first}]");
+        record.Set.Specs.Select(p => p.SpecId).Should().Equal(first, second);
+        record.Set.Specs[1].Draft.Yaml.Should().Contain($"requires: [{first}]");
         bed.Adapter.SentTexts.Should().Contain(t => t.Contains("https://tracker.test/1"));
         bed.Adapter.SentTexts.Should().NotContain(t => t.Contains("https://tracker.test/2"),
             "there is no second ticket to name in the thread");
@@ -376,7 +376,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "reject");
         var state = await bed.OpenSessionAsync("th-reject");
-        var draft = new PhaseDraft(
+        var draft = new SpecDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
         var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
@@ -392,7 +392,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "split the storage slice in two");
         var state = await bed.OpenSessionAsync("th-edit");
-        var draft = new PhaseDraft(
+        var draft = new SpecDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
         var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));

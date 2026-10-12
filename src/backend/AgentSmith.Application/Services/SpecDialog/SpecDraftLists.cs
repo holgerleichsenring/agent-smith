@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// 2026-10-02-3f06a: the list-shaped keys of a spec map, read into what a
-/// <see cref="PhaseDraft"/> carries. Pure transformation over the deserialized YAML.
+/// <see cref="SpecDraft"/> carries. Pure transformation over the deserialized YAML.
 /// <para>
 /// The schema declares each shape, but a spec read back from a branch was never validated,
 /// so every reader here drops what it cannot read rather than stringifying it — a
@@ -42,12 +42,12 @@ public static class SpecDraftLists
         };
     }
 
-    public static IReadOnlyList<PhaseFact> Facts(IReadOnlyDictionary<string, object?> map)
+    public static IReadOnlyList<SpecFact> Facts(IReadOnlyDictionary<string, object?> map)
     {
         if (!map.TryGetValue("facts", out var value) || value is not List<object?> list) return [];
         return [.. list
             .OfType<Dictionary<object, object?>>()
-            .Select(f => new PhaseFact(
+            .Select(f => new SpecFact(
                 GetString(f, "claim") ?? string.Empty, GetString(f, "evidence") ?? string.Empty))
             .Where(f => f.Claim.Length > 0)];
     }

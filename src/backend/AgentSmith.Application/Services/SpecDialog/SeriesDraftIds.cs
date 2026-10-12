@@ -11,16 +11,16 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class SeriesDraftIds(SpecDraftIdRewriter rewriter)
 {
-    public IReadOnlyList<PhaseDraft> Assign(string series, IReadOnlyList<PhaseDraft> ordered)
+    public IReadOnlyList<SpecDraft> Assign(string series, IReadOnlyList<SpecDraft> ordered)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(series);
         ArgumentNullException.ThrowIfNull(ordered);
         var ids = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var i = 0; i < ordered.Count; i++)
-            ids.TryAdd(ordered[i].PhaseId, SeriesIdFactory.Member(series, i));
+            ids.TryAdd(ordered[i].SpecId, SeriesIdFactory.Member(series, i));
         return [.. ordered.Select(draft => draft with
         {
-            PhaseId = rewriter.RewriteValue(draft.PhaseId, ids),
+            SpecId = rewriter.RewriteValue(draft.SpecId, ids),
             Requires = [.. draft.Requires.Select(r => rewriter.RewriteValue(r, ids))],
             Yaml = rewriter.Rewrite(draft.Yaml, ids),
         })];

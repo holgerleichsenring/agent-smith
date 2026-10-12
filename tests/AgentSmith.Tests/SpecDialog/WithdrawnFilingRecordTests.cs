@@ -72,7 +72,7 @@ public sealed class WithdrawnFilingRecordTests
         var ticket = filing!.Filed.Single();
         ticket.Key.Should().Be("#4711");
         ticket.TicketId.Should().Be("4711");
-        filing.Kind.Should().Be("phase");
+        filing.Kind.Should().Be("spec", "the kind written before 2026-10-12-967ab reads as the one written now");
         filing.Notes.Should().Equal(["a child the tracker would not link"]);
         ticket.Start!.State.Should().BeNull("a state it cannot name is unknown, not one of the ones it can");
         ticket.Start.Reason.Should().Be("nothing would route it");

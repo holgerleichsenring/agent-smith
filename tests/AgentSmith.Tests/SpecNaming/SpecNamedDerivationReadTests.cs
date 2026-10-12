@@ -29,8 +29,8 @@ public sealed class SpecNamedDerivationReadTests
         var fromSpecs = Parse(Reply("specs", segments), segments);
 
         fromSpecs.Error.Should().BeNull();
-        fromSpecs.Derivation!.Set.Phases.Should().ContainSingle()
-            .Which.PhaseId.Should().Be("2026-10-12-967aa");
+        fromSpecs.Derivation!.Set.Specs.Should().ContainSingle()
+            .Which.SpecId.Should().Be("2026-10-12-967aa");
         fromSpecs.Derivation.Set.Should().BeEquivalentTo(fromPhases.Derivation!.Set,
             o => o.Excluding(s => s.Revisions).Excluding(s => s.Current));
     }

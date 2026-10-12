@@ -30,7 +30,7 @@ public sealed class TicketTitleTests
     public void TicketTitle_LongGoal_IsCutAtAWordBoundaryAndTheBodyKeepsTheGoal()
     {
         var content = new SpecTicketRenderer().RenderSpec(
-            new PhaseDraft("p9000a", LongGoal, $"spec: p9000a\ngoal: {LongGoal}", []));
+            new SpecDraft("p9000a", LongGoal, $"spec: p9000a\ngoal: {LongGoal}", []));
 
         content.Title.Length.Should().BeLessThanOrEqualTo(TicketTitle.MaxLength);
         content.Title.Should().StartWith("p9000a: widget").And.EndWith("widget…",

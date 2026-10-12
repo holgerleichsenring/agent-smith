@@ -54,8 +54,8 @@ public sealed class DeriveSpecAppendTests
             .ExecuteAsync(Context([OurCut(), Operator("rename the client as well")]), default);
 
         deriver.CauseSeen.Should().Be(SpecRevisionCause.Comment);
-        published.Set!.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId, NewId);
-        published.Set.UnexecutedTail.Select(p => p.PhaseId).Should().Equal(NewId);
+        published.Set!.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId, NewId);
+        published.Set.UnexecutedTail.Select(p => p.SpecId).Should().Equal(NewId);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public sealed class DeriveSpecAppendTests
             .ExecuteAsync(Context([OurCut()], new ReworkAct("alice", DateTimeOffset.UtcNow, ReworkChannel.PullRequest)), default);
 
         deriver.CauseSeen.Should().Be(SpecRevisionCause.Rework);
-        published.Set!.UnexecutedTail.Select(p => p.PhaseId).Should().Equal(NewId);
+        published.Set!.UnexecutedTail.Select(p => p.SpecId).Should().Equal(NewId);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class DeriveSpecAppendTests
         await Handler(deriver, published, pointerSha: MarkerSha)
             .ExecuteAsync(Context([OurCut(), Operator("rename the client as well")]), default);
 
-        published.Set!.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
+        published.Set!.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId);
         published.Set.Executed.Should().Equal(HeadId, TailId);
     }
 
@@ -188,15 +188,15 @@ public sealed class DeriveSpecAppendTests
     {
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
-        SpecPhase Spec(string id, string goal) => new(
-            new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+        DerivedSpec Spec(string id, string goal) => new(
+            new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
         var specs = new[] { Spec(HeadId, $"Goal {HeadId}"), Spec(TailId, $"Goal {TailId}"), Spec(NewId, "Rename as the review asks") };
         return new SpecDerivation(
             new SpecSet(
                 Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, ExecutedPhaseIds: [HeadId, TailId], Series: Series),
+                SpecSource.BranchArtifact, ExecutedSpecIds: [HeadId, TailId], Series: Series),
             []);
     }
 

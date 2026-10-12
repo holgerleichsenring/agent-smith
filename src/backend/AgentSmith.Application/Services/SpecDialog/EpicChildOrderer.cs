@@ -21,13 +21,13 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class EpicChildOrderer
 {
-    public EpicChildOrder Order(IReadOnlyList<PhaseDraft> children)
+    public EpicChildOrder Order(IReadOnlyList<SpecDraft> children)
     {
         ArgumentNullException.ThrowIfNull(children);
-        var siblings = children.Select(c => c.PhaseId).ToHashSet(StringComparer.Ordinal);
-        var pending = new List<PhaseDraft>(children);
+        var siblings = children.Select(c => c.SpecId).ToHashSet(StringComparer.Ordinal);
+        var pending = new List<SpecDraft>(children);
         var placed = new HashSet<string>(StringComparer.Ordinal);
-        var ordered = new List<PhaseDraft>(children.Count);
+        var ordered = new List<SpecDraft>(children.Count);
 
         while (pending.Count > 0)
         {
@@ -38,10 +38,10 @@ public sealed class EpicChildOrderer
                 return new EpicChildOrder(
                     children,
                     "the epic's requires: edges cannot be put in an order — "
-                    + $"'{string.Join("', '", pending.Select(c => c.PhaseId))}' each wait on "
+                    + $"'{string.Join("', '", pending.Select(c => c.SpecId))}' each wait on "
                     + "another slice in this epic");
             ordered.Add(next);
-            placed.Add(next.PhaseId);
+            placed.Add(next.SpecId);
             pending.Remove(next);
         }
         return new EpicChildOrder(ordered, Error: null);

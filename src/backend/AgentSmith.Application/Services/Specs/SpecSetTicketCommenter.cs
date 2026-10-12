@@ -31,7 +31,7 @@ public sealed class SpecSetTicketCommenter(
         PipelineContext pipeline, TrackerConnection? tracker, SpecSet set, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(set);
-        if (tracker is null || set.Phases.Count == 0) return;
+        if (tracker is null || set.Specs.Count == 0) return;
         if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return;
         // An inline ticket exists only on this run — there is nothing to comment on.
         if (pipeline.Has(ContextKeys.InlineTicket)) return;
@@ -43,7 +43,7 @@ public sealed class SpecSetTicketCommenter(
                 ticket.Id, SpecSetComment.Render(set, SpecPullRequests.Of(pipeline)), ct);
             logger.LogInformation(
                 "Posted the derived cut of {Key} ({Specs} spec(s)) to ticket {Ticket}",
-                set.Key, set.Phases.Count, ticket.Id.Value);
+                set.Key, set.Specs.Count, ticket.Id.Value);
             // 2026-10-08-e8b9c: a full set refused a pull-request act — the pull request is told too.
             await fullSetPrNotice.PostAsync(pipeline, set, ct);
         }

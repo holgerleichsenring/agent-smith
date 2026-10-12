@@ -31,8 +31,8 @@ public sealed class SpecDiffReviewer(
     /// answers — as <see cref="SpecCutReviewer.MaxIterations"/> pins for the cut review.</summary>
     public const int MaxIterations = DerivationLookTerms.SpecReviewAllowance + 2;
 
-    public async Task<PhaseReviewReport> ReviewAsync(
-        PhaseDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
+    public async Task<SpecReviewReport> ReviewAsync(
+        SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
         AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -40,15 +40,15 @@ public sealed class SpecDiffReviewer(
         // Not "reviewed and found nothing": nobody was asked. A spec whose diff carries no
         // reviewable file has no question to put, and the record says which of the two it was.
         if (diffs.Count == 0 || diffs.All(d => d.IsEmpty))
-            return PhaseReviewReport.NotTaken("this spec changed no reviewable file");
+            return SpecReviewReport.NotTaken("this spec changed no reviewable file");
 
         var answer = await AskAsync(
-            SpecReviewPrompt.For(draft, principles, diffs, look), draft.PhaseId, look, agent,
+            SpecReviewPrompt.For(draft, principles, diffs, look), draft.SpecId, look, agent,
             costTracker, cancellationToken);
         if (answer is null)
         {
-            logger.LogWarning("The spec review of {Spec} returned nothing readable", draft.PhaseId);
-            return PhaseReviewReport.NotTaken(
+            logger.LogWarning("The spec review of {Spec} returned nothing readable", draft.SpecId);
+            return SpecReviewReport.NotTaken(
                 "the review call failed or returned nothing readable");
         }
 
@@ -56,10 +56,10 @@ public sealed class SpecDiffReviewer(
         foreach (var finding in kept)
             logger.LogWarning("Spec review — {Repo}/{Path}:{Line} breaks {Rule}: {Why}",
                 finding.Repository, finding.Path, finding.Line, finding.Rule, finding.Why);
-        return PhaseReviewReport.Taken(kept);
+        return SpecReviewReport.Taken(kept);
     }
 
-    private async Task<IReadOnlyList<PhaseFinding>?> AskAsync(
+    private async Task<IReadOnlyList<SpecFinding>?> AskAsync(
         string prompt, string key, DerivationLook? look, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken ct)
     {

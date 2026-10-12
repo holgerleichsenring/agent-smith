@@ -23,11 +23,11 @@ public static class ShortfallSection
         sb.AppendLine(Heading);
         sb.AppendLine();
         sb.AppendLine(
-            $"{shortfall.Delivered.Count} of {shortfall.PhaseCount} spec(s) are built, verified and on this "
+            $"{shortfall.Delivered.Count} of {shortfall.SpecCount} spec(s) are built, verified and on this "
             + $"branch; the run stopped before the rest: {shortfall.Reason}");
         sb.AppendLine();
         foreach (var spec in shortfall.NotDelivered)
-            sb.AppendLine($"- **{spec.PhaseId}** — {spec.Goal} ({Standing(spec)})");
+            sb.AppendLine($"- **{spec.SpecId}** — {spec.Goal} ({Standing(spec)})");
         sb.AppendLine();
         sb.AppendLine(
             "_Nothing of these specs is on the branch: work the stopped spec had begun was "
@@ -35,12 +35,12 @@ public static class ShortfallSection
         return sb.ToString().TrimEnd();
     }
 
-    private static string Standing(PhaseProgress spec) => spec.State switch
+    private static string Standing(SpecProgress spec) => spec.State switch
     {
-        PhaseRunState.Failed => $"failed: {spec.FailingCommand ?? "verification red"}",
-        PhaseRunState.HandedBack =>
+        SpecRunState.Failed => $"failed: {spec.FailingCommand ?? "verification red"}",
+        SpecRunState.HandedBack =>
             $"handed back, never built: {spec.FailingCommand ?? "a premise no longer holds"}",
-        PhaseRunState.InProgress => "started, not finished",
+        SpecRunState.InProgress => "started, not finished",
         _ => "not started",
     };
 }

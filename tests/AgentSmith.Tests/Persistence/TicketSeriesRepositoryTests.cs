@@ -105,10 +105,10 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
         await repository.SaveAsync("alpha", new SpecSetPointer(current, "api", "a1", 1, ExecutedThrough: 1,
             ExecutedIds: ["2026-10-12-0a0ab"]), default);
         _context.ChangeTracker.Clear();
-        IReadOnlyList<SpecPhase> stored =
+        IReadOnlyList<DerivedSpec> stored =
         [
-            new(new Contracts.Models.PhaseDraft("2026-10-12-0a0aa", "g", "spec: x", []), "a", string.Empty, []),
-            new(new Contracts.Models.PhaseDraft("2026-10-12-0a0ab", "g", "spec: y", []), "b", string.Empty, []),
+            new(new Contracts.Models.SpecDraft("2026-10-12-0a0aa", "g", "spec: x", []), "a", string.Empty, []),
+            new(new Contracts.Models.SpecDraft("2026-10-12-0a0ab", "g", "spec: y", []), "b", string.Empty, []),
         ];
 
         var old = (await repository.GetAsync("alpha", legacy, default))!;

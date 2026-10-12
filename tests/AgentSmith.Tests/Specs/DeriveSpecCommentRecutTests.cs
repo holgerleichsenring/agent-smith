@@ -60,7 +60,7 @@ public sealed class DeriveSpecCommentRecutTests
         deriver.Calls.Should().Be(1, "the comment is new input the model has not seen");
         deriver.CauseSeen.Should().Be(SpecRevisionCause.Comment);
         deriver.PreviousSeen!.Executed.Should().Equal(HeadId);
-        published.Set!.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
+        published.Set!.Specs.Select(p => p.SpecId).Should().Equal(HeadId, TailId);
         published.Set.Executed.Should().Equal([HeadId], "the executed spec is carried, never edited");
         published.Set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
     }
@@ -76,7 +76,7 @@ public sealed class DeriveSpecCommentRecutTests
         deriver.Calls.Should().Be(0, "nothing new: the ticket is unchanged and nobody commented");
         published.Set!.Current.Cause.Should().Be(SpecRevisionCause.Retrigger,
             "the marker's commit is this system's own — the pointer names it");
-        published.Set.Phases.Select(p => p.Draft.Goal).Should().Equal($"Goal {HeadId}", $"Goal {TailId}");
+        published.Set.Specs.Select(p => p.Draft.Goal).Should().Equal($"Goal {HeadId}", $"Goal {TailId}");
     }
 
     /// <summary>
@@ -110,7 +110,7 @@ public sealed class DeriveSpecCommentRecutTests
         await Handler(deriver, published, pointerSha: null).ExecuteAsync(Context(thread), default);
 
         published.Set!.Series.Should().Be(Series, "no pointer row exists, and the branch still names the base");
-        published.Set.Phases.Should().OnlyContain(p => p.PhaseId.StartsWith(Series, StringComparison.Ordinal));
+        published.Set.Specs.Should().OnlyContain(p => p.SpecId.StartsWith(Series, StringComparison.Ordinal));
     }
 
     private static DeriveSpecHandler Handler(
@@ -216,15 +216,15 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
-        SpecPhase Spec(string id, string goal) => new(
-            new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+        DerivedSpec Spec(string id, string goal) => new(
+            new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
         var specs = new[] { Spec(HeadId, $"Goal {HeadId}"), Spec(TailId, "Cut again with the comment in view") };
         return new SpecDerivation(
             new SpecSet(
                 Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
-                SpecSource.BranchArtifact, ExecutedPhaseIds: [HeadId], Series: Series),
+                SpecSource.BranchArtifact, ExecutedSpecIds: [HeadId], Series: Series),
             []);
     }
 

@@ -61,7 +61,7 @@ public sealed class SeriesReader(
         var sha = joined.Shas.TryGetValue(carrying, out var own) ? own : joined.Shas[newest.Repo];
         logger.LogInformation(
             "Series {Base} of {Ticket} read from {Repos}: {Specs} spec(s), revision {Revision}, lagging {Lagging}",
-            newest.Base, set.Key, string.Join(", ", joined.Shas.Keys), set.Phases.Count, set.Current.Number,
+            newest.Base, set.Key, string.Join(", ", joined.Shas.Keys), set.Specs.Count, set.Current.Number,
             joined.Lagging.Count == 0 ? "none" : string.Join(", ", joined.Lagging));
         return new SpecSetReadResult(set, sha)
         {
@@ -82,7 +82,7 @@ public sealed class SeriesReader(
             .DistinctBy(r => r.Name ?? string.Empty, StringComparer.Ordinal)];
 
     private SpecSet SetOf(
-        TicketKey ticket, string seriesBase, SeriesManifestDocument doc, IReadOnlyList<SpecPhase> specs,
+        TicketKey ticket, string seriesBase, SeriesManifestDocument doc, IReadOnlyList<DerivedSpec> specs,
         IReadOnlyList<string> executed) =>
         new(ticket.Value, specs, manifest.AccountingOf(doc), manifest.RevisionsOf(doc),
             SpecSource.BranchArtifact, manifest.HandbackOf(doc), doc.TicketPinnedWhole,

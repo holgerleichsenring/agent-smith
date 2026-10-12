@@ -53,11 +53,11 @@ public static class SpecMarkdown
     {
         sb.AppendLine();
         sb.AppendLine("## Specs");
-        foreach (var spec in set.Phases)
+        foreach (var spec in set.Specs)
         {
-            var executed = set.Executed.Contains(spec.PhaseId, StringComparer.Ordinal)
+            var executed = set.Executed.Contains(spec.SpecId, StringComparer.Ordinal)
                 ? " _(executed)_" : string.Empty;
-            sb.AppendLine($"- **{spec.PhaseId}** — {spec.Draft.Goal}{executed}");
+            sb.AppendLine($"- **{spec.SpecId}** — {spec.Draft.Goal}{executed}");
             if (spec.Draft.Done.Count == 0) continue;
             sb.AppendLine("  - Definition of done:");
             foreach (var criterion in spec.Draft.Done)
@@ -70,15 +70,15 @@ public static class SpecMarkdown
     {
         sb.AppendLine();
         sb.AppendLine("## Spec documents");
-        foreach (var spec in set.Phases)
+        foreach (var spec in set.Specs)
         {
             sb.AppendLine();
-            sb.AppendLine($"### {spec.PhaseId} — `{spec.FileStem}.md`");
+            sb.AppendLine($"### {spec.SpecId} — `{spec.FileStem}.md`");
             sb.AppendLine(DocumentOf(set, spec));
         }
     }
 
-    private static string DocumentOf(SpecSet set, SpecPhase spec) =>
+    private static string DocumentOf(SpecSet set, DerivedSpec spec) =>
         !string.IsNullOrWhiteSpace(spec.Markdown) ? spec.Markdown.TrimEnd()
         : set.Approval is { Conversation.Length: > 0 } ? NoCompanionByApproval
         : $"_No spec document found — nothing was readable at "

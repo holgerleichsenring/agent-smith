@@ -23,16 +23,16 @@ public sealed class SpecProgressRecorderTests
     {
         var (pipeline, publisher, recorder) = Setup();
 
-        await recorder.RecordAsync(pipeline, "p0001b", PhaseRunState.InProgress);
+        await recorder.RecordAsync(pipeline, "p0001b", SpecRunState.InProgress);
 
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == "p0001b").State
-            .Should().Be(PhaseRunState.InProgress);
-        var announced = publisher.Events.OfType<PhaseStateChangedEvent>().Single();
-        announced.PhaseId.Should().Be("p0001b");
+            .Specs.Single(p => p.SpecId == "p0001b").State
+            .Should().Be(SpecRunState.InProgress);
+        var announced = publisher.Events.OfType<SpecStateChangedEvent>().Single();
+        announced.SpecId.Should().Be("p0001b");
         announced.Ordinal.Should().Be(2, "the ordinal is the spec's place in the sequence");
         announced.Title.Should().Be("Goal of p0001b");
-        announced.State.Should().Be(PhaseRunState.InProgress);
+        announced.State.Should().Be(SpecRunState.InProgress);
         announced.Verdict.Should().BeNull();
     }
 
@@ -41,9 +41,9 @@ public sealed class SpecProgressRecorderTests
     {
         var (pipeline, publisher, recorder) = Setup();
 
-        await recorder.RecordAsync(pipeline, "p0001a", PhaseRunState.Failed, "dotnet test exited 1");
+        await recorder.RecordAsync(pipeline, "p0001a", SpecRunState.Failed, "dotnet test exited 1");
 
-        publisher.Events.OfType<PhaseStateChangedEvent>().Single().Verdict
+        publisher.Events.OfType<SpecStateChangedEvent>().Single().Verdict
             .Should().Be("dotnet test exited 1");
     }
 
@@ -53,9 +53,9 @@ public sealed class SpecProgressRecorderTests
         var (pipeline, publisher, recorder) = Setup();
 
         await recorder.RecordAsync(
-            pipeline, "p0001a", PhaseRunState.Done, note: "already satisfied by the branch");
+            pipeline, "p0001a", SpecRunState.Done, note: "already satisfied by the branch");
 
-        publisher.Events.OfType<PhaseStateChangedEvent>().Single().Verdict
+        publisher.Events.OfType<SpecStateChangedEvent>().Single().Verdict
             .Should().Be("already satisfied by the branch");
     }
 
@@ -71,7 +71,7 @@ public sealed class SpecProgressRecorderTests
         pipeline.Set(ContextKeys.RunId, RunId);
 
         await new SpecProgressRecorder(publisher)
-            .RecordAsync(pipeline, "p0001a", PhaseRunState.Done);
+            .RecordAsync(pipeline, "p0001a", SpecRunState.Done);
 
         publisher.Events.Should().BeEmpty();
         pipeline.TryGet<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress, out _)
@@ -89,8 +89,8 @@ public sealed class SpecProgressRecorderTests
 
     private static SpecSet TwoSpecSet() => new(
         "azdo-1",
-        [.. new[] { "p0001a", "p0001b" }.Select(id => new SpecPhase(
-            new PhaseDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
+        [.. new[] { "p0001a", "p0001b" }.Select(id => new DerivedSpec(
+            new SpecDraft(id, $"Goal of {id}", $"spec: {id}", []) { Done = [$"{id} is done."] },
             id, string.Empty, []))],
         SpecAccounting.Empty,
         [new SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)],

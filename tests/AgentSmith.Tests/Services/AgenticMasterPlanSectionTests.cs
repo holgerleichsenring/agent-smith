@@ -13,12 +13,12 @@ public sealed class AgenticMasterPlanSectionTests
     [Fact]
     public void MasterPrompt_PlanSection_RendersSpecGoalStepsDone()
     {
-        var draft = new PhaseDraft("p0001", "The endpoint returns 400 on empty payloads", "spec: p0001", [])
+        var draft = new SpecDraft("p0001", "The endpoint returns 400 on empty payloads", "spec: p0001", [])
         {
             Steps =
             [
-                new PhaseStep("guard", "Reject empty payloads in the controller.", "server/src/Api/Controller.cs"),
-                new PhaseStep("verify", "Run the suite.", null),
+                new SpecStep("guard", "Reject empty payloads in the controller.", "server/src/Api/Controller.cs"),
+                new SpecStep("verify", "Run the suite.", null),
             ],
             Done = ["Empty payloads yield 400 (pinned by test)."],
         };
@@ -45,7 +45,7 @@ public sealed class AgenticMasterPlanSectionTests
     [Fact]
     public void BuildPlanSection_SpecWithoutSteps_StillCarriesGoalAndDone()
     {
-        var draft = new PhaseDraft("p0002", "Goal only", "spec: p0002", [])
+        var draft = new SpecDraft("p0002", "Goal only", "spec: p0002", [])
         {
             Done = ["It is done."],
         };

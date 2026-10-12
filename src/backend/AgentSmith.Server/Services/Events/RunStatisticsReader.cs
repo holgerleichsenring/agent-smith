@@ -25,9 +25,9 @@ public sealed class RunStatisticsReader(TrailReader trail, RunStepsReader steps)
     // rail shows, minus the spec prefix the rail already renders as a heading, so a reader
     // recognises the row instead of decoding a class name.
     private static RunStepFacts ToFacts(RunStepView step) =>
-        new(step.StepIndex, step.PhaseId,
+        new(step.StepIndex, step.SpecId,
             (long)Math.Round((step.DurationSeconds ?? 0) * 1000),
-            Unprefixed(step.DisplayName ?? step.StepName, step.PhaseId));
+            Unprefixed(step.DisplayName ?? step.StepName, step.SpecId));
 
     private static string Unprefixed(string name, string? specId) =>
         specId is not null && name.StartsWith($"{specId}: ", StringComparison.Ordinal)

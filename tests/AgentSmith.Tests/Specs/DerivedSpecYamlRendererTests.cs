@@ -17,7 +17,7 @@ public sealed class DerivedSpecYamlRendererTests
     public void DerivedSpecYamlRenderer_FactsAssumptionsAndContexts_ValidateAgainstTheSchema()
     {
         var facts = new SpecFacts(
-            [new PhaseFact("one direct package is affected", "[L1] api: the derivation ran 'ls' exited 0")],
+            [new SpecFact("one direct package is affected", "[L1] api: the derivation ran 'ls' exited 0")],
             ["every other finding is transitive", "42"]);
 
         var yaml = new DerivedSpecYamlRenderer().Render(
@@ -40,6 +40,6 @@ public sealed class DerivedSpecYamlRendererTests
             "p19106a.md", [0], "19106");
 
         yaml.Should().StartWith("spec: p19106a").And.NotContain("phase:");
-        new SpecDraftReader().Read(yaml).PhaseId.Should().Be("p19106a");
+        new SpecDraftReader().Read(yaml).SpecId.Should().Be("p19106a");
     }
 }

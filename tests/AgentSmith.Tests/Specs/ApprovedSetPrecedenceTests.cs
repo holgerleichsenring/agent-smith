@@ -41,7 +41,7 @@ public sealed class ApprovedSetPrecedenceTests
         var decision = _sut.Decide(branch, Filed(), null, new PipelineContext(), Key, TicketLabelVocabulary.Default, record);
 
         decision.Source.Should().Be(SpecSource.BranchArtifact);
-        decision.Set!.Phases.Select(p => p.PhaseId).Should().Equal(["p19106a"],
+        decision.Set!.Specs.Select(p => p.SpecId).Should().Equal(["p19106a"],
             "the branch answered, so the record is not consulted, merged or compared");
         decision.NeedsModel.Should().BeFalse("an approved set is read, never generated");
     }
@@ -69,7 +69,7 @@ public sealed class ApprovedSetPrecedenceTests
         decision.Source.Should().Be(SpecSource.Approved);
         decision.NeedsModel.Should().BeFalse();
         decision.Handback.Should().BeNull("an unwritten branch is a hand-off, not a broken one");
-        decision.Set!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
+        decision.Set!.Specs.Select(p => p.SpecId).Should().Equal("p19106a", "p19106b");
         decision.Cause.Should().Be($"{SpecRevisionCause.Approval} session-1");
     }
 

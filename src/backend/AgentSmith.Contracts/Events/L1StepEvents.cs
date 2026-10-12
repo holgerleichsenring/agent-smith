@@ -20,7 +20,7 @@ namespace AgentSmith.Contracts.Events;
 /// command name serves <c>beats: null</c>.
 /// </summary>
 /// <summary>
-/// p0466: <see cref="StepStartedEvent.PhaseId"/> carries the derived spec the step
+/// p0466: <see cref="StepStartedEvent.SpecId"/> carries the derived spec the step
 /// belongs to, straight from the <c>PipelineCommand</c> the runner is dispatching —
 /// the same field that composes the "p19213a: " label prefix. Persisted on the RunStep
 /// row so the read path reads a spec instead of parsing one out of a display name.
@@ -34,7 +34,7 @@ public sealed record StepStartedEvent(
     DateTimeOffset Timestamp,
     string? DisplayName = null,
     string? CommandName = null,
-    [property: AcceptedName("SpecId")] string? PhaseId = null)
+    [property: AcceptedName("PhaseId")] string? SpecId = null)
     : RunEvent(RunId, EventType.StepStarted, Timestamp);
 
 public sealed record StepFinishedEvent(

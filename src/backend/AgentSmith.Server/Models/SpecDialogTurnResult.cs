@@ -36,7 +36,7 @@ public sealed record SpecDialogTurnResult(
     public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
     {
         BugOutcome => SpecDialogTurnKind.BugProposal,
-        SpecOutcome => SpecDialogTurnKind.PhaseProposal,
+        SpecOutcome => SpecDialogTurnKind.SpecProposal,
         EpicOutcome => SpecDialogTurnKind.EpicProposal,
         AnswerOutcome => SpecDialogTurnKind.Answer,
         _ => throw new ArgumentOutOfRangeException(

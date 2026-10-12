@@ -40,7 +40,7 @@ public sealed class SelectSpecHandler(
             return CommandResult.Fail(
                 "SelectSpec ran without a spec set — the sequence cannot name its spec.");
 
-        var spec = set.Phases.FirstOrDefault(p => p.PhaseId == context.SpecId);
+        var spec = set.Specs.FirstOrDefault(p => p.SpecId == context.SpecId);
         if (spec is null)
             return CommandResult.Fail($"Spec {context.SpecId} is not in spec set {set.Key}.");
 
@@ -55,16 +55,16 @@ public sealed class SelectSpecHandler(
         // 2026-09-17-042eh: and where the spec BEGINS, so its review reads its own diff.
         await startHeads.RecordAsync(context.Pipeline, cancellationToken);
         await progress.RecordAsync(
-            context.Pipeline, spec.PhaseId, PhaseRunState.InProgress, cancellationToken: cancellationToken);
+            context.Pipeline, spec.SpecId, SpecRunState.InProgress, cancellationToken: cancellationToken);
 
         logger.LogInformation(
             "Spec {SpecId} of spec set {Key} is now current: {Goal}",
-            spec.PhaseId, set.Key, spec.Draft.Goal);
+            spec.SpecId, set.Key, spec.Draft.Goal);
 
         var accounts = await entryAccount.TakeAsync(context.Pipeline, cancellationToken);
         return Satisfied(accounts)
             ? await AlreadyDoneAsync(context.Pipeline, spec, accounts, cancellationToken)
-            : CommandResult.Ok($"Spec {spec.PhaseId}: {spec.Draft.Goal}");
+            : CommandResult.Ok($"Spec {spec.SpecId}: {spec.Draft.Goal}");
     }
 
     /// <summary>
@@ -83,16 +83,16 @@ public sealed class SelectSpecHandler(
     /// indistinguishable from a spec that was never run.
     /// </summary>
     private async Task<CommandResult> AlreadyDoneAsync(
-        PipelineContext pipeline, SpecPhase spec, IReadOnlyList<SpecAccount> accounts,
+        PipelineContext pipeline, DerivedSpec spec, IReadOnlyList<SpecAccount> accounts,
         CancellationToken cancellationToken)
     {
         pipeline.Set(ContextKeys.SpecAccounts, accounts);
         RunAccountLedger.Record(pipeline, accounts);
         await progress.RecordAsync(
-            pipeline, spec.PhaseId, PhaseRunState.Done, note: AlreadySatisfiedNote,
+            pipeline, spec.SpecId, SpecRunState.Done, note: AlreadySatisfiedNote,
             cancellationToken: cancellationToken);
 
-        var message = $"Spec {spec.PhaseId} is already satisfied by the branch — "
+        var message = $"Spec {spec.SpecId} is already satisfied by the branch — "
             + $"{Describe(accounts)}. No work is needed; the sequence moves on.";
         logger.LogInformation("{Message}", message);
         return CommandResult.OkAndDropAhead(message, PipelinePresets.SpecWorkSteps);

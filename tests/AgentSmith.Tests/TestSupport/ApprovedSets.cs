@@ -15,12 +15,12 @@ internal static class ApprovedSets
     /// <summary>The tracker CONNECTION these records live on — the other half of their identity.</summary>
     internal const string Tracker = "sample-tracker";
 
-    internal static SpecPhase Spec(string id, string goal = "Do the thing") => new(
-        new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
+    internal static DerivedSpec Spec(string id, string goal = "Do the thing") => new(
+        new SpecDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
         id, string.Empty, []);
 
     internal static SpecSet Set(
-        string key, IReadOnlyList<SpecPhase> specs, SpecApproval? approval,
+        string key, IReadOnlyList<DerivedSpec> specs, SpecApproval? approval,
         SpecSource source = SpecSource.Approved) =>
         new(key, specs, SpecAccounting.Empty, [], source, Approval: approval);
 

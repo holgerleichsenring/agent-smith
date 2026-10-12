@@ -41,7 +41,7 @@ public sealed class SpecDialogOutcomeComposer
         sb.AppendLine($"{m.Bold("The review of this proposal found:")}");
         foreach (var finding in proposal.Findings)
             sb.AppendLine(
-                $"- {finding.PhaseId} — {finding.Problem}: {finding.Why}"
+                $"- {finding.SpecId} — {finding.Problem}: {finding.Why}"
                 + (finding.Evidence is null
                     ? finding.Quote is null ? string.Empty : $" (\"{finding.Quote}\")"
                     : $" (evidence: {finding.Evidence})"));
@@ -84,7 +84,7 @@ public sealed class SpecDialogOutcomeComposer
         BugOutcome bug =>
             $"Proposed outcome: {m.Bold("bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
         SpecOutcome spec =>
-            $"Proposed outcome: {m.Bold("one spec")} — `{spec.Draft.PhaseId}` {spec.Draft.Goal}",
+            $"Proposed outcome: {m.Bold("one spec")} — `{spec.Draft.SpecId}` {spec.Draft.Goal}",
         EpicOutcome epic => DescribeEpic(epic, m),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no confirmation shape."),
@@ -93,25 +93,25 @@ public sealed class SpecDialogOutcomeComposer
     private static string DescribeEpic(EpicOutcome epic, SpecDialogMarkup m)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Proposed outcome: {m.Bold("epic")} `{epic.Parent.PhaseId}` — {epic.Parent.Goal}");
+        sb.AppendLine($"Proposed outcome: {m.Bold("epic")} `{epic.Parent.SpecId}` — {epic.Parent.Goal}");
         sb.AppendLine("Slices, in order:");
         foreach (var child in epic.Children)
-            sb.AppendLine($"- `{child.PhaseId}` {child.Goal}{FormatRequires(child)}");
+            sb.AppendLine($"- `{child.SpecId}` {child.Goal}{FormatRequires(child)}");
         return sb.ToString().TrimEnd();
     }
 
-    private static string FormatRequires(PhaseDraft draft) =>
+    private static string FormatRequires(SpecDraft draft) =>
         draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";
 
     private static string Summarize(OutcomeProposal proposal) => proposal switch
     {
         BugOutcome bug => $"a bug ticket ('{bug.Ticket.Title}') for the code pipeline",
-        SpecOutcome spec => $"one spec (`{spec.Draft.PhaseId}`)",
+        SpecOutcome spec => $"one spec (`{spec.Draft.SpecId}`)",
         // 2026-09-17-0e79d: an epic is ONE work ticket, and 2026-09-22-b3d7: it is the ONLY
         // ticket. The slices are what that one ticket carries — its body lists every one of them
         // and the stored set is what the run works — so the count is of slices, not of tickets.
         EpicOutcome epic =>
-            $"an epic as one work ticket (`{epic.Parent.PhaseId}`) "
+            $"an epic as one work ticket (`{epic.Parent.SpecId}`) "
             + $"carrying {epic.Children.Count} slice(s)",
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no summary shape."),

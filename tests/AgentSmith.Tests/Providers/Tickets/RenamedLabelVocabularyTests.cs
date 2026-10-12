@@ -35,7 +35,7 @@ public sealed class RenamedLabelVocabularyTests
         var vocabulary = TicketLabelVocabulary.For(new TrackerConnection());
 
         vocabulary.For(TicketLifecycleStatus.InProgress).Should().Be("agent-smith:in-progress");
-        vocabulary.ApprovedSetStamp.Should().Be("phase-spec:approved");
+        vocabulary.ApprovedSetStamp.Should().Be("spec:approved");
     }
 
     [Fact]

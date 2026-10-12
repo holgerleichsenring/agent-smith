@@ -121,7 +121,7 @@ public sealed class ContradictionHandbackTests
             .Which.Should().StartWith("[L1] default:");
         harness.ChatClient.CallMessages.Should().Contain(call => call.Any(m => m.Text.Contains("refutes it")),
             "the derivation is answered with the refutation");
-        runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Phases.Should().ContainSingle();
+        runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Specs.Should().ContainSingle();
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "nothing parks on a refuted claim");
     }
 

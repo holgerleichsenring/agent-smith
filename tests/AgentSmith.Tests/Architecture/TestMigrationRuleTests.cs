@@ -29,6 +29,7 @@ public sealed class TestMigrationRuleTests
         "ConfigStudioApiSmokeTests.cs",
         "RunStoreRepairTests.cs",
         "RunSpecsRenameMigrationTests.cs",
+        "RunSpecIdColumnsMigrationTests.cs",
         "StepAttributionPersistenceTests.cs",
     ];
 

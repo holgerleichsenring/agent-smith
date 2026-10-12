@@ -110,7 +110,7 @@ public sealed class AgenticMasterHandler(
         // p0394a: the ratified spec is the run's single planning artifact —
         // it is rendered into the master body as the plan of record and seeds the
         // progress ledger below. Absent on non-code surfaces (scan, spec dialog).
-        var draft = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var dr) ? dr : null;
+        var draft = context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var dr) ? dr : null;
         // p0278: a scan/review master (output_schema == observation) gets the scanner
         // findings + spec inline and a READ-ONLY surface. Keyed on the master's
         // declared schema, NOT pipeline name; computed HERE (p0356) because the

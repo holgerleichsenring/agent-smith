@@ -123,8 +123,8 @@ public sealed class PipelineExecutorBudgetTests
             .Returns(() =>
             {
                 new RunShortfall(
-                    [new PhaseProgress("p0001a", "a", PhaseRunState.Done)],
-                    [new PhaseProgress("p0001b", "b", PhaseRunState.NotStarted)],
+                    [new SpecProgress("p0001a", "a", SpecRunState.Done)],
+                    [new SpecProgress("p0001b", "b", SpecRunState.NotStarted)],
                     "step budget exhausted").MarkDelivered(pipeline);
                 return Task.FromResult(CommandResult.Ok("delivered"));
             });

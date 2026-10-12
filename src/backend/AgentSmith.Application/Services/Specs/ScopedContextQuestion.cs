@@ -27,7 +27,7 @@ public static class ScopedContextQuestion
             Taken: 0);
         var set = cut.Set with
         {
-            Phases = [],
+            Specs = [],
             Accounting = SpecAccounting.Empty,
             Handback = handback,
             Executed = [],

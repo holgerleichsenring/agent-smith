@@ -14,7 +14,7 @@ public static partial class ContextKeys
     /// <summary>p0452: the commands the agent ran in this spec, as evidence for the
     /// delivery account. Until it could see them, three runs were refused for searches
     /// the agent had actually run.</summary>
-    public const string SpecRunCommands = "PhaseCommands";
+    public const string SpecRunCommands = "SpecRunCommands";
 
     /// <summary>p0341: the coding master's durable <c>ProgressLedger</c> — seeded
     /// from the ratified spec's steps (p0394a), kept current via

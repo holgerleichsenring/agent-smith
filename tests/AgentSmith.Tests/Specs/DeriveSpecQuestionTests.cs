@@ -51,7 +51,7 @@ public sealed class DeriveSpecQuestionTests
         deriver.PinSeen.Should().Contain("Reading (a) is", "the pin is in place BEFORE the model runs");
         deriver.PinSeen.Should().Contain("(a) " + ReadingA).And.Contain("(b) " + ReadingB);
         published.Set!.IsHandedBack.Should().BeFalse();
-        published.Set.Phases.Should().ContainSingle("the run proceeds with real specs");
+        published.Set.Specs.Should().ContainSingle("the run proceeds with real specs");
         tickets.Verify(t => t.UpdateStatusAsync(
             It.IsAny<TicketId>(), It.Is<string>(c => c.Contains("proceeding on reading (a)")),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -190,8 +190,8 @@ public sealed class DeriveSpecQuestionTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var carries = segments.Select(s => s.Id).ToList();
-        var spec = new SpecPhase(
-            new Contracts.Models.PhaseDraft("p19106a", goal, "spec: p19106a", []) { Done = ["The packages are bumped."] },
+        var spec = new DerivedSpec(
+            new Contracts.Models.SpecDraft("p19106a", goal, "spec: p19106a", []) { Done = ["The packages are bumped."] },
             "bump-the-packages",
             SegmentExtractor.BuildMarkdown("p19106a", goal, carries, segments),
             carries);

@@ -20,11 +20,11 @@ internal static class PrecedingSpecs
 {
     /// <summary>Spec id and goal for every spec of the set ordered before <paramref name="specId"/>
     /// that has run, in sequence order. Empty for the first spec, and for a run with no set.</summary>
-    public static IReadOnlyList<PhaseProgress> Of(PipelineContext pipeline, string specId)
+    public static IReadOnlyList<SpecProgress> Of(PipelineContext pipeline, string specId)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null) return [];
-        var order = set.Phases.Select(p => p.PhaseId).ToList();
+        var order = set.Specs.Select(p => p.SpecId).ToList();
         var at = order.IndexOf(specId);
         if (at <= 0) return [];
 
@@ -37,14 +37,14 @@ internal static class PrecedingSpecs
     }
 
     // Done in this run, or executed in an earlier one — either way its work is in the sandbox.
-    private static PhaseProgress? Standing(
+    private static SpecProgress? Standing(
         SpecSet set, SpecSequenceProgress? progress, string id)
     {
-        var goal = set.Phases.FirstOrDefault(x => x.PhaseId == id)?.Draft.Goal ?? id;
-        var row = progress?.Phases.FirstOrDefault(x => x.PhaseId == id);
-        if (row is { State: PhaseRunState.Done }) return row with { Goal = goal };
+        var goal = set.Specs.FirstOrDefault(x => x.SpecId == id)?.Draft.Goal ?? id;
+        var row = progress?.Specs.FirstOrDefault(x => x.SpecId == id);
+        if (row is { State: SpecRunState.Done }) return row with { Goal = goal };
         return set.Executed.Contains(id, StringComparer.Ordinal)
-            ? new PhaseProgress(id, goal, PhaseRunState.Done)
+            ? new SpecProgress(id, goal, SpecRunState.Done)
             : null;
     }
 }

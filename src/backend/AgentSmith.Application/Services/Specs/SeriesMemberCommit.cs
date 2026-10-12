@@ -41,7 +41,7 @@ public sealed class SeriesMemberCommit(
         var sha = await gitOps.GetHeadCommitAsync(sandbox, ct);
         logger.LogInformation(
             "Series {Base} revision {Revision} ({Specs} spec(s)) committed in {Repo} as {Sha} on {Branch}",
-            set.Series, set.Current.Number, set.Phases.Count, repo.Name, sha, branch);
+            set.Series, set.Current.Number, set.Specs.Count, repo.Name, sha, branch);
         return (sha, true);
     }
 

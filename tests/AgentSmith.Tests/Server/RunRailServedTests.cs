@@ -115,10 +115,10 @@ public sealed class RunRailServedTests : IDisposable
 
         var rail = await ReadRailAsync();
 
-        rail[0].PhaseId.Should().Be("p19106a");
+        rail[0].SpecId.Should().Be("p19106a");
         rail[0].StepName.Should().Be("Generating the plan");
         rail[0].DisplayName.Should().Be("Generate plan");
-        rail[1].PhaseId.Should().BeNull();
+        rail[1].SpecId.Should().BeNull();
         rail[1].DisplayName.Should().Be("Fetch ticket");
     }
 
@@ -136,7 +136,7 @@ public sealed class RunRailServedTests : IDisposable
 
         var rail = await ReadRailAsync();
 
-        rail[0].PhaseId.Should().Be("2026-08-24-8a3f");
+        rail[0].SpecId.Should().Be("2026-08-24-8a3f");
         rail[0].StepName.Should().Be("Generating the plan");
         rail[0].DisplayName.Should().Be("Generate plan");
     }

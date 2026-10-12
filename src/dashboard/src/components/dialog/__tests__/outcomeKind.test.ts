@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { outcomeKindWord } from "../outcomeKind";
 
 describe("outcomeKindWord", () => {
-  it("OutcomeKindWord_TheServedPhaseKind_ReadsAsSpec", () => {
+  it("OutcomeKindWord_TheOldServedKind_ReadsAsSpec", () => {
     expect(outcomeKindWord("phase")).toBe("spec");
   });
 

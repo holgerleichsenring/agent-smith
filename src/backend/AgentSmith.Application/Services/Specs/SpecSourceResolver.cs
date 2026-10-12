@@ -85,7 +85,7 @@ public sealed class SpecSourceResolver(
             var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Specs} spec(s)); {Mode}",
-                key, artifact.Set.Phases.Count,
+                key, artifact.Set.Specs.Count,
                 amend ? "amending it with the new input" : "using it unchanged");
             return new Decision(
                 SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause,

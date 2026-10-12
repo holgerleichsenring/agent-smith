@@ -17,7 +17,7 @@ namespace AgentSmith.Server.Models;
 /// pane still showing the proposal under discussion.
 /// </para>
 /// </summary>
-/// <param name="Kind">"bug", "phase" or "epic" — what the pane renders.</param>
+/// <param name="Kind">"bug", "spec" or "epic" — what the pane renders.</param>
 /// <param name="Children">
 /// An epic's children IN THE ORDER THEY WILL BE FILED. A pane listing them in another
 /// order would show the operator a plan that is not the one about to be created.
@@ -26,9 +26,9 @@ public sealed record SpecDialogProposalPush(
     string DialogId,
     string Kind,
     SpecDialogBugView? Bug,
-    SpecDialogPhaseView? Phase,
-    SpecDialogPhaseView? Parent,
-    IReadOnlyList<SpecDialogPhaseView> Children,
+    SpecDialogDraftView? Spec,
+    SpecDialogDraftView? Parent,
+    IReadOnlyList<SpecDialogDraftView> Children,
     DateTimeOffset At)
 {
     /// <summary>

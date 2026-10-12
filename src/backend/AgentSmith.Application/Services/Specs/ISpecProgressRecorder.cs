@@ -17,7 +17,7 @@ public interface ISpecProgressRecorder
     Task RecordAsync(
         PipelineContext pipeline,
         string specId,
-        PhaseRunState state,
+        SpecRunState state,
         string? failingCommand = null,
         string? note = null,
         CancellationToken cancellationToken = default);

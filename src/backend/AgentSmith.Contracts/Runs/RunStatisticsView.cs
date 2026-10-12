@@ -14,7 +14,7 @@ namespace AgentSmith.Contracts.Runs;
 public sealed record RunStatisticsView(
     RunCallStatistics Totals,
     long TotalDurationMs,
-    IReadOnlyList<RunSpecStatistics> Phases,
+    IReadOnlyList<RunSpecStatistics> Specs,
     IReadOnlyList<RunCallPoint> Calls,
     IReadOnlyList<RunCommandPoint> Commands,
     bool Truncated,

@@ -7,9 +7,9 @@ using FluentAssertions;
 namespace AgentSmith.Tests.SpecNaming;
 
 /// <summary>
-/// 2026-10-12-967aa: a stored or streamed event a later release writes in the spec vocabulary —
-/// type name SpecStateChanged/Recorded/Reviewed, payload property SpecId — replays as the one
-/// this release writes.
+/// 2026-10-12-967aa/967ab: a stored or streamed event the release before the rename wrote — type
+/// name PhaseStateChanged/Recorded/Reviewed, payload property PhaseId — replays as the one this
+/// release writes, until 967ah drops the readers.
 /// </summary>
 public sealed class SpecNamedEventReadTests
 {
@@ -17,14 +17,14 @@ public sealed class SpecNamedEventReadTests
     private readonly EventEnvelopeSerializer _codec = new();
 
     [Fact]
-    public void EventReplay_SpecStateChangedName_Resolves()
+    public void EventReplay_OldStateChangedName_Resolves()
     {
-        var written = new PhaseStateChangedEvent("r1", "2026-10-12-967aa", 1, "Read both", PhaseRunState.Done, null, T);
+        var written = new SpecStateChangedEvent("r1", "2026-10-12-967aa", 1, "Read both", SpecRunState.Done, null, T);
         var raw = SpecShape.Of(JsonSerializer.Serialize(written));
 
-        var replayed = _codec.DeserializeRaw("SpecStateChanged", raw);
+        var replayed = _codec.DeserializeRaw("PhaseStateChanged", raw);
 
-        replayed.Should().BeOfType<PhaseStateChangedEvent>()
+        replayed.Should().BeOfType<SpecStateChangedEvent>()
             .Which.Should().BeEquivalentTo(written);
     }
 
@@ -33,43 +33,43 @@ public sealed class SpecNamedEventReadTests
     [InlineData("PhaseRecorded")]
     public void EventReplay_RecordedUnderEitherName_CarriesTheId(string typeName)
     {
-        var raw = SpecShape.Of(JsonSerializer.Serialize(new PhaseRecordedEvent("r1", "s1", "spec: s1", T)));
+        var raw = SpecShape.Of(JsonSerializer.Serialize(new SpecRecordedEvent("r1", "s1", "spec: s1", T)));
 
-        _codec.DeserializeRaw(typeName, raw).Should().BeOfType<PhaseRecordedEvent>()
-            .Which.PhaseId.Should().Be("s1");
+        _codec.DeserializeRaw(typeName, raw).Should().BeOfType<SpecRecordedEvent>()
+            .Which.SpecId.Should().Be("s1");
     }
 
     [Fact]
-    public void EventReplay_SpecReviewedName_Resolves() =>
-        _codec.DeserializeRaw("SpecReviewed", """{"RunId":"r1","SpecId":"s1","ReportJson":"{}","Timestamp":"2026-10-12T09:00:00Z"}""")
-            .Should().BeOfType<PhaseReviewedEvent>().Which.PhaseId.Should().Be("s1");
+    public void EventReplay_OldReviewedName_Resolves() =>
+        _codec.DeserializeRaw("PhaseReviewed", """{"RunId":"r1","PhaseId":"s1","ReportJson":"{}","Timestamp":"2026-10-12T09:00:00Z"}""")
+            .Should().BeOfType<SpecReviewedEvent>().Which.SpecId.Should().Be("s1");
 
     [Fact]
-    public void Envelope_StepStartedWithSpecId_ReadsAsPhaseId()
+    public void Envelope_StepStartedWithOldId_ReadsAsSpecId()
     {
         var written = new StepStartedEvent("r1", 3, "Implement", 5, T, "Implement", "AgenticMasterCommand", "s1");
         var envelope = SpecShape.Of(_codec.Serialize(written));
 
         _codec.Deserialize(envelope).Should().BeOfType<StepStartedEvent>()
-            .Which.PhaseId.Should().Be("s1");
+            .Which.SpecId.Should().Be("s1");
     }
 
     [Fact]
-    public void Envelope_DecisionLoggedWithSpecId_ReadsAsPhaseId()
+    public void Envelope_DecisionLoggedWithOldId_ReadsAsSpecId()
     {
         var envelope = SpecShape.Of(_codec.Serialize(
             new DecisionLoggedEvent("r1", "tooling", "a", null, "b", T, "s1")));
 
         _codec.Deserialize(envelope).Should().BeOfType<DecisionLoggedEvent>()
-            .Which.PhaseId.Should().Be("s1");
+            .Which.SpecId.Should().Be("s1");
     }
 
     [Fact]
-    public void Serialize_StillWritesThePhaseNames()
+    public void Serialize_WritesTheSpecNames()
     {
-        var envelope = _codec.Serialize(new PhaseRecordedEvent("r1", "s1", "b", T));
+        var envelope = _codec.Serialize(new SpecRecordedEvent("r1", "s1", "b", T));
 
-        envelope.Should().Contain("\"phaseId\":\"s1\"").And.NotContain("specId");
-        envelope.Should().StartWith($"{{\"t\":{(int)EventType.PhaseRecorded},");
+        envelope.Should().Contain("\"specId\":\"s1\"").And.NotContain("phaseId");
+        envelope.Should().StartWith($"{{\"t\":{(int)EventType.SpecRecorded},");
     }
 }

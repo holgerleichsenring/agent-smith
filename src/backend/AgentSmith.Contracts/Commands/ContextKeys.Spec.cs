@@ -36,7 +36,7 @@ public static partial class ContextKeys
     /// branch delivers, with the file each satisfied criterion is satisfied by. The
     /// pull request renders it, so a reviewer refutes a claim instead of re-deriving it.
     /// </summary>
-    public const string SpecAccounts = "PhaseAccounts";
+    public const string SpecAccounts = "SpecAccounts";
 
     /// <summary>p0438: the criteria a spec failed to satisfy, handed back to the master for
     /// one repair pass. Present only while that pass is being prepared.</summary>
@@ -44,7 +44,7 @@ public static partial class ContextKeys
 
     /// <summary>p0438: set once a spec has had its repair pass, so a second outstanding
     /// verdict is final rather than a carousel.</summary>
-    public const string SpecRepairAttempted = "PhaseRepairAttempted";
+    public const string SpecRepairAttempted = "SpecRepairAttempted";
 
     /// <summary>p0421: every spec's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";

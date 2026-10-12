@@ -18,7 +18,7 @@ public sealed class UncitableEvidenceTests
 
     private static string Notice()
     {
-        var log = new PhaseCommandLog();
+        var log = new SpecRunCommandLog();
         for (var i = 0; i < 400; i++) log.Record("api", $"dotnet build Sample.Module{i}.csproj", new string('o', 900));
         return log.Evidence()[0];
     }

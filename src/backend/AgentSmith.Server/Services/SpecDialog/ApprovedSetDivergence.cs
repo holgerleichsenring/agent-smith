@@ -32,7 +32,7 @@ public sealed class ApprovedSetDivergence(
             return record is null
                 ? null
                 : TicketSetDivergence.Between(
-                    ticketText, [.. record.Set.Phases.Select(spec => spec.Draft.Goal)]);
+                    ticketText, [.. record.Set.Specs.Select(spec => spec.Draft.Goal)]);
         }
         // A store this turn could not reach says nothing about whether the two agree, and a turn
         // must still run: the conversation is the surface the operator is standing on.

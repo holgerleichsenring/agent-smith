@@ -58,7 +58,7 @@ public sealed class ReferenceApprovalCiteTests
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],
-        }, "19106", ApprovedSetDoubles.Series(new PhaseDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
+        }, "19106", ApprovedSetDoubles.Series(new SpecDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
 
         record.CitedSets.Should().Equal(ReferenceSandboxFixture.SetId);
     }
@@ -119,7 +119,7 @@ public sealed class ReferenceApprovalCiteTests
         {
             Name = "sample", Tracker = new TrackerConnection { Type = TrackerType.AzureDevOps },
             Repos = [new RepoConnection { Name = "sample-api" }],
-        }, "19106", ApprovedSetDoubles.Series(new PhaseDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
+        }, "19106", ApprovedSetDoubles.Series(new SpecDraft("p1", "Do it", "spec: p1", []) { Done = ["done"] }), "Do it", CancellationToken.None);
 
         record.CitedImages.Should().Equal("img-1");
         record.CitedSets.Should().Equal(ReferenceSandboxFixture.SetId);

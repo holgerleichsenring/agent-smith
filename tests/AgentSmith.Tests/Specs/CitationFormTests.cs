@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 public sealed class CitationFormTests
 {
-    // The shape PhaseCommandLog writes. The command carries its own apostrophes, which is
+    // The shape SpecRunCommandLog writes. The command carries its own apostrophes, which is
     // what defeated first-to-last-apostrophe extraction.
     private const string Heredoc = "python3 - <<'PY'\nimport sys\nprint('PASS')\nPY";
     private static readonly string ServerRan =

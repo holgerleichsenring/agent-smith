@@ -16,4 +16,4 @@ public sealed record PlannedStepView(
     int StepIndex,
     string CommandName,
     string DisplayName,
-    [property: AcceptedName("SpecId")] string? PhaseId);
+    [property: AcceptedName("PhaseId")] string? SpecId);

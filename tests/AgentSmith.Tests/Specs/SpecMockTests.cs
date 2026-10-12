@@ -38,7 +38,7 @@ public sealed class SpecMockTests
         branch.Seed($"{Dir}/p19106ab-other.html", "<h1>another spec</h1>");
         branch.Seed($"{Dir}/p19106a-notes.md", "not a mock");
 
-        var spec = (await ReadAsync(branch)).Read!.Set.Phases.Single();
+        var spec = (await ReadAsync(branch)).Read!.Set.Specs.Single();
 
         spec.MockPaths.Should().Equal($"{Dir}/p19106a-the-old-goal-mock.html", $"{Dir}/p19106a.html");
     }
@@ -70,10 +70,10 @@ public sealed class SpecMockTests
         stale.Should().Equal($"{Dir}/{Base}b-dropped.yaml", $"{Dir}/{Base}b-dropped-mock.html");
     }
 
-    private static SpecPhase Spec(string id, IReadOnlyList<string>? mocks, string slug = "slug") =>
-        new(new PhaseDraft(id, "Goal", $"spec: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
+    private static DerivedSpec Spec(string id, IReadOnlyList<string>? mocks, string slug = "slug") =>
+        new(new SpecDraft(id, "Goal", $"spec: {id}", []) { Done = ["Done."] }, slug, string.Empty, [], mocks);
 
-    private static SpecSet Set(SpecPhase spec) =>
+    private static SpecSet Set(DerivedSpec spec) =>
         new(Key, [spec], SpecAccounting.Empty, [], SpecSource.BranchArtifact);
 
     private static async Task<SpecSetOnBranch> ReadAsync(SpecBranchFiles branch)

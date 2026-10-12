@@ -40,9 +40,9 @@ export enum EventType {
   LedgerTransitionsRecorded = 76,
   PipelineStepsPlanned = 77,
   RunWorkShapeResolved = 78,
-  PhaseStateChanged = 79,
-  PhaseRecorded = 80,
-  PhaseReviewed = 81,
+  SpecStateChanged = 79,
+  SpecRecorded = 80,
+  SpecReviewed = 81,
   DesignRead = 82,
 }
 
@@ -106,7 +106,7 @@ export interface StepStartedEvent extends RunEventBase {
   displayName: string | null;
   /** p0466: the derived spec this step belongs to, stated by the producer.
    *  Null outside any spec and on pre-p0466 producers. */
-  phaseId?: string | null;
+  specId?: string | null;
 }
 
 export interface StepFinishedEvent extends RunEventBase {
@@ -125,7 +125,7 @@ export interface DecisionLoggedEvent extends RunEventBase {
   reason: string;
   /** p0466: the spec the decision was taken in, from the producer's ambient
    *  step frame. Null outside any spec and on pre-p0466 producers. */
-  phaseId?: string | null;
+  specId?: string | null;
 }
 
 export interface GateCheckedEvent extends RunEventBase {
@@ -479,7 +479,7 @@ export interface LedgerTransitionsRecordedEvent extends RunEventBase {
  * p0405: the executor announcing the steps it is going to run, from
  * firstStepIndex onwards — published when the command list is established and
  * again whenever a handler splices into it. stepsJson is an array of
- * { stepIndex, commandName, displayName, phaseId }. The run detail serves the
+ * { stepIndex, commandName, displayName, specId }. The run detail serves the
  * entries beyond the last executed step as the rail's planned tail.
  */
 export interface PipelineStepsPlannedEvent extends RunEventBase {
@@ -492,11 +492,11 @@ export interface PipelineStepsPlannedEvent extends RunEventBase {
  * p0466: a spec of the derived sequence changed standing — selected, through,
  * or stopped. The server projects it into the run's RunSpec row, which is what
  * makes a spec addressable once it has ended. `state` mirrors the C#
- * PhaseRunState enum (0 not started, 1 in progress, 2 done, 3 failed).
+ * SpecRunState enum (0 not started, 1 in progress, 2 done, 3 failed).
  */
-export interface PhaseStateChangedEvent extends RunEventBase {
-  type: EventType.PhaseStateChanged;
-  phaseId: string;
+export interface SpecStateChangedEvent extends RunEventBase {
+  type: EventType.SpecStateChanged;
+  specId: string;
   ordinal: number;
   title: string;
   state: number;
@@ -508,21 +508,21 @@ export interface PhaseStateChangedEvent extends RunEventBase {
  * the working tree. The server keeps a copy so a finished spec can be opened
  * after the branch is merged and the sandbox is gone.
  */
-export interface PhaseRecordedEvent extends RunEventBase {
-  type: EventType.PhaseRecorded;
-  phaseId: string;
+export interface SpecRecordedEvent extends RunEventBase {
+  type: EventType.SpecRecorded;
+  specId: string;
   body: string;
 }
 
 /**
  * 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff. `reportJson` is a
- * serialised PhaseReviewReport — an OBJECT, not the bare array it was before that spec was
+ * serialised SpecReviewReport — an OBJECT, not the bare array it was before that spec was
  * reworked: `reviewed` false is NOT a clean review, it says nobody was asked, and `why` then
  * names which of the four reasons it was. 2026-09-17-042ej reads it back as data.
  */
-export interface PhaseReviewedEvent extends RunEventBase {
-  type: EventType.PhaseReviewed;
-  phaseId: string;
+export interface SpecReviewedEvent extends RunEventBase {
+  type: EventType.SpecReviewed;
+  specId: string;
   reportJson: string;
 }
 
@@ -577,9 +577,9 @@ export type RunEvent =
   | LedgerTransitionsRecordedEvent
   | PipelineStepsPlannedEvent
   | RunWorkShapeResolvedEvent
-  | PhaseStateChangedEvent
-  | PhaseRecordedEvent
-  | PhaseReviewedEvent
+  | SpecStateChangedEvent
+  | SpecRecordedEvent
+  | SpecReviewedEvent
   | DesignReadEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
@@ -657,7 +657,7 @@ export interface UnmeasuredAccount {
 export interface DeclinedCriterion {
   text: string;
   reason: string;
-  phase?: string | null;
+  spec?: string | null;
 }
 
 /**

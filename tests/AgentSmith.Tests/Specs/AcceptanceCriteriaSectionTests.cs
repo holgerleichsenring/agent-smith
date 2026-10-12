@@ -49,6 +49,6 @@ public sealed class AcceptanceCriteriaSectionTests
 
         var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment("body"), [], SpecSource.Derived, []);
 
-        set.Phases.Single().Draft.Done.Should().Equal("--dry-run exits 0", "**the table** exists");
+        set.Specs.Single().Draft.Done.Should().Equal("--dry-run exits 0", "**the table** exists");
     }
 }

@@ -65,10 +65,10 @@ public static class RunDeliveryGate
 
     private static IReadOnlyList<string> Outstanding(RunAccounts accounts) =>
     [
-        .. accounts.Phases.SelectMany(spec =>
+        .. accounts.Specs.SelectMany(spec =>
             spec.Accounts.SelectMany(account =>
                 account.Outstanding.Select(criterion =>
-                    $"{spec.PhaseId} / {account.RepoKey}: {criterion.Criterion}"
+                    $"{spec.SpecId} / {account.RepoKey}: {criterion.Criterion}"
                     + (criterion.Note is null ? string.Empty : $" ({criterion.Note})"))))
     ];
 }

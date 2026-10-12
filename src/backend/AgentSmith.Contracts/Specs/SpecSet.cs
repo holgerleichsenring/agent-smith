@@ -25,13 +25,13 @@ namespace AgentSmith.Contracts.Specs;
 /// stamped — a set read off a branch without one is treated as absent.</param>
 public sealed record SpecSet(
     string Key,
-    [property: AcceptedName("Specs")] IReadOnlyList<SpecPhase> Phases,
+    [property: AcceptedName("Phases")] IReadOnlyList<DerivedSpec> Specs,
     SpecAccounting Accounting,
     IReadOnlyList<SpecRevision> Revisions,
     SpecSource Source,
     SpecHandback? Handback = null,
     bool TicketPinnedWhole = false,
-    [property: AcceptedName("ExecutedSpecIds")] IReadOnlyList<string>? ExecutedPhaseIds = null,
+    [property: AcceptedName("ExecutedPhaseIds")] IReadOnlyList<string>? ExecutedSpecIds = null,
     string? TicketFingerprint = null,
     SpecApproval? Approval = null,
     string? Series = null)
@@ -42,12 +42,12 @@ public sealed record SpecSet(
     /// that already happened and already sits in the branch history, so a correction
     /// to executed work is a NEW spec, never a changed one.
     /// </summary>
-    public IReadOnlyList<string> Executed { get; init; } = ExecutedPhaseIds ?? [];
+    public IReadOnlyList<string> Executed { get; init; } = ExecutedSpecIds ?? [];
 
     /// <summary>The specs no run has started yet — the only ones a correction may re-cut.</summary>
     [JsonIgnore]
-    public IReadOnlyList<SpecPhase> UnexecutedTail =>
-        [.. Phases.Where(p => !Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
+    public IReadOnlyList<DerivedSpec> UnexecutedTail =>
+        [.. Specs.Where(p => !Executed.Contains(p.SpecId, StringComparer.Ordinal))];
 
     /// <summary>
     /// The executed specs in their original order. Only a CONTIGUOUS head can be
@@ -55,8 +55,8 @@ public sealed record SpecSet(
     /// sequence executes in order, so anything executed is a prefix of it.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyList<SpecPhase> ExecutedHead =>
-        [.. Phases.TakeWhile(p => Executed.Contains(p.PhaseId, StringComparer.Ordinal))];
+    public IReadOnlyList<DerivedSpec> ExecutedHead =>
+        [.. Specs.TakeWhile(p => Executed.Contains(p.SpecId, StringComparer.Ordinal))];
 
     /// <summary>
     /// Cap on the specs one ticket may split into. Beyond this cap a ticket is a
@@ -82,9 +82,9 @@ public sealed record SpecSet(
     /// name it, every series-wide field unchanged.</summary>
     public SpecSet OfRepository(string repo)
     {
-        var specs = Phases.Where(p => p.Draft.Repos is [var named]
+        var specs = Specs.Where(p => p.Draft.Repos is [var named]
             && string.Equals(named, repo, StringComparison.OrdinalIgnoreCase)).ToList();
-        return this with { Phases = specs, Executed = [.. Executed.Where(id => specs.Any(p => p.PhaseId == id))] };
+        return this with { Specs = specs, Executed = [.. Executed.Where(id => specs.Any(p => p.SpecId == id))] };
     }
 
     /// <summary>The revision the run works from — always the latest.</summary>

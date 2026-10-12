@@ -38,16 +38,16 @@ public sealed class SpecDoneRecorder(
         var target = Target(pipeline, record);
         if (target is null)
             return CommandResult.Fail(
-                $"Spec {record.Spec.PhaseId} ran but no sandbox of '{record.Carrier.Name}' or no ticket branch can carry its record");
+                $"Spec {record.Spec.SpecId} ran but no sandbox of '{record.Carrier.Name}' or no ticket branch can carry its record");
         try
         {
             return await WriteAndCommitAsync(pipeline, target, record, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "Recording {SpecId} as executed failed", record.Spec.PhaseId);
+            logger.LogError(ex, "Recording {SpecId} as executed failed", record.Spec.SpecId);
             return CommandResult.Fail(
-                $"Spec {record.Spec.PhaseId} ran but its record was not committed: {ex.Message.Split('\n', 2)[0].Trim()}");
+                $"Spec {record.Spec.SpecId} ran but its record was not committed: {ex.Message.Split('\n', 2)[0].Trim()}");
         }
     }
 
@@ -57,15 +57,15 @@ public sealed class SpecDoneRecorder(
         var files = readerFactory.Create(target.Sandbox);
         var move = await doneFiles.WriteAsync(files, record.Spec, record.Body, ct);
         var index = await indexWriter.WriteAsync(pipeline, target.Sandbox, target.SandboxKey,
-            Repository.SandboxWorkPath, record.Spec.PhaseId, record.IndexLine, ct);
-        var executed = record.Set with { Executed = [.. record.Set.Executed, record.Spec.PhaseId] };
+            Repository.SandboxWorkPath, record.Spec.SpecId, record.IndexLine, ct);
+        var executed = record.Set with { Executed = [.. record.Set.Executed, record.Spec.SpecId] };
         var manifest = seriesFiles.Manifest(executed.OfRepository(record.Carrier.Name));
         await files.WriteAsync(manifest.Path, manifest.Content, ct);
         var staged = new List<string>(move.Written) { manifest.Path };
         if (index is not null) staged.Add(index);
         var sha = await commit.CommitAsync(target, record, executed, staged, move.Planned, ct);
         pipeline.Set(ContextKeys.SpecSet, executed);
-        logger.LogInformation("Spec {SpecId} recorded in {Path} as {Sha}", record.Spec.PhaseId, move.Written[0], sha);
+        logger.LogInformation("Spec {SpecId} recorded in {Path} as {Sha}", record.Spec.SpecId, move.Written[0], sha);
         return CommandResult.Ok($"Spec record {move.Written[0]} committed as {sha}"
             + (index is null ? " (no index line: no discovered context)" : $", indexed in {index}"));
     }

@@ -11,16 +11,16 @@ namespace AgentSmith.Domain.Models;
 /// findings and call them the run's.
 /// </para>
 /// </summary>
-public sealed record RunPhaseReviews([property: AcceptedName("Specs")] IReadOnlyList<PhaseReviewEntry> Phases)
+public sealed record RunSpecReviews([property: AcceptedName("Phases")] IReadOnlyList<SpecReviewEntry> Specs)
 {
-    public static RunPhaseReviews Empty { get; } = new([]);
+    public static RunSpecReviews Empty { get; } = new([]);
 
     /// <summary>Replaces the spec's entry, so a re-reviewed spec counts once.</summary>
-    public RunPhaseReviews With(string specId, PhaseReviewReport report) =>
-        new([.. Phases.Where(p => p.PhaseId != specId), new PhaseReviewEntry(specId, report)]);
+    public RunSpecReviews With(string specId, SpecReviewReport report) =>
+        new([.. Specs.Where(p => p.SpecId != specId), new SpecReviewEntry(specId, report)]);
 
-    public IReadOnlyList<PhaseFinding> AllFindings => [.. Phases.SelectMany(p => p.Report.Findings)];
+    public IReadOnlyList<SpecFinding> AllFindings => [.. Specs.SelectMany(p => p.Report.Findings)];
 }
 
 /// <summary>One spec's review, under the spec it belongs to.</summary>
-public sealed record PhaseReviewEntry([property: AcceptedName("SpecId")] string PhaseId, PhaseReviewReport Report);
+public sealed record SpecReviewEntry([property: AcceptedName("PhaseId")] string SpecId, SpecReviewReport Report);

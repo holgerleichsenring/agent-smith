@@ -53,7 +53,7 @@ public static class SpecReviewFixPass
     /// </para>
     /// </summary>
     public static FixPassDecision Decide(
-        PipelineContext pipeline, PhaseReviewReport report,
+        PipelineContext pipeline, SpecReviewReport report,
         IReadOnlyDictionary<string, ISandbox>? sandboxes)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -98,7 +98,7 @@ public static class SpecReviewFixPass
     }
 
     private static string? SpecId(PipelineContext pipeline) =>
-        pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) ? draft?.PhaseId : null;
+        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) ? draft?.SpecId : null;
 }
 
 /// <summary>The pass to splice, or the reason there is none — never both.</summary>

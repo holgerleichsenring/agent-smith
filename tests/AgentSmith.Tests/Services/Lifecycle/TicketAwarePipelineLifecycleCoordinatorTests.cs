@@ -181,8 +181,8 @@ public sealed class TicketAwarePipelineLifecycleCoordinatorTests
         var scope = await Sut(factory).BeginAsync(new ResolvedProject(), context, CancellationToken.None);
 
         new Contracts.Specs.RunShortfall(
-            [new Contracts.Specs.PhaseProgress("p0001a", "a", Contracts.Specs.PhaseRunState.Done)],
-            [new Contracts.Specs.PhaseProgress("p0001b", "b", Contracts.Specs.PhaseRunState.NotStarted)],
+            [new Contracts.Specs.SpecProgress("p0001a", "a", Contracts.Specs.SpecRunState.Done)],
+            [new Contracts.Specs.SpecProgress("p0001b", "b", Contracts.Specs.SpecRunState.NotStarted)],
             "budget").MarkDelivered(context);
         await scope.DisposeAsync();
 

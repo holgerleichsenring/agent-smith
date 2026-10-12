@@ -105,7 +105,7 @@ public sealed class SpecDoneRecordGitTests
         var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
             .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
 
-        await PublishAsync(git, read with { Phases = [read.Phases[0], Set(("b", "renamed")).Phases[0]] });
+        await PublishAsync(git, read with { Specs = [read.Specs[0], Set(("b", "renamed")).Specs[0]] });
 
         File.ReadAllText(Path.Combine(git.WorkDir, Done("a-first.yaml"))).Should().Be(before);
         (await git.TrackedAsync()).Should().Contain([Done("a-first.yaml"), Planned("b-renamed.yaml")])
@@ -125,9 +125,9 @@ public sealed class SpecDoneRecordGitTests
         var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
             .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
 
-        read.Phases.Select(p => p.PhaseId).Should().Equal(A, B);
+        read.Specs.Select(p => p.SpecId).Should().Equal(A, B);
         read.Executed.Should().Equal([A], "a spec in done/ ran, its planned leftover notwithstanding");
-        read.UnexecutedTail.Single().PhaseId.Should().Be(B);
+        read.UnexecutedTail.Single().SpecId.Should().Be(B);
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public sealed class SpecDoneRecordGitTests
         pipeline.Set(ContextKeys.RunId, RunId);
         pipeline.Set(ContextKeys.ProjectName, Project);
         pipeline.Set(ContextKeys.SpecSet, set);
-        pipeline.Set(ContextKeys.CurrentSpec, set.Phases[0].Draft);
+        pipeline.Set(ContextKeys.CurrentSpec, set.Specs[0].Draft);
         return SeriesDoubles.RecordHandler(git.Files, pointers, git.Ops).ExecuteAsync(
             new WriteSpecRecordContext(pipeline.Get<Repository>(ContextKeys.Repository), pipeline, repos), default);
     }
@@ -182,8 +182,8 @@ public sealed class SpecDoneRecordGitTests
 
     private static SpecSet Set(params (string Letter, string Label)[] specs) => new(
         Ticket,
-        [.. specs.Select(s => new SpecPhase(
-            new PhaseDraft($"{Base}{s.Letter}", $"Goal {s.Letter}",
+        [.. specs.Select(s => new DerivedSpec(
+            new SpecDraft($"{Base}{s.Letter}", $"Goal {s.Letter}",
                 $"spec: {Base}{s.Letter}\ngoal: \"Goal {s.Letter} {s.Label}\"\ndone:\n  - \"Done.\"\n", [])
             { Done = ["Done."] },
             s.Label, $"# {s.Label}\n\nThe ticket's own words for {s.Label}.\n", []))],

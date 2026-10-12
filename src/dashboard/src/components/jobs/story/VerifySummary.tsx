@@ -227,7 +227,7 @@ function AcceptanceVerify({
                   </div>
                 </div>
                 <div className="c-stat">
-                  {declined.phase ? `declined · ${declined.phase}` : "declined"}
+                  {declined.spec ? `declined · ${declined.spec}` : "declined"}
                 </div>
               </div>
             ))}

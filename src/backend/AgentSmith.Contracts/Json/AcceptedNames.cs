@@ -54,7 +54,9 @@ public static class AcceptedNames
         if (typeInfo.Kind != JsonTypeInfoKind.Object) return;
         foreach (var declared in typeInfo.Properties.ToList())
         {
-            if (declared.AttributeProvider is not PropertyInfo member) continue;
+            // 2026-10-12-967ab: a computed member is written and never read; its accepted name
+            // exists for the store rewrite (AcceptedNameRewriter) alone.
+            if (declared.AttributeProvider is not PropertyInfo { CanWrite: true } member) continue;
             foreach (var alias in member.GetCustomAttributes<AcceptedNameAttribute>())
                 typeInfo.Properties.Add(AliasOf(typeInfo, member, alias.Name));
         }

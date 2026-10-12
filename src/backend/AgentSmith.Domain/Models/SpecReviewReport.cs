@@ -13,18 +13,18 @@ namespace AgentSmith.Domain.Models;
 /// <param name="Reviewed">True when a fresh instance actually read this spec's diff.</param>
 /// <param name="Findings">What it kept. Empty on a review that was not taken.</param>
 /// <param name="Why">Why it was not taken. Null exactly when <paramref name="Reviewed"/>.</param>
-public sealed record PhaseReviewReport(
-    bool Reviewed, IReadOnlyList<PhaseFinding> Findings, string? Why = null)
+public sealed record SpecReviewReport(
+    bool Reviewed, IReadOnlyList<SpecFinding> Findings, string? Why = null)
 {
     /// <summary>A review that ran, with whatever it kept.</summary>
-    public static PhaseReviewReport Taken(IReadOnlyList<PhaseFinding> findings) =>
+    public static SpecReviewReport Taken(IReadOnlyList<SpecFinding> findings) =>
         new(true, findings ?? []);
 
     /// <summary>A review that did not happen, and says so.</summary>
-    public static PhaseReviewReport NotTaken(string why) => new(false, [], why);
+    public static SpecReviewReport NotTaken(string why) => new(false, [], why);
 
     /// <summary>Nothing recorded at all — the spec has not reached its review.</summary>
-    public static PhaseReviewReport None { get; } = new(false, [], null);
+    public static SpecReviewReport None { get; } = new(false, [], null);
 
     /// <summary>The one sentence a reader gets when the review was not taken.</summary>
     public string NotReviewedNote => $"not reviewed: {Why}";

@@ -47,7 +47,7 @@ public static class SeededTicketSection
     private static string Divergence(SetDivergence? divergence) =>
         divergence is null ? string.Empty
             : $"\n\n## This ticket and its approved specification differ\nThe approved "
-            + $"specification for this ticket holds {divergence.Phases} spec(s). The ticket's own "
+            + $"specification for this ticket holds {divergence.Specs} spec(s). The ticket's own "
             + "text does not state:\n"
             + string.Join("\n", divergence.Unsaid.Select(goal => $"- {goal}"))
             + "\nSay this to the operator before anything else if it matters to their question, "

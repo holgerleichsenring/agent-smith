@@ -11,17 +11,17 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SeriesJoinOrder
 {
-    public (IReadOnlyList<SpecPhase> Phases, IReadOnlyList<string> Executed, string? Why) Of(
+    public (IReadOnlyList<DerivedSpec> Phases, IReadOnlyList<string> Executed, string? Why) Of(
         IReadOnlyList<SubSeriesRead> joined)
     {
         ArgumentNullException.ThrowIfNull(joined);
         if (joined.Count == 1) return (joined[0].Specs, joined[0].Executed, null);
-        var ordered = joined.SelectMany(r => r.Specs).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
+        var ordered = joined.SelectMany(r => r.Specs).OrderBy(p => p.SpecId, StringComparer.Ordinal).ToList();
         var executed = joined.SelectMany(r => r.Executed).ToHashSet(StringComparer.Ordinal);
         var why = Duplicate(joined) ?? BackwardEdge(ordered) ?? Gap(ordered, executed);
         return why is not null
             ? ([], [], why)
-            : (ordered, [.. ordered.Select(p => p.PhaseId).Where(executed.Contains)], null);
+            : (ordered, [.. ordered.Select(p => p.SpecId).Where(executed.Contains)], null);
     }
 
     /// <summary>
@@ -29,42 +29,42 @@ public sealed class SeriesJoinOrder
     /// done/ specs by id, then the <paramref name="newest"/> members' unexecuted specs by id. A prefix
     /// by construction: what ran comes first whichever revision its member is on.
     /// </summary>
-    public (IReadOnlyList<SpecPhase> Phases, IReadOnlyList<string> Executed) ExecutedPrefix(
+    public (IReadOnlyList<DerivedSpec> Phases, IReadOnlyList<string> Executed) ExecutedPrefix(
         IReadOnlyList<SubSeriesRead> members, IReadOnlyList<SubSeriesRead> newest)
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(newest);
-        var ran = members.SelectMany(m => m.Specs.Where(p => m.Executed.Contains(p.PhaseId, StringComparer.Ordinal)))
-            .DistinctBy(p => p.PhaseId, StringComparer.Ordinal).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
-        var ids = ran.Select(p => p.PhaseId).ToHashSet(StringComparer.Ordinal);
-        var open = newest.SelectMany(m => m.Specs).Where(p => !ids.Contains(p.PhaseId))
-            .OrderBy(p => p.PhaseId, StringComparer.Ordinal);
+        var ran = members.SelectMany(m => m.Specs.Where(p => m.Executed.Contains(p.SpecId, StringComparer.Ordinal)))
+            .DistinctBy(p => p.SpecId, StringComparer.Ordinal).OrderBy(p => p.SpecId, StringComparer.Ordinal).ToList();
+        var ids = ran.Select(p => p.SpecId).ToHashSet(StringComparer.Ordinal);
+        var open = newest.SelectMany(m => m.Specs).Where(p => !ids.Contains(p.SpecId))
+            .OrderBy(p => p.SpecId, StringComparer.Ordinal);
         return ([.. ran, .. open], [.. ids.Order(StringComparer.Ordinal)]);
     }
 
     private static string? Duplicate(IReadOnlyList<SubSeriesRead> joined) =>
-        joined.SelectMany(r => r.Specs.Select(p => (Id: p.PhaseId, r.Repo)))
+        joined.SelectMany(r => r.Specs.Select(p => (Id: p.SpecId, r.Repo)))
             .GroupBy(x => x.Id, StringComparer.Ordinal)
             .FirstOrDefault(g => g.Count() > 1) is { } twice
             ? $"spec {twice.Key} lies in more than one repository: {string.Join(", ", twice.Select(x => x.Repo))}"
             : null;
 
-    private static string? BackwardEdge(IReadOnlyList<SpecPhase> ordered)
+    private static string? BackwardEdge(IReadOnlyList<DerivedSpec> ordered)
     {
-        var position = ordered.Select((p, i) => (p.PhaseId, i)).ToDictionary(x => x.PhaseId, x => x.i, StringComparer.Ordinal);
+        var position = ordered.Select((p, i) => (p.SpecId, i)).ToDictionary(x => x.SpecId, x => x.i, StringComparer.Ordinal);
         for (var i = 0; i < ordered.Count; i++)
             foreach (var required in ordered[i].Draft.Requires)
                 if (position.TryGetValue(required, out var at) && at >= i)
-                    return $"spec {ordered[i].PhaseId} requires {required}, which does not come before it in id order";
+                    return $"spec {ordered[i].SpecId} requires {required}, which does not come before it in id order";
         return null;
     }
 
-    private static string? Gap(IReadOnlyList<SpecPhase> ordered, HashSet<string> executed)
+    private static string? Gap(IReadOnlyList<DerivedSpec> ordered, HashSet<string> executed)
     {
-        var firstOpen = ordered.FirstOrDefault(p => !executed.Contains(p.PhaseId));
+        var firstOpen = ordered.FirstOrDefault(p => !executed.Contains(p.SpecId));
         if (firstOpen is null) return null;
-        var after = ordered.SkipWhile(p => p != firstOpen).FirstOrDefault(p => executed.Contains(p.PhaseId));
+        var after = ordered.SkipWhile(p => p != firstOpen).FirstOrDefault(p => executed.Contains(p.SpecId));
         return after is null ? null
-            : $"spec {after.PhaseId} lies in done/ while {firstOpen.PhaseId} before it does not — the executed specs are not a prefix of the series";
+            : $"spec {after.SpecId} lies in done/ while {firstOpen.SpecId} before it does not — the executed specs are not a prefix of the series";
     }
 }

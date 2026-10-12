@@ -15,7 +15,7 @@ public sealed record SpecDialogFiling(
     IReadOnlyList<FiledTicket> Filed, string? Error, DateTimeOffset At, string? Kind = null,
     IReadOnlyList<string>? Notes = null)
 {
-    /// <summary>2026-10-12-967aa: the record with a kind a later release wrote ("spec") read as the
+    /// <summary>2026-10-12-967aa/967ab: the record with the kind written before the rename read as the
     /// kind this release writes, so every reader and every re-write sees one vocabulary.</summary>
     public SpecDialogFiling InDeclaredKind() => this with { Kind = SpecDialogProposalComposer.Declared(Kind) };
 }
