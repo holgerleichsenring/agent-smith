@@ -459,7 +459,7 @@ function projectEvent(event: RunEvent): RowView {
       };
     }
     case EventType.RunWorkShapeResolved: {
-      // p0413: the shape that decided how the ticket was cut into phases.
+      // p0413: the shape that decided how the ticket was cut into specs.
       const e = event as Extract<RunEvent, { type: EventType.RunWorkShapeResolved }>;
       return {
         icon: "◇",

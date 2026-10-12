@@ -1,7 +1,7 @@
 // 2026-08-25-e257: the client for the operator's judgements of a run's criterion verdicts.
 //
 // A run that fails on a wrong criterion looks exactly like one that fails on a right one —
-// same state, same colour, same cost. Fourteen phases tuned the delivery account, each on a
+// same state, same colour, same cost. Fourteen specs tuned the delivery account, each on a
 // single failed run, because the only failures that announce themselves are mechanical. This
 // is where the other kind gets written down.
 //

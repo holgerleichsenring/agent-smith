@@ -71,20 +71,20 @@ describe("NavRail", () => {
     expect(screen.queryByTestId("rail-row-sub-x")).not.toBeInTheDocument();
   });
 
-  // p0395: the phase is a GROUP HEADER above the phase's first row, never a
-  // per-row label prefix — one header per run of same-phase rows, none for
+  // p0395: the spec is a GROUP HEADER above the spec's first row, never a
+  // per-row label prefix — one header per run of same-spec rows, none for
   // unspliced steps.
-  it("NavRail_PhaseSteps_GroupUnderOnePhaseHeader", () => {
+  it("NavRail_SpecSteps_GroupUnderOneSpecHeader", () => {
     const nodes = [
       node({ id: "step-0", label: "Fetch ticket" }),
-      node({ id: "step-1", label: "Generate plan", phaseId: "p19106a" }),
-      node({ id: "step-2", label: "Work the phase", phaseId: "p19106a" }),
-      node({ id: "step-3", label: "Generate plan", phaseId: "p19106b" }),
+      node({ id: "step-1", label: "Generate plan", specId: "p19106a" }),
+      node({ id: "step-2", label: "Work the spec", specId: "p19106a" }),
+      node({ id: "step-3", label: "Generate plan", specId: "p19106b" }),
     ];
     render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
 
-    expect(screen.getAllByTestId("rail-phase-p19106a")).toHaveLength(1);
-    expect(screen.getByTestId("rail-phase-p19106b")).toBeInTheDocument();
+    expect(screen.getAllByTestId("rail-spec-p19106a")).toHaveLength(1);
+    expect(screen.getByTestId("rail-spec-p19106b")).toBeInTheDocument();
     expect(screen.getByTestId("rail-row-step-1-label")).toHaveTextContent(/^Generate plan$/);
     const rail = screen.getByTestId("nav-rail");
     const text = rail.textContent ?? "";
@@ -99,7 +99,7 @@ describe("NavRail", () => {
       node({ id: "step-0", label: "Fetch ticket", stepClass: "milestone" }),
       node({ id: "step-1", label: "Load skills", stepClass: "internal" }),
       node({ id: "step-2", label: "Hand the ticket back", stepClass: "gate", hasFinding: false }),
-      node({ id: "step-3", label: "Validate phase spec", stepClass: "gate", hasFinding: true }),
+      node({ id: "step-3", label: "Validate the spec", stepClass: "gate", hasFinding: true }),
       node({ id: "step-4", label: "Run master skill", stepClass: "milestone" }),
     ];
     render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
@@ -117,8 +117,8 @@ describe("NavRail", () => {
   it("Drawer_FailingOrRunningStep_ShowsRegardlessOfClass", () => {
     const nodes = [
       node({ id: "step-0", label: "Load skills", stepClass: "internal", status: "fail" }),
-      node({ id: "step-1", label: "Validate phase spec", stepClass: "gate", hasFinding: true, status: "fail" }),
-      node({ id: "step-2", label: "Write phase record", stepClass: "internal", status: "run" }),
+      node({ id: "step-1", label: "Validate the spec", stepClass: "gate", hasFinding: true, status: "fail" }),
+      node({ id: "step-2", label: "Write spec record", stepClass: "internal", status: "run" }),
     ];
     render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
 
@@ -250,7 +250,7 @@ describe("RailRow", () => {
     render(
       <RailRow
         id="step-8"
-        label="Work the phase: wire the fraction persistence through both drawer panes"
+        label="Work the spec: wire the fraction persistence through both drawer panes"
         status="ok"
         durationLabel="3m13s"
         isSelected={false}
@@ -284,16 +284,16 @@ describe("RailRow", () => {
   });
 
   // p0405: the server marks which rows the run has not reached; the rail renders
-  // them under their phase header, visually subordinate to the steps that ran.
-  it("NavRail_PlannedRows_RenderSubordinateUnderTheirPhase", () => {
+  // them under their spec header, visually subordinate to the steps that ran.
+  it("NavRail_PlannedRows_RenderSubordinateUnderTheirSpec", () => {
     const nodes = [
       node({ id: "step-1", label: "Fetch ticket" }),
-      node({ id: "step-2", label: "Execute the phase", phaseId: "p19106a", status: "wait", planned: true }),
-      node({ id: "step-3", label: "Verify the phase", phaseId: "p19106a", status: "wait", planned: true }),
+      node({ id: "step-2", label: "Execute the spec", specId: "p19106a", status: "wait", planned: true }),
+      node({ id: "step-3", label: "Verify the spec", specId: "p19106a", status: "wait", planned: true }),
     ];
     render(<NavRail nodes={nodes} overview={overview} selection={selectionWith()} />);
 
-    expect(screen.getByTestId("rail-phase-p19106a")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-spec-p19106a")).toBeInTheDocument();
     expect(screen.getByTestId("rail-row-step-1")).toHaveAttribute("data-planned", "false");
     expect(screen.getByTestId("rail-row-step-2")).toHaveAttribute("data-planned", "true");
     expect(screen.getByTestId("rail-row-step-2-label").className).toContain("text-stone-400");

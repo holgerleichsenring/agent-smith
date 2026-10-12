@@ -214,7 +214,7 @@ describe("AuthSession.complete", () => {
 });
 
 // 2026-08-28-0f46: the reply route is the ordinary one — the library points its
-// hidden frame at redirect_uri and this phase deliberately registers no second
+// hidden frame at redirect_uri and this spec deliberately registers no second
 // URL — so what arrives there can be either kind of answer. Completing a silent
 // answer as a redirect notified nobody (only the silent path posts the message
 // the waiting window blocks on) AND removed the state key that window still

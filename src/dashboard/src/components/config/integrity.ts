@@ -77,7 +77,7 @@ export function projectIntegrity(
  * 2026-09-16-bedc: which template bindings are UNFINISHED, by index.
  * <para/>
  * Stated once. This rule was written out four times — in the card, the project form, the
- * template row and the graph — and this phase would have added a fifth by splitting the
+ * template row and the graph — and this spec would have added a fifth by splitting the
  * card's count naively. It is the same question the rest of this module answers: what about
  * this project is not yet sound.
  *

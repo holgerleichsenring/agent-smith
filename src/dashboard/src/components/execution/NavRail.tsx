@@ -13,13 +13,13 @@ import { isStoryRow } from "@/lib/runStepRail";
 // expansion are owned by useRailSelection so they survive refresh via the URL
 // hash. Children render nested under their parent only while it is expanded.
 //
-// p0395: spliced phase steps (p0393a) carry their phase as a GROUP HEADER above
-// the phase's first row instead of a per-row label prefix — the prefix ate the
+// p0395: spliced spec steps (p0393a) carry their spec as a GROUP HEADER above
+// the spec's first row instead of a per-row label prefix — the prefix ate the
 // rail width and truncated the real step name on every row.
 //
 // p0398: the default view is the run's STORY — milestones plus gates that have
 // something to say. Internals and silent gates collapse into one "mechanics"
-// row per segment (pre-phase, per phase) which expands in place to the full
+// row per segment (before any spec, per spec) which expands in place to the full
 // step list; nothing is hidden from the data, only from the default view. A
 // segment holding the selected step renders expanded so deep links keep
 // resolving to a visible row.
@@ -38,19 +38,19 @@ interface NavRailProps {
 
 interface RailSegment {
   key: string;
-  phaseId: string | null;
+  specId: string | null;
   nodes: ExecutionNodeProps[];
 }
 
-// Consecutive rows of the same phase (or of no phase) form one segment — the
+// Consecutive rows of the same spec (or of no spec) form one segment — the
 // unit the mechanics row collapses over.
 function toSegments(nodes: ExecutionNodeProps[]): RailSegment[] {
   const segments: RailSegment[] = [];
   for (const node of nodes) {
-    const phaseId = node.phaseId ?? null;
+    const specId = node.specId ?? null;
     const last = segments[segments.length - 1];
-    if (last && last.phaseId === phaseId) last.nodes.push(node);
-    else segments.push({ key: `${phaseId ?? "pre"}:${node.id}`, phaseId, nodes: [node] });
+    if (last && last.specId === specId) last.nodes.push(node);
+    else segments.push({ key: `${specId ?? "pre"}:${node.id}`, specId, nodes: [node] });
   }
   return segments;
 }
@@ -73,7 +73,7 @@ export function NavRail({ nodes, overview, selection }: NavRailProps) {
       <Section label="Execution" />
       {toSegments(nodes).map((segment) => (
         <Fragment key={segment.key}>
-          {segment.phaseId && <PhaseHeader phaseId={segment.phaseId} />}
+          {segment.specId && <SpecHeader specId={segment.specId} />}
           <SegmentRows
             segment={segment}
             selection={selection}
@@ -204,15 +204,15 @@ function MechanicsRow(props: {
   );
 }
 
-// One header per run of same-phase rows: the phase id in mono (it IS an id),
+// One header per run of same-spec rows: the spec id in mono (it IS an id),
 // visually between the section eyebrow and the rows it groups.
-function PhaseHeader({ phaseId }: { phaseId: string }) {
+function SpecHeader({ specId }: { specId: string }) {
   return (
     <div
-      data-testid={`rail-phase-${phaseId}`}
+      data-testid={`rail-spec-${specId}`}
       className="border-t border-stone-100 px-4 pb-1 pt-2.5 font-mono dsh-label font-semibold text-stone-500"
     >
-      {phaseId}
+      {specId}
     </div>
   );
 }

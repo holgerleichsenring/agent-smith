@@ -5,7 +5,7 @@ import { ProjectInitAction } from "../ProjectInitAction";
 // p0497: the card's own vocabulary. These assertions can show that the toggle draws
 // from the studio's accent token instead of the operating system's, and that the pair
 // is one group rather than something interleaved with the metadata. They cannot show
-// that it LOOKS right — the operator's eye is the acceptance test, and the phase says so.
+// that it LOOKS right — the operator's eye is the acceptance test, and the spec says so.
 
 vi.mock("@/lib/projectInitApi", () => ({
   startProjectInit: vi.fn(async () => ({ runId: "2026-08-21T00-00-00-aaaa" })),

@@ -9,12 +9,12 @@ import { DialogFiledTicket, type NamedTicket } from "./DialogFiledTicket";
 // 2026-09-17-042ea: a note says what went wrong without unfiling anything, such as a child the
 // tracker would not link to its parent; it sits under the tickets it is about.
 // 2026-09-17-042eg: each ticket says what it BECAME — started, not started with the reason
-// nothing will pick it up, or a record, which is not work. A filing written before that phase
+// nothing will pick it up, or a record, which is not work. A filing written before that spec
 // carries no start state at all and renders exactly as it did, because an absent state is
 // unknown and a panel that guessed would be making the claim the state exists to stop.
 
 // 2026-09-17-042ej: and what became of it — under each ticket, the runs that took it up and,
-// per run, a row per PHASE with its pull requests and what the review still finds. The filing
+// per run, a row per SPEC with its pull requests and what the review still finds. The filing
 // push arrives first and alone; the work is a read of its own and appears beneath it.
 
 // 2026-09-17-042ef: the head, the key and the tracker link are the studio's entity name, field

@@ -40,7 +40,7 @@ describe("SignInCallbackPage", () => {
   });
 
   // 2026-08-28-0f46: the hidden frame of a silent sign-in loads THIS route — the
-  // library points it at the ordinary reply URL and this phase registers no
+  // library points it at the ordinary reply URL and this spec registers no
   // second one. Its answer has already been posted to the window that asked, so
   // routing it would only boot a second copy of the dashboard inside a document
   // about to be removed, inside the ten seconds that window is counting.

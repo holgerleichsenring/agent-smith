@@ -319,7 +319,7 @@ describe("VerifySummary (an account nobody could take)", () => {
   const RED_BUILD: RunAcceptance = {
     criteria: [],
     outcome: "verbatim",
-    ratifiedBy: "the ratified phase spec",
+    ratifiedBy: "the ratified spec",
     source: "delivery_account",
     unmeasured: [{ repositories: "default", reason: "default build 'sbt compile' exited 127" }],
     declined: [{ text: "The service uses the new client", reason: "no work here can make it true" }],

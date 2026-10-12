@@ -1,33 +1,33 @@
 "use client";
 
-import type { RunCallPoint, RunCommandPoint, RunPhaseStatistics } from "@/lib/runStoryApi";
+import type { RunCallPoint, RunCommandPoint, RunSpecStatistics } from "@/lib/runStoryApi";
 import { formatChars, formatMs } from "./callSeries";
 import { CallSizePlot } from "./CallSizePlot";
 import { CallTable } from "./CallTable";
 import { CommandTable } from "./CommandTable";
 
-// p0423b: one phase, accounted for. What it cost, what it ran and how each command ended,
-// and the shape of every model call inside it. A phase that failed names the command that
-// returned non-zero; a phase that stalled shows the prompt climbing while the answer fell.
+// p0423b: one spec, accounted for. What it cost, what it ran and how each command ended,
+// and the shape of every model call inside it. A spec that failed names the command that
+// returned non-zero; a spec that stalled shows the prompt climbing while the answer fell.
 
-export interface PhaseAccountProps {
-  phase: RunPhaseStatistics;
+export interface SpecAccountProps {
+  spec: RunSpecStatistics;
   calls: RunCallPoint[];
   commands: RunCommandPoint[];
 }
 
-export function PhaseAccount({ phase, calls, commands }: PhaseAccountProps) {
-  const failed = phase.failedCommands > 0 || phase.calls.failedCalls > 0;
+export function SpecAccount({ spec, calls, commands }: SpecAccountProps) {
+  const failed = spec.failedCommands > 0 || spec.calls.failedCalls > 0;
   return (
-    <section className="card" data-testid="phase-account" data-phase={phase.phaseId ?? ""}>
+    <section className="card" data-testid="spec-account" data-spec={spec.phaseId ?? ""}>
       <div className="card-h">
-        <h3>{phase.phaseId ? `Spec ${phase.phaseId}` : "Steps outside any spec"}</h3>
-        <span className={failed ? "badge bad" : "badge neu"} data-testid="phase-verdict">
+        <h3>{spec.phaseId ? `Spec ${spec.phaseId}` : "Steps outside any spec"}</h3>
+        <span className={failed ? "badge bad" : "badge neu"} data-testid="spec-verdict">
           {failed ? "something did not pass" : "nothing failed"}
         </span>
       </div>
       <div className="card-b">
-        <PhaseNumbers phase={phase} />
+        <SpecNumbers spec={spec} />
         <h4 style={HEADING}>Calls — prompt against answer, in call order</h4>
         <CallSizePlot calls={calls} />
         <h4 style={HEADING}>Commands and how they ended</h4>
@@ -48,12 +48,12 @@ const HEADING: React.CSSProperties = {
   margin: "18px 0 6px",
 };
 
-function PhaseNumbers({ phase }: { phase: RunPhaseStatistics }) {
-  const stats = phase.calls;
+function SpecNumbers({ spec }: { spec: RunSpecStatistics }) {
+  const stats = spec.calls;
   return (
-    <div className="health health-plain" data-testid="phase-numbers">
-      <Metric label="Steps" value={String(phase.steps)} />
-      <Metric label="Took" value={formatMs(phase.durationMs)} />
+    <div className="health health-plain" data-testid="spec-numbers">
+      <Metric label="Steps" value={String(spec.steps)} />
+      <Metric label="Took" value={formatMs(spec.durationMs)} />
       <Metric
         label="Calls"
         value={String(stats.calls)}
@@ -63,8 +63,8 @@ function PhaseNumbers({ phase }: { phase: RunPhaseStatistics }) {
       <Metric label="Smallest answer" value={formatChars(stats.smallestResponseChars)} />
       <Metric
         label="Commands"
-        value={String(phase.commands)}
-        note={phase.failedCommands > 0 ? `${phase.failedCommands} non-zero` : undefined}
+        value={String(spec.commands)}
+        note={spec.failedCommands > 0 ? `${spec.failedCommands} non-zero` : undefined}
       />
       <Metric
         label="Tool output"

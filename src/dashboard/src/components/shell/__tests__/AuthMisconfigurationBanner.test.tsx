@@ -84,7 +84,7 @@ describe("AuthMisconfigurationBanner", () => {
   });
 
   // 2026-09-14-c72e: Banner_TheTwoAuthoritiesDiffer_NamesBoth was this pair's ancestor. It
-  // asserted the banner from the strings alone, which is the reading this phase replaced —
+  // asserted the banner from the strings alone, which is the reading this spec replaced —
   // so it is split by what the tokens prove rather than deleted.
   it("Banner_AuthoritiesDifferAndNoTokenHeld_StillNamesTheConflict", async () => {
     // Nothing has been tried yet, so nothing has been proven. Going quiet here would take

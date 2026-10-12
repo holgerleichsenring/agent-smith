@@ -121,7 +121,7 @@ export class AuthSession {
   // An expired token is refused by every call it is sent on, so it is never
   // served. With a refresh token the renewal is one direct token request and
   // answers in a round trip; without one it would be the hidden frame, which is
-  // the ten seconds this phase exists to stop every load paying.
+  // the ten seconds this spec exists to stop every load paying.
   private async renewExpired(held: User): Promise<void> {
     if (!held.refresh_token) return this.discard();
     try {

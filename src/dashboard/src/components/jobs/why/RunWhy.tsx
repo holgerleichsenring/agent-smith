@@ -7,7 +7,7 @@ import { useRunDetailSnapshot } from "@/hooks/useRunDetailSnapshot";
 import { VerifySummary } from "@/components/jobs/story/VerifySummary";
 import { buildVerifyFallback } from "@/components/jobs/story/verifyFallback";
 import { TicketStatistics } from "./TicketStatistics";
-import { PhaseAccount } from "./PhaseAccount";
+import { SpecAccount } from "./SpecAccount";
 import { TraceReader } from "./TraceReader";
 import { RunWhyHeader } from "./RunWhyHeader";
 
@@ -17,7 +17,7 @@ import { RunWhyHeader } from "./RunWhyHeader";
 // cheap is recorded and almost nothing is shown until somebody asks this question.
 //
 // Read top to bottom it is one argument: what the ticket cost, what it promised and how
-// each promise was accounted for, then phase by phase the commands with their exit codes
+// each promise was accounted for, then spec by spec the commands with their exit codes
 // and the calls with their sizes — and, when the run was traced, the conversation itself.
 
 export function RunWhy({ runId }: { runId: string }) {
@@ -62,17 +62,17 @@ export function RunWhy({ runId }: { runId: string }) {
             )}
 
             {statistics.phases.length === 0 ? (
-              <p className="hint" data-testid="run-why-no-phases">
-                This run recorded no step, so there is no phase to account for. Runs older
+              <p className="hint" data-testid="run-why-no-specs">
+                This run recorded no step, so there is no spec to account for. Runs older
                 than the durable record can look like this.
               </p>
             ) : (
-              statistics.phases.map((phase) => (
-                <PhaseAccount
-                  key={phase.phaseId ?? "unphased"}
-                  phase={phase}
-                  calls={statistics.calls.filter((c) => c.phaseId === phase.phaseId)}
-                  commands={statistics.commands.filter((c) => c.phaseId === phase.phaseId)}
+              statistics.phases.map((spec) => (
+                <SpecAccount
+                  key={spec.phaseId ?? "outside-any-spec"}
+                  spec={spec}
+                  calls={statistics.calls.filter((c) => c.phaseId === spec.phaseId)}
+                  commands={statistics.commands.filter((c) => c.phaseId === spec.phaseId)}
                 />
               ))
             )}

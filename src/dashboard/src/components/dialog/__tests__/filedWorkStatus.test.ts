@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  isPhaseTerminal,
+  isSpecTerminal,
   markClass,
-  phaseStatusWords,
+  specStatusWords,
   pullRequestWords,
   runStatusTone,
 } from "../filedWorkStatus";
@@ -12,26 +12,26 @@ import {
 // fixture happens to carry — and the two that matter most on this page, a pull request that
 // could not be opened and a run waiting on a person, are exactly the ones no fixture had.
 
-describe("phaseStatusWords", () => {
-  it("PhaseStatus_TheFiveTheProjectionWrites_AreEnglishAndOnlyTheStoppedOnesAlarm", () => {
-    expect(phaseStatusWords("not_started")).toEqual({ word: "not started", tone: "" });
-    expect(phaseStatusWords("in_progress")).toEqual({ word: "running", tone: "" });
-    expect(phaseStatusWords("done")).toEqual({ word: "done", tone: "" });
-    expect(phaseStatusWords("failed")).toEqual({ word: "failed", tone: "bad" });
-    expect(phaseStatusWords("handed_back")).toEqual({ word: "handed back", tone: "warn" });
+describe("specStatusWords", () => {
+  it("SpecStatus_TheFiveTheProjectionWrites_AreEnglishAndOnlyTheStoppedOnesAlarm", () => {
+    expect(specStatusWords("not_started")).toEqual({ word: "not started", tone: "" });
+    expect(specStatusWords("in_progress")).toEqual({ word: "running", tone: "" });
+    expect(specStatusWords("done")).toEqual({ word: "done", tone: "" });
+    expect(specStatusWords("failed")).toEqual({ word: "failed", tone: "bad" });
+    expect(specStatusWords("handed_back")).toEqual({ word: "handed back", tone: "warn" });
   });
 
   // A status nobody has named yet is shown, not hidden and not guessed into a state: the
   // underscores open and the tone stays calm, because an unknown word is not an alarm.
-  it("PhaseStatus_AWordTheMapDoesNotCarry_IsOpenedRatherThanShownRaw", () => {
-    expect(phaseStatusWords("some_new_state")).toEqual({ word: "some new state", tone: "" });
+  it("SpecStatus_AWordTheMapDoesNotCarry_IsOpenedRatherThanShownRaw", () => {
+    expect(specStatusWords("some_new_state")).toEqual({ word: "some new state", tone: "" });
   });
 });
 
-describe("isPhaseTerminal", () => {
-  it("PhaseTerminal_TheThreeStoppedStates_AreTerminalAndTheOthersAreNot", () => {
-    expect(["done", "failed", "handed_back"].map(isPhaseTerminal)).toEqual([true, true, true]);
-    expect(["not_started", "in_progress", "invented"].map(isPhaseTerminal))
+describe("isSpecTerminal", () => {
+  it("SpecTerminal_TheThreeStoppedStates_AreTerminalAndTheOthersAreNot", () => {
+    expect(["done", "failed", "handed_back"].map(isSpecTerminal)).toEqual([true, true, true]);
+    expect(["not_started", "in_progress", "invented"].map(isSpecTerminal))
       .toEqual([false, false, false]);
   });
 });

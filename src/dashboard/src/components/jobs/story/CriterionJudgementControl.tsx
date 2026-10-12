@@ -6,7 +6,7 @@ import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsA
 /**
  * 2026-08-25-e257: where the operator says a criterion's disposition was wrong.
  *
- * A LABEL, not a control. Recording one does not re-open the gate, re-run the phase or move
+ * A LABEL, not a control. Recording one does not re-open the gate, re-run the spec or move
  * the run's state — a button that also shipped things would be pressed for reasons that have
  * nothing to do with whether the account was right, and the corpus would then measure
  * impatience.

@@ -1,4 +1,4 @@
-// 2026-09-17-042ef, found by looking at the rendered page: a phase's status arrived on screen as
+// 2026-09-17-042ef, found by looking at the rendered page: a spec's status arrived on screen as
 // the column value the projection writes — "in_progress", "not_started" — set inline in the
 // prose around it, so a state was indistinguishable from a sentence. The Projects page renders
 // every fact about a project as a MARK; a state is a fact, and it gets one here too.
@@ -17,7 +17,7 @@ export interface StatusWords {
 }
 
 // RunSpecProjection.StatusOf writes exactly these five and nothing else.
-const PHASE_STATUS: Record<string, StatusWords> = {
+const SPEC_STATUS: Record<string, StatusWords> = {
   not_started: { word: "not started", tone: "" },
   in_progress: { word: "running", tone: "" },
   done: { word: "done", tone: "" },
@@ -28,17 +28,17 @@ const PHASE_STATUS: Record<string, StatusWords> = {
   handed_back: { word: "handed back", tone: "warn" },
 };
 
-/** What a phase's status column says, in words, and which mark carries it. */
-export function phaseStatusWords(status: string): StatusWords {
-  return PHASE_STATUS[status] ?? { word: status.replace(/_/g, " "), tone: "" };
+/** What a spec's status column says, in words, and which mark carries it. */
+export function specStatusWords(status: string): StatusWords {
+  return SPEC_STATUS[status] ?? { word: status.replace(/_/g, " "), tone: "" };
 }
 
-// RunSpecProjection.IsTerminal — the three states a phase does not leave again.
+// RunSpecProjection.IsTerminal — the three states a spec does not leave again.
 const TERMINAL = new Set(["done", "failed", "handed_back"]);
 
-/** Whether the phase has stopped. A phase still running has not reached its review yet; one
+/** Whether the spec has stopped. A spec still running has not reached its review yet; one
  *  that has stopped and carries no review row is a gap in the evidence, not a not-yet. */
-export function isPhaseTerminal(status: string): boolean {
+export function isSpecTerminal(status: string): boolean {
   return TERMINAL.has(status);
 }
 

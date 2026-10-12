@@ -1,7 +1,7 @@
 "use client";
 
 import type {
-  SpecDialogPhaseProposal,
+  SpecDraftProposal,
   SpecDialogProposalPush,
 } from "@/types/spec-dialog";
 
@@ -18,7 +18,7 @@ import type {
 // the work ticket carrying the whole approved set, and each slice is a record beside it. So
 // "waits for" names the edge the cut declared, not a ticket held in a queue behind another.
 //
-// 2026-10-02-3f06c: what a phase rests on is shown under its plan — each fact with the evidence
+// 2026-10-02-3f06c: what a spec rests on is shown under its plan — each fact with the evidence
 // it cites, then what it states without having looked. The partner writes both now, and a
 // finding that a citation does not resolve is only readable beside the fact it is against.
 //
@@ -28,8 +28,8 @@ import type {
 // its panel card, so the local eyebrow this file declared is gone.
 
 export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposalPush }) {
-  const phases = [proposal.parent, proposal.phase, ...proposal.children].filter(
-    (phase): phase is SpecDialogPhaseProposal => phase !== null,
+  const specs = [proposal.parent, proposal.phase, ...proposal.children].filter(
+    (spec): spec is SpecDraftProposal => spec !== null,
   );
   return (
     <div data-testid="dialog-proposal" data-kind={proposal.kind} className="flex flex-col gap-3.5">
@@ -40,8 +40,8 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>
       )}
-      {proposal.phase && <Phase phase={proposal.phase} label="One phase" />}
-      {proposal.parent && <Phase phase={proposal.parent} label="The work ticket — one run works every slice" />}
+      {proposal.phase && <Spec spec={proposal.phase} label="One spec" />}
+      {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" />}
       {proposal.children.length > 0 && (
         <div>
           <Label>Slices, in the order they will be filed</Label>
@@ -54,18 +54,18 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
           </ol>
         </div>
       )}
-      {phases.some((phase) => phase.yaml) && (
+      {specs.some((spec) => spec.yaml) && (
         <details>
           <summary className="fl cursor-pointer">
             The same thing, as it will be filed
           </summary>
-          {phases.filter((phase) => phase.yaml).map((phase) => (
+          {specs.filter((spec) => spec.yaml).map((spec) => (
             <pre
-              key={phase.phaseId}
-              data-testid={`dialog-proposal-raw-${phase.phaseId}`}
+              key={spec.phaseId}
+              data-testid={`dialog-proposal-raw-${spec.phaseId}`}
               className="card-terminal-panel mt-1.5 overflow-x-auto whitespace-pre px-3 py-2.5 dsh-mono"
             >
-              {phase.yaml}
+              {spec.yaml}
             </pre>
           ))}
         </details>
@@ -74,13 +74,13 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
   );
 }
 
-function Phase({ phase, label }: { phase: SpecDialogPhaseProposal; label: string }) {
+function Spec({ spec, label }: { spec: SpecDraftProposal; label: string }) {
   return (
-    <div data-testid={`dialog-proposal-phase-${phase.phaseId}`}>
+    <div data-testid={`dialog-proposal-spec-${spec.phaseId}`}>
       <Label>{label}</Label>
-      <h3 className="dsh-h3 font-semibold text-ink">{phase.goal}</h3>
-      <div className="fv">{phase.phaseId}</div>
-      <Sections phase={phase} />
+      <h3 className="dsh-h3 font-semibold text-ink">{spec.goal}</h3>
+      <div className="fv">{spec.phaseId}</div>
+      <Sections spec={spec} />
     </div>
   );
 }
@@ -90,13 +90,13 @@ function Slice({
   siblings,
   open,
 }: {
-  slice: SpecDialogPhaseProposal;
-  siblings: SpecDialogPhaseProposal[];
+  slice: SpecDraftProposal;
+  siblings: SpecDraftProposal[];
   open: boolean;
 }) {
   return (
     <details
-      data-testid={`dialog-proposal-phase-${slice.phaseId}`}
+      data-testid={`dialog-proposal-spec-${slice.phaseId}`}
       open={open}
       className="ecard inert"
     >
@@ -112,30 +112,30 @@ function Slice({
             return at < 0 ? id : `Slice ${at + 1} · ${id}`;
           })}
         />
-        <Sections phase={slice} withoutRequires />
+        <Sections spec={slice} withoutRequires />
       </div>
     </details>
   );
 }
 
-function Sections({ phase, withoutRequires }: { phase: SpecDialogPhaseProposal; withoutRequires?: boolean }) {
+function Sections({ spec, withoutRequires }: { spec: SpecDraftProposal; withoutRequires?: boolean }) {
   return (
     <>
-      <Lines label="Steps" items={phase.steps} />
-      <Lines label="Tests" items={phase.tests} mono />
-      <Lines label="Done when" items={phase.done} />
-      {!withoutRequires && <Lines label="Waits for" items={phase.requires} />}
-      <RestsOn phase={phase} />
-      <Lines label="Assumed, not looked at" items={phase.assumptions ?? []} />
+      <Lines label="Steps" items={spec.steps} />
+      <Lines label="Tests" items={spec.tests} mono />
+      <Lines label="Done when" items={spec.done} />
+      {!withoutRequires && <Lines label="Waits for" items={spec.requires} />}
+      <RestsOn spec={spec} />
+      <Lines label="Assumed, not looked at" items={spec.assumptions ?? []} />
     </>
   );
 }
 
-function RestsOn({ phase }: { phase: SpecDialogPhaseProposal }) {
-  const facts = phase.facts ?? [];
+function RestsOn({ spec }: { spec: SpecDraftProposal }) {
+  const facts = spec.facts ?? [];
   if (facts.length === 0) return null;
   return (
-    <div className="mt-2" data-testid={`dialog-proposal-facts-${phase.phaseId}`}>
+    <div className="mt-2" data-testid={`dialog-proposal-facts-${spec.phaseId}`}>
       <Label>Rests on</Label>
       <ul className="ml-4 list-disc dsh-body text-ink">
         {facts.map((fact) => (

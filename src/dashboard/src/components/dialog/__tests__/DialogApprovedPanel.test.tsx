@@ -22,7 +22,7 @@ describe("DialogApprovedPanel", () => {
         tests: [],
         done: ["the thing works"],
         requires: [],
-        yaml: "phase: p0001a",
+        yaml: "spec: p0001a",
       },
     ],
   };
@@ -35,10 +35,10 @@ describe("DialogApprovedPanel", () => {
     expect(line).toContain("not necessarily what a run is working");
   });
 
-  it("draws every approved phase with its done criteria", () => {
+  it("draws every approved spec with its done criteria", () => {
     render(<DialogApprovedPanel approved={approved} />);
 
-    expect(screen.getByTestId("dialog-approved-phase-p0001a").textContent).toContain(
+    expect(screen.getByTestId("dialog-approved-spec-p0001a").textContent).toContain(
       "Make the thing work",
     );
     expect(screen.getByText("the thing works")).toBeInTheDocument();

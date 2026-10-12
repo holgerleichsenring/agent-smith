@@ -8,8 +8,8 @@ import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 
 // p0423b: THE TWO VIEWS. Progress-watching and failure-diagnosis are different jobs and
 // must not share a screen. The live view answers "what is happening" — progress, the
-// current phase, the current step — and carries none of the story view's statistics: no
-// call-size plot, no per-phase accounting, no call or command tables, and it does not even
+// current spec, the current step — and carries none of the story view's statistics: no
+// call-size plot, no per-spec accounting, no call or command tables, and it does not even
 // FETCH them. The story view is one deliberate click away and nowhere else.
 
 vi.mock("next/navigation", () => ({
@@ -104,7 +104,7 @@ describe("The live view", () => {
     // None of the story view's statistics are on this screen.
     expect(screen.queryByTestId("call-size-plot")).not.toBeInTheDocument();
     expect(screen.queryByTestId("ticket-statistics")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("phase-account")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("spec-account")).not.toBeInTheDocument();
     expect(screen.queryByTestId("call-table")).not.toBeInTheDocument();
     expect(screen.queryByTestId("command-table")).not.toBeInTheDocument();
   });

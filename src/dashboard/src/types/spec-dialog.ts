@@ -134,7 +134,7 @@ export interface SpecDialogSession {
 
 /** What a conversation's latest filing created. Only a filing produces one. */
 export interface SpecDialogConversationOutcome {
-  /** "bug", "phase" or "epic" from the latest proposal; null once that was rejected. */
+  /** "bug", "phase" (a spec, until 2026-10-12-967ab) or "epic" from the latest proposal; null once that was rejected. */
   kind: string | null;
   tickets: number;
   /** The filing stopped with an error after creating some of the tickets. */
@@ -295,8 +295,9 @@ export interface SpecDialogTurnLiveness {
 // event-type generator scans the events namespace by base type, and these derive from
 // neither base.
 
-/** One drafted phase as the proposal pane renders it. */
-export interface SpecDialogPhaseProposal {
+/** One drafted spec as the proposal pane renders it. The served member names (`phaseId`, and
+ *  `phase`/`phases` where it is carried) still say phase until 2026-10-12-967ab. */
+export interface SpecDraftProposal {
   phaseId: string;
   goal: string;
   /** The step actions, in spec order. */
@@ -306,15 +307,15 @@ export interface SpecDialogPhaseProposal {
   requires: string[];
   /** The spec as the master wrote it — the raw form the reply no longer carries. */
   yaml: string;
-  /** 2026-10-02-3f06c: what the phase rests on — each fact with the evidence it cites. Optional,
+  /** 2026-10-02-3f06c: what the spec rests on — each fact with the evidence it cites. Optional,
    *  because a proposal stored before it was carried has none. */
-  facts?: SpecDialogPhaseFact[];
-  /** 2026-10-02-3f06c: what the phase states without having looked. */
+  facts?: SpecDraftFact[];
+  /** 2026-10-02-3f06c: what the spec states without having looked. */
   assumptions?: string[];
 }
 
-/** 2026-10-02-3f06c: one fact a drafted phase states, with the evidence it cites. */
-export interface SpecDialogPhaseFact {
+/** 2026-10-02-3f06c: one fact a drafted spec states, with the evidence it cites. */
+export interface SpecDraftFact {
   claim: string;
   evidence: string;
 }
@@ -328,7 +329,7 @@ export interface SpecDialogBugProposal {
 /**
  * 2026-09-17-042ed: one thing the turn's own review found against the proposal. `evidence` is the
  * framework-minted line of the look it rests on, already resolved from the id it cited; `quote` is
- * what the phase states, for a finding that cites nothing. Hand-written, as the push it rides on is.
+ * what the spec states, for a finding that cites nothing. Hand-written, as the push it rides on is.
  */
 export interface SpecDialogProposalFinding {
   phaseId: string;
@@ -344,13 +345,13 @@ export interface SpecDialogProposalFinding {
  */
 export interface SpecDialogProposalPush {
   dialogId: string;
-  /** "bug", "phase" or "epic" — the pane renders by it. */
+  /** "bug", "phase" (a spec, until 2026-10-12-967ab) or "epic" — the pane renders by it. */
   kind: string;
   bug: SpecDialogBugProposal | null;
-  phase: SpecDialogPhaseProposal | null;
-  parent: SpecDialogPhaseProposal | null;
+  phase: SpecDraftProposal | null;
+  parent: SpecDraftProposal | null;
   /** An epic's children IN THE ORDER THEY WILL BE FILED. */
-  children: SpecDialogPhaseProposal[];
+  children: SpecDraftProposal[];
   at: string;
   /** What the turn's review found; empty for a clean review and for one that could not be taken,
    * and absent altogether on a proposal stored before the review shipped. */
@@ -383,9 +384,9 @@ export interface SpecDialogFiledTicket {
   ticketId?: string | null;
   project?: string | null;
   /** 2026-09-17-042em: what a person calls it — the Jira key, or the tracker's number behind a
-   * hash. Absent on a filing written before that phase, which reads by its reference as before. */
+   * hash. Absent on a filing written before that spec, which reads by its reference as before. */
   key?: string | null;
-  /** Absent on a filing written before this phase — the panel then says nothing about it. */
+  /** Absent on a filing written before this spec — the panel then says nothing about it. */
   start?: SpecDialogFiledStart | null;
 }
 
@@ -403,10 +404,10 @@ export interface SpecDialogFilingPush {
 }
 
 // 2026-09-17-042ej: what the conversation that filed work is now following. The rows are
-// ticket, then run, then PHASE — the unit an operator reasons in. Read over a route of its
+// ticket, then run, then SPEC — the unit an operator reasons in. Read over a route of its
 // own and refetched on a data-free nudge; nothing about a run arrives over the hub.
 
-/** One thing 2026-09-17-042eh's review kept against a phase's own diff. */
+/** One thing 2026-09-17-042eh's review kept against a spec's own diff. */
 /** 2026-09-25-8e51d: the specification a person approved for the ticket a conversation belongs
  *  to. Labelled with its approval, because the branch — not this — is what a run reads. */
 export interface ApprovedSetView {
@@ -416,7 +417,7 @@ export interface ApprovedSetView {
   approvedBy: string | null;
   approvedInConversation: string | null;
   repositories: string[];
-  phases: SpecDialogPhaseProposal[];
+  phases: SpecDraftProposal[];
 }
 
 export interface FiledWorkFinding {
@@ -431,10 +432,10 @@ export interface FiledWorkFinding {
 }
 
 /**
- * What came of one phase's review, in four states. `reviewed` true is a fresh instance that
+ * What came of one spec's review, in four states. `reviewed` true is a fresh instance that
  * read the diff — with or without findings. `reviewed` false is NOT a clean review: nobody
  * was asked, and `why` says which reason it was. `unreadable` is a row that exists and cannot
- * be deserialized. A null review on the phase is the fourth: no row at all, so it never
+ * be deserialized. A null review on the spec is the fourth: no row at all, so it never
  * reached its review step.
  */
 export interface FiledWorkReview {

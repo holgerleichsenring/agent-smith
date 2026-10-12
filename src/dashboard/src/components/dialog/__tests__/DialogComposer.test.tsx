@@ -110,7 +110,7 @@ describe("DialogComposer", () => {
     expect(text).toHaveValue("");
   });
 
-  // Found while reviewing this phase's own diff: disabled is not only a state the composer is
+  // Found while reviewing this spec's own diff: disabled is not only a state the composer is
   // rendered in, it is one it ARRIVES at — the session can close under it — and the hidden file
   // input carries no disabled of its own, so a menu left standing would still reach the picker.
   it("DialogComposer_WhenDisabledWhileTheMenuStandsOpen_TheMenuGoesWithIt", () => {

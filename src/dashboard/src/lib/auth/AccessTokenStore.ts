@@ -8,9 +8,9 @@
 // about the system around it: the SESSION it is minted from is now kept in
 // session storage (createAuthorityClient) so that a reload finds it, and the
 // larger credential in that session is the refresh token, not this one. The
-// exposure that buys is written down in the phase, and what retires it —
+// exposure that buys is written down in the spec, and what retires it —
 // custody moved to the server, behind a cookie the page cannot read — is a
-// phase of its own rather than a promise made in a comment.
+// spec of its own rather than a promise made in a comment.
 
 /** An access token and the moment the authority stops accepting it. */
 export interface AccessTokenGrant {

@@ -41,11 +41,11 @@ export function authoritySettings(auth: RuntimeAuthSettings, origin: string): Us
     scope: auth.scopes.trim() || MINIMUM_SCOPE,
     // 2026-08-28-0f46: the session is held where a reload finds it, which is the
     // whole of what a reload used to cost. 2026-08-25-2de1 held it in memory and
-    // paid for a reload with a silent re-ask that this phase proves never
+    // paid for a reload with a silent re-ask that this spec proves never
     // arrives; the honest reading of session storage is not "never shared" —
     // a duplicated tab copies it — but "dropped when the tab closes, and never
     // written to a disk that outlives it", which local storage is not. What
-    // retires the exposure is custody moved to the server, a phase of its own.
+    // retires the exposure is custody moved to the server, a spec of its own.
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     // The PKCE verifier and the anti-forgery state are the one thing memory cannot
     // hold: they have to survive the navigation to the authority and back. Neither

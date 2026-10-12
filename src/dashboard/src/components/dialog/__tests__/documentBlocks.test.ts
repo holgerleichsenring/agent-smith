@@ -4,11 +4,11 @@ import { documentBlocks, documentTitle } from "../documentBlocks";
 // 2026-10-01-aeb6b: a reply is split into prose and documents before markdown sees it.
 describe("documentBlocks", () => {
   it("splits prose and four-backtick document fences, keeping inner code fences", () => {
-    const reply = "Here it is.\n\n````document\n# Hand-off\n```yaml\nphase: p1\n```\nGo.\n````\n\nAsk me more.";
+    const reply = "Here it is.\n\n````document\n# Hand-off\n```yaml\nspec: p1\n```\nGo.\n````\n\nAsk me more.";
 
     expect(documentBlocks(reply)).toEqual([
       { kind: "prose", text: "Here it is." },
-      { kind: "document", text: "# Hand-off\n```yaml\nphase: p1\n```\nGo." },
+      { kind: "document", text: "# Hand-off\n```yaml\nspec: p1\n```\nGo." },
       { kind: "prose", text: "Ask me more." },
     ]);
   });

@@ -176,6 +176,6 @@ function summaryOf(proposal: SpecDialogProposalPush): string | null {
     // counts what the button files, so it has to count what is actually filed.
     return `File this epic? One work ticket carrying ${slices} slice${slices === 1 ? "" : "s"}.`;
   }
-  if (proposal.phase) return "File this phase? One ticket.";
+  if (proposal.phase) return "File this spec? One ticket.";
   return null;
 }

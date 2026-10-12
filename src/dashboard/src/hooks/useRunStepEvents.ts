@@ -48,7 +48,7 @@ export function useRunStepEvents(
 
   // The newest page. Also what the poll falls back to while the step has not
   // produced a single row yet: there is no cursor to read forward from, and
-  // asking for "everything from the start" is the anchor bug this phase removed.
+  // asking for "everything from the start" is the anchor bug this spec removed.
   const readNewestPage = useCallback(
     async (signal?: AbortSignal) => {
       if (!runId || stepIndex === null) return;

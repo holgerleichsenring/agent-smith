@@ -5,7 +5,7 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 // before the click is acted on.
 //
 // The wording is chosen by the KIND of the latest filing, because that is what decides whether
-// anything in the tracker points back here. A filed phase and an epic parent carry a sentence
+// anything in the tracker points back here. A filed spec and an epic parent carry a sentence
 // naming the conversation; a bug ticket's body has none, and claiming one it never had would be
 // a warning about nothing. The kind is nullable — it falls back to the latest proposal, which is
 // cleared when a proposal is rejected or times out — so the third sentence is the one true of
@@ -36,6 +36,7 @@ function named(conversation: SpecDialogSessionSummary): string {
 
 function survives(conversation: SpecDialogSessionSummary): string {
   const kind = conversation.outcome?.kind ?? null;
+  // "phase" is the served kind of a filed spec until 2026-10-12-967ab.
   if (kind === "phase" || kind === "epic") {
     return "The tickets it filed stay in the tracker, and the specification approved here stays"
       + " with them — but the sentence in the ticket that names this conversation will stop"

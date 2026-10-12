@@ -1,13 +1,13 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { PhaseAccount } from "../PhaseAccount";
+import { SpecAccount } from "../SpecAccount";
 import { TicketStatistics } from "../TicketStatistics";
 import type {
-  RunCallPoint, RunCommandPoint, RunPhaseStatistics, RunStatistics,
+  RunCallPoint, RunCommandPoint, RunSpecStatistics, RunStatistics,
 } from "@/lib/runStoryApi";
 import type { RunAcceptance } from "@/types/hub-events";
 
-// p0423b: the story view answers "why did this run do that" — phase by phase, its criteria
+// p0423b: the story view answers "why did this run do that" — spec by spec, its criteria
 // and how each was accounted for, its commands with exit codes, and its calls with their
 // sizes and durations. Every number is a fold over the trail; none is a counter.
 
@@ -21,7 +21,7 @@ function stats(over: Partial<RunStatistics["totals"]> = {}): RunStatistics["tota
   };
 }
 
-const PHASE: RunPhaseStatistics = {
+const SPEC: RunSpecStatistics = {
   phaseId: "p1", steps: 4, durationMs: 1_980_000,
   calls: stats(), commands: 3, failedCommands: 1,
 };
@@ -54,21 +54,21 @@ const ACCEPTANCE: RunAcceptance = {
 };
 
 describe("The story view", () => {
-  it("StoryView_ShowsEachPhaseWithItsAccountingAndItsCalls", () => {
+  it("StoryView_ShowsEachSpecWithItsAccountingAndItsCalls", () => {
     render(
-      <PhaseAccount
-        phase={PHASE}
+      <SpecAccount
+        spec={SPEC}
         calls={[call(1, 151_040, 3_886), call(2, 356_632, 0)]}
         commands={COMMANDS}
       />,
     );
 
-    const account = screen.getByTestId("phase-account");
-    expect(account).toHaveAttribute("data-phase", "p1");
+    const account = screen.getByTestId("spec-account");
+    expect(account).toHaveAttribute("data-spec", "p1");
     expect(account).toHaveTextContent("Spec p1");
 
-    // The phase's own accounting — steps, wall clock, calls, the sizes that matter.
-    const numbers = within(account).getByTestId("phase-numbers");
+    // The spec's own accounting — steps, wall clock, calls, the sizes that matter.
+    const numbers = within(account).getByTestId("spec-numbers");
     expect(numbers).toHaveTextContent("Steps");
     expect(numbers).toHaveTextContent("357k");
     expect(numbers).toHaveTextContent("1 non-zero");
@@ -85,22 +85,22 @@ describe("The story view", () => {
     expect(within(account).getAllByTestId("call-row")).toHaveLength(2);
   });
 
-  it("StoryView_APhaseWhereNothingFailed_SaysSo_RatherThanShowingGreen", () => {
+  it("StoryView_ASpecWhereNothingFailed_SaysSo_RatherThanShowingGreen", () => {
     render(
-      <PhaseAccount
-        phase={{ ...PHASE, failedCommands: 0, calls: stats({ failedCalls: 0 }) }}
+      <SpecAccount
+        spec={{ ...SPEC, failedCommands: 0, calls: stats({ failedCalls: 0 }) }}
         calls={[call(1, 1000, 900)]}
         commands={[COMMANDS[0]]}
       />,
     );
 
-    expect(screen.getByTestId("phase-verdict")).toHaveTextContent("nothing failed");
+    expect(screen.getByTestId("spec-verdict")).toHaveTextContent("nothing failed");
   });
 
   it("TicketStatistics_ComeFromTheTrail_NotFromCounters", () => {
     const statistics: RunStatistics = {
       totals: stats(), totalDurationMs: 2_040_000,
-      phases: [PHASE, { ...PHASE, phaseId: "p2" }],
+      phases: [SPEC, { ...SPEC, phaseId: "p2" }],
       calls: [], commands: [], truncated: false,
     };
 

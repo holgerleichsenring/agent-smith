@@ -51,7 +51,7 @@ describe("The conversations page", () => {
     expect(row).toHaveTextContent("Aktualisierung aller Projektbibliotheken");
     expect(row).toHaveTextContent("sample");
     expect(row).toHaveTextContent("4 turns");
-    expect(row).toHaveTextContent("phase filed · 2 tickets");
+    expect(row).toHaveTextContent("spec filed · 2 tickets");
   });
 
   // The point of the page is the rows the panel does not show, so it asks for the ceiling rather

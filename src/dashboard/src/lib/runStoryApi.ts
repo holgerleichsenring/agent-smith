@@ -8,7 +8,7 @@
 import { getJson } from "@/lib/apiResponse";
 import { acceptSpecNames } from "@/lib/acceptedNames";
 
-/** The fold over a slice of the trail — the same shape for a run and for one phase. */
+/** The fold over a slice of the trail — the same shape for a run and for one spec. */
 export interface RunCallStatistics {
   calls: number;
   failedCalls: number;
@@ -38,7 +38,7 @@ export interface RunCallPoint {
   attempt: number;
 }
 
-/** One command a phase ran, with the exit code it ended on. */
+/** One command a spec ran, with the exit code it ended on. */
 export interface RunCommandPoint {
   index: number;
   phaseId: string | null;
@@ -52,7 +52,8 @@ export interface RunCommandPoint {
   attempt: number;
 }
 
-export interface RunPhaseStatistics {
+/** One spec's account. The served member names still say phase until 2026-10-12-967ab. */
+export interface RunSpecStatistics {
   phaseId: string | null;
   steps: number;
   durationMs: number;
@@ -64,7 +65,7 @@ export interface RunPhaseStatistics {
 export interface RunStatistics {
   totals: RunCallStatistics;
   totalDurationMs: number;
-  phases: RunPhaseStatistics[];
+  phases: RunSpecStatistics[];
   calls: RunCallPoint[];
   commands: RunCommandPoint[];
   truncated: boolean;
