@@ -43,7 +43,7 @@ public static class SpecCutVerdicts
                 + "part that asks for it may be in what you were not shown.");
         if (ticket == CutReviewTicket.Absent)
             lines.Add(
-                $"There is NO TICKET behind these phases. Judge only the {Count(offered.Count)} ways above.\n"
+                $"There is NO TICKET behind these specs. Judge only the {Count(offered.Count)} ways above.\n"
                 + "Never report that something was not asked for: nothing was shown to ask for it.");
         return string.Join("\n", lines);
     }
@@ -60,18 +60,18 @@ public static class SpecCutVerdicts
     private static string Text(string key) => key switch
     {
         Contradiction =>
-            "CONTRADICTION — two things the SAME phase states cannot both hold in one branch\n"
+            "CONTRADICTION — two things the SAME spec states cannot both hold in one branch\n"
             + "   state. \"No production source file is modified\" and \"the old library appears\n"
-            + "   nowhere in the sources\" is the shape: they belong to two phases.",
+            + "   nowhere in the sources\" is the shape: they belong to two specs.",
         Uncheckable =>
-            "UNCHECKABLE — something a phase states that nobody can check against a\n"
+            "UNCHECKABLE — something a spec states that nobody can check against a\n"
             + "   repository or a command: a statement about the PROCESS (\"no push has been performed\", \"the work was\n"
             + "   done in the agreed order\") or about intent rather than result.",
-        NotInTicket => "NOT IN THE TICKET — something a phase states that the ticket never asked for.",
+        NotInTicket => "NOT IN THE TICKET — something a spec states that the ticket never asked for.",
         FalsePremise =>
-            "FALSE PREMISE — the phase rests on something about the repositories that is not\n"
+            "FALSE PREMISE — the spec rests on something about the repositories that is not\n"
             + "   so — a file, a type, a package, a version or a place it assumes — and a look you\n"
-            + "   took shows otherwise. Quote what the phase states that rests on it, and cite the\n"
+            + "   took shows otherwise. Quote what the spec states that rests on it, and cite the\n"
             + "   evidence id of the look that shows it.",
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, "not a cut-review verdict"),
     };

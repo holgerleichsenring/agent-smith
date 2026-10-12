@@ -50,7 +50,7 @@ public sealed class SpecReviewRevert(
         if (await UndoAsync(pipeline, cancellationToken) is { } failure)
             return CommandResult.Fail(
                 $"The review's fix pass could not be reverted: {failure}. The tree carries "
-                + $"unverified work and the phase is not done. The fix pass failed with: {reason}");
+                + $"unverified work and the spec is not done. The fix pass failed with: {reason}");
 
         SpecReviewFixPass.RestoreSnapshot(pipeline);
         var note = $"fix pass reverted: {reason}";
@@ -60,7 +60,7 @@ public sealed class SpecReviewRevert(
             pipeline, report with { Findings = [.. report.Findings.Select(f => f with { Reverted = note })] });
         return CommandResult.Ok(
             $"The review's fix pass was not green and has been reverted to the verified state "
-            + $"({reason}). The phase stands as its first verification left it; "
+            + $"({reason}). The spec stands as its first verification left it; "
             + $"{report.Findings.Count} finding(s) remain.");
     }
 

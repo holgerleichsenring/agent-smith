@@ -58,8 +58,8 @@ public sealed class PremiseCheckStepTests
         model.Use.Should().Be(ModelUse.Call, "a fresh instance is asked, once per phase");
         model.Answer.Should().NotBeNullOrWhiteSpace();
         CommandDisplayNames.Get(CommandNames.CheckSpecPremises)
-            .Should().Be("Check the phase's premises");
+            .Should().Be("Check the spec's premises");
         CommandNames.GetLabel(CommandNames.CheckSpecPremises)
-            .Should().Be("Checking what the phase rests on");
+            .Should().Be("Checking what the spec rests on");
     }
 }

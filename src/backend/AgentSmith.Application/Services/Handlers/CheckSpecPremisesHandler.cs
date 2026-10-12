@@ -36,7 +36,7 @@ public sealed class CheckSpecPremisesHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
-            return Skipped("no phase is current, so there are no premises to check");
+            return Skipped("no spec is current, so there are no premises to check");
 
         var premises = SpecPremises.For(draft);
         // Nothing back-fills premises: a spec drafted before the design partner stated them is
@@ -45,9 +45,9 @@ public sealed class CheckSpecPremisesHandler(
         // (DerivedSpecDecision) — so a derived spec that states nothing of its own lands here
         // and costs no call at all.
         if (premises.None)
-            return Skipped($"phase {draft.PhaseId} states no premises of its own");
+            return Skipped($"spec {draft.PhaseId} states no premises of its own");
         if (PipelineCostTracker.GetOrCreate(context.Pipeline) is { IsBudgetExhausted: true } capped)
-            return Skipped($"{CostCapStop.Describe(capped)} — phase {draft.PhaseId} is UNCHECKED");
+            return Skipped($"{CostCapStop.Describe(capped)} — spec {draft.PhaseId} is UNCHECKED");
 
         await using var look = looks.ForPremiseCheck(context.Pipeline);
         // Every verdict this check can reach rests on a look that ran, so with no repository to
@@ -67,7 +67,7 @@ public sealed class CheckSpecPremisesHandler(
     /// a skip is not — an operator must be able to tell it from a decision not to ask.</summary>
     private CommandResult NotTaken(string reason)
     {
-        var message = $"The premise check could not be taken: {reason}. The phase runs unchecked.";
+        var message = $"The premise check could not be taken: {reason}. The spec runs unchecked.";
         logger.LogWarning("{Message}", message);
         return CommandResult.Ok(message);
     }
@@ -83,7 +83,7 @@ public sealed class CheckSpecPremisesHandler(
     {
         if (check.Skipped is not null) return Skipped(check.Skipped);
         if (check.NotTaken is not null) return NotTaken(check.NotTaken);
-        var message = $"Phase {draft.PhaseId}: every stated premise still holds"
+        var message = $"Spec {draft.PhaseId}: every stated premise still holds"
             + (check.Unproven.Count == 0
                 ? "."
                 : $"; {check.Unproven.Count} reported premise(s) could not be proven either way "

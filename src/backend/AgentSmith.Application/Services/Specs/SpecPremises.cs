@@ -37,7 +37,7 @@ public sealed record SpecPremises(
     {
         var sections = new List<string>();
         if (Facts.Count > 0)
-            sections.Add("FACTS — each one was read somewhere when the phase was written.\n"
+            sections.Add("FACTS — each one was read somewhere when the spec was written.\n"
                 + string.Join("\n", Facts.Select(f =>
                     $"- {f.Claim}" + Where(f.Evidence))));
         if (Assumptions.Count > 0)
@@ -56,6 +56,6 @@ public sealed record SpecPremises(
     private static string Where(string? evidence)
     {
         var text = Regex.Replace(evidence ?? string.Empty, @"^\s*\[[A-Za-z]+\d+\]\s*", string.Empty).Trim();
-        return text.Length == 0 ? string.Empty : $"\n  (where it was seen, when the phase was written: {text})";
+        return text.Length == 0 ? string.Empty : $"\n  (where it was seen, when the spec was written: {text})";
     }
 }

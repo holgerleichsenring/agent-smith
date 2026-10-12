@@ -78,7 +78,7 @@ internal static class MasterPromptSections
     {
         if (draft is null) return string.Empty;
         var sb = new System.Text.StringBuilder();
-        sb.Append("## The phase spec — the plan of record\n\n");
+        sb.Append("## The spec — the plan of record\n\n");
         sb.Append($"**Goal:** {draft.Goal}\n");
         if (draft.Steps.Count > 0)
         {

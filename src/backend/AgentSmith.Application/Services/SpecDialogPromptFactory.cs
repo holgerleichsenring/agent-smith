@@ -89,7 +89,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 
     private static string ProposalContract(bool mayPropose) => mayPropose
         ? "The operator has replied to a discussion, so this turn MAY propose: draft a fenced "
-          + "```yaml phase spec (or an ```outcome block) only when the conversation has converged "
+          + "```yaml spec (or an ```outcome block) only when the conversation has converged "
           + "on work that warrants it — otherwise reply with neither block."
         : "This turn MAY NOT propose: the operator has not yet replied to a discussion of this "
           + "work. Draft no ```yaml or ```outcome block — it would be refused. " + FirstAnswer;

@@ -37,7 +37,7 @@ public sealed class SpecStartHeads(SandboxTargets targets, ILogger<SpecStartHead
             foreach (var (key, sandbox) in sandboxes)
                 if (await HeadAsync(sandbox, cancellationToken) is { } head) heads[key] = head;
             logger.LogInformation(
-                "The phase starts at {Recorded} of {Total} sandbox head(s): {Heads}",
+                "The spec starts at {Recorded} of {Total} sandbox head(s): {Heads}",
                 heads.Count, sandboxes.Count,
                 string.Join(", ", heads.Select(h => $"{h.Key}@{Short(h.Value)}")));
         }

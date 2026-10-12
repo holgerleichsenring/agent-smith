@@ -36,18 +36,18 @@ public static class SpecSetCommentPreamble
     }
 
     private const string Derived =
-        "I split it into the phases below and started working. This is NOT a question and "
+        "I split it into the specs below and started working. This is NOT a question and "
         + "the run is not waiting: comment if the cut is wrong and the next run amends an "
-        + "unstarted phase or re-cuts the unstarted tail. A phase that already ran is never "
-        + "edited — a correction to it becomes a new phase.";
+        + "unstarted spec or re-cuts the unstarted tail. A spec that already ran is never "
+        + "edited — a correction to it becomes a new spec.";
 
     private const string Approved =
         "This set was approved in a design conversation and I started working. This is NOT a "
         + "question and the run is not waiting — and an ordinary comment here will NOT change the "
         + "specification: no passing remark re-cuts a set somebody approved. To change it, edit "
-        + "the phase specs on the ticket branch (they are open in the pull request linked below) "
-        + "and re-trigger: the next run works them as they stand. A phase that already ran is "
-        + "never edited — a correction to it becomes a new phase. Comment anyway if something is "
+        + "the specs on the ticket branch (they are open in the pull request linked below) "
+        + "and re-trigger: the next run works them as they stand. A spec that already ran is "
+        + "never edited — a correction to it becomes a new spec. Comment anyway if something is "
         + "wrong; the run records it and says so, it just will not act on it. "
         + ApprovedSetKept.TheDoor;
 }

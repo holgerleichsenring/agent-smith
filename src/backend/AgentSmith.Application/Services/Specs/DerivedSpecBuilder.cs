@@ -23,8 +23,8 @@ public sealed class DerivedSpecBuilder(
     // themselves — a spec whose completion cannot be stated is a spec nobody can
     // account for. The deriver's retry loop hands the rejection back to the model.
     private const string NoCriteria =
-        "states no done-criteria. Every phase must state what is true when it is finished, "
-        + "in terms someone can check against the repository — a phase that cannot end is not a phase.";
+        "states no done-criteria. Every spec must state what is true when it is finished, "
+        + "in terms someone can check against the repository — a spec that cannot end is not a spec.";
 
     /// <param name="specId">2026-10-12-f5f7d: the id the sequence chose — the position's letter, or
     /// the next free one when that id is taken (<see cref="SeriesIdFactory.NextFree"/>).</param>
@@ -34,16 +34,16 @@ public sealed class DerivedSpecBuilder(
         IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null)
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
-        if (goal.Length == 0) return (null, $"phase {index + 1} has no goal");
+        if (goal.Length == 0) return (null, $"spec {index + 1} has no goal");
         var done = SpecJsonReader.ReadStrings(element, "done");
-        if (done.Count == 0) return (null, $"phase {index + 1} {NoCriteria}");
+        if (done.Count == 0) return (null, $"spec {index + 1} {NoCriteria}");
 
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
             ? SpecIdFactory.Slug(s) : SpecIdFactory.Slug(goal);
         var carried = CarriedBy(element, segments);
         var yaml = Render(element, specId, slug, goal, done, carried, ticketId, previous, evidence, repos ?? []);
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
-            return (null, $"phase {index + 1} ({specId}) is not a valid phase spec: {invalid.Error}");
+            return (null, $"spec {index + 1} ({specId}) is not a valid spec: {invalid.Error}");
 
         // The companion stays the ticket's own bytes: facts live in the yaml, never here.
         var markdown = SegmentExtractor.BuildMarkdown(specId, goal, carried, segments);

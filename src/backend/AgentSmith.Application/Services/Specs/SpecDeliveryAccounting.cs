@@ -35,7 +35,7 @@ public sealed class SpecDeliveryAccounting(
         if (criteria.Count == 0)
         {
             logger.LogInformation(
-                "No ratified criteria for this phase — nothing to account for");
+                "No ratified criteria for this spec — nothing to account for");
             return [];
         }
 
@@ -91,7 +91,7 @@ public sealed class SpecDeliveryAccounting(
         if (!sandboxTargets.TryResolve(pipeline, out var sandboxes, out _)) return existing;
 
         logger.LogInformation(
-            "No phase ran in this run — accounting for the branch against its {Count} criteria here",
+            "No spec ran in this run — accounting for the branch against its {Count} criteria here",
             criteria.Count);
         RunAccountLedger.Record(pipeline, await TakeAsync(pipeline, sandboxes, [], ct));
         return RunAccountLedger.Current(pipeline);

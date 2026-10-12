@@ -21,7 +21,7 @@ public static class UnansweredQuestionPromptSection
             {readings}
 
             Nobody answered, and the ticket was re-triggered. Reading {unanswered.TakenLabel} is
-            therefore the answer: treat it as confirmed by the ticket author, cut phases under it,
+            therefore the answer: treat it as confirmed by the ticket author, cut specs under it,
             and state it as an assumption in the goal or done-list. Do not ask this question again.
             """;
     }

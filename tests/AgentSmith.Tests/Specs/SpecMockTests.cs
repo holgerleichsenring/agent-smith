@@ -50,7 +50,7 @@ public sealed class SpecMockTests
 
         var section = SpecPromptSection.Build(Set(spec), spec);
 
-        section.Should().Contain("### This phase's design mock").And.Contain($"`{Dir}/p1-mock.html`")
+        section.Should().Contain("### This spec's design mock").And.Contain($"`{Dir}/p1-mock.html`")
             .And.Contain("render_reference").And.Contain("never edit or delete it");
     }
 

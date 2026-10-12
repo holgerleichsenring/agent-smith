@@ -23,11 +23,11 @@ public sealed class SpecCutGate(IEventPublisher events, ILogger<SpecCutGate> log
         PipelineContext pipeline, string ticketId, string reason, CancellationToken ct)
     {
         logger.LogWarning(
-            "Refusing to split ticket {Ticket}: {Reason} — one phase with the whole ticket instead",
+            "Refusing to split ticket {Ticket}: {Reason} — one spec with the whole ticket instead",
             ticketId, reason);
         return PublishAsync(
             pipeline, "spec-accounting",
-            $"{reason} — the ticket is carried whole by a single phase", ct);
+            $"{reason} — the ticket is carried whole by a single spec", ct);
     }
 
     /// <summary>

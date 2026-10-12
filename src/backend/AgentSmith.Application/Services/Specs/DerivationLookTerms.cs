@@ -86,7 +86,7 @@ public sealed record DerivationLookTerms(
     /// into the deriver's own history. Its reads are numbered, because a finding names a line.
     /// </summary>
     public static DerivationLookTerms SpecReview { get; } = new(
-        "phase review", SpecReviewAllowance, "P",
+        "spec review", SpecReviewAllowance, "P",
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true, MayRunAStage: false);

@@ -36,14 +36,14 @@ public static class SpecRecutNotice
         if (since is null) return string.Empty;
         // 2026-10-08-f114: at the cap the model did not run, so nothing was cut again or added.
         if (set.UnexecutedTail.Count == 0 && set.Executed.Count >= SpecSet.MaxSpecs)
-            return $"{since} revision {set.Current.Number - 1} was cut, but all {SpecSet.MaxSpecs} phases of this set "
+            return $"{since} revision {set.Current.Number - 1} was cut, but all {SpecSet.MaxSpecs} specs of this set "
                 + "have run — the most one set can hold — so nothing was added. File the feedback as a new ticket.\n\n";
         return $"{since} revision {set.Current.Number - 1} was cut: {Kept(set)} {source}.\n\n";
     }
 
     private static string Kept(SpecSet set) =>
         set.Executed.Count == 0
-            ? "no phase had run yet, so the whole set was cut again"
+            ? "no spec had run yet, so the whole set was cut again"
             : set.UnexecutedTail.Count > 0
                 ? $"{string.Join(", ", set.Executed)} already ran and stayed as it was; the rest was cut again"
                 : $"{string.Join(", ", set.Executed)} already ran and stayed as it was";

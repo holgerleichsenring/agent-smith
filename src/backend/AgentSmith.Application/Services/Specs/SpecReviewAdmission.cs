@@ -67,7 +67,7 @@ internal sealed class SpecReviewAdmission(ILogger logger)
     private bool Discard(PhaseFinding finding, string why)
     {
         logger.LogWarning(
-            "Phase review reported {Repo}/{Path}:{Line} and {Why} — discarding the finding",
+            "Spec review reported {Repo}/{Path}:{Line} and {Why} — discarding the finding",
             finding.Repository, finding.Path, finding.Line, why);
         return false;
     }

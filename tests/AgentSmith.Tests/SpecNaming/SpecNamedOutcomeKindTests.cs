@@ -28,6 +28,6 @@ public sealed class SpecNamedOutcomeKindTests
         var resolution = resolver.Resolve($"Here.\n\n```outcome\nkind: {kind}\n```", []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Be($"kind '{kind}' needs no ```outcome block — emit the phase spec as the bare ```yaml block");
+            .Which.Error.Should().Be($"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block");
     }
 }

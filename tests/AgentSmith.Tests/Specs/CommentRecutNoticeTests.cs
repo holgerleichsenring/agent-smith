@@ -52,7 +52,7 @@ public sealed class CommentRecutNoticeTests
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment) with { Executed = [] };
 
         SpecSetComment.Render(set, null).Should().Contain(
-            "no phase had run yet, so the whole set was cut again with the comment in view.");
+            "no spec had run yet, so the whole set was cut again with the comment in view.");
     }
 
     [Fact]

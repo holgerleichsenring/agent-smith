@@ -33,12 +33,12 @@ public sealed class SpecSequenceHandler(ILogger<SpecSequenceHandler> logger)
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set)
             || set is null || set.Phases.Count == 0)
             return Task.FromResult(CommandResult.Ok(
-                "No derived phases to execute — the run has no spec set"));
+                "No derived specs to execute — the run has no spec set"));
 
         var pending = set.UnexecutedTail;
         if (pending.Count == 0)
             return Task.FromResult(CommandResult.Ok(
-                $"Every phase of {set.Key} already executed on this branch — nothing left to run"));
+                $"Every spec of {set.Key} already executed on this branch — nothing left to run"));
 
         context.Pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(set));
         // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
@@ -56,7 +56,7 @@ public sealed class SpecSequenceHandler(ILogger<SpecSequenceHandler> logger)
             string.Join(", ", pending.Select(p => p.PhaseId)));
 
         return Task.FromResult(CommandResult.OkAndContinueWith(
-            $"{pending.Count} phase(s) to work through: "
+            $"{pending.Count} spec(s) to work through: "
             + string.Join(", ", pending.Select(p => $"{p.PhaseId} ({p.Draft.Goal})")),
             commands));
     }

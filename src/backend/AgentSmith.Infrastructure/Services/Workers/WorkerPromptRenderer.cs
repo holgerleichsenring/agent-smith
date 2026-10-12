@@ -42,7 +42,7 @@ public sealed class WorkerPromptRenderer(WorkerJsonFormat json)
 
         Ask for EVERYTHING you already know you need. The framework runs the whole list
         and hands you every result together, so five independent reads cost one round
-        instead of five. Round trips are the run's wall clock: a 40-minute phase is
+        instead of five. Round trips are the run's wall clock: a 40-minute spec run is
         rarely 40 minutes of work, it is 85 round trips of waiting.
 
         Split into separate answers only where you genuinely must: when what you ask for

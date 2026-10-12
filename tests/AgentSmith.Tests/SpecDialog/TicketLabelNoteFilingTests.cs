@@ -38,7 +38,7 @@ public sealed class TicketLabelNoteFilingTests
         // record and this spec moved discovery onto it too, so the sentence that named what
         // removing the label costs is no longer true and says what the label is FOR instead.
         lines[0].Should().Contain(FiledTicketLabels.ApprovedSetStamp)
-            .And.Contain("binds this ticket to phase execution")
+            .And.Contain("binds this ticket to spec execution")
             .And.Contain("It is a hint, not the binding",
                 "the record binds; the label is what a person scanning the board reads")
             .And.NotContain("Removing it costs",

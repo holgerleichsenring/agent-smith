@@ -14,7 +14,7 @@ internal static class QuestionHandbackShape
     {
         if (readings.Count < MinReadings)
             return $"a question hand-back needs at least {MinReadings} readings — "
-                + $"{readings.Count} given; if there is only one reading, cut phases under it";
+                + $"{readings.Count} given; if there is only one reading, cut specs under it";
         if (taken < 0 || taken >= readings.Count)
             return $"the taken index {taken} names none of the {readings.Count} readings";
         return null;

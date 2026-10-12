@@ -18,7 +18,7 @@ public static partial class SpecIdFactory
     public static string Slug(string goal)
     {
         var slug = NonSlugRegex().Replace(goal.ToLowerInvariant(), "-").Trim('-');
-        if (slug.Length == 0) return "phase";
+        if (slug.Length == 0) return "spec";
         return slug.Length <= MaxSlugLength ? slug : slug[..MaxSlugLength].TrimEnd('-');
     }
 

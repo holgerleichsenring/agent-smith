@@ -24,7 +24,7 @@ internal static class MasterNudges
     // p0263: the focused second-shot prompt when the master edited source but emitted
     // no verdict — verify only (no further edits) and emit ONLY the verdict block.
     internal static string BuildVerdictNudge(string originalUserPrompt, ProgressLedger ledger) =>
-        "Your previous pass changed source but did NOT emit the required Phase 4 verdict, "
+        "Your previous pass changed source but did NOT emit the verdict that \"Your verdict\" requires, "
         + "so the run cannot be reported. Do NOT make further code changes now. Build the "
         + "project and run the automated tests the way the repository defines them, then emit "
         + "ONLY your final fenced ```verdict block reflecting the real build/test outcome "

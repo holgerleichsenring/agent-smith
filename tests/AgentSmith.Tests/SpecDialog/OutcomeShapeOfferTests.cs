@@ -56,7 +56,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
 
         asked.Type.Should().Be(QuestionType.Approval,
             "the pair, the recorded decision and the pane's counted summary are keyed off the kind");
-        asked.Choices!.Select(choice => choice.Label).Should().Contain("Cut into several phases");
+        asked.Choices!.Select(choice => choice.Label).Should().Contain("Cut into several specs");
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         var asked = await AskedAsync(new EpicOutcome(Draft("p9000"), [Draft("p9000a")]));
 
         asked.Type.Should().Be(QuestionType.Approval);
-        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it one phase");
+        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it one spec");
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             new BugOutcome(new BugTicketDraft("Widget drops", "It drops.", "It stops.")));
 
         asked.Type.Should().Be(QuestionType.Approval);
-        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it a phase");
+        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it a spec");
     }
 
     /// <summary>
@@ -195,11 +195,11 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     public void OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind()
     {
         OutcomeShapes.For(new SpecOutcome(Draft("p9001"))).Select(s => s.Label)
-            .Should().Equal("Cut into several phases", "Make it a bug ticket");
+            .Should().Equal("Cut into several specs", "Make it a bug ticket");
         OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")])).Select(s => s.Label)
-            .Should().Equal("Make it one phase");
+            .Should().Equal("Make it one spec");
         OutcomeShapes.For(new BugOutcome(new BugTicketDraft("t", "d", null))).Select(s => s.Label)
-            .Should().Equal("Make it a phase");
+            .Should().Equal("Make it a spec");
     }
 
     /// <summary>

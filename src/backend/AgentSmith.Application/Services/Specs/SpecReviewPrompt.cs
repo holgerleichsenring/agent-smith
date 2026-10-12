@@ -25,8 +25,8 @@ public static class SpecReviewPrompt
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
         return $$"""
-            You are reading the diff of ONE phase that has already built and tested green. You
-            did not write it. Find what it BREAKS — of the phase spec below, or of the coding
+            You are reading the diff of ONE spec that has already built and tested green. You
+            did not write it. Find what it BREAKS — of the spec below, or of the coding
             principles below. Do not restate what it does, do not praise it, and do not report
             style preferences that no stated rule covers.
 
@@ -44,7 +44,7 @@ public static class SpecReviewPrompt
 
             An empty array means the diff breaks nothing stated. That is a normal answer.
 
-            ## The phase this diff was written to
+            ## The spec this diff was written to
             {{draft.Yaml.TrimEnd()}}
             {{Principles(principles)}}{{DerivationLookPromptSection.Render(look)}}
             ## The diff
@@ -55,7 +55,7 @@ public static class SpecReviewPrompt
     private static string Principles(string? principles)
     {
         if (string.IsNullOrWhiteSpace(principles)) return "\n(This repository states no coding "
-            + "principles here. Judge the diff against the phase spec alone.)\n";
+            + "principles here. Judge the diff against the spec alone.)\n";
         var whole = principles.Length <= MaxPrinciplesChars;
         return "\n## The coding principles this repository states\n"
             + (whole ? principles.TrimEnd() : principles[..MaxPrinciplesChars])
@@ -72,7 +72,7 @@ public static class SpecReviewPrompt
             if (diff.Unreviewed.Count > 0)
                 sb.AppendLine(
                     $"NOT SHOWN, and therefore not to be reported on: {string.Join(", ", diff.Unreviewed)}");
-            sb.AppendLine(diff.IsEmpty ? "(this repository changed nothing in this phase)" : diff.Text);
+            sb.AppendLine(diff.IsEmpty ? "(this repository changed nothing in this spec)" : diff.Text);
         }
         return sb.ToString();
     }

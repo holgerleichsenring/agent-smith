@@ -34,14 +34,14 @@ public static class SpecPromptSection
         ArgumentNullException.ThrowIfNull(spec);
         var sb = new StringBuilder();
         var index = set.Phases.ToList().FindIndex(p => p.PhaseId == spec.PhaseId) + 1;
-        sb.AppendLine($"## Phase {index} of {set.Phases.Count}: {spec.PhaseId}");
+        sb.AppendLine($"## Spec {index} of {set.Phases.Count}: {spec.PhaseId}");
         sb.AppendLine(
             "This run works through an ordered sequence derived from the ticket. You are "
-            + "responsible for THIS phase only — the phases after it are separate work with "
+            + "responsible for THIS spec only — the specs after it are separate work with "
             + "their own done-lists, and doing them here is scope you were not given.");
         if (index > 1)
             sb.AppendLine(
-                $"Phases 1–{index - 1} already ran on this branch: their changes are in the "
+                $"Specs 1–{index - 1} already ran on this branch: their changes are in the "
                 + "working tree, and they are not yours to revise.");
 
         if (!string.IsNullOrWhiteSpace(spec.Markdown))
@@ -60,15 +60,15 @@ public static class SpecPromptSection
         return sb.ToString();
     }
 
-    // 2026-10-01-283dh: a mock beside the spec's spec is what this spec's screen should look like.
+    // 2026-10-01-283dh: a mock beside the spec is what this spec's screen should look like.
     private static void AppendMocks(StringBuilder sb, IReadOnlyList<string> mocks)
     {
         if (mocks.Count == 0) return;
         sb.AppendLine();
-        sb.AppendLine("### This phase's design mock");
+        sb.AppendLine("### This spec's design mock");
         sb.AppendLine(
-            "A reviewer placed the HTML mock(s) below beside this phase's spec, in the repository that "
-            + "carries the spec set. It shows what this phase's screen should look like. Read its CSS with "
+            "A reviewer placed the HTML mock(s) below beside this spec, in the repository that "
+            + "carries the spec set. It shows what this spec's screen should look like. Read its CSS with "
             + "read_file for the exact values; when render_reference is on your surface, pass the path as "
             + "its source to see the mock and read its computed styles. It is a reviewer's file: never edit or delete it.");
         foreach (var mock in mocks) sb.AppendLine($"- `{mock}`");

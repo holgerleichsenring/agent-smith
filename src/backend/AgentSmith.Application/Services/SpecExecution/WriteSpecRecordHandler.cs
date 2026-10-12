@@ -35,7 +35,7 @@ public sealed class WriteSpecRecordHandler(
         ArgumentNullException.ThrowIfNull(context);
         // p0393: an ordinary ticket carries no spec — there is nothing to record.
         if (!context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
-            return CommandResult.Ok("No phase spec on this run; nothing to record");
+            return CommandResult.Ok("No spec on this run; nothing to record");
 
         var body = SpecRecordBody.For(draft, context.Pipeline);
         await publisher.PublishAsync(context.Pipeline, draft, body, cancellationToken);
@@ -46,12 +46,12 @@ public sealed class WriteSpecRecordHandler(
         WriteSpecRecordContext context, PhaseDraft draft, string body, CancellationToken cancellationToken)
     {
         if (!TrySpec(context.Pipeline, draft.PhaseId, out var set, out _))
-            return CommandResult.Fail($"Phase {draft.PhaseId} is in no series on this run, so nothing can carry its record");
+            return CommandResult.Fail($"Spec {draft.PhaseId} is in no series on this run, so nothing can carry its record");
         var carrying = CarrierName(context.Pipeline);
         var placement = placer.Place(set,
             new SeriesScope(context.Repos, SeriesScope.LegacyOf(null, carrying, context.Repos), [], carrying));
         if (placement.Refusal is { } refused)
-            return CommandResult.Fail($"Phase {draft.PhaseId} ran but its record has no repository: {refused}");
+            return CommandResult.Fail($"Spec {draft.PhaseId} ran but its record has no repository: {refused}");
         var spec = placement.Set.Phases.First(p => p.PhaseId == draft.PhaseId);
         var carrier = placement.Members.First(m => m.Name == spec.Draft.Repos[0]);
 
@@ -59,7 +59,7 @@ public sealed class WriteSpecRecordHandler(
         var line = indexLine.Compose(draft.Goal, path);
         if (line is null)
             return CommandResult.Fail(
-                $"Phase record pointer alone exceeds {SpecRecordIndexLine.MaxChars} characters: {path}");
+                $"Spec record pointer alone exceeds {SpecRecordIndexLine.MaxChars} characters: {path}");
         return await recorder.RecordAsync(context.Pipeline,
             new SpecDoneRecord(carrier, placement.Set, spec, body, line, context.Repos.Count > 1), cancellationToken);
     }

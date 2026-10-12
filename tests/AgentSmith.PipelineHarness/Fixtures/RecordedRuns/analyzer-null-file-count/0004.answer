@@ -1,4 +1,4 @@
-{"phases": [
+{"specs": [
    {"slug": "reject-empty-payloads",
     "goal": "Reject empty payloads with a 400 instead of a 500",
     "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],

@@ -167,7 +167,7 @@ public sealed class SpecReposDerivationTests
         var rendered = ScopeRepositoriesPromptSection.Render(TwoRepos);
 
         rendered.Should().Contain("- BackgroundWorker").And.Contain("- Server").And.Contain("`repos` EXACTLY ONE")
-            .And.Contain("cut as two phases").And.NotContain("read as every phase changing all of them");
+            .And.Contain("cut as two specs").And.NotContain("read as every spec changing all of them");
         ScopeRepositoriesPromptSection.Render(["Server"]).Should().Contain("One repository is in scope: Server");
         ScopeRepositoriesPromptSection.Render([]).Should().BeEmpty();
     }

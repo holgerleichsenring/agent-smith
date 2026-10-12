@@ -30,7 +30,7 @@ public sealed class SpecMarkdownTests
         var markdown = SpecMarkdown.Render(
             Set(Spec(document: "## Carried segments\nRename `IFoo` to `IBar`.")));
 
-        markdown.Should().Contain("## Phase documents");
+        markdown.Should().Contain("## Spec documents");
         markdown.Should().Contain("### p19106a — `p19106a-rename.md`");
         markdown.Should().Contain("Rename `IFoo` to `IBar`.");
     }
@@ -40,7 +40,7 @@ public sealed class SpecMarkdownTests
     {
         var markdown = SpecMarkdown.Render(Set(Spec(document: "")));
 
-        markdown.Should().Contain("No phase document found");
+        markdown.Should().Contain("No spec document found");
         markdown.Should().Contain(".agentsmith/specs/planned/p19106a-rename.md");
     }
 
@@ -54,7 +54,7 @@ public sealed class SpecMarkdownTests
         });
 
         markdown.Should().Contain("Approved in the design conversation");
-        markdown.Should().NotContain("No phase document found");
+        markdown.Should().NotContain("No spec document found");
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class SpecMarkdownTests
         });
 
         markdown.Should().Contain("Approved in the design conversation");
-        markdown.Should().NotContain("No phase document found");
+        markdown.Should().NotContain("No spec document found");
     }
 
     // A ticket-demanded re-cut records an approval with no conversation on a model-cut set,
@@ -79,7 +79,7 @@ public sealed class SpecMarkdownTests
             Source = SpecSource.BranchArtifact, Approval = new SpecApproval(DateTimeOffset.UnixEpoch, string.Empty, "author"),
         });
 
-        markdown.Should().Contain("No phase document found");
+        markdown.Should().Contain("No spec document found");
         markdown.Should().Contain(".agentsmith/specs/planned/p19106a-rename.md");
         markdown.Should().NotContain("Approved in the design conversation");
     }

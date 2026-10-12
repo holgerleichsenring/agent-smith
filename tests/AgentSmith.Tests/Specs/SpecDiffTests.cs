@@ -30,7 +30,7 @@ public sealed class SpecDiffTests
         sandbox.DiffArgs.Should().Equal("diff", "--no-color", "phase-start-sha");
         diffs.Should().ContainSingle();
         diffs[0].Paths.Should().Equal("src/Api/Handler.cs");
-        diffs[0].From.Should().Contain("this phase started");
+        diffs[0].From.Should().Contain("this spec started");
     }
 
     [Fact]

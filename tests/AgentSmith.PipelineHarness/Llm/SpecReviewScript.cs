@@ -15,7 +15,7 @@ public sealed class SpecReviewScript
     private readonly Queue<ChatResponse> _replies = new();
 
     /// <summary>The opening of the review prompt, which nothing else says.</summary>
-    public const string Marker = "You are reading the diff of ONE phase";
+    public const string Marker = "You are reading the diff of ONE spec";
 
     public void Enqueue(string text) =>
         _replies.Enqueue(new ChatResponse(new ChatMessage(ChatRole.Assistant, text)));

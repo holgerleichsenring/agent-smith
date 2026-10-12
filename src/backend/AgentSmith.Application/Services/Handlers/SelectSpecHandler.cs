@@ -38,11 +38,11 @@ public sealed class SelectSpecHandler(
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return CommandResult.Fail(
-                "SelectSpec ran without a spec set — the sequence cannot name its phase.");
+                "SelectSpec ran without a spec set — the sequence cannot name its spec.");
 
         var spec = set.Phases.FirstOrDefault(p => p.PhaseId == context.SpecId);
         if (spec is null)
-            return CommandResult.Fail($"Phase {context.SpecId} is not in spec set {set.Key}.");
+            return CommandResult.Fail($"Spec {context.SpecId} is not in spec set {set.Key}.");
 
         // p0394a: the spec IS the plan — publishing the draft is all the handover the
         // master needs; its plan section and ledger seed both read this key.
@@ -64,7 +64,7 @@ public sealed class SelectSpecHandler(
         var accounts = await entryAccount.TakeAsync(context.Pipeline, cancellationToken);
         return Satisfied(accounts)
             ? await AlreadyDoneAsync(context.Pipeline, spec, accounts, cancellationToken)
-            : CommandResult.Ok($"Phase {spec.PhaseId}: {spec.Draft.Goal}");
+            : CommandResult.Ok($"Spec {spec.PhaseId}: {spec.Draft.Goal}");
     }
 
     /// <summary>
@@ -92,7 +92,7 @@ public sealed class SelectSpecHandler(
             pipeline, spec.PhaseId, PhaseRunState.Done, note: AlreadySatisfiedNote,
             cancellationToken: cancellationToken);
 
-        var message = $"Phase {spec.PhaseId} is already satisfied by the branch — "
+        var message = $"Spec {spec.PhaseId} is already satisfied by the branch — "
             + $"{Describe(accounts)}. No work is needed; the sequence moves on.";
         logger.LogInformation("{Message}", message);
         return CommandResult.OkAndDropAhead(message, PipelinePresets.SpecWorkSteps);

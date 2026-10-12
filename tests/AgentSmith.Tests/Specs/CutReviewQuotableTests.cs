@@ -129,7 +129,25 @@ public sealed class CutReviewQuotableTests
             [DoneLess()], "dialog-7", ticketText: null, look: null, new AgentConfig(), Tracker(), CancellationToken.None);
 
         review.Findings.Should().ContainSingle().Which.SpecId.Should().Be("e1");
-        provider.Prompts.Single().Should().StartWith("A draft has been cut into phases, with no ticket behind it.");
+        provider.Prompts.Single().Should().StartWith("A draft has been cut into specs, with no ticket behind it.");
+    }
+
+    /// <summary>
+    /// 2026-10-12-967ad: the prompt asks for "spec_id", and an answer in that key keeps the id of
+    /// every finding — the reader still takes "phase_id" from a model that answers the old way.
+    /// </summary>
+    [Fact]
+    public async Task SpecCutReview_SpecIdAnswer_KeepsFindingIds()
+    {
+        var answer = $$"""[{"spec_id":"e1","criterion":"Remove the legacy client package","problem":"uncheckable","why":"no command shows it"}]""";
+        var provider = new LookingProvider(answer);
+
+        var review = await Reviewer(new CappingFactory(provider)).ReviewAsync(
+            [DoneLess()], Key, "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
+
+        provider.Prompts.Single().Should().Contain("[{\"spec_id\": \"<id>\"")
+            .And.NotContain("phase_id", "the prompt and the rendered specs name the id the same way");
+        review.Findings.Should().ContainSingle().Which.SpecId.Should().Be("e1");
     }
 
     private static async Task<SpecCutReview> Review(IReadOnlyList<PhaseDraft> drafts, string answer) =>

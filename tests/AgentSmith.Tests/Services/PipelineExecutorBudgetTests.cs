@@ -133,7 +133,7 @@ public sealed class PipelineExecutorBudgetTests
             [Loop, CommandNames.CommitAndPR], project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue("the verified phases reached the pull request");
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b");
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b");
         h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
         ticket.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
@@ -221,15 +221,15 @@ public sealed class PipelineExecutorBudgetTests
         var h = new PipelineExecutorTestBuilder();
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
-        var publisher = Publisher(h, project, pipeline, new StepBudget(3, "8 phases worth"));
+        var publisher = Publisher(h, project, pipeline, new StepBudget(3, "8 specs worth"));
         ArrangeLoop(h, project, pipeline);
 
         await h.Sut.ExecuteAsync(["Publisher", Loop], project, pipeline, CancellationToken.None);
 
         publisher.Should().NotBeNull();
-        h.Log.Lines.Should().Contain(l => l.Contains("step budget 100 (no phase sequence)"),
+        h.Log.Lines.Should().Contain(l => l.Contains("step budget 100 (no spec sequence)"),
             "the start line says what the run entered with");
-        h.Log.Lines.Should().Contain(l => l.Contains("now works to step budget 3 (8 phases worth)"),
+        h.Log.Lines.Should().Contain(l => l.Contains("now works to step budget 3 (8 specs worth)"),
             "and the run says so when the number it works to changes");
         h.Log.Lines.Count(l => l.Contains("now works to")).Should().Be(
             1, "the line is written once per change, not once per pass");

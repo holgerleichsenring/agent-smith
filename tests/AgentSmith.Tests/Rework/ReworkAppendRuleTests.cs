@@ -81,7 +81,7 @@ public sealed class ReworkAppendRuleTests
     {
         var rendered = PreviousCutPromptSection.Render(Executed(3), SpecRevisionCause.TicketEdit);
 
-        rendered.Should().Contain("ADD new phases after them").And.Contain($"at most {SpecSet.MaxSpecs - 3} new phase(s)");
+        rendered.Should().Contain("ADD new specs after them").And.Contain($"at most {SpecSet.MaxSpecs - 3} new spec(s)");
     }
 
     [Fact]

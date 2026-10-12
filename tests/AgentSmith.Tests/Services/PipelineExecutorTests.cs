@@ -182,7 +182,7 @@ public class PipelineExecutorTests
         var result = await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b");
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b");
         ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never, "the delivery finalized the ticket in the tail; the error path never runs");

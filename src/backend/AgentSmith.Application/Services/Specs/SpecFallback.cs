@@ -51,7 +51,7 @@ public sealed class SpecFallback(
         // model failure — the fallback has no second chance to fall back to.
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             throw new InvalidOperationException(
-                $"The single-phase fallback for {key} is not a valid phase spec: {invalid.Error}");
+                $"The single-spec fallback for {key} is not a valid spec: {invalid.Error}");
 
         var markdown = SegmentExtractor.BuildWholeTicketMarkdown(specId, goal, segments);
         return new SpecSet(

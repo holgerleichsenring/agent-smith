@@ -74,7 +74,7 @@ internal static class AcceptanceSnapshot
 
     /// <summary>The spec IS the contract on this path — nobody edited it into one, so
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>
-    private const string RatifiedByTheSpec = "the ratified phase spec";
+    private const string RatifiedByTheSpec = "the ratified spec";
 
     /// <summary>2026-08-25-9749: the account's third disposition reaches the page as the
     /// status the page already had a word for. The run detail has rendered not_applicable

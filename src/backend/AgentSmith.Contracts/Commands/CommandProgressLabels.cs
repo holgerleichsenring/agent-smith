@@ -37,11 +37,11 @@ public static partial class CommandNames
         [LoadDesignSystem] = "Loading design system", // 2026-10-01-283dg
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
-        [DeriveSpec] = "Deriving the phase specs",
+        [DeriveSpec] = "Deriving the specs",
         [SpecHandback] = "Handing the ticket back",
-        [SpecSequence] = "Planning the phase sequence",
-        [SelectSpec] = "Starting the phase",
-        [ReviewSpecDiff] = "Reviewing the phase's diff",
+        [SpecSequence] = "Planning the spec sequence",
+        [SelectSpec] = "Starting the spec",
+        [ReviewSpecDiff] = "Reviewing the spec's diff",
         // p0394a: retired steps, kept by literal name so progress reporting of
         // run records persisted before the retirement keeps its labels.
         ["GeneratePlanCommand"] = "Generating plan",
@@ -52,9 +52,9 @@ public static partial class CommandNames
         [LoadCachedCodeMap] = "Loading cached code map",
         [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply",
-        [SpecGate] = "Validating phase spec",
+        [SpecGate] = "Validating the spec",
         [MasterOpenQuestions] = "Posting master open questions",
-        [WriteSpecRecord] = "Writing phase record",
+        [WriteSpecRecord] = "Writing spec record",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
@@ -106,7 +106,7 @@ public static partial class CommandNames
         [BootstrapCheck] = "Checking bootstrap files",
         [RunVerifyPhase] = "Running verify phase",
         [VerifySpec] = "Building and running tests", // p0393
-        [CheckSpecPremises] = "Checking what the phase rests on", // 2026-09-17-0e79c
+        [CheckSpecPremises] = "Checking what the spec rests on", // 2026-09-17-0e79c
         [BootstrapGate] = "Verifying bootstrap files",
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",

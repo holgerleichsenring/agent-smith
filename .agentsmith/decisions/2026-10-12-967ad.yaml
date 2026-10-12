@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ad
+
+decisions:
+  - category: Scope
+    chose: "Every string literal in src/backend that meant the spec was rewritten; the rest was bucketed and left"
+    reason: |
+      Found by a lexer pass over every C# string literal (regular, verbatim, interpolated, raw) containing
+      "phase", not by a grep: multi-line raw prompts carry most of the text. 339 literals before, 79 after.
+      Rewritten (model-facing): SpecPromptSection ("## Spec {i} of {n}", "### This spec's design mock",
+      "Specs 1-{n} already ran"), SpecExecutionPromptFactory ("## Spec contract", "You are implementing
+      SPEC"), SpecExecutionPromptBlocks, MasterPromptSections ("## The spec — the plan of record"),
+      MasterNudges (the "Phase 4 verdict" quote now names the skill's "Your verdict"), SpecCutReviewPrompt and
+      SpecCutVerdicts (answer key "spec_id", "SPECS" block), SpecQuotableText ("spec_id:"), PremiseCheckPrompt
+      ("THE SPEC", "## Specs of this series that have already run"), SpecReviewPrompt, SpecAccountPrompt,
+      PreviousCutPromptSection, ScopeRepositories/ScopeNamedContexts/ScopedContextGap sections,
+      UnansweredQuestionPromptSection, SpecPromptComposer, TemplatePromptSection, MasterTemplateScopes,
+      DerivedSpecDecision, DerivationLookTerms actor "spec review", SpecDialogPromptFactory,
+      TicketRunsToolHost description, OutcomeProposalResolver, and every retry message fed back to a model
+      (SpecDerivationParser, DerivedSpecBuilder, SpecDraftValidator, EpicOutcomeParser, RequiresEdgeChecker,
+      QuestionHandbackShape, ContradictionCheck), WorkerPromptRenderer.
+      Rewritten (tracker, PR, UI, logs, failures): SpecPrBody, SpecSetComment(+Preamble), SpecMarkdown
+      ("## Specs", "## Spec documents"), PremiseHandback heading, ShortfallSection, ShortfallDelivery,
+      CompletedRunTicketSummary, SpecAccountRenderer, SpecReviewSection, ApprovedSetKept, SpecRecutNotice,
+      FullSetPrNotice, UnansweredQuestionNotice, DeclinedCriteriaSection, SpecTicketRenderer and TicketLabelNote
+      prose, SeededTicketSection, BranchStateCheck, OutcomeShapes, SpecDialogOutcomeComposer, TicketAmendment,
+      FiledWorkView.CouldNotBeRead, CommandDisplayNames.Labels and CommandProgressLabels (spec rows only),
+      CommandModelUse descriptions, StepBudget reasons, RunShortfall.Summary, the GeneratePlan retirement
+      message, and the step notes, failures and logs of every spec-block handler.
+      Left, stored or served (967ab owns them): context-key and command-name VALUES, CheckpointRenames,
+      tracker labels phase / phase-epic / phase-parent: / phase-spec:approved, artifact prefixes
+      phase_record: / phase_review:, outcome and filing kind "phase" (OutcomeProposalJson,
+      SpecDialogProposalComposer.SpecKind, the resolver's accepted kind), the derivation reply key "phases"
+      (SpecJsonReader) and the template token MaxPhases (SpecSetDeriver fills it beside MaxSpecs until 967ah).
+      Left, G2: RunReviewPhase/RunFinalPhase/RunVerifyPhase labels, "## Prior verify-phase observations",
+      PathWriteGuard, SourceAnchoringPreamble, the Plan-phase metric description, Bootstrap-phase in a retirement
+      message, WorkerRequest.ToString, cost "phases:" in result.md, KubernetesPodWatcher.
+      Left, other: retired pipeline alias "phase-execution" (RetiredPipelineNames, a name the server rewrites).
+
+  - category: Implementation
+    chose: "No prose change has a reader; markers and the own-comment prefixes were checked first"
+    reason: |
+      Each changed heading and sentence was searched for a reader in src/backend, tests and src/dashboard.
+      The tracker readers match on markers that carry no "phase" (agentsmith:derived-spec, agentsmith:rework,
+      agentsmith:sibling-prs, agent-smith:premise-check:{id}, the cut marker "this is how I understood the
+      ticket") and on OwnTicketComment's prefixes "Agent Smith —" / "Agent Smith - ", which every changed
+      heading keeps. DerivedSpecDecision is read back by IsMachineWritten, which tests only the Opening and
+      Attribution constants — the changed middle clause is not read. OutcomeShapes labels are the chat answer
+      key: only AmendTheTicket is compared by text (unchanged); the size shapes reach the master as an edit
+      note, so a button posted before the deploy and clicked after it still reads as a direction.
+      One reader WAS found, in the harness: SpecReviewScript.Marker matched "You are reading the diff of ONE
+      phase" to tell the spec-review call from the scripted ones; it now matches "ONE spec".
+      The dashboard needed nothing: 967ae already renders "File this spec?" itself and its fixtures already
+      quote the spec strings ("Cut into several specs", "Proposed outcome: **one spec**").
+
+  - category: Implementation
+    chose: "The cut review asks for spec_id; CutFindingWire keeps reading phase_id"
+    reason: |
+      The prompt and the rendered specs (SpecQuotableText) name the id the same way, so the model is shown one
+      key and asked for it. The [AcceptedName("SpecId")] alias from 967aa already reads "spec_id" under the
+      snake_case policy; SpecCutReview_SpecIdAnswer_KeepsFindingIds proves an answer in the new key keeps its
+      finding id, and the existing phase_id answers in CutReviewQuotableTests prove the old key still reads.
+
+  - category: TradeOff
+    chose: "Model call role names phase-premise-checker and phase-diff-reviewer became spec-*"
+    over: "Keeping them as stored values"
+    reason: |
+      The role is written to the cost record of each call and shown per call; nothing reads it back or groups
+      by its text, and the sibling spec-cut-reviewer already says spec. Runs recorded before the deploy keep
+      the old role in their history, which is what they were.
+
+  - category: Implementation
+    chose: "The fallback slug of an empty goal is spec, not phase"
+    reason: "SpecIdFactory.Slug is written into a new spec's file name only; no reader parses the slug, and an approved spec keeps the slug its set stored (ApprovedSpecSetRecorder reuses it)."
+
+  - category: Implementation
+    chose: "Recorded harness fixture edited in place, not re-exported"
+    over: "Re-exporting analyzer-null-file-count through AGENTSMITH_EXPORT_RECORDING"
+    reason: |
+      The replay never compares prompt text: ReplayChatClient serves the recorded answers in order and the
+      tests count calls and check the writes. Re-exporting today yields fourteen entries (the scope
+      classification now runs first) and routes the null file_count answer to the wrong call, which would
+      erase the scenario the fixture exists for. So the prompts that quote changed text (0003, 0005, 0007,
+      0009: "not a spec", "spec: p0001a", "## Spec contract", "SPEC p0001a") were edited to what the code now
+      sends, and the recorded derivation answer 0004 answers "specs", as a v5.13.0 master does — it keeps
+      replaying after 967ah drops the phases reader. SpecDerivationFixture (the scripted harness reply) moved
+      to "specs" for the same reason; other presets still answer "phases" and so keep proving the old key reads.
+
+  - category: Implementation
+    chose: "Harness_CodingPrompt_HasOneHeadingPerMeaning composes the master with the embedded catalog"
+    reason: |
+      The harness stubs the prompt catalog, so a default preset never shows the skill's headings. The test
+      restores EmbeddedSkillsCatalogPath and the real prompt catalog (as the scan evals do) and asserts on the
+      coding master's first call: no heading contains Phase, "## Execute" exactly once, and "## Spec 1 of 1:",
+      "## Spec contract", "## Validate the plan", "## Build & test", "## Your verdict" present.
+
+  - category: Scope
+    chose: "Pin moves to v5.13.0; docs/how-it-works/skills-catalog.md is left to 967af"
+    reason: |
+      SkillsCatalogVersion v5.13.0, SkillsCatalogSha256 from the release's .sha256 (verified against the
+      downloaded tarball), the v5.12.0 tarball replaced, config/agentsmith.example.yml's commented pin bumped.
+      .agentsmith/skills.version (v3.2.0) is this repository's own pin and was not moved by the previous bump
+      either. The docs page still names v5.12.0 as its example; docs/ belongs to the parallel docs slice.

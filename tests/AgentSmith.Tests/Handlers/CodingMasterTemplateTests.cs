@@ -194,7 +194,7 @@ public sealed class CodingMasterTemplateTests
         section.Should().Contain(Address);
         section.Should().Contain("READ-ONLY");
         section.Should().Contain("HOW");
-        section.Should().Contain("phase spec");
+        section.Should().Contain("that is the spec");
     }
 
     // ---- through the handler -----------------------------------------------

@@ -40,28 +40,28 @@ public static class PreviousCutPromptSection
         }
         sb.AppendLine();
         sb.AppendLine(
-            "Return the WHOLE set again. Repeat every executed phase unchanged — same goal, "
-            + "same done-list, same order. You may merge, split or reorder only the phases "
+            "Return the WHOLE set again. Repeat every executed spec unchanged — same goal, "
+            + "same done-list, same order. You may merge, split or reorder only the specs "
             + "that have not started.");
         return sb.ToString();
     }
 
     private static string TicketEditParagraph(SpecSet previous) =>
         $"The ticket text changed since revision {previous.Current.Number} was cut. The segments "
-        + "above are the CURRENT text: cut the phases that have not started from it — drop what "
+        + "above are the CURRENT text: cut the specs that have not started from it — drop what "
         + "the ticket no longer asks for, add what it now asks for, keep what still holds. "
-        + "Executed phases stay exactly as they are.";
+        + "Executed specs stay exactly as they are.";
 
     private static string ReworkParagraph(SpecSet previous) =>
         $"A reviewer requested changes on the pull request after revision {previous.Current.Number} was cut — "
-        + "the review is in the pull request review section above. Amend the phases that have not started as it "
-        + "asks. Executed phases stay exactly as they are.";
+        + "the review is in the pull request review section above. Amend the specs that have not started as it "
+        + "asks. Executed specs stay exactly as they are.";
 
     // 2026-10-08-f114: with nothing left to run, the only place the input can go is AFTER the head.
     private static string AppendParagraph(SpecSet previous, string cause) =>
-        $"Every phase above has executed. Repeat them unchanged and ADD new phases after them that carry out "
+        $"Every spec above has executed. Repeat them unchanged and ADD new specs after them that carry out "
         + $"what {Source(cause)} "
-        + $"asks — at most {SpecSet.MaxSpecs - previous.Executed.Count} new phase(s).";
+        + $"asks — at most {SpecSet.MaxSpecs - previous.Executed.Count} new spec(s).";
 
     private static string Source(string cause) => cause switch
     {
@@ -77,6 +77,6 @@ public static class PreviousCutPromptSection
 
     private static string CommentParagraph(SpecSet previous) =>
         $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "
-        + "is in the ticket conversation above. Amend the phases that have not started as it asks: "
-        + "re-cut, drop or add them. Executed phases stay exactly as they are.";
+        + "is in the ticket conversation above. Amend the specs that have not started as it asks: "
+        + "re-cut, drop or add them. Executed specs stay exactly as they are.";
 }

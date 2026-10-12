@@ -21,7 +21,7 @@ public sealed class CutReviewWithoutTicketTests
         SpecCutReviewPrompt.StateOf(ticket).Should().Be(CutReviewTicket.Absent);
         prompt.Should().Contain("There are two ways:")
             .And.Contain("\"problem\": \"contradiction|uncheckable\"")
-            .And.Contain("There is NO TICKET behind these phases")
+            .And.Contain("There is NO TICKET behind these specs")
             .And.NotContain("NOT IN THE TICKET")
             .And.NotContain("not-in-ticket")
             .And.NotContain("\nTICKET\n");
@@ -33,7 +33,7 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For(Criteria(), new string('x', 400_000), look: null);
 
         SpecCutReviewPrompt.StateOf(new string('x', 400_000)).Should().Be(CutReviewTicket.Truncated);
-        prompt.Should().StartWith("A ticket has been cut into phases.")
+        prompt.Should().StartWith("A ticket has been cut into specs.")
             .And.Contain("There are two ways:")
             .And.Contain("TOO LONG TO SHOW")
             .And.Contain("\"problem\": \"contradiction|uncheckable\"")
@@ -46,7 +46,7 @@ public sealed class CutReviewWithoutTicketTests
     {
         var prompt = SpecCutReviewPrompt.For(Criteria(), "migrate the messaging library", look: null);
 
-        prompt.Should().StartWith("A ticket has been cut into phases.")
+        prompt.Should().StartWith("A ticket has been cut into specs.")
             .And.Contain("There are three ways:")
             .And.Contain("3. NOT IN THE TICKET")
             .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket\"")
@@ -60,7 +60,7 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For([DoneLess()], null, look: null);
 
         prompt.Should().Contain(
-            "phase_id: e1\ngoal: Move every sender onto the new bus\nsteps:\n"
+            "spec_id: e1\ngoal: Move every sender onto the new bus\nsteps:\n"
             + "  - Replace the sender registration in the host\n  - Remove the legacy client package");
     }
 
@@ -81,8 +81,8 @@ public sealed class CutReviewWithoutTicketTests
         var verdicts = prompt[prompt.IndexOf("ways:", StringComparison.Ordinal)..prompt.IndexOf("Say nothing", StringComparison.Ordinal)];
         verdicts.Should().NotContainEquivalentOf("criterion").And.NotContainEquivalentOf("criteria");
         prompt.Should().Contain("its goal or one of\nits steps")
-            .And.Contain("\"criterion\": \"<verbatim from the phase>\"")
-            .And.Contain("<verbatim other statement of that phase, or null>");
+            .And.Contain("\"criterion\": \"<verbatim from the spec>\"")
+            .And.Contain("<verbatim other statement of that spec, or null>");
     }
 
     [Fact]

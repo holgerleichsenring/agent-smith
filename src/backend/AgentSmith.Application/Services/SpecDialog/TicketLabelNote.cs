@@ -60,7 +60,7 @@ public static class TicketLabelNote
     private static string StampSentence(string stamp) =>
         "The `" + stamp + "` label marks this ticket as one an approved specification exists for, "
         + "so a person scanning the board can see which tickets those are. It is a hint, not the "
-        + "binding: the approval the server recorded is what binds this ticket to phase execution, "
+        + "binding: the approval the server recorded is what binds this ticket to spec execution, "
         + "and it is what the poll and the routing both read.";
 
     /// <summary>

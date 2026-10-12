@@ -17,7 +17,7 @@ public sealed class SpecDraftReader
         var specId = OutcomeYamlReader.GetString(map, "spec")
             ?? throw new InvalidOperationException("Schema-valid spec draft has no 'spec' field.");
         var goal = OutcomeYamlReader.GetString(map, "goal")
-            ?? throw new InvalidOperationException("Schema-valid phase draft has no 'goal' field.");
+            ?? throw new InvalidOperationException("Schema-valid spec draft has no 'goal' field.");
         return new PhaseDraft(specId, goal, yaml.Trim(), SpecDraftLists.Strings(map, "requires"))
         {
             // p0393a: the done-list is the run's acceptance contract, so it is read

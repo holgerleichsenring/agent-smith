@@ -56,7 +56,7 @@ public sealed class SpecVerdictTests
             new SpecAccount("sample-repo", [], "the delivery diff could not be taken (no comparable base)")]);
 
         verdict.IsSuccess.Should().BeFalse();
-        verdict.Message.Should().Contain("An unaccounted phase is not a delivered one");
+        verdict.Message.Should().Contain("An unaccounted spec is not a delivered one");
     }
 
     [Fact]

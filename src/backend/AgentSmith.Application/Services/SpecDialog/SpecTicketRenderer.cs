@@ -73,7 +73,7 @@ public sealed class SpecTicketRenderer
     {
         sb.AppendLine(SpecificationHeading);
         sb.AppendLine(
-            "The approved phase specification is what the run works from; it is published to "
+            "The approved specification is what the run works from; it is published to "
             + "the ticket branch under `" + Contracts.Specs.SeriesPaths.Planned + "/`."
             + (string.IsNullOrWhiteSpace(conversation)
                 ? string.Empty

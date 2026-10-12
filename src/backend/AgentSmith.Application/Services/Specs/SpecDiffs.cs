@@ -32,15 +32,15 @@ public sealed class SpecDiffs(DeliveryDiff deliveryDiff, ILogger<SpecDiffs> logg
         {
             var head = SpecStartHeads.For(pipeline, key);
             var (text, from) = head is not null
-                ? (await DiffFromAsync(sandbox, head, cancellationToken), $"the commit this phase started at ({Short(head)})")
+                ? (await DiffFromAsync(sandbox, head, cancellationToken), $"the commit this spec started at ({Short(head)})")
                 // A sandbox opened mid-spec has no start head. Its whole branch delivery is
                 // the honest answer, and the reviewer is told that is what it is looking at.
                 : ((await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken)).Text,
-                    "the branch's whole delivery — no head was recorded when this phase started, "
-                    + "so some of what follows may belong to an earlier phase");
+                    "the branch's whole delivery — no head was recorded when this spec started, "
+                    + "so some of what follows may belong to an earlier spec");
             var bound = SpecDiffText.Bound(SpecDiffText.Files(text), SpecDiffText.MaxChars);
             logger.LogInformation(
-                "{Key}: phase diff from {From} — {Shown} file(s) shown, {Unreviewed} past the bound",
+                "{Key}: spec diff from {From} — {Shown} file(s) shown, {Unreviewed} past the bound",
                 key, from, bound.Paths.Count, bound.Unreviewed.Count);
             diffs.Add(new SpecDiff(key, bound.Text, bound.Paths, bound.Unreviewed, from));
         }

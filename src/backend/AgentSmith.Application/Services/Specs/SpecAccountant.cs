@@ -43,7 +43,7 @@ public sealed class SpecAccountant(
     {
         ArgumentNullException.ThrowIfNull(criteria);
         if (criteria.Count == 0)
-            return new SpecAccount(repoKey, [], "the phase states no completion criteria");
+            return new SpecAccount(repoKey, [], "the spec states no completion criteria");
 
         // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited

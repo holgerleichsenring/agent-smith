@@ -13,7 +13,7 @@ internal static class SpecDerivationFixture
     /// whatever the fixture ticket's shape is.
     /// </summary>
     public const string DerivationJson = """
-        {"phases": [
+        {"specs": [
            {"slug": "reject-empty-payloads",
             "goal": "Reject empty payloads with a 400 instead of a 500",
             "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
@@ -27,7 +27,7 @@ internal static class SpecDerivationFixture
 
     /// <summary>Two specs, so a test can watch the sequence run more than one block.</summary>
     public const string TwoSpecJson = """
-        {"phases": [
+        {"specs": [
            {"slug": "introduce-the-guard",
             "goal": "Introduce the empty-payload guard",
             "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],
@@ -45,7 +45,7 @@ internal static class SpecDerivationFixture
 
     /// <summary>A derivation that refuses the ticket as unbuildable.</summary>
     public const string NotImplementableJson = """
-        {"phases": [],
+        {"specs": [],
          "discarded": [],
          "ignored_instructions": [],
          "handback": {"case": "not_implementable",
@@ -57,7 +57,7 @@ internal static class SpecDerivationFixture
     /// differing between them — both readings named, and the one the run would take.
     /// </summary>
     public const string QuestionJson = """
-        {"phases": [],
+        {"specs": [],
          "discarded": [],
          "ignored_instructions": [],
          "handback": {"case": "question",
@@ -69,7 +69,7 @@ internal static class SpecDerivationFixture
 
     /// <summary>A derivation that found the requirement contradicting the repository.</summary>
     public const string ContradictsRepositoryJson = """
-        {"phases": [],
+        {"specs": [],
          "discarded": [],
          "ignored_instructions": [],
          "handback": {"case": "requirements_contradict_repository",

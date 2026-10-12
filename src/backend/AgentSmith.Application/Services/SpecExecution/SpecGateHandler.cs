@@ -27,7 +27,7 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
         ArgumentNullException.ThrowIfNull(context);
         if (!context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null)
             return Task.FromResult(CommandResult.Fail(
-                $"No phase spec for ticket {context.Ticket.Id.Value}: DeriveSpec produced "
+                $"No spec for ticket {context.Ticket.Id.Value}: DeriveSpec produced "
                 + "neither a branch artifact nor a derived set."));
 
         if (set.IsHandedBack)
@@ -37,7 +37,7 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
 
         if (set.Phases.Count == 0)
             return Task.FromResult(CommandResult.Fail(
-                $"Spec set {set.Key} carries no phase — there is nothing to build."));
+                $"Spec set {set.Key} carries no spec — there is nothing to build."));
 
         // The first spec is current until the sequence selects the next one. Publishing it
         // here keeps every downstream reader (planner, master, keystone, spec record)
@@ -49,8 +49,8 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
             set.Key, set.Phases.Count, first.PhaseId, first.Draft.Goal);
         return Task.FromResult(CommandResult.Ok(
             set.Phases.Count == 1
-                ? $"Phase spec {first.PhaseId} validated: {first.Draft.Goal}"
-                : $"{set.Phases.Count} phase specs validated, starting at {first.PhaseId}: "
+                ? $"Spec {first.PhaseId} validated: {first.Draft.Goal}"
+                : $"{set.Phases.Count} specs validated, starting at {first.PhaseId}: "
                   + first.Draft.Goal));
     }
 }

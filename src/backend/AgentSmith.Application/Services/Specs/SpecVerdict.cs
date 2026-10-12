@@ -57,12 +57,12 @@ public static class SpecVerdict
         var outstanding = Outstanding(accounts);
         if (outstanding.Count > 0)
             return CommandResult.Fail(
-                $"{outstanding.Count} criterion(s) of the ratified phase are not satisfied by "
+                $"{outstanding.Count} criterion(s) of the ratified spec are not satisfied by "
                 + $"the branch:\n- {string.Join("\n- ", outstanding)}");
 
         // 2026-08-25-9749: nothing outstanding is not yet a delivery — a spec that satisfied
         // NOTHING has proven nothing, however much it declined to judge.
-        if (NothingProven.Refusal(accounts, "phase") is { } nothing) return CommandResult.Fail(nothing);
+        if (NothingProven.Refusal(accounts, "spec") is { } nothing) return CommandResult.Fail(nothing);
 
         var satisfied = accounts.Sum(a => a.Criteria.Count);
         return CommandResult.Ok(
@@ -75,9 +75,9 @@ public static class SpecVerdict
         var unaccounted = accounts.Where(a => a.Problem is not null).ToList();
         return unaccounted.Count == 0
             ? null
-            : "The phase could not be accounted for: "
+            : "The spec could not be accounted for: "
               + string.Join("; ", unaccounted.Select(a => $"{a.RepoKey} — {a.Problem}"))
-              + ". An unaccounted phase is not a delivered one.";
+              + ". An unaccounted spec is not a delivered one.";
     }
 
     /// <summary>

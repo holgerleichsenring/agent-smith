@@ -30,8 +30,8 @@ internal static class MasterReengagementPolicy
         && !changes.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString()));
 
     // p0263: re-prompt the master to EMIT ITS VERDICT when it changed source but
-    // emitted no parseable Phase 4 verdict and a verdict is expected. Model-fitness
-    // salvage — the skill instructs Phase 4; some models skip the closing artifact.
+    // emitted no parseable verdict ("Your verdict") and a verdict is expected. Model-fitness
+    // salvage — the skill instructs "Your verdict"; some models skip the closing artifact.
     // Pure + testable. Mirrors ShouldDriveApply.
     // 2026-09-08-805f: a demand the ledger-complete brake already appended INSIDE the pass is
     // this re-drive; a second one would be the same prompt against the same silence.

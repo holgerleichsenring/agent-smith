@@ -15,7 +15,7 @@ public sealed class SpecIdFactoryTests
     {
         SpecIdFactory.Slug("Rename the Clients!").Should().Be("rename-the-clients");
         SpecIdFactory.Slug(new string('a', 80)).Length.Should().Be(SpecIdFactory.MaxSlugLength);
-        SpecIdFactory.Slug("!!!").Should().Be("phase");
+        SpecIdFactory.Slug("!!!").Should().Be("spec");
     }
 
     [Fact]

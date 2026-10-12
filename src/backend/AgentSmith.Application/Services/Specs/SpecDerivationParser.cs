@@ -59,7 +59,7 @@ public sealed class SpecDerivationParser(
                     new SpecInputs(evidence, scope ?? [], taken ?? []));
             }
         }
-        return new Parsed(null, "the reply contained no JSON object with a 'phases' array");
+        return new Parsed(null, "the reply contained no JSON object with a 'specs' array");
     }
 
     private Parsed Build(
@@ -82,16 +82,16 @@ public sealed class SpecDerivationParser(
         var specElements = SpecJsonReader.ReadObjects(root, SpecJsonReader.SpecsKey(root)).ToList();
         if (specElements.Count == 0)
             return new Parsed(null,
-                envelope.HandbackRejection(root) ?? "the reply carried neither a phase nor a hand-back");
+                envelope.HandbackRejection(root) ?? "the reply carried neither a spec nor a hand-back");
         if (specElements.Count > SpecSet.MaxSpecs)
             return new Parsed(null,
-                $"{specElements.Count} phases exceed the maximum of {SpecSet.MaxSpecs} — merge the smaller ones");
+                $"{specElements.Count} specs exceed the maximum of {SpecSet.MaxSpecs} — merge the smaller ones");
 
         // 2026-10-08-f114: the head's positions are discarded, but a reply that does not even reach
         // past them dropped the set it was asked to repeat — refused, so the deriver asks again.
         if (specElements.Count < executedHead.Count)
             return new Parsed(null,
-                $"the reply has {specElements.Count} phase(s) but {executedHead.Count} already ran — repeat them first");
+                $"the reply has {specElements.Count} spec(s) but {executedHead.Count} already ran — repeat them first");
         var (built, error) = specs.Build(
             specElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken);
         if (built is null) return new Parsed(null, error);

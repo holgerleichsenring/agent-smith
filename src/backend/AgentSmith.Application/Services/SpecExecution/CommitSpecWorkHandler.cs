@@ -32,7 +32,7 @@ public sealed class CommitSpecWorkHandler(
     {
         ArgumentNullException.ThrowIfNull(context);
         await checkpointer.PushNowAsync(context.Pipeline, cancellationToken);
-        logger.LogInformation("Phase work committed — the gate now reads a branch that carries it.");
-        return CommandResult.Ok("Phase work is on the branch");
+        logger.LogInformation("Spec work committed — the gate now reads a branch that carries it.");
+        return CommandResult.Ok("Spec work is on the branch");
     }
 }

@@ -39,7 +39,7 @@ public sealed class ReviewSpecDiffHandler(
         ArgumentNullException.ThrowIfNull(context);
         var pipeline = context.Pipeline;
         if (!pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
-            return CommandResult.Ok("No phase is current; there is no diff to review.");
+            return CommandResult.Ok("No spec is current; there is no diff to review.");
 
         // A fix pass that was reverted is NOT reviewed again: the branch carries the state the
         // first review already read, and asking would spend a call to be told the same thing.
@@ -76,7 +76,7 @@ public sealed class ReviewSpecDiffHandler(
         PipelineContext pipeline, PhaseDraft draft, string why, CancellationToken ct) =>
         RecordAsync(
             pipeline, draft, PhaseReviewReport.NotTaken(why),
-            $"The phase review was not taken: {why}.", sandboxes: null, ct);
+            $"The spec review was not taken: {why}.", sandboxes: null, ct);
 
     /// <summary>
     /// The findings reach three places and then decide whether a pass follows: the spec
@@ -98,11 +98,11 @@ public sealed class ReviewSpecDiffHandler(
 
     private static string Summary(PhaseReviewReport report, IReadOnlyList<SpecDiff> diffs)
     {
-        if (!report.Reviewed) return $"The phase review was {report.NotReviewedNote}.";
+        if (!report.Reviewed) return $"The spec review was {report.NotReviewedNote}.";
         var files = diffs.Sum(d => d.Paths.Count);
         return report.Findings.Count == 0
-            ? $"The phase review read {files} changed file(s) and kept no finding."
-            : $"The phase review kept {report.Findings.Count} finding(s) over {files} changed "
+            ? $"The spec review read {files} changed file(s) and kept no finding."
+            : $"The spec review kept {report.Findings.Count} finding(s) over {files} changed "
               + "file(s): "
               + string.Join("; ", report.Findings.Select(f => $"{f.Repository}/{f.Path}:{f.Line}"));
     }

@@ -238,7 +238,7 @@ public sealed class WriteRunResultHandler(
 
         // p0196: coding presets retire GeneratePlan (Plan null) → no rendered
         // plan.md. p0235/p0237: in that case the plan is the agent's own
-        // <repo>/.agentsmith/plan.md (coding-agent-master writes it in Phase 1,
+        // <repo>/.agentsmith/plan.md (coding-agent-master writes it under "Validate the plan",
         // before the run dir exists). RELOCATE it into the per-run record so it
         // is preserved per run — the loose path is overwritten every run — and
         // leave a one-line pointer breadcrumb there.

@@ -28,7 +28,7 @@ public sealed class SpecPremiseChecker(
     IRunContextAccessor runContext,
     ILogger<SpecPremiseChecker> logger) : ISpecPremiseChecker
 {
-    private const string RoleName = "phase-premise-checker";
+    private const string RoleName = "spec-premise-checker";
 
     /// <summary>The look allowance plus the turn that asks and the turn that answers, as
     /// <see cref="SpecCutReviewer.MaxIterations"/> does for the review.</summary>

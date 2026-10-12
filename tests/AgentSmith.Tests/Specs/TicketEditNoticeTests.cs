@@ -22,7 +22,7 @@ public sealed class TicketEditNoticeTests
         var section = PreviousCutPromptSection.Render(previous, SpecRevisionCause.TicketEdit);
 
         section.Should().Contain("The ticket text changed since revision 2 was cut.");
-        section.Should().Contain("cut the phases that have not started from it");
+        section.Should().Contain("cut the specs that have not started from it");
         section.Should().Contain("p1a (EXECUTED — keep exactly as it is)");
         section.Should().Contain("p1b (not started)");
     }
@@ -50,7 +50,7 @@ public sealed class TicketEditNoticeTests
     {
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit) with { Executed = [] };
 
-        SpecSetComment.Render(set, null).Should().Contain("no phase had run yet, so the whole set was cut again");
+        SpecSetComment.Render(set, null).Should().Contain("no spec had run yet, so the whole set was cut again");
     }
 
     [Fact]
