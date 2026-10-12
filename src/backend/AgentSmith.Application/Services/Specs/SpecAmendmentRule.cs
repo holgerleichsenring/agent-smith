@@ -25,6 +25,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// ordinary comment is ignored exactly as before.
 /// </para>
 /// <para>
+/// 2026-10-12-3a36b: and a HAND-BACK somebody else's commit has since changed the ground under is
+/// derived again, approved or not — the claim it parks on was made about code that is gone.
+/// </para>
+/// <para>
 /// Extracted from <see cref="SpecSourceResolver"/>: choosing the SOURCE and deciding whether the
 /// chosen set is amended are two questions, and only the second one has a rule worth this much
 /// prose.
@@ -33,9 +37,12 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAmendmentRule
 {
     /// <summary>True when the deriver has to run over the set the branch carries.</summary>
-    public static bool NeedsModel(string cause, SpecSet set)
+    /// <param name="foreignCommitSinceHandback">2026-10-12-3a36b: a scoped branch got a commit by
+    /// somebody else since the hand-back the set carries was parked.</param>
+    public static bool NeedsModel(string cause, SpecSet set, bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(set);
+        if (foreignCommitSinceHandback && set.IsHandedBack) return true;
         // 2026-10-08-f114: a full, fully executed set has no room for an appended phase.
         if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxPhases) return false;
         if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)

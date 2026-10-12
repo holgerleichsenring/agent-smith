@@ -38,9 +38,14 @@ public sealed class PrSweepActions(
             await launcher.LaunchAsync(owner, ScanPipeline, contexts.FromFacts(Facts(pr), target.Repo.Name));
     }
 
-    public Task<WebhookResult> CommandAsync(SweepTarget target, PrSweepComment comment, CancellationToken ct) =>
+    /// <summary>The comment on <paramref name="pr"/> through the admission — the pull request's head
+    /// from the host's list, as a webhook's delivery carries it.</summary>
+    public Task<WebhookResult> CommandAsync(SweepTarget target, PrSweepComment comment, OpenPullRequest pr, CancellationToken ct) =>
         admission.AdmitAsync(new PrCommentCommand(comment.Body, comment.Author, $"{target.Repo.Name}#{comment.PrNumber}",
-                $"pr:{target.Repo.Name}#{comment.PrNumber}", comment.PrNumber),
+                $"pr:{target.Repo.Name}#{comment.PrNumber}", comment.PrNumber)
+            {
+                HeadRef = pr.HeadBranch, SameRepository = pr.SameRepository, PrUrl = pr.Url,
+            },
             services.GetRequiredKeyedService<IPrCommentAuthorTrust>(Kind(target.Repo)), ct, target.Allowed);
 
     public static string Kind(RepoConnection repo) => repo.Type switch

@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// Decides whether a hand-back repeats the previous one with nothing new said. A signal
 /// that fires forever teaches the operator to ignore it, so the second contradiction in
-/// a row with no reply on the ticket ends the loop and the run continues.
+/// a row with no reply on the ticket or its pull requests ends the loop and the run continues.
 /// <para>
 /// 2026-09-07-bd7a: the conversation is the signal — the same one the question case
 /// reads. The pointer's sha comparison it replaces was unreachable: every derivation
@@ -27,14 +27,25 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecHandbackRepeat(ILogger<SpecHandbackRepeat> logger)
 {
     /// <summary>True when this hand-back repeats the previous one and nobody replied since.</summary>
-    public bool IsRepeat(SpecSetPointer? pointer, SpecHandbackCase current, PipelineContext pipeline)
+    /// <param name="foreignCommitSinceHandback">2026-10-12-3a36b: somebody committed to a scoped
+    /// branch since the last park — that changes the picture as a reply does, so the count resets.</param>
+    public bool IsRepeat(
+        SpecSetPointer? pointer, SpecHandbackCase current, PipelineContext pipeline,
+        bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (current is not SpecHandbackCase.RequirementsContradictRepository) return false;
         if (pointer is null || pointer.LastHandbackCase != current) return false;
+        if (foreignCommitSinceHandback)
+        {
+            logger.LogInformation(
+                "Spec {Key}: a scoped branch got a foreign commit since the last '{Case}' hand-back — parking again",
+                pointer.Key, current);
+            return false;
+        }
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
-        if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.ContradictionMarker))
+        if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.ContradictionMarker, OwnTicketComment.PrNotes(pipeline)))
         {
             logger.LogInformation(
                 "Spec {Key}: a person replied since the last '{Case}' hand-back — parking again",

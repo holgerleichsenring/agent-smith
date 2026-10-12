@@ -127,7 +127,8 @@ public sealed class DeriveSpecQuestionTests
         var draftReader = new PhaseDraftReader();
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
+                It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Answered(new SpecSetReadResult(PreviousQuestion(), "sha-1")));
         var pointers = new InMemorySpecSetPointerStore();
@@ -135,7 +136,7 @@ public sealed class DeriveSpecQuestionTests
             new SpecSetPointer("azdo-19106", "primary", "sha-1", 1, SpecHandbackCase.Question, 1),
             CancellationToken.None).GetAwaiter().GetResult();
         return new DeriveSpecHandler(
-            deriver, reader.Object, publisher, pointers,
+            deriver, SeriesDoubles.BranchRead(reader.Object), publisher, pointers,
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
@@ -152,6 +153,7 @@ public sealed class DeriveSpecQuestionTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(factory.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -208,7 +210,8 @@ public sealed class DeriveSpecQuestionTests
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
             Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
+            CancellationToken cancellationToken)
         {
             PinSeen = pipeline.TryGet<string>(ContextKeys.SpecQuestionPin, out var pin) ? pin : null;
             return Task.FromResult<(SpecDerivation?, string?)>((derivation, null));
@@ -220,7 +223,7 @@ public sealed class DeriveSpecQuestionTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

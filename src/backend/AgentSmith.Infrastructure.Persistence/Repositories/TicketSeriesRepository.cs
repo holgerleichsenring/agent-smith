@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -41,10 +42,33 @@ public sealed class TicketSeriesRepository(IUnitOfWork unitOfWork)
         row.LastHandbackCase = (int)pointer.LastHandbackCase;
         row.RepeatedHandbackCount = pointer.RepeatedHandbackCount;
         row.ExecutedThrough = pointer.ExecutedThrough;
+        row.HandbackHeads = pointer.HandbackHeads is { Count: > 0 } heads
+            ? JsonSerializer.Serialize(heads)
+            : null;
+        row.RevisionShasJson = JsonSerializer.Serialize(pointer.ShaByRepo);
+        row.ExecutedIdsJson = pointer.ExecutedIds is { Count: > 0 } ids ? JsonSerializer.Serialize(ids) : null;
     }
 
     private static SpecSetPointer ToPointer(TicketSeries row) => new(
         row.TicketKey, row.CarryingRepo, row.RevisionSha, row.RevisionNumber,
         (SpecHandbackCase)row.LastHandbackCase, row.RepeatedHandbackCount,
-        row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough);
+        row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough,
+        HeadsOf(row.HandbackHeads), ShasOf(row), IdsOf(row.ExecutedIdsJson));
+
+    // 2026-10-12-f5f7d: a row without ids is back-filled where the set is known (SpecSetPointer.ExecutedIdsOf).
+    private static IReadOnlyList<string>? IdsOf(string? json) =>
+        string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<List<string>>(json);
+
+    private static IReadOnlyDictionary<string, string>? HeadsOf(string? json) =>
+        string.IsNullOrWhiteSpace(json)
+            ? null
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+
+    // 2026-10-12-f5f7b: a row written before the map reads as {CarryingRepo: RevisionSha}.
+    private static IReadOnlyDictionary<string, string> ShasOf(TicketSeries row) =>
+        string.IsNullOrWhiteSpace(row.RevisionShasJson)
+            ? new Dictionary<string, string>(StringComparer.Ordinal) { [row.CarryingRepo] = row.RevisionSha }
+            : new Dictionary<string, string>(
+                JsonSerializer.Deserialize<Dictionary<string, string>>(row.RevisionShasJson) ?? [],
+                StringComparer.Ordinal);
 }

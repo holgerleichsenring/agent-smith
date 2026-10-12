@@ -7,7 +7,6 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -29,6 +28,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// named is pinned back once — one extra attempt with the first cut and the looks in
 /// view — and a gap that survives the pin becomes a question for the author.
 /// </para>
+/// <para>
+/// 2026-10-12-3a36b: a contradiction hand-back passes <see cref="ContradictionHandbackGate"/>
+/// between parse and review; a refutation is a second extra attempt beside the pin's.
+/// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
     ISpecCutReviewer reviewer,
@@ -37,6 +40,7 @@ public sealed class SpecSetDeriver(
     IPromptCatalog prompts,
     SpecDerivationParser parser,
     ScopedContextCoverage coverage,
+    ContradictionHandbackGate handbacks,
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -46,7 +50,8 @@ public sealed class SpecSetDeriver(
 
     public async Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
         Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-        string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+        string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var key = previous?.Key ?? TicketKeyFactory.For(ticket, pipeline).Value;
@@ -54,12 +59,11 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
-        var messages = SpecDerivationMessages.Opening(RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look);
+        var messages = SpecDerivationMessages.Opening(
+            RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look, repositories);
 
-        string? lastError = null;
-        var kept = new LeastObjectedCut();
-        var pinned = false;
-        for (var attempt = 1; attempt <= MaxAttempts + (pinned ? 1 : 0); attempt++)
+        var attempts = new DerivationAttempts(MaxAttempts);
+        for (var attempt = 1; attempt <= attempts.Bound; attempt++)
         {
             var response = await call.AskAsync(
                 agentConfig, pipeline, messages, look, cancellationToken);
@@ -72,14 +76,18 @@ public sealed class SpecSetDeriver(
             var parsed = parser.Parse(
                 response.Text, key, series, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
-                previous?.ExecutedHead, look?.Evidence.Lines);
+                previous?.ExecutedHead, look?.Evidence.Lines, repositories,
+                pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.SpecTakenIds, out var taken) ? taken : null);
             if (parsed.Derivation is null)
             {
-                lastError = parsed.Error;
                 logger.LogWarning("Spec derivation attempt {Attempt} rejected: {Error}", attempt, parsed.Error);
-                messages.Add(SpecDerivationMessages.Again("Your cut was rejected", parsed.Error));
+                messages.Add(attempts.Reject("Your cut was rejected", parsed.Error));
                 continue;
             }
+            var gated = await handbacks.JudgeAsync(parsed.Derivation, parsed.Uncited, look,
+                attempts.IsLast(attempt), attempts.Refuted, agentConfig, pipeline, cancellationToken);
+            if (gated.Step == HandbackGateStep.Park) return (parsed.Derivation, null);
+            if (gated.Step != HandbackGateStep.Continue) { messages.Add(attempts.Gated(gated, parsed.Derivation)); continue; }
             // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can
             // be DELIVERED. Rejected here, the deriver answers instead of a run finding out.
             // 2026-09-15-ffa7: the reviewer keeps nothing between calls, so its look is per attempt.
@@ -90,21 +98,19 @@ public sealed class SpecSetDeriver(
                 agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
             if (!review.Deliverable)
             {
-                kept.Offer(parsed.Derivation, review);
-                lastError = SpecCutRejection.For(review, reviewLook?.Evidence.Lines);
-                logger.LogWarning("Spec cut attempt {Attempt} is not deliverable: {Error}", attempt, lastError);
-                messages.Add(SpecDerivationMessages.Again("Your cut cannot be delivered", lastError));
+                attempts.Kept.Offer(parsed.Derivation, review);
+                var rejection = SpecCutRejection.For(review, reviewLook?.Evidence.Lines);
+                logger.LogWarning("Spec cut attempt {Attempt} is not deliverable: {Error}", attempt, rejection);
+                messages.Add(attempts.Reject("Your cut cannot be delivered", rejection));
                 continue;
             }
             var gap = coverage.Gap(named, parsed.Derivation.Set);
             if (gap.Count == 0) return (parsed.Derivation, null);
-            if (pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);
-            pinned = true;
+            if (attempts.Pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);
             logger.LogWarning("Spec cut leaves named context(s) {Gap} uncovered — pinned once", string.Join(", ", gap));
-            messages.Add(new ChatMessage(ChatRole.User,
-                ScopedContextGapPromptSection.Render(gap, ScopedContextCoverage.Carried(parsed.Derivation.Set))));
+            messages.Add(attempts.Pin(gap, parsed.Derivation.Set));
         }
-        return (kept.Best, lastError);
+        return attempts.Exhausted;
     }
 
     private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>

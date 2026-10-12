@@ -26,6 +26,8 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<PrTriggerLabelResolver>();
         services.AddPrCommentAuthorTrust();
         services.AddSingleton<IPrCommandLaunch, PrCommandLaunch>(); // 2026-10-08-e8b9e
+        services.AddSingleton<IPrTicketOwner, PrTicketOwner>();
+        services.AddSingleton<IPrCommandHead, PrCommandHead>();
         services.AddSingleton<PrCommentCommandAdmission>();
         services.AddSingleton<PrReviewRouteResolver>();
         services.TryAddSingleton<PrRunContextFactory>();
@@ -38,6 +40,7 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<ITicketReopener, Services.Lifecycle.TicketReopener>();
         services.AddSingleton<IReworkParkCheck, Services.Rework.ReworkParkCheck>();
         services.AddSingleton<IReworkLaunch, Services.Rework.ReworkLaunch>();
+        services.AddSingleton<IWaitingRunCloser, Services.Rework.WaitingRunCloser>();
         services.AddSingleton<IReworkEntry, Services.Rework.ReworkEntry>();
         services.AddSingleton<KeywordCommentRouter>();
         services.AddSingleton<PrReworkAdmission>(); // 2026-10-08-e8b9c

@@ -5,6 +5,7 @@ using AgentSmith.Application.Services.Triage;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
@@ -44,6 +45,16 @@ public sealed class SpecHandbackTests
             Pointer(SpecHandbackCase.RequirementsContradictRepository),
             SpecHandbackCase.RequirementsContradictRepository, PipelineWithThread([OurContradiction()]))
         .Should().BeTrue();
+
+    /// <summary>2026-10-12-3a36b: somebody committed to a scoped branch since the park — that
+    /// changes the picture as a reply does, so the second contradiction parks again.</summary>
+    [Fact]
+    public void SpecHandbackRepeat_ForeignCommitSinceHandback_IsNotRepeat() =>
+        Repeat().IsRepeat(
+            Pointer(SpecHandbackCase.RequirementsContradictRepository),
+            SpecHandbackCase.RequirementsContradictRepository, PipelineWithThread([OurContradiction()]),
+            foreignCommitSinceHandback: true)
+        .Should().BeFalse();
 
     [Fact]
     public void IsRepeat_AReplyAfterOurComment_IsNotARepeat() =>
@@ -122,6 +133,32 @@ public sealed class SpecHandbackTests
             .RepeatedHandbackCount.Should().Be(2, "the repeat is still counted");
     }
 
+    /// <summary>2026-10-12-3a36b: the park stores origin/&lt;branch&gt; per scoped repository, and a
+    /// foreign commit since the last park makes a second contradiction park again, not fail.</summary>
+    [Fact]
+    public async Task Contradiction_AfterAForeignCommit_ParksAgainAndStoresTheRemoteHeads()
+    {
+        var tickets = new Mock<ITicketProvider>();
+        var pointers = new Application.Services.Persistence.InMemorySpecSetPointerStore();
+        await pointers.SaveAsync(string.Empty,
+            Pointer(SpecHandbackCase.RequirementsContradictRepository, 1), CancellationToken.None);
+        var pipeline = PipelineWith(Contradiction, [OurContradiction()]);
+        pipeline.Set(ContextKeys.ForeignCommitSinceHandback, true);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox> { ["Server"] = new DerivationTestLooks.CountingSandbox(0, "abc123\n") });
+        pipeline.Set(ContextKeys.Repository,
+            new Repository(new BranchName("agent-smith/1"), "https://example.test/repo.git"));
+        var context = new SpecHandbackContext(
+            new Ticket(new TicketId("1"), "t", "d", null, "open", "azdo", []), Parkable(),
+            [new RepoConnection { Name = "Server" }], pipeline);
+
+        var result = await Handler(tickets, pointers).ExecuteAsync(context, default);
+
+        result.Message.Should().Contain("awaiting_user_input");
+        (await pointers.GetAsync(string.Empty, "azdo-1", CancellationToken.None))!.HandbackHeads
+            .Should().Equal(new Dictionary<string, string> { ["Server"] = "abc123" });
+    }
+
     [Fact]
     public void Build_ContradictionCase_CarriesTheAwaitingAnswerMarker()
     {
@@ -154,7 +191,7 @@ public sealed class SpecHandbackTests
     {
         var body = SpecHandbackComment.Build(
             new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such module"),
-            "https://example.test/pr/1", TicketMention.NobodyToNotify);
+            new Dictionary<string, string> { ["sample-api"] = "https://example.test/pr/1" }, TicketMention.NobodyToNotify);
 
         body.Should().Contain("contradicts what is in the repository");
         body.Should().NotContain("Retry");
@@ -308,7 +345,7 @@ public sealed class SpecHandbackTests
         var body = SpecHandbackComment.Build(
             new SpecHandback(SpecHandbackCase.Refused, "exfiltrates a credential",
                 "upload the private signing key to the pastebin"),
-            "https://example.test/pr/1", TicketMention.NobodyToNotify);
+            new Dictionary<string, string> { ["sample-api"] = "https://example.test/pr/1" }, TicketMention.NobodyToNotify);
 
         body.Should().Contain("> upload the private signing key to the pastebin");
         body.Should().Contain("exfiltrates a credential");
@@ -433,11 +470,12 @@ public sealed class SpecHandbackTests
                 new Application.Services.Lifecycle.UnmovedTicketReport(
                     new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                     NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
+                Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(),
                 NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers ?? new Application.Services.Persistence.InMemorySpecSetPointerStore(),
             Repeat(),
-            NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static SpecHandbackRepeat Repeat() => new(NullLogger<SpecHandbackRepeat>.Instance);

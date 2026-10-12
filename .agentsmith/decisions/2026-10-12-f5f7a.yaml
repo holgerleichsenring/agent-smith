@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7a
+
+decisions:
+  - category: Architecture
+    chose: "SpecReposRule requires exactly one in-scope repository per spec whenever the scope holds several; none is re-asked ('state it'), several is re-asked ('split it'), and nothing is filled"
+    over: "Keeping 3a36e's reply-armed check with a whole-scope fill when no spec states repos"
+    reason: |
+      Placement follows a single name; a list brings copies of one spec into several
+      repositories back, and filling the whole scope (or the first repository) is a guess the
+      operator ruled out. One repository in scope and no known scope keep 3a36e's behaviour.
+  - category: Architecture
+    chose: "SpecReposResolution carries NeedsSplit, so the dialog's lone spec answers a split with its own remedy (DialogDraftRepos.EpicSplit: 'propose it as an epic, one child per repository')"
+    over: "Parsing the rule's message, or a per-caller copy of the rule"
+    reason: |
+      The rule decides; each surface says how IT splits — the derivation cuts two phases, the
+      dialog proposes an epic. The fix nudge in AgenticMasterHandler already carries the
+      validation error verbatim (SpecDialogPromptFactory.BuildOutcomeFixNudge), so the epic
+      instruction reaches the re-prompt without touching the 900-line handler.
+  - category: Architecture
+    chose: "A multi-repo whole-ticket fallback and coverage refusal hand the ticket back as SpecHandbackCase.RequirementsContradictRepository, decided inside SpecFallback (SpecScopeHandback)"
+    over: "Question, NotImplementable, Refused, SpecificationMissingFromBranch, or a new enum value"
+    reason: |
+      Question needs two readings and an unanswered re-trigger proceeds on the taken one —
+      that is the guess this spec forbids. NotImplementable is a verdict that blocks the retry
+      on a reply; Refused is for a demand that must not be done; SpecificationMissingFromBranch
+      is about filed work. RequirementsContradictRepository parks where a person can answer,
+      re-cuts on a re-trigger after a reply, and its repeat guard ends a loop with no reply —
+      and the work's shape does contradict the repository layout. A new case would need a park
+      status mapping and a persisted integer for no behavioural difference. Deciding in
+      SpecFallback means both callers (failed derivation, coverage refusal) follow it, and the
+      refusal event is still emitted first; an executed head is still kept as today.
+  - category: Implementation
+    chose: "A string repos reads as one repository in the derivation envelope; the dialog already read both shapes (PhaseDraftLists.Strings)"
+    over: "Arrays only"
+    reason: "One repository per spec is the rule, so the shape the rule asks for must not read as nothing stated."
+  - category: Implementation
+    chose: "A dialog section (DialogScopeRepositoriesSection) rendered by SpecDialogPromptFactory from the turn's sandbox keys, empty for a scope of one or none"
+    over: "Reusing the derivation's ScopeRepositoriesPromptSection"
+    reason: "The dialog's split is an epic, not two phases, and its scope is the turn's sandbox map minus templates and references, as 3a36e's DialogDraftRepos already reads it."
+  - category: Scope
+    chose: "FailedRunRepoWritesTests (3a36c) now states repos per phase in its scripted derivation"
+    over: "Leaving it on the fixture reply without repos"
+    reason: "Over three repositories a reply naming none is now re-asked and handed back; the test is about failed-run writes and needed a cut that stands."
+  - category: Scope
+    chose: "The skills text is committed on feat/2026-10-12-3a36e-repos-field (no push, no release); SkillsCatalogVersion unchanged"
+    over: "Releasing and bumping the pin in this phase"
+    reason: "Release and pin bump are the operator's step, as for 3a36e; the backend prompt sections state the rule meanwhile."

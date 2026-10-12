@@ -47,7 +47,8 @@ public sealed class BootstrapToolHostFactory(
             sandbox, repoLocalPath, readGuard, writeGuard,
             writePhase: SkillExecutionPhase.Bootstrap,
             contextName: contextName);
-        var log = new LogDecisionToolHost(decisionLogger, sandboxFileReaderFactory.Create(sandbox));
+        var log = new LogDecisionToolHost(decisionLogger, new Repositories.FixedRunRepositories(
+            new Dictionary<string, ISandboxFileReader> { [repoName] = sandboxFileReaderFactory.Create(sandbox) }));
         // p0193-fix: the bootstrap round writes context.yaml through the typed
         // write_context_yaml tool (write_file rejects context.yaml paths). Without
         // this the round could only ever write principles.md — context.yaml

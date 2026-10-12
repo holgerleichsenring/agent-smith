@@ -60,6 +60,9 @@ public sealed class AzureReposOpenPullRequests(
         return new OpenPullRequest(pr.PullRequestId.ToString(), $"{repoUrl}/pullrequest/{pr.PullRequestId}",
             pr.LastMergeSourceCommit?.CommitId, pr.LastMergeTargetCommit?.CommitId,
             pr.SourceRefName?.Replace("refs/heads/", string.Empty, StringComparison.Ordinal), pr.CreatedBy?.UniqueName,
-            [.. (pr.Labels ?? []).Select(l => l.Name)], created, created);
+            [.. (pr.Labels ?? []).Select(l => l.Name)], created, created)
+        {
+            SameRepository = pr.ForkSource is null,
+        };
     }
 }

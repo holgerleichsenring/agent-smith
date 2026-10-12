@@ -23,7 +23,10 @@ public sealed class GitHubOpenPullRequests(IGitHubClient client, string owner, s
             new PullRequestRequest { State = ItemStateFilter.Open, SortProperty = PullRequestSort.Updated, SortDirection = SortDirection.Descending },
             new ApiOptions { PageSize = PageSize, PageCount = maxPages, StartPage = start });
         var items = prs.Select(p => new OpenPullRequest(p.Number.ToString(), p.HtmlUrl, p.Head?.Sha, p.Base?.Sha, p.Head?.Ref,
-            p.User?.Login, [.. (p.Labels ?? []).Select(l => l.Name)], p.CreatedAt, p.UpdatedAt)).ToList();
+            p.User?.Login, [.. (p.Labels ?? []).Select(l => l.Name)], p.CreatedAt, p.UpdatedAt)
+        {
+            SameRepository = string.Equals(p.Head?.Repository?.FullName, $"{owner}/{repo}", StringComparison.OrdinalIgnoreCase),
+        }).ToList();
         var cut = prs.Count >= PageSize * maxPages;
         return new OpenPullRequestsPage(items, cut, cut ? (start + maxPages).ToString() : null);
     }

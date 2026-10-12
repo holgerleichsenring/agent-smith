@@ -20,8 +20,6 @@ public sealed class PrCrossLinkHandler(
     ISourceProviderFactory sourceFactory,
     ILogger<PrCrossLinkHandler> logger) : ICommandHandler<PrCrossLinkContext>
 {
-    private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
-
     public async Task<CommandResult> ExecuteAsync(
         PrCrossLinkContext context, CancellationToken cancellationToken)
     {
@@ -63,7 +61,7 @@ public sealed class PrCrossLinkHandler(
                 logger.LogWarning("{Repo}: no body recorded; skip", entry.RepoName);
                 continue;
             }
-            var updated = body.Replace(SiblingMarker, siblings, StringComparison.Ordinal);
+            var updated = body.Replace(Specs.SpecPrBody.SiblingMarker, siblings, StringComparison.Ordinal);
             var provider = sourceFactory.Create(repo);
             if (await provider.UpdatePullRequestBodyAsync(entry.Url!, updated, ct))
                 patched++;

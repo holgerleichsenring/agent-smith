@@ -18,9 +18,12 @@ namespace AgentSmith.Application.Services.SpecDialog;
 public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
     PhaseDraftReader draftReader,
-    RequiresEdgeChecker edgeChecker)
+    RequiresEdgeChecker edgeChecker,
+    DialogDraftRepos draftRepos)
 {
-    public OutcomeResolution Parse(IReadOnlyDictionary<string, object?> map)
+    /// <param name="scope">2026-10-12-3a36e: the turn's repository names each child's repos is
+    /// checked against or filled from; the parent names none.</param>
+    public OutcomeResolution Parse(IReadOnlyDictionary<string, object?> map, IReadOnlyList<string> scope)
     {
         if (OutcomeYamlReader.GetMap(map, "parent") is not { } parentMap)
             return new OutcomeInvalid("epic outcome is missing 'parent' (a spec mapping)");
@@ -39,12 +42,19 @@ public sealed class EpicOutcomeParser(
         var (parent, parentError) = ReadDraft(parentMap, "parent");
         if (parent is null) return new OutcomeInvalid(parentError!);
 
-        var children = new List<PhaseDraft>(childMaps.Count);
+        var childNodes = new List<Dictionary<object, object?>>(childMaps.Count);
         for (var i = 0; i < childMaps.Count; i++)
         {
             if (childMaps[i] is not Dictionary<object, object?> childNode)
                 return new OutcomeInvalid($"epic child #{i + 1} is not a spec mapping");
-            var (child, error) = ReadDraft(childNode, $"child #{i + 1}");
+            childNodes.Add(childNode);
+        }
+        if (draftRepos.ForChildren(childNodes, scope) is { } reposError) return new OutcomeInvalid(reposError);
+
+        var children = new List<PhaseDraft>(childNodes.Count);
+        for (var i = 0; i < childNodes.Count; i++)
+        {
+            var (child, error) = ReadDraft(childNodes[i], $"child #{i + 1}");
             if (child is null) return new OutcomeInvalid(error!);
             children.Add(child);
         }

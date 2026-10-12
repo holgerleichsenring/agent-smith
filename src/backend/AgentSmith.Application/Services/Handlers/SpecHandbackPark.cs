@@ -19,10 +19,13 @@ namespace AgentSmith.Application.Services.Handlers;
 /// fact closes its one re-entry deliberately: the configuration genuinely is wrong, and the
 /// refusal an operator reads names the field that fixes it.
 /// </para>
+/// <para>The hand-back is posted on the ticket's pull requests too, marked as ours — a reviewer who
+/// works there answers there, and a comment command answers the hand-back with a rework.</para>
 /// </summary>
 public sealed class SpecHandbackPark(
     ITicketProviderFactory ticketFactory,
     Lifecycle.UnmovedTicketReport unmovedTickets,
+    AgentSmith.Contracts.Reviews.IHandbackPrNotice prNotice,
     ILogger<SpecHandbackPark> logger)
 {
     public async Task ParkAsync(
@@ -30,12 +33,11 @@ public sealed class SpecHandbackPark(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var prUrl = context.Pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var url)
-            ? url : null;
         var waitingLine = TicketMention.WaitingLine(context.Tracker!.Type, context.Ticket);
+        var comment = SpecHandbackComment.Build(handback, SpecPullRequests.Of(context.Pipeline), waitingLine);
         var finalize = await ticketFactory.Create(context.Tracker!).FinalizeAsync(
-            context.Ticket!.Id, SpecHandbackComment.Build(handback, prUrl, waitingLine), status,
-            cancellationToken);
+            context.Ticket!.Id, comment, status, cancellationToken);
+        await prNotice.PostAsync(context.Pipeline, comment, cancellationToken);
         // The awaiting-answer flag short-circuits the rest of the run for BOTH classes:
         // there is nothing to build either way. What differs is how the ticket comes back —
         // an answered question re-triggers, a verdict waits for a Retry.

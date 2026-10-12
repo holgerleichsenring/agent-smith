@@ -92,9 +92,9 @@ public sealed class ApprovedPhaseSetStoredTests
         var parser = new EpicOutcomeParser(
             new SpecDraftValidator(new PhaseSpecSchemaProvider()),
             new PhaseDraftReader(),
-            new RequiresEdgeChecker());
+            new RequiresEdgeChecker(), DialogTestRepos.Real());
 
-        var resolution = parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxPhases + 1)));
+        var resolution = parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxPhases + 1)), []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain(SpecSet.MaxPhases.ToString());
@@ -106,9 +106,9 @@ public sealed class ApprovedPhaseSetStoredTests
         var parser = new EpicOutcomeParser(
             new SpecDraftValidator(new PhaseSpecSchemaProvider()),
             new PhaseDraftReader(),
-            new RequiresEdgeChecker());
+            new RequiresEdgeChecker(), DialogTestRepos.Real());
 
-        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxPhases)))
+        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxPhases)), [])
             .Should().BeOfType<OutcomeResolved>();
     }
 

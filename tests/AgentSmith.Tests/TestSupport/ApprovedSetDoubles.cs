@@ -64,15 +64,17 @@ internal static class ApprovedSetDoubles
     /// <summary>2026-09-22-b6ad: the real branch write over a remote that records what it was
     /// handed — what filing does between storing the record and starting the ticket.</summary>
     internal static FiledSpecBranch Branch(
-        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null) =>
-        new(sources ?? new RecordingBranchSources(), new SeriesFiles(new SeriesManifest()),
-            new SpecSetPointerRecorder(
-                pointers ?? new InMemorySpecSetPointerStore(),
-                NullLogger<SpecSetPointerRecorder>.Instance),
+        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null)
+    {
+        var store = pointers ?? new InMemorySpecSetPointerStore();
+        return new(new FiledSeriesWrite(sources ?? new RecordingBranchSources(), new SeriesFiles(new SeriesManifest())),
+            store, new SeriesRepos(),
+            new SpecSetPointerRecorder(store, NullLogger<SpecSetPointerRecorder>.Instance),
             NullLogger<FiledSpecBranch>.Instance);
+    }
 
     internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
-        new(store ?? Store(), new NoReferenceSetReader(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        new(store ?? Store(), new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
     /// resolves none, which is what every test that does not set one expects.</summary>

@@ -17,6 +17,9 @@ public static class RunOutcomeWordingExtensions
     {
         services.AddTransient<CompletedRunTicketSummary>();
         services.AddTransient<FailedRunPersistence>();
+        services.AddTransient<WipCommitMessage>();
+        services.AddTransient<SpecOnlyPullRequests>();
+        services.AddTransient<PullRequestOutcomePublisher>();
         services.AddTransient<FailureTicketComment>();
         services.AddTransient<ShortfallDelivery>();
         services.AddTransient<UnverifiedWorkReverter>();

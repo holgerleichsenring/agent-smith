@@ -32,7 +32,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class DeriveSpecHandler(
     ISpecSetDeriver deriver,
-    ISpecSetReader reader,
+    SeriesBranchRead branchRead,
     ISpecSetPublisher publisher,
     ISpecSetPointerStore pointers,
     ApprovedSpecSetResolver approvals,
@@ -43,7 +43,7 @@ public sealed class DeriveSpecHandler(
     ApprovedSetKeptNotice keptNotice,
     SpecCutGate gate,
     UnansweredQuestionPin questionPin,
-    UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf,
+    UnansweredQuestionNotice questionNotice, SeriesResolver seriesOf, ForeignCommitProbe expiry,
     ILogger<DeriveSpecHandler> logger)
     : ICommandHandler<DeriveSpecContext>
 {
@@ -57,20 +57,21 @@ public sealed class DeriveSpecHandler(
         var key = TicketKeyFactory.For(context.Ticket, context.Pipeline);
         var project = ProjectOf(context.Pipeline);
         var pointer = await pointers.GetAsync(project, key.Value, cancellationToken);
-        // 2026-09-22-b6ad: the approval is resolved BEFORE the carrying repo, because filing may
-        // already have written the branch and recorded which repository it wrote it into.
         var approval = await approvals.ResolveAsync(context.Pipeline, key, cancellationToken);
-        var repo = SpecCarryingRepoResolver.Resolve(context.Repos, pointer, approval?.CarryingRepo);
-        if (repo is null)
+        if (context.Repos.Count == 0)
             return CommandResult.Ok("Spec derivation skipped: the run has no repo in scope");
 
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
+        // 2026-10-12-f5f7d: no repository is picked by position.
+        var branch = await branchRead.ReadAsync(context.Pipeline, context.Repos, key, pointer, approval, cancellationToken);
+        var onBranch = branch.OnBranch;
         var previous = onBranch.Read;
+        var foreign = await expiry.ProbeAsync(context.Pipeline, context.Repos, previous?.Set, pointer, cancellationToken);
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
-            Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
+            Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval, foreign);
+        if (decision.Failure is { } failed) return CommandResult.Fail(failed); // 2026-10-12-f5f7f
         if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);
@@ -86,7 +87,7 @@ public sealed class DeriveSpecHandler(
         var finalized = SpecRevisionHeader.Finalize(
             set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported, decision.Approval);
         var result = await publisher.PublishAsync(
-            context.Pipeline, project, repo, finalized, ignored, cancellationToken);
+            context.Pipeline, project, branch.Scope, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
             await AnnounceAsync(context, finalized, unanswered, cancellationToken);
         return result;
@@ -96,18 +97,19 @@ public sealed class DeriveSpecHandler(
         DeriveSpecContext context, SpecSourceResolver.Decision decision, string key, string series,
         IReadOnlyList<TicketSegment> segments, CancellationToken ct)
     {
+        // 2026-10-12-3a36e: the scope by its configured names — what every phase's repos names.
+        IReadOnlyList<string> scope = [.. context.Repos.Select(r => r.Name)];
         var (derivation, error) = await deriver.DeriveAsync(context.Ticket!, segments, decision.Set,
-            series, decision.Cause!, context.AgentConfig, context.Pipeline, ct);
+            series, decision.Cause!, scope, context.AgentConfig, context.Pipeline, ct);
 
         if (derivation is null)
         {
             await gate.RefusedAsync(
                 context.Pipeline, context.Ticket!.Id.Value,
                 $"the derivation produced nothing usable ({error})", ct);
-            // 2026-10-08-f114: the fallback is a fresh one-phase set; over an executed head it would
-            // drop the record of work already on the branch, so the set the branch carries is kept.
-            return (decision.Set is { ExecutedHead.Count: > 0 } carried ? carried
-                : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source), []);
+            // The fallback is a fresh set; what the branch carries wins where a fresh set would lose it.
+            return (decision.KeptOnFailure
+                ?? fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
         }
 
         // p0447: the deriver kept the least-objected cut instead of discarding it. The
@@ -121,7 +123,7 @@ public sealed class DeriveSpecHandler(
 
         return (
             await coverageRefusal.ApplyAsync(
-                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, ct),
+                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, scope, ct),
             derivation.IgnoredInstructions);
     }
 

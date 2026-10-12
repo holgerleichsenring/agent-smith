@@ -1,8 +1,10 @@
 using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Webhooks;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Webhooks;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -28,6 +30,15 @@ internal sealed class PrCommentHandlerFixture
     /// <summary>2026-10-08-e8b9e: what the admission launched — the launch itself is PrCommandLaunch's.</summary>
     public List<(PrCommentCommand Command, PipelineRequest Request)> Launched { get; } = [];
 
+    /// <summary>The rework nudges a ticket-branch command enqueued.</summary>
+    public List<ReworkNudgeRequest> Nudged { get; } = [];
+
+    /// <summary>The project that owns the ticket branch's pull request; null: no owner.</summary>
+    public string? TicketOwner { get; set; } = "test-project";
+
+    /// <summary>The head an issue comment's command is completed with (GitHub reads it from the host).</summary>
+    public string? HeadRef { get; set; } = "feature/other";
+
     public PrCommentCommandAdmission Admission()
     {
         var launch = new Mock<AgentSmith.Server.Contracts.IPrCommandLaunch>();
@@ -35,8 +46,25 @@ internal sealed class PrCommentHandlerFixture
                 It.IsAny<IReadOnlySet<string>?>()))
             .Callback<PrCommentCommand, PipelineRequest, CancellationToken, IReadOnlySet<string>?>((c, r, _, _) => Launched.Add((c, r)))
             .ReturnsAsync(WebhookResult.HandledNoRoute());
+        var owners = new Mock<IPrTicketOwner>();
+        owners.Setup(o => o.FindAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlySet<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => TicketOwner is null ? null
+                : new ConfiguredRepo(TicketOwner, new ResolvedProject(), new RepoConnection { Name = "repo" }));
+        var nudges = new Mock<IReworkNudges>();
+        nudges.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<ReworkNudgeRequest, CancellationToken>((r, _) => Nudged.Add(r)).Returns(Task.CompletedTask);
         return new(new CommentIntentParser(Model.Object), new ServerContext("config.yml"), launch.Object,
-            NullLogger<PrCommentCommandAdmission>.Instance);
+            owners.Object, nudges.Object, NullLogger<PrCommentCommandAdmission>.Instance);
+    }
+
+    /// <summary>A head reader that completes a command with <see cref="HeadRef"/> in the same repository.</summary>
+    public IPrCommandHead Heads()
+    {
+        var heads = new Mock<IPrCommandHead>();
+        heads.Setup(h => h.CompleteAsync(It.IsAny<PrCommentCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PrCommentCommand c, CancellationToken _) => c.HeadRef is not null ? c
+                : c with { HeadRef = HeadRef, SameRepository = true, PrUrl = $"https://github.com/org/my-api/pull/{c.PrNumber}" });
+        return heads.Object;
     }
 
     /// <summary>The launched command as the old trigger input spelled it: pipeline, ticket, PR reference.</summary>

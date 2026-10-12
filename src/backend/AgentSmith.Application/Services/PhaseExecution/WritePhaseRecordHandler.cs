@@ -17,11 +17,16 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// Only the repository carrying the series gets the file and its <c>state.done</c> line. The
 /// command keeps its name: it is persisted in run history.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7d: the repository is the one the SPEC names — placed by the same rule the publish
+/// placed it with, a spec naming none belonging to the series' carrying repository.
+/// </para>
 /// </summary>
 public sealed class WritePhaseRecordHandler(
     PhaseRecordPublisher publisher,
     PhaseRecordIndexLine indexLine,
-    SpecDoneRecorder recorder)
+    SpecDoneRecorder recorder,
+    SeriesRepos placer)
     : ICommandHandler<WritePhaseRecordContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -40,19 +45,23 @@ public sealed class WritePhaseRecordHandler(
     private async Task<CommandResult> RecordAsync(
         WritePhaseRecordContext context, PhaseDraft draft, string body, CancellationToken cancellationToken)
     {
-        if (!TryPhase(context.Pipeline, draft.PhaseId, out var set, out var phase))
+        if (!TryPhase(context.Pipeline, draft.PhaseId, out var set, out _))
             return CommandResult.Fail($"Phase {draft.PhaseId} is in no series on this run, so nothing can carry its record");
-        var carrier = SpecCarryingRepoResolver.Named(context.Repos, CarrierName(context.Pipeline));
-        if (carrier is null)
-            return CommandResult.Fail($"Phase {draft.PhaseId} ran in a run with no repository to carry its record");
+        var carrying = CarrierName(context.Pipeline);
+        var placement = placer.Place(set,
+            new SeriesScope(context.Repos, SeriesScope.LegacyOf(null, carrying, context.Repos), [], carrying));
+        if (placement.Refusal is { } refused)
+            return CommandResult.Fail($"Phase {draft.PhaseId} ran but its record has no repository: {refused}");
+        var phase = placement.Set.Phases.First(p => p.PhaseId == draft.PhaseId);
+        var carrier = placement.Members.First(m => m.Name == phase.Draft.Repos[0]);
 
         var path = SeriesPaths.Spec(SeriesPaths.Done, phase.FileStem);
         var line = indexLine.Compose(draft.Goal, path);
         if (line is null)
             return CommandResult.Fail(
                 $"Phase record pointer alone exceeds {PhaseRecordIndexLine.MaxChars} characters: {path}");
-        return await recorder.RecordAsync(
-            context.Pipeline, new SpecDoneRecord(carrier, set, phase, body, line), cancellationToken);
+        return await recorder.RecordAsync(context.Pipeline,
+            new SpecDoneRecord(carrier, placement.Set, phase, body, line, context.Repos.Count > 1), cancellationToken);
     }
 
     private static bool TryPhase(PipelineContext pipeline, string phaseId, out SpecSet set, out SpecPhase phase)

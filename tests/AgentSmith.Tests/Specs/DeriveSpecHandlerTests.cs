@@ -99,25 +99,91 @@ public sealed class DeriveSpecHandlerTests
         published.Set.Accounting.IsComplete.Should().BeTrue();
     }
 
+    // 2026-10-12-f5f7a: over several repositories the whole-ticket fallback would put the whole
+    // ticket into one repository's spec — a guess. The ticket is handed back naming them instead.
+    [Fact]
+    public async Task DeriveSpecHandler_MultiRepoFallback_HandsBack()
+    {
+        var events = new RecordingEventPublisher();
+        var published = new CapturingPublisher();
+
+        await Handler(events, published, derivation: null).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
+
+        published.Set!.Phases.Should().BeEmpty();
+        published.Set.Handback!.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
+        published.Set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
+        events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
+            "the failed derivation is still reported");
+    }
+
+    [Fact]
+    public async Task SpecCoverageRefusal_MultiRepo_HandsBack()
+    {
+        var events = new RecordingEventPublisher();
+        var published = new CapturingPublisher();
+        var incomplete = Derivation(carries: [1], discarded: []);
+
+        await Handler(events, published, incomplete).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
+
+        published.Set!.IsHandedBack.Should().BeTrue();
+        published.Set.TicketPinnedWhole.Should().BeFalse();
+        published.Set.Handback!.Reason.Should().Contain("BackgroundWorker, Server");
+        events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed);
+    }
+
+    // 2026-10-12-f5f7f: a series whose repositories disagree is not derived from or written over —
+    // it is handed back as its own case naming them, before any model call, and nothing is written.
+    [Fact]
+    public async Task DeriveSpecHandler_LaggingRead_HandsBackOutOfStep_NoModelNoWrite()
+    {
+        var published = new CapturingPublisher();
+        var deriver = new Mock<ISpecSetDeriver>(MockBehavior.Strict);
+        var pointers = new InMemorySpecSetPointerStore();
+        var read = new SpecSetReadResult(Derivation(carries: [1, 2], discarded: []).Set, "sha-Server")
+        {
+            Lagging = ["Client"],
+        };
+        var reader = new Mock<ISpecSetReader>();
+        reader.Setup(r => r.ReadAsync(
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
+                It.IsAny<TicketKey>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpecSetOnBranch.Answered(read));
+
+        var context = Context("Server", "Client");
+        var result = await Handler(new RecordingEventPublisher(), published, null, reader.Object, deriver, pointers)
+            .ExecuteAsync(context, default);
+
+        result.IsSuccess.Should().BeTrue("the run parks; it does not fail");
+        result.Message.Should().StartWith("awaiting_user_input").And.Contain("Client").And.Contain("out of step");
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Case.Should().Be(SpecHandbackCase.SeriesOutOfStep);
+        published.Set.Should().BeNull("nothing is written");
+        deriver.VerifyNoOtherCalls();
+        (await pointers.GetAsync(string.Empty, "azdo-19106", default)).Should().BeNull("the pointer is untouched");
+    }
+
     // 2026-09-22-6ad7: the reader answers "nothing at the path", never null — a default-valued
     // mock would hand the handler a null branch answer and the split would read as a crash.
     private static ISpecSetReader EmptyBranch()
     {
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
+                It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Nothing);
         return reader.Object;
     }
 
     private static DeriveSpecHandler Handler(
-        RecordingEventPublisher events, CapturingPublisher publisher, SpecDerivation? derivation)
+        RecordingEventPublisher events, CapturingPublisher publisher, SpecDerivation? derivation,
+        ISpecSetReader? reader = null, Mock<ISpecSetDeriver>? strictDeriver = null,
+        ISpecSetPointerStore? pointers = null)
     {
-        var deriver = new Mock<ISpecSetDeriver>();
-        deriver.Setup(d => d.DeriveAsync(
+        var deriver = strictDeriver ?? new Mock<ISpecSetDeriver>();
+        if (strictDeriver is null) deriver.Setup(d => d.DeriveAsync(
                 It.IsAny<Ticket>(), It.IsAny<IReadOnlyList<TicketSegment>>(), It.IsAny<SpecSet?>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentConfig>(), It.IsAny<PipelineContext>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AgentConfig>(),
+                It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((derivation, derivation is null ? "no parseable cut" : null));
 
@@ -125,9 +191,9 @@ public sealed class DeriveSpecHandlerTests
         var draftReader = new PhaseDraftReader();
         return new DeriveSpecHandler(
             deriver.Object,
-            EmptyBranch(),
+            SeriesDoubles.BranchRead(reader ?? EmptyBranch()),
             publisher,
-            new InMemorySpecSetPointerStore(),
+            pointers ?? new InMemorySpecSetPointerStore(),
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
@@ -146,17 +212,20 @@ public sealed class DeriveSpecHandlerTests
             new UnansweredQuestionNotice(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
-    private static DeriveSpecContext Context()
+    private static DeriveSpecContext Context(params string[] repos)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
         return new DeriveSpecContext(
             new Ticket(new TicketId("19106"), "Migrate the client", Ticket, null, "open", "azdo", []),
             null,
-            [new RepoConnection { Name = "primary" }],
+            repos.Length == 0
+                ? [new RepoConnection { Name = "primary" }]
+                : [.. repos.Select(name => new RepoConnection { Name = name })],
             new AgentConfig(),
             pipeline);
     }
@@ -188,7 +257,7 @@ public sealed class DeriveSpecHandlerTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-3a36e
+
+decisions:
+  - category: Architecture
+    chose: "One SpecReposRule decides repos for the derivation, the dialog's lone spec and the epic children: armed by the reply, filled from the scope otherwise, one repository always filled"
+    over: "A rule per caller"
+    reason: |
+      The three callers differ only in how the decision is written back (rendered yaml, the
+      model's yaml text, an epic child's mapping). The contexts agreement is the derivation's
+      alone (DerivedPhaseRepos), because the dialog declares no contexts.
+  - category: Architecture
+    chose: "A one-repository scope overrides whatever the reply stated; an empty scope checks and fills nothing"
+    over: "Refusing a stated name outside a one-repository scope"
+    reason: |
+      "One repo needs no question" — there is nothing for the model to decide, so a wrong name is
+      replaced rather than re-asked. With no known scope there is nothing to check against; the
+      statement passes through as written.
+  - category: Architecture
+    chose: "The scope reaches the deriver as a new ISpecSetDeriver.DeriveAsync parameter, from DeriveSpecContext.Repos names"
+    over: "Reading ContextKeys.Repos inside the deriver"
+    reason: |
+      ContextKeys.Repos is only set once scoping narrows or an approval names repositories; the
+      context builder falls back to the project's repos, so the handler holds the resolved scope.
+  - category: Architecture
+    chose: "The dialog's scope is the turn's sandbox map keys minus templates and references (DerivationLookFactory.ProposalRepositories)"
+    over: "Threading ConversationState.Scope into the application layer"
+    reason: |
+      The dialog seeds Sandboxes keyed by RepoConnection.Name (SpecDialogTurnSeeds), so those keys
+      ARE the configured names there; no new seed is needed.
+  - category: Implementation
+    chose: "The dialog's lone spec keeps the model's yaml text; a fill or a one-repository rewrite strips any stated repos block and appends the decided one (PhaseDraftReposWriter)"
+    over: "Re-serialising the whole draft"
+    reason: "Re-serialising would drop the model's comments and block scalars; PhaseDraftIdRewriter already rewrites draft text the same way."
+  - category: Implementation
+    chose: "repos is rendered right after requires and declared in spec.schema.json as a string or a list of strings"
+    over: "A list only"
+    reason: "Mirrors contexts and requires, which PhaseDraftLists.Strings already reads in both shapes."
+  - category: Implementation
+    chose: "No prompt section for the dialog; the derivation gets ScopeRepositoriesPromptSection"
+    over: "A section in both"
+    reason: "The design master already works over the scoped repositories by name; the derivation saw them only as sandbox keys, and not at all without a sandbox."
+  - category: Scope
+    chose: "The skills change is committed on branch feat/2026-10-12-3a36e-repos-field (commit 7aea0bd) in a worktree of agent-smith-skills, not pushed, not released; SkillsCatalogVersion stays at 5.11.0"
+    over: "Releasing and bumping the pin in this phase as the spec's prompts step says"
+    reason: |
+      Release and pin bump are the operator's next step. The backend works without them: the
+      checks are armed by the reply and a reply without repos is filled from the scope, which
+      SpecReposTests (harness) proves with the pinned catalog's reply shape. The spec's done item
+      "the skills release with repos: is pinned" is therefore pending on the operator.

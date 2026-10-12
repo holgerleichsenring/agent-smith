@@ -103,7 +103,7 @@ public sealed class DeriveSpecAppendTests
         var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
-            deriver, reader, publisher, pointers,
+            deriver, SeriesDoubles.BranchRead(reader), publisher, pointers,
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
@@ -120,6 +120,7 @@ public sealed class DeriveSpecAppendTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
@@ -208,7 +209,8 @@ public sealed class DeriveSpecAppendTests
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
             Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
+            CancellationToken cancellationToken)
         {
             Calls++;
             PreviousSeen = previous;
@@ -223,7 +225,7 @@ public sealed class DeriveSpecAppendTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

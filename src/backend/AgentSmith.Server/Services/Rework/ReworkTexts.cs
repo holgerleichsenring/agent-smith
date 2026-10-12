@@ -13,7 +13,8 @@ public static class ReworkTexts
     /// apart from what reviewers wrote.</summary>
     public const string PrMarker = "<!-- agentsmith:rework -->";
 
-    private const string Rule = "Comments on this pull request are collected; only Request changes starts a rework.";
+    private const string Rule =
+        "Comments on this pull request are collected; a comment `/agent-smith` or a Request changes reworks all of them.";
 
     public static string PrStarted(string ticketId, string? runId) => runId is null
         ? $"{PrMarker}\nAgent Smith — ticket {ticketId} is already taken or queued for its next attempt, which reads this review. {Rule}"
@@ -27,7 +28,7 @@ public static class ReworkTexts
         $"Agent Smith — run `{runId}` is working on this ticket; this comment is picked up when it finishes.";
 
     public static string PrWithheld(string ticketId, string runId) =>
-        $"{PrMarker}\nAgent Smith — this review was written before an operator stopped run `{runId}` on ticket {ticketId}, so it is not picked up. Request changes again to start a rework.";
+        $"{PrMarker}\nAgent Smith — this review was written before an operator stopped run `{runId}` on ticket {ticketId}, so it is not picked up. Comment `/agent-smith` or Request changes again to start a rework.";
 
     public static string TicketWithheld(string runId) =>
         $"Agent Smith — this comment was written before an operator stopped run `{runId}`, so it is not picked up. Comment again to start a rework.";

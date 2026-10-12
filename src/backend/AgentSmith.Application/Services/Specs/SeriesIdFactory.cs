@@ -29,4 +29,19 @@ public sealed class SeriesIdFactory(TimeProvider time)
 
     /// <summary>The id of the series' member at <paramref name="index"/> — a, b, c, ….</summary>
     public static string Member(string series, int index) => $"{series}{(char)('a' + index)}";
+
+    /// <summary>
+    /// 2026-10-12-f5f7d: the first member id at or after <paramref name="from"/> that nothing has
+    /// taken — an id, or a spec file name of that id, in <paramref name="taken"/> is skipped.
+    /// </summary>
+    /// <returns>The id and the letter index it took, so the next spec starts after it.</returns>
+    public static (string Id, int Index) NextFree(string series, int from, IReadOnlyCollection<string> taken)
+    {
+        var index = from;
+        while (IsTaken(Member(series, index), taken)) index++;
+        return (Member(series, index), index);
+    }
+
+    private static bool IsTaken(string id, IReadOnlyCollection<string> taken) =>
+        taken.Any(t => t == id || Contracts.Specs.SeriesPaths.BelongsTo(t, id));
 }

@@ -70,15 +70,15 @@ public sealed class SeriesLayoutGitTests
         if (git is null) return;
         var written = await WriteAsync(git, Set(("a", "first")));
         var reader = SeriesDoubles.Reader(git.Files, git.Ops);
-        (await reader.ReadAsync(git.Pipeline, Repo, new TicketKey(Ticket), default)).Read!.LastCommitSha
+        (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!.LastCommitSha
             .Should().Be(written, "the publish's commit is the series' last");
         await git.CommitFilesAsync("src/unrelated.cs");
-        (await reader.ReadAsync(git.Pipeline, Repo, new TicketKey(Ticket), default)).Read!.LastCommitSha
+        (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!.LastCommitSha
             .Should().Be(written, "a coding commit is no revision");
 
         await git.CommitFilesAsync(Planned("a-first.yaml"));
 
-        var read = (await reader.ReadAsync(git.Pipeline, Repo, new TicketKey(Ticket), default)).Read!;
+        var read = (await reader.ReadAsync(git.Pipeline, Repo, [], new TicketKey(Ticket), default)).Read!;
         read.LastCommitSha.Should().Be(await git.HeadAsync(), "a reviewer's edit of a spec file is a new revision")
             .And.NotBe(written);
     }

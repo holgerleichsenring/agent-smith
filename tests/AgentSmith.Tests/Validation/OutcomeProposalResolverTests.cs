@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Tests.SpecDialog;
 using AgentSmith.Application.Services.Validation;
 using AgentSmith.Contracts.Models;
 using FluentAssertions;
@@ -20,13 +21,14 @@ public sealed class OutcomeProposalResolverTests
         var reader = new PhaseDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker()));
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),
+            DialogTestRepos.Real());
     }
 
     [Fact]
     public void Resolve_PlainProse_ResolvesAnswer()
     {
-        var resolution = _resolver.Resolve("Dispatch goes through the intent engine.");
+        var resolution = _resolver.Resolve("Dispatch goes through the intent engine.", []);
 
         resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<AnswerOutcome>();
@@ -43,7 +45,7 @@ public sealed class OutcomeProposalResolverTests
             goal: "Add the widget endpoint"
             requires: [p0100]
             ```
-            """);
+            """, []);
 
         var phase = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<PhaseOutcome>().Subject;
@@ -63,7 +65,7 @@ public sealed class OutcomeProposalResolverTests
             description: "AppendTurnAsync dereferences a null session."
             acceptance_criteria: "No NRE on a thread without a session."
             ```
-            """);
+            """, []);
 
         var bug = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<BugOutcome>().Subject;
@@ -75,7 +77,7 @@ public sealed class OutcomeProposalResolverTests
     public void Resolve_BugMissingTitle_InvalidNamesField()
     {
         var resolution = _resolver.Resolve(
-            "```outcome\nkind: bug\ndescription: \"something broke\"\n```");
+            "```outcome\nkind: bug\ndescription: \"something broke\"\n```", []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("title");
@@ -84,7 +86,7 @@ public sealed class OutcomeProposalResolverTests
     [Fact]
     public void Resolve_UnknownKind_Invalid()
     {
-        var resolution = _resolver.Resolve("```outcome\nkind: refactor\n```");
+        var resolution = _resolver.Resolve("```outcome\nkind: refactor\n```", []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("refactor");
@@ -94,7 +96,7 @@ public sealed class OutcomeProposalResolverTests
     public void Resolve_TwoOutcomeBlocks_Invalid()
     {
         var resolution = _resolver.Resolve(
-            "```outcome\nkind: bug\n```\n```outcome\nkind: bug\n```");
+            "```outcome\nkind: bug\n```\n```outcome\nkind: bug\n```", []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("exactly one");
@@ -114,7 +116,7 @@ public sealed class OutcomeProposalResolverTests
             spec: p9999
             goal: "g"
             ```
-            """);
+            """, []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("mixes");
@@ -124,7 +126,7 @@ public sealed class OutcomeProposalResolverTests
     public void Resolve_EpicValid_ResolvesOrderedChildrenWithEdges()
     {
         var resolution = _resolver.Resolve(EpicReply(
-            child2Requires: "requires: [p9000a]"));
+            child2Requires: "requires: [p9000a]"), []);
 
         var epic = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
@@ -144,7 +146,7 @@ public sealed class OutcomeProposalResolverTests
     [Fact]
     public void EpicOutcomeParser_ACutOfTwoOrMoreSlices_StillResolvesToAnEpicOutcome()
     {
-        var resolution = _resolver.Resolve(EpicReply());
+        var resolution = _resolver.Resolve(EpicReply(), []);
 
         var epic = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<EpicOutcome>(
@@ -157,7 +159,7 @@ public sealed class OutcomeProposalResolverTests
     public void Resolve_EpicFreeTextPrecondition_Allowed()
     {
         var resolution = _resolver.Resolve(EpicReply(
-            child2Requires: "requires: [\"the storage layer is deployed\"]"));
+            child2Requires: "requires: [\"the storage layer is deployed\"]"), []);
 
         resolution.Should().BeOfType<OutcomeResolved>();
     }
@@ -176,7 +178,7 @@ public sealed class OutcomeProposalResolverTests
               - spec: p9000a
                 goal: "only slice"
             ```
-            """);
+            """, []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("at least two");
@@ -185,7 +187,7 @@ public sealed class OutcomeProposalResolverTests
     [Fact]
     public void Resolve_EpicChildRequiresUnknownSibling_Invalid()
     {
-        var resolution = _resolver.Resolve(EpicReply(child2Requires: "requires: [p7777]"));
+        var resolution = _resolver.Resolve(EpicReply(child2Requires: "requires: [p7777]"), []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("p7777").And.Contain("sibling");
@@ -194,7 +196,7 @@ public sealed class OutcomeProposalResolverTests
     [Fact]
     public void Resolve_EpicChildRequiresParent_Invalid()
     {
-        var resolution = _resolver.Resolve(EpicReply(child2Requires: "requires: [p9000]"));
+        var resolution = _resolver.Resolve(EpicReply(child2Requires: "requires: [p9000]"), []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("parent");
@@ -204,7 +206,7 @@ public sealed class OutcomeProposalResolverTests
     public void Resolve_EpicCycle_Invalid()
     {
         var resolution = _resolver.Resolve(EpicReply(
-            child1Requires: "requires: [p9000b]", child2Requires: "requires: [p9000a]"));
+            child1Requires: "requires: [p9000b]", child2Requires: "requires: [p9000a]"), []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("cycle");
@@ -226,7 +228,7 @@ public sealed class OutcomeProposalResolverTests
               - spec: not-a-phase-id
                 goal: "broken slice"
             ```
-            """);
+            """, []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("child #2");
@@ -239,7 +241,7 @@ public sealed class OutcomeProposalResolverTests
     [Fact]
     public void Resolve_EpicChildWithoutDone_InvalidNamingTheRule()
     {
-        var resolution = _resolver.Resolve(EpicReply(child1Done: string.Empty));
+        var resolution = _resolver.Resolve(EpicReply(child1Done: string.Empty), []);
 
         resolution.Should().BeOfType<OutcomeInvalid>()
             .Which.Error.Should().Contain("child #1").And.Contain("p9000a").And.Contain("'done:'");
@@ -255,7 +257,7 @@ public sealed class OutcomeProposalResolverTests
     {
         var resolution = _resolver.Resolve(EpicReply(child1Requires:
             "facts: [{claim: \"the port is fixed\", evidence: \"42\"}]\n    "
-            + "assumptions: [\"true\", {claim: \"7\", check: \"3.5\"}]"));
+            + "assumptions: [\"true\", {claim: \"7\", check: \"3.5\"}]"), []);
 
         var epic = resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;

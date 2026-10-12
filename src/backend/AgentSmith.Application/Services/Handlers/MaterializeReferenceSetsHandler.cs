@@ -17,6 +17,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// approval that cites none makes this step silent; one whose sets cannot be read fails the run.
 /// 2026-10-08-e8b9k: and the images it cites, written beside them and put among the run's
 /// attachments within the picture ceiling — see <see cref="UploadImageAttachments"/>.
+/// 2026-10-12-f5f7e: the carrying repository is the one of the series' earliest spec.
 /// </summary>
 public sealed class MaterializeReferenceSetsHandler(
     ApprovedSpecSetResolver approvals,
@@ -34,8 +35,11 @@ public sealed class MaterializeReferenceSetsHandler(
         ArgumentNullException.ThrowIfNull(context);
         var record = approvals.Published(context.Pipeline);
         if (record is null || record.CitedSets.Count + record.CitedImages.Count == 0) return CommandResult.Ok(NoneCited);
-        if (CarryingSandbox(context.Pipeline, record.CarryingRepo) is not { } target)
-            return CommandResult.Fail(ReferenceSetCarrier.Refusal(record.CitedSets, "the run holds no sandbox to write them into"));
+        var carrying = EarliestSpecRepo(context.Pipeline) ?? record.CarryingRepo;
+        if (CarryingSandbox(context.Pipeline, carrying) is not { } target)
+            return CommandResult.Fail(ReferenceSetCarrier.Refusal(record.CitedSets, string.IsNullOrEmpty(carrying)
+                ? "no spec names the repository to write them into"
+                : $"the run holds no sandbox of '{carrying}', the repository of the series' earliest spec"));
         var (repo, sandbox) = target;
         try
         {
@@ -69,19 +73,26 @@ public sealed class MaterializeReferenceSetsHandler(
         return cited;
     }
 
-    // The sandbox the carrying repository's name resolves to — the first of its sandboxes, which is
-    // the one the master's path tools alias that name to. A record that named none takes the run's
-    // first repository, as every other reader of the record does.
+    // 2026-10-12-f5f7e: carried ONCE, into the repository of the series' earliest spec in series order —
+    // the placed set on the run names it; the record's carrier names the same one before a set is placed.
+    // The master reads every sandbox by repository prefix, so one copy serves the whole series.
+    private static string? EarliestSpecRepo(PipelineContext pipeline) =>
+        pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) && set is not null
+            ? set.Phases.Select(p => p.Draft.Repos).FirstOrDefault(r => r.Count == 1)?[0]
+            : null;
+
+    // The first sandbox of that repository, which the master's path tools alias its name to. None named
+    // takes the run's only repository; with several and none named there is no positional pick.
     private static (string Repo, ISandbox Sandbox)? CarryingSandbox(PipelineContext pipeline, string carrying)
     {
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var sandboxes)
             || sandboxes is null || sandboxes.Count == 0) return null;
         var repos = pipeline.TryGet<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos, out var r) && r is not null
             ? r : new Dictionary<string, string>();
-        foreach (var (key, sandbox) in sandboxes)
-            if (string.IsNullOrEmpty(carrying) || string.Equals(repos.GetValueOrDefault(key), carrying, StringComparison.Ordinal))
-                return (repos.GetValueOrDefault(key) ?? key, sandbox);
-        var first = sandboxes.First();
-        return (repos.GetValueOrDefault(first.Key) ?? first.Key, first.Value);
+        var byRepo = sandboxes.Select(s => (Repo: repos.GetValueOrDefault(s.Key) ?? s.Key, Sandbox: s.Value)).ToList();
+        if (string.IsNullOrEmpty(carrying))
+            return byRepo.Select(s => s.Repo).Distinct(StringComparer.Ordinal).Count() == 1 ? byRepo[0] : null;
+        return byRepo.Where(s => string.Equals(s.Repo, carrying, StringComparison.OrdinalIgnoreCase))
+            .Select(s => ((string Repo, ISandbox Sandbox)?)s).FirstOrDefault();
     }
 }

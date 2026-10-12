@@ -1818,8 +1818,14 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ExecutedIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("ExecutedThrough")
                         .HasColumnType("int");
+
+                    b.Property<string>("HandbackHeads")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("int");
@@ -1839,6 +1845,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("RevisionShasJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SeriesId")
                         .IsRequired()

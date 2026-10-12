@@ -69,7 +69,7 @@ public sealed class PhaseSpecFileSchemaTests
             new Ticket(new TicketId("19106"), title, "Body.", null, "open", "azdo", []),
             [new TicketSegment(0, "Body.", 0, 0)],
             [],
-            SpecSource.Derived);
+            SpecSource.Derived, ["app"]);
 
         title.Length.Should().BeGreaterThan(800, "the point is a title no convention allows");
         build.Should().NotThrow(

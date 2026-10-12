@@ -51,7 +51,8 @@ public sealed class GitLabMrCommentWebhookHandler(
         var project = root.GetProperty("project");
         var user = root.GetProperty("user");
         var repoFullName = project.GetProperty("path_with_namespace").GetString() ?? "";
-        var mrIid = root.GetProperty("merge_request").GetProperty("iid").GetInt32();
+        var mr = root.GetProperty("merge_request");
+        var mrIid = mr.GetProperty("iid").GetInt32();
         var author = new PrCommentAuthor(
             RepositoryUrl: project.GetProperty("web_url").GetString() ?? "",
             RepositoryId: project.GetProperty("id").GetInt64().ToString(),
@@ -59,6 +60,14 @@ public sealed class GitLabMrCommentWebhookHandler(
             AuthorLogin: user.GetProperty("username").GetString() ?? "");
         return new PrCommentCommand(
             attrs.GetProperty("note").GetString() ?? "", author,
-            $"{repoFullName}!{mrIid}", $"mr:{repoFullName}!{mrIid}", mrIid.ToString());
+            $"{repoFullName}!{mrIid}", $"mr:{repoFullName}!{mrIid}", mrIid.ToString())
+        {
+            HeadRef = PayloadActTime.Text(mr, "source_branch"),
+            SameRepository = Id(mr, "source_project_id") is { } source && source == Id(mr, "target_project_id"),
+            PrUrl = PayloadActTime.Text(mr, "url"),
+        };
     }
+
+    private static long? Id(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 }

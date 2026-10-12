@@ -189,6 +189,10 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.AddSingleton<HarnessPhasePremiseChecker>();
         services.AddSingleton<IPhasePremiseChecker>(
             sp => sp.GetRequiredService<HarnessPhasePremiseChecker>());
+        // 2026-10-12-3a36b: and so is the contradiction check.
+        services.RemoveAll<IContradictionChecker>();
+        services.AddSingleton<HarnessContradictionChecker>();
+        services.AddSingleton<IContradictionChecker>(sp => sp.GetRequiredService<HarnessContradictionChecker>());
         services.RemoveAll<ISpecAccountant>();
         services.AddSingleton<HarnessSpecAccountant>();
         services.AddSingleton<ISpecAccountant>(sp => sp.GetRequiredService<HarnessSpecAccountant>());

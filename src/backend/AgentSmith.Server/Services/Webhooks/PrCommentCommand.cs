@@ -13,4 +13,15 @@ public sealed record PrCommentCommand(
     PrCommentAuthor Author,
     string PrLabel,
     string PrReference,
-    string PrNumber);
+    string PrNumber)
+{
+    /// <summary>The pull request's head branch — a ticket branch makes the command a rework act.
+    /// Null when the host's delivery does not carry it and it was not read.</summary>
+    public string? HeadRef { get; init; }
+
+    /// <summary>True when the head branch lives in the pull request's own repository, not a fork.</summary>
+    public bool SameRepository { get; init; }
+
+    /// <summary>The pull request's URL in the shape its provider parses — what a rework nudge names.</summary>
+    public string? PrUrl { get; init; }
+}

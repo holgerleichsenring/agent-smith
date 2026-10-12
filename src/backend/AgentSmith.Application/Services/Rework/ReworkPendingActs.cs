@@ -10,8 +10,8 @@ namespace AgentSmith.Application.Services.Rework;
 
 /// <summary>
 /// 2026-10-08-0781: what the rework worker reads before it starts or says anything — the newest
-/// keyword comment on the ticket and the newest standing request for changes on each pull request
-/// the ticket's runs opened, after the attempt's cutoff, trusted. The newer one wins.
+/// keyword comment on the ticket and the newest standing request for changes or comment command on
+/// each pull request the ticket's runs opened, after the attempt's cutoff, trusted. The newer one wins.
 /// </summary>
 public sealed class ReworkPendingActs(
     ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust) : IReworkPendingActs
@@ -39,9 +39,11 @@ public sealed class ReworkPendingActs(
         return ReworkActReader.Read(comments, keyword, since) is { } act ? new PendingReworkAct(act) : null;
     }
 
-    private async Task<PendingReworkAct?> PullRequestActAsync(RepoConnection repo, string url, PreviousAttempt since, CancellationToken ct) =>
-        sources.Create(repo) is IPrReviewActReader reader
-        && await _standing.NewestAsync(repo.Type, reader, url, since, ct) is { } note
-            ? new PendingReworkAct(PrStandingAct.Act(note), repo, url)
-            : null;
+    private async Task<PendingReworkAct?> PullRequestActAsync(RepoConnection repo, string url, PreviousAttempt since, CancellationToken ct)
+    {
+        var provider = sources.Create(repo);
+        var vote = provider is IPrReviewActReader votes ? await _standing.NewestAsync(repo.Type, votes, url, since, ct) : null;
+        var command = provider is IPrReviewThreadReader threads ? await _standing.NewestCommandAsync(repo.Type, threads, url, since, ct) : null;
+        return PrStandingAct.Newer(vote, command) is { } note ? new PendingReworkAct(PrStandingAct.Act(note), repo, url) : null;
+    }
 }

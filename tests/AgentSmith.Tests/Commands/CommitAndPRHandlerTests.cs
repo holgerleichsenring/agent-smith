@@ -64,7 +64,7 @@ public class CommitAndPRHandlerTests
             _ticketFactoryMock.Object,
             new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SecretPatternScanner(),
-            _events,
+            new PullRequestOutcomePublisher(_events),
             new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 new SpecAccountant(
@@ -73,7 +73,8 @@ public class CommitAndPRHandlerTests
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
-            new FailedRunPersistence(),
+            new FailedRunPersistence(new WipCommitMessage()),
+            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
@@ -531,6 +532,22 @@ public class CommitAndPRHandlerTests
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
             It.IsAny<CancellationToken>()), Times.Never);
         Contracts.Specs.RunShortfall.DeliveredOn(pipeline).Should().BeNull();
+    }
+
+    // 2026-10-12-3a36c: a delivered shortfall is a delivery, not a failed run — its commit
+    // keeps the 'fix:' subject a failed run's WIP commit no longer carries.
+    [Fact]
+    public async Task CommitAndPR_DeliveredShortfall_KeepsFixMessage()
+    {
+        var pipeline = ShortfallPipeline(withVerifiedHead: true);
+
+        await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        Contracts.Specs.RunShortfall.DeliveredOn(pipeline).Should().NotBeNull();
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("commit")
+                && st.Args!.Any(a => a.StartsWith("fix: Fix the bug", StringComparison.Ordinal))),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private PipelineContext ShortfallPipeline(bool withVerifiedHead)

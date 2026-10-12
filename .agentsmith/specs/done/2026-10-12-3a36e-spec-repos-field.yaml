@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36e
+goal: "Every spec a derivation or design dialog cuts carries repos:, stated by the model from the scope's repository names or filled from the scope, so placement can read it."
+
+applies_to: "backend (spec parsing, dialog outcome) + skills (derivation and dialog masters)"
+
+requires: []
+
+facts:
+  - claim: "A phase has no repository field; every PhaseDraft is built by PhaseDraftReader from the spec YAML (the one non-test constructor)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:9-21, src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:59, src/backend/AgentSmith.Application/Services/SpecDialog/PhaseDraftReader.cs:21-38"
+  - claim: "contexts: names 'repo/context' only with more than one repository in scope and only for repositories with more than one context; its check is armed by the reply so a binary ahead of the skills release stays safe."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ScopeNamedContexts.cs:10-20, src/backend/AgentSmith.Application/Services/Specs/ScopedContextCoverage.cs:8-28"
+  - claim: "The derivation replies with a JSON envelope rendered to YAML; the fallback renders through the same renderer and has two callers."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:8-38, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationEnvelope.cs:47-52, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:49-62, src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-44, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:110, src/backend/AgentSmith.Application/Services/Specs/SpecCoverageRefusal.cs:30-33"
+  - claim: "The derivation prompt names repositories only through the look section, as sandbox keys, and not when the look is null."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookPromptSection.cs:7-29, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:27"
+  - claim: "The design dialog emits a YAML spec or an epic outcome, resolved without a scope; its scope lives in the server."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:36-40, src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:63-70, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:674-708, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:117-118"
+  - claim: "With one repository in scope, scoping already settles it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:79-84"
+  - claim: "Prompts come from the pinned skills catalog v5.11.0; an operator may override the catalog."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54, config/agentsmith.example.yml:592"
+
+assumptions: []
+
+scope:
+  in: "repos: read by PhaseDraftReader, written by the renderer, declared in the schema; a prompt section listing the scope's repository names; checks armed by the reply; scope fill otherwise; dialog lone spec and epic children; both master prompts, release, pin."
+  out: "Using repos: for placement (3a36f, 3a36h)."
+
+decisions:
+  - key: "ARMED BY THE REPLY, like contexts: if any phase states repos:, every phase must and each must be in scope; otherwise code fills repos: with the scope — a binary ahead of the release stays safe, an override catalog too."
+  - key: "ONE REPO NEEDS NO QUESTION: a single-repository scope is filled, never re-asked."
+  - key: "NAMES, NOT SANDBOX KEYS: the prompt always lists RepoConnection names; checks run against them."
+  - key: "CONTEXTS AGREE WITH REPOS in derivations; the dialog emits no contexts, so it only checks scope."
+  - key: "THE DESIGN MASTER STOPS SAYING REPOSITORIES ARE PROSE: its in/out text about repositories is rewritten to the field."
+
+steps:
+  - id: field
+    action: "Add Repos to PhaseDraft, read it in PhaseDraftReader (PhaseDraftLists.Strings(map, 'repos')), read it from the envelope, render it, declare it in spec.schema.json."
+  - id: rules
+    action: "Pass the scope's names into SpecDerivationParser.Parse and IOutcomeProposalResolver.Resolve; apply the armed checks and the scope fill; both fallback callers pass the scope."
+    new:
+      - "ScopeRepositoriesPromptSection"
+    modify:
+      - "SpecDerivationParser, SpecSetDeriver, OutcomeProposalResolver, EpicOutcomeParser, AgenticMasterHandler, SpecFallback, DeriveSpecHandler, SpecCoverageRefusal"
+  - id: prompts
+    action: "Pull agent-smith-skills (local checkout is behind the pin); add repos: to both masters' phase shapes; release; bump SkillsCatalogVersion and its SHA."
+
+tests:
+  - "SpecDerivationParser_SingleRepoScope_FilledFromScope"
+  - "SpecDerivationParser_NoPhaseStatesRepos_FilledFromScope"
+  - "SpecDerivationParser_MixedReposDeclaration_IsReAsked"
+  - "SpecDerivationParser_RepoOutsideScope_IsReAsked"
+  - "SpecDerivationParser_ContextOfOtherRepo_IsReAsked"
+  - "OutcomeProposalResolver_RepoOutsideScope_IsInvalid"
+  - "PhaseDraftReader_Repos_RoundTripsThroughRenderer"
+  - "SpecFallback_WholeTicket_NamesScope"
+
+done:
+  - "A derivation over BackgroundWorker+Server for a Server-only change yields repos: [Server] (RealCompositionHarness, scripted reply)."
+  - "Every existing spec in this repository still validates; the skills release with repos: is pinned."

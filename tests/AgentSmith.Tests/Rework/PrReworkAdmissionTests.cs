@@ -35,12 +35,15 @@ public sealed class PrReworkAdmissionTests
         },
     };
 
-    internal static PrReworkAdmission Admission(IPreviousAttemptReader attempts, IReworkNudges nudges, AgentSmithConfig config)
+    internal static PrReworkAdmission Admission(IPreviousAttemptReader attempts, IReworkNudges nudges, AgentSmithConfig config) =>
+        new(Owner(attempts, config), nudges);
+
+    internal static PrTicketOwner Owner(IPreviousAttemptReader attempts, AgentSmithConfig config)
     {
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(config);
-        return new PrReworkAdmission(loader.Object, new ServerContext("c.yml"), new ConfiguredRepoFinder(), attempts,
-            nudges, NullLogger<PrReworkAdmission>.Instance);
+        return new PrTicketOwner(loader.Object, new ServerContext("c.yml"), new ConfiguredRepoFinder(), attempts,
+            NullLogger<PrTicketOwner>.Instance);
     }
 
     private GitHubPrReviewWebhookHandler GitHub() =>

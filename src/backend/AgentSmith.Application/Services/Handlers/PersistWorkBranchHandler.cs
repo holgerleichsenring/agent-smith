@@ -21,6 +21,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class PersistWorkBranchHandler(
     SandboxGitOperations gitOps,
     SandboxTargets sandboxTargets,
+    WipCommitMessage wipMessage,
     ILogger<PersistWorkBranchHandler> logger) : ICommandHandler<PersistWorkBranchContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -30,7 +31,7 @@ public sealed class PersistWorkBranchHandler(
         if (!pipeline.TryGet<Repository>(ContextKeys.Repository, out var primaryRepo) || primaryRepo is null)
             return RecordAndFail(pipeline, PersistFailureKind.Unknown,
                 "PersistWorkBranch: no Repository in pipeline context");
-        var commitMessage = BuildCommitMessage(pipeline);
+        var commitMessage = wipMessage.Build(pipeline);
         var branch = primaryRepo.CurrentBranch.Value;
 
         var outcomes = new List<PerRepoPersistResult>(context.Configs.Count);
@@ -76,6 +77,12 @@ public sealed class PersistWorkBranchHandler(
             {
                 logger.LogInformation("{Repo}: working tree clean — nothing to persist", repo.Name);
                 return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "No local changes");
+            }
+            // 2026-10-12-3a36c: the run record alone is no work done in this repository.
+            if (await IsRunRecordOnlyAsync(sandbox, ct))
+            {
+                logger.LogInformation("{Repo}: only the run record is staged — nothing to persist", repo.Name);
+                return new PerRepoPersistResult(repo.Name, PersistFailureKind.NoChanges, "Run record only");
             }
 
             await gitOps.CommitAndPushStagedAsync(sandbox, branch, commitMessage, repo, ct);
@@ -146,17 +153,10 @@ public sealed class PersistWorkBranchHandler(
         ex.Message.Contains("non-fast-forward", StringComparison.OrdinalIgnoreCase)
         || ex.Message.Contains("rejected", StringComparison.OrdinalIgnoreCase);
 
-    private static string BuildCommitMessage(PipelineContext pipeline)
+    private async Task<bool> IsRunRecordOnlyAsync(ISandbox sandbox, CancellationToken ct)
     {
-        var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var rid) ? rid : "unknown";
-        var pipelineName = pipeline.TryGet<ResolvedPipelineConfig>(
-            ContextKeys.ResolvedPipeline, out var resolved) && resolved is not null
-            ? resolved.PipelineName : "unknown";
-        var failedStep = pipeline.TryGet<string>(ContextKeys.FailedStepName, out var fs) ? fs : "unknown";
-        return $"{WipCommit.Subject(runId)}\n\n" +
-               $"Run-Id: {runId}\n" +
-               $"Pipeline: {pipelineName}\n" +
-               $"Failed-Step: {failedStep}\n";
+        var staged = await gitOps.GetStagedFileNamesAsync(sandbox, ct);
+        return staged.Count > 0 && staged.All(RunRecordPaths.IsUnderRunsDir);
     }
 
     private sealed record PerRepoPersistResult(
