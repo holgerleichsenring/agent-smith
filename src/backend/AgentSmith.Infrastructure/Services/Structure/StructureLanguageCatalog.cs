@@ -19,6 +19,10 @@ public sealed class StructureLanguageCatalog
     internal StructureLanguageCatalog(IEnumerable<StructureLanguage> languages) =>
         _languages = [.. languages.Select(l => (l, new StructurePathFilter(l.Exclude)))];
 
+    /// <summary>2026-10-06-8565c: every extension some language claims, each once.</summary>
+    public IReadOnlyList<string> Extensions =>
+        [.. _languages.SelectMany(l => l.Language.Extensions).Distinct(StringComparer.OrdinalIgnoreCase)];
+
     /// <summary>The language claiming <paramref name="path"/>, and whether it excludes it.</summary>
     public (StructureLanguage? Language, bool Excluded) For(string path)
     {

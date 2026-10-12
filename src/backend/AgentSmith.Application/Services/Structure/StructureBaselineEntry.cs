@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Models.Structure;
+
 namespace AgentSmith.Application.Services.Structure;
 
 /// <summary>
@@ -7,4 +9,7 @@ namespace AgentSmith.Application.Services.Structure;
 public sealed record StructureBaselineEntry(string Path, string Key, string Metric, int Value)
 {
     public (string, string, string) Identity => (Path, Key, Metric);
+
+    public static StructureBaselineEntry Of(StructureFinding finding) =>
+        new(finding.Path, finding.Key, finding.Metric, finding.Value);
 }

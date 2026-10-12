@@ -21,4 +21,10 @@ public interface IStructureEngine
     /// language claims it and does not exclude it — so a caller reads only the files that count.
     /// </summary>
     bool Claims(string path);
+
+    /// <summary>
+    /// 2026-10-06-8565c: every file extension a language claims, with its dot (".cs"), so a
+    /// caller can ask git for those files alone.
+    /// </summary>
+    IReadOnlyList<string> Extensions { get; }
 }

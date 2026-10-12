@@ -28,12 +28,16 @@ internal sealed class StubSourceProvider : ISourceProvider
     // test can assert WHICH rung reached the provider instead of only that a PR was opened.
     public BranchName? LastTarget { get; private set; }
 
+    /// <summary>2026-10-06-8565c: the body the last pull request was opened with.</summary>
+    public string? LastDescription { get; private set; }
+
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
         BranchName? targetBranch = null)
     {
         LastTarget = targetBranch;
+        LastDescription = description;
         return Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
     }
 
@@ -112,5 +116,13 @@ internal sealed class StubSourceProvider : ISourceProvider
 
 internal sealed class StubSourceProviderFactory : ISourceProviderFactory
 {
-    public ISourceProvider Create(RepoConnection config) => new StubSourceProvider();
+    /// <summary>2026-10-06-8565c: every provider handed out, so a test can read what it was asked.</summary>
+    public List<StubSourceProvider> Created { get; } = [];
+
+    public ISourceProvider Create(RepoConnection config)
+    {
+        var provider = new StubSourceProvider();
+        Created.Add(provider);
+        return provider;
+    }
 }

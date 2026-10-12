@@ -91,9 +91,8 @@ public sealed class BootstrapRoundHandler(
         // after the call, so a written stack.image the boundary refuses is among them.
         // 2026-10-06-8565c: after the skill, so the baseline measures the principles.md the
         // init commits.
-        var baseline = transfer.Mode == PrinciplesMode.SkillWrites ? null
-            : await structureBaseline.ApplyAsync(
-                sandbox, StructureBaselineScope.For(pipeline, context), cancellationToken);
+        var baseline = await structureBaseline.ApplyAsync(sandbox,
+            StructureBaselineScope.For(pipeline, context, transfer.Mode, existing.Principles), cancellationToken);
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
             context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
             transfer.ProjectSpecificsKept, outcome.ImageRefusal, baseline));

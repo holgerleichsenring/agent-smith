@@ -26,8 +26,7 @@ public sealed record BootstrapRoundOutcome(
     bool ProjectSpecificsKept = false,
     // 2026-10-12-6bfac: the written stack.image, when the registry boundary refuses it.
     ContextImageRefusal? ImageRefusal = null,
-    // 2026-10-06-8565c: what the round did with the context's structure baseline; null when the
-    // skill authored principles.md and no Limits block can be relied on.
+    // 2026-10-06-8565c: what the round did with the context's structure baseline, or why it took none.
     StructureBaselineResult? StructureBaseline = null)
 {
     /// <summary>2026-10-03-cf20c: the framework overlays the written principles.md carries.</summary>

@@ -13,7 +13,8 @@ namespace AgentSmith.Tests.TestHelpers;
 /// </summary>
 internal sealed class StubSandbox(
     IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false,
-    IReadOnlyDictionary<string, string>? baseFiles = null)
+    IReadOnlyDictionary<string, string>? baseFiles = null,
+    IReadOnlyDictionary<string, string>? sourceFiles = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -64,6 +65,9 @@ internal sealed class StubSandbox(
         // 2026-10-06-8565d: a base the branch was cut from, opted into by a test — the commit
         // gate reads its Limits and baseline there. Without one the gate finds no base and passes.
         if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
+        // 2026-10-06-8565c: tracked sources a test seeded — listed by 'git ls-files -z --full-name'
+        // and read back. Without any, the listing is empty and the init takes no baseline.
+        if (sourceFiles is not null && SourceAnswer(step) is { } source) return Task.FromResult(source);
         var output = step.Kind switch
         {
             StepKind.ListFiles => DefaultListing(step.Path),
@@ -94,6 +98,19 @@ internal sealed class StubSandbox(
             return null;
         return baseFiles!.TryGetValue(spec["origin/main:".Length..], out var content)
             ? Answer(step, 0, content) : Answer(step, 128, null);
+    }
+
+    private StepResult? SourceAnswer(Step step)
+    {
+        if (step.Kind == StepKind.ReadFile && step.Path is { } path
+            && sourceFiles!.TryGetValue(Normalize(path), out var content))
+            return Answer(step, 0, content);
+        if (!IsGit(step, "--full-name") || step.Args is not { } args) return null;
+        // A pathspec "dir/*.ext" as git reads it: '*' crosses directories.
+        var specs = args.SkipWhile(a => a != "--").Skip(1).Select(s => s.Split('*', 2)).ToList();
+        var listed = sourceFiles!.Keys.Order(StringComparer.Ordinal).Where(p => specs.Any(s =>
+            s.Length == 2 && p.StartsWith(s[0], StringComparison.Ordinal) && p.EndsWith(s[1], StringComparison.Ordinal)));
+        return Answer(step, 0, string.Join('\0', listed) + "\0\n");
     }
 
     private static StepResult Answer(Step step, int exit, string? output) => new(

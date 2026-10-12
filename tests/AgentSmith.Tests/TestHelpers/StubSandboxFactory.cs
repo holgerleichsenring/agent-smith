@@ -25,10 +25,14 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// so no sandbox names a base and the commit gate passes as it always would.</summary>
     public Dictionary<string, string>? BaseFiles { get; set; }
 
+    /// <summary>2026-10-06-8565c: tracked source files, repo-relative, every sandbox lists and reads —
+    /// null by default, so no init finds a source to measure.</summary>
+    public Dictionary<string, string>? SourceFiles { get; set; }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         var sandbox = new StubSandbox(
-            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles);
+            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

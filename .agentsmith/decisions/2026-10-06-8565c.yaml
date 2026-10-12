@@ -25,3 +25,43 @@ decisions:
     over: "Each caller reading meta.workdir its own way"
     reason: |
       A file baselined under one context and judged under another would be tolerated by nothing.
+  - category: Implementation
+    chose: "A refresh reads the old principles the round started from and adds a measured unit only when the old Limits did not limit its metric or it was within the old limit"
+    over: "A refresh that only shrinks (the WIP), or one that re-takes the baseline from scratch"
+    reason: |
+      Only-shrink left a lowered limit red on the day it was installed. Re-taking would also
+      tolerate a unit that grew past an unchanged limit since init, which belongs to the gate.
+      The old principles text is already in the round (existing.Principles), so no extra read.
+  - category: Implementation
+    chose: "The baseline decides every mode itself, SkillWrites included, and the round always gets a result to name"
+    over: "The round skipping the call for SkillWrites and passing null"
+    reason: |
+      The spec requires that a SkillWrites init says why no baseline was taken; a null said
+      nothing. A preserved context's existing baseline is checked first, so its note is
+      'left untouched' even when its principles carry no Limits; any other stop with a
+      baseline present says the existing file is left as it was, never 'no baseline'.
+  - category: Implementation
+    chose: "The listing passes one pathspec per engine extension ('<workdir>/*.cs'); IStructureEngine exposes Extensions"
+    over: "Listing every tracked file and filtering in process"
+    reason: |
+      Narrowing at git keeps the one -z line well under the capture cap: on this repository it
+      is 423,660 chars for 5,939 files against 9,513 tracked. A pathspec '*' crosses '/', so
+      'src/Api/*.cs' names every C# file below src/Api; verified against find (1,409 = 1,409).
+  - category: Implementation
+    chose: "No tracked file in a measured language, a measure exception and a write failure each return a said skip; ApplyAsync catches and logs"
+    over: "Writing an empty baseline, or letting the exception fail the round"
+    reason: |
+      An empty file claims nothing exceeds a limit when nothing was measured. A baseline is
+      an aid to the gate; an init that wrote its context must not fail because of it.
+  - category: Tooling
+    chose: "The harness takes a dedicated LimitsSkillsCatalogPath (fixture skills + a core and a C# delta with a Limits fence, merged into a temp dir); StubSandbox answers 'git ls-files -z --full-name' and reads from StubSandboxFactory.SourceFiles; StubSourceProviderFactory records each provider's PR body"
+    over: "Adding principles to the shared SkillsCatalog fixture"
+    reason: |
+      The shared fixture has no core, so every other init test runs SkillWrites; giving it one
+      would move them all to the transfer path. The init PR body is asserted as sent.
+  - category: Scope
+    chose: "Assumption check run on this .NET repository only: listing 65 ms, 423,660 chars, 5,939 files listed, 3,842 claimed (8.9 M chars), measured and judged in 2.0 s, 1,272 findings at function_lines 20 / type_lines 120 / file_lines 120"
+    over: "Also a Rust repository and in a real sandbox"
+    reason: |
+      No Rust repository was at hand. The numbers are local disk reads; in a sandbox each of
+      the 3,842 reads is one wire round trip, which the spec's sandbox check still has to time.

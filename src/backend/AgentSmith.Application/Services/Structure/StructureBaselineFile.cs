@@ -1,4 +1,5 @@
 using System.Globalization;
+using AgentSmith.Contracts.Models.Structure;
 
 namespace AgentSmith.Application.Services.Structure;
 
@@ -9,7 +10,7 @@ namespace AgentSmith.Application.Services.Structure;
 public static class StructureBaselineFile
 {
     public const string FileName = "structure-baseline.tsv";
-    private const string Header = "# path\tkey\tmetric\tvalue — units over their Limits when measured; only shrinks";
+    private const string Header = "# path\tkey\tmetric\tvalue — units over their Limits when measured, each tolerated up to its value";
 
     public static IReadOnlyList<StructureBaselineEntry> Parse(string? text) =>
         [.. (text ?? string.Empty).Split('\n')
@@ -26,15 +27,22 @@ public static class StructureBaselineFile
             .Select(e => $"{e.Path}\t{e.Key}\t{e.Metric}\t{e.Value.ToString(CultureInfo.InvariantCulture)}"))) + "\n";
 
     /// <summary>
-    /// A refresh: keep each old entry still measured over its limit, at the lower of the two values.
-    /// Nothing measured anew is added — a unit grown past a limit since init meets the gate instead.
+    /// A refresh: every old entry still measured over its limit stays, at the lower of the two
+    /// values. A unit not yet listed is added only when the old principles did not limit its
+    /// metric or it was within that old limit — what a changed limit exposes. A unit grown past
+    /// an unchanged limit is not added; it surfaces at the commit gate.
     /// </summary>
-    public static IReadOnlyList<StructureBaselineEntry> Shrink(
-        IReadOnlyList<StructureBaselineEntry> old, IReadOnlyList<StructureBaselineEntry> measured)
+    public static IReadOnlyList<StructureBaselineEntry> Refresh(IReadOnlyList<StructureBaselineEntry> old,
+        IReadOnlyList<StructureFinding> measured, StructureLimitSet oldLimits)
     {
-        var now = measured.ToDictionary(e => e.Identity, e => e.Value);
-        return [.. old.Where(e => now.ContainsKey(e.Identity))
-            .Select(e => e with { Value = Math.Min(e.Value, now[e.Identity]) })];
+        var now = measured.GroupBy(f => (f.Path, f.Key, f.Metric)).ToDictionary(g => g.Key, g => g.Max(f => f.Value));
+        var listed = old.Select(e => e.Identity).ToHashSet();
+        var kept = old.Where(e => now.ContainsKey(e.Identity))
+            .Select(e => e with { Value = Math.Min(e.Value, now[e.Identity]) });
+        var exposed = measured.Where(f => !listed.Contains((f.Path, f.Key, f.Metric))
+                && (oldLimits.For(f.Metric) is not { } before || f.Value <= before))
+            .Select(StructureBaselineEntry.Of);
+        return [.. kept.Concat(exposed)];
     }
 
     /// <summary>Whether the baseline tolerates a finding: the same unit, not grown past its entry.</summary>

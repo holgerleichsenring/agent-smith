@@ -24,9 +24,10 @@ public sealed class StructureBaselineSentenceTests
     }
 
     [Fact]
-    public void Sentence_Refreshed_SaysALoweredLimitMeetsTheGate()
+    public void Sentence_Refreshed_SaysAGrownUnitSurfacesAtTheGate()
     {
-        new StructureBaselineResult(true, 1, 0, true).Sentence().Should().Contain("meets the commit gate");
+        new StructureBaselineResult(true, 1, 0, true).Sentence()
+            .Should().Contain("a unit grown past an unchanged limit surfaces at the gate");
     }
 
     [Fact]

@@ -49,6 +49,23 @@ public sealed class StructureBaselineRoundTests
             .Should().Contain("1 unit(s) already exceed the Limits");
     }
 
+    [Fact]
+    public async Task StructureBaseline_WriteFails_RoundGoesOnAndSaysSo()
+    {
+        var repo = new RepoSandbox();
+        repo.Files["src/A.cs"] = Oversized;
+        repo.FailingWrites.Add(".agentsmith/contexts/server/structure-baseline.tsv");
+        var pipeline = Pipeline(repo);
+
+        var result = await Handler(repo).ExecuteAsync(
+            new BootstrapRoundContext("project-bootstrap", "monorepo", new AgentConfig(), pipeline, "server", "."),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        InitPullRequestBody.Compose(pipeline, "monorepo", "<!-- siblings -->")
+            .Should().Contain("no structure baseline — measuring or writing it failed");
+    }
+
     private static BootstrapRoundHandler Handler(RepoSandbox repo) => new(
         new SkillFactory(repo),
         new BootstrapToolHostFactory(

@@ -19,6 +19,9 @@ internal sealed class RepoSandbox : ISandbox
     /// <summary>2026-10-06-8565d: what 'git diff --name-only' against the base answers.</summary>
     public List<string> Changed { get; } = [];
     public int ListingExitCode { get; set; }
+
+    /// <summary>2026-10-06-8565c: paths whose write the agent refuses, as a full disk would.</summary>
+    public HashSet<string> FailingWrites { get; } = new(StringComparer.Ordinal);
     public string JobId => "repo-sandbox";
 
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
@@ -40,15 +43,21 @@ internal sealed class RepoSandbox : ISandbox
         ["ls-files", "--others", ..] => Result(step, 0, string.Empty),
         ["show", var spec] when spec.StartsWith("origin/main:", StringComparison.Ordinal) =>
             BaseFiles.TryGetValue(spec["origin/main:".Length..], out var at) ? Result(step, 0, at) : Result(step, 128, null),
-        ["ls-files", ..] =>
-            Result(step, ListingExitCode, Listing ?? string.Join('\0', Files.Keys.Order()) + "\0\n"),
+        ["ls-files", "-z", "--full-name", "--", ..] =>
+            Result(step, ListingExitCode, Listing ?? string.Join('\0', Matching([.. step.Args!.Skip(4)])) + "\0\n"),
         _ => Result(step, 0, string.Empty),
     };
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
+    // A pathspec "dir/*.ext" as git reads it: '*' crosses directories.
+    private IEnumerable<string> Matching(string[] specs) => Files.Keys.Order().Where(path => specs.Any(spec =>
+        spec.Split('*', 2) is [var prefix, var suffix]
+        && path.StartsWith(prefix, StringComparison.Ordinal) && path.EndsWith(suffix, StringComparison.Ordinal)));
+
     private StepResult Write(Step step)
     {
+        if (FailingWrites.Contains(Relative(step.Path!))) return Result(step, 1, null);
         Files[Relative(step.Path!)] = step.Content ?? string.Empty;
         return Result(step, 0, string.Empty);
     }
